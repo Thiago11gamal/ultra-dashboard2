@@ -61,23 +61,25 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     }
 
     return (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-col items-center h-full shadow-lg hover:border-slate-700 transition-all group relative">
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-5 flex flex-col items-center justify-between h-full shadow-lg hover:border-cyan-500/30 transition-all group relative overflow-hidden">
             {hasAbsolute && data.absoluteTotalTime != null && (
                 <div 
-                    className={`absolute top-2 right-2 text-[10px] text-white font-bold px-1.5 py-0.5 rounded border bg-slate-950/50 ${
-                        absoluteColor === '#ef4444' ? 'border-rose-500/40' : 
-                        (absoluteColor === '#10b981' ? 'border-emerald-500/40' : 
-                        (absoluteColor === '#eab308' ? 'border-yellow-500/40' : 
-                        'border-slate-600'))
+                    className={`absolute top-3 right-3 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border bg-slate-950/70 shadow-sm ${
+                        absoluteColor === '#ef4444' ? 'border-rose-500/40 text-rose-300' : 
+                        (absoluteColor === '#10b981' ? 'border-emerald-500/40 text-emerald-300' : 
+                        (absoluteColor === '#eab308' ? 'border-yellow-500/40 text-yellow-300' : 
+                        'border-slate-700 text-slate-300'))
                     }`}
-                    title="Tempo Absoluto do Último Simulado"
+                    title="Tempo Absoluto da Última Sessão"
                 >
                     {formatTime(data.absoluteTotalTime)}
                 </div>
             )}
-            <h4 className={`text-slate-200 font-bold text-sm text-center mb-4 truncate w-full ${hasAbsolute && data.absoluteTotalTime != null ? 'pr-16 pl-6' : 'px-6'}`} title={data.fullName}>{data.fullName}</h4>
+            <h4 className={`text-slate-200 font-bold text-sm text-center mb-3 truncate w-full ${hasAbsolute && data.absoluteTotalTime != null ? 'pr-16 pl-2' : 'px-2'}`} title={data.fullName}>
+                {data.fullName}
+            </h4>
             
-            <div className="relative w-full max-w-[200px] h-[110px] mx-auto">
+            <div className="relative w-full max-w-[200px] h-[110px] mx-auto my-1">
                 <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible" role="img" aria-label={`Gauge mostrando tempo médio de ${formatTime(data.displaySeconds)}`}>
                     {/* Track Background */}
                     <path d={makeArc(0, gaugeMax)} fill="none" stroke="#1e293b" strokeWidth={strokeWidth} strokeLinecap="round" />
@@ -98,9 +100,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
                             {(() => {
                                 const pos = getCoordinatesForValue(data.visualAbsoluteSeconds ?? data.absoluteLatestSeconds);
                                 return (
-                                    <>
-                                        <circle cx={pos.x} cy={pos.y} r={6} fill="#ffffff" stroke={absoluteColor} strokeWidth={2.5} className="shadow-lg drop-shadow-md" />
-                                    </>
+                                    <circle cx={pos.x} cy={pos.y} r={6} fill="#ffffff" stroke={absoluteColor} strokeWidth={2.5} className="shadow-lg drop-shadow-md" />
                                 );
                             })()}
                         </g>
@@ -109,28 +109,28 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
 
                 {/* Inner Text */}
                 <div className="absolute bottom-0 left-0 w-full text-center flex flex-col items-center justify-end pb-1">
-                    <span className="text-2xl font-black text-white">{formatTime((hasLatest && data.latestSeconds > 0) ? data.latestSeconds : data.displaySeconds)}</span>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                    <span className="text-2xl font-black text-white tracking-tight">{formatTime((hasLatest && data.latestSeconds > 0) ? data.latestSeconds : data.displaySeconds)}</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
                         Média: {formatTime(data.displaySeconds)}
                     </span>
                 </div>
             </div>
 
-            <div className="w-full mt-auto pt-3 border-t border-slate-800/50 flex flex-col gap-1.5">
+            <div className="w-full mt-3 pt-2.5 border-t border-slate-800/60 bg-slate-950/40 p-2.5 rounded-xl border flex flex-col gap-1.5">
                 {hasAbsolute && (
                     <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500" title="Sua média de tempo por questão apenas na última sessão">Última Média</span>
-                        <span className={`font-bold ${absoluteColor === '#ef4444' ? 'text-rose-500' : (absoluteColor === '#10b981' ? 'text-emerald-500' : (absoluteColor === '#eab308' ? 'text-yellow-500' : 'text-slate-400'))}`}>{formatTime(data.absoluteLatestSeconds)}</span>
+                        <span className="text-slate-400 font-medium" title="Sua média de tempo por questão apenas na última sessão">Última Média</span>
+                        <span className={`font-bold ${absoluteColor === '#ef4444' ? 'text-rose-400' : (absoluteColor === '#10b981' ? 'text-emerald-400' : (absoluteColor === '#eab308' ? 'text-yellow-400' : 'text-slate-300'))}`}>{formatTime(data.absoluteLatestSeconds)}</span>
                     </div>
                 )}
                 {hasLatest && (
                     <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500">Média Dia</span>
-                        <span className={`font-bold ${latestColor === '#ef4444' ? 'text-rose-400' : (latestColor === '#10b981' ? 'text-emerald-400' : (latestColor === '#eab308' ? 'text-yellow-400' : 'text-slate-400'))}`}>{formatTime(data.latestSeconds)}</span>
+                        <span className="text-slate-400 font-medium">Média Dia</span>
+                        <span className={`font-bold ${latestColor === '#ef4444' ? 'text-rose-400' : (latestColor === '#10b981' ? 'text-emerald-400' : (latestColor === '#eab308' ? 'text-yellow-400' : 'text-slate-300'))}`}>{formatTime(data.latestSeconds)}</span>
                     </div>
                 )}
                 <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500">Média 7 Dias</span>
+                    <span className="text-slate-400 font-medium">Média 7 Dias</span>
                     <span className="text-cyan-400 font-bold">{formatTime(data.displaySeconds)}</span>
                 </div>
             </div>
@@ -346,83 +346,79 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
     }
 
     return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0 mt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-5 min-w-0">
-                <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
-                            <Clock size={12} className="text-cyan-400" /> Agilidade AI
-                        </p>
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wider shrink-0">
-                            Apenas Simulado IA
+        <div className="w-full min-w-0 space-y-6 pt-2">
+            {/* Header com Informações e Controles de Ordenação */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md shadow-xl">
+                <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-inner">
+                            <Clock size={16} />
+                        </div>
+                        <h3 className="text-base sm:text-lg font-black text-white tracking-tight truncate">
+                            {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio por Questão (Recente vs Histórico)"}
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-widest">
+                            Agilidade AI
                         </span>
-                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-wider ml-1 hidden sm:inline-block">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-widest hidden sm:inline-block">
                             Recente vs Geral
                         </span>
                     </div>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
-                        ⏳ {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio por Questão (Recente vs Histórico)"}
-                    </h3>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] uppercase tracking-[0.2em] text-slate-500">
-                        <span className="inline-flex items-center gap-1.5" title="Sua média de tempo nos últimos 7 dias">
-                            <span className="h-2.5 w-3 rounded-[2px] bg-[#0ea5e9]/30" />
+
+                    <p className="text-xs text-slate-400 font-medium">
+                        Monitore a sua velocidade de resolução por matéria e identifique gargalos de tempo antes da prova.
+                    </p>
+
+                    {/* Legenda dos Indicadores */}
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/60 border border-slate-800" title="Média dos últimos 7 dias">
+                            <span className="h-2 w-2 rounded-sm bg-cyan-400/50" />
                             Média 7 Dias
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Sua média de tempo no último dia estudado">
-                            <span className="h-0.5 w-3 rounded-[2px] bg-[#10b981]" />
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/60 border border-slate-800" title="Média no último dia estudado">
+                            <span className="h-2 w-2 rounded-sm bg-emerald-400" />
                             Média do Dia
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Marcador da sua média exata por questão no último simulado (sessão)">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/60 border border-slate-800" title="Média exata da última sessão">
                             <span className="h-2 w-2 rounded-full bg-white ring-1 ring-slate-400" />
                             Última Média
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Cor vermelha significa que você foi mais lento além da margem">
-                            <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
-                            Lento (Piorou)
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                            🐢 Lento
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Cor amarela significa tempo mantido">
-                            <span className="h-2 w-2 rounded-full bg-[#eab308]" />
-                            Estável (Manteve)
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            ✨ Estável
                         </span>
-                        <span className="inline-flex items-center gap-1.5" title="Cor verde significa que você foi mais rápido além da margem">
-                            <span className="h-2 w-2 rounded-full bg-[#10b981]" />
-                            Rápido (Melhorou)
-                        </span>
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-slate-800/50 flex flex-wrap items-center gap-3 sm:gap-5 text-[10px] uppercase tracking-[0.2em] text-slate-500">
-                        <span className="inline-flex items-center gap-1.5" title="Média geral de tempo considerando todos os assuntos">
-                            MÉDIA GERAL: <span className="font-bold text-slate-300">{legendAvgSeconds == null ? 'N/A' : formatTime(legendAvgSeconds)}</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1.5" title="Média geral de tempo no último dia de cada assunto">
-                            ÚLTIMO GERAL: <span className="font-bold text-slate-300">{legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1.5" title="Quantos assuntos você piorou no último dia">
-                            ACIMA DA MÉDIA: <span className="font-bold text-rose-400">{legendStats.above}</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1.5" title="Quantos assuntos você melhorou no último dia">
-                            ABAIXO DA MÉDIA: <span className="font-bold text-emerald-400">{legendStats.below}</span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            ⚡ Rápido
                         </span>
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5 self-start sm:self-auto">
+
+                {/* Controles de Ordenação */}
+                <div className="flex items-center gap-1.5 self-start lg:self-center p-1 rounded-xl bg-slate-950/80 border border-slate-800/80 shadow-inner shrink-0">
                     <button
+                        type="button"
                         onClick={() => setSortOrder('slower')}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${sortOrder === 'slower'
-                                ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-                                : 'bg-slate-800/40 text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800'
-                            }`}
-                        title="Ordenar pelas matérias mais lentas"
+                        className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all ${
+                            sortOrder === 'slower'
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                        }`}
+                        title="Ordenar pelas matérias com maior tempo médio"
                         aria-pressed={sortOrder === 'slower'}
                     >
                         🐢 Mais Lentas
                     </button>
                     <button
+                        type="button"
                         onClick={() => setSortOrder('faster')}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${sortOrder === 'faster'
-                                ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
-                                : 'bg-slate-800/40 text-slate-400 border-transparent hover:text-slate-200 hover:bg-slate-800'
-                            }`}
-                        title="Ordenar pelas matérias mais rápidas"
+                        className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all ${
+                            sortOrder === 'faster'
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                        }`}
+                        title="Ordenar pelas matérias com menor tempo médio"
                         aria-pressed={sortOrder === 'faster'}
                     >
                         ⚡ Mais Rápidas
@@ -430,8 +426,44 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
             </div>
 
-            <div className="w-full mt-6 pb-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {/* Painéis de KPI Agregados de Agilidade */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Média Geral</span>
+                    <span className="text-lg sm:text-2xl font-black text-slate-100 tracking-tight mt-1">
+                        {legendAvgSeconds == null ? 'N/A' : formatTime(legendAvgSeconds)}
+                    </span>
+                    <span className="text-[9px] text-slate-500 mt-1">Todos os assuntos</span>
+                </div>
+
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Último Geral</span>
+                    <span className="text-lg sm:text-2xl font-black text-cyan-400 tracking-tight mt-1">
+                        {legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}
+                    </span>
+                    <span className="text-[9px] text-slate-500 mt-1">Última sessão de cada</span>
+                </div>
+
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-rose-400/80 uppercase tracking-wider">Acima da Média</span>
+                    <span className="text-lg sm:text-2xl font-black text-rose-400 tracking-tight mt-1">
+                        {legendStats.above} {legendStats.above === 1 ? 'matéria' : 'matérias'}
+                    </span>
+                    <span className="text-[9px] text-rose-400/60 mt-1">Ritmo mais lento</span>
+                </div>
+
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400/80 uppercase tracking-wider">Abaixo da Média</span>
+                    <span className="text-lg sm:text-2xl font-black text-emerald-400 tracking-tight mt-1">
+                        {legendStats.below} {legendStats.below === 1 ? 'matéria' : 'matérias'}
+                    </span>
+                    <span className="text-[9px] text-emerald-400/60 mt-1">Ritmo acelerado</span>
+                </div>
+            </div>
+
+            {/* Grid dos Medidores (Gauges) por Disciplina */}
+            <div className="w-full">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 items-stretch">
                     {chartData.map((data, index) => (
                         <HalfMoonGauge key={`gauge-${data.id}-${index}`} data={data} />
                     ))}

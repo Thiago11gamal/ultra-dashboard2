@@ -38,7 +38,6 @@ import { PomodoroProgress } from './pomodoro/PomodoroProgress';
 import { PomodoroControls } from './pomodoro/PomodoroControls';
 import { PomodoroHeader } from './pomodoro/PomodoroHeader';
 import { PomodoroClock } from './pomodoro/PomodoroClock';
-import { FocusPanel } from './pomodoro/FocusPanel';
 import ConfirmModal from './ConfirmModal';
 
 const STABLE_TAB_ID = `pt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1082,135 +1081,110 @@ function PomodoroTimer({
 
     const isProtocolInactive = !activeSubject;
 
-    // Busca dados para o FocusPanel
-    const categories = useAppStore(state => {
-        const contest = state.appState?.contests?.[state.appState?.activeId];
-        return contest?.categories || [];
-    });
-    const studyLogs = useAppStore(state => {
-        const contest = state.appState?.contests?.[state.appState?.activeId];
-        return contest?.studyLogs || [];
-    });
-    const user = useAppStore(state => {
-        const contest = state.appState?.contests?.[state.appState?.activeId];
-        return contest?.user || null;
-    });
-
     return (
-        <div className={`w-full relative min-h-[80vh] flex flex-col items-center ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4' : ''}`}>
+        <div className={`w-full relative flex flex-col items-center gap-4 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>
+            {/* Header com status de recuperação/pausa ou alerta */}
+            <div className="w-full flex items-center justify-center">
+                <PomodoroHeader
+                    mode={mode}
+                    activeSubject={activeSubject}
+                    onManualExit={handleManualExit}
+                />
+            </div>
+
+            {/* Container Principal do Relógio de Madeira */}
             <div
-                className={`flex flex-col 2xl:flex-row gap-4 2xl:gap-6 items-start w-full max-w-[1400px] mx-auto ${!isLayoutLocked ? 'z-[90]' : 'z-50'}`}
+                style={{
+                    backgroundImage: 'url(/wood-texture.png)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
+                }}
+                className="w-full border-4 sm:border-[6px] border-[#3f2e26] p-6 sm:p-8 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
-                {/* Coluna Principal - Cronômetro */}
-                <div className="flex-1 flex flex-col items-center w-full min-w-0">
-                    <div className="relative flex items-center justify-center py-2 w-full px-4">
-                        <PomodoroHeader
-                            mode={mode}
-                            activeSubject={activeSubject}
-                            onManualExit={handleManualExit}
-                        />
-                    </div>
-
-                    <div className="w-full flex justify-end px-4 -mb-8 relative z-50 gap-2">
-                        <button
-                            onClick={toggleFullscreen}
-                            className="p-3 bg-slate-900/40 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all shadow-xl backdrop-blur-md group"
-                            title={isFullscreen ? "Sair do Fullscreen" : "Entrar em Fullscreen"}
-                        >
-                            {isFullscreen ? (
-                                <Minimize2 size={18} className="text-indigo-400" />
-                            ) : (
-                                <Maximize2 size={18} className="text-slate-400" />
-                            )}
-                        </button>
-                        <button
-                            onClick={toggleMute}
-                            className="p-3 bg-slate-900/40 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all shadow-xl backdrop-blur-md group"
-                            title={isMuted ? "Ativar Áudio" : "Mudar para Silencioso"}
-                        >
-                            {isMuted ? (
-                                <VolumeX size={18} className="text-red-400" />
-                            ) : (
-                                <Volume2 size={18} className="text-emerald-400" />
-                            )}
-                        </button>
-                    </div>
-
-                    <div
-                        style={{
-                            backgroundImage: 'url(/wood-texture.png)',
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
-                        }}
-                        className="w-full border-y-[6px] border-x-0 sm:border-[6px] border-[#3f2e26] pt-32 pb-16 px-4 sm:px-10 rounded-3xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl z-10"
+                {/* Botões de Ação do Topo (Fullscreen / Mudo) */}
+                <div className="w-full flex justify-end items-center gap-2 mb-2 relative z-30">
+                    <button
+                        type="button"
+                        onClick={toggleFullscreen}
+                        className="p-2 sm:p-2.5 bg-black/40 border border-white/10 hover:border-white/20 rounded-xl text-slate-300 hover:text-white transition-all shadow-lg backdrop-blur-md"
+                        title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
                     >
-                        <PomodoroClock
-                            speed={speed}
-                            setSpeed={setSpeed}
-                            isProtocolInactive={isProtocolInactive}
-                            mode={mode}
-                            isRunning={isRunning}
-                            timeLeft={timeLeft}
-                            safeSettings={safeSettings}
-                            svgCircleRef={svgCircleRef}
-                            clockRef={clockRef}
-                        />
-
-                        <PomodoroControls
-                            isProtocolInactive={isProtocolInactive}
-                            isRunning={isRunning}
-                            onReset={reset}
-                            onTogglePlay={togglePlay}
-                            onSkip={skip}
-                        />
-
-                        {!isProtocolInactive && (
-                            <div className="w-full max-w-xs mt-8 pt-4 border-t border-white/5">
-                                <button
-                                    onClick={() => setShowAbandonConfirm(true)}
-                                    className="w-full flex items-center justify-center gap-3 p-3 bg-red-950/20 hover:bg-red-900/40 border border-red-500/20 rounded-2xl transition-all text-xs font-bold text-red-400 group"
-                                >
-                                    <RotateCcw
-                                        size={14}
-                                        className="text-red-500 group-hover:rotate-[-90deg] transition-transform"
-                                    />
-                                    ABORTAR SESSÃO
-                                </button>
-                            </div>
+                        {isFullscreen ? (
+                            <Minimize2 size={16} className="text-indigo-300" />
+                        ) : (
+                            <Maximize2 size={16} />
                         )}
-                    </div>
-
-                    <PomodoroProgress
-                        targetCycles={targetCycles}
-                        completedCycles={completedCycles}
-                        sessions={sessions}
-                        setTargetCycles={setTargetCycles}
-                        syncChannel={syncChannel}
-                        STABLE_TAB_ID={STABLE_TAB_ID}
-                        activeSubject={activeSubject}
-                        workFillsRef={workFillsRef}
-                        breakBallsRef={breakBallsRef}
-                        mode={mode}
-                        timeLeft={timeLeft}
-                        totalTime={totalTime}
-                    />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={toggleMute}
+                        className="p-2 sm:p-2.5 bg-black/40 border border-white/10 hover:border-white/20 rounded-xl text-slate-300 hover:text-white transition-all shadow-lg backdrop-blur-md"
+                        title={isMuted ? "Ativar som" : "Silenciar alarme"}
+                    >
+                        {isMuted ? (
+                            <VolumeX size={16} className="text-red-400" />
+                        ) : (
+                            <Volume2 size={16} className="text-emerald-400" />
+                        )}
+                    </button>
                 </div>
 
-                {/* Coluna Lateral - FocusPanel */}
-                <FocusPanel
-                    activeSubject={activeSubject}
-                    categories={categories}
-                    studyLogs={studyLogs}
-                    user={user}
+                {/* Mostrador SVG e Indicadores */}
+                <PomodoroClock
+                    speed={speed}
+                    setSpeed={setSpeed}
+                    isProtocolInactive={isProtocolInactive}
                     mode={mode}
                     isRunning={isRunning}
                     timeLeft={timeLeft}
-                    totalTime={totalTime}
-                    targetCycles={targetCycles}
-                    completedCycles={completedCycles}
+                    safeSettings={safeSettings}
+                    svgCircleRef={svgCircleRef}
+                    clockRef={clockRef}
                 />
+
+                {/* Controles Principais (Voltar / Play-Pause / Pular) */}
+                <PomodoroControls
+                    isProtocolInactive={isProtocolInactive}
+                    isRunning={isRunning}
+                    onReset={reset}
+                    onTogglePlay={togglePlay}
+                    onSkip={skip}
+                />
+
+                {/* Botão de Abortar Sessão */}
+                {!isProtocolInactive && (
+                    <div className="w-full max-w-xs mt-6 pt-4 border-t border-white/10">
+                        <button
+                            type="button"
+                            onClick={() => setShowAbandonConfirm(true)}
+                            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-xl transition-all text-xs font-bold text-red-300 group shadow-md"
+                        >
+                            <RotateCcw
+                                size={14}
+                                className="text-red-400 group-hover:rotate-[-90deg] transition-transform"
+                            />
+                            ABORTAR SESSÃO
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {/* Barra de Progresso dos Ciclos */}
+            <PomodoroProgress
+                targetCycles={targetCycles}
+                completedCycles={completedCycles}
+                sessions={sessions}
+                setTargetCycles={setTargetCycles}
+                syncChannel={syncChannel}
+                STABLE_TAB_ID={STABLE_TAB_ID}
+                activeSubject={activeSubject}
+                workFillsRef={workFillsRef}
+                breakBallsRef={breakBallsRef}
+                mode={mode}
+                timeLeft={timeLeft}
+                totalTime={totalTime}
+            />
 
             <ConfirmModal
                 isOpen={showAbandonConfirm}

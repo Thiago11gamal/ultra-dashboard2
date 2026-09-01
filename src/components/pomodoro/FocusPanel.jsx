@@ -404,11 +404,11 @@ export function FocusPanel({
 
     if (!activeSubject) {
         return (
-            <div className="w-full 2xl:w-[380px] shrink-0 flex flex-col items-center justify-center p-8 text-center">
-                <Target size={48} className="text-slate-600 mb-4" />
-                <h3 className="text-lg font-bold text-slate-300 mb-2">Nenhuma tarefa ativa</h3>
-                <p className="text-sm text-slate-500">
-                    Selecione uma tarefa no painel ao lado ou use o Coach IA para começar.
+            <div className="w-full flex flex-col items-center justify-center p-8 text-center bg-[#08090f]/70 rounded-3xl border border-white/5 backdrop-blur-xl shadow-2xl min-h-[300px]">
+                <Target size={40} className="text-slate-600 mb-3" />
+                <h3 className="text-sm sm:text-base font-bold text-slate-300 mb-1">Nenhuma missão em foco</h3>
+                <p className="text-xs text-slate-500 max-w-[240px]">
+                    Selecione uma missão no painel de Ações ou inicie pelo Mentor IA.
                 </p>
             </div>
         );
@@ -419,32 +419,32 @@ export function FocusPanel({
 
     return (
         <Motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="w-full 2xl:w-[380px] shrink-0 flex flex-col gap-3 p-2 bg-slate-900/60 rounded-3xl border border-white/5 backdrop-blur-xl"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full flex flex-col gap-3.5 p-4 sm:p-5 bg-[#08090f]/70 rounded-3xl border border-white/5 backdrop-blur-xl shadow-2xl"
             role="complementary"
-            aria-label="Painel de foco ativo"
+            aria-label="Painel de telemetria da sessão"
         >
             {/* Header do Painel */}
-            <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+            <div className="flex items-center justify-between gap-2 pb-1 border-b border-white/5">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
                         <Zap size={16} className="text-indigo-400" />
                     </div>
-                    <div>
-                        <h3 className="text-sm font-bold text-white truncate max-w-[200px]">
+                    <div className="min-w-0 flex-1">
+                        <h3 className="text-xs sm:text-sm font-black text-white truncate" title={activeSubject.task || 'Sessão de Estudo'}>
                             {activeSubject.task || 'Sessão de Estudo'}
                         </h3>
-                        <p className="text-[10px] text-slate-500">{activeSubject.category}</p>
+                        <p className="text-[10px] text-slate-400 font-medium truncate">{activeSubject.category || 'Geral'}</p>
                     </div>
                 </div>
                 {activeSubject.priority && (
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase ${
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider shrink-0 ${
                         activeSubject.priority === 'high'
-                            ? 'bg-rose-500/20 text-rose-300'
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                             : activeSubject.priority === 'medium'
-                                ? 'bg-amber-500/20 text-amber-300'
-                                : 'bg-emerald-500/20 text-emerald-300'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     }`}>
                         {activeSubject.priority === 'high' ? 'Alta' : activeSubject.priority === 'medium' ? 'Média' : 'Baixa'}
                     </span>

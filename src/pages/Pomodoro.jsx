@@ -1,6 +1,7 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
+import SessionFocusPanel from '../components/pomodoro/FocusPanel';
 import { getLocalMidnight, getDateKey, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
 import { motion as Motion } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
@@ -400,7 +401,7 @@ function FocusPanel({ categories, activeSubject, onStartTask, stats, neuralMode,
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.02, zIndex: 100 }}
-            className={`flex flex-col w-full 2xl:w-[520px] shrink-0 relative group p-2 bg-[#08090f]/70 border border-white/5 rounded-3xl backdrop-blur-xl shadow-2xl ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col w-full relative group p-4 sm:p-5 bg-[#08090f]/70 border border-white/5 rounded-3xl backdrop-blur-xl shadow-2xl ${!isPanelLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             <div className="absolute -top-14 left-0 right-0 flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0">
                 {!isPanelLocked && (
@@ -608,35 +609,34 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
     const cleanText = (text) => cleanTaskTitle(text, activeSubject?.category);
 
     return (
-        <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] mb-0 sm:mb-6 rounded-3xl sm:rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-8 py-6 sm:py-10 shadow-2xl relative overflow-hidden group mx-auto">
+        <div className="w-full rounded-2xl sm:rounded-3xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-6 py-4 sm:py-5 shadow-2xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 relative z-10">
-                <div className="flex items-center gap-6 min-w-0 flex-1">
-                    <div className="w-16 h-16 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
-                        {activeSubject ? <Target size={26} className="text-[#2d1a12]" /> : <Zap size={26} className="text-[#2d1a12]" />}
+            <div className="flex items-center justify-between gap-4 relative z-10">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
+                        {activeSubject ? <Target size={22} className="text-[#2d1a12]" /> : <Zap size={22} className="text-[#2d1a12]" />}
                     </div>
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[#2d1a12]/60 truncate">{activeSubject?.category || 'SISTEMA'}</span>
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-700/60 animate-pulse shrink-0" />
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.3em] text-[#2d1a12]/70 truncate">{activeSubject?.category || 'SISTEMA'}</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-700/80 animate-pulse shrink-0" />
                         </div>
-                        <h1 className="text-sm sm:text-lg font-black text-[#2d1a12] tracking-tight leading-snug break-words line-clamp-3">
+                        <h1 className="text-sm sm:text-base font-black text-[#2d1a12] tracking-tight leading-snug truncate" title={activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}>
                             {activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}
                         </h1>
                     </div>
                 </div>
-                <div className="flex items-center gap-5 shrink-0">
-                    <div className="flex flex-col items-end gap-1.5">
-                        <span className="px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/5 text-[#2d1a12]">
-                            {neuralMode ? 'NEURAL' : 'MANUAL'}
-                        </span>
-                    </div>
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/10 text-[#2d1a12]">
+                        {neuralMode ? 'NEURAL' : 'MANUAL'}
+                    </span>
                     <button
                         type="button"
                         onClick={onToggleLock}
-                        className={`p-3 rounded-xl border transition-all ${isLayoutLocked ? 'bg-white/5 border-[#2d1a12]/20 text-[#2d1a12]/50 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/10 border-[#2d1a12]/40 text-[#2d1a12] '}`}
+                        className={`p-2 sm:p-2.5 rounded-xl border transition-all ${isLayoutLocked ? 'bg-[#2d1a12]/10 border-[#2d1a12]/20 text-[#2d1a12]/60 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12]'}`}
+                        title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
                     >
-                        {isLayoutLocked ? <Lock size={18} /> : <Unlock size={18} />}
+                        {isLayoutLocked ? <Lock size={15} /> : <Unlock size={15} />}
                     </button>
                 </div>
             </div>
@@ -1004,42 +1004,65 @@ if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
         );
     }
 
-    return (<PageErrorBoundary pageName="Pomodoro">
-        <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-12 sm:pt-6 lg:pt-8 pb-8 px-3 sm:px-3">
-            <div className="flex flex-col 2xl:flex-row gap-0 sm:gap-6 2xl:gap-10 items-start justify-center w-full max-w-[1280px] 2xl:max-w-[1440px] mx-auto px-0 sm:px-4">
-                <div className="flex-1 flex flex-col items-center min-w-0 w-full">
-                    <PomodoroTopBar
-                        activeSubject={activeSubject}
-                        neuralMode={neuralMode}
-                        isLayoutLocked={isLayoutLocked}
-                        onToggleLock={toggleLayoutLock}
-                    />
-                    <PomodoroTimer
-                        settings={settings}
-                        activeSubject={activeSubject}
-                        categories={categories || []}
-                        onUpdateStudyTime={handleUpdateStudyTime}
-                        onExit={handleExit}
-                        onSessionComplete={handleSessionComplete}
-                        onFullCycleComplete={handleFullCycleComplete}
-                        isLayoutLocked={isLayoutLocked}
-                        onToggleLock={toggleLayoutLock}
-                        defaultTargetCycles={1}
-                        key={activeSubject?.sessionInstanceId || 'idle'}
-                    />
+    return (
+        <PageErrorBoundary pageName="Pomodoro">
+            <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-4 sm:pt-6 lg:pt-8 pb-12 px-3 sm:px-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8 items-start justify-center w-full max-w-[1680px] mx-auto">
+                    {/* Coluna 1: Console do Cronômetro Pomodoro */}
+                    <div className="w-full flex flex-col items-center gap-4 sm:gap-6 min-w-0">
+                        <PomodoroTopBar
+                            activeSubject={activeSubject}
+                            neuralMode={neuralMode}
+                            isLayoutLocked={isLayoutLocked}
+                            onToggleLock={toggleLayoutLock}
+                        />
+                        <PomodoroTimer
+                            settings={settings}
+                            activeSubject={activeSubject}
+                            categories={categories || []}
+                            onUpdateStudyTime={handleUpdateStudyTime}
+                            onExit={handleExit}
+                            onSessionComplete={handleSessionComplete}
+                            onFullCycleComplete={handleFullCycleComplete}
+                            isLayoutLocked={isLayoutLocked}
+                            onToggleLock={toggleLayoutLock}
+                            defaultTargetCycles={1}
+                            key={activeSubject?.sessionInstanceId || 'idle'}
+                        />
+                    </div>
+
+                    {/* Coluna 2: Telemetria & Gamificação da Sessão Ativa */}
+                    <div className="w-full min-w-0">
+                        <SessionFocusPanel
+                            activeSubject={activeSubject}
+                            categories={categories}
+                            studyLogs={studyLogs}
+                            user={user}
+                            mode={pomodoroState.mode || 'work'}
+                            isRunning={pomodoroState.isRunning || false}
+                            timeLeft={pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60}
+                            totalTime={(settings?.pomodoroWork || 25) * 60}
+                            targetCycles={pomodoroState.targetCycles || 1}
+                            completedCycles={pomodoroState.completedCycles || 0}
+                        />
+                    </div>
+
+                    {/* Coluna 3: Central Neural de Operações & Ações */}
+                    <div className="w-full min-w-0">
+                        <FocusPanel
+                            categories={categories || []}
+                            activeSubject={activeSubject}
+                            onStartTask={handleStartTask}
+                            stats={userStats}
+                            neuralMode={neuralMode}
+                            neuralQueue={neuralQueue}
+                            studyLogs={studyLogs}
+                            simulados={simulados}
+                        />
+                    </div>
                 </div>
-                <FocusPanel
-                    categories={categories || []}
-                    activeSubject={activeSubject}
-                    onStartTask={handleStartTask}
-                    stats={userStats}
-                    neuralMode={neuralMode}
-                    neuralQueue={neuralQueue}
-                    studyLogs={studyLogs}
-                    simulados={simulados}
-                />
             </div>
-        </div>
-    </PageErrorBoundary>);
+        </PageErrorBoundary>
+    );
 }
 

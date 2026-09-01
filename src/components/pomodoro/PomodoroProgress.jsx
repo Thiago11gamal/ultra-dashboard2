@@ -15,10 +15,10 @@ export function PomodoroProgress({
     totalTime
 }) {
     return (
-        <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-6 sm:px-8 py-5 sm:py-6 shadow-2xl relative overflow-hidden group mx-auto">
+        <div className="w-full rounded-2xl sm:rounded-3xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-6 py-4 sm:py-5 shadow-2xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col gap-4">
+            <div className="relative z-10 flex flex-col gap-3">
                 {/* Header: Title & Cycle Stepper */}
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
