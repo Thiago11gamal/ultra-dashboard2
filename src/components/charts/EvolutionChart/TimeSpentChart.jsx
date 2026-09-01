@@ -333,7 +333,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
     if (chartData.length === 0) {
         return (
-            <div className="h-[300px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30 w-full mt-2">
+            <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner w-full mt-2">
                 <span className="text-5xl">⏳</span>
                 <div className="text-center">
                     <p className="text-slate-300 font-bold text-base mb-1">Coletando Dados de Agilidade AI</p>

@@ -33,7 +33,7 @@ describe('evolution components render contracts', () => {
         maxScore={100}
       />
     );
-    expect(html).toContain('Evolução da Projeção');
+    expect(html).toContain('Rastreador de Aprovação');
     expect(html).toContain('Conserv.');
     expect(html).toContain('Base');
     expect(html).toContain('Otim.');

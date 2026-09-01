@@ -630,9 +630,11 @@ export default React.memo(function EvolutionChart({
                      </div>
                  </div>
 
-                {/* Máscara CSS removida: ela estava causando um gradiente que apagava o início do primeiro botão e o fim do último. */}
-                <div className="relative w-full mb-8">
-                    <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
+                {/* Máscara CSS substituída por gradiente adaptativo para mobile */}
+                <div className="relative w-full mb-8 -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full">
+                    <div className="absolute left-0 top-0 bottom-4 w-6 bg-gradient-to-r from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
+                    <div className="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
+                    <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 sm:px-0 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
                         {ENGINES.map((eng, idx) => {
                             const active = activeEngine === eng.id;
                             return (
@@ -677,6 +679,7 @@ export default React.memo(function EvolutionChart({
                     role="tabpanel"
                     aria-labelledby={`engine-tab-${activeEngine}`}
                     tabIndex={0}
+                    className="w-full flex-1 flex flex-col outline-none focus:outline-none"
                 >
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap 
@@ -735,7 +738,7 @@ export default React.memo(function EvolutionChart({
                         simuladoRows={simuladoRowsArray}
                     />
                 ) : !accountHasData ? (
-                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
+                    <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner">
                         <span className="text-5xl">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para exibir o gráfico</p>
@@ -743,7 +746,7 @@ export default React.memo(function EvolutionChart({
                         </div>
                     </div>
                 ) : !filterHasData ? (
-                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
+                    <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner">
                         <span className="text-5xl">📅</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Nenhuma atividade recente</p>
@@ -1005,12 +1008,28 @@ export default React.memo(function EvolutionChart({
             })()}
             </div>
 
-            <div className="pt-4">
-                <div className="flex items-center gap-3 mb-5">
-                    <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center px-2">Galeria de Análises Detalhadas</h2>
+            <div className="pt-10 border-t border-slate-800/80 mt-10 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-inner">
+                            <BarChart3 size={20} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-base sm:text-lg font-black text-white tracking-tight">Galeria de Análises Detalhadas</h2>
+                                <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-[9px] font-black text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">
+                                    Diagnóstico 360°
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium mt-0.5">
+                                Raio-X por matéria, balanço de volume vs precisão e matriz de criticidade
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+                {/* Grid 1: Radar (Equilíbrio) + PerformanceBar (Volume vs Acertos) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
                     <RadarAnalysis radarData={radarData} maxScore={maxScore} minScore={minScore} unit={unit} />
                     <PerformanceBarChart
                         subjectAggData={subjectAggData}
@@ -1019,12 +1038,14 @@ export default React.memo(function EvolutionChart({
                         unit={unit}
                         maxScore={maxScore}
                     />
-                    <CriticalTopicsAnalysis
-                        categories={categories}
-                        maxScore={maxScore}
-                        minScore={minScore}
-                    />
                 </div>
+
+                {/* Grid 2: Matérias e Assuntos Críticos */}
+                <CriticalTopicsAnalysis
+                    categories={categories}
+                    maxScore={maxScore}
+                    minScore={minScore}
+                />
             </div>
         </motion.div>
     );

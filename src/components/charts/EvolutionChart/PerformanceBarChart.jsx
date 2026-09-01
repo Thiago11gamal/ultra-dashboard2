@@ -28,24 +28,27 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
     });
     
     return (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all group w-full min-w-0">
-            <div className="flex items-center justify-between mb-3 sm:mb-5 min-w-0">
-                <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Questões Resolvidas vs Acertos</p>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
-                        📊 {showOnlyFocus ? `Desempenho — ${focusCategory?.name}` : "Desempenho por Matéria — Histórico Completo"}
-                    </h3>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-3">
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Acertos</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-sm bg-red-500 inline-block"></span>
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Erros</span>
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all group w-full min-w-0 flex flex-col justify-between h-full">
+            <div className="mb-3 sm:mb-4 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Questões Resolvidas vs Acertos</p>
+                    <div className="flex items-center gap-2.5 shrink-0 bg-slate-950/60 border border-slate-800 px-2.5 py-1 rounded-lg">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Acertos</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block shadow-[0_0_6px_rgba(239,68,68,0.5)]"></span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Erros</span>
+                        </div>
                     </div>
                 </div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
+                    📊 {showOnlyFocus ? `Desempenho — ${focusCategory?.name}` : "Desempenho por Matéria — Histórico Completo"}
+                </h3>
+                <p className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-relaxed">
+                    Volume total de questões acumuladas com taxa de acertos e falhas.
+                </p>
             </div>
  
             <div className="h-[320px] sm:h-[380px] w-full overflow-x-auto custom-scrollbar pb-2">

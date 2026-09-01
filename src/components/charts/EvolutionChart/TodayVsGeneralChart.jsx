@@ -263,7 +263,7 @@ export function TodayVsGeneralChart({
 
     if (!dailyData || dailyData.length === 0) {
         return (
-            <div className="h-[300px] flex flex-col items-center justify-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/30">
+            <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner">
                 <span className="text-4xl opacity-50">⚖️</span>
                 <p className="text-slate-400 font-bold text-sm">Dados insuficientes para comparação diária.</p>
             </div>
