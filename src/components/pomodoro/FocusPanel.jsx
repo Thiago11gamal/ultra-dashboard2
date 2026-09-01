@@ -241,11 +241,11 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
                     {safeCompleted}/{safeTarget}
                 </span>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 w-full overflow-hidden">
                 {Array.from({ length: safeTarget }).map((_, i) => (
                     <div
                         key={i}
-                        className={`h-2 flex-1 rounded-full transition-all duration-300 ${
+                        className={`h-2 flex-1 rounded-full transition-all duration-300 min-w-0 ${
                             i < safeCompleted
                                 ? 'bg-blue-500 shadow-sm'
                                 : i === safeCompleted && mode === 'work'
@@ -303,7 +303,7 @@ function TodayStudyTime({ studyLogs, categoryId }) {
         const total = Math.max(0, Math.round(Number(minutes) || 0));
         const hours = Math.floor(total / 60);
         const mins = total % 60;
-        if (hours === 0) return `${mins}min`;
+        if (hours === 0) return `${mins}m`;
         if (mins === 0) return `${hours}h`;
         return `${hours}h ${mins}m`;
     };
