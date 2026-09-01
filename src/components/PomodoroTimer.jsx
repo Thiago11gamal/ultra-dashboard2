@@ -257,11 +257,13 @@ function PomodoroTimer({
 
     const speedRef = useRef(speed);
     useEffect(() => {
-        speedRef.current = speed;
-        postSync({
-            type: 'SPEED_CHANGE',
-            speed
-        });
+        if (speedRef.current !== speed) {
+            speedRef.current = speed;
+            postSync({
+                type: 'SPEED_CHANGE',
+                speed
+            });
+        }
     }, [speed, postSync]);
 
     const transitionTimeoutRef = useRef(null);
@@ -675,6 +677,17 @@ function PomodoroTimer({
 
     const transitionSession = useCallback((completedMode, source = 'natural') => {
         if (isTransitioningRef.current) return;
+
+        if (source === 'natural') {
+            const lockKey = `pomodoro_transition_lock_${activeSubjectRef.current?.taskId || 'global'}`;
+            const now = Date.now();
+            const lastTransition = Number(localStorage.getItem(lockKey) || 0);
+            if (now - lastTransition < 2000) {
+                return;
+            }
+            localStorage.setItem(lockKey, now.toString());
+        }
+
         isTransitioningRef.current = true;
         setIsTransitioning(true);
         setIsRunning(false);
