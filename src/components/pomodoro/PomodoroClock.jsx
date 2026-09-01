@@ -18,14 +18,14 @@ export function PomodoroClock({
 }) {
     return (
         <div className="w-full flex flex-col items-center">
-            {/* Barra superior de controles do relógio (FOCO/PAUSA + Velocidade + Mudo + Fullscreen) */}
+            {/* Barra superior de controles do relógio */}
             <div className="w-full flex items-center justify-between gap-2 mb-2 relative z-30">
                 <div className="flex items-center gap-2">
-                    <span className={`text-[11px] font-black uppercase tracking-[0.25em] transition-colors ${mode === 'work' ? 'text-blue-300 font-extrabold' : 'text-white/40'}`}>
+                    <span className={`text-xs sm:text-sm font-black uppercase tracking-[0.25em] transition-colors ${mode === 'work' ? 'text-blue-300 font-extrabold drop-shadow' : 'text-white/40'}`}>
                         FOCO
                     </span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-white/30" />
-                    <span className={`text-[11px] font-black uppercase tracking-[0.25em] transition-colors ${mode !== 'work' ? (mode === 'long_break' ? 'text-violet-300 font-extrabold' : 'text-emerald-300 font-extrabold') : 'text-white/40'}`}>
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
+                    <span className={`text-xs sm:text-sm font-black uppercase tracking-[0.25em] transition-colors ${mode !== 'work' ? (mode === 'long_break' ? 'text-violet-300 font-extrabold drop-shadow' : 'text-emerald-300 font-extrabold drop-shadow') : 'text-white/40'}`}>
                         PAUSA
                     </span>
                 </div>
@@ -40,7 +40,7 @@ export function PomodoroClock({
                                 onClick={() => setSpeed(s)}
                                 disabled={isProtocolInactive}
                                 aria-label={`Velocidade ${s}x`}
-                                className={`px-2.5 sm:px-3 h-7 sm:h-8 rounded-lg text-[10px] sm:text-[11px] font-black transition-all disabled:opacity-30 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+                                className={`px-3 h-7 sm:h-8 rounded-lg text-xs font-black transition-all disabled:opacity-30 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
                             >
                                 {s}X
                             </button>
@@ -73,10 +73,10 @@ export function PomodoroClock({
                 </div>
             </div>
 
-            {/* Mostrador SVG Circular e Tempo Aumentado */}
-            <div className="relative my-2 sm:my-3 rounded-full flex items-center justify-center">
-                <svg viewBox="0 0 256 256" className="w-[min(76vw,18.5rem)] h-[min(76vw,18.5rem)] sm:w-72 sm:h-72 lg:w-[310px] lg:h-[310px] transform -rotate-90 relative z-10">
-                    <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
+            {/* Mostrador SVG Circular com Dígitos Maiores e Destaque */}
+            <div className="relative my-1 sm:my-2 rounded-full flex items-center justify-center">
+                <svg viewBox="0 0 256 256" className="w-[min(68vw,16rem)] h-[min(68vw,16rem)] sm:w-64 sm:h-64 lg:w-[265px] lg:h-[265px] transform -rotate-90 relative z-10">
+                    <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="14" strokeLinecap="round" />
                     <defs>
                         <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" stopColor={mode === 'work' ? '#3b82f6' : (mode === 'long_break' ? '#a855f7' : '#22c55e')} />
@@ -96,14 +96,14 @@ export function PomodoroClock({
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                     <span 
                         ref={clockRef} 
-                        className="text-6xl sm:text-7xl lg:text-8xl font-black tracking-tight text-white drop-shadow-2xl leading-none tabular-nums"
+                        className="text-5xl sm:text-6xl lg:text-[4.25rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
                         role="timer"
                         aria-live="polite"
                         aria-label={`Tempo restante: ${formatTime(timeLeft)}`}
                     >
                         {formatTime(timeLeft)}
                     </span>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] sm:tracking-[0.35em] text-white mt-2 text-center px-2">
+                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] text-white/90 drop-shadow mt-1.5 text-center px-2">
                         {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação')) : 'SESSÃO PAUSADA'}
                     </span>
                 </div>

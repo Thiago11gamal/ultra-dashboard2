@@ -1082,7 +1082,7 @@ function PomodoroTimer({
     const isProtocolInactive = !activeSubject;
 
     return (
-        <div className={`w-full relative flex flex-col items-center gap-2.5 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>
+        <div className={`w-full relative flex flex-col items-center gap-2 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>
             {/* Header com status de recuperação/pausa ou alerta (apenas se ativo) */}
             {(mode === 'break' || mode === 'long_break' || isProtocolInactive) && (
                 <div className="w-full">
@@ -1094,7 +1094,7 @@ function PomodoroTimer({
                 </div>
             )}
 
-            {/* Container Principal do Relógio de Madeira (Maior e com mais presença) */}
+            {/* Container Principal do Relógio de Madeira (Perfeitamente Enquadrado) */}
             <div
                 style={{
                     backgroundImage: 'url(/wood-texture.png)',
@@ -1102,7 +1102,7 @@ function PomodoroTimer({
                     backgroundPosition: 'center',
                     boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
                 }}
-                className="w-full border-4 sm:border-[6px] border-[#3f2e26] p-5 sm:p-7 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
+                className="w-full border-4 sm:border-[5px] border-[#3f2e26] p-4 sm:p-5 sm:pt-4 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
                 {/* Mostrador SVG, Toolbar e Indicadores */}
                 <PomodoroClock
@@ -1132,14 +1132,14 @@ function PomodoroTimer({
 
                 {/* Botão de Abortar Sessão */}
                 {!isProtocolInactive && (
-                    <div className="w-full max-w-xs mt-3 pt-2.5 border-t border-white/10">
+                    <div className="w-full max-w-xs mt-2 pt-2 border-t border-white/10">
                         <button
                             type="button"
                             onClick={() => setShowAbandonConfirm(true)}
-                            className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-xl transition-all text-[11px] font-bold text-red-300 group shadow-md"
+                            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-xl transition-all text-[10px] font-bold text-red-300 group shadow-md"
                         >
                             <RotateCcw
-                                size={13}
+                                size={12}
                                 className="text-red-400 group-hover:rotate-[-90deg] transition-transform"
                             />
                             ABORTAR SESSÃO
