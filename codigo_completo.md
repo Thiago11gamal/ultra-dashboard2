@@ -394,6 +394,79 @@ Fechando a série de auditorias e correções dos Batches 1–3, com foco em cob
 
 ```
 
+## combine.cjs
+
+```cjs
+const fs = require('fs');
+const path = require('path');
+
+const rootDir = process.cwd();
+const outputFile = path.join(rootDir, 'codigo_completo.md');
+
+// Ignorar arquivos/diretórios que não são código do projeto ou são testes
+const ignoreDirs = ['node_modules', '.git', '.github', 'dist', 'public', 'tests', '__tests__', 'e2e'];
+const ignoreFiles = ['package-lock.json', 'codigo_completo.md', 'extract.js', 'extract.txt', 'combine.js'];
+const testFilePatterns = [/\.test\./, /\.spec\./, /_test\./, /_spec\./];
+
+function isTestFile(filename) {
+  return testFilePatterns.some(pattern => pattern.test(filename));
+}
+
+function traverseDir(dir, fileList = []) {
+  const files = fs.readdirSync(dir);
+
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+
+    if (stat.isDirectory()) {
+      if (!ignoreDirs.includes(file)) {
+        traverseDir(filePath, fileList);
+      }
+    } else {
+      if (!ignoreFiles.includes(file) && !isTestFile(file) && !file.endsWith('.log')) {
+        fileList.push(filePath);
+      }
+    }
+  }
+
+  return fileList;
+}
+
+const allFiles = traverseDir(rootDir);
+
+let markdownContent = '# Código Completo do Projeto\n\n';
+
+for (const filePath of allFiles) {
+  const relativePath = path.relative(rootDir, filePath);
+  
+  // Try to determine language for markdown code block
+  const ext = path.extname(filePath).slice(1);
+  let lang = ext;
+  if (ext === 'js' || ext === 'jsx') lang = 'javascript';
+  if (ext === 'ts' || ext === 'tsx') lang = 'typescript';
+  if (ext === 'vue') lang = 'vue';
+  if (ext === 'md') lang = 'markdown';
+  if (ext === 'json') lang = 'json';
+
+  markdownContent += `## ${relativePath.replace(/\\/g, '/')}\n\n`;
+  markdownContent += `\`\`\`${lang}\n`;
+  
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    markdownContent += content;
+  } catch (err) {
+    markdownContent += `// Erro ao ler o arquivo: ${err.message}\n`;
+  }
+  
+  markdownContent += `\n\`\`\`\n\n`;
+}
+
+fs.writeFileSync(outputFile, markdownContent, 'utf8');
+console.log('Código combinado com sucesso em codigo_completo.md!');
+
+```
+
 ## docs/30_BUGS_ENCONTRADOS_2026-05-05.md
 
 ```markdown
@@ -2739,6 +2812,104 @@ Este plano visa aumentar o rigor estatístico das projeções e cálculos de ten
 </body>
 
 </html>
+
+```
+
+## package.json
+
+```json
+{
+  "name": "ultra-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "kill-port": "npx kill-port 5173 5174",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:math": "node scripts/test-math-engines.mjs",
+    "test:unit": "node scripts/test-unit-safe.mjs",
+    "test:all": "npm run test:math && npm run test:rigorous-math && npm run test:unit",
+    "test:math-rigor": "node scripts/test-math-rigorous.mjs",
+    "test:rigorous-math": "node scripts/test-math-rigorous.mjs",
+    "test:bootstrap": "node scripts/test-bootstrap-ci.mjs",
+    "test:integration-math": "node scripts/test-math-integration.mjs",
+    "test:math-stress": "node scripts/test-math-stress.mjs",
+    "test:coach-regression": "vitest run tests/coach-math-regressions.test.js",
+    "test:all-math": "npm run test:math-rigor && npm run test:math-stress && npm run test:coach-regression",
+    "audit:math": "node scripts/run-math-audit.mjs",
+    "test:mc-scenarios": "node scripts/test-mc-scenarios.mjs",
+    "mc:parallel": "node scripts/run-mc-parallel.mjs",
+    "test:heatmap-aggregation": "node scripts/test-heatmap-aggregation.mjs",
+    "test:weekly-insights": "node scripts/test-weekly-insights.mjs",
+    "test:evolution-suite": "node scripts/test-evolution-suite.mjs",
+    "test:projection-scenario": "node scripts/test-projection-scenario.mjs",
+    "test:evolution-all": "npm run test:unit && npm run test:evolution-suite",
+    "test:evolution-ui": "node scripts/test-evolution-ui-contracts.mjs",
+    "test:evolution-components": "vitest run src/components/charts/EvolutionChart/__tests__/evolutionComponents.test.jsx",
+    "test:evolution-e2e": "node scripts/test-evolution-e2e.mjs",
+    "test:unit:safe": "node scripts/test-unit-safe.mjs",
+    "lint:safe": "node scripts/lint-safe.mjs",
+    "build:safe": "node scripts/build-safe.mjs",
+    "verify:evolution": "node scripts/verify-evolution-stack.mjs",
+    "test:coach-unit": "vitest run tests/coach-math-regressions.test.js src/utils/__tests__/coachLogic.regression.test.js src/utils/__tests__/coachBacktest.test.js",
+    "test:coach-integration": "vitest run tests/coach-logic.integration.test.js",
+    "test:coach-suite": "node scripts/test-coach-suite.mjs"
+  },
+  "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
+    "@stripe/stripe-js": "^8.9.0",
+    "date-fns": "^4.1.0",
+    "dompurify": "^3.4.12",
+    "firebase": "^12.6.0",
+    "framer-motion": "^12.23.25",
+    "html-to-image": "^1.11.13",
+    "idb-keyval": "^6.2.2",
+    "immer": "^11.1.4",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.556.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-is": "^19.2.4",
+    "react-joyride": "^2.9.3",
+    "react-router-dom": "^7.13.0",
+    "recharts": "^3.5.1",
+    "zundo": "^2.3.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.58.1",
+    "@tailwindcss/vite": "^4.1.17",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "^4.1.6",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^7.0.2",
+    "vite": "^7.2.4",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10"
+  },
+  "allowScripts": {
+    "@firebase/util": true,
+    "core-js": true,
+    "esbuild": true,
+    "@playwright/test": true
+  }
+}
 
 ```
 
@@ -14923,13 +15094,13 @@ function Checklist({
         }));
     }, [categories]);
 
-    // BUG-T08 FIX: Criar um fingerprint estável das categorias para evitar
-    // re-renderizações desnecessárias quando a referência muda mas o conteúdo não.
+    // BUG-FIX: usar categories (prop original) em vez de safeCategories
+    // safeCategories é recriado a cada render → fingerprint muda a cada render
     const categoriesFingerprint = useMemo(() => {
-        return safeCategories.map(c =>
-            `${c.id}:${(c.tasks || []).length}:${(c.tasks || []).filter(t => t.completed).length}`
+        return toArray(categories).map(c =>
+            `${c.id}:${(c.tasks || []).length}:${(c.tasks || []).filter(t => t?.completed).length}`
         ).join('|');
-    }, [safeCategories]);
+    }, [categories]);
 
     const filteredCategories = useMemo(() => {
         return safeCategories.map(cat => ({
@@ -14948,7 +15119,17 @@ function Checklist({
     const handleAddTask = useCallback((catId, title) => {
         if (!onAddTask) return;
 
-        onAddTask(catId, title);
+        const trimmedTitle = typeof title === 'string' ? title.trim() : '';
+        if (!trimmedTitle) {
+            showToast('O título da tarefa não pode ser vazio.', 'error');
+            return;
+        }
+        if (trimmedTitle.length > 200) {
+            showToast('O título da tarefa é muito longo (máx. 200 caracteres).', 'error');
+            return;
+        }
+
+        onAddTask(catId, trimmedTitle);
 
         if (filter === 'completed') {
             setFilter?.('all');
@@ -15003,6 +15184,14 @@ function Checklist({
                                 desbloquear o dashboard
                             </span>.
                         </p>
+                        {/* BUG-FIX: CTA para criar primeira disciplina */}
+                        <button
+                            type="button"
+                            onClick={() => setIsCatModalOpen(true)}
+                            className="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
+                        >
+                            + Criar Primeira Disciplina
+                        </button>
                     </div>
                 </div>
             )}
@@ -20322,7 +20511,7 @@ function AnimatedProbability({ value }) {
 ## src/components/NextGoalCard.jsx
 
 ```javascript
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Play, Clock, Info } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 import { toArray } from '../utils/normalize';
@@ -20333,76 +20522,96 @@ function NextGoalCard({
     studyLogs = [],
     onStartStudying
 }) {
-    const suggestion = useMemo(() => {
-        const normalizedCategories = toArray(categories).map(category => ({
-            ...category,
-            tasks: toArray(category?.tasks)
-        }));
+    const [isLoading, setIsLoading] = useState(true);
+    const [suggestion, setSuggestion] = useState(null);
 
-        const categoriesWithPending = normalizedCategories.filter(category =>
-            toArray(category?.tasks).some(t => t && !t.completed)
-        );
-
-        if (categoriesWithPending.length === 0) return null;
-
-        const suggestedCategory = getSuggestedFocus(
-            categoriesWithPending,
-            toArray(simulados),
-            toArray(studyLogs)
-        );
-
-        if (!suggestedCategory) return null;
-
-        const priorityOrder = {
-            high: 0,
-            medium: 1,
-            low: 2
-        };
-
-        const sortedTasks = toArray(suggestedCategory.tasks)
-            .filter(t => t && !t.completed)
-            .slice()
-            .sort((a, b) => {
-                const pA = String(a?.priority || 'medium').toLowerCase();
-                const pB = String(b?.priority || 'medium').toLowerCase();
-
-                return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
-            });
-
-        const nextTask = sortedTasks[0];
-
-        if (!nextTask) return null;
-
-        const fullText = nextTask.title || nextTask.text || 'Estudo';
-        const parts = fullText.split(':');
-        const hasDetails = parts.length > 1;
-
-        let actionPart = hasDetails
-            ? parts.slice(1).join(':').trim()
-            : fullText.trim();
-
-        actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
-
-        if (!actionPart) {
-            actionPart = fullText.replace(/^\[(.*?)\]\s*/i, '').trim() || 'Estudo';
-        }
-
-        const meta = hasDetails
-            ? (parts[0]?.trim() || 'Revisão e exercícios')
-            : 'Revisão e exercícios';
-
-        return {
-            category: suggestedCategory,
-            task: nextTask,
-            urgency: suggestedCategory.urgency,
-            display: {
-                assunto: actionPart.length > 80
-                    ? `${actionPart.substring(0, 77)}...`
-                    : actionPart,
-                meta
+    useEffect(() => {
+        setIsLoading(true);
+        // Usa setTimeout para não bloquear o render inicial
+        const timer = setTimeout(() => {
+            try {
+                const normalizedCategories = toArray(categories).map(category => ({
+                    ...category,
+                    tasks: toArray(category?.tasks)
+                }));
+                const categoriesWithPending = normalizedCategories.filter(category =>
+                    toArray(category?.tasks).some(t => t && !t.completed)
+                );
+                if (categoriesWithPending.length === 0) {
+                    setSuggestion(null);
+                    return;
+                }
+                const suggestedCategory = getSuggestedFocus(
+                    categoriesWithPending,
+                    toArray(simulados),
+                    toArray(studyLogs)
+                );
+                if (!suggestedCategory) {
+                    setSuggestion(null);
+                    return;
+                }
+                const priorityOrder = { high: 0, medium: 1, low: 2 };
+                const sortedTasks = toArray(suggestedCategory.tasks)
+                    .filter(t => t && !t.completed)
+                    .slice()
+                    .sort((a, b) => {
+                        const pA = String(a?.priority || 'medium').toLowerCase();
+                        const pB = String(b?.priority || 'medium').toLowerCase();
+                        return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
+                    });
+                const nextTask = sortedTasks[0];
+                if (!nextTask) {
+                    setSuggestion(null);
+                    return;
+                }
+                const fullText = nextTask.title || nextTask.text || 'Estudo';
+                const parts = fullText.split(':');
+                const hasDetails = parts.length > 1;
+                let actionPart = hasDetails
+                    ? parts.slice(1).join(':').trim()
+                    : fullText.trim();
+                actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
+                if (!actionPart) {
+                    actionPart = fullText.replace(/^\[(.*?)\]\s*/i, '').trim() || 'Estudo';
+                }
+                const meta = hasDetails
+                    ? (parts[0]?.trim() || 'Revisão e exercícios')
+                    : 'Revisão e exercícios';
+                setSuggestion({
+                    category: suggestedCategory,
+                    task: nextTask,
+                    urgency: suggestedCategory.urgency,
+                    display: {
+                        assunto: actionPart.length > 80
+                            ? `${actionPart.substring(0, 77)}...`
+                            : actionPart,
+                        meta
+                    }
+                });
+            } catch (err) {
+                console.error('[NextGoalCard] Erro ao calcular sugestão:', err);
+                setSuggestion(null);
+            } finally {
+                setIsLoading(false);
             }
-        };
+        }, 50);
+        return () => clearTimeout(timer);
     }, [categories, simulados, studyLogs]);
+
+    if (isLoading) {
+        return (
+            <div
+                role="status"
+                className="rounded-xl p-4 border border-white/10 bg-slate-900/50 backdrop-blur-sm flex items-center gap-4 animate-pulse"
+            >
+                <div className="w-12 h-12 bg-white/5 rounded-xl" />
+                <div className="flex-1 space-y-2">
+                    <div className="h-3 bg-white/5 rounded w-1/3" />
+                    <div className="h-2 bg-white/5 rounded w-2/3" />
+                </div>
+            </div>
+        );
+    }
 
     if (!suggestion) {
         return (
@@ -21447,7 +21656,9 @@ const PerformanceTable = ({ categories = [] }) => {
             for (let i = 0; i < history.length; i++) {
                 const h = history[i];
                 const t = parseInt(h.total, 10) || 0;
-                const c = (getSafeScore(h, ms) / ms * t);
+                // BUG-FIX: proteger contra NaN de getSafeScore
+                const score = getSafeScore(h, ms);
+                const c = Number.isFinite(score) ? (score / ms * t) : 0;
                 correct += c;
                 wrong += (t - c);
                 
@@ -21459,7 +21670,9 @@ const PerformanceTable = ({ categories = [] }) => {
                 }
             }
             
-            const balance = Math.max(0, Math.round(correct)) - Math.max(0, totalQuestions - Math.max(0, Math.round(correct)));
+            // BUG-FIX: proteger contra balance negativo
+            const safeCorrect = Math.max(0, Math.min(totalQuestions, Math.round(correct)));
+            const balance = safeCorrect - Math.max(0, totalQuestions - safeCorrect);
 
             return { ...cat, totalVolume: totalQuestions, balance, correct, wrong };
         });
@@ -21816,8 +22029,13 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
 };
 
 function PersonalRanking({ categories = [] }) {
+    // MELHORIA: proteger contra categories vazio
+    const safeCategories = React.useMemo(() => {
+        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+    }, [categories]);
+
     const categoryStats = React.useMemo(() => {
-        return categories.map(cat => {
+        return safeCategories.map(cat => {
             const stats = cat.simuladoStats || { history: [] };
             const historyRaw = stats.history || [];
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
@@ -21853,6 +22071,14 @@ function PersonalRanking({ categories = [] }) {
     const weakest = sortedByBalance.length > 1 ? sortedByBalance[sortedByBalance.length - 1] : null;
     const mostProductive = sortedByVolume[0] || null;
     const mostBehind = sortedByErrors[0]?.wrong > 0 ? sortedByErrors[0] : null;
+
+    if (safeCategories.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-12 text-slate-500 h-full border border-white/5 rounded-2xl bg-slate-900/40">
+                Nenhuma disciplina cadastrada ainda.
+            </div>
+        );
+    }
 
     return (
         <div className="w-full">
@@ -23533,27 +23759,33 @@ export default function PriorityProgress({ categories = [] }) {
             medium: { total: 0, completed: 0 },
             low: { total: 0, completed: 0 }
         };
+        let totalWeightedTasks = 0;
+        let totalWeightedCompleted = 0;
 
         toArray(categories).forEach(cat => {
+            const weight = Number(cat?.weight) || 5; // padrão 5 se ausente
             toArray(cat?.tasks).forEach(task => {
                 const rawPriority = String(task?.priority || 'medium').toLowerCase();
                 const priorityKey = counts[rawPriority] ? rawPriority : 'medium';
 
-                counts[priorityKey].total += 1;
+                counts[priorityKey].total += weight;
+                totalWeightedTasks += weight;
 
                 if (task?.completed) {
-                    counts[priorityKey].completed += 1;
+                    counts[priorityKey].completed += weight;
+                    totalWeightedCompleted += weight;
                 }
             });
         });
 
-        return counts;
+        return { counts, totalWeightedTasks, totalWeightedCompleted };
     }, [categories]);
 
+    const { counts, totalWeightedTasks, totalWeightedCompleted } = stats;
     const priorities = ['high', 'medium', 'low'];
 
-    const totalTasksGlobally = priorities.reduce((acc, p) => acc + stats[p].total, 0);
-    const totalCompletedGlobally = priorities.reduce((acc, p) => acc + stats[p].completed, 0);
+    const totalTasksGlobally = totalWeightedTasks;
+    const totalCompletedGlobally = totalWeightedCompleted;
 
     if (totalTasksGlobally === 0) return null;
 
@@ -23631,7 +23863,7 @@ export default function PriorityProgress({ categories = [] }) {
             {/* Cards por prioridade */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {priorities.map(p => {
-                    const { total, completed } = stats[p];
+                    const { total, completed } = counts[p];
                     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                     const conf = priorityColors[p];
 
@@ -23666,10 +23898,10 @@ export default function PriorityProgress({ categories = [] }) {
                                             <span className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
                                                 <strong>{conf.label}:</strong>{' '}
                                                 {p === 'high'
-                                                    ? 'Tarefas mais urgentes e importantes.'
+                                                    ? 'Tarefas mais urgentes e importantes. Priorize-as primeiro.'
                                                     : p === 'medium'
-                                                        ? 'Tarefas de importância moderada.'
-                                                        : 'Tarefas de menor impacto ou flexíveis.'}
+                                                        ? 'Tarefas de importância moderada. Faça-as após as de alta prioridade.'
+                                                        : 'Tarefas de menor impacto ou flexíveis. Faça-as quando tiver tempo disponível.'}
                                             </span>
                                         </span>
                                     </span>
@@ -26461,19 +26693,28 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     );
 
     const efficiency = useMemo(
-        () => analyzeEfficiency(data.categories || [], normalizedStudyLogs),
-        [data.categories, normalizedStudyLogs]
+        () => analyzeEfficiency(data.categories || [], normalizedStudyLogs, data.user),
+        [data.categories, normalizedStudyLogs, data.user]
     );
 
     const fcStats = useMemo(
-        () => buildAchievementStats(data) || {},
+        () => {
+            // BUG-FIX: garantir que studyLogs é array antes de passar
+            const safeData = {
+                ...data,
+                studyLogs: Array.isArray(data.studyLogs)
+                    ? data.studyLogs
+                    : Object.values(data.studyLogs || {})
+            };
+            return buildAchievementStats(safeData) || {};
+        },
         [data]
     );
 
     const user = data.user || { xp: 0, level: 1 };
 
     const progress = useMemo(
-        () => getXPProgress(user.xp),
+        () => getXPProgress(Number(user.xp) || 0),
         [user.xp]
     );
 
@@ -26535,7 +26776,19 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 el.click();
             }
         } catch (err) {
-            console.error('Picker falhou', err);
+            // BUG-FIX: Fallback para input nativo se showPicker falhar
+            console.warn('Picker nativo falhou, usando fallback:', err);
+            try {
+                const el = dateInputRef.current;
+                if (el) {
+                    el.focus();
+                    // Força o clique programático como último recurso
+                    const clickEvent = new MouseEvent('click', { bubbles: true });
+                    el.dispatchEvent(clickEvent);
+                }
+            } catch (fallbackErr) {
+                console.error('Fallback do picker também falhou:', fallbackErr);
+            }
         }
     }, []);
 
@@ -26759,6 +27012,21 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 Pendentes:{' '}
                                 <span className="font-bold text-amber-300">
                                     {fcStats.flashcardDueToday || 0}
+                                </span>
+                            </span>
+                        </div>
+                        {/* BUG-FIX: Exibir total de cartões e domínio que eram calculados mas não exibidos */}
+                        <div className="flex items-center justify-between gap-2 text-[10px] sm:text-xs text-slate-400 font-medium">
+                            <span>
+                                Cartões:{' '}
+                                <span className="font-bold text-white">
+                                    {fcStats.flashcardTotalCards || 0}
+                                </span>
+                            </span>
+                            <span>
+                                Domínio:{' '}
+                                <span className="font-bold text-amber-300">
+                                    {fcStats.flashcardMastery || 0}%
                                 </span>
                             </span>
                         </div>
@@ -27662,14 +27930,17 @@ import { calculateSlope, getSortedHistory } from '../engine';
 
 const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
 
+    const safeCategories = useMemo(() => {
+        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+    }, [categories]);
+
     // 1. Normalizar e estabilizar categories
     const stableCategories = useMemo(() => {
-        const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
-        return raw.map(cat => ({
+        return safeCategories.map(cat => ({
             ...cat,
             tasks: Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {}),
         }));
-    }, [categories]);
+    }, [safeCategories]);
 
     // 2. Criar fingerprint estável para evitar re-execução por referência
     const categoriesFingerprint = useMemo(() => {
@@ -27760,6 +28031,14 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
             .sort((a, b) => b.balance - a.balance);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categoriesFingerprint, maxScore]);
+
+    if (safeCategories.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-12 text-slate-500 w-full rounded-2xl border border-white/5 bg-slate-950/40">
+                Nenhuma disciplina cadastrada ainda.
+            </div>
+        );
+    }
 
     return (
         <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">
@@ -29405,10 +29684,13 @@ import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertC
 import { formatValue } from '../utils/scoreHelper';
 
 const VolumeRanking = ({ categories = [] }) => {
+    const safeCategories = useMemo(() => {
+        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+    }, [categories]);
+
     // BUG-T12 FIX: Estabilização de referências por fingerprint.
     const categoriesFingerprint = useMemo(() => {
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        return safeCats.map(c => {
+        return safeCategories.map(c => {
             const h = c.simuladoStats?.history;
             const histLen = Array.isArray(h) ? h.length : Object.keys(h || {}).length;
             return `${c.id}:${histLen}`;
@@ -29416,7 +29698,6 @@ const VolumeRanking = ({ categories = [] }) => {
     }, [categories]);
 
     const sorted = useMemo(() => {
-        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
         const stats = safeCategories.map(cat => {
             const simStats = cat.simuladoStats || { history: [] };
             const historyRaw = simStats.history || [];
@@ -29459,6 +29740,14 @@ const VolumeRanking = ({ categories = [] }) => {
         hidden: { opacity: 0, x: 20 },
         show: { opacity: 1, x: 0 }
     };
+
+    if (safeCategories.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-12 text-slate-500 h-full border border-white/5 rounded-2xl bg-slate-900/40">
+                Nenhuma disciplina cadastrada ainda.
+            </div>
+        );
+    }
 
     return (
         <div className="bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl h-full flex flex-col overflow-hidden shadow-2xl">
@@ -53418,7 +53707,7 @@ export default function Dashboard() {
         categories: safeCategories,
         simulados: safeSimulados,
         simuladoRows: safeSimuladoRows,
-        studyLogs,
+        studyLogs: Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}),
         user,
         pomodorosCompleted,
         flashcardDecks: safeFlashcardDecks,
@@ -53449,30 +53738,27 @@ export default function Dashboard() {
     }), [setData]);
 
     const handleStartStudying = React.useCallback((categoryId, taskId) => {
-        const cat = data.categories?.find(c => c.id === categoryId);
+        const currentCategories = useAppStore.getState().appState?.contests?.[
+            useAppStore.getState().appState?.activeId
+        ]?.categories || [];
+        const safeCategoriesList = Array.isArray(currentCategories)
+            ? currentCategories
+            : Object.values(currentCategories || {});
+        const cat = safeCategoriesList.find(c => c.id === categoryId);
         const tsk = cat?.tasks?.find(t => t.id === taskId || t.text === taskId);
 
         if (!cat || !tsk) return;
 
-        const currentActiveSubject = useAppStore.getState().appState.pomodoro?.activeSubject;
+        const currentActiveSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
         const isAlreadyActive = currentActiveSubject &&
             (currentActiveSubject.taskId === tsk.id || currentActiveSubject.taskId === taskId) &&
             tsk.status === 'studying';
-
         if (isAlreadyActive) {
             navigate('/pomodoro');
             return;
         }
 
-        startPomodoroSession({
-            categoryId: cat.id,
-            taskId: tsk.id,
-            category: cat.name,
-            task: tsk.title || tsk.text || 'Estudo',
-            priority: tsk.priority,
-            source: 'dashboard'
-        });
-
+        // BUG-FIX: setData ANTES de startPomodoroSession (ordem correta)
         setData(activeContest => {
             if (!activeContest || activeContest.categories == null) {
                 return activeContest;
@@ -53497,6 +53783,15 @@ export default function Dashboard() {
                     };
                 })
             };
+        });
+
+        startPomodoroSession({
+            categoryId: cat.id,
+            taskId: tsk.id,
+            category: cat.name,
+            task: tsk.title || tsk.text || 'Estudo',
+            priority: tsk.priority,
+            source: 'dashboard'
         });
 
         const taskLabel = tsk.title || tsk.text || 'Estudo';
@@ -60749,7 +61044,8 @@ export const calculateStudyStreak = (studyLogs) => {
   }
   const daySet = new Set(
     logsArray
-      .filter(log => log && log.date && getStudyMinutes(log) > 0)
+      // BUG-FIX: contar flashcards como atividade (getStudyMinutes retorna 0 para flashcards)
+      .filter(log => log && log.date && (getStudyMinutes(log) > 0 || log.type === 'flashcard'))
       .map(log => getDateKey(log.date))
       .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
   );
@@ -60763,6 +61059,10 @@ export const calculateStudyStreak = (studyLogs) => {
   const lastDayStr = sortedDays[0];
   const t = parseNoonLocal(todayStr);
   const l = parseNoonLocal(lastDayStr);
+  // BUG-FIX: validar datas antes de calcular diff
+  if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
   const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
   if (diffDays >= 2) {
     const longest = calculateLongest(sortedDays);
@@ -60770,20 +61070,20 @@ export const calculateStudyStreak = (studyLogs) => {
   }
   let streak = 0;
   let cursorKey = lastDayStr;
-  // FIX CORRIGIDO: Proteção contra loop quase-infinito quando getDateKey
-  // retorna a mesma chave para dias diferentes (bug de timezone).
-  // Antes, o guard `nextKey === cursorKey` só quebrava DEPOIS de já ter
-  // feito uma iteração extra. Agora verificamos ANTES de avançar.
+  // BUG-FIX: proteger contra loop quase-infinito com datas inválidas
   const maxIterations = Math.min(sortedDays.length + 2, 3660);
+  let prevCursorKey = null;
   for (let i = 0; i < maxIterations; i++) {
     if (!cursorKey || !daySet.has(cursorKey)) break;
+    // BUG-FIX: detectar cursor travado (mesma chave = bug de timezone)
+    if (cursorKey === prevCursorKey) break;
+    prevCursorKey = cursorKey;
     streak++;
     const anchoredIso = `${cursorKey}T12:00:00-04:00`;
     const anchored = new Date(anchoredIso);
     anchored.setDate(anchored.getDate() - 1);
     const nextKey = getDateKey(anchored);
-    // FIX: Verificar ANTES de avançar, não depois
-    if (!nextKey || nextKey === cursorKey) break;
+    if (!nextKey) break;
     cursorKey = nextKey;
   }
   const longest = calculateLongest(sortedDays);
@@ -68454,9 +68754,8 @@ export const getXPProgress = (xpInput) => {
     level,
     current: Math.max(0, xp - currentLevelXP),
     needed: safeRange,
-    // FIX: Retornar 0.5 (sliver visual) APENAS se houver progresso real no nível atual.
-    // Evita barra mostrando progresso imediatamente após subir de nível quando xp === currentLevelXP.
-    percentage: (percentage === 0 && safeXP > currentLevelXP) ? 0.5 : percentage,
+    // BUG-FIX: só mostrar 0.5 se houver progresso REAL no nível atual
+    percentage: (percentage === 0 && xp > currentLevelXP) ? 0.5 : percentage,
     total: xp,
   };
 };

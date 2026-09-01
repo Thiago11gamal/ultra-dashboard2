@@ -29,13 +29,13 @@ export function PomodoroClock({
                     ))}
                 </div>
             </div>
+
             <div className="flex items-center gap-4 mb-10 z-30 opacity-60">
                 <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-white">FOCO</span>
                 <div className="w-1 h-1 rounded-full bg-white/30" />
                 <span className="text-[8px] font-bold uppercase tracking-[0.3em] text-white">PAUSA</span>
             </div>
 
-            {/* BUG-11 FIX: Adicionado viewBox para escalar corretamente em mobile */}
             <div className="relative mt-12 mb-8 rounded-full">
                 <svg viewBox="0 0 256 256" className="w-[min(74vw,16rem)] h-[min(74vw,16rem)] sm:w-64 sm:h-64 transform -rotate-90 relative z-10">
                     <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="14" strokeLinecap="round" />
@@ -45,9 +45,6 @@ export function PomodoroClock({
                             <stop offset="100%" stopColor={mode === 'work' ? '#2563eb' : (mode === 'long_break' ? '#9333ea' : '#10b981')} />
                         </linearGradient>
                     </defs>
-                    {/* BUG-1 FIX: Fórmula corrigida — offset = CIRCUMFERENCE * fracção restante.
-                       Quando timeLeft === totalTime, offset = CIRCUMFERENCE (anel vazio = nada avançado).
-                       Quando timeLeft === 0, offset = 0 (anel cheio = tudo completado). */}
                     <circle
                         ref={svgCircleRef}
                         cx="128" cy="128" r="110" fill="none"
@@ -58,9 +55,16 @@ export function PomodoroClock({
                         strokeDashoffset={2 * Math.PI * 110}
                     />
                 </svg>
-
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-                    <span ref={clockRef} className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white drop-shadow-2xl leading-none tabular-nums">{formatTime(timeLeft)}</span>
+                    <span 
+                        ref={clockRef} 
+                        className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white drop-shadow-2xl leading-none tabular-nums"
+                        role="timer"
+                        aria-live="polite"
+                        aria-label={`Tempo restante: ${formatTime(timeLeft)}`}
+                    >
+                        {formatTime(timeLeft)}
+                    </span>
                     <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.25em] sm:tracking-[0.4em] text-white mt-2 text-center px-2">
                         {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação')) : 'SESSÃO PAUSADA'}
                     </span>
@@ -69,4 +73,3 @@ export function PomodoroClock({
         </>
     );
 }
-

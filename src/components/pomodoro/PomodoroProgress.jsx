@@ -9,7 +9,10 @@ export function PomodoroProgress({
     STABLE_TAB_ID,
     activeSubject,
     workFillsRef,
-    breakBallsRef
+    breakBallsRef,
+    mode,
+    timeLeft,
+    totalTime
 }) {
     return (
         <div className="w-full max-w-none lg:max-w-[min(95vw,600px)] rounded-3xl border-x-0 border-y-2 sm:border-2 border-[#94785a] bg-[#b08e6b] px-6 sm:px-8 py-5 sm:py-6 shadow-2xl relative overflow-hidden group mx-auto">
@@ -19,7 +22,7 @@ export function PomodoroProgress({
                 {/* Header: Title & Cycle Stepper */}
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
-                        <Layers size={14} className="text-[#2d1a12]/70 shrink-0" />
+                        <Layers size={14} className="text-[#2d1a12]/70" />
                         <h3 className="text-[10px] sm:text-[11px] font-black text-[#2d1a12]/80 uppercase tracking-[0.25em]">
                             Progresso dos Ciclos
                         </h3>
@@ -117,4 +120,3 @@ export function PomodoroProgress({
         </div>
     );
 }
-
