@@ -38,7 +38,8 @@ export function buildHumanExplanation({
         messages.push('A faixa provável ficou mais ampla devido à alta variabilidade recente.');
     }
 
-    return messages;
+    // ✅ FIX: Retornar mensagem padrão se não houver mensagens
+    return messages.length > 0 ? messages : ['Desempenho estável dentro do padrão esperado.'];
 }
 
 export function getConfidenceTier({

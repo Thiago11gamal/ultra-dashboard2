@@ -345,7 +345,13 @@ function ActionsAndMentorView({
         };
     }, [activeSubject, categories]);
 
-    const cleanTaskText = (rawText, catName) => parseTaskDisplay(rawText, catName);
+    const cleanTaskText = (rawText, catName) => {
+        const result = parseTaskDisplay(rawText, catName);
+        return {
+            displayTopic: result.displayTopic || 'Revisão Geral',
+            secondaryText: result.secondaryText || ''
+        };
+    };
 
     const safeCatName = (name) => {
         const n = String(name || '').trim();

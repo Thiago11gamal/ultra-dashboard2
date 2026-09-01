@@ -339,13 +339,17 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         // FIX (C4): tarefas sem id explícito agora recebem o MESMO id
         // determinístico que o Planner gera — antes ficavam fora do set
         // e apareciam duplicadas nas Pendências.
-        const sid = getSafeId(ensureCoachTaskId(t));
+        const withId = ensureCoachTaskId(t);
+        const sid = withId?.id || getSafeId(withId);
         if (sid) allAssignedIds.add(sid);
       });
     });
     return coachPlan
       .map(ensureCoachTaskId)
-      .filter(task => !allAssignedIds.has(getSafeId(task)));
+      .filter(task => {
+          const id = task?.id || getSafeId(task);
+          return !allAssignedIds.has(id);
+      });
   }, [coachPlan, coachPlanner]);
 
   // FIX (BUG-16): mapa de localização O(1) para handleStartNeural
@@ -371,6 +375,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   const handleStartNeural = useCallback((task, sourceContextHint) => {
     const startWith = (tasks, index, source) => {
       const session = (tasks || []).map(t => ({ ...t, sourceContext: source }));
+      if (session.length === 0) {
+          showToast('Nenhuma tarefa disponível para iniciar.', 'warning');
+          return;
+      }
       startNeuralSession(session, index);
       navigate('/pomodoro');
     };

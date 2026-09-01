@@ -100,6 +100,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             e.preventDefault();
             const currentIndex = tabs.findIndex(t => t.key === activeTab);
+            if (currentIndex === -1) return;
             let nextIndex = currentIndex;
             // BUG-06 FIX: safety counter previne loop infinito se todas tabs estiverem desabilitadas
             let attempts = 0;
@@ -108,12 +109,12 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                 if (nextIndex >= tabs.length) nextIndex = 0;
                 if (nextIndex < 0) nextIndex = tabs.length - 1;
                 attempts++;
-            } while (nextIndex !== currentIndex && isDisabled(tabs[nextIndex]) && attempts < tabs.length);
+            } while (nextIndex !== currentIndex && isDisabled(tabs[nextIndex]) && attempts <= tabs.length);
 
             const nextTab = tabs[nextIndex];
             // FIX (A4): se o loop parar sobre tab desabilitada (ex.: todas as
             // outras desabilitadas), não deve navegar para ela.
-            if (nextTab && nextTab.key !== activeTab && !isDisabled(nextTab)) {
+            if (nextTab && nextTab.key !== activeTab && !isDisabled(nextTab) && attempts <= tabs.length) {
                 onChangeTab(nextTab.key);
             }
             // FIX: acesso a ref no render não ocorre, o foco acontece de forma assíncrona/após montagem

@@ -39,7 +39,7 @@ export function logCalibrationTelemetryEvent(metric) {
         localStorage.setItem(TELEMETRY_KEY, JSON.stringify(next));
         void sendToFirebaseAnalytics(normalizedMetric);
     } catch {
-        // best effort telemetry
+        console.warn('[CalibrationTelemetry] Falha ao registrar telemetria (best effort)');
     }
 }
 

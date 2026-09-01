@@ -62,7 +62,8 @@ export function bootstrapCoachFlags() {
 
   const merged = { ...baseline };
   for (const [key, value] of Object.entries(persisted)) {
-    if (typeof value === 'boolean') {
+    // ✅ FIX: Validar que a chave existe no baseline antes de sobrescrever
+    if (typeof value === 'boolean' && key in baseline) {
       merged[key] = value;
     }
   }

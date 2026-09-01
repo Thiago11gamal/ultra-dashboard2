@@ -1582,12 +1582,18 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
         if (cachedUrgency) {
             // ✅ FIX: Validar que o cache não está stale verificando se a categoria ainda existe
-            const categoryStillExists = options.allCategories ? options.allCategories.some(c => c && (c.id === catId || c.name === catId)) : true;
+            const categoryStillExists = options.allCategories
+                ? options.allCategories.some(c => c && (c.id === catId || c.name === catId))
+                : true;
             if (!categoryStillExists) {
                 _urgencyCache.delete(cacheKey);
             } else {
-                // FIX (BUG-14): deepClone robusto (preserva Date/Map/Set/undefined)
-                return deepClone(cachedUrgency);
+                // ✅ FIX: Verificar se o cache ainda é válido (TTL)
+                if (Date.now() - cachedUrgency.timestamp > CACHE_TTL_MS) {
+                    _urgencyCache.delete(cacheKey);
+                } else {
+                    return deepClone(cachedUrgency);
+                }
             }
         }
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
@@ -1707,7 +1713,9 @@ export function analisarDesempenhoHistorico(historico) {
 }
 
 export const getSuggestedFocus = (categories, simulados, studyLogs = [], options = {}) => {
-    if (!categories || categories.length === 0) return null;
+    if (!categories || (Array.isArray(categories) && categories.length === 0)) return null;
+    const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+    if (safeCategories.length === 0) return null;
     const ranked = categories.map(cat => ({
         ...cat,
         urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
@@ -2535,7 +2543,15 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
       }
     }
 
-    const dedupedTasks = Array.from(taskMap.values());
+    // ✅ FIX: Deduplicar por ID e por texto para evitar duplicatas
+    const seenTexts = new Set();
+    const dedupedTasks = Array.from(taskMap.values()).filter(task => {
+        if (!task || !task.id) return false;
+        const textKey = `${task.categoryId || ''}|${task.topicName || ''}|${task.text || ''}`;
+        if (seenTexts.has(textKey)) return false;
+        seenTexts.add(textKey);
+        return true;
+    });
 
     return dedupedTasks;
 };

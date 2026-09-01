@@ -230,6 +230,7 @@ export function simuladosToHistory(simulados, maxScore = 100) {
 
 const mcCache = new Map();
 const MC_CACHE_MAX = 50;
+const MC_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
 
 export function clearMcCache() {
   mcCache.clear();
@@ -379,11 +380,17 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   );
 
   // LRU: mover para o fim (mais recente)
-  if (mcCache.has(hash)) {
-    const val = mcCache.get(hash);
-    mcCache.delete(hash);
-    mcCache.set(hash, val);
-    return val;
+  const cachedEntry = mcCache.get(hash);
+  if (cachedEntry) {
+    // ✅ FIX: Verificar TTL do cache
+    if (Date.now() - cachedEntry.timestamp > MC_CACHE_TTL_MS) {
+        mcCache.delete(hash);
+    } else {
+        // LRU: mover para o fim
+        mcCache.delete(hash);
+        mcCache.set(hash, cachedEntry);
+        return cachedEntry.value;
+    }
   }
 
   try {
@@ -585,7 +592,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       if (firstKey !== undefined) mcCache.delete(firstKey);
     }
     if (mcCache.has(hash)) mcCache.delete(hash);
-    mcCache.set(hash, finalResult);
+    mcCache.set(hash, { value: finalResult, timestamp: Date.now() });
 
     return finalResult;
   } catch (e) {

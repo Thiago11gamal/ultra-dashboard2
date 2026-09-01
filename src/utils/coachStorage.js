@@ -31,7 +31,7 @@ export function safeSetItem(key, value) {
         }
       } catch { /* fallback failed */ }
     }
-    console.error(`[CoachStorage] Falha ao salvar "${key}":`, err?.message);
+    console.error(`[CoachStorage] Falha ao salvar "${key}":`, err?.message || String(err));
     return false;
   }
 }

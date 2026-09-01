@@ -71,14 +71,14 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   const bins = Math.max(2, Number(options.bins) || 5);
   // ✅ FIX (BUG-CAL-6): retornar null para ece/mce quando não há dados,
   // em vez de 0 que sinaliza falsamente "calibração perfeita"
-  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
+  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
   const cleanPairs = pairs
     .map((p) => ({
       probability: Math.max(0, Math.min(1, Number(p?.probability))),
       observed: Math.max(0, Math.min(1, Number(p?.observed)))
     }))
     .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
-  if (cleanPairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
+  if (cleanPairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
   const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
   let ece = 0;
   let mce = 0;
@@ -193,7 +193,7 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
       const candidates = timed.filter(x => x.ts >= Number(ev.timestamp));
       if (candidates.length > 0) {
         const firstDayKey = getDateKey(candidates[0].row.date || candidates[0].row.createdAt);
-        if (!firstDayKey) return ev; // ✅ FIX: data inválida → pular evento
+        if (!firstDayKey) return { ...ev, backfilled: false }; // ✅ FIX: data inválida → pular evento
         const sameDay = candidates.filter(x => {
           const key = getDateKey(x.row.date || x.row.createdAt);
           return key !== null && key === firstDayKey; // ✅ FIX: excluir nulls
@@ -222,7 +222,7 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
         observedAt = hit.ts;
       }
     }
-    if (score === null || !Number.isFinite(score)) return ev;
+    if (score === null || !Number.isFinite(score)) return { ...ev, backfilled: false };
     return { ...ev, observed: score >= Number(ev.targetScore) ? 1 : 0, backfilled: true, observedAt };
   });
 }

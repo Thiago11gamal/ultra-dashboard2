@@ -24,7 +24,17 @@ import {
 export async function coach(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
   const safeOptions = options && typeof options === 'object' ? options : {};
-  return runCoachOrchestrator(safeInput, safeOptions);
+  try {
+      return await runCoachOrchestrator(safeInput, safeOptions);
+  } catch (err) {
+      console.error('[CoachPipeline] Erro no orquestrador:', err);
+      return {
+          ok: false,
+          error: err?.message || String(err),
+          generatedAt: Date.now(),
+          meta: { modules: {}, errors: [{ step: 'orchestrator', message: err?.message || String(err) }] }
+      };
+  }
 }
 
 /**
@@ -35,9 +45,14 @@ export async function coach(input = {}, options = {}) {
 export async function coachDashboard(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
   const safeOptions = options && typeof options === 'object' ? options : {};
-  const result = await runCoachOrchestrator(safeInput, safeOptions);
-  if (!result || typeof result !== 'object') return null;
-  return buildCoachOrchestratorDashboard(result);
+  try {
+      const result = await runCoachOrchestrator(safeInput, safeOptions);
+      if (!result || typeof result !== 'object') return null;
+      return buildCoachOrchestratorDashboard(result);
+  } catch (err) {
+      console.error('[CoachPipeline] Erro ao gerar dashboard:', err);
+      return null;
+  }
 }
 
 export default {

@@ -188,14 +188,15 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       const withId = ensureCoachTaskId(t);
       // FIX C-05: usa id explícito se existir; senão usa id estável por índice,
       // evitando fundir duas tarefas distintas com o mesmo texto.
-      const sid = withId.id || `pos-${fallbackIndex}-${hashString((t.text || t.title || ''))}`;
+      const sid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
       if (seen.has(sid)) return null;
       seen.add(sid);
       return { ...withId, id: sid };
     };
     const backlog = [];
     let i = 0;
-    for (const t of (Array.isArray(plan) ? plan : [])) {
+    const safePlan = Array.isArray(plan) ? plan : Object.values(plan || {});
+    for (const t of safePlan) {
       if (!t || isSystemAlertTask(t)) { i++; continue; }
       const sid = getSafeId(t);
       if (sid && assigned.has(sid)) { i++; continue; }
@@ -345,7 +346,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
     const { source, destination } = result;
     // FIX: Validar destination antes de processar
-    if (!destination) return;
+    if (!destination || !source) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
     // FIX: Validar draggableId
     if (!result.draggableId) return;

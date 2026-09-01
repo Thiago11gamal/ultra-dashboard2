@@ -86,7 +86,7 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
 
   // FIX: early return genérico para a janela configurada
   if (scores.length < windowSize) {
-    return { scores, volatilities, sampleSize: scores.length };
+    return { scores, volatilities, sampleSize: scores.length, insufficientData: true };
   }
 
   for (let i = windowSize - 1; i < scores.length; i++) {
@@ -102,6 +102,7 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
     scores,
     volatilities,
     sampleSize: scores.length,
+    insufficientData: false,
   };
 }
 
