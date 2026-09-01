@@ -126,7 +126,7 @@ export default function Dashboard() {
             ? currentCategories
             : Object.values(currentCategories || {});
         const cat = safeCategoriesList.find(c => c.id === categoryId);
-        const tsk = cat?.tasks?.find(t => t.id === taskId || t.text === taskId);
+        const tsk = toArray(cat?.tasks).find(t => t.id === taskId || t.text === taskId);
 
         if (!cat || !tsk) return;
 
@@ -178,7 +178,7 @@ export default function Dashboard() {
         const taskLabel = tsk.title || tsk.text || 'Estudo';
         showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');
         navigate('/pomodoro');
-    }, [data.categories, startPomodoroSession, setData, showToast, navigate]);
+    }, [startPomodoroSession, setData, showToast, navigate]);
 
     if (!isHydrated) {
         return (
