@@ -1010,7 +1010,7 @@ export default React.memo(function EvolutionChart({
                     <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center px-2">Galeria de Análises Detalhadas</h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
                     <RadarAnalysis radarData={radarData} maxScore={maxScore} minScore={minScore} unit={unit} />
                     <PerformanceBarChart
                         subjectAggData={subjectAggData}
