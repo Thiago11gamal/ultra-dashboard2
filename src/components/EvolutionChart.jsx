@@ -289,7 +289,7 @@ export default React.memo(function EvolutionChart({
         });
     }, [propCategories, rawCategories]);
 
-    const [activeEngine, setActiveEngine] = useState("bayesian");
+    const [activeEngine, setActiveEngine] = useState("raw_weekly");
     const [selectedSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     
     // Ensure focusSubjectId is valid when categories update (avoid stale/undefined focus)
@@ -486,13 +486,35 @@ export default React.memo(function EvolutionChart({
 
     return (
         <motion.div id="evolution-chart-container" className="space-y-10 relative" variants={containerVariants} initial="hidden" animate="visible">
-            <div className="flex justify-end mb-6 relative z-20 no-print pr-1">
-                <div className="flex flex-col items-end">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-20 no-print pr-1">
+                {/* Global Filters */}
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <div className="flex items-center justify-between gap-1 bg-black/40 border border-white/10 rounded-full p-1.5 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-md">
+                        {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
+                            <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
+                                aria-pressed={timeWindow === w.value}
+                                className={`shrink-0 flex-1 sm:flex-none px-5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 will-change-transform ${timeWindow === w.value ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-indigo-400/50' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'}`}>
+                                {w.label}
+                            </button>
+                        ))}
+                    </div>
+                    
+                    <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
+                        aria-pressed={showOnlyFocus}
+                        className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-2xl text-xs font-bold border transition-all will-change-transform active:scale-[0.985] ${showOnlyFocus ? 'bg-amber-500/30 border-amber-500/60 text-amber-200 shadow-sm' : 'bg-slate-950/80 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:border-slate-600'}`}>
+                        <span className="text-base">{showOnlyFocus ? '🎯' : '👁️'}</span>
+                        <span className="hidden sm:inline truncate max-w-[150px] font-semibold">
+                            {showOnlyFocus ? `Foco: ${focusCategory?.name}` : 'Ver Todas'}
+                        </span>
+                    </button>
+                </div>
+
+                <div className="flex flex-col items-end w-full md:w-auto">
                     <button
                         type="button"
                         onClick={handleExport}
                         disabled={isExporting}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50 will-change-transform active:scale-[0.985]"
+                        className="flex items-center justify-center w-full md:w-auto gap-2 px-4 py-2.5 rounded-2xl bg-indigo-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 text-indigo-300 hover:bg-indigo-600/30 text-xs font-bold transition-all border border-indigo-500/30 disabled:opacity-50 will-change-transform active:scale-[0.985]"
                     >
                         {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                         <span className="hidden sm:inline">{isExporting ? 'Gerando PDF...' : 'Baixar PDF'}</span>
@@ -551,8 +573,54 @@ export default React.memo(function EvolutionChart({
                 </div>
             </motion.div>
 
+            {/* HERO CHART: Nível Bayesiano (Fixo) */}
+            <motion.div variants={itemVariants} className="relative z-20 mb-12 rounded-[2.5rem] border border-emerald-500/20 bg-slate-900/80 backdrop-blur-2xl p-6 sm:p-8 shadow-[0_10px_40px_-15px_rgba(52,211,153,0.15)] w-full overflow-hidden">
+                <div className="flex items-center gap-3 mb-6">
+                    <span className="text-3xl drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">🧠</span>
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">Evolução do Domínio Real</h2>
+                        <p className="text-xs text-slate-400 font-medium">Histórico Bayesiano e Intervalo de Confiança</p>
+                    </div>
+                </div>
+                
+                <div className="w-full overflow-x-auto no-scrollbar pb-2">
+                    <div className="min-w-[700px] lg:min-w-full relative h-[350px]">
+                        {!accountHasData ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                <span className="text-4xl">📉</span>
+                                <span className="text-slate-400 font-bold text-sm">Registre simulados para ver sua curva de domínio</span>
+                            </div>
+                        ) : !filterHasData ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                <span className="text-4xl opacity-50">📅</span>
+                                <span className="text-slate-400 font-bold text-sm">Sem atividade no período selecionado</span>
+                            </div>
+                        ) : (
+                            <EvolutionLineChart
+                                filteredChartData={filteredChartData}
+                                activeCategories={activeCategories}
+                                engine={ENGINES.find(e => e.id === 'bayesian')}
+                                targetScore={targetScore}
+                                focusSubjectId={focusSubjectId}
+                                showOnlyFocus={showOnlyFocus}
+                                minScore={minScore}
+                                maxScore={maxScore}
+                                unit={unit}
+                            />
+                        )}
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* TABS E GRÁFICOS SECUNDÁRIOS */}
+            <motion.div variants={itemVariants} className="relative z-10">
+                <div className="flex items-center gap-3 mb-6 px-2">
+                    <span className="text-2xl drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]">🔬</span>
+                    <h2 className="text-xl font-black text-indigo-400 tracking-tight">Análises Secundárias</h2>
+                </div>
+
             {/* ✅ BUG-10 FIX: z-[50] → z-10 para não cortar tooltips de charts abaixo */}
-            <motion.div variants={itemVariants} className="relative z-10 rounded-[2.5rem] border border-white/10 bg-slate-900/60 backdrop-blur-2xl p-5 sm:p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
+            <motion.div className="relative z-10 rounded-[2.5rem] border border-white/10 bg-slate-900/60 backdrop-blur-2xl p-5 sm:p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
                  style={{ boxShadow: `0 10px 60px -15px ${engine.color}25, inset 0 1px 0 0 rgba(255,255,255,0.05)` }}>
                  
                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/50">
@@ -590,44 +658,6 @@ export default React.memo(function EvolutionChart({
                              </div>
                          </div>
                      </div>
-
-                     <div className="flex items-center gap-3 w-full lg:w-auto">
-                        <div className="flex items-center justify-between gap-1 bg-black/40 border border-white/10 rounded-full p-1.5 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-md">
-                            {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
-                                <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
-                                    aria-pressed={timeWindow === w.value}
-                                    className={`shrink-0 flex-1 sm:flex-none px-5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 will-change-transform ${timeWindow === w.value ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-indigo-400/50' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'}`}>
-                                    {w.label}
-                                </button>
-                            ))}
-                        </div>
-                        {activeEngine !== 'compare' && activeEngine !== 'mc_density' ? (
-                            <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
-                                aria-pressed={showOnlyFocus}
-                                className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-2xl text-xs font-bold border transition-all will-change-transform active:scale-[0.985] ${showOnlyFocus ? 'bg-amber-500/30 border-amber-500/60 text-amber-200 shadow-sm' : 'bg-slate-950/80 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:border-slate-600'}`}>
-                                <span className="text-base">{showOnlyFocus ? '🎯' : '👁️'}</span>
-                                <span className="hidden sm:inline truncate max-w-[150px] font-semibold">
-                                    {showOnlyFocus ? `Foco: ${focusCategory?.name}` : 'Ver Todas'}
-                                </span>
-                            </button>
-                        ) : (
-                            <div className="shrink-0 flex items-center justify-center gap-1.5 px-4 py-1.5 h-[34px] rounded-2xl text-xs font-bold border bg-indigo-500/10 border-indigo-500/30 text-indigo-300 shadow-sm transition-all hover:bg-indigo-500/20">
-                                <span className="text-base">🎯</span>
-                                <select
-                                    value={focusCategory?.id || ''}
-                                    onChange={(e) => setFocusSubjectId(e.target.value)}
-                                    className="bg-transparent outline-none cursor-pointer hover:text-indigo-200 appearance-none pr-5 relative max-w-[150px] truncate font-semibold"
-                                    style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'%23818cf8\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M8 11.5l-5-5h10l-5 5z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right center' }}
-                                >
-                                    {categories.map(c => (
-                                        <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
-                                            {c.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                     </div>
                  </div>
 
                 {/* Máscara CSS substituída por gradiente adaptativo para mobile */}
@@ -635,7 +665,7 @@ export default React.memo(function EvolutionChart({
                     <div className="absolute left-0 top-0 bottom-4 w-6 bg-gradient-to-r from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
                     <div className="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
                     <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 sm:px-0 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
-                        {ENGINES.map((eng, idx) => {
+                        {ENGINES.filter(e => e.id !== 'bayesian').map((eng, idx, arr) => {
                             const active = activeEngine === eng.id;
                             return (
                                 <button
@@ -649,16 +679,16 @@ export default React.memo(function EvolutionChart({
                                     onKeyDown={(e) => {
                                         if (e.key === 'ArrowRight') {
                                             e.preventDefault();
-                                            setActiveEngine(ENGINES[(idx + 1) % ENGINES.length].id);
+                                            setActiveEngine(arr[(idx + 1) % arr.length].id);
                                         } else if (e.key === 'ArrowLeft') {
                                             e.preventDefault();
-                                            setActiveEngine(ENGINES[(idx - 1 + ENGINES.length) % ENGINES.length].id);
+                                            setActiveEngine(arr[(idx - 1 + arr.length) % arr.length].id);
                                         } else if (e.key === 'Home') {
                                             e.preventDefault();
-                                            setActiveEngine(ENGINES[0].id);
+                                            setActiveEngine(arr[0].id);
                                         } else if (e.key === 'End') {
                                             e.preventDefault();
-                                            setActiveEngine(ENGINES[ENGINES.length - 1].id);
+                                            setActiveEngine(arr[arr.length - 1].id);
                                         }
                                     }}
                                     tabIndex={active ? 0 : -1}
@@ -886,6 +916,8 @@ export default React.memo(function EvolutionChart({
                     </div>
                 </div>
             )}
+            
+            </motion.div> {/* Fim do bloco Análises Secundárias */}
 
             <div className="pt-10 relative z-0">
             {(() => {
