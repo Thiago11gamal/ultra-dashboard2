@@ -243,7 +243,7 @@ export const EvolutionHeatmap = ({
                         <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
                             <div className="flex items-center gap-2.5 pr-4 min-w-0">
                                 <span className="text-lg shrink-0">{cat.icon}</span>
-                                <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight" style={{ color: cat.color }} title={cat.name}>
+                                <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight capitalize" style={{ color: cat.color }} title={cat.name}>
                                     {cat.name}
                                 </span>
                             </div>

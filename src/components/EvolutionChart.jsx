@@ -744,8 +744,8 @@ export default React.memo(function EvolutionChart({
                 <div className="flex items-center gap-3 mb-6">
                     <span className="text-3xl drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">🧠</span>
                     <div>
-                        Evolução do domínio real
-                        Histórico bayesiano e intervalo de confiança
+                        <h3 className="text-xl sm:text-2xl font-bold text-slate-100 mb-1">Evolução do domínio real</h3>
+                        <p className="text-xs sm:text-sm text-emerald-400/80 font-medium tracking-wide uppercase">Histórico bayesiano e intervalo de confiança</p>
                     </div>
                 </div>
                 

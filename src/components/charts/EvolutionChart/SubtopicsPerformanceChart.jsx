@@ -152,7 +152,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                 const h = recentHistory[i];
 
                 (h.topics || []).forEach(t => {
-                    const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                    const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    const n = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!n || n.toLowerCase() === 'nenhum') return;
                     const key = n.toLowerCase();
 
@@ -193,8 +194,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                 return {
                     name: d.name.length > 25 ? d.name.substring(0, 23) + '...' : d.name,
                     fullName: d.name,
-                    correct: d.correct,
-                    total: d.total,
+                    correct: Math.round(d.correct),
+                    total: Math.round(d.total),
                     accuracy: Number(acc.toFixed(2)),
                 };
             })
@@ -233,7 +234,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                 }
 
                 (h.topics || []).forEach(t => {
-                    const topicName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                    const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    const topicName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
                     let total = parseInt(t.total, 10) || 0;

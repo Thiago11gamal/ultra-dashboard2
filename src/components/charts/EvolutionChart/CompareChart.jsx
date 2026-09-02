@@ -12,7 +12,6 @@ import { formatValue } from '../../../utils/scoreHelper';
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;
     if (cx == null || cy == null) return null;
-    const dangerLimit = Math.max(safeMinScore, targetScore - ((safeMaxScore - safeMinScore) * 0.08));
     
     return (
         <g>
@@ -78,9 +77,8 @@ export function CompareChart({
     }, [filteredChartData]);
 
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore
-        ? Number(maxScore)
-        : Math.max(100, safeMinScore + 1);
+    const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+    const dangerLimit = Math.max(safeMinScore, targetScore - ((safeMaxScore - safeMinScore) * 0.08));
 
     const lastValidIdx = React.useMemo(() => {
         const last = { bay: -1, raw: -1, stats: -1, mc: -1 };

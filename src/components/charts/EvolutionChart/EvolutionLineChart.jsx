@@ -341,9 +341,9 @@ export function EvolutionLineChart({
                             value: `Meta ${formatValue(targetScore)}${unit}`, 
                             fill: '#22c55e', 
                             fontSize: 10, 
-                            position: 'insideBottomLeft', 
-                            dy: -4, 
-                            dx: 5 
+                            position: 'insideTopRight', 
+                            dy: -12, 
+                            dx: -10 
                         }} 
                     />
 
@@ -358,7 +358,8 @@ export function EvolutionLineChart({
                         height={28}
                         iconSize={6}
                         onClick={handleLegendClick}
-                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px', cursor: 'pointer' }} 
+                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px', cursor: 'pointer', textTransform: 'capitalize' }} 
+                        formatter={(value) => value}
                     />
 
                     {safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
