@@ -5,7 +5,6 @@ import { Calendar, Plus, Trash2, Clock, Target, ChevronLeft, ChevronRight } from
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateId } from '../utils/idGenerator';
-import { getDateKey } from '../utils/dateHelper';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -44,13 +43,16 @@ export default function Agenda() {
   };
 
   // Month grid days
-  const monthDays = useMemo(() => {
+  const calendarDays = useMemo(() => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
-    return eachDayOfInterval({ start, end });
+    const days = eachDayOfInterval({ start, end });
+    const padding = start.getDay();
+    const prefix = Array.from({ length: padding }).fill(null);
+    return [...prefix, ...days];
   }, [currentMonth]);
 
-  const selectedDateStr = getDateKey(selectedDate) || format(selectedDate, 'yyyy-MM-dd');
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
 
   const eventsForSelected = useMemo(() => {
     return agenda
@@ -59,7 +61,7 @@ export default function Agenda() {
   }, [agenda, selectedDateStr]);
 
   const upcomingEvents = useMemo(() => {
-    const todayStr = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     return agenda
       .filter(e => e.date >= todayStr)
       .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''))
@@ -82,7 +84,7 @@ export default function Agenda() {
   function openAddForSelected() {
     setForm({
       title: '',
-      subject: categories[0]?.name || 'Estudo Geral',
+      subject: categories[0]?.name || 'Geral',
       duration: 60,
       notes: '',
       time: '09:00'
@@ -126,7 +128,7 @@ export default function Agenda() {
 
   // Calendar day with event dot count
   const getEventsOnDay = (day) => {
-    const dstr = getDateKey(day) || format(day, 'yyyy-MM-dd');
+    const dstr = format(day, 'yyyy-MM-dd');
     return agenda.filter(ev => ev.date === dstr).length;
   };
 
@@ -174,7 +176,10 @@ export default function Agenda() {
           </div>
 
           <div className="grid grid-cols-7 gap-1">
-            {monthDays.map((day, idx) => {
+            {calendarDays.map((day, idx) => {
+              if (!day) {
+                return <div key={`empty-${idx}`} className="aspect-square border border-transparent" />;
+              }
               const eventCount = getEventsOnDay(day);
               const isSel = isSameDay(day, selectedDate);
               const isTod = isToday(day);
@@ -292,9 +297,9 @@ export default function Agenda() {
                 <div>
                   <label className="micro-label mb-1 block">Disciplina</label>
                   <select value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm">
-                    {categories.length > 0 ? categories.map(c => (
+                    {categories.map(c => (
                       <option key={c.id} value={c.name}>{c.name}</option>
-                    )) : <option value="Geral">Geral</option>}
+                    ))}
                     <option value="Geral">Geral</option>
                   </select>
                 </div>
