@@ -137,15 +137,21 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     const addTenToAllCorrect = () => {
         const newRows = rows.map(row => {
-            const currentTotal = parseInt(row.total, 10) || 0;
+            let currentTotal = parseInt(row.total, 10) || 0;
             let newCorrect = (parseInt(row.correct, 10) || 0) + 10;
-            // Não permite que os acertos ultrapassem o total (se o total for maior que zero)
-            if (currentTotal > 0 && newCorrect > currentTotal) {
-                newCorrect = currentTotal;
+            
+            if (newCorrect > currentTotal) {
+                if (currentTotal === 0) {
+                    currentTotal = newCorrect;
+                } else {
+                    newCorrect = currentTotal;
+                }
             }
+            
             return {
                 ...row,
                 correct: newCorrect,
+                total: currentTotal,
                 score: currentTotal > 0 ? Math.min(100, (newCorrect / currentTotal) * 100) : 0
             };
         });

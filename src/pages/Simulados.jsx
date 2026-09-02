@@ -41,13 +41,10 @@ const formatDateTime = (r) => {
   });
 };
 
-/* ─────────────────────────────────────────────
-   HELPER: Determina a origem do simulado
-   ───────────────────────────────────────────── */
 const getSimuladoSource = (rows) => {
   if (!rows || rows.length === 0) return null;
-  const hasAI = rows.some(r => r.batchId || r.source === 'ai-generated');
-  const hasManual = rows.some(r => !r.batchId && r.source !== 'ai-generated');
+  const hasAI = rows.some(r => r.source === 'ai-generated' || (r.batchId && r.source !== 'manual'));
+  const hasManual = rows.some(r => r.source === 'manual' || (!r.batchId && r.source !== 'ai-generated'));
   if (hasAI && hasManual) return 'mixed';
   if (hasAI) return 'ai';
   return 'manual';
