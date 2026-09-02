@@ -174,7 +174,10 @@ function DailySummaryCards({ simuladoRows }) {
         subjectMap[name].t += parseInt(r.total, 10) || 0;
       });
       const bySubject = Object.entries(subjectMap)
-        .map(([name, d]) => ({ name, pct: d.t > 0 ? Math.round((d.c / d.t) * 100) : 0, c: d.c, t: d.t }))
+        .map(([name, d]) => {
+          const safeC = Math.min(d.c, d.t);
+          return { name, pct: d.t > 0 ? Math.round((safeC / d.t) * 100) : 0, c: safeC, t: d.t };
+        })
         .sort((a, b) => b.t - a.t);
 
       return { totalQ, totalC, pct, subjects, count: rows.length, bySubject };
@@ -306,7 +309,7 @@ export default function Simulados() {
     let resultRows = [];
 
     // 3. Estratégia A: batchId (Simulado IA)
-    if (lastRef.batchId) {
+    if (lastRef.batchId && lastRef.source !== 'manual') {
       resultRows = simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
       // ✅ FIX BUG-49: fallback se batchId não encontrar nada
       if (resultRows.length === 0) {
@@ -315,7 +318,7 @@ export default function Simulados() {
       }
     }
     
-    if (!lastRef.batchId || (lastRef.batchId && resultRows.length === 0)) {
+    if (!lastRef.batchId || (lastRef.batchId && resultRows.length === 0) || lastRef.source === 'manual') {
       // 4. Estratégia B: mesma data + mesma origem (manual)
       const refDateKey = getDateKey(normalizeDate(
         lastRef.date || lastRef.lastUpdated || lastRef.createdAt || new Date()
@@ -331,8 +334,9 @@ export default function Simulados() {
       };
       
       resultRows = simuladoRowsArray.filter((r) => {
-        // Não misturar IA com manual — exclui rows de IA quando lastRef é manual
-        if (r.batchId) return false;
+        // Para manual, queremos agrupar todos do dia
+        const isManual = r.source === 'manual' || r.isAuto === false;
+        if (!isManual) return false;
         return getRowDateKey(r) === refDateKey;
       });
       
@@ -387,11 +391,27 @@ export default function Simulados() {
           ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
 
         const submittedIds = new Set(rawRows.map(r => r.id).filter(Boolean));
+        const submittedKeys = new Set(rawRows.map(r => {
+          if (r.categoryId && r.topicId) return `${r.categoryId}-${r.topicId}`;
+          if (r.subject && r.topic) return `${normalize(r.subject)}-${normalize(r.topic)}`;
+          return null;
+        }).filter(Boolean));
+
         const rowsToKeep = prevSimuladoRowsArray.filter((r) => {
-          if (r?.id && submittedIds.has(r.id)) return false;
           const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
           const isManual = r && !r.isAuto && r.source !== 'ai-generated';
-          return !(isToday && isManual);
+          
+          if (isToday && isManual) {
+            if (r?.id && submittedIds.has(r.id)) return false;
+            
+            const key1 = (r?.categoryId && r?.topicId) ? `${r.categoryId}-${r.topicId}` : null;
+            const key2 = (r?.subject && r?.topic) ? `${normalize(r.subject)}-${normalize(r.topic)}` : null;
+            
+            if (key1 && submittedKeys.has(key1)) return false;
+            if (key2 && submittedKeys.has(key2)) return false;
+          }
+          
+          return true;
         });
 
         const manualSubmittedRows = rawRows
