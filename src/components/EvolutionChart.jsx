@@ -552,8 +552,8 @@ export default React.memo(function EvolutionChart({
             </motion.div>
 
             {/* ✅ BUG-10 FIX: z-[50] → z-10 para não cortar tooltips de charts abaixo */}
-            <motion.div variants={itemVariants} className="relative z-10 rounded-2xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-md p-4 sm:p-6 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
-                 style={{ boxShadow: `0 0 60px -15px ${engine.color}20` }}>
+            <motion.div variants={itemVariants} className="relative z-10 rounded-[2.5rem] border border-white/10 bg-slate-900/60 backdrop-blur-2xl p-5 sm:p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
+                 style={{ boxShadow: `0 10px 60px -15px ${engine.color}25, inset 0 1px 0 0 rgba(255,255,255,0.05)` }}>
                  
                  <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/50">
                      
@@ -592,11 +592,11 @@ export default React.memo(function EvolutionChart({
                      </div>
 
                      <div className="flex items-center gap-3 w-full lg:w-auto">
-                        <div className="flex items-center justify-between gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-sm">
+                        <div className="flex items-center justify-between gap-1 bg-black/40 border border-white/10 rounded-full p-1.5 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-md">
                             {[{ label: '30d', value: '30' }, { label: '60d', value: '60' }, { label: '90d', value: '90' }, { label: 'Tudo', value: 'all' }].map(w => (
                                 <button type="button" key={w.value} onClick={() => setTimeWindow(w.value)}
                                     aria-pressed={timeWindow === w.value}
-                                    className={`shrink-0 flex-1 sm:flex-none px-4 py-1.5 rounded-2xl text-xs font-bold transition-all duration-150 will-change-transform ${timeWindow === w.value ? 'bg-indigo-600/40 text-indigo-200 shadow-sm border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent hover:scale-[1.01]'}`}>
+                                    className={`shrink-0 flex-1 sm:flex-none px-5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 will-change-transform ${timeWindow === w.value ? 'bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-indigo-400/50' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'}`}>
                                     {w.label}
                                 </button>
                             ))}
@@ -663,8 +663,8 @@ export default React.memo(function EvolutionChart({
                                     }}
                                     tabIndex={active ? 0 : -1}
                                     aria-pressed={active}
-                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[100px] sm:w-[118px] h-[70px] sm:h-[78px] rounded-2xl transition-all duration-150 border will-change-transform ${active ? 'shadow-md scale-[1.03] z-10' : 'bg-white/[0.015] border-white/[0.04] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300 hover:border-white/15 hover:scale-[1.015]'}`}
-                                    style={active ? { backgroundColor: `${eng.color}12`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 0 20px ${eng.color}20, 0 4px 12px -2px rgba(0,0,0,0.3)` } : {}}
+                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[100px] sm:w-[118px] h-[70px] sm:h-[78px] rounded-3xl transition-all duration-300 border will-change-transform ${active ? 'shadow-lg scale-[1.05] z-10' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20 hover:-translate-y-1'}`}
+                                    style={active ? { backgroundColor: `${eng.color}15`, borderColor: `${eng.color}50`, color: eng.color, boxShadow: `0 8px 25px -8px ${eng.color}40, inset 0 0 12px ${eng.color}10` } : {}}
                                 >
                                     <span className="text-[22px] group-hover:scale-105 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
                                     <span className="text-[10px] uppercase tracking-[0.05em] font-bold text-center leading-tight px-1 line-clamp-2">{eng.label}</span>
@@ -738,16 +738,16 @@ export default React.memo(function EvolutionChart({
                         simuladoRows={simuladoRowsArray}
                     />
                 ) : !accountHasData ? (
-                    <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner">
-                        <span className="text-5xl">🔥</span>
+                    <div className="min-h-[400px] flex flex-col items-center justify-center gap-5 rounded-[2.5rem] border border-white/5 bg-gradient-to-b from-slate-900/40 to-slate-950/60 shadow-inner backdrop-blur-md p-8">
+                        <span className="text-6xl animate-pulse">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para exibir o gráfico</p>
                             <p className="text-slate-500 text-sm max-w-xs">Registre pelo menos <span className="text-indigo-400 font-bold">1 simulado</span> na sua conta para desbloquear os gráficos.</p>
                         </div>
                     </div>
                 ) : !filterHasData ? (
-                    <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner">
-                        <span className="text-5xl">📅</span>
+                    <div className="min-h-[400px] flex flex-col items-center justify-center gap-5 rounded-[2.5rem] border border-white/5 bg-gradient-to-b from-slate-900/40 to-slate-950/60 shadow-inner backdrop-blur-md p-8">
+                        <span className="text-6xl opacity-80">📅</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Nenhuma atividade recente</p>
                             <p className="text-slate-500 text-sm max-w-xs">Não registrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
