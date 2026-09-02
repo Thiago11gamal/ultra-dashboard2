@@ -158,7 +158,13 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 const task = tasksArray.find(t => String(t?.id) === String(log.taskId));
 
                 // Bug fix: data model stores task.text, not task.title
-                if (task) taskTitle = task.text || task.title || '-';
+                if (task) {
+                    taskTitle = task.text || task.title || '-';
+                } else {
+                    taskTitle = log.taskTitle || log.task || log.title || log.taskName || '-';
+                }
+            } else {
+                taskTitle = log.taskTitle || log.task || log.title || log.taskName || '-';
             }
 
             // Check if this task is already in the list for this day (Merge strategy)

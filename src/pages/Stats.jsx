@@ -92,7 +92,9 @@ export default function Stats() {
     const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards;
 
     // dayTick força re-cálculo ao atravessar meia-noite.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const focusData = useMemo(() => mapFocusEvolutionData(studyLogs), [studyLogs, dayTick]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const subjectData = useMemo(() => mapSubjectHoursData(studyLogs, categories), [studyLogs, categories, dayTick]);
 
     return (
