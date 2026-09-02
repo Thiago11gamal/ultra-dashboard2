@@ -141,7 +141,15 @@ export default function Flashcards() {
     const nextDecks = decks.map(deck => {
       if (deck.id !== selectedDeckId) return deck;
       const cards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
-      return { ...deck, cards: cards.filter(c => c.id !== cardId) };
+      const nextCards = cards.filter(c => c.id !== cardId);
+      return { 
+        ...deck, 
+        cards: nextCards,
+        stats: {
+          ...deck.stats,
+          mastered: nextCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) > 6).length
+        }
+      };
     });
     persistDecks(nextDecks);
     showToast('Cartão excluído', 'info');
@@ -165,7 +173,13 @@ export default function Flashcards() {
     }
 
     const dueForDeck = getDueCardsForDeck(deck);
-    const cardsToStudy = dueForDeck.length > 0 ? dueForDeck : safeCards;
+    
+    if (dueForDeck.length === 0) {
+      showToast('Nenhum cartão para revisar hoje!', 'success');
+      return;
+    }
+
+    const cardsToStudy = dueForDeck;
 
     setSelectedDeckId(deck.id);
     setStudyDeck({ ...deck, cardsToStudy });
@@ -181,6 +195,7 @@ export default function Flashcards() {
 
   // SRS simple
   function rateCard(rating) {
+    if (pendingClose) return;
     // rating: 0=Esqueci, 1=Difícil, 2=Bom, 3=Fácil
     if (!studyDeck || !studyDeck.cardsToStudy) return;
 
@@ -277,6 +292,7 @@ export default function Flashcards() {
       setStudyDeck({ ...studyDeck, cardsToStudy: updatedStudyCards });
     } else {
       // Finished
+      setIsFlipped(false);
       showToast(`Sessão concluída! ${projectedKnown}/${projectedReviewed} dominados.`, 'success');
       setPendingClose(true);
     }
