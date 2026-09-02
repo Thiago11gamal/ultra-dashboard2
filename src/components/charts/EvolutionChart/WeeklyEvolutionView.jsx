@@ -399,9 +399,9 @@ export const WeeklyEvolutionView = ({
         return (
             <div className="min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-3xl border border-slate-700/50 p-6 shadow-inner">
                 <HelpCircle size={40} className="text-slate-600 mb-3" />
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
+                Dados insuficientes
                 <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
-                    Registre pelo menos 1 semana de simulados para visualizar a curva de evolução e a variação de deltas.
+                    Cadastre pelo menos uma semana de simulados para visualizar a curva de evolução e a variação semanal.
                 </p>
             </div>
         );
@@ -411,9 +411,9 @@ export const WeeklyEvolutionView = ({
         <div className="w-full pt-4 animate-fade-in relative flex flex-col">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-2 gap-4 shrink-0">
                 <div>
-                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Raio-X Temporal Avançado</h4>
+                    Raio-X temporal avançado
                     <h3 className="text-lg font-black text-white uppercase tracking-tight">
-                        {showOnlyFocus ? 'Semanas por Assunto' : 'Semanas por Matéria'}
+                        Semanas por assunto
                     </h3>
                     {trendKpi && (
                         <p className="text-[10px] mt-1 text-slate-400 font-mono">
@@ -581,7 +581,7 @@ export const WeeklyEvolutionView = ({
             {viewMode === 'variation' && (
                 <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">
-                        Top Regressões {topRegressions[0]?.week ? `· Semana ${topRegressions[0].week}` : ''}
+                        Principais quedas
                     </p>
                     {topRegressions.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -593,7 +593,7 @@ export const WeeklyEvolutionView = ({
                             ))}
                         </div>
                     ) : (
-                        <p className="text-[10px] text-slate-400">Sem regressões visíveis no filtro atual. ✅</p>
+                        <p className="text-slate-500 text-xs text-center py-4">Nenhuma queda visível no filtro atual. ✅</p>
                     )}
                 </div>
             )}
@@ -601,7 +601,7 @@ export const WeeklyEvolutionView = ({
             {viewMode !== 'performance' && (
                 <div className="flex justify-center mt-3 opacity-60">
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-md border border-slate-800 shrink-0 select-none">
-                        💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
+                        💡 Dica: clique nos itens da legenda para ocultar ou isolar o gráfico.
                     </p>
                 </div>
             )}

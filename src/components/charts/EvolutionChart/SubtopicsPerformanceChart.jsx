@@ -35,7 +35,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
                 <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
                     <span>📅 {label}</span>
-                    <span className="text-slate-500 font-bold bg-slate-900/50 px-2 py-0.5 rounded">META: {safeFix(targetScorePct, 0)}%</span>
+                    Meta:
                 </p>
                 <div className="space-y-4">
                     {sortedPayload.map((entry, index) => {
@@ -317,7 +317,7 @@ export const SubtopicsPerformanceChart = React.memo(({
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
                 <div>
                     <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-0.5">
-                        🔬 Raio-X de Tópicos {viewMode === 'lines' ? <span className="text-slate-400 text-sm ml-1">(Evolução Temporal)</span> : <span className="text-amber-400/60 text-sm ml-1">(Ranking de Desempenho)</span>}
+                        Raio-X de tópicos
                     </h3>
                     <p className="text-slate-500 text-xs mt-1">Percentual de precisão real de cada pilar da sua disciplina.</p>
                 </div>
@@ -328,14 +328,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
                         aria-pressed={viewMode === 'bars'}
                     >
-                        Ranking (Barras)
+                        Ranking (barras)
                     </button>
                     <button
                         onClick={() => setViewMode('lines')}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
                         aria-pressed={viewMode === 'lines'}
                     >
-                        Tempo (Linhas)
+                        Tempo (linhas)
                     </button>
                 </div>
             </div>
@@ -345,7 +345,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <span className="text-5xl opacity-40">⏳</span>
                     <div className="text-center">
                         <p className="text-slate-300 font-bold text-base mb-1">Nenhum assunto no período atual</p>
-                        <p className="text-slate-500 text-sm max-w-xs block">Mude o filtro de "Período" ali em cima para <b>Tudo</b> caso seus simulados sejam mais antigos.</p>
+                        Altere o filtro de período para <b>Tudo</b> caso seus simulados sejam mais antigos.
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (

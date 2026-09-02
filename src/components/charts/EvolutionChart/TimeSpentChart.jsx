@@ -119,7 +119,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
             <div className="w-full mt-3 pt-2.5 border-t border-slate-800/60 bg-slate-950/40 p-2.5 rounded-xl border flex flex-col gap-1.5">
                 {hasAbsolute && (
                     <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-medium" title="Sua média de tempo por questão apenas na última sessão">Última Média</span>
+                        Última média
                         <span className={`font-bold ${absoluteColor === '#ef4444' ? 'text-rose-400' : (absoluteColor === '#10b981' ? 'text-emerald-400' : (absoluteColor === '#eab308' ? 'text-yellow-400' : 'text-slate-300'))}`}>{formatTime(data.absoluteLatestSeconds)}</span>
                     </div>
                 )}
@@ -130,7 +130,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
                     </div>
                 )}
                 <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400 font-medium">Média 7 Dias</span>
+                    Média (7 dias)
                     <span className="text-cyan-400 font-bold">{formatTime(data.displaySeconds)}</span>
                 </div>
             </div>
@@ -146,7 +146,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
         return safeSubjectAggData
             .filter(d => d.timedQuestoes > 0 && d.timeSpent >= 0)
             .map((d) => {
-                // Média Geral
+                // Média geral
                 const avgSeconds = Math.round(d.timeSpent / d.timedQuestoes);
 
             // Média Recente (Últimos 7 dias)
@@ -336,9 +336,9 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner w-full mt-2">
                 <span className="text-5xl">⏳</span>
                 <div className="text-center">
-                    <p className="text-slate-300 font-bold text-base mb-1">Coletando Dados de Agilidade AI</p>
+                    Coletando dados de agilidade IA
                     <p className="text-slate-500 text-sm max-w-sm px-4">
-                        O sistema começou a registrar seus tempos hoje. Faça um <span className="text-cyan-400 font-bold">novo Simulado IA</span> para que seu gráfico de agilidade apareça aqui!
+                        O sistema começou a registrar seus tempos hoje. Faça um <span className="text-cyan-400 font-bold">novo simulado IA</span> para ver seu gráfico de agilidade aqui.
                     </p>
                 </div>
             </div>
@@ -355,10 +355,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                             <Clock size={16} />
                         </div>
                         <h3 className="text-base sm:text-lg font-black text-white tracking-tight truncate">
-                            {showOnlyFocus ? `Tempo Médio por Questão — ${focusCategory?.name}` : "Tempo Médio por Questão (Recente vs Histórico)"}
+                            Tempo médio por questão —
                         </h3>
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-widest">
-                            Agilidade AI
+                            Agilidade IA
                         </span>
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-purple-500/10 text-purple-400 border border-purple-500/20 uppercase tracking-widest hidden sm:inline-block">
                             Recente vs Geral
@@ -377,7 +377,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         </span>
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/60 border border-slate-800" title="Média no último dia estudado">
                             <span className="h-2 w-2 rounded-sm bg-emerald-400" />
-                            Média do Dia
+                            Média do dia
                         </span>
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-950/60 border border-slate-800" title="Média exata da última sessão">
                             <span className="h-2 w-2 rounded-full bg-white ring-1 ring-slate-400" />
@@ -408,7 +408,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         title="Ordenar pelas matérias com maior tempo médio"
                         aria-pressed={sortOrder === 'slower'}
                     >
-                        🐢 Mais Lentas
+                        Mais lentas
                     </button>
                     <button
                         type="button"
@@ -421,7 +421,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         title="Ordenar pelas matérias com menor tempo médio"
                         aria-pressed={sortOrder === 'faster'}
                     >
-                        ⚡ Mais Rápidas
+                        Mais rápidas
                     </button>
                 </div>
             </div>
@@ -437,7 +437,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Último Geral</span>
+                    Última média geral
                     <span className="text-lg sm:text-2xl font-black text-cyan-400 tracking-tight mt-1">
                         {legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}
                     </span>
@@ -445,7 +445,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-rose-400/80 uppercase tracking-wider">Acima da Média</span>
+                    Acima da média
                     <span className="text-lg sm:text-2xl font-black text-rose-400 tracking-tight mt-1">
                         {legendStats.above} {legendStats.above === 1 ? 'matéria' : 'matérias'}
                     </span>
@@ -453,7 +453,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400/80 uppercase tracking-wider">Abaixo da Média</span>
+                    Abaixo da média
                     <span className="text-lg sm:text-2xl font-black text-emerald-400 tracking-tight mt-1">
                         {legendStats.below} {legendStats.below === 1 ? 'matéria' : 'matérias'}
                     </span>

@@ -24,18 +24,18 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all group flex flex-col justify-between h-full min-w-0">
             <div className="mb-2 sm:mb-4 relative group/tooltip">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Equilíbrio Geral</p>
+                    Equilíbrio geral
                     <span className="text-[9px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md uppercase tracking-wider">
-                        Visão Multidimensional
+                        Visão multidimensional
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">🕸️ Raio-X das Disciplinas</h3>
+                    🕸️ Raio-X das disciplinas
                     <div className="relative flex items-center justify-center w-4 h-4 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors" tabIndex={0} role="button" aria-label="Informação sobre o gráfico radar">
                         ?
                         <div className="absolute top-6 left-1/2 -translate-x-1/2 sm:-translate-x-0 sm:left-0 w-[260px] p-3.5 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible focus-within:opacity-100 focus-within:visible transition-all duration-300 z-50 pointer-events-none group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible text-left">
                             <p className="text-[11px] text-slate-200 font-normal leading-relaxed normal-case tracking-normal">
-                                Este gráfico (Radar) avalia o seu <strong className="text-indigo-400">nível de acertos</strong> em cada matéria, revelando o seu equilíbrio. Quanto mais o desenho se expandir e formar um círculo perfeito, mais forte e constante está o seu conhecimento global.
+                                Este gráfico (radar) avalia seu <strong className="text-indigo-400">nível de acertos</strong> em cada matéria, mostrando seu equilíbrio. Quanto mais o desenho se expande e forma um círculo, mais consistente está seu conhecimento geral.
                             </p>
                         </div>
                     </div>
@@ -93,7 +93,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
 
                         {/* Bottom Layer: Glow effect */}
                         <Radar 
-                            name="_glow_Seu Nível" 
+                            name="_glow_Seu nível"
                             dataKey="nivel" 
                             stroke="#6366f1" 
                             strokeWidth={6} 
@@ -106,7 +106,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                         />
                         {/* Top Layer: Actual Performance Radar */}
                         <Radar 
-                            name="Seu Nível" 
+                            name="Seu nível"
                             dataKey="nivel" 
                             stroke="#6366f1" 
                             strokeWidth={2.5} 
@@ -124,7 +124,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                         <Legend 
                             payload={[
                                 { value: 'Meta', type: 'line', id: 'meta', color: '#22c55e' },
-                                { value: 'Seu Nível', type: 'line', id: 'nivel', color: '#6366f1' }
+                                { value: 'Seu nível', type: 'line', id: 'nivel', color: '#6366f1' }
                             ]}
                             wrapperStyle={{ fontSize: '10px', paddingTop: '8px', color: '#64748b' }} 
                         />

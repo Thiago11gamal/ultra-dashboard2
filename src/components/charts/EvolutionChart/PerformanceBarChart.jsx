@@ -31,7 +31,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
         <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all group w-full min-w-0 flex flex-col justify-between h-full">
             <div className="mb-3 sm:mb-4 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Questões Resolvidas vs Acertos</p>
+                    Questões resolvidas vs acertos
                     <div className="flex items-center gap-2.5 shrink-0 bg-slate-950/60 border border-slate-800 px-2.5 py-1 rounded-lg">
                         <div className="flex items-center gap-1.5">
                             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
@@ -44,7 +44,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                     </div>
                 </div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-200 truncate">
-                    📊 {showOnlyFocus ? `Desempenho — ${focusCategory?.name}` : "Desempenho por Matéria — Histórico Completo"}
+                    Desempenho por matéria — histórico completo
                 </h3>
                 <p className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-relaxed">
                     Volume total de questões acumuladas com taxa de acertos e falhas.
@@ -107,7 +107,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                                         <div className="flex justify-between items-center gap-4">
                                                             <span className="flex items-center gap-1 text-[10px] text-slate-400">
                                                                 <span className="w-2 h-2 rounded-sm bg-slate-500 inline-block"></span>
-                                                                Total de Questões
+                                                                Total de questões
                                                             </span>
                                                             <span className="text-[11px] font-black text-slate-300">{d.questoes}</span>
                                                         </div>
@@ -170,7 +170,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
 
             <div className="mt-3 px-3 py-2 bg-white/[0.03] rounded-xl border border-slate-800 text-center">
                 <p className="text-[10px] text-slate-500 italic">
-                    📌 O tamanho total da barra representa o volume de questões. A parte <span className="text-emerald-500 font-bold">verde</span> indica seus acertos e a parte <span className="text-red-500 font-bold">vermelha</span> os erros.
+                    📌 O tamanho total da barra representa o volume de questões. A parte <span className="text-emerald-500 font-bold">verde</span> indica seus acertos e a parte <span className="text-red-500 font-bold">vermelha</span> indica os erros.
                 </p>
             </div>
         </div>

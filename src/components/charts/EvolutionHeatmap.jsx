@@ -212,13 +212,17 @@ export const EvolutionHeatmap = ({
                     </span>
                 ))}
             </div>
-            {granularity !== 'daily' && (
-                <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
-                    Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): células representam múltiplos dias.
-                </p>
-            )}
-
-            <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
+                    {granularity !== 'daily' && (
+                        <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
+                            Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): cada célula representa vários dias.
+                        </p>
+                    )}
+            
+                   <div className="mb-3 rounded-xl border border-white/5 bg-black/20 p-2.5 text-[10px] text-slate-400">
+                       Leitura rápida: verde = acima da meta; amarelo/laranja = atenção; vermelho = risco; vazio = sem simulado cadastrado.
+                   </div>
+            
+                    <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
                 <div style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
                     <div />
                     {filteredDates.map(d => (

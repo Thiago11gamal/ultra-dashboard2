@@ -18,11 +18,11 @@ const CustomTooltipStyle = {
 
 // Mover para top-level (antes do componente)
 const WEEKS = [
-    { label: "SEMANA 4", offset: 4 },
-    { label: "SEMANA 3", offset: 3 },
-    { label: "SEMANA 2", offset: 2 },
-    { label: "SEMANA 1", offset: 1 },
-    { label: "SEMANA ATUAL", offset: 0 },
+    { label: "Semana 4", offset: 4 },
+    { label: "Semana 3", offset: 3 },
+    { label: "Semana 2", offset: 2 },
+    { label: "Semana 1", offset: 1 },
+    { label: "Semana atual", offset: 0 },
 ];
 
 import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
@@ -103,7 +103,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const item = topicMap[key];
             const accuracy = item.total > 0 ? item.correct / item.total : 0;
             const erroAbsoluto = item.total - item.correct;
-            // Índice de Criticidade Composto: penaliza matérias com baixo rendimento mais pesadamente
+            // Índice de criticidade
             item.criticidade = erroAbsoluto * (1 - accuracy);
         });
 
@@ -209,7 +209,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     </div>
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm sm:text-base font-bold text-slate-200">Matriz de Criticidade & Pontos de Fuga</h3>
+                            Matriz de criticidade e pontos de fuga
                             <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-[9px] font-black text-rose-400 border border-rose-500/20 uppercase tracking-wider">
                                 Índice de Criticidade
                             </span>
@@ -250,7 +250,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
             {/* Painéis Lado a Lado perfeitamente enquadrados */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
-                {/* Matérias Críticas */}
+                Matérias críticas
                 <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
                     <div>
                         <div className="flex items-center justify-between gap-2 mb-1">
@@ -296,13 +296,13 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
                                 <span className="text-4xl mb-2">{hasData ? '🎉' : '⏳'}</span>
                                 <p className="font-bold text-slate-300 mb-1">{hasData ? 'Sem erros críticos!' : 'Nenhum dado registrado'}</p>
-                                <p className="text-xs text-slate-500">{hasData ? 'Nenhum erro registrado neste período.' : 'Registre simulados para visualizar este gráfico.'}</p>
+                                Cadastre simulados para visualizar este gráfico.
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Assuntos Críticos */}
+                Assuntos críticos
                 <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
                     <div>
                         <div className="flex items-center justify-between gap-2 mb-1">

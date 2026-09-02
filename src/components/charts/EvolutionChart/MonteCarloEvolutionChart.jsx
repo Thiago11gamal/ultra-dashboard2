@@ -30,13 +30,13 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
 
                 <div className="flex flex-col gap-2">
                     <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Nota Projetada</span>
+                        Nota projetada
                         <span className={`text-3xl font-black leading-none ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
                             {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean} <span className="text-sm text-slate-500 ml-1">{unit}</span>
                         </span>
                         {isGood && (
                             <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-1 animate-pulse flex items-center gap-1">
-                                🚀 Na Zona de Aprovação
+                                🚀 Na zona de aprovação
                             </span>
                         )}
                     </div>
@@ -54,13 +54,13 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                             </span>
                         </div>
                         <div className="flex justify-between items-center mb-1 border-t border-white/5 pt-1 mt-1">
-                            <span className="text-[10px] font-bold text-slate-400">Cone (95% CI):</span>
+                            Cone (IC 95%):
                             <span className="text-[10px] font-mono text-white">
                                 {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : `${formatValue(pointLow)}${unit} ~ ${formatValue(pointHigh)}${unit}`}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-slate-400">Chance de Sucesso:</span>
+                            Chance de sucesso:
                             <span className={`text-[10px] font-black ${pointProb >= 70 ? 'text-green-400' : 'text-blue-400'}`}>
                                 {formatPercent(pointProb)}
                             </span>
@@ -191,12 +191,12 @@ export const MonteCarloEvolutionChart = ({
                     <AlertCircle size={32} className="text-blue-400" />
                 </div>
                 <h3 className="text-lg font-black text-slate-200 mb-2 uppercase tracking-widest text-center">
-                    {formattedData.length === 0 ? "Nenhum Ponto Registrado" : "Apenas 1 Ponto Registrado"}
+                    Nenhum ponto registrado
                 </h3>
                 <p className="text-xs text-slate-400 text-center max-w-sm mb-6 leading-relaxed">
                     {formattedData.length === 0 
-                        ? "A evolução do Monte Carlo é registrada gradativamente a cada vez que o motor calcula as projeções diárias. Aguarde o primeiro registro de hoje!"
-                        : "É necessário ao menos dois dias de simulações diferentes para traçar a linha do tempo da evolução. Continue estudando para gerar mais projeções!"}
+                        ? 'A evolução do Monte Carlo é registrada gradualmente conforme o motor calcula as projeções diárias. Aguarde o primeiro registro de hoje.'
+                        : 'É necessário ter pelo menos dois dias de projeções diferentes para traçar a linha do tempo da evolução. Continue estudando para gerar mais dados.'}
                 </p>
                 {/* 🎯 FIX: Ajustado h-32 para h-40 para que o minHeight=150 não estoure as bordas do pai */}
                 <div className="w-full max-w-md h-40 opacity-20 pointer-events-none">
@@ -224,7 +224,7 @@ export const MonteCarloEvolutionChart = ({
                         <TrendingUp size={16} className="text-blue-400" />
                     </div>
                     <div>
-                        <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest">Rastreador de Aprovação</h4>
+                        Rastreador de aprovação
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sua trajetória rumo à aprovação</p>
                     </div>
                 </div>
@@ -263,7 +263,7 @@ export const MonteCarloEvolutionChart = ({
             {mcAssumptions && (
                 <div className="px-2 mb-2">
                     <p className="text-[9px] uppercase tracking-widest text-slate-500">
-                        Hipóteses do Modelo ({mcAssumptions.scenario}): <span className="text-slate-300 font-bold">N={mcAssumptions.points}</span> · CI95 largura atual <span className="text-slate-300 font-bold">{unit === 'horas' ? formatDuration(mcAssumptions.ciWidth) : `${formatValue(mcAssumptions.ciWidth)}${unit}`}</span>
+                        Premissas do modelo
                     </p>
                 </div>
             )}
@@ -387,19 +387,19 @@ export const MonteCarloEvolutionChart = ({
                     <div className="flex flex-col gap-3 mt-2">
                         <div className="flex items-start gap-3 bg-blue-500/10 p-3 rounded-lg border-l-4 border-blue-400 border-y border-r border-blue-500/20">
                             <p className="text-[11.5px] text-blue-100 leading-relaxed">
-                                <strong className="text-blue-400 text-xs tracking-wide uppercase">Linha Azul (O Seu Passado):</strong> Mostra a sua evolução real. Atenção: este gráfico <strong>não mostra as notas dos seus simulados</strong>. Ele mostra qual era a <strong>previsão da sua nota no dia da prova</strong> a cada dia que passou. Se a linha está subindo, você está ficando mais preparado.
+                                Linha azul (passado):
                             </p>
                         </div>
                         
                         <div className="flex items-start gap-3 bg-indigo-500/10 p-3 rounded-lg border-l-4 border-indigo-400 border-dashed border-y border-r border-indigo-500/20">
                             <p className="text-[11.5px] text-indigo-100 leading-relaxed">
-                                <strong className="text-indigo-400 text-xs tracking-wide uppercase">Linha Tracejada Roxa (O Seu Futuro):</strong> É para onde você está indo. O robô pega o seu ritmo atual e desenha onde a sua nota vai parar no dia da prova se você continuar estudando desse jeito. 
+                                Linha tracejada roxa (futuro):
                             </p>
                         </div>
 
                         <div className="flex items-start gap-3 bg-emerald-500/10 p-3 rounded-lg border-l-4 border-emerald-400 border-dashed border-y border-r border-emerald-500/20">
                             <p className="text-[11.5px] text-emerald-100 leading-relaxed">
-                                <strong className="text-emerald-400 text-xs tracking-wide uppercase">Linha Pontilhada Verde (O Seu Objetivo):</strong> A nota que você quer tirar. O jogo é simples: faça a linha azul e a roxa ultrapassarem essa marca verde.
+                                Linha pontilhada verde (objetivo):
                             </p>
                         </div>
                     </div>
@@ -407,10 +407,10 @@ export const MonteCarloEvolutionChart = ({
                 {qualitySignal && (qualitySignal.color.includes('red') || qualitySignal.color.includes('rose')) && (
                     <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mt-1 animate-pulse">
                         <p className="text-xs font-bold text-red-400 mb-1 flex items-center gap-2">
-                            <AlertCircle size={14} /> Alerta de Tendência
+                            Alerta de tendência
                         </p>
                         <p className="text-[11px] text-red-200 leading-relaxed">
-                            Suas projeções recentes estão apontando para baixo. Isso indica que os seus últimos resultados puxaram a expectativa para o dia da prova para um nível crítico. Considere revisar seus métodos de estudo e focar nos tópicos com pior desempenho.
+                            Suas projeções recentes estão caindo. Isso indica que os últimos resultados reduziram a expectativa para o dia da prova. Revise seu método de estudo e foque nos tópicos com pior desempenho.
                         </p>
                     </div>
                 )}

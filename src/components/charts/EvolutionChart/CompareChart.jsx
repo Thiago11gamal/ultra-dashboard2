@@ -2,7 +2,7 @@ import React, { useId } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
-    LabelList, Brush
+   LabelList, Brush, ReferenceArea
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
@@ -12,6 +12,8 @@ import { formatValue } from '../../../utils/scoreHelper';
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;
     if (cx == null || cy == null) return null;
+    const dangerLimit = Math.max(safeMinScore, targetScore - ((safeMaxScore - safeMinScore) * 0.08));
+    
     return (
         <g>
             {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
@@ -297,8 +299,22 @@ export function CompareChart({
                     />
                     <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} width={50} />
                     
-                    <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
-                        label={{ value: `META ${formatValue(targetScore)}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideTopLeft', dy: -6, dx: 5 }} />
+                                    <ReferenceArea
+                                        y1={targetScore}
+                                        y2={safeMaxScore}
+                                        fill="#10b981"
+                                        fillOpacity={0.05}
+                                    />
+                    
+                                    <ReferenceArea
+                                        y1={safeMinScore}
+                                        y2={dangerLimit}
+                                        fill="#ef4444"
+                                        fillOpacity={0.04}
+                                    />
+                    
+                                    <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
+                        label={{ value: `Meta ${formatValue(targetScore)}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideTopLeft', dy: -6, dx: 5 }} />
                     
                     <Tooltip 
                         offset={30}
@@ -310,8 +326,8 @@ export function CompareChart({
                     <Area connectNulls type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     
-                    {showGainArea && <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="Ganho Estimado" fill="#10b981" fillOpacity={0.08} stroke="#10b981" strokeWidth={1} strokeOpacity={0.2} legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" baseValue={gainBase} />}
-                    <Area type="monotoneX" dataKey="Cenário Range" name="Intervalo de Confiança MC" fill={`url(#${CC.cloudGradient})`} stroke="none" legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
+                    name="Ganho estimado"
+                    name="Intervalo de confiança MC"
                     
                     {/* Bottom Layer: Glow for Nível Bayesiano */}
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={8} strokeOpacity={0.25} fill="none" activeDot={false} legendType="none" connectNulls isAnimationActive={false} />

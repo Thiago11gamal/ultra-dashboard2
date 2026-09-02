@@ -83,7 +83,7 @@ export default function Evolution() {
                 Sem histórico de simulados
               </p>
               <p className="text-xs text-slate-400 mb-0 leading-relaxed">
-                Registe simulados nas disciplinas para visualizar a sua evolução e previsões do motor Monte Carlo.
+                Cadastre simulados nas disciplinas para visualizar sua evolução e as previsões do motor Monte Carlo.
               </p>
             </div>
           </div>

@@ -304,7 +304,7 @@ export function TodayVsGeneralChart({
                         <Target size={14} />
                     </div>
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        {isToday ? "Sessão de Hoje" : "Última Sessão"}
+                        Sessão de hoje
                     </span>
                 </div>
                 <div className="absolute top-4 right-4 flex flex-col items-end gap-0.5 max-h-[calc(100%-6rem)] overflow-y-auto no-scrollbar">
@@ -371,7 +371,7 @@ export function TodayVsGeneralChart({
                             {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
                         </div>
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">
-                            {isToday ? `Acertos(${unit}) hoje` : `Acertos(${unit}) no dia`}
+                            Acertos de hoje (${unit})
                         </span>
                     </div>
                 </div>
@@ -424,7 +424,7 @@ export function TodayVsGeneralChart({
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex flex-col">
                         <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-1 flex items-center gap-2">
-                            <Zap size={14} className="text-purple-400" /> Histórico Recente (14 dias)
+                            Histórico recente (14 dias)
                         </h4>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                             Compare suas variações diárias com a linha base
@@ -465,7 +465,7 @@ export function TodayVsGeneralChart({
                                 strokeDasharray="5 5" 
                                 strokeWidth={2} 
                                 opacity={0.6}
-                                label={{ position: 'top', value: 'MÉDIA GERAL', fill: COLORS.reference, fontSize: 9, fontWeight: 800, textAnchor: 'end', dx: -10 }}
+                                Média geral
                             />
                             <Line 
                                 type="monotoneX" 

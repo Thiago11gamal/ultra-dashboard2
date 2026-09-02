@@ -2,7 +2,7 @@ import React, { useId, useState, useRef, useMemo } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
-    LabelList, Brush
+   LabelList, Brush, ReferenceArea
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
@@ -211,11 +211,13 @@ export function EvolutionLineChart({
 
             const formatted = `${formatValue(value)}${unit}`;
             const boxWidth = Math.max(46, formatted.length * 7 + 14);
+            const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
+            const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth - 6));
 
             return (
                 <g style={{ zIndex: 100, transition: 'all 0.3s ease' }}>
                     <rect
-                        x={x + 8}
+                        x={labelX}
                         y={y - 11 + offsetPx}
                         width={boxWidth}
                         height={22}
@@ -226,9 +228,9 @@ export function EvolutionLineChart({
                         strokeOpacity={0.9}
                         strokeWidth={1.5}
                     />
-                    <text 
-                        x={x + 8 + boxWidth / 2} 
-                        y={y + 4 + offsetPx} 
+                                  <text 
+                                     x={labelX + boxWidth / 2} 
+                                      y={y + 4 + offsetPx}
                         fill="#ffffff" 
                         fontSize={11} 
                         fontWeight="black" 
@@ -242,6 +244,8 @@ export function EvolutionLineChart({
         }
         return null;
     };
+
+    const dangerLimit = Math.max(minScore, targetScore - ((maxScore - minScore) * 0.08));
 
     return (
         <div className="relative h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
@@ -313,8 +317,22 @@ export function EvolutionLineChart({
                         width={40}
                     />
 
-                    <ReferenceLine 
-                        y={targetScore} 
+                                 <ReferenceArea
+                                     y1={targetScore}
+                                     y2={maxScore}
+                                     fill="#10b981"
+                                     fillOpacity={0.045}
+                                 />
+                    
+                                 <ReferenceArea
+                                     y1={minScore}
+                                     y2={dangerLimit}
+                                     fill="#ef4444"
+                                     fillOpacity={0.035}
+                                 />
+                    
+                                  <ReferenceLine 
+                                      y={targetScore}
                         stroke="#10b981" 
                         strokeOpacity={0.6} 
                         strokeWidth={1.5}
