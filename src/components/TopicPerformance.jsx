@@ -76,9 +76,9 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
             const safeTotal = Math.max(1, data.total);
             const normalizedPct = Math.round((data.correct / safeTotal) * 100);
             
-            // FIX T-09: scoreValue com proteção contra maxScore=0.
-            const safeCatMax = Math.max(1, catMaxScore);
-            const scoreValue = (data.correct / safeTotal) * safeCatMax;
+            // FIX T-09: scoreValue com proteção contra maxScore=0 e considerando minScore.
+            const safeCatMaxRange = Math.max(1e-9, catMaxScore - catMinScore);
+            const scoreValue = (data.correct / safeTotal) * safeCatMaxRange + catMinScore;
             
             const missed = data.total - data.correct;
             const balance = data.correct - missed;
@@ -97,7 +97,7 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
         // Sort: Highest Percentage Top (Descending)
         return topicList.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
 
-    }, [safeCategories, effectiveCategoryId]);
+    }, [safeCategories, effectiveCategoryId, globalMaxScore]);
 
     return (
         <div className="glass p-6 h-full flex flex-col">

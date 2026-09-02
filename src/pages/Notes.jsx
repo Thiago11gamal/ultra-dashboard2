@@ -99,6 +99,9 @@ export default function Notes() {
 
                 if (mergedHistoryMap[dateKey]) {
                     mergedHistoryMap[dateKey].topics = topics;
+                    mergedHistoryMap[dateKey].correct = totalC;
+                    mergedHistoryMap[dateKey].total = totalQ;
+                    mergedHistoryMap[dateKey].score = totalQ > 0 ? (totalC / totalQ) * (Number(cat.maxScore) || 100) : 0;
                 } else {
                     mergedHistoryMap[dateKey] = {
                         date: dateKey,
