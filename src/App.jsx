@@ -56,9 +56,26 @@ import './components/Loading.css';
 
 const EMPTY_OBJECT = Object.freeze({});
 
+const RootRedirect = () => {
+  const { currentUser } = useAuth();
+  if (currentUser) {
+    const lastRoute = localStorage.getItem(`lastRoute_${currentUser.uid}`);
+    if (lastRoute && lastRoute !== '/') {
+      return <Navigate to={lastRoute} replace />;
+    }
+  }
+  return <Dashboard />;
+};
+
 function MainLayout() {
   const location = useLocation();
   const { currentUser, loading, logout } = useAuth();
+
+  useEffect(() => {
+    if (currentUser && location.pathname !== '/' && location.pathname !== '/login') {
+      localStorage.setItem(`lastRoute_${currentUser.uid}`, location.pathname + location.search);
+    }
+  }, [location, currentUser]);
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
 
   const activeContestId = useAppStore(state => state.appState.activeId);
@@ -296,7 +313,7 @@ function MainLayout() {
           </div>
         }>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<RootRedirect />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/pomodoro" element={<Pomodoro />} />
             <Route path="/tasks" element={<Tasks />} />
