@@ -740,7 +740,7 @@ export default React.memo(function EvolutionChart({
             </motion.div>
 
             {/* HERO CHART: Nível Bayesiano (Fixo) */}
-            <motion.div variants={itemVariants} className="relative z-20 mb-12 rounded-[2.5rem] border border-emerald-500/20 bg-slate-900/80 backdrop-blur-2xl p-6 sm:p-8 shadow-[0_10px_40px_-15px_rgba(52,211,153,0.15)] w-full overflow-hidden">
+            <motion.div variants={itemVariants} className="relative z-20 mb-12 rounded-[2.5rem] border border-emerald-500/20 bg-slate-900/80 backdrop-blur-2xl p-6 sm:p-8 shadow-[0_10px_40px_-15px_rgba(52,211,153,0.15)] w-full overflow-visible">
                 <div className="flex items-center gap-3 mb-6">
                     <span className="text-3xl drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">🧠</span>
                     <div>
@@ -750,7 +750,7 @@ export default React.memo(function EvolutionChart({
                 </div>
                 
                 <div className="w-full overflow-x-auto no-scrollbar pb-2">
-                    <div className="min-w-[700px] lg:min-w-full relative h-[420px]">
+                    <div className="min-w-[700px] lg:min-w-full relative h-[380px] sm:h-[480px] md:h-[670px]">
                         {!accountHasData ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                                 <span className="text-4xl">📉</span>
