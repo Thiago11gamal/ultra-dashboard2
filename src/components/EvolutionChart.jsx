@@ -750,7 +750,7 @@ export default React.memo(function EvolutionChart({
                 </div>
                 
                 <div className="w-full overflow-x-auto no-scrollbar pb-2">
-                    <div className="min-w-[700px] lg:min-w-full relative h-[350px]">
+                    <div className="min-w-[700px] lg:min-w-full relative h-[420px]">
                         {!accountHasData ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                                 <span className="text-4xl">📉</span>
@@ -831,7 +831,7 @@ export default React.memo(function EvolutionChart({
                               </div>
                  
                               {/* Máscara CSS substituída por gradiente adaptativo para mobile */}
-                <div className="relative w-full mb-8 -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full">
+                <div className="relative mb-8 -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full">
                     <div className="absolute left-0 top-0 bottom-4 w-6 bg-gradient-to-r from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
                     <div className="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
                     <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 sm:px-0 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">

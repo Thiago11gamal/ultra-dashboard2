@@ -140,11 +140,11 @@ export function EvolutionLineChart({
         const range = maxScore - minScore;
         const labels = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
         
-        const topLimit = maxScore - (range * 0.02);
-        const bottomLimit = minScore + (range * 0.05);
+        const topLimit = maxScore - (range * 0.01);
+        const bottomLimit = minScore + (range * 0.03);
         const safeSpace = Math.max(0.1, topLimit - bottomLimit);
         
-        const MIN_PCT_DISTANCE = range * 0.075; // 7.5% distance threshold
+        const MIN_PCT_DISTANCE = range * 0.10; // 10% distance threshold (was 7.5%)
         const requiredSpace = (labels.length - 1) * MIN_PCT_DISTANCE;
         
         // Dynamic compression if too many labels for the space
@@ -153,7 +153,7 @@ export function EvolutionLineChart({
             : MIN_PCT_DISTANCE;
 
         // Iterative relaxation algorithm to spread out colliding labels
-        const ITERATIONS = 15;
+        const ITERATIONS = 25;
         for (let iter = 0; iter < ITERATIONS; iter++) {
             let overlapFound = false;
             for (let i = 0; i < labels.length - 1; i++) {
@@ -263,7 +263,7 @@ export function EvolutionLineChart({
                 <ComposedChart 
                     data={enhancedChartData} 
                     syncId="evolutionSync"
-                    margin={{ top: 20, right: 110, left: 0, bottom: 20 }} 
+                    margin={{ top: 20, right: 140, left: 0, bottom: 20 }} 
                     style={{ outline: 'none', cursor: highlightedDataKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
                     onClick={() => {
@@ -341,9 +341,9 @@ export function EvolutionLineChart({
                             value: `Meta ${formatValue(targetScore)}${unit}`, 
                             fill: '#22c55e', 
                             fontSize: 10, 
-                            position: 'insideTopRight', 
+                            position: 'insideTopLeft', 
                             dy: -12, 
-                            dx: -10 
+                            dx: 10 
                         }} 
                     />
 

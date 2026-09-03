@@ -48,7 +48,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
             <div className="flex-1 min-h-[260px] sm:min-h-[300px] w-full relative">
                 <ChartFrame minHeight={260} label="Calibrando radar">
                     <ResponsiveContainer width="100%" height="100%" minHeight={260} minWidth={1}>
-                        <RadarChart cx="50%" cy="50%" outerRadius="50%" data={radarData} margin={{ top: 20, right: 35, bottom: 20, left: 35 }}>
+                        <RadarChart cx="50%" cy="50%" outerRadius="45%" data={radarData} margin={{ top: 30, right: 50, bottom: 30, left: 50 }}>
                         <defs>
                             <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
                                 {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
@@ -60,10 +60,28 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             tick={(props) => {
                                 const { x, y, cx, cy, payload } = props;
                                 const text = payload?.value || "";
-                                const maxLen = 12;
+                                const maxLen = 20;
+                                const anchor = x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle';
+                                const dy = y > cy ? 6 : -6;
+                                
+                                // Split long names into two lines
+                                if (text.length > 10) {
+                                    const mid = text.lastIndexOf(' ', Math.ceil(text.length / 2));
+                                    const splitIdx = mid > 2 ? mid : Math.ceil(text.length / 2);
+                                    const line1 = text.substring(0, splitIdx).trim();
+                                    const line2raw = text.substring(splitIdx).trim();
+                                    const line2 = line2raw.length > maxLen - splitIdx ? line2raw.substring(0, maxLen - splitIdx - 1) + '..' : line2raw;
+                                    return (
+                                        <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={500}>
+                                            <title>{text}</title>
+                                            <tspan x={x} dy="0">{line1}</tspan>
+                                            <tspan x={x} dy="11">{line2}</tspan>
+                                        </text>
+                                    );
+                                }
                                 const truncated = text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
                                 return (
-                                    <text x={x} y={y + (y > cy ? 5 : -5)} textAnchor={x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle'} fill="#cbd5e1" fontSize={9} fontWeight={500}>
+                                    <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={500}>
                                         <title>{text}</title>
                                         {truncated}
                                     </text>
