@@ -752,7 +752,7 @@ function PomodoroSidePanel({
 // BARRA SUPERIOR DO CRONÔMETRO (AMPLIADA E COM MAIOR DESTAQUE)
 // =====================================================
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
-    const cleanText = (text) => cleanTaskTitle(text, activeSubject?.category);
+    const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
 
     return (
         <div className="w-full rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#94785a] bg-[#b08e6b] px-5 sm:px-7 py-4 sm:py-5 shadow-2xl relative overflow-hidden group">
@@ -769,8 +769,8 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
                             </span>
                             <div className="w-2.5 h-2.5 rounded-full bg-emerald-700 animate-pulse shrink-0 shadow-sm" />
                         </div>
-                        <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}>
-                            {activeSubject ? cleanText(activeSubject.task) : 'Aguardando protocolo...'}
+                        <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? cleanText(activeSubject.task).displayTopic : 'Menu Neural Principal'}>
+                            {activeSubject ? cleanText(activeSubject.task).displayTopic : 'Menu Neural Principal'}
                         </h1>
                     </div>
                 </div>
