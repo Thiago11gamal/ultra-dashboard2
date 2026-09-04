@@ -11,7 +11,7 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
         >
             <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 rounded-full opacity-20 blur-3xl group-hover:opacity-40 transition-opacity duration-500 pointer-events-none" style={{ backgroundColor: color }} />
             
-            <div className="relative z-10 flex items-center justify-between mb-4">
+            <div className="relative z-10 flex items-center justify-between mb-4 pl-1">
                 <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 text-2xl group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300" style={{ color }}>
                     {icon}
                 </div>
@@ -21,7 +21,7 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
                     </span>
                 )}
             </div>
-            <div className="relative z-10">
+            <div className="relative z-10 pl-1">
                 <p className="text-2xl sm:text-3xl md:text-[2rem] font-black tracking-tight min-w-0 truncate drop-shadow-md leading-tight" style={{ color }}>{value}</p>
                 <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-2 font-bold group-hover:text-slate-300 transition-colors">{label}</p>
             </div>

@@ -40,14 +40,14 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                 </div>
             </div>
 
-            <div className="relative z-10 flex items-center justify-between mb-2 w-full">
+            <div className="relative z-10 flex items-center justify-between mb-2 w-full pl-1">
                 <p className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-colors line-clamp-2 pr-2 drop-shadow-sm ${isFocused ? 'text-white' : 'text-slate-300 group-hover:text-slate-200'}`} title={cat.name}>
                     {cat.name}
                 </p>
                 <div className={`w-2.5 h-2.5 rounded-full transition-all shadow-sm ${isFocused ? 'scale-125 ring-2 ring-offset-2 ring-offset-slate-900' : 'opacity-80 group-hover:opacity-100'}`} style={{ backgroundColor: statusColor, '--tw-ring-color': statusColor }} />
             </div>
 
-            <div className="relative z-10 flex flex-col justify-end w-full">
+            <div className="relative z-10 flex flex-col justify-end w-full pl-1">
                 <div className="flex items-baseline gap-1 mt-0.5">
                     <span className={`text-2xl sm:text-4xl font-black tracking-tighter transition-all drop-shadow-md ${isFocused ? 'text-white' : 'text-slate-100 group-hover:text-white'}`}>
                         {formatValue(val)}
@@ -57,7 +57,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
             </div>
 
             {/* Extra Metrics Breakdown */}
-            <div className="relative z-10 w-full mt-4">
+            <div className="relative z-10 w-full mt-4 pl-1">
                 <div className="flex flex-col gap-2.5 pt-3 border-t border-white/10">
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center text-[9px] text-slate-300 uppercase tracking-widest font-black">
