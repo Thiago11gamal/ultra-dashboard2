@@ -749,15 +749,15 @@ export default React.memo(function EvolutionChart({
                     </div>
                 </div>
                 
-                <div className="w-full overflow-x-auto no-scrollbar pb-2">
-                    <div className="min-w-[700px] lg:min-w-full relative h-[380px] sm:h-[480px] md:h-[670px]">
+                <div className="w-full no-scrollbar pb-2" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+                    <div className="min-w-[700px] lg:min-w-full relative">
                         {!accountHasData ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                            <div className="min-h-[360px] flex flex-col items-center justify-center gap-3">
                                 <span className="text-4xl">📉</span>
                                 Cadastre simulados para ver sua curva de domínio
                             </div>
                         ) : !filterHasData ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                            <div className="min-h-[360px] flex flex-col items-center justify-center gap-3">
                                 <span className="text-4xl opacity-50">📅</span>
                                 Nenhuma atividade no período selecionado
                             </div>
