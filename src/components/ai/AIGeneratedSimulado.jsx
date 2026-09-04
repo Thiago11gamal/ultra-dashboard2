@@ -688,7 +688,8 @@ export default function AIGeneratedSimulado() {
 
       const nowIso = new Date().toISOString();
       const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
-      const mixedDomain = safeDomain(Number(f.maxScore) || 100, Number(f.minScore) || 0);
+      const activeContest = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
+      const mixedDomain = safeDomain(Number(activeContest?.maxScore) || 100, Number(activeContest?.minScore) || 0);
       const mixedRatio = totalQuestionsInMixed > 0 ? totalCorrectInMixed / totalQuestionsInMixed : 0;
       const mixedScorePoints = mixedDomain.min + mixedRatio * mixedDomain.range;
       const mixedScorePct = mixedRatio * 100;

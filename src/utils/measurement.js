@@ -334,6 +334,7 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     ? Number(maxScore) : 100;
   const safeMin = Number.isFinite(Number(minScore))
     ? Math.min(Number(minScore), safeMax) : 0;
+  const range = Math.max(1e-9, safeMax - safeMin);
 
   if (row == null) return NaN; // ✅ NaN para dados nulos
 
@@ -341,8 +342,12 @@ export function getSafeScore(row, maxScore, minScore = 0) {
 
   const parseNum = (val) => {
     if (typeof val === 'string') {
-      const clean = val.replace(/\./g, '').replace(',', '.');
-      return Number(clean);
+      const trimmed = val.trim();
+      if (trimmed.includes(',')) {
+        const clean = trimmed.replace(/\./g, '').replace(',', '.');
+        return Number(clean);
+      }
+      return Number(trimmed);
     }
     return Number(val);
   };
@@ -352,19 +357,19 @@ export function getSafeScore(row, maxScore, minScore = 0) {
   } else if (row.score != null) {
     score = parseNum(row.score);
     if (row.isPercentage && Number.isFinite(score)) {
-      score = (score / 100) * safeMax;
+      score = safeMin + (score / 100) * range;
     }
-  } else if (row.value != null) {
+  } else if (row.value != null && row.value !== '') {
     score = parseNum(row.value);
     if (row.isPercentage && Number.isFinite(score)) {
-      score = (score / 100) * safeMax;
+      score = safeMin + (score / 100) * range;
     }
   } else if (row.correct != null && row.total != null) {
     const total = Number(row.total);
     const correct = Number(row.correct);
     // ✅ FIX: proteger contra total=0 → divisão por zero
     if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
-      score = (Math.max(0, Math.min(total, correct)) / total) * safeMax;
+      score = safeMin + (Math.max(0, Math.min(total, correct)) / total) * range;
     }
   }
 

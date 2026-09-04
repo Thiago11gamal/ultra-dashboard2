@@ -173,10 +173,6 @@ export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompleted
     const d = safeDate(log?.date);
     if (!d) return sum;
     if (getDateKey(d) === todayKey) return sum + getStudyMinutes(log);
-    const t = d.getTime();
-    if (todayRange && t >= todayRange.start && t < todayRange.end) {
-      return sum + getStudyMinutes(log);
-    }
     return sum;
   }, 0);
 
