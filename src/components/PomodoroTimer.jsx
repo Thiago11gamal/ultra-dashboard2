@@ -107,7 +107,6 @@ function PomodoroTimer({
     onFullCycleComplete,
     onUpdateStudyTime,
     onExit,
-    isLayoutLocked,
     onSessionComplete
 }) {
     const safeSettings = useMemo(() => Object.freeze({
@@ -505,6 +504,7 @@ function PomodoroTimer({
                 savedState.timeLeft > 0
             ) {
                 const restoredTime = Math.max(0, Number(savedState.timeLeft));
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setTimeLeft(restoredTime);
                 stateRefs.current.timeLeft = restoredTime;
                 if (clockRef.current) {

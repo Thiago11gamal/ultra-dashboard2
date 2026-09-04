@@ -9,10 +9,7 @@ export function PomodoroProgress({
     STABLE_TAB_ID,
     activeSubject,
     workFillsRef,
-    breakBallsRef,
-    mode,
-    timeLeft,
-    totalTime
+    breakBallsRef
 }) {
     return (
         <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">

@@ -24,7 +24,7 @@ import {
 // ============================================================================
 // SUBCOMPONENTE: Status da Sessão Atual
 // ============================================================================
-function SessionStatus({ activeSubject, isRunning, timeLeft, totalTime, mode }) {
+function SessionStatus({ isRunning, timeLeft, totalTime, mode }) {
     const safeTotal = Number.isFinite(totalTime) && totalTime > 0 ? totalTime : 25 * 60;
     const safeLeft = Number.isFinite(timeLeft) && timeLeft >= 0 ? timeLeft : safeTotal;
     const progress = Math.max(0, Math.min(100, ((safeTotal - safeLeft) / safeTotal) * 100));
@@ -383,21 +383,21 @@ function SessionXP({ user }) {
 // SUBCOMPONENTE: Próxima Tarefa
 // ============================================================================
 function NextTaskPreview({ categories, currentTaskId }) {
-    const nextTask = useMemo(() => {
-        if (!categories) return null;
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-
+    let nextTask = null;
+    if (categories) {
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories);
         for (const cat of safeCats) {
             if (!cat) continue;
             const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
             for (const task of tasks) {
                 if (task && !task.completed && (task.id || task.text) !== currentTaskId && task.priority === 'high') {
-                    return { ...task, catName: cat.name };
+                    nextTask = { ...task, catName: cat.name };
+                    break;
                 }
             }
+            if (nextTask) break;
         }
-        return null;
-    }, [categories, currentTaskId]);
+    }
 
     if (!nextTask) return null;
 
