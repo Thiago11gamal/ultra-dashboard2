@@ -1185,7 +1185,6 @@ export default React.memo(function EvolutionChart({
                                     </span>
                                   </div>
                                 )}
-                            </div>
                         </div>
 
                         {mcLoading && (
