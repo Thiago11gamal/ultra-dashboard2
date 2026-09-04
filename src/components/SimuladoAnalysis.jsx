@@ -120,6 +120,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     const handleConfirmResetScores = () => {
         const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
         setRows(newRows);
+        setShowResetScoresConfirm(false);
     };
 
     const addTenToAll = () => {

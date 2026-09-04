@@ -620,8 +620,9 @@ export default function AIGeneratedSimulado() {
     if (isFinishingRef.current || stepRef.current === 'finished') return;
     isFinishingRef.current = true;
 
-    let correctCount = 0;
-    const answeredQuestions = [];
+    try {
+      let correctCount = 0;
+      const answeredQuestions = [];
     qList.forEach(q => {
       const selected = ansMap[q.id];
       const wasAnswered = selected !== undefined && selected !== null;
@@ -726,14 +727,19 @@ export default function AIGeneratedSimulado() {
       await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent);
     }
 
-    setResults({
-      correct: correctCount, total, scorePercent,
-      questions: answeredQuestions, timeSpentSecs: finalTimeSpent,
-    });
-    setStep('finished');
-    setTimerActive(false);
-    localStorage.removeItem(getAiSimStorageKey());
-    showToast(`Simulado finalizado! ${correctCount}/${total} acertos`, 'success');
+      setResults({
+        correct: correctCount, total, scorePercent,
+        questions: answeredQuestions, timeSpentSecs: finalTimeSpent,
+      });
+      setStep('finished');
+      setTimerActive(false);
+      localStorage.removeItem(getAiSimStorageKey());
+      showToast(`Simulado finalizado! ${correctCount}/${total} acertos`, 'success');
+    } catch (error) {
+      console.error('[Simulado] Error finishing:', error);
+      showToast('Erro ao finalizar o simulado.', 'error');
+      isFinishingRef.current = false;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveAIResultsToSystem, showToast, setData]);
 
@@ -752,11 +758,19 @@ export default function AIGeneratedSimulado() {
   const safeFinishRef = useRef(safeFinish);
   useEffect(() => { safeFinishRef.current = safeFinish; }, [safeFinish]);
 
+  const activeQIdRef = useRef(null);
+  useEffect(() => { activeQIdRef.current = questions[currentIndex]?.id; }, [currentIndex, questions]);
+
   useEffect(() => {
     if (!timerActive || step !== 'playing') return;
 
     const interval = setInterval(() => {
       setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
+      
+      const qId = activeQIdRef.current;
+      if (qId) {
+        setTimePerQuestion(prev => ({ ...prev, [qId]: (prev[qId] || 0) + 1 }));
+      }
     }, 1000);
 
     return () => clearInterval(interval);
