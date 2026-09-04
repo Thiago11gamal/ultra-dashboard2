@@ -769,8 +769,8 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
                             </span>
                             <div className="w-2.5 h-2.5 rounded-full bg-emerald-700 animate-pulse shrink-0 shadow-sm" />
                         </div>
-                        <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? cleanText(activeSubject.task).displayTopic : 'Menu Neural Principal'}>
-                            {activeSubject ? cleanText(activeSubject.task).displayTopic : 'Menu Neural Principal'}
+                        <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? cleanText(activeSubject.task).displayTopic : 'Aguardando protocolo...'}>
+                            {activeSubject ? cleanText(activeSubject.task).displayTopic : 'Aguardando protocolo...'}
                         </h1>
                     </div>
                 </div>
