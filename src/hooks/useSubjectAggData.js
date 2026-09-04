@@ -89,7 +89,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         );
 
         const safeName = String(cat.name || 'Sem nome');
-        const shortName = safeName.length > 18 ? safeName.substring(0, 16) + '…' : safeName;
+        const shortName = safeName.length > 30 ? safeName.substring(0, 28) + '…' : safeName;
         return {
           name: shortName,
           fullName: safeName,

@@ -58,7 +58,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                             <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
                             <BarChart
                                 data={chartData}
-                                margin={{ top: 20, right: 20, left: 10, bottom: 95 }}
+                                margin={{ top: 20, right: 20, left: 10, bottom: 110 }}
                                 barCategoryGap="25%"
                             >
                                 <defs>
@@ -78,7 +78,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                     axisLine={false}
                                     tickLine={false}
                                     tick={{ fill: '#94a3b8', fontSize: 10, width: 80 }}
-                                    tickFormatter={(val) => val.length > 18 ? val.substring(0, 16) + '..' : val}
+                                    tickFormatter={(val) => val.length > 24 ? val.substring(0, 22) + '..' : val}
                                     dy={8}
                                     angle={-35}
                                     textAnchor="end"

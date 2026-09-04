@@ -60,12 +60,12 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             tick={(props) => {
                                 const { x, y, cx, cy, payload } = props;
                                 const text = payload?.value || "";
-                                const maxLen = 20;
+                                const maxLen = 30;
                                 const anchor = x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle';
                                 const dy = y > cy ? 6 : -6;
                                 
                                 // Split long names into two lines
-                                if (text.length > 10) {
+                                if (text.length > 14) {
                                     const mid = text.lastIndexOf(' ', Math.ceil(text.length / 2));
                                     const splitIdx = mid > 2 ? mid : Math.ceil(text.length / 2);
                                     const line1 = text.substring(0, splitIdx).trim();

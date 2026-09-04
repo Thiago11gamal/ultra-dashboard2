@@ -496,8 +496,10 @@ export default React.memo(function EvolutionChart({
         return categories.map(cat => {
             const lvl = categoryLevels?.[cat.id];
             const val = Number.isFinite(Number(lvl)) ? Number(Number(lvl).toFixed(2)) : minScore;
+            const fullName = String(cat.name || 'Sem nome');
             return {
-                subject: String(cat.name || 'Sem nome').replace(/Direito /gi, 'D. ').substring(0, 15),
+                subject: fullName.replace(/Direito /gi, 'D. '),
+                fullSubject: fullName,
                 nivel: val,
                 meta: targetScore
             };

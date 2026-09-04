@@ -113,10 +113,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             .sort((a, b) => b.criticidade - a.criticidade);
 
         return result.slice(0, 15).map((item, i, arr) => {
-            const isLong = item.name.length > 24;
+            const isLong = item.name.length > 34;
             return {
                 ...item,
-                name: isLong ? item.name.substring(0, 22) + '...' : item.name,
+                name: isLong ? item.name.substring(0, 32) + '...' : item.name,
                 fullName: item.name,
                 value: Math.round(item.criticidade * 10) / 10,
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
@@ -273,7 +273,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                 <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 60, left: -10, bottom: 0 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={130} />
+                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={170} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Bar dataKey="displayValue" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -325,7 +325,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                 <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 60, left: -5, bottom: 0 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={120} />
+                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={170} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
                                         const correct = Number(props?.payload?.correct) || 0;

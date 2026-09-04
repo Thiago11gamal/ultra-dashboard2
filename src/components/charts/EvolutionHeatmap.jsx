@@ -223,7 +223,7 @@ export const EvolutionHeatmap = ({
                    </div>
             
                     <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
-                <div style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
+                <div style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
                     <div />
                     {filteredDates.map(d => (
                         <div key={d.key} className="flex flex-col items-center gap-1">
@@ -240,7 +240,7 @@ export const EvolutionHeatmap = ({
 
                 <div className="space-y-2.5">
                     {filteredRows.map(({ cat, cells }, ri) => (
-                        <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
+                        <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
                             <div className="flex items-center gap-2.5 pr-4 min-w-0">
                                 <span className="text-lg shrink-0">{cat.icon}</span>
                                 <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight capitalize" style={{ color: cat.color }} title={cat.name}>

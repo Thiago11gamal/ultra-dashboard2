@@ -41,7 +41,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
             </div>
 
             <div className="relative z-10 flex items-center justify-between mb-2 w-full">
-                <p className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-colors line-clamp-1 pr-2 drop-shadow-sm ${isFocused ? 'text-white' : 'text-slate-300 group-hover:text-slate-200'}`} title={cat.name}>
+                <p className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-colors line-clamp-2 pr-2 drop-shadow-sm ${isFocused ? 'text-white' : 'text-slate-300 group-hover:text-slate-200'}`} title={cat.name}>
                     {cat.name}
                 </p>
                 <div className={`w-2.5 h-2.5 rounded-full transition-all shadow-sm ${isFocused ? 'scale-125 ring-2 ring-offset-2 ring-offset-slate-900' : 'opacity-80 group-hover:opacity-100'}`} style={{ backgroundColor: statusColor, '--tw-ring-color': statusColor }} />

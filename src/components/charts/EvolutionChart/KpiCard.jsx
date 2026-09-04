@@ -22,8 +22,8 @@ export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, 
                 )}
             </div>
             <div className="relative z-10">
-                <p className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight min-w-0 truncate drop-shadow-md leading-none pb-1" style={{ color }}>{value}</p>
-                <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-1.5 font-bold group-hover:text-slate-300 transition-colors">{label}</p>
+                <p className="text-2xl sm:text-3xl md:text-[2rem] font-black tracking-tight min-w-0 truncate drop-shadow-md leading-tight" style={{ color }}>{value}</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest mt-2 font-bold group-hover:text-slate-300 transition-colors">{label}</p>
             </div>
         </div>
     );
