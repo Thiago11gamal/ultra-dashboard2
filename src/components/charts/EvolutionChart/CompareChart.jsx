@@ -76,21 +76,39 @@ export function CompareChart({
         });
     }, [filteredChartData]);
 
-    const { safeMin: safeMinScore, safeMax: safeMaxScore, range: domainRange, clamp } = normalizeScoreDomain(minScore, maxScore);
-    const safeTargetScore = clamp(targetScore);
-    const dangerLimit = clamp(safeTargetScore - (domainRange * 0.08));
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScore = Number(maxScore) > safeMinScore ? Number(maxScore) : safeMinScore + 1;
+    
+    const safeTargetScore = Math.max(
+      safeMinScore,
+      Math.min(
+        safeMaxScore,
+        Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMinScore
+      )
+    );
+    
+    const dangerLimit = Math.max(
+      safeMinScore,
+      safeTargetScore - ((safeMaxScore - safeMinScore) * 0.08)
+    );
+
+    const isValidValue = (value) => value != null && Number.isFinite(Number(value));
 
     const lastValidIdx = React.useMemo(() => {
-        const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
-        for (let i = chartData.length - 1; i >= 0; i--) {
-            const d = chartData[i];
-            if (last.bay < 0 && d["Nível Bayesiano"] != null) last.bay = i;
-            if (last.raw < 0 && d["Nota Bruta"] != null) last.raw = i;
-            if (last.stats < 0 && d["Média Histórica"] != null) last.stats = i;
-            if (last.mc < 0 && d["Futuro Provável"] != null) last.mc = i;
-            if (last.bay >= 0 && last.raw >= 0 && last.stats >= 0 && last.mc >= 0) break;
-        }
-        return last;
+      const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
+    
+      for (let i = chartData.length - 1; i >= 0; i--) {
+        const d = chartData[i];
+    
+        if (last.bay < 0 && isValidValue(d["Nível Bayesiano"])) last.bay = i;
+        if (last.raw < 0 && isValidValue(d["Nota Bruta"])) last.raw = i;
+        if (last.stats < 0 && isValidValue(d["Média Histórica"])) last.stats = i;
+        if (last.mc < 0 && isValidValue(d["Futuro Provável"])) last.mc = i;
+    
+        if (last.bay >= 0 && last.raw >= 0 && last.stats >= 0 && last.mc >= 0) break;
+      }
+    
+      return last;
     }, [chartData]);
 
     // 🎯 FIX: Algoritmo de Colisão Adaptativo baseado no Range Real
@@ -147,8 +165,12 @@ export function CompareChart({
     };
 
     const todayIdx = chartData.reduce((acc, curr, i) => {
-        const hasObserved = curr["Nota Bruta"] != null || curr["Nível Bayesiano"] != null || curr["Média Histórica"] != null;
-        return hasObserved ? i : acc;
+      const hasObserved =
+        isValidValue(curr["Nota Bruta"]) ||
+        isValidValue(curr["Nível Bayesiano"]) ||
+        isValidValue(curr["Média Histórica"]);
+    
+      return hasObserved ? i : acc;
     }, -1);
     
     const todayPoints = [];
@@ -177,7 +199,9 @@ export function CompareChart({
 
     const renderLabel = (props, type, color) => {
         const { x, index, value, viewBox } = props;
-        if (value === null || value === undefined) return null;
+        if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+          return null;
+        }
         
         const isMc = type === 'mc';
         const isBay = type === 'bay';
@@ -223,7 +247,7 @@ export function CompareChart({
         
         // BUG-5 FIX: Clamp label X to prevent overflow past chart right edge
         const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
-        const labelX = Math.min(x + xOff - 2, maxX - boxWidth - 4);
+        const labelX = Math.max(0, Math.min(x + xOff - 2, maxX - boxWidth - 4));
         
         return (
             <g>
@@ -237,21 +261,7 @@ export function CompareChart({
             </g>
         );    };
 
-    let gainBase = 'dataMin';
-    let showGainArea = true;
-    if (todayIdx >= 0) {
-        const todayPt = chartData[todayIdx];
-        const baseCandidate = todayPt["Nível Bayesiano"] != null ? todayPt["Nível Bayesiano"] : todayPt["Nota Bruta"];
-        if (Number.isFinite(Number(baseCandidate))) {
-            gainBase = Math.max(safeMinScore, Math.min(safeMaxScore, Number(baseCandidate)));
-            // BUG-3 FIX: Não exibir área verde de "ganho" se a projeção final está ABAIXO do nível atual
-            const lastPt = chartData[chartData.length - 1];
-            const lastProjection = lastPt?.["Futuro Provável"];
-            if (Number.isFinite(Number(lastProjection)) && Number(lastProjection) < gainBase) {
-                showGainArea = false;
-            }
-        }
-    }
+
 
     const animateSeries = false;
 
@@ -311,8 +321,22 @@ export function CompareChart({
                                         fillOpacity={0.04}
                                     />
                     
-                                    <ReferenceLine y={safeTargetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
-                        label={{ value: `Meta ${formatValue(safeTargetScore)}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideTopLeft', dy: -6, dx: 5 }} />
+                                    <ReferenceLine
+                        y={safeTargetScore}
+                        stroke="#10b981"
+                        strokeOpacity={0.6}
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        label={{
+                          value: `Meta ${formatValue(safeTargetScore)}${unit}`,
+                          fill: '#10b981',
+                          fontSize: 10,
+                          fontWeight: 'black',
+                          position: 'insideTopLeft',
+                          dy: -6,
+                          dx: 5
+                        }}
+                      />
                     
                     <Tooltip 
                         offset={30}

@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
+import { simpleHash } from "../../../utils/evolutionGuards";
 import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
@@ -33,10 +34,20 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
 
         return (
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
-                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
-                    <span>📅 {label}</span>
-                    Meta:
-                </p>
+                {(() => {
+                  const parsedLabel = parseNoonLocal(label) || new Date(label);
+                
+                  const formattedLabel = Number.isFinite(parsedLabel?.getTime?.())
+                    ? `${String(parsedLabel.getDate()).padStart(2, '0')}/${String(parsedLabel.getMonth() + 1).padStart(2, '0')}`
+                    : String(label);
+                
+                  return (
+                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
+                      <span>📅 {formattedLabel}</span>
+                      <span>Meta: {targetScorePct.toFixed(1)}%</span>
+                    </p>
+                  );
+                })()}
                 <div className="space-y-4">
                     {sortedPayload.map((entry, index) => {
                         const pct = Math.max(0, Math.min(100, entry.value));
@@ -105,8 +116,26 @@ export const SubtopicsPerformanceChart = React.memo(({
     const accuracyUnit = '%';
     
     // FIX 5A: garantir range mínimo e fallback sensato
-    const range = Math.max(1e-9, maxScore - minScore);
-    const targetScorePct = Math.max(0, Math.min(100, ((targetScore - minScore) / range) * 100));
+    const safeMinScorePct = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScorePct = Number(maxScore) > safeMinScorePct ? Number(maxScore) : safeMinScorePct + 1;
+    const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
+    
+    const safeTargetScorePctRaw = Number.isFinite(Number(targetScore))
+      ? Number(targetScore)
+      : safeMinScorePct;
+    
+    const safeTargetScorePctClamped = Math.max(
+      safeMinScorePct,
+      Math.min(safeMaxScorePct, safeTargetScorePctRaw)
+    );
+    
+    const targetScorePct = Math.max(
+      0,
+      Math.min(
+        100,
+        ((safeTargetScorePctClamped - safeMinScorePct) / safeRangePct) * 100
+      )
+    );
 
     const renderLineTooltip = useCallback(
         (props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />,
@@ -210,7 +239,11 @@ export const SubtopicsPerformanceChart = React.memo(({
         const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
         const range = Math.max(1e-9, safeMaxScore - safeMinScore);
 
-        const toTopicKey = (name) => `top_${String(name || '').replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const toTopicKey = (name) => {
+          const normalized = String(name || '').trim().toLowerCase();
+          const slug = normalized.replace(/[^a-z0-9]+/g, '_');
+          return `top_${slug}_${simpleHash(normalized)}`;
+        };
 
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
@@ -278,10 +311,12 @@ export const SubtopicsPerformanceChart = React.memo(({
             .slice(0, 8)
             .map(entry => entry[0]);
 
-        const topTopics = topTopicNames.map(name => ({
+        const topTopics = topTopicNames
+          .map(name => ({
             name,
             key: toTopicKey(name)
-        }));
+          }))
+          .filter((topic, index, self) => self.findIndex(t => t.key === topic.key) === index);
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
 

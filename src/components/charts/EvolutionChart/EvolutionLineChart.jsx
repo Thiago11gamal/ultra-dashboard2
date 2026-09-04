@@ -57,6 +57,20 @@ export function EvolutionLineChart({
 
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
     const isLineClicked = useRef(false);
+    
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScore = Number(maxScore) > safeMinScore ? Number(maxScore) : safeMinScore + 1;
+    const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
+    
+    const safeTargetScore = Math.max(
+      safeMinScore,
+      Math.min(
+        safeMaxScore,
+        Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMinScore
+      )
+    );
+    
+    const dangerLimit = Math.max(safeMinScore, safeTargetScore - (safeRange * 0.08));
 
     const safeActiveCategories = useMemo(() => Array.isArray(activeCategories) ? activeCategories : [], [activeCategories]);
     const safeChartData = useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
@@ -141,7 +155,9 @@ export function EvolutionLineChart({
     const yAdjustedMap = React.useMemo(() => {
         if (!finalPoints.length) return {};
 
-        const { safeMin: localMin, safeMax: localMax, range } = normalizeScoreDomain(minScore, maxScore);
+        const localMin = safeMinScore;
+        const localMax = safeMaxScore;
+        const range = safeRange;
         const labels = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
         
         const topLimit = localMax - (range * 0.01);
@@ -249,9 +265,20 @@ export function EvolutionLineChart({
         return null;
     };
 
-    const { safeMin: safeMinScore, safeMax: safeMaxScore, clamp } = normalizeScoreDomain(minScore, maxScore);
-    const safeTargetScore = clamp(targetScore);
-    const dangerLimit = clamp(safeTargetScore - ((safeMaxScore - safeMinScore) * 0.08));
+
+
+    const visibleCategories = safeActiveCategories.filter(
+      cat => !showOnlyFocus || cat.id === focusSubjectId
+    );
+    
+    if (!enhancedChartData.length || visibleCategories.length === 0) {
+      return (
+        <div className="h-[360px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
+          <span className="text-3xl">🔍</span>
+          Nenhuma disciplina visível com o filtro atual.
+        </div>
+      );
+    }
 
     return (
         <div className="relative h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">

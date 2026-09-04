@@ -137,7 +137,9 @@ export function TodayVsGeneralChart({
         const result = sortedDates.slice(-14).map(date => {
             const [, m, d] = date.split('-');
             const entry = dayMap[date];
-            const acc = entry.total > 0 ? ratioToPoints(entry.correct / entry.total, maxScore, minScore) : minScore;
+            const acc = entry.total > 0
+              ? ratioToPoints(entry.correct / entry.total, safeMaxScore, safeMinScore)
+              : safeMinScore;
             return { date, displayDate: `${d}/${m}`, accuracy: acc, total: entry.total };
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
@@ -165,7 +167,7 @@ export function TodayVsGeneralChart({
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const time = toDateMs(h.date || h.createdAt);
-                if (!time || time > now + 86400000) return;
+                if (!time || time > now) return;
                 const rawScore = getSafeScore(h, safeMaxScore, safeMinScore);
                 const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
                 const hDateKey = getDateKey(h.date || h.createdAt);
@@ -211,11 +213,17 @@ export function TodayVsGeneralChart({
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
             const sortedRows = [...safeRowsArray]
                 .filter(r => {
-                    if (!r || (!r.createdAt && !r.date) || r.validated === false) return false;
-                    const rSubj = normalize(r.subject);
-                    const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
-                    const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
-                    return subjMatches || idMatches;
+                  if (!r || (!r.createdAt && !r.date) || r.validated === false) return false;
+                
+                  const rowTime = toDateMs(r.createdAt || r.date);
+                
+                  if (!Number.isFinite(rowTime) || rowTime > now) return false;
+                
+                  const rSubj = normalize(r.subject);
+                  const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
+                  const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
+                
+                  return subjMatches || idMatches;
                 })
                 .sort((a, b) => {
                     const timeA = toDateMs(a.createdAt || a.date);
@@ -336,10 +344,10 @@ export function TodayVsGeneralChart({
                             {temporalMetrics.map((metric) => {
                                 const isNull = metric.val == null;
                                 const safeMin = Number(minScore) || 0;
-                                const val = isNull ? 0 : Math.max(safeMin, Math.min(metric.val, maxScore));
+                                const val = isNull ? 0 : Math.max(safeMin, Math.min(metric.val, safeMax));
                                 const arcColor = isNull ? 'transparent' : getColor(metric.val);
-                                const scaleRange = Math.max(1, maxScore - safeMin);
-                                const arcVal = val - safeMin;
+                                const scaleRange = Math.max(1e-9, safeMax - safeMin);
+                                const arcVal = Math.max(0, val - safeMin);
                                 const arcData = [
                                     { name: metric.label, value: arcVal, trueValue: metric.val, baseColor: arcColor },
                                     { name: `${metric.label} (Restante)`, value: scaleRange - arcVal, trueValue: null, baseColor: arcColor }

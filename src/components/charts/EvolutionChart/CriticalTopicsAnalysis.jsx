@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { normalizeDate } from "../../../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
+import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -59,7 +60,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             if (!history.length) return;
 
             const recentHistory = history.filter(h => {
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(getHistoryDate(h));
                 return d && d >= startDate && d <= endDate;
             });
 
@@ -67,7 +68,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
 
-                (h.topics || []).forEach(t => {
+                toArray(h.topics).forEach(t => {
                     const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!n) return;
                     const key = n.toLowerCase();
@@ -136,7 +137,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
 
             const recentHistory = history.filter(h => {
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(getHistoryDate(h));
                 return d && d >= startDate && d <= endDate;
             });
             const range = Math.max(1e-9, maxScore - minScore);
@@ -186,15 +187,34 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
     }, [categories, startDate, endDate, maxScore, minScore]);
 
     const hasData = useMemo(() => {
-        if (!categories) return false;
-        return categories.some(cat => {
-            const historyRaw = cat.simuladoStats?.history;
-            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
-            return history.some(h => {
-                const d = normalizeDate(h.date);
-                return d && d >= startDate && d <= endDate && (parseInt(h.total, 10) > 0 || h.score != null);
-            });
+      if (!categories) return false;
+    
+      return categories.some(cat => {
+        const historyRaw = cat.simuladoStats?.history;
+        const history = Array.isArray(historyRaw)
+          ? historyRaw
+          : Object.values(historyRaw || {});
+    
+        return history.some(h => {
+          const d = normalizeDate(getHistoryDate(h));
+          const topics = toArray(h.topics);
+    
+          const hasTopicData = topics.some(
+            t => Number(t.total) > 0 || t.score != null
+          );
+    
+          return (
+            d &&
+            d >= startDate &&
+            d <= endDate &&
+            (
+              parseInt(h.total, 10) > 0 ||
+              h.score != null ||
+              hasTopicData
+            )
+          );
         });
+      });
     }, [categories, startDate, endDate]);
 
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";

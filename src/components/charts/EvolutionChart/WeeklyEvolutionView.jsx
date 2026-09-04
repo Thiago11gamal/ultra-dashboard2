@@ -7,7 +7,8 @@ import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
-import { APP_TIMEZONE, parseNoonLocal } from '../../../utils/dateHelper';
+import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
+import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, stableThreshold = 2 }) => {
@@ -163,8 +164,10 @@ export const WeeklyEvolutionView = ({
 
                 const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 hArray.forEach(h => {
-                    if (h.topics && Array.isArray(h.topics)) {
-                        h.topics.forEach(t => {
+                    const topics = toArray(h.topics);
+                    
+                    if (topics.length > 0) {
+                        topics.forEach(t => {
                             const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                             if (!tName) return;
                             const key = toSafeKey(tName);
@@ -203,7 +206,7 @@ export const WeeklyEvolutionView = ({
         const processHistory = (historyArray, itemId) => {
             if (!Array.isArray(historyArray) || !itemId) return;
             historyArray.forEach(h => {
-                const weekStr = getMondayStr(h.date);
+                const weekStr = getMondayStr(getHistoryDate(h));
                 if (!weekStr) return;
 
                 if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
@@ -233,12 +236,14 @@ export const WeeklyEvolutionView = ({
             if (cat) {
                 const hArray2 = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 hArray2.forEach(h => {
-                    if (h.topics && Array.isArray(h.topics)) {
-                        h.topics.forEach(t => {
+                    const topics = toArray(h.topics);
+                    
+                    if (topics.length > 0) {
+                        topics.forEach(t => {
                             const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                             if (!tName) return;
                             const tId = toSafeKey(tName);
-                            const weekStr = getMondayStr(h.date);
+                            const weekStr = getMondayStr(getHistoryDate(h));
                             if (!weekStr) return;
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
@@ -275,6 +280,11 @@ export const WeeklyEvolutionView = ({
                 displayDate: formatWeek(weekObj.week)
             };
 
+            const currentWeekDate = parseNoonLocal(weekObj.week);
+            const expectedPrevDate = new Date(currentWeekDate);
+            expectedPrevDate.setDate(expectedPrevDate.getDate() - 7);
+            const expectedPrevKey = getDateKey(expectedPrevDate);
+            
             validIds.forEach(id => {
                 const currentData = weekObj[id];
 
@@ -282,31 +292,53 @@ export const WeeklyEvolutionView = ({
                     const ratio = currentData.correct / currentData.total;
                     const currentScore = fromRatio(ratio);
                     const safeCurrentScore = Number.isFinite(currentScore) ? currentScore : 0;
-                    const currentPct = Number(Math.max(lowerBound, Math.min(upperBound, safeCurrentScore)).toFixed(2));
+                    const currentPct = Number(
+                        Math.max(lowerBound, Math.min(upperBound, safeCurrentScore)).toFixed(2)
+                    );
+
                     dataPoint[id] = currentPct;
 
-                    if (memoryByItem[id] !== undefined) {
-                        const prevPct = memoryByItem[id].pct;
-                        const safeDelta = Number.isFinite(currentPct - prevPct) ? (currentPct - prevPct) : 0;
-                        const delta = Number(safeDelta.toFixed(2));
+                    const last = memoryByItem[id];
 
-                        const isStable = Math.abs(delta) <= stableThreshold;   // antes: <= 2
+                    if (last && last.week === expectedPrevKey) {
+                        const prevPct = last.pct;
+                        const safeDelta = Number.isFinite(currentPct - prevPct)
+                            ? currentPct - prevPct
+                            : 0;
+
+                        const delta = Number(safeDelta.toFixed(2));
+                        const isStable = Math.abs(delta) <= stableThreshold;
+
                         dataPoint[`delta_${id}`] = delta;
-                        dataPoint[`deltaColor_${id}`] = isStable ? '#eab308' : (delta > 0 ? '#10b981' : '#ef4444');
+                        dataPoint[`deltaColor_${id}`] = isStable
+                            ? '#eab308'
+                            : delta > 0
+                            ? '#10b981'
+                            : '#ef4444';
 
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
                             currPct: currentPct,
-                            prevPct: prevPct,
-                            prevTot: memoryByItem[id].total
+                            prevPct,
+                            prevTot: last.total
                         };
                     } else {
                         dataPoint[`delta_${id}`] = null;
                         dataPoint[`deltaColor_${id}`] = '#94a3b8';
-                        dataPoint[`meta_${id}`] = { currTot: currentData.total, currPct: currentPct, prevPct: null, prevTot: 0 };
+
+                        dataPoint[`meta_${id}`] = {
+                            currTot: currentData.total,
+                            currPct: currentPct,
+                            prevPct: null,
+                            prevTot: 0
+                        };
                     }
 
-                    memoryByItem[id] = { pct: currentPct, total: currentData.total };
+                    memoryByItem[id] = {
+                        pct: currentPct,
+                        total: currentData.total,
+                        week: weekObj.week
+                    };
                 } else {
                     dataPoint[id] = null;
                     dataPoint[`delta_${id}`] = null;

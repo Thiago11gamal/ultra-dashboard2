@@ -90,20 +90,29 @@ export const MonteCarloEvolutionChart = ({
     targetScore = 75, 
     unit = 'pts', 
     minScore = 0, 
-    maxScore = 100 
+    maxScore = 100,
+    loading = false
 }) => {
     const rawId = useId();
-    const gradientId = `colorMonteCarlo-${rawId.replace(/:/g, '')}`;
+    const safeId = rawId.replace(/:/g, '');
+    const gradientId = `colorMonteCarlo-${safeId}`;
     const [scenario, setScenario] = useState('base');
     const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
 
-    const { safeMin, safeMax, range: domainRange, clamp } = useMemo(() => normalizeScoreDomain(minScore, maxScore), [minScore, maxScore]);
-    const safeTargetScore = clamp(targetScore);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 1;
+    
+    const safeTargetScore = useMemo(() => {
+      const t = Number(targetScore);
+      return Math.max(safeMin, Math.min(safeMax, Number.isFinite(t) ? t : safeMin));
+    }, [targetScore, safeMin, safeMax]);
 
     const targetOffset = useMemo(() => {
-        const pct = 1 - (safeTargetScore - safeMin) / domainRange;
-        return Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
-    }, [safeTargetScore, domainRange, safeMin]);
+      const range = safeMax - safeMin;
+      if (range <= 0 || !Number.isFinite(range)) return 0;
+      const pct = 1 - (safeTargetScore - safeMin) / range;
+      return Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
+    }, [safeTargetScore, safeMin, safeMax]);
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -257,22 +266,28 @@ export const MonteCarloEvolutionChart = ({
             </div>
 
             {mcAssumptions && (
-                <div className="px-2 mb-2 flex items-center gap-3">
-                    <p className="text-[9px] uppercase tracking-widest text-slate-500">
-                        Premissas do modelo:
-                    </p>
-                    <span className="text-[9px] font-bold text-slate-300">
-                        {mcAssumptions.points} registros
-                    </span>
-                    <span className="text-[9px] font-bold text-slate-300">
-                        IC: {formatValue(mcAssumptions.ciWidth)}{unit}
-                    </span>
-                    <span className="text-[9px] font-bold text-slate-300">
-                        Cenário: {mcAssumptions.scenario}
-                    </span>
-                </div>
+              <div className="px-2 mb-2">
+                <p className="text-[9px] uppercase tracking-widest text-slate-500">
+                  Premissas do modelo
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {mcAssumptions.points} registros · IC 95% de {formatValue(mcAssumptions.ciWidth)} {unit} · Cenário {mcAssumptions.scenario}
+                </p>
+              </div>
             )}
 
+            {loading && (
+              <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-2xl">
+                <div className="flex flex-col items-center gap-3">
+                  <span className="animate-spin text-indigo-400">
+                    ↻
+                  </span>
+                  <span className="text-[9px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">
+                    Recalculando Monte Carlo...
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="w-full relative h-[360px] flex items-center justify-center">
                 {displayData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={300}>
@@ -288,7 +303,7 @@ export const MonteCarloEvolutionChart = ({
                                     <stop offset={targetOffset} stopColor="#60a5fa" stopOpacity={0.25} />
                                     <stop offset={1} stopColor="#60a5fa" stopOpacity={0.02} />
                                 </linearGradient>
-                                <linearGradient id={`targetGlow-${rawId}`} x1="0" y1="0" x2="0" y2="1">
+                                <linearGradient id={`targetGlow-${safeId}`} x1="0" y1="0" x2="0" y2="1">
                                     <stop offset={0} stopColor="#10b981" stopOpacity={0.0} />
                                     <stop offset={1} stopColor="#10b981" stopOpacity={0.12} />
                                 </linearGradient>
@@ -296,7 +311,7 @@ export const MonteCarloEvolutionChart = ({
                             <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
                             
                             {/* Glowing Target Zone */}
-                            <ReferenceArea y1={safeTargetScore} y2={maxScore} fill={`url(#targetGlow-${rawId})`} />
+                            <ReferenceArea y1={safeTargetScore} y2={safeMax} fill={`url(#targetGlow-${safeId})`} />
                             <ReferenceLine 
                                 y={safeTargetScore} 
                                 stroke="#10b981" 
@@ -323,7 +338,7 @@ export const MonteCarloEvolutionChart = ({
                                 axisLine={{ stroke: '#334155' }}
                                 dx={-5}
                                 width={45}
-                                domain={[minScore, maxScore]}
+                                domain={[safeMin, safeMax]}
                                 allowDataOverflow={false}
                                 tickCount={6}
                                 tickFormatter={(v) => unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`}

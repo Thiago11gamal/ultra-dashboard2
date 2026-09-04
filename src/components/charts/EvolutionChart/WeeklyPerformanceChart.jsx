@@ -61,7 +61,7 @@ const WeeklyPerformanceChart = ({
 
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
-                    const hDate = getDateKey(h.date);
+                    const hDate = getDateKey(h.date || h.createdAt);
                     if (hDate === dateKey) {
                         let q = Number(h.total) || 0;
                         if (q === 0 && h.score != null) {
@@ -129,6 +129,19 @@ const WeeklyPerformanceChart = ({
             </div>
         );
     }, [safeUnit]);
+
+    const hasAnyData = chartData.some(
+      d => d.minutos > 0 || d.acertos != null
+    );
+
+    if (!hasAnyData) {
+      return (
+        <div className="w-full h-[320px] sm:h-[400px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
+          <span className="text-3xl">📭</span>
+          Sem atividade nos últimos 7 dias.
+        </div>
+      );
+    }
 
     return (
         <div className="w-full h-[320px] sm:h-[400px] flex flex-col">

@@ -263,7 +263,7 @@ const Sidebar = React.memo(function Sidebar({
                             <span className={`text-xs transition-transform ${contestsExpanded ? 'rotate-180' : ''} text-slate-400`}>▼</span>
                         </button>
 
-                        <div id="sidebar-contests-panel" inert={(!contestsExpanded || collapsed) ? "" : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div id="sidebar-contests-panel" inert={(!contestsExpanded || collapsed) ? true : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="nested-container space-y-1">
                                 {contestEntries.map(([id, contestData]) => {
                                     // BUG-03 FIX: contestData is a string from contestsMetaSelector, use directly
@@ -394,7 +394,7 @@ const Sidebar = React.memo(function Sidebar({
                                 <span className="font-semibold text-sm">Configurações</span>
                             </button>
 
-                            <div id="sidebar-settings-panel" inert={(!settingsExpanded || collapsed) ? "" : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div id="sidebar-settings-panel" inert={(!settingsExpanded || collapsed) ? true : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                 <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
                                     <button
                                         type="button"

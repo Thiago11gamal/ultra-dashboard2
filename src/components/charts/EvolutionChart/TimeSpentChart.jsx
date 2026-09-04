@@ -142,8 +142,13 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const chartData = useMemo(() => {
-        const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
-        return safeSubjectAggData
+        const relevantSubjectAggData = (() => {
+          const safe = Array.isArray(subjectAggData) ? subjectAggData : [];
+          if (!showOnlyFocus || !focusCategory?.id) return safe;
+          return safe.filter(d => d.id === focusCategory.id);
+        })();
+
+        return relevantSubjectAggData
             .filter(d => d.timedQuestoes > 0 && d.timeSpent >= 0)
             .map((d) => {
                 // Média geral
@@ -437,7 +442,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    Última média geral
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Última média geral</span>
                     <span className="text-lg sm:text-2xl font-black text-cyan-400 tracking-tight mt-1">
                         {legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}
                     </span>
@@ -445,7 +450,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    Acima da média
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Acima da média</span>
                     <span className="text-lg sm:text-2xl font-black text-rose-400 tracking-tight mt-1">
                         {legendStats.above} {legendStats.above === 1 ? 'matéria' : 'matérias'}
                     </span>
@@ -453,7 +458,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    Abaixo da média
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Abaixo da média</span>
                     <span className="text-lg sm:text-2xl font-black text-emerald-400 tracking-tight mt-1">
                         {legendStats.below} {legendStats.below === 1 ? 'matéria' : 'matérias'}
                     </span>
