@@ -43,11 +43,17 @@ export const EvolutionHeatmap = ({
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const range = Math.max(1e-9, safeMax - safeMin);
-    const targetScorePct = Math.max(0, Math.min(100, ((Number(targetScore) - safeMin) / range) * 100));
+    
+    const safeTarget = Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMin;
+    
+    const targetScorePct = Math.max(
+      0,
+      Math.min(100, ((safeTarget - safeMin) / range) * 100)
+    );
 
     // 🎯 FILTRO DE FOCO: Aplica o filtro de "Todas as Matérias" vs "Apenas Foco"
     const filteredRowsByFocus = useMemo(() => {
-        if (!showOnlyFocus) return rows;
+        if (!showOnlyFocus || !focusSubjectId) return rows;
         return rows.filter(row => row.cat?.id === focusSubjectId);
     }, [rows, showOnlyFocus, focusSubjectId]);
 
@@ -123,7 +129,17 @@ export const EvolutionHeatmap = ({
         worker.addEventListener('message', handleMessage);
         worker.addEventListener('error', handleError);
 
-        worker.postMessage({ id: msgId, payload: { filtered, granularity, targetScore } });
+        worker.postMessage({
+          id: msgId,
+          payload: {
+            filtered,
+            granularity,
+            targetScore: safeTarget,
+            targetScorePct,
+            minScore: safeMin,
+            maxScore: safeMax
+          }
+        });
 
         return () => {
             worker.removeEventListener('message', handleMessage);
@@ -140,12 +156,51 @@ export const EvolutionHeatmap = ({
     const maxCellTotal = totals.length > 0 ? totals.reduce((m, v) => Math.max(m, v), 1) : 1;
 
     const cellColor = (pct, total = 0) => {
-        if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b', density: 0 };
-        const density = Math.min(1, (Number(total) || 0) / maxCellTotal);
-        if (pct >= targetScorePct) return { bg: 'rgba(34,197,94,0.45)', text: '#4ade80', border: 'rgba(34,197,94,0.6)', density };
-        if (pct >= targetScorePct * 0.8) return { bg: 'rgba(251,191,36,0.4)', text: '#fcd34d', border: 'rgba(251,191,36,0.6)', density };
-        if (pct >= targetScorePct * 0.6) return { bg: 'rgba(251,146,60,0.4)', text: '#fb923c', border: 'rgba(251,146,60,0.6)', density };
-        return { bg: 'rgba(239,68,68,0.4)', text: '#f87171', border: 'rgba(239,68,68,0.6)', density };
+      if (pct == null || !Number.isFinite(Number(pct))) {
+        return {
+          bg: 'rgba(255,255,255,0.02)',
+          text: '#64748b',
+          border: '#1e293b',
+          density: 0
+        };
+      }
+    
+      const safePct = Number(pct);
+      const density = Math.min(1, (Number(total) || 0) / maxCellTotal);
+    
+      if (safePct >= targetScorePct) {
+        return {
+          bg: 'rgba(34,197,94,0.45)',
+          text: '#4ade80',
+          border: 'rgba(34,197,94,0.6)',
+          density
+        };
+      }
+    
+      if (safePct >= targetScorePct * 0.8) {
+        return {
+          bg: 'rgba(251,191,36,0.4)',
+          text: '#fcd34d',
+          border: 'rgba(251,191,36,0.6)',
+          density
+        };
+      }
+    
+      if (safePct >= targetScorePct * 0.6) {
+        return {
+          bg: 'rgba(251,146,60,0.4)',
+          text: '#fb923c',
+          border: 'rgba(251,146,60,0.6)',
+          density
+        };
+      }
+    
+      return {
+        bg: 'rgba(239,68,68,0.4)',
+        text: '#f87171',
+        border: 'rgba(239,68,68,0.6)',
+        density
+      };
     };
 
     const formatPct = (value) => {

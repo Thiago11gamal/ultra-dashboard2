@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useChartData } from "../hooks/useChartData";
 import { useEvolutionMC } from "../hooks/useEvolutionMC";
 import { useCategoryLevels } from "../hooks/useCategoryLevels";
 import { useSubjectAggData } from "../hooks/useSubjectAggData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
-import { normalizeProbability } from '../utils/scoreHelper';
+import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
 import { GaussianPlot } from "./charts/GaussianPlot";
@@ -353,7 +353,11 @@ export default React.memo(function EvolutionChart({
             "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
         ];
         const sourceList = (Array.isArray(propCategories) && propCategories.length > 0) ? propCategories : rawCategories;
-        const safeCategories = Array.isArray(sourceList) ? sourceList : Object.values(sourceList || {});
+        const safeCategories = (
+          Array.isArray(sourceList)
+            ? sourceList
+            : Object.values(sourceList || {})
+        ).filter(Boolean);
         return safeCategories.map((cat, idx) => {
             // FIX 1A-1: cor por índice (puro, sem mutação de variável externa)
             const color = cat.color || DEFAULT_PALETTE[idx % DEFAULT_PALETTE.length];
@@ -417,6 +421,14 @@ export default React.memo(function EvolutionChart({
     const [exportError, setExportError] = useState(false);
     const [showEngineTooltip, setShowEngineTooltip] = useState(false);
 
+    const engineTabRefs = useRef(new Map());
+
+    const focusEngineTab = (id) => {
+      requestAnimationFrame(() => {
+        engineTabRefs.current.get(id)?.focus();
+      });
+    };
+
     const focusCategory = useMemo(() => {
         if (!categories || categories.length === 0) return null;
         const found = categories.find(c => c.id === focusSubjectId);
@@ -473,12 +485,25 @@ export default React.memo(function EvolutionChart({
 
     // 2. Determinar a chave de downsampling (memoizada separadamente)
     const primaryKey = useMemo(() => {
-        if (activeEngine === "compare") return "Nível Bayesiano";
-        if (activeEngine === "mc_density") return focusCategory?.id ? `bay_${focusCategory.id}` : null;
-        if (activeEngine === "raw") return focusCategory?.id ? `raw_${focusCategory.id}` : null;
-        if (activeEngine === "stats") return focusCategory?.id ? `stats_${focusCategory.id}` : null;
-        return focusCategory?.id ? `bay_${focusCategory.id}` : null;
-    }, [activeEngine, focusCategory?.id]);
+      const firstPoint = historicalData.result?.[0] || {};
+      const candidates = [];
+    
+      if (activeEngine === "compare") {
+        candidates.push("Nível Bayesiano");
+      }
+    
+      if (focusCategory?.id) {
+        candidates.push(`bay_${focusCategory.id}`);
+        candidates.push(`raw_${focusCategory.id}`);
+        candidates.push(`stats_${focusCategory.id}`);
+      }
+    
+      const validKey = candidates.find(
+        key => firstPoint[key] != null && Number.isFinite(Number(firstPoint[key]))
+      );
+    
+      return validKey || "date";
+    }, [activeEngine, focusCategory?.id, historicalData.result]);
 
     // 3. Downsampling memoizado separadamente
     const sampledHistorical = useMemo(() => {
@@ -510,18 +535,33 @@ export default React.memo(function EvolutionChart({
     const insight = useMemo(() => {
         return generateEvolutionInsights({
             timeline,
+            filteredChartData,
             focusCategory,
             activeEngine,
             categories,
             unit,
             maxScore,
-            minScore
-            });
-        }, [timeline, focusCategory, activeEngine, categories, unit, maxScore, minScore]);
+            minScore,
+            timeWindow,
+            showOnlyFocus
+        });
+    }, [
+        timeline,
+        filteredChartData,
+        focusCategory,
+        activeEngine,
+        categories,
+        unit,
+        maxScore,
+        minScore,
+        timeWindow,
+        showOnlyFocus
+    ]);
         
         const statusList = useMemo(() => {
             return computeEvolutionStatuses({
                 timeline,
+                filteredChartData,
                 categories,
                 focusCategory,
                 targetScore,
@@ -531,10 +571,13 @@ export default React.memo(function EvolutionChart({
                 activeMcResult,
                 subjectAggData,
                 heatmapData,
-                projectDays
+                projectDays,
+                timeWindow,
+                showOnlyFocus
             });
         }, [
             timeline,
+            filteredChartData,
             categories,
             focusCategory,
             targetScore,
@@ -544,7 +587,9 @@ export default React.memo(function EvolutionChart({
             activeMcResult,
             subjectAggData,
             heatmapData,
-            projectDays
+            projectDays,
+            timeWindow,
+            showOnlyFocus
         ]);
         
         const toneHex = {
@@ -848,21 +893,27 @@ export default React.memo(function EvolutionChart({
                                     aria-selected={active}
                                     aria-controls={`engine-panel-${eng.id}`}
                                     key={eng.id}
+                                    ref={(el) => engineTabRefs.current.set(eng.id, el)}
                                     onClick={() => setActiveEngine(eng.id)}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'ArrowRight') {
-                                            e.preventDefault();
-                                            setActiveEngine(arr[(idx + 1) % arr.length].id);
-                                        } else if (e.key === 'ArrowLeft') {
-                                            e.preventDefault();
-                                            setActiveEngine(arr[(idx - 1 + arr.length) % arr.length].id);
-                                        } else if (e.key === 'Home') {
-                                            e.preventDefault();
-                                            setActiveEngine(arr[0].id);
-                                        } else if (e.key === 'End') {
-                                            e.preventDefault();
-                                            setActiveEngine(arr[arr.length - 1].id);
-                                        }
+                                      const activate = (id) => {
+                                        setActiveEngine(id);
+                                        focusEngineTab(id);
+                                      };
+                                    
+                                      if (e.key === 'ArrowRight') {
+                                        e.preventDefault();
+                                        activate(arr[(idx + 1) % arr.length].id);
+                                      } else if (e.key === 'ArrowLeft') {
+                                        e.preventDefault();
+                                        activate(arr[(idx - 1 + arr.length) % arr.length].id);
+                                      } else if (e.key === 'Home') {
+                                        e.preventDefault();
+                                        activate(arr[0].id);
+                                      } else if (e.key === 'End') {
+                                        e.preventDefault();
+                                        activate(arr[arr.length - 1].id);
+                                      }
                                     }}
                                     tabIndex={active ? 0 : -1}
                                     aria-pressed={active}
@@ -919,6 +970,7 @@ export default React.memo(function EvolutionChart({
                         unit={unit}
                         minScore={minScore}
                         maxScore={maxScore}
+                        loading={mcLoading}
                     />
                 ) : activeEngine === "weekly_diff" ? (
                     <WeeklyEvolutionView
@@ -1047,36 +1099,98 @@ export default React.memo(function EvolutionChart({
                                 </div>
                             </div>
 
-                            <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
-                                {(() => {
-                                    const toFinite = (v, fallback = 0) => (v === null || v === undefined || v === '') ? fallback : (Number.isFinite(Number(v)) ? Number(v) : fallback);
-                                    const bounded = (v) => Math.max(minScore, Math.min(maxScore, toFinite(v, minScore)));
-                                    const projectedLevel = bounded(toFinite(activeMcResult?.projectedMean, toFinite(activeMcResult?.mean, minScore)));
-                                    const ciLow = bounded(toFinite(activeMcResult?.ci95Low, projectedLevel));
-                                    const ciHigh = bounded(toFinite(activeMcResult?.ci95High, projectedLevel));
-                                    const ciMin = Math.min(ciLow, ciHigh);
-                                    const ciMax = Math.max(ciLow, ciHigh);
-                                    const marginOfError = Math.max(0, (ciMax - ciMin) / 2);
-
-                                    return [
-                                        { label: 'Caminho Sucesso', val: `${Math.round(normalizeProbability(activeMcResult?.probability))}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                                        { label: 'Nível Projetado', val: unit === '%' ? `${projectedLevel.toFixed(2)}${unit}` : `${Math.round(projectedLevel)}${unit}`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                                        { label: 'Margem de Erro', val: unit === '%' ? `±${marginOfError.toFixed(2)}${unit}` : `±${Math.round(marginOfError)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                                        { label: 'Confiança 95%', val: unit === '%' ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}` : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }
-                                    ].map((stat, i) => (
-                                     <div key={i} className="flex flex-col p-3 rounded-2xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors min-w-0">
-                                         <div className="flex items-center gap-1.5 mb-1 opacity-60">
-                                             <span className={stat.color}>{stat.icon}</span>
-                                             <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</span>
-                                         </div>
-                                         <span className={`text-base sm:text-lg font-black ${stat.color} tracking-tight break-words w-full block leading-tight`} title={stat.val}>
-                                             {stat.val}
-                                         </span>
-                                     </div>
-                                ));
-                                })()}
+                            {activeMcResult ? (
+                                  <div className="w-full md:w-1/2 grid grid-cols-2 gap-3 self-center">
+                                    {(() => {
+                                      const toFinite = (v, fallback = 0) =>
+                                        v === null || v === undefined || v === ''
+                                          ? fallback
+                                          : Number.isFinite(Number(v))
+                                            ? Number(v)
+                                            : fallback;
+                                
+                                      const bounded = (v) => Math.max(minScore, Math.min(maxScore, toFinite(v, minScore)));
+                                
+                                      const projectedLevel = bounded(
+                                        toFinite(activeMcResult?.projectedMean, toFinite(activeMcResult?.mean, minScore))
+                                      );
+                                
+                                      const ciLow = bounded(toFinite(activeMcResult?.ci95Low, projectedLevel));
+                                      const ciHigh = bounded(toFinite(activeMcResult?.ci95High, projectedLevel));
+                                
+                                      const ciMin = Math.min(ciLow, ciHigh);
+                                      const ciMax = Math.max(ciLow, ciHigh);
+                                      const marginOfError = Math.max(0, (ciMax - ciMin) / 2);
+                                
+                                      return [
+                                        {
+                                          label: 'Caminho Sucesso',
+                                          val: `${normalizeProbability(activeMcResult?.probability).toFixed(2)}%`,
+                                          icon: <Target size={14} />,
+                                          color: 'text-emerald-400',
+                                          bg: 'bg-emerald-500/10'
+                                        },
+                                        {
+                                          label: 'Nível Projetado',
+                                          val: unit === '%'
+                                            ? `${projectedLevel.toFixed(2)}${unit}`
+                                            : `${Math.round(projectedLevel)}${unit}`,
+                                          icon: <TrendingUp size={14} />,
+                                          color: 'text-blue-400',
+                                          bg: 'bg-blue-500/10'
+                                        },
+                                        {
+                                          label: 'Margem de Erro',
+                                          val: unit === '%'
+                                            ? `±${marginOfError.toFixed(2)}${unit}`
+                                            : `±${Math.round(marginOfError)}${unit}`,
+                                          icon: <BarChart3 size={14} />,
+                                          color: 'text-amber-400',
+                                          bg: 'bg-amber-500/10'
+                                        },
+                                        {
+                                          label: 'Confiança 95%',
+                                          val: unit === '%'
+                                            ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}`
+                                            : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`,
+                                          icon: <Zap size={14} />,
+                                          color: 'text-indigo-400',
+                                          bg: 'bg-indigo-500/10'
+                                        }
+                                      ].map((stat, i) => (
+                                        <div
+                                          key={i}
+                                          className="flex flex-col p-3 rounded-2xl bg-black/40 border border-white/5 hover:border-white/10 transition-colors min-w-0"
+                                        >
+                                          <div className="flex items-center gap-1.5 mb-1 opacity-60">
+                                            <span className={stat.color}>{stat.icon}</span>
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">
+                                              {stat.label}
+                                            </span>
+                                          </div>
+                                          <span
+                                            className={`text-base sm:text-lg font-black ${stat.color} tracking-tight break-words w-full block leading-tight`}
+                                            title={stat.val}
+                                          >
+                                            {stat.val}
+                                          </span>
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+                                ) : (
+                                  <div className="w-full md:w-1/2 grid place-items-center self-center px-6">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
+                                      Sem projeção Monte Carlo disponível
+                                    </span>
+                                  </div>
+                                )}
                             </div>
                         </div>
+
+                        {mcLoading && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm pointer-events-none"></div>
+                        )}
 
                         {!activeMcResult && !mcLoading && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm">
