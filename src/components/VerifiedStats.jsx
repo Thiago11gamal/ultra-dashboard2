@@ -370,6 +370,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const storeTarget = user?.targetProbability;
     
     React.useEffect(() => {
+        if (storeTarget == null || storeTarget === '') return;
         const parsedStore = parseFloat(storeTarget);
         if (isNaN(parsedStore)) return;
 
@@ -457,10 +458,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         if (!Number.isFinite(parsed)) return;
 
         // T-026 FIX: comparar valores já normalizados para a escala atual
-        const currentStoreTarget = normalizeTargetToScale(parseFloat(storeTarget));
+        const parsedStore = parseFloat(storeTarget);
+        const currentStoreTarget = normalizeTargetToScale(parsedStore);
 
-        // Se o valor local já é igual ao da Store, não fazemos nada
-        if (Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
+        // Se o valor local já é igual ao da Store (e a store não está vazia), não fazemos nada
+        if (!isNaN(parsedStore) && Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
 
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
         pendingLocalSave.current = true;
@@ -825,12 +827,15 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             // converte via RAZÃO do intervalo útil (não score/maxScore).
                             const safeScore = getSafeScore(t, catMaxScore, catMinScore2);
                             const topicRatio = Math.max(0, Math.min(1, (safeScore - catMinScore2) / catRange2));
-                            const correct = (Number.isFinite(safeScore) && total > 0)
-                                ? Math.round(topicRatio * total)
-                                : Math.min(total, (Number(t.correct) || 0)); // BUG-03 FIX: Limitar acertos ao total
+                            
                             if (total > 0) {
+                                // BUG FIX (Rounding Noise): Evitar requantizar quando já temos a nota calculada
+                                const finalTopicRatio = (Number.isFinite(safeScore)) 
+                                    ? topicRatio 
+                                    : Math.max(0, Math.min(1, (Number(t.correct) || 0) / total));
+
                                 // Escala global com piso
-                                const topicScore = minScore + (correct / total) * globalRange;
+                                const topicScore = minScore + finalTopicRatio * globalRange;
                                 if (!topicMap[t.name]) topicMap[t.name] = [];
                                 topicMap[t.name].push(topicScore);
                             }

@@ -66,7 +66,7 @@ export default function Stats() {
         const hasValidRows = rowsArray.some(r =>
             r && r.validated !== false && (
                 (Number(r.total) > 0 && Number(r.correct) >= 0) ||
-                (Number(r.score) > 0 && Number(r.total) > 0)
+                (Number(r.score) > 0 && Number(r.total) >= 0)
             )
         );
         if (hasValidRows) return true;
