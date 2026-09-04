@@ -44,6 +44,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                         categoryColor: cat.color,
                         categoryIcon: cat.icon,
                         catMaxScore: cat.maxScore ?? maxScore,
+                        catMinScore,
                         correct: 0,
                         wrong: 0,
                         total: 0,
@@ -70,6 +71,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                             categoryColor: cat.color,
                             categoryIcon: cat.icon,
                             catMaxScore: cat.maxScore ?? maxScore,
+                            catMinScore,
                             correct: 0,
                             wrong: 0,
                             total: 0,
@@ -79,8 +81,10 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                     const catMaxScore = cat.maxScore ?? maxScore;
                     const totalParsed = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 0;
                     const total = totalParsed > 0 ? totalParsed : Math.max(0, (Number(t.correct) || 0) + (Number(t.wrong) || 0));
-                    const correctCount = total > 0
-                        ? Math.round((getSafeScore(t, catMaxScore, catMinScore) / catMaxScore) * total)
+                    const score = getSafeScore(t, catMaxScore, catMinScore);
+                    const range = Math.max(1e-9, catMaxScore - catMinScore);
+                    const correctCount = total > 0 && Number.isFinite(score)
+                        ? Math.round(((score - catMinScore) / range) * total)
                         : (Number(t.correct) || 0);
                     const wrongCount = Math.max(0, total - correctCount);
                     topicMap[key].correct += correctCount;
@@ -96,7 +100,9 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
         return Object.values(topicMap)
             .map(t => {
                 const balance = t.correct - t.wrong;
-                const percent = t.total > 0 ? Math.round((t.correct / t.total) * t.catMaxScore) : 0;
+                const catMinScore = t.catMinScore ?? 0;
+                const range = Math.max(1e-9, t.catMaxScore - catMinScore);
+                const percent = t.total > 0 ? Math.round(catMinScore + (t.correct / t.total) * range) : 0;
                 const sortedTrend = getSortedHistory(t.trendHistory || []).slice(-10);
                 const trendValue = sortedTrend.length >= 3 ? calculateSlope(sortedTrend, t.catMaxScore) : 0;
                 const trendTolerance = 0.0167 * (t.catMaxScore / 100);
@@ -164,8 +170,10 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                                             {totalQuestions > 0 ? (
                                                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
                                                     {(() => {
+                                                        const minS = item.catMinScore ?? 0;
                                                         const safeMax = Math.max(1, Number(maxScore) || 1);
-                                                        const scorePct = Math.max(0, Math.min(100, (Number(percentCorrect) / safeMax) * 100));
+                                                        const range = Math.max(1e-9, safeMax - minS);
+                                                        const scorePct = Math.max(0, Math.min(100, ((Number(percentCorrect) - minS) / range) * 100));
                                                         return (
                                                             <>
                                                                 {scorePct > 0 && (

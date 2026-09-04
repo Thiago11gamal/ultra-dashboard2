@@ -742,7 +742,7 @@ export function computeBayesianLevel(
     };
 }
 
-export function computeCategoryStats(history, weight, _daysValue = 60, maxScore = 100) {
+export function computeCategoryStats(history, weight, _daysValue = 60, maxScore = 100, minScore = 0) {
     const safeHistory = toHistoryArray(history);
     if (!safeHistory.length) return null;
 
@@ -753,7 +753,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     const historyWithSynthetics = safeHistory
         .map(h => {
-            const score = getSafeScore(h, safeMaxScore);
+            const score = getSafeScore(h, safeMaxScore, minScore);
             const total = Number(h?.total);
 
             if ((!Number.isFinite(total) || total <= 0) && Number.isFinite(score)) {
@@ -779,11 +779,11 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const historyToUse = validHistory.length > 0 ? validHistory : historyWithSynthetics;
 
     const scores = historyToUse
-        .map(h => getSafeScore(h, safeMaxScore))
+        .map(h => getSafeScore(h, safeMaxScore, minScore))
         .filter(Number.isFinite);
 
     const validHistoryForMean = historyToUse.filter(h =>
-        Number.isFinite(getSafeScore(h, safeMaxScore))
+        Number.isFinite(getSafeScore(h, safeMaxScore, minScore))
     );
 
     let sumWeightMean = 0;
@@ -798,7 +798,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const effW = totalWeight * diffWeight;
 
         sumWeightMean += effW;
-        sumScoreMean += getSafeScore(h, safeMaxScore) * effW;
+        sumScoreMean += getSafeScore(h, safeMaxScore, minScore) * effW;
     });
 
     const mRaw = sumWeightMean > 0 ? sumScoreMean / sumWeightMean : mean(scores);
@@ -832,7 +832,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             const totalWeight = Number(h?.total);
             if (!Number.isFinite(totalWeight) || totalWeight <= 0) return;
 
-            const safeScore = getSafeScore(h, safeMaxScore);
+            const safeScore = getSafeScore(h, safeMaxScore, minScore);
             if (!Number.isFinite(safeScore)) return;
 
             const robustScore = Number.isFinite(median) && Number.isFinite(clampLimit)
@@ -905,13 +905,13 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore);
 
     const validHistoryForTrend = historyToUse.filter(h =>
-        Number.isFinite(getSafeScore(h, safeMaxScore))
+        Number.isFinite(getSafeScore(h, safeMaxScore, minScore))
     );
 
     const sortedForTrendCap = getSortedHistory(validHistoryForTrend);
 
     const lastScoreRaw = sortedForTrendCap.length > 0
-        ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore)
+        ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore, minScore)
         : m;
 
     const safeLastScore = Number.isFinite(lastScoreRaw) ? lastScoreRaw : m;

@@ -29,7 +29,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
         const entry = aggregatedByDate.get(key);
         const rawTotal = Math.max(0, Number(h?.total) || 0);
         const rawCorrect = Math.max(0, Math.min(rawTotal, Number(h?.correct) || 0));
-        const score = getSafeScore(h, safeMax);
+        const score = getSafeScore(h, safeMax, safeMin);
         const safeScore = Number.isFinite(score) ? score : NaN;
 
         let compTotal = rawTotal;
@@ -144,9 +144,10 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
             const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, safeMax, {
                 referenceDate: date,
                 lastEventDate: lastEntry ? lastEntry.date : null,
+                minScore: safeMin,
             });
             dateToStats[date] = {
-                stats: computeCategoryStats(accumulated, 100, 60, safeMax),
+                stats: computeCategoryStats(accumulated, 100, 60, safeMax, safeMin),
                 last: accumulated[accumulated.length - 1],
                 bayesian: {
                     mean: bayStats.mean,
@@ -241,7 +242,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
                 const rawTotal = Math.max(0, Number(h.total) || 0);
                 const rawC = Math.max(0, Math.min(rawTotal, Number(h.correct) || 0));
-                const score = getSafeScore(h, safeMax);
+                const score = getSafeScore(h, safeMax, safeMin);
                 if (!Number.isFinite(score)) return;
                 const corrNorm = rawTotal > 0
                     ? Math.max(0, Math.min(rawTotal, Math.round(toRatio(score) * rawTotal)))
@@ -270,7 +271,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                     const calc = safeMin + (exact.compCorrect / exact.compTotal) * safeRange;
                     rawDailyScore = Number.isFinite(calc) ? calc : null;
                 } else if (exact && snap?.last) {
-                    const s = getSafeScore(snap.last, safeMax);
+                    const s = getSafeScore(snap.last, safeMax, safeMin);
                     rawDailyScore = Number.isFinite(s) ? s : null;
                 }
                 dataByDate[date] = {
@@ -324,7 +325,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
                 let tot = Math.max(0, Number(h.total) || 0);
                 let raw = Math.max(0, Number(h.correct) || 0);
                 let corrNorm;
-                const score = getSafeScore(h, safeMax);
+                const score = getSafeScore(h, safeMax, safeMin);
                 if (!Number.isFinite(score)) return;
                 if (h.score != null && tot === 0) {
                     tot = getSyntheticTotal(safeMax);
@@ -356,7 +357,7 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         activeCategories.forEach(cat => {
             getHistoryArray(cat).forEach(h => {
                 let tot = Math.max(0, Number(h.total) || 0);
-                const score = getSafeScore(h, safeMax);
+                const score = getSafeScore(h, safeMax, safeMin);
                 if (!Number.isFinite(score)) return;
                 let corrNorm;
                 if (tot === 0 && h.score != null) {

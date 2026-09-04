@@ -20,13 +20,14 @@ const PerformanceTable = ({ categories = [] }) => {
 
             let correct = 0, wrong = 0, totalQuestions = 0;
             const ms = cat.maxScore ?? 100;
+            const minS = cat.minScore ?? 0;
 
             for (let i = 0; i < history.length; i++) {
                 const h = history[i];
                 const t = parseInt(h.total, 10) || 0;
                 // BUG-FIX: proteger contra NaN de getSafeScore
-                const score = getSafeScore(h, ms);
-                const c = Number.isFinite(score) ? (score / ms * t) : 0;
+                const score = getSafeScore(h, ms, minS);
+                const c = Number.isFinite(score) ? ((score - minS) / (ms - minS) * t) : 0;
                 correct += c;
                 wrong += (t - c);
                 
@@ -142,6 +143,7 @@ const PerformanceTable = ({ categories = [] }) => {
                             const historyRaw = stats.history || [];
                             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
                             const ms = category.maxScore ?? 100;
+                            const minS = category.minScore ?? 0;
 
                             const totalQuestions = category.totalVolume;
                             const totalCorrect = Math.max(0, Math.round(category.correct));
@@ -153,7 +155,7 @@ const PerformanceTable = ({ categories = [] }) => {
                             const trendHistory = getSortedHistory(history)
                                 .slice(-10)
                                 .map(h => ({
-                                    score: getSafeScore(h, ms),
+                                    score: getSafeScore(h, ms, minS),
                                     date: h.date
                                 }));
                             const trendValue = trendHistory.length >= 3 ? calculateSlope(trendHistory, ms) : 0;

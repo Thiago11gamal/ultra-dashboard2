@@ -69,7 +69,7 @@ export function useEvolutionMC({
       .filter((h) => h && (h.date || h.createdAt))
       .map((h) => {
         const dateKey = getDateKey(h.date || h.createdAt);
-        const score = getSafeScore(h, safeMax);
+        const score = getSafeScore(h, safeMax, safeMin);
         // FIX 3B: validação mais robusta
         if (!dateKey || !Number.isFinite(score)) return null;
         return {

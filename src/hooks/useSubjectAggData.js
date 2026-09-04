@@ -42,7 +42,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const totalQ = history.reduce((s, h) => {
           let tot = Math.max(0, Number(h.total) || 0);
           if (tot === 0 && h.score != null) tot = getSyntheticTotal(safeMax);
-          const score = getSafeScore(h, safeMax);
+          const score = getSafeScore(h, safeMax, safeMin);
           if (!Number.isFinite(score)) return s;
           return s + tot;
         }, 0);
@@ -55,7 +55,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
             if (!h.isPercentage && Number.isFinite(rawC)) {
               return s + Math.max(0, Math.min(tot, rawC));
             }
-            const score = getSafeScore(h, safeMax);
+            const score = getSafeScore(h, safeMax, safeMin);
             if (!Number.isFinite(score)) return s;
             const normalizedScore = Math.max(safeMin, Math.min(safeMax, score));
             const derived = ((normalizedScore - safeMin) / range) * tot;

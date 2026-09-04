@@ -111,12 +111,14 @@ function PersonalRanking({ categories = [] }) {
                 return acc + Math.max(0, fallback);
             }, 0);
             const ms = cat.maxScore ?? 100;
+            const minS = cat.minScore ?? 0;
             const correctRaw = history.reduce((acc, h) => {
                 const parsedTotal = Number(h.total);
                 const t = (Number.isFinite(parsedTotal) && parsedTotal > 0)
                     ? parsedTotal
                     : Math.max(0, (Number(h.correct) || 0) + (Number(h.wrong) || 0));
-                const c = t > 0 ? (getSafeScore(h, ms) / ms) * t : 0;
+                const score = getSafeScore(h, ms, minS);
+                const c = Number.isFinite(score) && t > 0 ? ((score - minS) / (ms - minS)) * t : 0;
                 return acc + c;
             }, 0);
             const correct = Math.max(0, Math.round(correctRaw));
