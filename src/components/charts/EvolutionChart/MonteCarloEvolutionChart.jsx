@@ -6,7 +6,7 @@ import { Target, TrendingUp, AlertCircle } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDuration, normalizeDate } from '../../../utils/dateHelper';
-import { formatValue, formatPercent } from '../../../utils/scoreHelper';
+import { formatValue, formatPercent, normalizeScoreDomain } from '../../../utils/scoreHelper';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
 
 const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxScore, minScore }) => {
@@ -97,17 +97,13 @@ export const MonteCarloEvolutionChart = ({
     const [scenario, setScenario] = useState('base');
     const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
 
-    const safeTargetScore = useMemo(() => {
-        const t = Number(targetScore);
-        return Math.max(minScore, Math.min(maxScore, Number.isFinite(t) ? t : minScore));
-    }, [targetScore, minScore, maxScore]);
+    const { safeMin, safeMax, range: domainRange, clamp } = useMemo(() => normalizeScoreDomain(minScore, maxScore), [minScore, maxScore]);
+    const safeTargetScore = clamp(targetScore);
 
     const targetOffset = useMemo(() => {
-        const range = maxScore - minScore;
-        if (range <= 0 || !Number.isFinite(range)) return 0;
-        const pct = 1 - (safeTargetScore - minScore) / range;
+        const pct = 1 - (safeTargetScore - safeMin) / domainRange;
         return Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
-    }, [safeTargetScore, maxScore, minScore]);
+    }, [safeTargetScore, domainRange, safeMin]);
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -261,10 +257,19 @@ export const MonteCarloEvolutionChart = ({
             </div>
 
             {mcAssumptions && (
-                <div className="px-2 mb-2">
+                <div className="px-2 mb-2 flex items-center gap-3">
                     <p className="text-[9px] uppercase tracking-widest text-slate-500">
-                        Premissas do modelo
+                        Premissas do modelo:
                     </p>
+                    <span className="text-[9px] font-bold text-slate-300">
+                        {mcAssumptions.points} registros
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-300">
+                        IC: {formatValue(mcAssumptions.ciWidth)}{unit}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-300">
+                        Cenário: {mcAssumptions.scenario}
+                    </span>
                 </div>
             )}
 
@@ -387,19 +392,19 @@ export const MonteCarloEvolutionChart = ({
                     <div className="flex flex-col gap-3 mt-2">
                         <div className="flex items-start gap-3 bg-blue-500/10 p-3 rounded-lg border-l-4 border-blue-400 border-y border-r border-blue-500/20">
                             <p className="text-[11.5px] text-blue-100 leading-relaxed">
-                                Linha azul (passado):
+                                <strong>Linha azul (passado):</strong> Representa a média real do seu desempenho consolidado ao longo do tempo.
                             </p>
                         </div>
                         
                         <div className="flex items-start gap-3 bg-indigo-500/10 p-3 rounded-lg border-l-4 border-indigo-400 border-dashed border-y border-r border-indigo-500/20">
                             <p className="text-[11.5px] text-indigo-100 leading-relaxed">
-                                Linha tracejada roxa (futuro):
+                                <strong>Linha tracejada roxa (futuro):</strong> É a projeção estatística calculada pelo motor Monte Carlo, simulando cenários futuros de prova.
                             </p>
                         </div>
 
                         <div className="flex items-start gap-3 bg-emerald-500/10 p-3 rounded-lg border-l-4 border-emerald-400 border-dashed border-y border-r border-emerald-500/20">
                             <p className="text-[11.5px] text-emerald-100 leading-relaxed">
-                                Linha pontilhada verde (objetivo):
+                                <strong>Linha tracejada verde (objetivo):</strong> A meta que você configurou. O sombreamento ao redor mostra a incerteza da projeção.
                             </p>
                         </div>
                     </div>

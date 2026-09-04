@@ -304,7 +304,7 @@ export function TodayVsGeneralChart({
                         <Target size={14} />
                     </div>
                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        Sessão de hoje
+                        {todayAcc != null ? 'Sessão de hoje' : `Último dia ativo (${lastActiveEntry?.displayDate || 'sem data'})`}
                     </span>
                 </div>
                 <div className="absolute top-4 right-4 flex flex-col items-end gap-0.5 max-h-[calc(100%-6rem)] overflow-y-auto no-scrollbar">
@@ -371,7 +371,7 @@ export function TodayVsGeneralChart({
                             {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
                         </div>
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">
-                            Acertos de hoje (${unit})
+                            Acertos de hoje ({unit})
                         </span>
                     </div>
                 </div>
@@ -465,7 +465,7 @@ export function TodayVsGeneralChart({
                                 strokeDasharray="5 5" 
                                 strokeWidth={2} 
                                 opacity={0.6}
-                                Média geral
+                                label={{ value: 'Média geral', fill: COLORS.reference, fontSize: 10, position: 'insideTopLeft' }}
                             />
                             <Line 
                                 type="monotoneX" 

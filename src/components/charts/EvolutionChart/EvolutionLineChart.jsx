@@ -7,7 +7,7 @@ import {
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
 import { normalizeDate, formatDisplayDate } from '../../../utils/dateHelper';
-import { formatValue } from '../../../utils/scoreHelper';
+import { formatValue, normalizeScoreDomain } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke, onClick, isDimmed } = props;
@@ -111,37 +111,41 @@ export function EvolutionLineChart({
     }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId]);
 
     // Gather final points for label positioning (busca regressiva para pegar o último ponto com dado de cada matéria)
-    const finalPoints = React.useMemo(() => {
-        if (!enhancedChartData.length) return [];
+    const { finalPoints, lastValidIndexByCat } = React.useMemo(() => {
+        if (!enhancedChartData.length) return { finalPoints: [], lastValidIndexByCat: {} };
         const pts = [];
+        const idxMap = {};
         
         safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
             const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
             let lastVal = null;
+            let lastIdx = -1;
             for (let i = enhancedChartData.length - 1; i >= 0; i--) {
                 const v = enhancedChartData[i]?.[dataKey];
                 if (v != null && Number.isFinite(Number(v))) {
                     lastVal = Number(v);
+                    lastIdx = i;
                     break;
                 }
             }
             if (lastVal != null) {
                 pts.push({ id: cat.id, name: cat.name, value: lastVal, color: cat.color });
+                idxMap[cat.id] = lastIdx;
             }
         });
         // Sort by value descending (highest values first)
-        return pts.sort((a, b) => b.value - a.value);
+        return { finalPoints: pts.sort((a, b) => b.value - a.value), lastValidIndexByCat: idxMap };
     }, [enhancedChartData, safeActiveCategories, showOnlyFocus, focusSubjectId, engine]);
 
     // Adaptive label collision logic (Hardened for variable score scales)
     const yAdjustedMap = React.useMemo(() => {
         if (!finalPoints.length) return {};
 
-        const range = maxScore - minScore;
+        const { safeMin: localMin, safeMax: localMax, range } = normalizeScoreDomain(minScore, maxScore);
         const labels = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
         
-        const topLimit = maxScore - (range * 0.01);
-        const bottomLimit = minScore + (range * 0.03);
+        const topLimit = localMax - (range * 0.01);
+        const bottomLimit = localMin + (range * 0.03);
         const safeSpace = Math.max(0.1, topLimit - bottomLimit);
         
         const MIN_PCT_DISTANCE = range * 0.10; // 10% distance threshold (was 7.5%)
@@ -199,12 +203,12 @@ export function EvolutionLineChart({
 
         if (hasFocus && !isFocused) return null;
 
-        if (index === enhancedChartData.length - 1 && value != null) {   // ✅ LOTE-03
+        if (index === lastValidIndexByCat[catId] && value != null) {   // ✅ LOTE-03
             let offsetPx = 0;
             const adjustedY = yAdjustedMap[catId];
 
             if (adjustedY !== undefined && adjustedY !== value) {
-                const range = maxScore - minScore;
+                const { range } = normalizeScoreDomain(minScore, maxScore);
                 const pxPerPct = (viewBox?.height > 0) ? viewBox.height / (range || 1) : 2.5;
                 offsetPx = (value - adjustedY) * pxPerPct;
             }
@@ -245,7 +249,9 @@ export function EvolutionLineChart({
         return null;
     };
 
-    const dangerLimit = Math.max(minScore, targetScore - ((maxScore - minScore) * 0.08));
+    const { safeMin: safeMinScore, safeMax: safeMaxScore, clamp } = normalizeScoreDomain(minScore, maxScore);
+    const safeTargetScore = clamp(targetScore);
+    const dangerLimit = clamp(safeTargetScore - ((safeMaxScore - safeMinScore) * 0.08));
 
     return (
         <div className="relative h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
@@ -311,34 +317,34 @@ export function EvolutionLineChart({
                         dx={-4}
                         axisLine={{ stroke: '#334155', strokeWidth: 1 }}
                         tickLine={false}
-                        domain={[minScore, maxScore]}
+                        domain={[safeMinScore, safeMaxScore]}
                         allowDataOverflow={false}
                         tickFormatter={(v) => `${formatValue(v)}${unit}`}
                         width={40}
                     />
 
                                  <ReferenceArea
-                                     y1={targetScore}
-                                     y2={maxScore}
+                                     y1={safeTargetScore}
+                                     y2={safeMaxScore}
                                      fill="#10b981"
                                      fillOpacity={0.045}
                                  />
                     
                                  <ReferenceArea
-                                     y1={minScore}
+                                     y1={safeMinScore}
                                      y2={dangerLimit}
                                      fill="#ef4444"
                                      fillOpacity={0.035}
                                  />
                     
                                   <ReferenceLine 
-                                      y={targetScore}
+                                      y={safeTargetScore}
                         stroke="#10b981" 
                         strokeOpacity={0.6} 
                         strokeWidth={1.5}
                         strokeDasharray="4 2"
                         label={{ 
-                            value: `Meta ${formatValue(targetScore)}${unit}`, 
+                            value: `Meta ${formatValue(safeTargetScore)}${unit}`, 
                             fill: '#22c55e', 
                             fontSize: 10, 
                             position: 'insideTopLeft', 
@@ -382,7 +388,7 @@ export function EvolutionLineChart({
 
                         return [
                             // Bayesian Confidence Interval Band
-                            (isFocused && engine?.id === 'bayesian') ? (
+                            (engine?.id === 'bayesian' && (!hasFocus || isFocused)) ? (
                                 <Area connectNulls key={`bay_ci_${cat.id}`} type={lineType}
                                     dataKey={`band_${cat.id}`}
                                     name="_IC 95%" stroke="none"

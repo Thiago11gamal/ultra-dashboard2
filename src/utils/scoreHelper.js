@@ -88,6 +88,37 @@ export function formatPercent(value, digits = 1) {
   return `${formatValue(n, digits)}%`;
 }
 
+export function normalizeScoreDomain(minScore, maxScore) {
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  let safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+
+  if (safeMax <= safeMin) {
+    safeMax = safeMin + 1;
+  }
+
+  const range = Math.max(1e-9, safeMax - safeMin);
+
+  const clamp = (value, fallback = safeMin) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(safeMin, Math.min(safeMax, n));
+  };
+
+  return { safeMin, safeMax, range, clamp };
+}
+
+export function normalizeProbability(value, fallback = 0) {
+  let n = Number(value);
+
+  if (!Number.isFinite(n)) return fallback;
+
+  if (n > 0 && n <= 1) {
+    n = n * 100;
+  }
+
+  return Math.max(0, Math.min(100, n));
+}
+
 export {
   clampFinite,
   safeDomain,

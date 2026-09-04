@@ -5,6 +5,7 @@ import { useCategoryLevels } from "../hooks/useCategoryLevels";
 import { useSubjectAggData } from "../hooks/useSubjectAggData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
+import { normalizeProbability } from '../utils/scoreHelper';
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
 import { GaussianPlot } from "./charts/GaussianPlot";
@@ -422,7 +423,7 @@ export default React.memo(function EvolutionChart({
         return found || categories[0];
     }, [categories, focusSubjectId]);
 
-    const categoryLevels = useCategoryLevels(categories, timeline, activeEngine, maxScore, minScore);
+    const categoryLevels = useCategoryLevels(categories, timeline, 'bayesian', maxScore, minScore);
 
     const subjectAggData = useSubjectAggData({
         categories, showOnlyFocus, focusCategory, timeWindow, maxScore, minScore
@@ -1058,7 +1059,7 @@ export default React.memo(function EvolutionChart({
                                     const marginOfError = Math.max(0, (ciMax - ciMin) / 2);
 
                                     return [
-                                        { label: 'Caminho Sucesso', val: `${Math.max(0, Math.min(100, toFinite(activeMcResult?.probability))).toFixed(2)}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                                        { label: 'Caminho Sucesso', val: `${Math.round(normalizeProbability(activeMcResult?.probability))}%`, icon: <Target size={14} />, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                                         { label: 'Nível Projetado', val: unit === '%' ? `${projectedLevel.toFixed(2)}${unit}` : `${Math.round(projectedLevel)}${unit}`, icon: <TrendingUp size={14} />, color: 'text-blue-400', bg: 'bg-blue-500/10' },
                                         { label: 'Margem de Erro', val: unit === '%' ? `±${marginOfError.toFixed(2)}${unit}` : `±${Math.round(marginOfError)}${unit}`, icon: <BarChart3 size={14} />, color: 'text-amber-400', bg: 'bg-amber-500/10' },
                                         { label: 'Confiança 95%', val: unit === '%' ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}` : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`, icon: <Zap size={14} />, color: 'text-indigo-400', bg: 'bg-indigo-500/10' }

@@ -7,7 +7,7 @@ import {
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
 import { normalizeDate, formatDisplayDate, formatDuration } from '../../../utils/dateHelper';
-import { formatValue } from '../../../utils/scoreHelper';
+import { formatValue, normalizeScoreDomain } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;
@@ -76,9 +76,9 @@ export function CompareChart({
         });
     }, [filteredChartData]);
 
-    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-    const dangerLimit = Math.max(safeMinScore, targetScore - ((safeMaxScore - safeMinScore) * 0.08));
+    const { safeMin: safeMinScore, safeMax: safeMaxScore, range: domainRange, clamp } = normalizeScoreDomain(minScore, maxScore);
+    const safeTargetScore = clamp(targetScore);
+    const dangerLimit = clamp(safeTargetScore - (domainRange * 0.08));
 
     const lastValidIdx = React.useMemo(() => {
         const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
@@ -298,7 +298,7 @@ export function CompareChart({
                     <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} width={50} />
                     
                                     <ReferenceArea
-                                        y1={targetScore}
+                                        y1={safeTargetScore}
                                         y2={safeMaxScore}
                                         fill="#10b981"
                                         fillOpacity={0.05}
@@ -311,8 +311,8 @@ export function CompareChart({
                                         fillOpacity={0.04}
                                     />
                     
-                                    <ReferenceLine y={targetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
-                        label={{ value: `Meta ${formatValue(targetScore)}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideTopLeft', dy: -6, dx: 5 }} />
+                                    <ReferenceLine y={safeTargetScore} stroke="#10b981" strokeOpacity={0.6} strokeWidth={2} strokeDasharray="5 5"
+                        label={{ value: `Meta ${formatValue(safeTargetScore)}${unit}`, fill: '#10b981', fontSize: 10, fontWeight: 'black', position: 'insideTopLeft', dy: -6, dx: 5 }} />
                     
                     <Tooltip 
                         offset={30}
@@ -321,11 +321,10 @@ export function CompareChart({
                     
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
                     
-                    <Area connectNulls type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
-                    <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
+                    <Area connectNulls type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" tooltipType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
+                    <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" tooltipType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     
-                    name="Ganho estimado"
-                    name="Intervalo de confiança MC"
+                    <Area connectNulls type="monotoneX" dataKey="Cenário Range" stroke="none" fill={`url(#${CC.cloudGradient})`} legendType="none" tooltipType="none" isAnimationActive={false} />
                     
                     {/* Bottom Layer: Glow for Nível Bayesiano */}
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={8} strokeOpacity={0.25} fill="none" activeDot={false} legendType="none" connectNulls isAnimationActive={false} />
