@@ -7,7 +7,8 @@ import useClock from '../hooks/useClock';
 /* ─────────────────────────────────────────────────────────
    Helper Components
  ───────────────────────────────────────────────────────── */
-const DateDisplay = ({ clockTime }) => {
+const DateDisplay = () => {
+    const clockTime = useClock();
     return (
         <p className="text-slate-400 pl-2 text-[10px] font-bold uppercase tracking-wider opacity-80 truncate">
             {format(clockTime, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
@@ -15,7 +16,8 @@ const DateDisplay = ({ clockTime }) => {
     );
 };
 
-const TimeDisplay = ({ clockTime }) => {
+const TimeDisplay = () => {
+    const clockTime = useClock();
     return (
         <div className="bg-white/[0.02] border border-white/[0.05] rounded-lg px-3 py-1 text-sm font-mono text-slate-300 hidden md:block">
             {format(clockTime, 'HH:mm:ss')}
@@ -23,7 +25,8 @@ const TimeDisplay = ({ clockTime }) => {
     );
 };
 
-const MobileClockDisplay = ({ clockTime }) => {
+const MobileClockDisplay = () => {
+    const clockTime = useClock();
     return (
         <div className="flex flex-col">
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold leading-none mb-0.5">
@@ -48,7 +51,6 @@ const Header = React.memo(function Header({
     sidebarCollapsed,
     setSidebarCollapsed
 }) {
-    const clockTime = useClock();
     const displayName = user?.name ?? 'Estudante';
     const [prevDisplayName, setPrevDisplayName] = useState(displayName);
     const [localName, setLocalName] = useState(displayName);
@@ -104,7 +106,7 @@ const Header = React.memo(function Header({
                         >
                             <Menu size={18} aria-hidden="true" />
                         </button>
-                        <MobileClockDisplay clockTime={clockTime} />
+                        <MobileClockDisplay />
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -145,7 +147,7 @@ const Header = React.memo(function Header({
                             <Menu size={18} aria-hidden="true" />
                         </button>
                         <div className="flex items-center gap-3 min-w-0">
-                            <DateDisplay clockTime={clockTime} />
+                            <DateDisplay />
                             {cloudStatus.status !== 'idle' && (
                                 <div 
                                     className={`flex items-center shrink-0 min-w-[100px] justify-center gap-2 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider transition-all duration-500 ${
@@ -224,7 +226,7 @@ const Header = React.memo(function Header({
                             </span>
                         </button>
                         <div className="h-8 w-[1px] bg-white/[0.05] mx-1 flex-shrink-0" />
-                        <TimeDisplay clockTime={clockTime} />
+                        <TimeDisplay />
                     </div>
                 </div>
             </header>

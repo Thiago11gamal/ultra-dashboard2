@@ -27,7 +27,7 @@ import logo from '../assets/logo.png';
 import { useAuth } from '../context/useAuth';
 import './Sidebar.css';
 import { del } from 'idb-keyval';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, clearAllDataSecure } from '../store/useAppStore';
 import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
 
 const SECTIONS = [
@@ -497,13 +497,8 @@ const Sidebar = React.memo(function Sidebar({
                 onClose={() => setShowResetConfirm(false)}
                 onConfirm={async () => {
                     try {
-                        const { INITIAL_DATA } = await import('../data/initialData.js');
-                        useAppStore.getState().setAppState({
-                            contests: { 'default': JSON.parse(JSON.stringify(INITIAL_DATA)) },
-                            activeId: 'default',
-                            trash: []
-                        });
                         setShowResetConfirm(false);
+                        await clearAllDataSecure();
                     } catch (err) {
                         console.error('Erro ao zerar conta:', err);
                     }
