@@ -353,6 +353,10 @@ const Sidebar = React.memo(function Sidebar({
                                             }}
                                             title={item.label}
                                             onClick={() => {
+                                                // Sinaliza navegação intencional ao Dashboard
+                                                if (item.path === '/') {
+                                                    sessionStorage.setItem('navigateToDashboard', 'true');
+                                                }
                                                 closeMobileSidebar();
                                             }}
                                         >

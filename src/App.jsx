@@ -59,6 +59,13 @@ const EMPTY_OBJECT = Object.freeze({});
 const RootRedirect = () => {
   const { currentUser } = useAuth();
   if (currentUser) {
+    // Se o usuário clicou explicitamente em "Meu Painel", não redirecionar
+    const intentionalDashboard = sessionStorage.getItem('navigateToDashboard');
+    if (intentionalDashboard) {
+      sessionStorage.removeItem('navigateToDashboard');
+      localStorage.removeItem(`lastRoute_${currentUser.uid}`);
+      return <Dashboard />;
+    }
     const lastRoute = localStorage.getItem(`lastRoute_${currentUser.uid}`);
     if (lastRoute && lastRoute !== '/') {
       return <Navigate to={lastRoute} replace />;
