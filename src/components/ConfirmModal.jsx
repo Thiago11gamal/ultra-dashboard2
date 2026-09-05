@@ -57,9 +57,9 @@ export default function ConfirmModal({
             if (typeof onConfirm === 'function') {
                 await onConfirm();
             }
-            if (typeof onClose === 'function') onClose();
         } catch (err) {
             console.error('Erro ao executar confirmação:', err);
+        } finally {
             if (typeof onClose === 'function') onClose();
         }
     };

@@ -598,7 +598,9 @@ export function useMonteCarloStats({
             applyConservativeTrendCap(result);
           }
 
-          setSimulationData({ status: 'ready', data: result });
+          if (isMountedRef.current) {
+            setSimulationData({ status: 'ready', data: result });
+          }
 
           try {
             const setDataFn = useAppStore.getState().setData;
@@ -729,7 +731,9 @@ export function useMonteCarloStats({
             applyConservativeTrendCap(result);
           }
 
-          setSimulationData({ status: 'ready', data: result });
+          if (isMountedRef.current) {
+            setSimulationData({ status: 'ready', data: result });
+          }
 
           try {
             const setDataFn = useAppStore.getState().setData;

@@ -87,7 +87,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
   const systemAlertMessage = isSystemAlert ? (parsed.action || parsed.topic) : null;
   const displayAssunto = parsed.topic;
   const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
-  const col = CARD_COLORS[idx % CARD_COLORS.length];
+  const col = CARD_COLORS[Math.abs(idx) % CARD_COLORS.length] || CARD_COLORS[0];
   const mcProbPct = getMcProbPct(task);
   const hasProb = mcProbPct > 0 || task.analysis?.monteCarlo?.probability != null;
   const safeProb = hasProb ? mcProbPct : null;
