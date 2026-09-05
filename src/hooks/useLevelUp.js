@@ -11,8 +11,9 @@ export function useLevelUp() {
     if (typeof window === 'undefined') return undefined;
 
     const handleLevelUp = (e) => {
+      if (!e?.detail) return;
       setQueue(prev => {
-        if (prev.some(item => item.level === e.detail?.level)) return prev;
+        if (prev.some(item => item?.level === e.detail.level)) return prev;
         return [...prev, e.detail];
       });
     };

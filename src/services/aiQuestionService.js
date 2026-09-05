@@ -122,6 +122,11 @@ export async function generateViaGeminiDirect({
       throw new Error(`Backend AI retornou ${response.status}`);
     }
 
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Resposta do backend AI não é JSON: ${contentType}`);
+    }
+
     let data = {};
     try {
       data = await response.json();
@@ -168,6 +173,11 @@ export async function generateViaBackend({
 
     if (!response.ok) {
       throw new Error(`Backend retornou ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Resposta do backend não é JSON: ${contentType}`);
     }
 
     let data = {};

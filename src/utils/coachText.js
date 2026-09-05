@@ -89,7 +89,7 @@ export function parseCoachTask(task, categories = []) {
 
   if (bracketMatch) {
     if (!topicRaw && bracketMatch[1]) topicRaw = bracketMatch[1].trim();
-    if (bracketMatch[2]) action = bracketMatch[2].trim();
+    if (bracketMatch[2] != null) action = String(bracketMatch[2]).trim();
   }
 
   // FIX: usa a regex sem âncora para limpar ruído corretamente
