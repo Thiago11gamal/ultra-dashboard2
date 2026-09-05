@@ -22,6 +22,7 @@ export const clearCoachCaches = _clearCoachCaches;
 export async function coach(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
   const safeOptions = options && typeof options === 'object' ? options : {};
+  try {
       const result = await runCoachOrchestrator(safeInput, safeOptions);
       if (!result) {
         return {
