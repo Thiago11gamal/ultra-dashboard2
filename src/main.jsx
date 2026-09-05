@@ -12,11 +12,15 @@ registerSW({ immediate: true })
 
 const rootElement = document.getElementById('root');
 
-createRoot(rootElement).render(
-  <ErrorBoundary>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </ErrorBoundary>,
-)
+if (rootElement) {
+  createRoot(rootElement).render(
+    <ErrorBoundary>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ErrorBoundary>,
+  )
+} else {
+  console.error("Root element not found.");
+}
 

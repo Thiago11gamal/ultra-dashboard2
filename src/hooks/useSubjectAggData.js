@@ -28,7 +28,7 @@ export function filterHistoryByTimeWindow(history, timeWindow) {
  */
 export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, timeWindow, maxScore, minScore }) {
   return useMemo(() => {
-    if (!categories || !categories.length) return [];
+    if (!Array.isArray(categories) || !categories.length) return [];
     return categories
       .filter((cat) => !showOnlyFocus || cat.id === focusCategory?.id)
       .map((cat) => {

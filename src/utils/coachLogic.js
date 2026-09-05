@@ -2217,11 +2217,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
 };
 
 const getWeakestTopic = (category, simulados = [], maxScore = 100) => {
-    return _buildSortedTopics(category, simulados, maxScore)[0] || null;
+    const topics = _buildSortedTopics(category, simulados, maxScore);
+    return (topics && topics.length > 0) ? topics[0] : null;
 };
 
 const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 3) => {
-    return _buildSortedTopics(category, simulados, maxScore).slice(0, limit);
+    const topics = _buildSortedTopics(category, simulados, maxScore);
+    return (topics || []).slice(0, limit);
 };
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {

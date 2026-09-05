@@ -153,7 +153,7 @@ const Sidebar = React.memo(function Sidebar({
         if (typeof window === 'undefined') return;
         if (window.innerWidth >= 1024) return;
         if (isOpen) {
-            onCloseMobile?.();
+            if (typeof onCloseMobile === 'function') onCloseMobile();
         }
     };
 

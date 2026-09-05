@@ -657,7 +657,7 @@ function Checklist({
         onAddTask(catId, trimmedTitle);
 
         if (filter === 'completed') {
-            setFilter?.('all');
+            if (typeof setFilter === 'function') setFilter('all');
         }
 
         const isLastCategory = safeCategories.length > 0 && catId === safeCategories[safeCategories.length - 1].id;

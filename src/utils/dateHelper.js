@@ -4,6 +4,7 @@ export const APP_TIMEZONE = 'America/Manaus';
 
 export const safeDateParse = (dateInput, fallback = null) => {
   if (!dateInput) return fallback;
+  if (typeof dateInput === 'boolean' || (typeof dateInput === 'object' && !(dateInput instanceof Date))) return fallback;
   const normalizedString = typeof dateInput === 'string'
     ? dateInput.replace(' ', 'T')
     : dateInput;

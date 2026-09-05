@@ -1,5 +1,9 @@
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const toNum = (v, fb = 0) => (Number.isFinite(Number(v)) ? Number(v) : fb);
+const toNum = (v, fb = 0) => {
+  if (v === null || v === undefined || v === '') return fb;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fb;
+};
 
 function safeDomain(maxScore, minScore) {
   const max = Math.max(1, toNum(maxScore, 100));

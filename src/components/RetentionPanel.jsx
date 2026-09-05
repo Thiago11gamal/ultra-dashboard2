@@ -441,7 +441,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                 {needsReview.slice(0, 5).map((task, index) => (
                                     <div
                                         key={task.id || `${task.title}-${index}`}
-                                        onClick={() => onSelectCategory?.({ ...task.catReference, selectedTask: task })}
+                                        onClick={() => typeof onSelectCategory === 'function' && onSelectCategory({ ...task.catReference, selectedTask: task })}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all duration-300 hover:scale-105 cursor-pointer ${task.retention.border} ${task.retention.color} bg-black/40 backdrop-blur-sm`}
                                     >
                                         <span className="opacity-70">{task.categoryIcon}</span>
@@ -569,7 +569,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                                         key={task.id || `${task.title}-${index}`}
                                                         className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/[0.03] group/item border border-transparent hover:border-white/5
                                                             ${task.retention.val < 40 ? 'bg-red-500/[0.03]' : task.retention.val < 60 ? 'bg-yellow-500/[0.02]' : ''}`}
-                                                        onClick={() => onSelectCategory?.({ ...cat, selectedTask: task })}
+                                                        onClick={() => typeof onSelectCategory === 'function' && onSelectCategory({ ...cat, selectedTask: task })}
                                                     >
                                                         {/* Task Icon Circle */}
                                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm shrink-0 transition-transform group-hover/item:scale-110 shadow-lg ${task.retention.bgLight} ${task.retention.color} border ${task.retention.border}`}>
@@ -596,7 +596,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
                                                         {/* Play Button - Action */}
                                                         <button
-                                                            onClick={(e) => { e.stopPropagation(); onSelectCategory?.({ ...cat, selectedTask: task }); }}
+                                                            onClick={(e) => { e.stopPropagation(); if (typeof onSelectCategory === 'function') onSelectCategory({ ...cat, selectedTask: task }); }}
                                                             className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all hover:text-white hover:ring-2 hover:scale-110 group/play ${task.retention.bgLight} ${task.retention.border} ${task.retention.color} ${task.retention.bgHover} ${task.retention.ringHover} ${task.retention.shadow}`}
                                                             title="Iniciar Revisão"
                                                         >

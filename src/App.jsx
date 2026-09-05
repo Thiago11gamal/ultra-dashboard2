@@ -58,12 +58,21 @@ const EMPTY_OBJECT = Object.freeze({});
 
 const RootRedirect = () => {
   const { currentUser } = useAuth();
+
+  useEffect(() => {
+    if (currentUser) {
+      const intentionalDashboard = sessionStorage.getItem('navigateToDashboard');
+      if (intentionalDashboard) {
+        sessionStorage.removeItem('navigateToDashboard');
+        localStorage.removeItem(`lastRoute_${currentUser.uid}`);
+      }
+    }
+  }, [currentUser]);
+
   if (currentUser) {
     // Se o usuário clicou explicitamente em "Meu Painel", não redirecionar
     const intentionalDashboard = sessionStorage.getItem('navigateToDashboard');
     if (intentionalDashboard) {
-      sessionStorage.removeItem('navigateToDashboard');
-      localStorage.removeItem(`lastRoute_${currentUser.uid}`);
       return <Dashboard />;
     }
     const lastRoute = localStorage.getItem(`lastRoute_${currentUser.uid}`);
@@ -236,19 +245,32 @@ function MainLayout() {
     showToast('Ação desfeita! ↩️', 'info');
   }, [undo, showToast]);
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const handleImport = useCallback((event) => {
     const file = event.target.files[0];
     if (!file) return;
     event.target.value = '';
 
+    if (file.size > 50 * 1024 * 1024) { // 50MB
+      showToast('O arquivo de backup é grande demais (máx 50MB).', 'error');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
+      if (!isMountedRef.current) return;
       showToast('A processar backup... ⏳', 'info');
 
       // Joga o processamento pesado para o final da fila de eventos, 
       // deixando a animação do Toast ocorrer fluida.
       if (importTimeoutRef.current) clearTimeout(importTimeoutRef.current);
       importTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
         try {
           const currentAppState = useAppStore.getState().appState;
           const result = parseImportedData(e.target.result, currentAppState);

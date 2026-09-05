@@ -25,9 +25,9 @@ const PerformanceTable = ({ categories = [] }) => {
             for (let i = 0; i < history.length; i++) {
                 const h = history[i];
                 const t = parseInt(h.total, 10) || 0;
-                // BUG-FIX: proteger contra NaN de getSafeScore
                 const score = getSafeScore(h, ms, minS);
-                const c = Number.isFinite(score) ? ((score - minS) / (ms - minS) * t) : 0;
+                const range = ms - minS;
+                const c = Number.isFinite(score) && range !== 0 ? ((score - minS) / range * t) : 0;
                 correct += c;
                 wrong += (t - c);
                 

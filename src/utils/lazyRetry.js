@@ -7,6 +7,9 @@ export const lazyWithRetry = (componentImport) =>
     );
     try {
       const component = await componentImport();
+      if (!component || !component.default) {
+        throw new Error('Module has no default export');
+      }
       window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
       return component;
     } catch (error) {

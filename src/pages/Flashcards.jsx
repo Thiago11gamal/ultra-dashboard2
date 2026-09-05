@@ -250,7 +250,7 @@ export default function Flashcards() {
     persistDecks(nextDecks);
 
     // Integrate as measure: log review for stats, activity, gamification, coach
-    if (logFlashcardReview && studyDeck) {
+    if (typeof logFlashcardReview === 'function' && studyDeck) {
         logFlashcardReview(studyDeck.id, currentCard.id, rating, studyDeck.subject || studyDeck.name);
     }
 

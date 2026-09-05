@@ -586,6 +586,8 @@ export function useMonteCarloStats({
         }
 
         if (!cancelled) {
+          if (!isMountedRef.current) return;
+
           if (result) {
             result.diagnostics = {
               ...(result.diagnostics || {}),
@@ -597,8 +599,6 @@ export function useMonteCarloStats({
           }
 
           setSimulationData({ status: 'ready', data: result });
-
-          if (!isMountedRef.current) return; // ✅ FIX: Prevents state updates on unmounted component
 
           try {
             const setDataFn = useAppStore.getState().setData;
@@ -716,6 +716,8 @@ export function useMonteCarloStats({
               historyLength: pureStatsData.globalHistory?.length || 0
             });
           }
+
+          if (!isMountedRef.current) return;
 
           if (result) {
             result.diagnostics = {

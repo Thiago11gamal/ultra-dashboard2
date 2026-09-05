@@ -84,12 +84,12 @@ export function parseCoachTask(task, categories = []) {
 
   let action = hasSeparator ? clean.slice(separatorIndex + 1).trim() : clean;
 
-  const bracketMatch = action.match(RX_BRACKET_TOPIC);
+  const bracketMatch = action ? String(action).match(RX_BRACKET_TOPIC) : null;
   let topicRaw = String(task?.topicName || '').trim();
 
   if (bracketMatch) {
-    if (!topicRaw) topicRaw = bracketMatch[1].trim();
-    action = bracketMatch[2].trim();
+    if (!topicRaw && bracketMatch[1]) topicRaw = bracketMatch[1].trim();
+    if (bracketMatch[2]) action = bracketMatch[2].trim();
   }
 
   // FIX: usa a regex sem âncora para limpar ruído corretamente

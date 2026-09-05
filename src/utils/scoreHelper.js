@@ -89,8 +89,9 @@ export function formatPercent(value, digits = 1) {
 }
 
 export function normalizeScoreDomain(minScore, maxScore) {
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  let safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  const isNil = (v) => v === null || v === undefined || v === '';
+  const safeMin = !isNil(minScore) && Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  let safeMax = !isNil(maxScore) && Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
 
   if (safeMax <= safeMin) {
     safeMax = safeMin + 1;

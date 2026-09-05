@@ -7,6 +7,7 @@ import { computeCategoryStats } from '../engine';
  */
 export function useCategoryLevels(categories, timeline, activeEngine, maxScore = 100, minScore = 0) {
   return useMemo(() => {
+    if (!Array.isArray(categories)) return {};
     const map = {};
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const lastPoint = timeline.length > 0 ? timeline[timeline.length - 1] : null;

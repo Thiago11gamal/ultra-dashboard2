@@ -850,6 +850,7 @@ function PomodoroTimer({
         const startLeft = stateRefs.current.timeLeft;
 
         const tick = () => {
+            if (!isMountedRef.current) return;
             const now = performance.now();
             const elapsedSeconds = ((now - startTime) / 1000) * (speedRef.current || 1);
             const oldTime = stateRefs.current.timeLeft;

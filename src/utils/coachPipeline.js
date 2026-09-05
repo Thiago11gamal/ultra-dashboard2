@@ -3,17 +3,15 @@
  *
  * Lote 12 — Facade do Unified Coach Orchestrator.
  */
-export {
-  runCoachOrchestrator,
-  buildCoachOrchestratorDashboard,
-  clearCoachCaches,
+import {
+  runCoachOrchestrator as _runCoachOrchestrator,
+  buildCoachOrchestratorDashboard as _buildCoachOrchestratorDashboard,
+  clearCoachCaches as _clearCoachCaches,
 } from '../engine/orchestrator/coachOrchestrator.js';
 
-import {
-  runCoachOrchestrator,
-  buildCoachOrchestratorDashboard,
-  clearCoachCaches,
-} from '../engine/orchestrator/coachOrchestrator.js';
+export const runCoachOrchestrator = _runCoachOrchestrator;
+export const buildCoachOrchestratorDashboard = _buildCoachOrchestratorDashboard;
+export const clearCoachCaches = _clearCoachCaches;
 
 /**
  * API simples para executar o Coach completo.

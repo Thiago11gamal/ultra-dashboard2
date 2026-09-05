@@ -391,7 +391,8 @@ export function adaptiveConfidenceShrinkage(options = {}) {
     // FIX BUG 4: Incluir a incerteza da tendência no cálculo final de contração
     // Redistribuir os pesos para incluir a incerteza da tendência (15%)
     const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendPenaltyFactor * 0.15); 
-    const finalShrink = Math.max(0, Math.min(maxShrink, rawShrink));
+    const safeMaxShrink = Number.isFinite(Number(maxShrink)) ? Number(maxShrink) : 0.6;
+    const finalShrink = Math.max(0, Math.min(safeMaxShrink, rawShrink));
 
     return {
         shrinkFactor: Number(finalShrink.toFixed(4)),

@@ -90,7 +90,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 <div className="flex items-center gap-1 shrink-0 bg-black/20 rounded-md border border-white/5 p-0.5">
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); onStartPomodoro?.(task, isBacklog ? 'backlog' : dayTheme?.id); }}
+                    onClick={(e) => { e.stopPropagation(); if (typeof onStartPomodoro === 'function') onStartPomodoro(task, isBacklog ? 'backlog' : dayTheme?.id); }}
                     onPointerDown={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
                     onTouchStart={(e) => e.stopPropagation()}
@@ -136,9 +136,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   prev.index === next.index &&
   prev.isBacklog === next.isBacklog &&
   prev.dayTheme?.id === next.dayTheme?.id &&
-  prev.task?.id === next.task?.id &&
-  prev.task?.text === next.task?.text &&
-  prev.task?.title === next.task?.title &&
+  prev.task === next.task &&
   // FIX (A1): sem comparar `categories`, renomear uma matéria não
   // re-renderizava os cards já montados (displaySubject stale).
   prev.categories === next.categories &&
@@ -359,11 +357,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       );
       const startList = [...(cur[source.droppableId] || [])];
       
-      // FIX: Guard contra bounds errados e busca pelo draggableId real
       const realSourceIndex = startList.findIndex(t => getSafeId(t) === result.draggableId || t.id === result.draggableId);
-      if (realSourceIndex === -1) return prev;
-
-      const [moved] = startList.splice(realSourceIndex, 1);
+      const safeSourceIndex = realSourceIndex !== -1 ? realSourceIndex : source.index;
+      
+      const [moved] = startList.splice(safeSourceIndex, 1);
       if (!moved) return prev;
       
       const finishList = (source.droppableId === destination.droppableId)

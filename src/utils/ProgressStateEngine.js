@@ -83,9 +83,9 @@ export function analyzeProgressState(scores, config = {}) {
   for (let i = 1; i < finiteRecentScores.length; i++) {
     variationTotal += Math.abs(finiteRecentScores[i] - finiteRecentScores[i - 1]);
   }
-  const delta = variationTotal / (finiteRecentScores.length - 1);
+  const delta = variationTotal / Math.max(1, finiteRecentScores.length - 1);
   const variance = finiteRecentScores.reduce((acc, score) =>
-    acc + Math.pow(score - mean, 2), 0) / (finiteRecentScores.length - 1);
+    acc + Math.pow(score - mean, 2), 0) / Math.max(1, finiteRecentScores.length - 1);
 
   const recentDates = recentData.map(d => d.safeTime);
   const n = finiteRecentScores.length;

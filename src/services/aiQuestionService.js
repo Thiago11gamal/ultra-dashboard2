@@ -122,7 +122,12 @@ export async function generateViaGeminiDirect({
       throw new Error(`Backend AI retornou ${response.status}`);
     }
 
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error(`Resposta inválida do backend AI (JSON parsing error)`);
+    }
     const questions = data.questions ?? [];
     return validateAIQuestions(questions);
   } finally {
@@ -165,7 +170,12 @@ export async function generateViaBackend({
       throw new Error(`Backend retornou ${response.status}`);
     }
 
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error(`Resposta inválida do backend (JSON parsing error)`);
+    }
     return validateAIQuestions(data.questions ?? []);
   } finally {
     clearTimeout(timeoutId);

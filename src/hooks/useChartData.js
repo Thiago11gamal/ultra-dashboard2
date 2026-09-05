@@ -163,7 +163,8 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
     return dateToStats;
 }
 
-export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100, minScore = 0) {
+export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100, minScore = 0) {
+    const categories = Array.isArray(categoriesInput) ? categoriesInput : EMPTY_ARRAY;
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeRange = Math.max(1e-9, safeMax - safeMin);

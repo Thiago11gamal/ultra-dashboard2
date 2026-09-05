@@ -338,7 +338,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                             <div className="text-sm font-bold text-emerald-400">
                                                 {formatDuration(session.duration)}
                                             </div>
-                                            {onDeleteSession && (
+                                            {typeof onDeleteSession === 'function' && (
                                                 <button
                                                     onClick={() => {
                                                         if (!session.id) {
@@ -488,7 +488,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                             </div>
 
                                             {/* DELETE BUTTON */}
-                                            {onDeleteSimulado && (
+                                            {typeof onDeleteSimulado === 'function' && (
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -654,8 +654,10 @@ const StudyHistory = React.memo(function StudyHistory({
                 onConfirm={() => {
                     if (sessionToDelete?.id) {
                         try {
-                            onDeleteSession(sessionToDelete.id);
-                            showToast('Sessão excluída.', 'info');
+                            if (typeof onDeleteSession === 'function') {
+                                onDeleteSession(sessionToDelete.id);
+                                showToast('Sessão excluída.', 'info');
+                            }
                         } catch {
                             showToast('Erro ao excluir sessão.', 'error');
                         }

@@ -3,19 +3,25 @@
  * format: prefix-timestamp-random
  */
 export const generateId = (prefix = 'id') => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `${prefix}-${crypto.randomUUID()}`;
+  const c = typeof crypto !== 'undefined' ? crypto : (typeof window !== 'undefined' && window.crypto ? window.crypto : null);
+  if (c && typeof c.randomUUID === 'function') {
+    try {
+      return `${prefix}-${c.randomUUID()}`;
+    } catch (e) {
+      // fallback
+    }
   }
   const rand = () => {
       try {
+          if (!c || typeof c.getRandomValues !== 'function') throw new Error('No crypto');
           const array = new Uint32Array(1);
-          crypto.getRandomValues(array);
+          c.getRandomValues(array);
           return array[0].toString(36);
       } catch {
           return Math.random().toString(36).substring(2, 15);
       }
   };
-  const perf = typeof performance !== 'undefined' ? performance.now().toString(36).replace('.', '') : '';
+  const perf = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now().toString(36).replace('.', '') : '';
   return `${prefix}-${Date.now().toString(36)}-${perf}-${rand()}${rand()}`;
 };
 

@@ -7,8 +7,7 @@ import useClock from '../hooks/useClock';
 /* ─────────────────────────────────────────────────────────
    Helper Components
  ───────────────────────────────────────────────────────── */
-const DateDisplay = () => {
-    const clockTime = useClock();
+const DateDisplay = ({ clockTime }) => {
     return (
         <p className="text-slate-400 pl-2 text-[10px] font-bold uppercase tracking-wider opacity-80 truncate">
             {format(clockTime, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
@@ -16,8 +15,7 @@ const DateDisplay = () => {
     );
 };
 
-const TimeDisplay = () => {
-    const clockTime = useClock();
+const TimeDisplay = ({ clockTime }) => {
     return (
         <div className="bg-white/[0.02] border border-white/[0.05] rounded-lg px-3 py-1 text-sm font-mono text-slate-300 hidden md:block">
             {format(clockTime, 'HH:mm:ss')}
@@ -25,8 +23,7 @@ const TimeDisplay = () => {
     );
 };
 
-const MobileClockDisplay = () => {
-    const clockTime = useClock();
+const MobileClockDisplay = ({ clockTime }) => {
     return (
         <div className="flex flex-col">
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold leading-none mb-0.5">
@@ -56,6 +53,12 @@ const Header = React.memo(function Header({
     const [localName, setLocalName] = useState(displayName);
     const debounceRef = useRef(null);
     const isMountedRef = useRef(true); // FIX 5.3a: Proteção contra setState após unmount
+    const clockTime = useClock(); // Centraliza o relógio
+
+    const onUpdateNameRef = useRef(onUpdateName);
+    useEffect(() => {
+        onUpdateNameRef.current = onUpdateName;
+    }, [onUpdateName]);
 
     // FIX 5.3a: Cleanup ao desmontar
     useEffect(() => {
@@ -84,8 +87,8 @@ const Header = React.memo(function Header({
         }
         
         debounceRef.current = setTimeout(() => {
-            if (isMountedRef.current && onUpdateName && typeof onUpdateName === 'function') {
-                onUpdateName(value);
+            if (isMountedRef.current && onUpdateNameRef.current && typeof onUpdateNameRef.current === 'function') {
+                onUpdateNameRef.current(value);
             }
             debounceRef.current = null;
         }, 500);
@@ -106,7 +109,7 @@ const Header = React.memo(function Header({
                         >
                             <Menu size={18} aria-hidden="true" />
                         </button>
-                        <MobileClockDisplay />
+                        <MobileClockDisplay clockTime={clockTime} />
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -147,7 +150,7 @@ const Header = React.memo(function Header({
                             <Menu size={18} aria-hidden="true" />
                         </button>
                         <div className="flex items-center gap-3 min-w-0">
-                            <DateDisplay />
+                            <DateDisplay clockTime={clockTime} />
                             {cloudStatus.status !== 'idle' && (
                                 <div 
                                     className={`flex items-center shrink-0 min-w-[100px] justify-center gap-2 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider transition-all duration-500 ${
@@ -226,7 +229,7 @@ const Header = React.memo(function Header({
                             </span>
                         </button>
                         <div className="h-8 w-[1px] bg-white/[0.05] mx-1 flex-shrink-0" />
-                        <TimeDisplay />
+                        <TimeDisplay clockTime={clockTime} />
                     </div>
                 </div>
             </header>

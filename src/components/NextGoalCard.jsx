@@ -281,7 +281,7 @@ function NextGoalCard({
                 <div className="w-full md:w-auto flex-shrink-0">
                     <button
                         type="button"
-                        onClick={() => onStartStudying?.(category.id, task.id)}
+                        onClick={() => typeof onStartStudying === 'function' && onStartStudying(category.id, task.id)}
                         aria-label={`Iniciar sessão de ${category.name}${display.assunto ? `: ${display.assunto}` : ''}`}
                         className={`relative w-full px-8 py-4 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all transform hover:-translate-y-1 active:scale-95 group/btn overflow-hidden`}
                     >

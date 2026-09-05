@@ -94,7 +94,7 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
     const mean = window.reduce((acc, val) => acc + val, 0) / window.length;
     const variance =
       window.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) /
-      (window.length - 1);
+      Math.max(1, window.length - 1);
     volatilities.push(Math.sqrt(Math.max(0, variance)));
   }
 

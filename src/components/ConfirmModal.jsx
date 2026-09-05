@@ -54,12 +54,13 @@ export default function ConfirmModal({
 
     const handleConfirm = async () => {
         try {
-            if (onConfirm) {
+            if (typeof onConfirm === 'function') {
                 await onConfirm();
             }
-            onClose?.();
+            if (typeof onClose === 'function') onClose();
         } catch (err) {
             console.error('Erro ao executar confirmação:', err);
+            if (typeof onClose === 'function') onClose();
         }
     };
 
@@ -101,7 +102,7 @@ export default function ConfirmModal({
 
                         {/* Close Button */}
                         <button 
-                            onClick={onClose}
+                            onClick={() => typeof onClose === 'function' && onClose()}
                             className="absolute top-6 right-6 p-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all z-20 group"
                         >
                             <X size={18} className="group-hover:rotate-90 transition-transform duration-300" />
@@ -127,7 +128,7 @@ export default function ConfirmModal({
                                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                                     <button
                                         type="button"
-                                        onClick={onClose}
+                                        onClick={() => typeof onClose === 'function' && onClose()}
                                         className="flex-1 px-5 py-3.5 rounded-2xl text-sm font-bold text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 transition-all active:scale-95 cursor-pointer"
                                     >
                                         {cancelText}

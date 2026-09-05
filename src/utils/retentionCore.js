@@ -14,7 +14,11 @@ export function toFiniteNumber(value, fallback = 0) {
   if (value == null) return fallback;
 
   if (typeof value?.toNumber === 'function') {
-    value = value.toNumber();
+    try {
+      value = value.toNumber();
+    } catch (e) {
+      // ignore
+    }
   }
 
   const n = Number(value);
@@ -58,16 +62,23 @@ export function toDateMs(value) {
   }
 
   if (typeof value?.toMillis === 'function') {
-    const ms = value.toMillis();
-    return Number.isFinite(ms) ? ms : null;
+    try {
+      const ms = value.toMillis();
+      return Number.isFinite(ms) ? ms : null;
+    } catch (e) {
+      // ignore
+    }
   }
 
   if (typeof value?.toDate === 'function') {
-    const date = value.toDate();
-
-    return date instanceof Date
-      ? (Number.isNaN(date.getTime()) ? null : date.getTime())
-      : null;
+    try {
+      const date = value.toDate();
+      return date instanceof Date
+        ? (Number.isNaN(date.getTime()) ? null : date.getTime())
+        : null;
+    } catch (e) {
+      // ignore
+    }
   }
 
   if (typeof value === 'object') {

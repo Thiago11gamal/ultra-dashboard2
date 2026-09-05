@@ -231,11 +231,6 @@ export function usePomodoroSync({
         return () => {
             isMounted = false;
             syncChannel.removeEventListener('message', handleMessage);
-            try {
-                syncChannel.close();
-            } catch (err) {
-                console.warn('[PomodoroSync] Falha ao fechar canal:', err);
-            }
         };
     }, [
         syncChannel,

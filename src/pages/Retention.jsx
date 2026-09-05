@@ -86,6 +86,10 @@ export default function Retention() {
             : cat.name;
 
         try {
+            if (typeof startPomodoroSession !== 'function') {
+                showToast('Sessão de estudo indisponível no momento.', 'error');
+                return;
+            }
             if (cat.selectedTask) {
                 startPomodoroSession({
                     categoryId: cat.id,

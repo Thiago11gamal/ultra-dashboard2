@@ -641,7 +641,7 @@ export default function AIGeneratedSimulado() {
     if (f.categoryId === 'mixed') {
       const groups = {};
       answeredQuestions.forEach(q => {
-        const key = `${q.materia}|${q.assunto}`;
+        const key = `${q.materia}\u0000${q.assunto}`;
         if (!groups[key]) groups[key] = { materia: q.materia, assunto: q.assunto, correct: 0, total: 0, qs: [], timeSpent: 0 };
         groups[key].qs.push(q);
         groups[key].total++;
@@ -655,9 +655,9 @@ export default function AIGeneratedSimulado() {
       const totalCorrectInMixed = Object.values(groups).reduce((acc, g) => acc + g.correct, 0);
 
       const failedGroups = [];
-      for (const [groupKey, g] of Object.entries(groups)) {
+      const promises = Object.entries(groups).map(async ([groupKey, g]) => {
         try {
-            const [materia, assunto] = groupKey.split('|');
+            const [materia, assunto] = groupKey.split('\u0000');
 
             const cat = cats.find(c =>
               String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
@@ -681,7 +681,9 @@ export default function AIGeneratedSimulado() {
             console.error(`[AI Sim] Falha ao salvar grupo ${groupKey}:`, err);
             failedGroups.push(groupKey);
         }
-      }
+      });
+      await Promise.allSettled(promises);
+      
       if (failedGroups.length > 0) {
           showToast(`⚠️ ${failedGroups.length} grupo(s) não salvos: ${failedGroups.join(', ')}`, 'warning');
       }
@@ -765,12 +767,23 @@ export default function AIGeneratedSimulado() {
   useEffect(() => {
     if (!timerActive || step !== 'playing') return;
 
+    let lastTick = Date.now();
+
     const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
-      
-      const qId = activeQIdRef.current;
-      if (qId) {
-        setTimePerQuestion(prev => ({ ...prev, [qId]: (prev[qId] || 0) + 1 }));
+      const now = Date.now();
+      const elapsedSecs = Math.round((now - lastTick) / 1000);
+      lastTick = now;
+
+      if (elapsedSecs > 0) {
+        setTimeLeft((prev) => {
+           const next = prev - elapsedSecs;
+           return next <= 0 ? 0 : next;
+        });
+        
+        const qId = activeQIdRef.current;
+        if (qId) {
+          setTimePerQuestion(prev => ({ ...prev, [qId]: (prev[qId] || 0) + elapsedSecs }));
+        }
       }
     }, 1000);
 
@@ -794,7 +807,7 @@ export default function AIGeneratedSimulado() {
     setTimePerQuestion({});
     setCurrentIndex(0);
     setResults(null);
-    setTimeLeft(form.quantidade * 3 * 60);
+    setTimeLeft(Math.max(1, Number(form.quantidade) || 10) * 3 * 60);
     setTimerActive(false);
     setShowReview(false);
     localStorage.removeItem(getAiSimStorageKey());

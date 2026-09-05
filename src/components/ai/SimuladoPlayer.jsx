@@ -15,8 +15,16 @@ export default function SimuladoPlayer({
   handleFinish,
   resetAll
 }) {
+  if (!questions || questions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-slate-400">
+        <p className="mb-4">Nenhuma questão disponível.</p>
+        <button onClick={resetAll} className="px-4 py-2 bg-slate-800 rounded-lg text-white">Voltar</button>
+      </div>
+    );
+  }
   const currentQuestion = questions[currentIndex];
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = Object.keys(answers || {}).length;
   const timeColor = timeLeft < 180 ? 'text-red-400 border-red-500/30' : timeLeft < 300 ? 'text-amber-400 border-amber-500/30' : 'text-slate-300 border-white/10';
   const difficultyLabel = DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || form.dificuldade;
 

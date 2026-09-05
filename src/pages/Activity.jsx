@@ -14,9 +14,8 @@ export default function Activity() {
     const showToast = useToast();
     const [showResetModal, setShowResetModal] = useState(false);
     
-    // FIX: Hook declarado estritamente no top-level do componente
     const achievementStats = React.useMemo(
-        () => buildAchievementStats(data),
+        () => buildAchievementStats(data) || {},
         [data]
     );
 

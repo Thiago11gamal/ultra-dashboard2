@@ -61,7 +61,9 @@ const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipTog
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onTooltipToggle(day, index);
+            if (document.activeElement === cellRef.current) {
+                onTooltipToggle(day);
+            }
         }
         if (e.key === 'Escape') {
             onTooltipToggle(null, null);
@@ -93,10 +95,10 @@ const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipTog
                 aria-describedby={tooltipVisible ? `heatmap-tooltip-${index}` : undefined}
                 tabIndex={0}
                 onKeyDown={handleKeyDown}
-                onFocus={() => onFocus(day, index)}
+                onFocus={() => onFocus(day)}
                 onBlur={() => onBlur()}
-                onClick={() => onTooltipToggle(day, index)}
-                onMouseEnter={() => onFocus(day, index)}
+                onClick={() => onTooltipToggle(day)}
+                onMouseEnter={() => onFocus(day)}
                 onMouseLeave={() => onBlur()}
                 data-index={index}
             />
@@ -112,7 +114,7 @@ const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipTog
 function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = useState(0);
     const [now, setNow] = useState(() => new Date());
-    const [tooltipState, setTooltipState] = useState({ visible: false, day: null, index: null });
+    const [tooltipState, setTooltipState] = useState({ visible: false, day: null, dateKey: null });
     const containerRef = useRef(null);
 
     // ✅ FIX: Só atualizar a cada 5 minutos — suficiente para heatmap
@@ -127,23 +129,24 @@ function ActivityHeatmap({ studyLogs = [] }) {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
-                setTooltipState({ visible: false, day: null, index: null });
+                setTooltipState({ visible: false, day: null, dateKey: null });
             }
         };
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    const handleTooltipToggle = useCallback((day, index) => {
+    const handleTooltipToggle = useCallback((day) => {
+        const dateKey = day?.dateKey;
         setTooltipState(prev => ({
-            visible: prev.index === index ? false : true,
+            visible: prev.dateKey === dateKey ? false : true,
             day,
-            index: prev.index === index ? null : index
+            dateKey: prev.dateKey === dateKey ? null : dateKey
         }));
     }, []);
     
-    const handleFocus = useCallback((day, index) => {
-        setTooltipState({ visible: true, day, index });
+    const handleFocus = useCallback((day) => {
+        setTooltipState({ visible: true, day, dateKey: day?.dateKey });
     }, []);
     
     const handleBlur = useCallback(() => {
@@ -286,7 +289,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
                                 index={weekIdx * 7 + dayIdx}
                                 onFocus={handleFocus}
                                 onBlur={handleBlur}
-                                tooltipVisible={tooltipState.visible && tooltipState.index === weekIdx * 7 + dayIdx}
+                                tooltipVisible={tooltipState.visible && tooltipState.dateKey === day?.dateKey}
                                 onTooltipToggle={handleTooltipToggle}
                             />
                         ))}

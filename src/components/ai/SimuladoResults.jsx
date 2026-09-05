@@ -4,15 +4,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Award, ListChecks, CheckCircle2, XCircle, RefreshCw, Sparkles, BarChart3 } from 'lucide-react';
 
 export default function SimuladoResults({
-  results,
-  form,
+  results = { total: 0, correct: 0, questions: [], timeSpentSecs: 0 },
+  form = {},
   showReview,
   setShowReview,
   resetAll,
   retrySameQuestions,
   showToast
 }) {
-  const accuracy = results.total > 0 ? Math.round((results.correct / results.total) * 100) : 0;
+  const safeResults = {
+    total: results?.total || 0,
+    correct: results?.correct || 0,
+    questions: Array.isArray(results?.questions) ? results.questions : [],
+    timeSpentSecs: results?.timeSpentSecs || 0
+  };
+
+  const accuracy = safeResults.total > 0 ? Math.round((safeResults.correct / safeResults.total) * 100) : 0;
   const colorMap = accuracy >= 80 
     ? { text: '#34d399', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)', glow: 'rgba(16,185,129,0.2)' }
     : accuracy >= 60 
@@ -53,10 +60,10 @@ return (
                 className="text-[64px] sm:text-[80px] leading-none font-black tracking-[-4px] text-white tabular-nums"
                 style={{ textShadow: `0 0 50px ${colorMap.glow}` }}
               >
-                {results.correct}
+                {safeResults.correct}
               </motion.div>
               <div className="text-2xl text-slate-600 font-light">/</div>
-              <div className="text-3xl font-black text-slate-600 tracking-tight">{results.total}</div>
+              <div className="text-3xl font-black text-slate-600 tracking-tight">{safeResults.total}</div>
             </div>
 
             <motion.div 
@@ -74,16 +81,16 @@ return (
           {/* BUG-5 FIX: 4 columns to show unanswered separately */}
           <div className="grid grid-cols-4 border-t border-white/[0.06]">
             <div className="py-4 px-3 text-center border-r border-white/[0.06]">
-              <div className="text-[28px] sm:text-[32px] leading-none font-black text-emerald-400">{results.correct}</div>
+              <div className="text-[28px] sm:text-[32px] leading-none font-black text-emerald-400">{safeResults.correct}</div>
               <div className="uppercase tracking-[2px] text-[9px] font-bold text-emerald-400/50 mt-1.5">ACERTOS</div>
             </div>
             <div className="py-4 px-3 text-center border-r border-white/[0.06]">
               {/* BUG-5 FIX: Show separate counts for errors and unanswered */}
-              <div className="text-[28px] sm:text-[32px] leading-none font-black text-rose-400">{results.questions.filter(q => q.wasAnswered && !q.isCorrect).length}</div>
+              <div className="text-[28px] sm:text-[32px] leading-none font-black text-rose-400">{safeResults.questions.filter(q => q && q.wasAnswered && !q.isCorrect).length}</div>
               <div className="uppercase tracking-[2px] text-[9px] font-bold text-rose-400/50 mt-1.5">ERROS</div>
             </div>
             <div className="py-4 px-3 text-center border-r border-white/[0.06]">
-              <div className="text-[28px] sm:text-[32px] leading-none font-black text-slate-400">{results.questions.filter(q => !q.wasAnswered).length}</div>
+              <div className="text-[28px] sm:text-[32px] leading-none font-black text-slate-400">{safeResults.questions.filter(q => q && !q.wasAnswered).length}</div>
               <div className="uppercase tracking-[2px] text-[9px] font-bold text-slate-500 mt-1.5">EM BRANCO</div>
             </div>
             <div className="py-4 px-3 text-center">
@@ -98,7 +105,7 @@ return (
           {/* Tab header */}
           <div className="flex shrink-0" style={{ background: 'rgba(0,0,0,0.2)' }}>
             <button 
-              onClick={() => setShowReview(false)}
+              onClick={() => typeof setShowReview === 'function' && setShowReview(false)}
               className={`flex-1 py-3 text-[13px] font-bold transition-all flex items-center justify-center gap-2 relative ${!showReview ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <Award size={14} /> Resumo
@@ -106,7 +113,7 @@ return (
             </button>
             <div className="w-px bg-white/[0.06]" />
             <button 
-              onClick={() => setShowReview(true)}
+              onClick={() => typeof setShowReview === 'function' && setShowReview(true)}
               className={`flex-1 py-3 text-[13px] font-bold transition-all flex items-center justify-center gap-2 relative ${showReview ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <ListChecks size={14} /> Revisar Questões
@@ -142,7 +149,7 @@ return (
                     <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Tempo Gasto</div>
                       <div className="text-white font-medium text-[15px]">
-                        {Math.floor(Math.round(results?.timeSpentSecs || 0) / 60)}m {(Math.round(results?.timeSpentSecs || 0) % 60).toString().padStart(2, '0')}s
+                        {Math.floor(Math.round(safeResults.timeSpentSecs) / 60)}m {(Math.round(safeResults.timeSpentSecs) % 60).toString().padStart(2, '0')}s
                       </div>
                     </div>
                   </div>
@@ -155,7 +162,7 @@ return (
                   exit={{ opacity: 0, y: -8 }}
                   className="p-4 sm:p-6 space-y-3"
                 >
-                  {results.questions.map((q, idx) => {
+                  {safeResults.questions.map((q, idx) => {
                     const isCorrect = q.isCorrect;
                     return (
                       <div key={idx} className="p-5 rounded-2xl border" style={{ 
@@ -210,7 +217,7 @@ return (
         <div className="shrink-0 grid grid-cols-3 gap-3">
           {/* Refazer — green accent */}
           <button 
-            onClick={retrySameQuestions} 
+            onClick={() => typeof retrySameQuestions === 'function' && retrySameQuestions()} 
             className="group relative py-4 rounded-2xl text-[14px] font-bold flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden active:scale-[0.97]"
             style={{ 
               background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.08))',
@@ -225,7 +232,7 @@ return (
           
           {/* Gerar Novo — white/neutral */}
           <button 
-            onClick={resetAll} 
+            onClick={() => typeof resetAll === 'function' && resetAll()} 
             className="group relative py-4 rounded-2xl text-[14px] font-bold flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden active:scale-[0.97]"
             style={{ 
               background: 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
@@ -241,8 +248,8 @@ return (
           {/* Voltar ao Menu — primary indigo */}
           <button 
             onClick={() => {
-              resetAll();
-              showToast('Voltando ao menu de simulados', 'info');
+              if (typeof resetAll === 'function') resetAll();
+              if (typeof showToast === 'function') showToast('Voltando ao menu de simulados', 'info');
             }} 
             className="group relative py-4 rounded-2xl text-[14px] font-black flex items-center justify-center gap-2.5 transition-all duration-300 overflow-hidden active:scale-[0.97]"
             style={{ 

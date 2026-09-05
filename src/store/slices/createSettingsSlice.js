@@ -1,7 +1,8 @@
 import { validateAppState } from '../schemas';
 
 const applyDarkModeToggle = (state) => {
-  const activeData = state.appState.contests[state.appState.activeId];
+  if (!state.appState) return;
+  const activeData = state.appState.contests?.[state.appState.activeId];
   if (!activeData) return;
   if (!activeData.settings) activeData.settings = {};
   activeData.settings.darkMode = !(activeData.settings.darkMode ?? true);
@@ -12,6 +13,7 @@ const applyDarkModeToggle = (state) => {
 
 export const createSettingsSlice = (set) => ({
   setHasSeenTour: (value) => set((state) => {
+    if (!state.appState) return;
     state.appState.hasSeenTour = value;
     if (value) {
       state.appState.lastSeenTourDate = new Date().toDateString();
@@ -22,6 +24,7 @@ export const createSettingsSlice = (set) => ({
   }),
   
   setDashboardFilter: (filterOrEvent) => set((state) => {
+    if (!state.appState) return;
     const rawFilter = (filterOrEvent && typeof filterOrEvent === 'object' && 'target' in filterOrEvent)
       ? filterOrEvent.target?.value
       : filterOrEvent;
@@ -33,7 +36,8 @@ export const createSettingsSlice = (set) => ({
   }),
   
   updateCoachPlanner: (newPlannerData) => set((state) => {
-    const activeData = state.appState.contests[state.appState.activeId];
+    if (!state.appState) return;
+    const activeData = state.appState.contests?.[state.appState.activeId];
     if (!activeData) return;
     if (JSON.stringify(activeData.coachPlanner) === JSON.stringify(newPlannerData)) return;
     activeData.coachPlanner = newPlannerData;
@@ -46,6 +50,7 @@ export const createSettingsSlice = (set) => ({
   toggleDarkMode: () => set(applyDarkModeToggle),
   
   setAppState: (newStateObj) => set((state) => {
+    if (!state.appState) return;
     let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
     if (!nextState) return;
     if (nextState === state.appState) return;

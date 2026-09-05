@@ -599,6 +599,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     let currentSnapshotId = 0;
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+      if (!isMountedRef.current) return;
       const snapId = ++currentSnapshotId;
       if (docSnap.metadata.hasPendingWrites) {
         pendingWritesCountRef.current += 1;
@@ -773,6 +774,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         setHasConflict(!isBootSync && hasRealDivergence);
       }
     }, (err) => {
+      if (!isMountedRef.current) return;
       logger.error("[Sync] Erro no listener:", err);
       setCloudStatus('error');
       setCloudError(err.message || 'Erro no listener');

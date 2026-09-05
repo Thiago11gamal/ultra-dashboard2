@@ -33,7 +33,7 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
         const handleKeyDown = (event) => {
             if (event.key === 'Escape') {
                 event.stopPropagation();
-                onClose?.();
+                if (typeof onClose === 'function') onClose();
                 return;
             }
 

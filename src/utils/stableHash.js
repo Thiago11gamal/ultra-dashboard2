@@ -1,24 +1,29 @@
 const stableStringify = (value) => {
   const seen = new WeakSet();
-  return JSON.stringify(value, function replacer(key, val) {
-    if (val && typeof val === 'object') {
-      if (seen.has(val)) return '[Circular]';
-      seen.add(val);
-      if (!Array.isArray(val)) {
-        return Object.keys(val)
-          .sort()
-          .reduce((acc, k) => {
-            acc[k] = val[k];
-            return acc;
-          }, {});
+  try {
+    return JSON.stringify(value, function replacer(key, val) {
+      if (typeof val === 'bigint') return val.toString();
+      if (val && typeof val === 'object') {
+        if (seen.has(val)) return '[Circular]';
+        seen.add(val);
+        if (!Array.isArray(val)) {
+          return Object.keys(val)
+            .sort()
+            .reduce((acc, k) => {
+              acc[k] = val[k];
+              return acc;
+            }, {});
+        }
       }
-    }
-    return val;
-  });
+      return val;
+    });
+  } catch (err) {
+    return String(value);
+  }
 };
 
 export const stableHash = (value) => {
-  const str = stableStringify(value);
+  const str = stableStringify(value) || '';
   let hash = 2166136261;
   for (let i = 0; i < str.length; i++) {
     hash ^= str.charCodeAt(i);

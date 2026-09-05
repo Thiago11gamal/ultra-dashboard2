@@ -43,21 +43,28 @@ export const StreakDisplay = React.memo(({ studyLogs }) => {
 
 export const AchievementsGrid = ({ unlockedIds = [], stats = {} }) => {
     const unlockedArray = Array.isArray(unlockedIds) ? unlockedIds : Object.values(unlockedIds || {});
+    
+    const isUnlocked = (a) => {
+        try {
+            return unlockedArray.some(u => (typeof u === 'string' ? u : u?.id) === a.id) || (a.condition && a.condition(stats));
+        } catch (e) {
+            return false;
+        }
+    };
+
     return (
         <div className="w-full">
             <div className="flex items-center gap-2 mb-6">
                 <div className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full flex items-center gap-2">
                     <Trophy size={14} className="text-purple-400" />
                     <span className="text-xs font-bold text-purple-300">
-                        {ACHIEVEMENTS.filter(a => unlockedArray.some(u => (typeof u === 'string' ? u : u?.id) === a.id) || (a.condition && a.condition(stats))).length} / {ACHIEVEMENTS.length} Desbloqueadas
+                        {ACHIEVEMENTS.filter(isUnlocked).length} / {ACHIEVEMENTS.length} Desbloqueadas
                     </span>
                 </div>
             </div>
             <div className="flex flex-wrap gap-4">
                 {ACHIEVEMENTS.map(achievement => {
-                    const manuallyUnlocked = unlockedArray.some(u => (typeof u === 'string' ? u : u?.id) === achievement.id);
-                    const dynamicallyUnlocked = achievement.condition && achievement.condition(stats);
-                    const unlocked = manuallyUnlocked || dynamicallyUnlocked;
+                    const unlocked = isUnlocked(achievement);
                     return (
                         <div key={achievement.id} className={`w-16 h-16 md:w-20 md:h-20 rounded-2xl flex items-center justify-center text-3xl transition-all duration-300 cursor-help group relative shadow-lg ${unlocked ? 'bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-purple-500/40 hover:scale-110 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:border-purple-400/60' : 'bg-slate-900/60 border border-white/5 grayscale opacity-50 hover:opacity-80'}`}>
                             <span className={`transition-transform duration-300 ${unlocked ? 'group-hover:scale-110 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'brightness-50'}`}>{achievement.icon}</span>

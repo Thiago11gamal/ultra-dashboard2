@@ -20,6 +20,14 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
 
     const resetTimerRef = useRef(null);
 
+    const isMounted = useRef(true);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     const resetTimer = useCallback(() => {
         const now = Date.now();
         lastActivityRef.current = now;
@@ -33,17 +41,20 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             clearTimeout(timerRef.current);
         }
         timerRef.current = setTimeout(async () => {
+            if (!isMounted.current) return;
             try {
                 const { useAppStore } = await import('../store/useAppStore');
+                if (!isMounted.current) return;
                 const pomodoroActive = useAppStore.getState()?.appState?.pomodoro?.activeSubject;
                 if (pomodoroActive) {
                     logger.log('[IdleLogout] Pomodoro ativo — adiando logout.');
-                    resetTimerRef.current?.();
+                    if (typeof resetTimerRef.current === 'function') resetTimerRef.current();
                     return;
                 }
             } catch { /* se falhar, prossegue com logout */ }
+            if (!isMounted.current) return;
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
-            logoutRef.current?.();
+            if (typeof logoutRef.current === 'function') logoutRef.current();
         }, timeoutMs);
     }, [timeoutMs]);
 
@@ -94,7 +105,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
                 const elapsed = Date.now() - lastAct;
                 if (elapsed >= timeoutMs) {
                     logger.log('[IdleLogout] Aba voltou ao foco e o tempo estava expirado. Deslogando...');
-                    logoutRef.current?.();
+                    if (typeof logoutRef.current === 'function') logoutRef.current();
                 } else {
                     lastActivityRef.current = lastAct; // Sync ref with storage
                     resetTimer();

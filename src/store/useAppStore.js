@@ -41,6 +41,7 @@ const idbStorage = {
         return resolve();
       }
       if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
+      if (savePromises[name]) savePromises[name].resolve();
       savePromises[name] = { resolve, reject };
       saveTimeouts[name] = setTimeout(async () => {
         try {

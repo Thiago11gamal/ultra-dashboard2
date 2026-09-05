@@ -200,7 +200,7 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       if (!prevSim || !nextSim) return;
 
       const horizonDays = (nextSim.time - prevSim.time) / 86400000;
-      if (horizonDays > maxHorizonDays) return;
+      if (Number.isNaN(horizonDays) || horizonDays > maxHorizonDays) return;
 
       const outcomeDelta = nextSim.score - prevSim.score;
       const baselineScore = prevSim.score;
