@@ -7,7 +7,10 @@ export const lazyWithRetry = (componentImport) =>
     );
     try {
       const component = await componentImport();
-      if (!component || !component.default) {
+      if (!component) {
+        throw new Error('Module import returned undefined');
+      }
+      if (!component.default) {
         throw new Error('Module has no default export');
       }
       window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');

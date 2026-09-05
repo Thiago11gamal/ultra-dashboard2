@@ -22,8 +22,16 @@ export const clearCoachCaches = _clearCoachCaches;
 export async function coach(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
   const safeOptions = options && typeof options === 'object' ? options : {};
-  try {
-      return await runCoachOrchestrator(safeInput, safeOptions);
+      const result = await runCoachOrchestrator(safeInput, safeOptions);
+      if (!result) {
+        return {
+          ok: false,
+          error: 'Orquestrador retornou resultado inválido',
+          generatedAt: Date.now(),
+          meta: { modules: {}, errors: [] }
+        };
+      }
+      return result;
   } catch (err) {
       console.error('[CoachPipeline] Erro no orquestrador:', err);
       return {

@@ -77,15 +77,16 @@ export function analyzeProgressState(scores, config = {}) {
     };
   }
 
-  const nTotal = finiteRecentScores.length;
-  const mean = nTotal > 0 ? finiteRecentScores.reduce((a, b) => a + b, 0) / nTotal : 0;
+  const validScores = finiteRecentScores.filter(s => Number.isFinite(s));
+  const nTotal = validScores.length;
+  const mean = nTotal > 0 ? validScores.reduce((a, b) => a + b, 0) / nTotal : 0;
   let variationTotal = 0;
-  for (let i = 1; i < finiteRecentScores.length; i++) {
-    variationTotal += Math.abs(finiteRecentScores[i] - finiteRecentScores[i - 1]);
+  for (let i = 1; i < validScores.length; i++) {
+    variationTotal += Math.abs(validScores[i] - validScores[i - 1]);
   }
-  const delta = variationTotal / Math.max(1, finiteRecentScores.length - 1);
-  const variance = finiteRecentScores.reduce((acc, score) =>
-    acc + Math.pow(score - mean, 2), 0) / Math.max(1, finiteRecentScores.length - 1);
+  const delta = variationTotal / Math.max(1, validScores.length - 1);
+  const variance = validScores.reduce((acc, score) =>
+    acc + Math.pow(score - mean, 2), 0) / Math.max(1, validScores.length - 1);
 
   const recentDates = recentData.map(d => d.safeTime);
   const n = finiteRecentScores.length;

@@ -170,7 +170,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
             const rawDate = normalizeDate(log?.date);
             if (!rawDate) return;
             const dateKey = getDateKey(rawDate) || format(rawDate, 'yyyy-MM-dd');
-            const minutes = Math.max(0, Number(log?.minutes) || 0);
+            const minutes = Math.max(0, Number(log?.minutes) || (Number(log?.duration) ? Number(log.duration) / 60 : 0) || 0);
             studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
         });
 

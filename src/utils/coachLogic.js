@@ -1733,7 +1733,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const result = {
         ...top,
         urgency: clonedUrgency,
-        weakestTopic: getWeakestTopic(top, simulados, maxScore)
+        weakestTopic: getWeakestTopic(top, simulados, maxScore) || null
     };
     // ✅ FIX: Verificar se options.flashcardDue é número antes de comparar
     if (options && Number.isFinite(Number(options.flashcardDue)) && Number(options.flashcardDue) > 0) {
