@@ -77,8 +77,8 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
     const history = toArray(rawHistory);
 
     let trendIcon = (
-        <div className="w-5 h-5 flex items-center justify-center rounded-full bg-slate-500/10">
-            <Minus size={14} className="text-slate-400" />
+        <div className="w-4 h-4 flex items-center justify-center rounded-full bg-slate-500/10">
+            <Minus size={12} className="text-slate-400" />
         </div>
     );
 
@@ -86,15 +86,15 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 
     if (trend === 'up') {
         trendIcon = (
-            <div className="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
-                <TrendingUp size={14} className="text-emerald-400" />
+            <div className="w-4 h-4 flex items-center justify-center rounded-full bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
+                <TrendingUp size={12} className="text-emerald-400" />
             </div>
         );
         trendText = 'Subindo';
     } else if (trend === 'down') {
         trendIcon = (
-            <div className="w-5 h-5 flex items-center justify-center rounded-full bg-rose-500/20 shadow-[0_0_8px_rgba(244,63,94,0.3)]">
-                <TrendingDown size={14} className="text-rose-400" />
+            <div className="w-4 h-4 flex items-center justify-center rounded-full bg-rose-500/20 shadow-[0_0_8px_rgba(244,63,94,0.3)]">
+                <TrendingDown size={12} className="text-rose-400" />
             </div>
         );
         trendText = 'Caindo';
@@ -121,59 +121,59 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         : null;
 
     return (
-        <div className="relative p-4 mx-4 mb-4 bg-white/[0.02] rounded-xl border border-white/5 group overflow-hidden">
+        <div className="relative p-3 mx-3 mb-3 bg-white/[0.02] rounded-xl border border-white/5 group overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
-            <div className="relative z-10 flex items-center gap-2 mb-4 text-slate-300 text-sm font-semibold uppercase tracking-wider leading-relaxed py-1">
-                <BarChart2 size={16} style={{ color: color || '#818cf8' }} />
+            <div className="relative z-10 flex items-center gap-2 mb-2 text-slate-300 text-xs font-bold uppercase tracking-wider leading-relaxed">
+                <BarChart2 size={14} style={{ color: color || '#818cf8' }} />
                 <h3>Média de acerto (Simulados)</h3>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
-                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center shadow-lg shadow-black/10">
-                    <span className="text-xs text-slate-500 uppercase font-bold mb-1 tracking-widest">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 relative z-10">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-2 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold mb-0.5 tracking-wider">
                         Média Geral
                     </span>
-                    <span className="text-2xl font-bold" style={{ color: color || '#818cf8' }}>
+                    <span className="text-xl font-black" style={{ color: color || '#818cf8' }}>
                         {avgDisplay}
                     </span>
                     {avgPctSub && (
-                        <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        <span className="text-[9px] text-slate-400 font-medium mt-0.5">
                             {avgPctSub}
                         </span>
                     )}
                 </div>
 
-                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center shadow-lg shadow-black/10">
-                    <span className="text-xs text-slate-500 uppercase font-bold mb-1 tracking-widest">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-2 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold mb-0.5 tracking-wider">
                         Última
                     </span>
-                    <span className="text-xl font-mono text-slate-200">
+                    <span className="text-lg font-mono font-bold text-slate-200">
                         {lastDisplay}
                     </span>
                     {lastPctSub && (
-                        <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        <span className="text-[9px] text-slate-400 font-medium mt-0.5">
                             {lastPctSub}
                         </span>
                     )}
                 </div>
 
-                <div className={`p-3 rounded-xl border flex flex-col items-center justify-center shadow-lg shadow-black/10 transition-colors ${levelColor}`}>
-                    <span className="text-xs uppercase font-bold mb-1 opacity-80 tracking-widest">
+                <div className={`p-2 rounded-lg border flex flex-col items-center justify-center shadow-sm transition-colors ${levelColor}`}>
+                    <span className="text-[10px] uppercase font-bold mb-0.5 opacity-80 tracking-wider">
                         Nível
                     </span>
-                    <span className="text-sm font-bold">
+                    <span className="text-xs font-black">
                         {level}
                     </span>
                 </div>
 
-                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-lg shadow-black/10">
-                    <span className="text-xs text-slate-500 uppercase font-bold mb-1 tracking-widest">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-2 rounded-lg border border-white/5 flex flex-col items-center justify-center shadow-sm">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold mb-0.5 tracking-wider">
                         Tendência
                     </span>
 
-                    <div className="flex items-center gap-1 mt-1">
+                    <div className="flex items-center gap-1 mt-0.5">
                         {trendIcon}
-                        <span className="text-xs text-slate-300 font-medium">
+                        <span className="text-[10px] text-slate-300 font-bold">
                             {trendText}
                         </span>
                     </div>
@@ -181,12 +181,12 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
             </div>
 
             {history.length > 1 && (
-                <div className="mt-4 pt-4 border-t border-white/5">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">
+                <div className="mt-3 pt-3 border-t border-white/5">
+                    <p className="text-[9px] text-slate-500 uppercase font-bold mb-1.5">
                         Evolução Recente
                     </p>
 
-                    <div className="flex items-end h-16 gap-1 w-full overflow-visible">
+                    <div className="flex items-end h-10 gap-0.5 w-full overflow-visible">
                         {history.slice(-10).map((h, i) => {
                             const dateLabel = getHistoryDateLabel(h);
                             const hScore = Number(h.score || 0);
