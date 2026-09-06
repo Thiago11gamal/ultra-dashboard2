@@ -107,7 +107,8 @@ function PomodoroTimer({
     onFullCycleComplete,
     onUpdateStudyTime,
     onExit,
-    onSessionComplete
+    onSessionComplete,
+    onTimerStateChange
 }) {
     const safeSettings = useMemo(() => Object.freeze({
         ...settings,
@@ -235,6 +236,25 @@ function PomodoroTimer({
         accumulatedMinutes,
         lastTaskId: activeSubject?.taskId
     });
+
+    useEffect(() => {
+        if (typeof onTimerStateChange === 'function') {
+            const currentTotal = mode === 'work'
+                ? (safeSettings.pomodoroWork || 25) * 60
+                : mode === 'long_break'
+                    ? (safeSettings.pomodoroLongBreak || 15) * 60
+                    : (safeSettings.pomodoroBreak || 5) * 60;
+            onTimerStateChange({
+                isRunning,
+                timeLeft,
+                totalTime: currentTotal,
+                mode,
+                sessions,
+                targetCycles,
+                completedCycles
+            });
+        }
+    }, [isRunning, timeLeft, mode, sessions, targetCycles, completedCycles, safeSettings, onTimerStateChange]);
 
     const timeRef = useRef(timeLeft);
 
@@ -385,8 +405,7 @@ function PomodoroTimer({
         if (!subjectSnapshot) return;
 
         const current = stateRefs.current;
-        let minutes = Number(current.accumulatedMinutes);
-        if (!Number.isFinite(minutes) || minutes <= 0) minutes = 0;
+        let minutes = 0;
 
         if (current.mode === 'work') {
             const liveState = useAppStore.getState();
@@ -397,7 +416,7 @@ function PomodoroTimer({
             const safePrevTime = Number.isFinite(rawPrev) && rawPrev >= 0
                 ? rawPrev
                 : totalWorkSeconds;
-            minutes += Math.max(0, totalWorkSeconds - safePrevTime) / 60;
+            minutes = Math.max(0, totalWorkSeconds - safePrevTime) / 60;
         }
 
         minutes = Number.isFinite(minutes) ? Number(minutes.toFixed(2)) : 0;
@@ -411,6 +430,7 @@ function PomodoroTimer({
             if (typeof onSessionComplete === 'function') {
                 onSessionComplete();
             }
+        }
             prevTaskStateRef.current.accum = 0;
             try {
                 const resetProgress = useAppStore.getState().resetPomodoroProgress;
@@ -654,7 +674,8 @@ function PomodoroTimer({
                 timeLeft: current.timeLeft,
                 isRunning: current.isRunning,
                 sessions: current.sessions,
-                targetCycles: current.completedCycles,
+                targetCycles: current.targetCycles,
+                completedCycles: current.completedCycles,
                 accumulatedMinutes: current.accumulatedMinutes,
                 speed: speedRef.current,
                 savedAt: Date.now(),
@@ -807,6 +828,7 @@ function PomodoroTimer({
                 timeLeft: resetTime,
                 mode: newState.mode,
                 sessions: newState.sessions,
+                targetCycles: newState.targetCycles,
                 completedCycles: newState.completedCycles,
                 accumulatedMinutes: newState.accumulatedMinutes
             });
@@ -815,6 +837,7 @@ function PomodoroTimer({
                 type: isManual ? 'PHASE_SKIP' : 'PHASE_COMPLETE',
                 toMode: newState.mode,
                 sessions: newState.sessions,
+                targetCycles: newState.targetCycles,
                 completedCycles: newState.completedCycles,
                 accumulatedMinutes: newState.accumulatedMinutes,
                 timeLeft: resetTime
@@ -1094,7 +1117,7 @@ function PomodoroTimer({
         if (subjectSnapshot) {
             flushPendingStudyTime(subjectSnapshot);
         }
-        safeOnExit({ forceDashboard: true, source: 'dashboard' });
+        safeOnExit({ forceDashboard: false, source: activeSubjectRef.current?.source || 'pomodoro' });
     }, [flushPendingStudyTime, safeOnExit]);
 
     const totalTime =
@@ -1108,16 +1131,14 @@ function PomodoroTimer({
 
     return (
         <div className={`w-full relative flex flex-col items-center gap-1 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>
-            {/* Header com status de recuperação/pausa ou alerta (apenas se ativo) */}
-            {(mode === 'break' || mode === 'long_break' || isProtocolInactive) && (
-                <div className="w-full">
-                    <PomodoroHeader
-                        mode={mode}
-                        activeSubject={activeSubject}
-                        onManualExit={handleManualExit}
-                    />
-                </div>
-            )}
+            {/* Header com status de recuperação/pausa, missão ativa ou alerta */}
+            <div className="w-full">
+                <PomodoroHeader
+                    mode={mode}
+                    activeSubject={activeSubject}
+                    onManualExit={handleManualExit}
+                />
+            </div>
 
             {/* Container Principal do Relógio de Madeira (Perfeitamente Enquadrado) */}
             <div

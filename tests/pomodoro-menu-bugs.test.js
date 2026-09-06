@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useAppStore } from '../src/store/useAppStore.js';
 import { countPomodorosToday } from '../src/utils/analytics.js';
 import { cleanTaskTitle, parseTaskDisplay } from '../src/utils/taskTitleHelper.js';
+import { getBestTask } from '../src/utils/coachLogic.js';
 
 describe('Pomodoro Menu - Comprehensive 9 Bugs Regression Suite', () => {
     beforeEach(() => {
@@ -194,5 +195,50 @@ describe('Pomodoro Menu - Comprehensive 9 Bugs Regression Suite', () => {
         p = useAppStore.getState().appState.pomodoro;
         expect(p.completedCycles).toBe(2);
         expect(p.accumulatedMinutes).toBe(0);
+    });
+
+    it('Audit Bug 1: getBestTask propagates categoryId, catId, catColor and catIcon from parent category', () => {
+        const categories = [
+            {
+                id: 'cat-alpha',
+                name: 'Direito Constitucional',
+                color: '#3b82f6',
+                icon: 'BookOpen',
+                tasks: [
+                    { id: 'task-101', text: 'Direitos Fundamentais', completed: false, priority: 'high' }
+                ]
+            }
+        ];
+
+        const best = getBestTask(categories);
+        expect(best).not.toBeNull();
+        expect(best.id).toBe('task-101');
+        expect(best.categoryId).toBe('cat-alpha');
+        expect(best.catId).toBe('cat-alpha');
+        expect(best.catName).toBe('Direito Constitucional');
+        expect(best.catColor).toBe('#3b82f6');
+        expect(best.catIcon).toBe('BookOpen');
+    });
+
+    it('Audit Bug 5: syncPomodoroState applies targetCycles first so sessions is not prematurely clamped', () => {
+        const store = useAppStore.getState();
+        useAppStore.setState(state => {
+            state.appState.pomodoro.targetCycles = 1;
+            state.appState.pomodoro.sessions = 1;
+            state.appState.pomodoro.completedCycles = 0;
+            return state;
+        });
+
+        // If targetCycles was updated AFTER sessions clamping, sessions would be clamped against old targetCycles (1)
+        store.syncPomodoroState({
+            sessions: 4,
+            targetCycles: 4,
+            completedCycles: 2
+        });
+
+        const p = useAppStore.getState().appState.pomodoro;
+        expect(p.targetCycles).toBe(4);
+        expect(p.sessions).toBe(4);
+        expect(p.completedCycles).toBe(2);
     });
 });

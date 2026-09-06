@@ -4,12 +4,16 @@ import { Minus, Plus, Layers } from 'lucide-react';
 export function PomodoroProgress({
     targetCycles,
     completedCycles,
+    sessions,
     setTargetCycles,
     syncChannel,
     STABLE_TAB_ID,
     activeSubject,
     workFillsRef,
-    breakBallsRef
+    breakBallsRef,
+    mode = 'work',
+    timeLeft = 0,
+    totalTime = 25 * 60
 }) {
     return (
         <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">
@@ -90,31 +94,54 @@ export function PomodoroProgress({
 
                 {/* Progress Indicators Track - Barras e Bolinhas Maiores */}
                 <div className="flex items-center gap-2 sm:gap-2.5 pt-0.5">
-                    {Array.from({ length: targetCycles || 1 }).map((_, i) => (
-                        <React.Fragment key={i}>
-                            {/* Barra de Progresso do Foco (Maior e com mais destaque) */}
-                            <div className="flex-1 h-3.5 sm:h-4 bg-[#2d1a12]/20 rounded-full overflow-hidden border-2 border-[#2d1a12]/25 shadow-inner">
-                                <div
-                                    ref={el => {
-                                        workFillsRef.current[i] = el || undefined;
-                                    }}
-                                    className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full shadow-sm"
-                                />
-                            </div>
+                    {Array.from({ length: targetCycles || 1 }).map((_, i) => {
+                        let workWidth = '0%';
+                        let breakHeight = '0%';
 
-                            {/* Bolinha Verde de Pausa (Maior e com Glow) */}
-                            {i < (targetCycles || 1) - 1 && (
-                                <div className="relative w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#2d1a12]/20 border-2 border-[#2d1a12]/35 overflow-hidden shrink-0 shadow-md">
+                        if (i < completedCycles) {
+                            workWidth = '100%';
+                            breakHeight = '100%';
+                        } else if (i === completedCycles) {
+                            const progressPct = (Number.isFinite(totalTime) && totalTime > 0)
+                                ? Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100))
+                                : 0;
+                            if (mode === 'work') {
+                                workWidth = `${progressPct}%`;
+                                breakHeight = '0%';
+                            } else {
+                                workWidth = '100%';
+                                breakHeight = `${progressPct}%`;
+                            }
+                        }
+
+                        return (
+                            <React.Fragment key={i}>
+                                {/* Barra de Progresso do Foco (Maior e com mais destaque) */}
+                                <div className="flex-1 h-3.5 sm:h-4 bg-[#2d1a12]/20 rounded-full overflow-hidden border-2 border-[#2d1a12]/25 shadow-inner">
                                     <div
                                         ref={el => {
-                                            breakBallsRef.current[i] = el || undefined;
+                                            workFillsRef.current[i] = el || undefined;
                                         }}
-                                        className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
+                                        style={{ width: workWidth }}
+                                        className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full shadow-sm"
                                     />
                                 </div>
-                            )}
-                        </React.Fragment>
-                    ))}
+
+                                {/* Bolinha Verde de Pausa (Maior e com Glow) */}
+                                {i < (targetCycles || 1) - 1 && (
+                                    <div className="relative w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#2d1a12]/20 border-2 border-[#2d1a12]/35 overflow-hidden shrink-0 shadow-md">
+                                        <div
+                                            ref={el => {
+                                                breakBallsRef.current[i] = el || undefined;
+                                            }}
+                                            style={{ height: breakHeight }}
+                                            className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
+                                        />
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
                 </div>
             </div>
         </div>

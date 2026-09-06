@@ -312,15 +312,15 @@ export const createPomodoroSlice = (set, get) => ({
                 p.mode = payload.mode;
             }
 
+            if (payload.targetCycles !== undefined) {
+                p.targetCycles = Math.max(1, Number(payload.targetCycles) || 1);
+            }
+
             if (payload.sessions !== undefined) {
                 p.sessions = Math.min(
                     Math.max(1, Number(payload.sessions) || 1),
                     Math.max(1, Number(p.targetCycles) || 1)
                 );
-            }
-
-            if (payload.targetCycles !== undefined) {
-                p.targetCycles = Math.max(1, Number(payload.targetCycles) || 1);
             }
 
             if (payload.completedCycles !== undefined) {

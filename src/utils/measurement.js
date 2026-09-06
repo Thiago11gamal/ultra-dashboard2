@@ -347,6 +347,9 @@ export function getSafeScore(row, maxScore, minScore = 0) {
         const clean = trimmed.replace(/\./g, '').replace(',', '.');
         return Number(clean);
       }
+      if (/^\d{1,3}(\.\d{3})+$/.test(trimmed)) {
+        return Number(trimmed.replace(/\./g, ''));
+      }
       return Number(trimmed);
     }
     return Number(val);

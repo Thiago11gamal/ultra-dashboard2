@@ -2628,7 +2628,17 @@ export const getBestTask = (categories = [], excludeTaskId = null) => {
             if (String(task.status || '').toLowerCase() === 'completed') return;
             const id = task.id || task.text || '';
             if (excludeTaskId && id === excludeTaskId) return;
-            candidates.push({ ...task, id, catName: cat?.name || task.catName || '', _originalIndex: candidates.length });
+            const catId = cat?.id || task.categoryId || task.catId || '';
+            candidates.push({
+                ...task,
+                id,
+                catId,
+                categoryId: catId,
+                catName: cat?.name || task.catName || '',
+                catColor: cat?.color || task.catColor || '',
+                catIcon: cat?.icon || task.catIcon || '',
+                _originalIndex: candidates.length
+            });
         });
     });
 

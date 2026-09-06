@@ -145,14 +145,61 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 // =====================================================
 // PAINEL DO MENTOR IA
 // =====================================================
-function AICoachPanel({ activeSubject, stats }) {
+function AICoachPanel({ activeSubject, stats, categories = [], studyLogs = [], simulados = [] }) {
     const defaultInsight = {
         title: 'Pronto para Foco',
         text: 'Sua mente está pronta. Selecione um objetivo tático abaixo para iniciar.',
         color: 'indigo',
         iconType: 'Brain'
     };
-    const insight = getCoachInsight(activeSubject, stats) || defaultInsight;
+
+    const insight = useMemo(() => {
+        if (!activeSubject) return defaultInsight;
+
+        const catId = activeSubject.categoryId || activeSubject.catId;
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const targetCategory = safeCats.find(c => c && (c.id === catId || c.name === activeSubject.category));
+
+        if (!targetCategory) {
+            return {
+                title: activeSubject.category || 'Foco Tático',
+                text: `Mantenha a concentração em **${activeSubject.task || 'sua meta'}**. Ciclos consistentes constroem retenção profunda.`,
+                color: 'indigo',
+                iconType: 'Brain'
+            };
+        }
+
+        try {
+            const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs);
+            if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
+                let color = 'indigo';
+                let iconType = 'Brain';
+                if (rawInsight.trend > 0.5) {
+                    color = 'emerald';
+                    iconType = 'Zap';
+                } else if (rawInsight.trend < -0.5 || rawInsight.volatility > 15) {
+                    color = 'red';
+                    iconType = 'Alert';
+                }
+
+                return {
+                    title: `IA Mentor · ${targetCategory.name || 'Diagnóstico'}`,
+                    text: `Desempenho em ${targetCategory.name}: **${rawInsight.text}**. Foco redobrado nesta etapa.`,
+                    color,
+                    iconType
+                };
+            }
+        } catch (e) {
+            console.error('[AICoachPanel] Erro ao obter insight:', e);
+        }
+
+        return {
+            title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
+            text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
+            color: 'indigo',
+            iconType: 'Brain'
+        };
+    }, [activeSubject, categories, studyLogs, simulados]);
     const icons = {
         'Brain': <BrainCircuit size={24} strokeWidth={1.5} />,
         'Zap': <Zap size={24} strokeWidth={1.5} />,
@@ -362,7 +409,13 @@ function ActionsAndMentorView({
 
     return (
         <div className="w-full flex flex-col gap-4">
-            <AICoachPanel activeSubject={activeSubject} stats={stats} />
+            <AICoachPanel
+                activeSubject={activeSubject}
+                stats={stats}
+                categories={categories}
+                studyLogs={studyLogs}
+                simulados={simulados}
+            />
             <DataTriviaPanel studyLogs={studyLogs} simulados={simulados} categories={categories} />
 
             {activeTaskStats && (
@@ -828,6 +881,7 @@ export default function Pomodoro() {
     const neuralQueue = pomodoroState.neuralQueue || EMPTY_ARRAY;
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
     const topRef = useRef(null);
+    const [liveTimerState, setLiveTimerState] = useState(null);
 
     // Estado do Tab do Painel Lateral (Missões & Mentor vs Telemetria)
     const [activeSideTab, setActiveSideTab] = useState(() => {
@@ -1029,6 +1083,20 @@ export default function Pomodoro() {
         const taskId = task?.id || task?.text;
         if (!taskId) return;
 
+        let catId = task.catId || task.categoryId;
+        let catName = task.catName || task.category;
+        if (!catId) {
+            const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+            const foundCat = safeCats.find(c => {
+                const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
+                return tasks.some(t => (t?.id || t?.text) === taskId);
+            });
+            if (foundCat) {
+                catId = foundCat.id;
+                if (!catName) catName = foundCat.name;
+            }
+        }
+
         if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
             const highPriority = [];
             categories.forEach(cat => {
@@ -1039,15 +1107,15 @@ export default function Pomodoro() {
             const queue = [...highPriority];
             let startIndex = queue.findIndex(t => (t.id || t.text) === taskId);
             if (startIndex === -1) {
-                queue.unshift({ ...task, id: taskId, categoryId: task.catId || task.categoryId, catName: task.catName || task.category });
+                queue.unshift({ ...task, id: taskId, categoryId: catId, catName: catName });
                 startIndex = 0;
             }
             useAppStore.getState().startNeuralSession(queue, startIndex);
         } else {
             useAppStore.getState().setPomodoroActiveSubject({
-                categoryId: task.catId || task.categoryId,
+                categoryId: catId,
                 taskId,
-                category: task.catName || task.category,
+                category: catName,
                 task: task.text || task.title || 'Estudo',
                 priority: task.priority,
                 source: effectiveSource,
@@ -1061,32 +1129,12 @@ export default function Pomodoro() {
         const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
         const store = useAppStore.getState();
 
-        if (!wasNatural) {
-            const pomodoroState = store.appState?.pomodoro || {};
-            const accumulatedMinutes = pomodoroState.accumulatedMinutes || 0;
-            const minutesToSave = Math.max(totalMinutes, accumulatedMinutes);
-
-            if (currentSubject && minutesToSave > 0) {
-                store.handleUpdateStudyTime(
-                    currentSubject.categoryId,
-                    minutesToSave,
-                    currentSubject.taskId
-                );
-                store.setPomodoroAccumulatedMinutes(0);
-                showToast(`Sessão encerrada manualmente. ${minutesToSave} minutos salvos no histórico.`, 'info');
-            } else {
-                showToast('Sessão encerrada manualmente.', 'info');
-            }
-
-            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-            completionTimeoutRef.current = setTimeout(() => {
-                useAppStore.getState().setPomodoroActiveSubject(null);
-            }, 400);
-            return;
-        }
-
         if (currentSubject) {
-            showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
+            if (wasNatural) {
+                showToast(`Série finalizada! ${totalMinutes} minutos salvos no histórico. 🚀💎`, 'success');
+            } else {
+                showToast(`Série concluída! ${totalMinutes} minutos salvos no histórico. ⚡`, 'info');
+            }
             store.setPomodoroAccumulatedMinutes(0);
 
             const activeData = store.appState.contests[store.appState.activeId];
@@ -1135,6 +1183,7 @@ export default function Pomodoro() {
             }, 1000);
             return;
         } else {
+            store.setPomodoroAccumulatedMinutes(0);
             handleExit();
         }
     };
@@ -1180,6 +1229,7 @@ export default function Pomodoro() {
                             onExit={handleExit}
                             onSessionComplete={handleSessionComplete}
                             onFullCycleComplete={handleFullCycleComplete}
+                            onTimerStateChange={setLiveTimerState}
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
                             defaultTargetCycles={1}
@@ -1201,12 +1251,12 @@ export default function Pomodoro() {
                             studyLogs={studyLogs}
                             simulados={simulados}
                             user={user}
-                            mode={pomodoroState.mode || 'work'}
-                            isRunning={pomodoroState.isRunning || false}
-                            timeLeft={pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60}
-                            totalTime={(settings?.pomodoroWork || 25) * 60}
-                            targetCycles={pomodoroState.targetCycles || 1}
-                            completedCycles={pomodoroState.completedCycles || 0}
+                            mode={liveTimerState?.mode || pomodoroState.mode || 'work'}
+                            isRunning={liveTimerState !== null ? liveTimerState.isRunning : (pomodoroState.isRunning || false)}
+                            timeLeft={liveTimerState !== null ? liveTimerState.timeLeft : (pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60)}
+                            totalTime={liveTimerState?.totalTime || (settings?.pomodoroWork || 25) * 60}
+                            targetCycles={liveTimerState?.targetCycles || pomodoroState.targetCycles || 1}
+                            completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
                         />
