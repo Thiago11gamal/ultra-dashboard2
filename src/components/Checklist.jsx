@@ -731,42 +731,42 @@ function Checklist({
     return (
         <div className="min-h-[300px] w-full">
             {safeCategories.length === 0 ? (
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-purple-500/20 bg-gradient-to-b from-slate-900/90 via-slate-900/70 to-slate-950/95 backdrop-blur-xl p-5 sm:p-7 text-center shadow-xl shadow-purple-950/30 group">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-purple-500/20 bg-gradient-to-b from-slate-900/90 via-slate-900/70 to-slate-950/95 backdrop-blur-xl p-6 sm:p-8 pb-8 sm:pb-10 text-center shadow-xl shadow-purple-950/30 group">
                     {/* Background glow and decorative elements */}
                     <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-80 h-80 bg-gradient-to-br from-purple-600/15 to-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-tr from-blue-600/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
-                    <div className="relative z-10 max-w-xl mx-auto flex flex-col items-center">
+                    <div className="relative z-10 max-w-xl mx-auto flex flex-col items-center gap-3 sm:gap-3.5">
                         {/* Pill badge */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold mb-3 shadow-sm shadow-purple-500/10 backdrop-blur-md">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold shadow-sm shadow-purple-500/10 backdrop-blur-md">
                             <Sparkles size={13} className="text-purple-400" />
                             <span>Primeiro Passo</span>
                         </div>
 
                         {/* Modern glowing icon container */}
-                        <div className="relative mb-3">
-                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 via-indigo-500/20 to-purple-600/10 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-950/50 backdrop-blur-md group-hover:scale-105 transition-transform duration-300 relative">
-                                <div className="absolute inset-0 rounded-2xl bg-purple-500/15 blur-lg animate-pulse" />
-                                <Rocket className="w-7 h-7 sm:w-8 sm:h-8 text-purple-300 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)] transform -rotate-45" />
-                            </div>
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 via-indigo-500/20 to-purple-600/10 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-950/50 backdrop-blur-md group-hover:scale-105 transition-transform duration-300 relative">
+                            <div className="absolute inset-0 rounded-2xl bg-purple-500/15 blur-lg animate-pulse" />
+                            <Rocket className="w-7 h-7 sm:w-8 sm:h-8 text-purple-300 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)] transform -rotate-45" />
                         </div>
 
                         {/* Title & Description */}
-                        <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-                            Prepare-se para o Topo!
-                        </h3>
+                        <div className="flex flex-col items-center gap-1">
+                            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                                Prepare-se para o Topo!
+                            </h3>
 
-                        <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed mb-5">
-                            Organize sua rotina de estudos. Adicione sua primeira matéria para{' '}
-                            <span className="text-purple-400 font-semibold">
-                                desbloquear o edital verticalizado
-                            </span>{' '}
-                            e acompanhar sua evolução.
-                        </p>
+                            <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
+                                Organize sua rotina de estudos. Adicione sua primeira matéria para{' '}
+                                <span className="text-purple-400 font-semibold">
+                                    desbloquear o edital verticalizado
+                                </span>{' '}
+                                e acompanhar sua evolução.
+                            </p>
+                        </div>
 
                         {/* Feature Highlights Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full max-w-lg mb-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full max-w-lg">
                             <div className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-purple-500/25 rounded-xl p-2.5 flex items-center gap-2.5 text-left transition-colors">
                                 <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
                                     <BookOpen size={15} />
@@ -799,7 +799,7 @@ function Checklist({
                         </div>
 
                         {/* Action buttons */}
-                        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center items-stretch sm:items-center w-full sm:w-auto">
+                        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center items-stretch sm:items-center w-full sm:w-auto pt-2">
                             <button
                                 type="button"
                                 onClick={() => setIsCatModalOpen(true)}
