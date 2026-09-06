@@ -309,7 +309,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             };
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
-    }, [subjectAggData, activeCategories, sortOrder, maxScore, showOnlyFocus, focusCategory?.id]);
+    }, [subjectAggData, activeCategories, sortOrder, maxScore, showOnlyFocus, focusCategory]);
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {

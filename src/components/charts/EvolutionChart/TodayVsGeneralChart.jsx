@@ -144,7 +144,7 @@ export function TodayVsGeneralChart({
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         return { dailyData: result, lastActiveEntry: lastEntry };
-    }, [activeCategories, maxScore, minScore, todayKey]);
+    }, [activeCategories, maxScore, minScore]);
 
     const temporalMetrics = useMemo(() => {
         const buckets = {
