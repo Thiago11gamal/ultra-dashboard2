@@ -108,7 +108,7 @@ update('src/utils/lazyRetry.js', t =>
 
 // BUG-N764
 update('src/utils/retentionCore.js', t => 
-  t.replace(/value = value\.toNumber\(\);/g, 'try { value = value.toNumber(); } catch { value = 0; }')
+  t.replace(/value = value\.toNumber\(\);/g, 'value = value.toNumber();')
 );
 
 // BUG-N769
