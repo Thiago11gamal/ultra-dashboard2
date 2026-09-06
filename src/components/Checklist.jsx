@@ -12,7 +12,12 @@ import {
     Play,
     Settings,
     Download,
-    X
+    X,
+    Sparkles,
+    Rocket,
+    BookOpen,
+    Target,
+    CheckCircle2
 } from 'lucide-react';
 import PromptModal from './PromptModal';
 import CategoryEditor from './CategoryEditor';
@@ -702,142 +707,232 @@ function Checklist({
         return toArray(sourceContest?.categories);
     }, [sourceContest]);
 
-    const filters = [
-        { id: 'all', label: 'Todas' },
-        { id: 'active', label: 'Ativas' },
-        { id: 'completed', label: 'Concluídas' },
-    ];
+    const taskStats = useMemo(() => {
+        let total = 0;
+        let completed = 0;
+        safeCategories.forEach(cat => {
+            const tasks = toArray(cat.tasks);
+            total += tasks.length;
+            completed += tasks.filter(t => t?.completed).length;
+        });
+        return {
+            total,
+            active: Math.max(0, total - completed),
+            completed,
+        };
+    }, [safeCategories]);
+
+    const filters = useMemo(() => [
+        { id: 'all', label: 'Todas', count: taskStats.total },
+        { id: 'active', label: 'Ativas', count: taskStats.active },
+        { id: 'completed', label: 'Concluídas', count: taskStats.completed },
+    ], [taskStats]);
 
     return (
         <div className="min-h-[300px] w-full">
-            {safeCategories.length === 0 && (
-                <div className="flex flex-col items-center justify-center p-16 mb-6 border-2 border-dashed border-white/10 rounded-3xl bg-gradient-to-b from-white/[0.03] to-transparent backdrop-blur-md overflow-hidden relative group">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 via-transparent to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+            {safeCategories.length === 0 ? (
+                <div className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-b from-slate-900/90 via-slate-900/60 to-slate-950/95 backdrop-blur-xl p-8 sm:p-12 text-center shadow-2xl shadow-purple-950/30 mb-8 group">
+                    {/* Background glow and decorative elements */}
+                    <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-br from-purple-600/15 to-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 w-80 h-80 bg-gradient-to-tr from-blue-600/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
-                    <div className="relative z-10 text-center">
-                        <div className="w-24 h-24 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center mb-6 mx-auto border border-white/10 shadow-2xl relative">
-                            <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-xl animate-pulse" />
-                            <span className="text-5xl animate-bounce" aria-hidden="true">
-                                🚀
-                            </span>
+                    <div className="relative z-10 max-w-xl mx-auto flex flex-col items-center">
+                        {/* Pill badge */}
+                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold mb-6 shadow-sm shadow-purple-500/10 backdrop-blur-md">
+                            <Sparkles size={14} className="text-purple-400" />
+                            <span>Primeiro Passo</span>
                         </div>
 
-                        <h3 className="text-white font-black text-2xl mb-2 tracking-tight">
+                        {/* Modern glowing icon container */}
+                        <div className="relative mb-6">
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-purple-500/20 via-indigo-500/20 to-purple-600/10 border border-purple-500/30 flex items-center justify-center shadow-xl shadow-purple-950/50 backdrop-blur-md group-hover:scale-105 transition-transform duration-300 relative">
+                                <div className="absolute inset-0 rounded-3xl bg-purple-500/10 blur-xl animate-pulse" />
+                                <Rocket className="w-10 h-10 text-purple-300 drop-shadow-[0_0_12px_rgba(168,85,247,0.5)] transform -rotate-45" />
+                            </div>
+                        </div>
+
+                        {/* Title & Description */}
+                        <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">
                             Prepare-se para o Topo!
                         </h3>
 
-                        <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">
-                            Organize sua rotina. Adicione sua primeira disciplina para{' '}
-                            <span className="text-purple-400 font-bold">
-                                desbloquear o dashboard
-                            </span>.
+                        <p className="text-slate-400 text-sm sm:text-base max-w-md mx-auto leading-relaxed mb-8">
+                            Organize sua rotina de estudos. Adicione sua primeira matéria para{' '}
+                            <span className="text-purple-400 font-semibold">
+                                desbloquear o edital verticalizado
+                            </span>{' '}
+                            e acompanhar sua evolução.
                         </p>
-                        {/* BUG-FIX: CTA para criar primeira disciplina */}
-                        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+
+                        {/* Feature Highlights Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full mb-8">
+                            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3.5 flex flex-col items-center text-center backdrop-blur-sm hover:border-purple-500/20 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center mb-2">
+                                    <BookOpen size={16} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-200">Edital Vertical</span>
+                                <span className="text-[11px] text-slate-400 mt-0.5">Tópicos organizados</span>
+                            </div>
+
+                            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3.5 flex flex-col items-center text-center backdrop-blur-sm hover:border-purple-500/20 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-2">
+                                    <Target size={16} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-200">Ciclos de Estudo</span>
+                                <span className="text-[11px] text-slate-400 mt-0.5">Prioridades e foco</span>
+                            </div>
+
+                            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-3.5 flex flex-col items-center text-center backdrop-blur-sm hover:border-purple-500/20 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-2">
+                                    <CheckCircle2 size={16} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-200">Acompanhamento</span>
+                                <span className="text-[11px] text-slate-400 mt-0.5">Métricas em tempo real</span>
+                            </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center w-full sm:w-auto">
                             <button
                                 type="button"
                                 onClick={() => setIsCatModalOpen(true)}
-                                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                                className="px-6 py-3.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-sm transition-all duration-200 shadow-lg shadow-purple-900/40 hover:shadow-purple-700/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                             >
                                 <Plus size={18} />
-                                Criar Primeira Disciplina
+                                <span>Criar Primeira Disciplina</span>
                             </button>
                             {onAddCategory && (
                                 <button
                                     type="button"
                                     onClick={() => setIsImportModalOpen(true)}
-                                    className="px-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                                    className="px-6 py-3.5 bg-slate-800/80 hover:bg-slate-700/80 text-slate-200 hover:text-white border border-white/10 hover:border-white/20 rounded-xl font-semibold text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                                 >
                                     <Download size={18} />
-                                    Importar Disciplina
+                                    <span>Importar Disciplina</span>
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
-            )}
+            ) : (
+                <>
+                    {/* Header with Title and Segmented Control Filters */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-3 border-b border-white/[0.06]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-pulse shadow-sm shadow-purple-500/50" />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-base font-bold text-white tracking-tight">
+                                        Disciplinas do Edital
+                                    </h2>
+                                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
+                                        {safeCategories.length} {safeCategories.length === 1 ? 'disciplina' : 'disciplinas'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                    {taskStats.total} {taskStats.total === 1 ? 'tópico cadastrado' : 'tópicos cadastrados'} • {taskStats.completed} {taskStats.completed === 1 ? 'concluído' : 'concluídos'}
+                                </p>
+                            </div>
+                        </div>
 
-            <div className="flex flex-wrap gap-2 mb-6">
-                {filters.map(f => (
-                    <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => setFilter(f.id)}
-                        aria-pressed={filter === f.id}
-                        className={`px-4 py-2 rounded-2xl text-sm font-bold tracking-wider uppercase transition-all duration-150 border ${filter === f.id
-                            ? 'bg-gradient-to-br from-purple-500 to-blue-500 text-white border-white/20 shadow-sm scale-[1.02]'
-                            : 'bg-slate-900/70 border-white/10 text-slate-400 hover:bg-slate-800/90 hover:text-slate-200 hover:border-white/20'
-                            }`}
-                    >
-                        {f.label}
-                    </button>
-                ))}
-            </div>
+                        {/* Segmented Control Filter Tabs */}
+                        <div className="inline-flex p-1 rounded-xl bg-slate-900/80 border border-white/10 backdrop-blur-md self-start sm:self-auto gap-1 shadow-inner">
+                            {filters.map(f => {
+                                const isActive = filter === f.id;
+                                return (
+                                    <button
+                                        key={f.id}
+                                        type="button"
+                                        onClick={() => setFilter(f.id)}
+                                        aria-pressed={isActive}
+                                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
+                                            isActive
+                                                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-900/30 font-semibold scale-[1.02]'
+                                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        <span>{f.label}</span>
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                                            isActive
+                                                ? 'bg-white/20 text-white'
+                                                : 'bg-white/5 text-slate-400'
+                                        }`}>
+                                            {f.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-            <div className="space-y-4">
-                {filteredCategories.map(category => (
-                    <CategoryAccordion
-                        key={category.id}
-                        category={category}
-                        onToggleTask={onToggleTask}
-                        onDeleteTask={onDeleteTask}
-                        onAddTask={handleAddTask}
-                        onTogglePriority={onTogglePriority}
-                        onDeleteCategory={onDeleteCategory}
-                        onPlayContext={handlePlayContext}
-                        showSimuladoStats={showSimuladoStats}
-                        filter={filter}
-                        onOpenTaskModal={handleOpenTaskModal}
-                        onOpenDeleteCategoryModal={handleOpenDeleteCategoryModal}
-                        onOpenDeleteTaskModal={handleOpenDeleteTaskModal}
-                    />
-                ))}
-            </div>
+                    {/* Category List */}
+                    <div className="space-y-4">
+                        {filteredCategories.map(category => (
+                            <CategoryAccordion
+                                key={category.id}
+                                category={category}
+                                onToggleTask={onToggleTask}
+                                onDeleteTask={onDeleteTask}
+                                onAddTask={handleAddTask}
+                                onTogglePriority={onTogglePriority}
+                                onDeleteCategory={onDeleteCategory}
+                                onPlayContext={handlePlayContext}
+                                showSimuladoStats={showSimuladoStats}
+                                filter={filter}
+                                onOpenTaskModal={handleOpenTaskModal}
+                                onOpenDeleteCategoryModal={handleOpenDeleteCategoryModal}
+                                onOpenDeleteTaskModal={handleOpenDeleteTaskModal}
+                            />
+                        ))}
+                    </div>
 
-            {onAddCategory && filter !== 'completed' && safeCategories.length > 0 && (
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <button
-                        type="button"
-                        onClick={() => setIsCatModalOpen(true)}
-                        className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-purple-500/[0.08] via-slate-900/60 to-purple-500/[0.02] border border-purple-500/20 hover:border-purple-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10 text-left flex items-center gap-3.5"
-                    >
-                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-md shadow-purple-950/40 group-hover:scale-110 group-hover:from-purple-500/30 group-hover:to-indigo-500/30 transition-all duration-300 flex-shrink-0">
-                            <Plus size={20} className="text-purple-300 group-hover:rotate-90 transition-transform duration-300" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
-                                Nova Disciplina
-                            </span>
-                            <span className="block text-xs text-purple-300/60 group-hover:text-purple-200/80 transition-colors truncate">
-                                Adicionar matéria ao edital
-                            </span>
-                        </div>
-                        <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-purple-500/20 border border-white/5 group-hover:border-purple-500/30 flex items-center justify-center text-slate-400 group-hover:text-purple-200 transition-all flex-shrink-0">
-                            <span className="text-xs font-black tracking-wider">&rarr;</span>
-                        </div>
-                    </button>
+                    {onAddCategory && filter !== 'completed' && (
+                        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <button
+                                type="button"
+                                onClick={() => setIsCatModalOpen(true)}
+                                className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-purple-500/[0.08] via-slate-900/60 to-purple-500/[0.02] border border-purple-500/20 hover:border-purple-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10 text-left flex items-center gap-3.5 cursor-pointer"
+                            >
+                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-md shadow-purple-950/40 group-hover:scale-110 group-hover:from-purple-500/30 group-hover:to-indigo-500/30 transition-all duration-300 flex-shrink-0">
+                                    <Plus size={20} className="text-purple-300 group-hover:rotate-90 transition-transform duration-300" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
+                                        Nova Disciplina
+                                    </span>
+                                    <span className="block text-xs text-purple-300/60 group-hover:text-purple-200/80 transition-colors truncate">
+                                        Adicionar matéria ao edital
+                                    </span>
+                                </div>
+                                <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-purple-500/20 border border-white/5 group-hover:border-purple-500/30 flex items-center justify-center text-slate-400 group-hover:text-purple-200 transition-all flex-shrink-0">
+                                    <span className="text-xs font-black tracking-wider">&rarr;</span>
+                                </div>
+                            </button>
 
-                    <button
-                        type="button"
-                        onClick={() => setIsImportModalOpen(true)}
-                        className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-blue-500/[0.08] via-slate-900/60 to-cyan-500/[0.02] border border-blue-500/20 hover:border-blue-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/10 text-left flex items-center gap-3.5"
-                    >
-                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 shadow-md shadow-blue-950/40 group-hover:scale-110 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all duration-300 flex-shrink-0">
-                            <Download size={18} className="text-blue-300 group-hover:-translate-y-0.5 transition-transform duration-300" />
+                            <button
+                                type="button"
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-blue-500/[0.08] via-slate-900/60 to-cyan-500/[0.02] border border-blue-500/20 hover:border-blue-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/10 text-left flex items-center gap-3.5 cursor-pointer"
+                            >
+                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 shadow-md shadow-blue-950/40 group-hover:scale-110 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all duration-300 flex-shrink-0">
+                                    <Download size={18} className="text-blue-300 group-hover:-translate-y-0.5 transition-transform duration-300" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
+                                        Importar Disciplina
+                                    </span>
+                                    <span className="block text-xs text-blue-300/60 group-hover:text-blue-200/80 transition-colors truncate">
+                                        Copiar de outro concurso
+                                    </span>
+                                </div>
+                                <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-blue-500/20 border border-white/5 group-hover:border-blue-500/30 flex items-center justify-center text-slate-400 group-hover:text-blue-200 transition-all flex-shrink-0">
+                                    <span className="text-xs font-black tracking-wider">&rarr;</span>
+                                </div>
+                            </button>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
-                                Importar Disciplina
-                            </span>
-                            <span className="block text-xs text-blue-300/60 group-hover:text-blue-200/80 transition-colors truncate">
-                                Copiar de outro concurso
-                            </span>
-                        </div>
-                        <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-blue-500/20 border border-white/5 group-hover:border-blue-500/30 flex items-center justify-center text-slate-400 group-hover:text-blue-200 transition-all flex-shrink-0">
-                            <span className="text-xs font-black tracking-wider">&rarr;</span>
-                        </div>
-                    </button>
-                </div>
+                    )}
+                </>
             )}
 
             <PromptModal
