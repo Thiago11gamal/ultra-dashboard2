@@ -32,15 +32,23 @@ export function useEvolutionMC({
   const [mcResult, setMcResult] = useState(null);
   const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
 
+  const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTarget(targetScore), 300);
+    return () => clearTimeout(t);
+  }, [targetScore]);
+
   // FIX 3A: usar fingerprint estável para evitar re-cálculo por mudança de referência
   const historyFingerprint = useMemo(() => {
       const historyRaw = focusCategory?.simuladoStats?.history;
       if (!historyRaw) return 'empty';
       const arr = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
       if (arr.length === 0) return 'empty';
-      const first = arr[0];
-      const last = arr[arr.length - 1];
-      return `${arr.length}-${first?.date || ''}-${last?.date || ''}`;
+      // FIX: fingerprint forte. O anterior (só first/last) deixava o array
+      // stale quando um item do MEIO era editado sem mudar o comprimento.
+      return arr
+          .map((h) => `${h?.date || h?.createdAt || ''}:${h?.score ?? ''}`)
+          .join('|');
   }, [focusCategory?.simuladoStats?.history]);
   
   const historyArray = useMemo(() => {
@@ -55,7 +63,10 @@ export function useEvolutionMC({
   useEffect(() => {
     // ✅ LOTE-05: só dispara o Monte Carlo nos engines que consomem o resultado
     const isMcEngine = activeEngine === 'compare' || activeEngine === 'mc_density';
-    if (!isMcEngine) { queueMicrotask(() => setMcLoading(false)); return; }
+    if (!isMcEngine) { 
+      queueMicrotask(() => { setMcLoading(false); setMcResult(null); }); 
+      return; 
+    }
 
     if (!focusCategory?.id || !Array.isArray(historyArray) || historyArray.length === 0) {
       queueMicrotask(() => setMcLoading(false));
@@ -116,7 +127,7 @@ export function useEvolutionMC({
         const result = await runAnalysis({
           values: hist,
           dates: hist.map((h) => h.date),
-          meta: targetScore,
+          meta: debouncedTarget,
           projectionDays: projectDays,
           minScore: safeMin,
           maxScore: safeMax,
@@ -150,7 +161,7 @@ export function useEvolutionMC({
             const fallback = runMonteCarloAnalysis({
               values: hist,
               dates: hist.map((h) => h.date),
-              meta: targetScore,
+              meta: debouncedTarget,
               simulations: 1500,
               projectionDays: projectDays,
               minScore: safeMin,
@@ -173,7 +184,7 @@ export function useEvolutionMC({
 
     return () => { cancelled = true; clearTimeout(workerDebounceTimeout); };
   }, [
-    focusCategory?.id, currentFocusLevel, historyArray, targetScore,
+    focusCategory?.id, currentFocusLevel, historyArray, debouncedTarget,
     projectDays, runAnalysis, minScore, maxScore, activeEngine
   ]);
 

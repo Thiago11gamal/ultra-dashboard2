@@ -511,15 +511,19 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         ? safeSimulados.filter(s => s && validCatNorms.has(normalize(s.subject || "")))
         : safeSimulados;
 
-    const validGlobalSims = allSimsForBaseline
-        .map(s => getSafeScore(s, maxScore))
-        .filter(s => Number.isFinite(s));
+    // FIX: normalizar cada score para [0,1] antes de somar.
+    // O anterior assumia escala única e distorcia com matérias de escalas diferentes.
+    const validGlobalRatios = allSimsForBaseline
+        .map((s) => {
+            const score = getSafeScore(s, maxScore);
+            if (!Number.isFinite(score)) return null;
+            return maxScore > 0 ? score / maxScore : null;
+        })
+        .filter((r) => r !== null);
 
-    if (validGlobalSims.length > 0 && maxScore > 0) {
-        const totalPoints = kahanSum(validGlobalSims);
-        // ✅ PATCH-34: Proteção explícita contra divisão por zero
-        const denominator = validGlobalSims.length * maxScore;
-        globalBaselinePct = denominator > 0 ? (totalPoints / denominator) * 100 : 50;
+    if (validGlobalRatios.length > 0) {
+        const meanRatio = kahanSum(validGlobalRatios) / validGlobalRatios.length;
+        globalBaselinePct = meanRatio * 100;
     }
 
     let averageScore = 0;
@@ -2696,7 +2700,10 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
     allSimulados.forEach((s, idx) => {
         const safeScore = getSafeScore(s, maxScore);
         const safeScoreStr = Number.isFinite(safeScore) ? String(Math.round(safeScore * 100)) : '0';
-        const key = `${s.id || `sim-no-id-${idx}`}|${s.date || s.createdAt}|${safeScoreStr}`;
+        // FIX: sem `id`, a chave usava `idx` (sempre único) e nunca deduplicava.
+        // Agora usa subject + data + score para deduplicar simulados sem id.
+        const idPart = s.id || `${s.subject || s.categoryId || 'geral'}`;
+        const key = `${idPart}|${s.date || s.createdAt}|${safeScoreStr}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 

@@ -48,6 +48,11 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
         maxAreaIndex = rangeOffs;
       }
     }
+    // ── FIX: bucket vazio não pode injetar undefined na série ──
+    if (maxAreaIndex === -1) {
+      maxAreaIndex = Math.min(rangeTo - 1, dataLength - 1);
+    }
+
     sampledData.push(data[maxAreaIndex]);
     a = maxAreaIndex;
   }

@@ -138,7 +138,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     );
 });
 
-export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100 }) {
+export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore = 0 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const chartData = useMemo(() => {
@@ -300,7 +300,6 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 absoluteTotalTime,
                 visualLatestSeconds,
                 visualAbsoluteSeconds,
-                maxSeconds: Math.max(displaySeconds, visualLatestSeconds, visualAbsoluteSeconds),
                 hasRecentData,
                 deltaSeconds,
                 avgFormatted: timeStr,
@@ -309,7 +308,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             };
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
-    }, [subjectAggData, activeCategories, sortOrder, maxScore, showOnlyFocus, focusCategory]);
+    }, [subjectAggData, activeCategories, sortOrder, maxScore, minScore, showOnlyFocus, focusCategory]);
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {

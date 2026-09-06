@@ -47,7 +47,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                     Desempenho por matéria — histórico completo
                 </h3>
                 <p className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-relaxed">
-                    Volume total de questões acumuladas com taxa de acertos e falhas.
+                    Volume de questões no período selecionado, com taxa de acertos e falhas.
                 </p>
             </div>
  
@@ -145,7 +145,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                             if (width < 15 || !value) return null;
                                             const entry = (index != null && chartData[index]) ? chartData[index] : chartData.find(d => d.questoes === value);
                                             const errosH = entry ? entry.erros : 0;
-                                            const labelY = errosH > 0 ? props.y - 4 : props.y - 4;
+                                            const labelY = props.y - 4;
                                             return (
                                                 <text x={x + width / 2} y={labelY} fill="#94a3b8" fontSize={9} fontWeight="bold" textAnchor="middle">
                                                     {value}

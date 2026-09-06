@@ -963,6 +963,7 @@ export default React.memo(function EvolutionChart({
                         showOnlyFocus={showOnlyFocus}
                         focusCategory={focusCategory}
                         maxScore={maxScore}
+                        minScore={minScore}
                     />
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart
@@ -986,6 +987,7 @@ export default React.memo(function EvolutionChart({
                 ) : activeEngine === "today_vs_general" ? (
                     <TodayVsGeneralChart
                         activeCategories={activeCategories}
+                        focusCategory={showOnlyFocus ? focusCategory : null}
                         globalMetrics={safeGlobalMetrics}
                         targetScore={targetScore}
                         maxScore={maxScore}
