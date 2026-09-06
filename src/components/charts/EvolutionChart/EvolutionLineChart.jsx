@@ -212,7 +212,7 @@ export function EvolutionLineChart({
         const map = {};
         labels.forEach(p => { map[p.id] = p.yPos; });
         return map;
-    }, [finalPoints, maxScore, minScore]);
+    }, [finalPoints, safeMaxScore, safeMinScore, safeRange]);
 
     const renderCustomLabel = (props, catId, displayColor, isFocused, hasFocus) => {
         const { x, y, index, value, viewBox } = props;

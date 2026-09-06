@@ -7,7 +7,7 @@ import {
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
 import { normalizeDate, formatDisplayDate, formatDuration } from '../../../utils/dateHelper';
-import { formatValue, normalizeScoreDomain } from '../../../utils/scoreHelper';
+import { formatValue } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
     const { cx, cy, fill, stroke } = props;

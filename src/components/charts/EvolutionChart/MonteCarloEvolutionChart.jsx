@@ -6,7 +6,7 @@ import { Target, TrendingUp, AlertCircle } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDuration, normalizeDate } from '../../../utils/dateHelper';
-import { formatValue, formatPercent, normalizeScoreDomain } from '../../../utils/scoreHelper';
+import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
 
 const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxScore, minScore }) => {

@@ -105,7 +105,7 @@ export function TodayVsGeneralChart({
         return () => clearInterval(interval);
     }, []);
 
-    const { dailyData, lastActiveEntry, isToday } = useMemo(() => {
+    const { dailyData, lastActiveEntry } = useMemo(() => {
         const dayMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore);
@@ -143,8 +143,7 @@ export function TodayVsGeneralChart({
             return { date, displayDate: `${d}/${m}`, accuracy: acc, total: entry.total };
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
-        const _isToday = lastEntry ? lastEntry.date === todayKey : false;
-        return { dailyData: result, lastActiveEntry: lastEntry, isToday: _isToday };
+        return { dailyData: result, lastActiveEntry: lastEntry };
     }, [activeCategories, maxScore, minScore, todayKey]);
 
     const temporalMetrics = useMemo(() => {
