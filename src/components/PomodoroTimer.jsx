@@ -450,7 +450,6 @@ function PomodoroTimer({
             } catch (error) {
                 console.error('[PomodoroTimer] Failed to reset accumulatedMinutes:', error);
             }
-        }
     }, [safeSettings, safeOnUpdateStudyTime, onSessionComplete]);
 
     useEffect(() => {
