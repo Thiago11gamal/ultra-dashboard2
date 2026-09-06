@@ -62,6 +62,7 @@ export default function PromptModal({
 
     const safeTitle = typeof title === 'string' ? title : 'Editar';
     const isDisciplina = safeTitle.toLowerCase().includes('disciplina');
+    const isAssunto = safeTitle.toLowerCase().includes('assunto') || safeTitle.toLowerCase().includes('tarefa');
 
     const modalContent = (
         <AnimatePresence>
@@ -131,7 +132,7 @@ export default function PromptModal({
                                     </h2>
 
                                     <p className="text-xs text-slate-400 font-medium uppercase tracking-widest opacity-60">
-                                        Personalização
+                                        {isDisciplina ? 'Organização do Edital' : isAssunto ? 'Tópico de Estudo' : 'Personalização'}
                                     </p>
                                 </div>
                             </div>
@@ -141,9 +142,9 @@ export default function PromptModal({
                                     <div className="flex justify-between items-end px-1">
                                         <label
                                             htmlFor={inputId}
-                                            className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em]"
+                                            className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]"
                                         >
-                                            Identificação
+                                            {isDisciplina ? 'Nome da Disciplina' : isAssunto ? 'Nome do Assunto' : 'Identificação'}
                                         </label>
 
                                         <span className="text-[10px] font-mono text-purple-400/60">
@@ -186,7 +187,7 @@ export default function PromptModal({
                                         disabled={!inputValue.trim()}
                                         className="flex-[2] px-6 py-4 rounded-2xl text-sm font-black text-white bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2 group/btn"
                                     >
-                                        <span>CONFIRMAR</span>
+                                        <span>{isDisciplina ? 'ADICIONAR DISCIPLINA' : isAssunto ? 'ADICIONAR ASSUNTO' : 'CONFIRMAR'}</span>
                                         <Sparkles size={16} className="group-hover/btn:rotate-12 transition-transform" />
                                     </button>
                                 </div>

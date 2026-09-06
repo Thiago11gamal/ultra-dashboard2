@@ -478,41 +478,63 @@ const CategoryAccordion = React.memo(({
                         </div>
                     )}
 
-                    <div className="p-4 space-y-3 pb-8">
-                        {originalTasks.length === 0 ? (
-                            <p className="text-center text-slate-500 text-sm py-2">
-                                Nenhum assunto cadastrado nesta disciplina.
-                            </p>
-                        ) : visibleTasks.length === 0 ? (
-                            <p className="text-center text-slate-500 text-sm py-2">
-                                Nenhum assunto encontrado para o filtro atual.
-                            </p>
-                        ) : (
-                            visibleTasks.map(task => (
-                                <TaskItem
-                                    key={task.id}
-                                    task={task}
-                                    onToggle={(id) => onToggleTask(category.id, id)}
-                                    onDelete={() => {
-                                        onOpenDeleteTaskModal(category.id, task);
-                                    }}
-                                    onTogglePriority={(id) => onTogglePriority(category.id, id)}
-                                    onTriggerPlay={() => onPlayContext(category.id, task.id)}
-                                />
-                            ))
-                        )}
-                    </div>
+                    {originalTasks.length === 0 ? (
+                        <div className="p-4">
+                            <div className="py-7 px-5 rounded-2xl bg-white/[0.015] border border-white/5 flex flex-col items-center justify-center text-center">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-300 mb-3 shadow-inner">
+                                    <Plus size={18} />
+                                </div>
+                                <p className="text-slate-200 font-semibold text-sm">
+                                    Nenhum assunto cadastrado
+                                </p>
+                                <p className="text-slate-400 text-xs max-w-xs mt-1 mb-4 leading-relaxed">
+                                    Cadastre os tópicos do edital desta disciplina para organizar seus estudos e acompanhar seu desempenho.
+                                </p>
+                                {filter !== 'completed' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onOpenTaskModal(category.id)}
+                                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/50 hover:to-indigo-600/50 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                                    >
+                                        <Plus size={14} className="text-purple-300" />
+                                        <span>Adicionar Primeiro Assunto</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="p-4 space-y-3">
+                            {visibleTasks.length === 0 ? (
+                                <p className="text-center text-slate-500 text-sm py-4">
+                                    Nenhum assunto encontrado para o filtro atual.
+                                </p>
+                            ) : (
+                                visibleTasks.map(task => (
+                                    <TaskItem
+                                        key={task.id}
+                                        task={task}
+                                        onToggle={(id) => onToggleTask(category.id, id)}
+                                        onDelete={() => {
+                                            onOpenDeleteTaskModal(category.id, task);
+                                        }}
+                                        onTogglePriority={(id) => onTogglePriority(category.id, id)}
+                                        onTriggerPlay={() => onPlayContext(category.id, task.id)}
+                                    />
+                                ))
+                            )}
 
-                    {filter !== 'completed' && (
-                        <div className="p-4 pt-0">
-                            <button
-                                type="button"
-                                onClick={() => onOpenTaskModal(category.id)}
-                                className="w-full py-3 rounded-xl border border-dashed border-white/20 bg-white/[0.02] text-slate-400 hover:bg-white/[0.05] hover:text-white hover:border-white/40 transition-all flex items-center justify-center gap-2 group"
-                            >
-                                <Plus size={18} className="group-hover:scale-110 transition-transform" />
-                                <span className="font-medium tracking-wide">Adicionar Assunto</span>
-                            </button>
+                            {filter !== 'completed' && (
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenTaskModal(category.id)}
+                                    className="w-full py-2.5 px-4 rounded-xl bg-white/[0.02] hover:bg-purple-500/[0.06] border border-white/5 hover:border-purple-500/30 text-slate-400 hover:text-purple-200 transition-all duration-200 flex items-center justify-center gap-2 group text-xs font-semibold shadow-sm mt-2"
+                                >
+                                    <div className="w-5 h-5 rounded-md bg-white/5 group-hover:bg-purple-500/20 border border-white/10 group-hover:border-purple-500/30 flex items-center justify-center text-slate-400 group-hover:text-purple-300 transition-all">
+                                        <Plus size={13} className="group-hover:scale-110 transition-transform" />
+                                    </div>
+                                    <span>Adicionar Assunto</span>
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -715,15 +737,16 @@ function Checklist({
                             <button
                                 type="button"
                                 onClick={() => setIsCatModalOpen(true)}
-                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
+                                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-purple-900/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                             >
-                                + Criar Primeira Disciplina
+                                <Plus size={18} />
+                                Criar Primeira Disciplina
                             </button>
                             {onAddCategory && (
                                 <button
                                     type="button"
                                     onClick={() => setIsImportModalOpen(true)}
-                                    className="px-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                    className="px-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
                                 >
                                     <Download size={18} />
                                     Importar Disciplina
@@ -772,31 +795,47 @@ function Checklist({
             </div>
 
             {onAddCategory && filter !== 'completed' && safeCategories.length > 0 && (
-                <div className="mt-6 flex flex-col sm:flex-row gap-4">
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <button
                         type="button"
                         onClick={() => setIsCatModalOpen(true)}
-                        className="flex-1 py-4 rounded-xl border-2 border-dashed border-purple-500/20 bg-purple-500/5 text-purple-300 hover:text-purple-100 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all flex items-center justify-center gap-3 group"
+                        className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-purple-500/[0.08] via-slate-900/60 to-purple-500/[0.02] border border-purple-500/20 hover:border-purple-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10 text-left flex items-center gap-3.5"
                     >
-                        <span className="p-2 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 text-2xl transition-colors" aria-hidden="true">
-                            📚
-                        </span>
-
-                        <span className="font-semibold text-lg">
-                            Nova Disciplina
-                        </span>
+                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-md shadow-purple-950/40 group-hover:scale-110 group-hover:from-purple-500/30 group-hover:to-indigo-500/30 transition-all duration-300 flex-shrink-0">
+                            <Plus size={20} className="text-purple-300 group-hover:rotate-90 transition-transform duration-300" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
+                                Nova Disciplina
+                            </span>
+                            <span className="block text-xs text-purple-300/60 group-hover:text-purple-200/80 transition-colors truncate">
+                                Adicionar matéria ao edital
+                            </span>
+                        </div>
+                        <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-purple-500/20 border border-white/5 group-hover:border-purple-500/30 flex items-center justify-center text-slate-400 group-hover:text-purple-200 transition-all flex-shrink-0">
+                            <span className="text-xs font-black tracking-wider">&rarr;</span>
+                        </div>
                     </button>
 
                     <button
                         type="button"
                         onClick={() => setIsImportModalOpen(true)}
-                        className="flex-1 py-4 rounded-xl border-2 border-dashed border-blue-500/20 bg-blue-500/5 text-blue-300 hover:text-blue-100 hover:bg-blue-500/10 hover:border-blue-500/40 transition-all flex items-center justify-center gap-3 group"
+                        className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-blue-500/[0.08] via-slate-900/60 to-cyan-500/[0.02] border border-blue-500/20 hover:border-blue-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/10 text-left flex items-center gap-3.5"
                     >
-                        <Download size={20} className="text-blue-400 group-hover:scale-110 transition-transform" />
-
-                        <span className="font-semibold text-lg">
-                            Importar Disciplina
-                        </span>
+                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 shadow-md shadow-blue-950/40 group-hover:scale-110 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all duration-300 flex-shrink-0">
+                            <Download size={18} className="text-blue-300 group-hover:-translate-y-0.5 transition-transform duration-300" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
+                                Importar Disciplina
+                            </span>
+                            <span className="block text-xs text-blue-300/60 group-hover:text-blue-200/80 transition-colors truncate">
+                                Copiar de outro concurso
+                            </span>
+                        </div>
+                        <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-blue-500/20 border border-white/5 group-hover:border-blue-500/30 flex items-center justify-center text-slate-400 group-hover:text-blue-200 transition-all flex-shrink-0">
+                            <span className="text-xs font-black tracking-wider">&rarr;</span>
+                        </div>
                     </button>
                 </div>
             )}
@@ -810,7 +849,7 @@ function Checklist({
                     scrollToBottom();
                 }}
                 title="Nova Disciplina"
-                placeholder="Nome da nova disciplina..."
+                placeholder="Ex: Direito Administrativo..."
             />
 
             {isImportModalOpen && (
@@ -963,12 +1002,12 @@ function Checklist({
                 onClose={() => setTaskModalCatId(null)}
                 onConfirm={(title) => {
                     if (taskModalCatId) {
-                        onAddTask(taskModalCatId, title);
+                        handleAddTask(taskModalCatId, title);
                     }
                     setTaskModalCatId(null);
                 }}
                 title="Novo Assunto"
-                placeholder="Nome do novo assunto..."
+                placeholder="Ex: Direitos e Garantias Fundamentais..."
             />
 
             <ConfirmModal
