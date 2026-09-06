@@ -1,5 +1,6 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
+import { X } from 'lucide-react';
 import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
 import PriorityProgress from '../components/PriorityProgress';
@@ -180,6 +181,25 @@ export default function Dashboard() {
         navigate('/pomodoro');
     }, [startPomodoroSession, setData, showToast, navigate]);
 
+    const [bannerDismissed, setBannerDismissed] = React.useState(() => {
+        try {
+            return localStorage.getItem('dismissed_feature_banner_v1') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    const handleDismissBanner = React.useCallback(() => {
+        setBannerDismissed(true);
+        try {
+            localStorage.setItem('dismissed_feature_banner_v1', 'true');
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    const hasCategories = safeCategories.length > 0;
+
     if (!isHydrated) {
         return (
             <div className="flex items-center justify-center h-[70vh] w-full animate-fade-in">
@@ -203,28 +223,43 @@ export default function Dashboard() {
 
     return (
         <PageErrorBoundary pageName="Dashboard">
-            <div className="space-y-6 animate-fade-in">
-                <div className="hidden lg:flex items-center gap-2 text-[10px] text-teal-400/70 font-bold uppercase tracking-widest mb-1 px-1">
-                    <span className="inline-block w-2 h-px bg-teal-400/50"></span>
-                    NOVO: Flashcards e Agenda de Estudos disponíveis no menu
-                </div>
+            <div className="space-y-4 sm:space-y-5 animate-fade-in">
+                {!bannerDismissed && (
+                    <div className="hidden lg:flex items-center justify-between text-[11px] text-teal-400/90 bg-teal-500/10 border border-teal-500/20 px-3 py-1.5 rounded-xl font-medium mb-1 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+                            <span><strong className="font-bold text-teal-300">NOVO:</strong> Flashcards e Agenda de Estudos disponíveis no menu</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleDismissBanner}
+                            className="text-teal-400/60 hover:text-teal-200 p-0.5 rounded-md hover:bg-teal-500/20 transition-colors cursor-pointer"
+                            title="Dispensar aviso"
+                            aria-label="Dispensar aviso"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
 
                 <div className="tour-step-4">
                     <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
                 </div>
 
-                <div className="tour-step-5">
-                    <NextGoalCard
-                        categories={data.categories}
-                        simulados={data.simulados}
-                        studyLogs={data.studyLogs}
-                        onStartStudying={handleStartStudying}
-                    />
-                </div>
+                {hasCategories && (
+                    <div className="tour-step-5">
+                        <NextGoalCard
+                            categories={data.categories}
+                            simulados={data.simulados}
+                            studyLogs={data.studyLogs}
+                            onStartStudying={handleStartStudying}
+                        />
+                    </div>
+                )}
 
                 <PriorityProgress categories={data.categories} />
 
-                <div className="mt-4 tour-step-6">
+                <div className="tour-step-6">
                     <Checklist
                         categories={data.categories}
                         onToggleTask={toggleTask}

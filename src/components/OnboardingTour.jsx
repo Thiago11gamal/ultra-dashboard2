@@ -302,8 +302,15 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
 
 export default function OnboardingTour() {
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
-
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
+    const activeId = useAppStore(state => state.appState.activeId);
+    const contest = useAppStore(state => state.appState.contests?.[activeId]);
+    const hasCategories = (contest?.categories?.length || 0) > 0;
+
+    const filteredSteps = useMemo(() => {
+        if (hasCategories) return steps;
+        return steps.filter(s => s.target !== '.tour-step-5');
+    }, [hasCategories]);
 
     // Mostra o tutorial se o usuário nunca tiver visto ou se resetar explicitamente
     const shouldShowTour = !hasSeenTour;
@@ -319,7 +326,7 @@ export default function OnboardingTour() {
 
     return (
         <Joyride
-            steps={steps}
+            steps={filteredSteps}
             run={true}
             continuous={true}
             scrollToFirstStep={true}
