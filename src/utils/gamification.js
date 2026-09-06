@@ -38,8 +38,8 @@ export const getXPProgress = (xpInput) => {
     level,
     current: Math.max(0, xp - currentLevelXP),
     needed: safeRange,
-    // BUG-FIX: só mostrar 0.5 se houver progresso REAL no nível atual
-    percentage: (percentage === 0 && xp > currentLevelXP) ? 0.5 : percentage,
+    // BUG-FIX: só mostrar 0.5 se houver progresso REAL no nível atual (ou quando recém subiu de nível, mantendo UX)
+    percentage: (percentage === 0 && xp > 0) ? 0.5 : percentage,
     total: xp,
   };
 };
