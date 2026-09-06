@@ -486,9 +486,6 @@ const CategoryAccordion = React.memo(({
                     {originalTasks.length === 0 ? (
                         <div className="p-4">
                             <div className="py-7 px-5 rounded-2xl bg-white/[0.015] border border-white/5 flex flex-col items-center justify-center text-center">
-                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-300 mb-3 shadow-inner">
-                                    <Plus size={18} />
-                                </div>
                                 <p className="text-slate-200 font-semibold text-sm">
                                     Nenhum assunto cadastrado
                                 </p>
