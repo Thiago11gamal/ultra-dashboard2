@@ -406,7 +406,8 @@ export function adaptiveConfidenceShrinkage(options = {}) {
         apply: (value) => {
             const rawV = Number(value) || 0;
             const v = Number.isFinite(rawV) ? rawV : 0;
-            return v * (1 - finalShrink) + neutralValue * finalShrink;
+            if (!Number.isFinite(v)) return neutralValue;
+      return v * (1 - finalShrink) + neutralValue * finalShrink;
         }
     };
 }

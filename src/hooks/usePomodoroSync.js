@@ -227,6 +227,7 @@ export function usePomodoroSync({
         };
 
         syncChannel.addEventListener('message', handleMessage);
+    return () => syncChannel.removeEventListener('message', handleMessage);
 
         return () => {
             isMounted = false;

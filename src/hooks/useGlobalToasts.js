@@ -21,6 +21,7 @@ export function useGlobalToasts() {
 
     window.addEventListener('show-toast', handleToastEvent);
     return () => window.removeEventListener('show-toast', handleToastEvent);
+    return () => window.removeEventListener('show-toast', handleToastEvent);
   }, []);
 
   const removeToast = (id) => {

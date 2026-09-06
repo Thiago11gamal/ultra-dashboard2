@@ -200,6 +200,7 @@ export const useAppStore = create(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error || !state) {
+            console.error('[Storage] Falha ao reidratar estado:', error);
             useAppStore.setState((prev) => ({
               appState: { ...prev.appState, isHydrated: true }
             }));
