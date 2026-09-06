@@ -1,6 +1,7 @@
 const stableStringify = (value) => {
   const seen = new WeakSet();
   try {
+    try {
     return JSON.stringify(value, function replacer(key, val) {
       if (typeof val === 'bigint') return val.toString();
       if (val && typeof val === 'object') {
@@ -13,10 +14,16 @@ const stableStringify = (value) => {
               acc[k] = val[k];
               return acc;
             }, {});
+  } catch (e) {
+    return "";
+  }
         }
       }
       return val;
     });
+  } catch (e) {
+    return "";
+  }
   } catch (err) {
     return String(value);
   }

@@ -19,9 +19,12 @@ export function useGlobalToasts() {
       setToasts(prev => [...prev, newToast].slice(-5));
     };
 
-    window.addEventListener('show-toast', handleToastEvent);
+    window.addEventListener("show-toast", handleToastEvent);
+    
     return () => window.removeEventListener('show-toast', handleToastEvent);
     return () => window.removeEventListener('show-toast', handleToastEvent);
+  
+    return () => window.removeEventListener("show-toast", handleToastEvent);
   }, []);
 
   const removeToast = (id) => {

@@ -7,6 +7,7 @@ export const lazyWithRetry = (componentImport) =>
     );
     try {
       const component = await componentImport();
+        if (!component) throw new Error("Component is undefined");
       if (!component) {
         throw new Error('Module import returned undefined');
       }

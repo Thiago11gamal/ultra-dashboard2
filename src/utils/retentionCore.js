@@ -15,7 +15,7 @@ export function toFiniteNumber(value, fallback = 0) {
 
   if (typeof value?.toNumber === 'function') {
     try {
-      value = value.toNumber();
+      try { value = value.toNumber(); } catch { value = 0; }
     } catch (e) {
       // ignore
     }
