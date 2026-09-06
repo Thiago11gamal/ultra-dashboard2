@@ -198,7 +198,7 @@ export default function Dashboard() {
         }
     }, []);
 
-    const hasCategories = safeCategories.length > 0;
+    const hasTasks = React.useMemo(() => safeCategories.some(c => (c.tasks || []).length > 0), [safeCategories]);
 
     if (!isHydrated) {
         return (
@@ -246,7 +246,7 @@ export default function Dashboard() {
                     <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
                 </div>
 
-                {hasCategories && (
+                {hasTasks && (
                     <div className="tour-step-5">
                         <NextGoalCard
                             categories={data.categories}

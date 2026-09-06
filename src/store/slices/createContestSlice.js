@@ -67,16 +67,17 @@ export const createContestSlice = (set) => ({
             });
         }
 
+        const wasActive = contestId === state.appState.activeId;
         delete state.appState.contests[contestId];
         const remainingIds = Object.keys(state.appState.contests);
         if (remainingIds.length === 0) {
             state.appState.contests['default'] = safeClone(INITIAL_DATA);
             state.appState.activeId = 'default';
-        } else if (contestId === state.appState.activeId) {
+        } else if (wasActive) {
             state.appState.activeId = remainingIds[0];
         }
         
-        if (contestId === state.appState.activeId || remainingIds.length === 0) {
+        if (wasActive || remainingIds.length === 0) {
             state.appState.pomodoro = {
                 activeSubject: null,
                 sessions: 1,

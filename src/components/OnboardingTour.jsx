@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import Joyride, { STATUS } from 'react-joyride';
 import { useAppStore } from '../store/useAppStore';
 import { Rocket, UserCircle, Compass, Timer, BarChart3, Target, CheckSquare, Trophy } from 'lucide-react';
@@ -301,19 +302,23 @@ const CustomTooltip = ({ index, step, backProps, primaryProps, skipProps, toolti
 );
 
 export default function OnboardingTour() {
+    const location = useLocation();
+    const isDashboard = location.pathname === '/' || location.pathname === '/dashboard';
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
     const activeId = useAppStore(state => state.appState.activeId);
     const contest = useAppStore(state => state.appState.contests?.[activeId]);
-    const hasCategories = (contest?.categories?.length || 0) > 0;
+    const hasTasks = useMemo(() => {
+        return (contest?.categories || []).some(c => (c?.tasks || []).length > 0);
+    }, [contest?.categories]);
 
     const filteredSteps = useMemo(() => {
-        if (hasCategories) return steps;
+        if (hasTasks) return steps;
         return steps.filter(s => s.target !== '.tour-step-5');
-    }, [hasCategories]);
+    }, [hasTasks]);
 
-    // Mostra o tutorial se o usuário nunca tiver visto ou se resetar explicitamente
-    const shouldShowTour = !hasSeenTour;
+    // Mostra o tutorial se o usuário nunca tiver visto e estiver na tela do Dashboard
+    const shouldShowTour = !hasSeenTour && isDashboard;
 
     const handleJoyrideCallback = useCallback((data) => {
         const { status, type, action } = data;

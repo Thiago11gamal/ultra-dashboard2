@@ -194,4 +194,73 @@ describe('Meu Painel - Suíte de Regressão dos 12 Bugs', () => {
         expect(pomodoroState.neuralMode).toBe(false);
         expect(pomodoroState.neuralQueue).toEqual([]);
     });
+
+    it('Bug 4.1: deleteContest reseta estado do Pomodoro ao deletar o concurso ativo com outros concursos restantes', () => {
+        const deleteContest = useAppStore.getState().deleteContest;
+        // activeId é contest_1, e contest_2 ainda existe
+        expect(useAppStore.getState().appState.activeId).toBe('contest_1');
+        expect(useAppStore.getState().appState.pomodoro.activeSubject).not.toBeNull();
+
+        deleteContest('contest_1');
+
+        const state = useAppStore.getState().appState;
+        expect(state.activeId).toBe('contest_2');
+        expect(state.contests.contest_1).toBeUndefined();
+        expect(state.pomodoro.activeSubject).toBeNull();
+        expect(state.pomodoro.sessions).toBe(1);
+        expect(state.pomodoro.neuralQueue).toEqual([]);
+        expect(state.pomodoro.neuralMode).toBe(false);
+    });
+
+    it('Bug 4.2: deleteTask limpa activeSubject se a tarefa excluída era a ativa no Pomodoro', () => {
+        const deleteTask = useAppStore.getState().deleteTask;
+        // pomodoro.activeSubject.taskId é 'task_1' na categoria 'cat_port'
+        expect(useAppStore.getState().appState.pomodoro.activeSubject?.taskId).toBe('task_1');
+
+        deleteTask('cat_port', 'task_1');
+
+        const pomodoro = useAppStore.getState().appState.pomodoro;
+        expect(pomodoro.activeSubject).toBeNull();
+    });
+
+    it('Bug 4.3: deleteTask e togglePriority funcionam com tarefas legadas identificadas por text', () => {
+        useAppStore.setState((state) => {
+            state.appState.contests.contest_1.categories[0].tasks.push({
+                text: 'Tarefa Legada Sem ID',
+                completed: false,
+                priority: 'medium'
+            });
+        });
+
+        const togglePriority = useAppStore.getState().togglePriority;
+        togglePriority('cat_port', 'Tarefa Legada Sem ID');
+        expect(useAppStore.getState().appState.contests.contest_1.categories[0].tasks[2].priority).toBe('high');
+
+        const deleteTask = useAppStore.getState().deleteTask;
+        deleteTask('cat_port', 'Tarefa Legada Sem ID');
+        expect(useAppStore.getState().appState.contests.contest_1.categories[0].tasks.length).toBe(2);
+    });
+
+    it('Bug 4.4: restoreFromTrash atualiza item.data.id quando há colisão de ID de concurso', () => {
+        const cur = useAppStore.getState().appState;
+        useAppStore.setState({
+            appState: {
+                ...cur,
+                trash: [{
+                    id: 'trash_1',
+                    type: 'contest',
+                    contestId: 'contest_1',
+                    data: { id: 'contest_1', name: 'Concurso Antigo Restaurado' }
+                }]
+            }
+        });
+
+        useAppStore.getState().restoreFromTrash('trash_1');
+
+        const state = useAppStore.getState().appState;
+        const restoredId = state.activeId;
+        expect(restoredId).not.toBe('contest_1');
+        expect(restoredId.startsWith('contest-')).toBe(true);
+        expect(state.contests[restoredId].id).toBe(restoredId);
+    });
 });

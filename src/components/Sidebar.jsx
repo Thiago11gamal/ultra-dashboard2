@@ -105,7 +105,7 @@ const Sidebar = React.memo(function Sidebar({
     }, [collapsed, contestEntries.length]);
 
     React.useEffect(() => {
-        const width = collapsed ? '70px' : '280px';
+        const width = collapsed ? '80px' : '280px';
         document.documentElement.style.setProperty('--sidebar-width', width);
     }, [collapsed]);
 
@@ -274,26 +274,22 @@ const Sidebar = React.memo(function Sidebar({
                                     return (
                                         <div
                                             key={id}
-                                            role="button"
-                                            tabIndex={0}
-                                            className={`sidebar-item group !py-1.5 relative w-full text-left flex items-center ${isActive ? 'active' : ''}`}
-                                            title={name}
-                                            onClick={() => {
-                                                if (id !== activeContestId) onSwitchContest(id);
-                                                closeMobileSidebar();
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault();
+                                            className="group relative w-full flex items-center"
+                                        >
+                                            <button
+                                                type="button"
+                                                className={`sidebar-item !py-1.5 flex-1 min-w-0 text-left flex items-center ${isActive ? 'active' : ''}`}
+                                                title={name}
+                                                onClick={() => {
                                                     if (id !== activeContestId) onSwitchContest(id);
                                                     closeMobileSidebar();
-                                                }
-                                            }}
-                                        >
-                                            <div className="nested-item-marker"></div>
-                                            <LayoutDashboard size={13} className="text-slate-400" />
-                                            <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
-                                            {isActive && <div className={`w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 ${collapsed ? 'hidden' : ''}`}></div>}
+                                                }}
+                                            >
+                                                <div className="nested-item-marker"></div>
+                                                <LayoutDashboard size={13} className="text-slate-400 shrink-0" />
+                                                <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
+                                                {isActive && <div className={`w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0 ${collapsed ? 'hidden' : ''}`}></div>}
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={(e) => { 
@@ -302,7 +298,7 @@ const Sidebar = React.memo(function Sidebar({
                                                 }}
                                                 disabled={isSingleContest}
                                                 title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
-                                                className={`p-1 transition-all ${collapsed ? 'hidden' : ''} ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
+                                                className={`p-1 transition-all shrink-0 ${collapsed ? 'hidden' : ''} ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
                                             >
                                                 <Trash2 size={11} />
                                             </button>

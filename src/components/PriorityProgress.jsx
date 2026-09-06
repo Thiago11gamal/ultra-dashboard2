@@ -28,11 +28,18 @@ const priorityColors = {
 
 export default function PriorityProgress({ categories = [] }) {
     const stats = useMemo(() => {
-        const counts = {
+        const taskCounts = {
             high: { total: 0, completed: 0 },
             medium: { total: 0, completed: 0 },
             low: { total: 0, completed: 0 }
         };
+        const weightedCounts = {
+            high: { total: 0, completed: 0 },
+            medium: { total: 0, completed: 0 },
+            low: { total: 0, completed: 0 }
+        };
+        let totalRealTasks = 0;
+        let totalRealCompleted = 0;
         let totalWeightedTasks = 0;
         let totalWeightedCompleted = 0;
 
@@ -40,31 +47,34 @@ export default function PriorityProgress({ categories = [] }) {
             const weight = Number(cat?.weight) || 5; // padrão 5 se ausente
             toArray(cat?.tasks).forEach(task => {
                 const rawPriority = String(task?.priority || 'medium').toLowerCase();
-                const priorityKey = counts[rawPriority] ? rawPriority : 'medium';
+                const priorityKey = taskCounts[rawPriority] ? rawPriority : 'medium';
 
-                counts[priorityKey].total += weight;
+                taskCounts[priorityKey].total += 1;
+                totalRealTasks += 1;
+
+                weightedCounts[priorityKey].total += weight;
                 totalWeightedTasks += weight;
 
                 if (task?.completed) {
-                    counts[priorityKey].completed += weight;
+                    taskCounts[priorityKey].completed += 1;
+                    totalRealCompleted += 1;
+
+                    weightedCounts[priorityKey].completed += weight;
                     totalWeightedCompleted += weight;
                 }
             });
         });
 
-        return { counts, totalWeightedTasks, totalWeightedCompleted };
+        return { taskCounts, weightedCounts, totalRealTasks, totalRealCompleted, totalWeightedTasks, totalWeightedCompleted };
     }, [categories]);
 
-    const { counts, totalWeightedTasks, totalWeightedCompleted } = stats;
+    const { taskCounts, weightedCounts, totalRealTasks, totalRealCompleted, totalWeightedTasks, totalWeightedCompleted } = stats;
     const priorities = ['high', 'medium', 'low'];
 
-    const totalTasksGlobally = totalWeightedTasks;
-    const totalCompletedGlobally = totalWeightedCompleted;
+    if (totalRealTasks === 0) return null;
 
-    if (totalTasksGlobally === 0) return null;
-
-    const globalPct = totalTasksGlobally > 0
-        ? Math.round((totalCompletedGlobally / totalTasksGlobally) * 100)
+    const globalPct = totalWeightedTasks > 0
+        ? Math.round((totalWeightedCompleted / totalWeightedTasks) * 100)
         : 0;
 
     return (
@@ -107,7 +117,7 @@ export default function PriorityProgress({ categories = [] }) {
                             </span>
 
                             <p className="text-[10px] sm:text-xs text-slate-400 font-bold sm:mt-1">
-                                {totalCompletedGlobally} de {totalTasksGlobally} {totalCompletedGlobally === 1 ? 'concluído' : 'concluídos'}
+                                {totalRealCompleted} de {totalRealTasks} {totalRealCompleted === 1 ? 'concluído' : 'concluídos'}
                             </p>
                         </div>
                     </div>
@@ -137,8 +147,10 @@ export default function PriorityProgress({ categories = [] }) {
             {/* Cards por prioridade */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {priorities.map(p => {
-                    const { total, completed } = counts[p];
-                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    const { total, completed } = taskCounts[p];
+                    const wTotal = weightedCounts[p].total;
+                    const wCompleted = weightedCounts[p].completed;
+                    const pct = wTotal > 0 ? Math.round((wCompleted / wTotal) * 100) : 0;
                     const conf = priorityColors[p];
 
                     return (

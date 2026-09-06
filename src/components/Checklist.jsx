@@ -682,6 +682,19 @@ function Checklist({
             return;
         }
 
+        const category = safeCategories.find(c => c.id === catId);
+        if (category) {
+            const normNew = trimmedTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+            const alreadyExists = (category.tasks || []).some(t => {
+                const existing = String(t.text || t.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                return existing === normNew;
+            });
+            if (alreadyExists) {
+                showToast(`O assunto "${trimmedTitle}" já existe nesta disciplina.`, 'warning');
+                return;
+            }
+        }
+
         onAddTask(catId, trimmedTitle);
 
         if (filter === 'completed') {
@@ -693,7 +706,7 @@ function Checklist({
         if (isLastCategory) {
             scrollToBottom();
         }
-    }, [onAddTask, filter, setFilter, safeCategories, scrollToBottom]);
+    }, [onAddTask, filter, setFilter, safeCategories, scrollToBottom, showToast]);
 
     const handlePlayContext = useCallback((categoryId, taskId) => {
         if (onPlayContext) {
@@ -949,7 +962,17 @@ function Checklist({
                 isOpen={isCatModalOpen}
                 onClose={() => setIsCatModalOpen(false)}
                 onConfirm={(name) => {
-                    onAddCategory(name);
+                    const trimmedName = typeof name === 'string' ? name.trim() : '';
+                    if (!trimmedName) {
+                        showToast('O nome da disciplina não pode ser vazio.', 'error');
+                        return;
+                    }
+                    const normName = normalize(trimmedName);
+                    if (safeCategories.some(c => normalize(c.name) === normName)) {
+                        showToast(`A disciplina "${trimmedName}" já existe.`, 'warning');
+                        return;
+                    }
+                    onAddCategory(trimmedName);
                     setIsCatModalOpen(false);
                     scrollToBottom();
                 }}

@@ -134,7 +134,7 @@ export const createTaskSlice = (set, get) => ({
             if (!activeData?.categories) return;
             const category = activeData.categories.find(c => c.id === categoryId);
             if (category) {
-                const task = category.tasks.find(t => t.id === taskId);
+                const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId));
                 if (task && task.completed) {
                     // BUG-T01 FIX: awardedXP === 0 é um valor válido gravado.
                     // Usar ?? em vez de || para não cair no fallback quando
@@ -146,7 +146,11 @@ export const createTaskSlice = (set, get) => ({
                         pendingXpDeduction = Math.abs(getTaskXP(task, true));
                     }
                 }
-                category.tasks = category.tasks.filter(t => t.id !== taskId);
+                const activeSubjectTaskId = state.appState.pomodoro?.activeSubject?.taskId;
+                if (activeSubjectTaskId && (activeSubjectTaskId === taskId || (task && (activeSubjectTaskId === task.id || activeSubjectTaskId === task.text)))) {
+                    state.appState.pomodoro.activeSubject = null;
+                }
+                category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId);
             }
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -164,7 +168,7 @@ export const createTaskSlice = (set, get) => ({
         const category = activeData.categories.find(c => c.id === categoryId);
         if (!category) return;
 
-        const task = category.tasks.find(t => t.id === taskId);
+        const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId));
         if (task) {
             const oldPriority = task.priority || 'medium';
             task.priority = priorities[(priorities.indexOf(task.priority || 'medium') + 1) % 3];

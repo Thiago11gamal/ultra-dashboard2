@@ -69,6 +69,9 @@ export const createTrashSlice = (set) => ({
             if (state.appState.contests[newId]) {
                 newId = generateId('contest');
             }
+            if (item.data && typeof item.data === 'object') {
+                item.data.id = newId;
+            }
             state.appState.contests[newId] = item.data;
             state.appState.activeId = newId;
         }
