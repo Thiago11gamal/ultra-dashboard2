@@ -39,26 +39,7 @@ export function PomodoroHeader({ mode, activeSubject }) {
         );
     }
 
-    const taskTitle = activeSubject.task || activeSubject.text || activeSubject.title || 'Estudo';
-    const categoryName = activeSubject.category || activeSubject.catName || 'Missão';
-
-    return (
-        <Motion.div
-            initial={{ opacity: 0, y: -2 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between gap-3 w-full rounded-2xl py-2 px-4 border border-blue-500/30 bg-blue-950/40 text-blue-100 shadow-md backdrop-blur-sm"
-        >
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
-                <span className="text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-400/30 shrink-0 uppercase tracking-wider">
-                    {categoryName}
-                </span>
-                <span className="text-xs sm:text-sm font-bold text-white truncate">
-                    {taskTitle}
-                </span>
-            </div>
-        </Motion.div>
-    );
+    return null;
 }
 
 export default PomodoroHeader;

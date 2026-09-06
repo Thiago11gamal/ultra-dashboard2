@@ -1130,14 +1130,16 @@ function PomodoroTimer({
 
     return (
         <div className={`w-full relative flex flex-col items-center gap-1 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>
-            {/* Header com status de recuperação/pausa, missão ativa ou alerta */}
-            <div className="w-full">
-                <PomodoroHeader
-                    mode={mode}
-                    activeSubject={activeSubject}
-                    onManualExit={handleManualExit}
-                />
-            </div>
+            {/* Header com status de recuperação/pausa ou alerta (apenas se ativo) */}
+            {(mode === 'break' || mode === 'long_break' || isProtocolInactive) && (
+                <div className="w-full">
+                    <PomodoroHeader
+                        mode={mode}
+                        activeSubject={activeSubject}
+                        onManualExit={handleManualExit}
+                    />
+                </div>
+            )}
 
             {/* Container Principal do Relógio de Madeira (Perfeitamente Enquadrado) */}
             <div
