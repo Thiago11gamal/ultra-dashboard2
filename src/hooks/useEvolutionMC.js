@@ -108,7 +108,42 @@ export function useEvolutionMC({
       let totalTimeSpent = 0;
       let totalTimedQuestions = 0;
       historyArray.forEach((rawH) => {
-        if (rawH && rawH.timeSpent != null && rawH.timedQuestoes != null) {
+        if (!rawH) return;
+        let hasTopicWithTime = false;
+        let topicsTs = 0;
+        let topicsTimedQ = 0;
+        
+        if (Array.isArray(rawH.topics)) {
+          for (const t of rawH.topics) {
+            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
+            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
+              ? t.timedQuestoes
+              : Number(t.total) || 0;
+            if (tTs !== null && tTs > 0 && tTot > 0) {
+              topicsTs += tTs;
+              topicsTimedQ += tTot;
+              hasTopicWithTime = true;
+            }
+          }
+        } else if (rawH.topics && typeof rawH.topics === 'object') {
+           for (const key in rawH.topics) {
+             const t = rawH.topics[key];
+             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
+             const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
+               ? t.timedQuestoes
+               : Number(t.total) || 0;
+             if (tTs !== null && tTs > 0 && tTot > 0) {
+               topicsTs += tTs;
+               topicsTimedQ += tTot;
+               hasTopicWithTime = true;
+             }
+           }
+        }
+        
+        if (hasTopicWithTime) {
+          totalTimeSpent += topicsTs;
+          totalTimedQuestions += topicsTimedQ;
+        } else if (rawH.timeSpent != null && rawH.timedQuestoes != null) {
           totalTimeSpent += Number(rawH.timeSpent);
           totalTimedQuestions += Number(rawH.timedQuestoes);
         }
