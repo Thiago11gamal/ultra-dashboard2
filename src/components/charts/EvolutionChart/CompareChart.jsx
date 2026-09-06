@@ -62,9 +62,7 @@ export function CompareChart({
         projectionPurpleGradient: `cc_projPurple-${baseId}`,
         cloudGradient: `cc_cloud-${baseId}`,
         bayBandGradient: `cc_bayBand-${baseId}`,
-        greenGradient: `cc_green-${baseId}`,
-        lineShadow: `cc_lineShadow-${baseId}`,
-        glow: `cc_glow-${baseId}`
+        greenGradient: `cc_green-${baseId}`
     }), [baseId]);
 
     const chartData = React.useMemo(() => {
@@ -288,12 +286,6 @@ export function CompareChart({
                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                         </linearGradient>
-                        <filter id={CC.lineShadow} height="200%">
-                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
-                        </filter>
-                        <filter id={CC.glow} x="-20%" y="-20%" width="140%" height="140%">
-                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
-                        </filter>
                     </defs>
                     <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
                     <XAxis 
@@ -377,7 +369,7 @@ export function CompareChart({
                             if (index !== chartData.length - 1) return null;
                             return (
                                 <g>
-                                    <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} style={{ filter: `url(#${CC.glow})` }}>
+                                    <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2}>
                                         <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
                                     </circle>
                                     <circle cx={cx} cy={cy} r={8} fill="#a78bfa" opacity="0.3">
@@ -387,7 +379,7 @@ export function CompareChart({
                                 </g>
                             );
                         }}
-                        strokeOpacity={1} style={{ filter: `url(#${CC.glow})` }} isAnimationActive={false}>
+                        strokeOpacity={1} isAnimationActive={false}>
                         <LabelList content={(props) => renderLabel(props, 'mc', '#a78bfa')} />
                     </Line>
 

@@ -229,7 +229,7 @@ export const MonteCarloEvolutionChart = ({
                         <TrendingUp size={16} className="text-blue-400" />
                     </div>
                     <div>
-                        Rastreador de aprovação
+                        <h3 className="text-sm sm:text-base font-bold text-slate-200">Rastreador de Aprovação</h3>
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sua trajetória rumo à aprovação</p>
                     </div>
                 </div>

@@ -51,9 +51,11 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
             <div className="relative z-10 flex flex-col justify-end w-full">
                 <div className="flex items-baseline gap-1 mt-0.5">
                     <span className={`text-2xl sm:text-4xl font-black tracking-tighter transition-all drop-shadow-md pl-1.5 ${isFocused ? 'text-white' : 'text-slate-100 group-hover:text-white'}`}>
-                        {formatValue(val)}
+                        {val != null && Number.isFinite(Number(val)) ? formatValue(val) : '—'}
                     </span>
-                    <span className={`text-[10px] sm:text-xs font-bold ${isFocused ? 'text-white/70' : 'text-slate-500'}`}>{unit}</span>
+                    {val != null && Number.isFinite(Number(val)) && (
+                        <span className={`text-[10px] sm:text-xs font-bold ${isFocused ? 'text-white/70' : 'text-slate-500'}`}>{unit}</span>
+                    )}
                 </div>
             </div>
 
@@ -63,7 +65,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center text-[9px] text-slate-300 uppercase tracking-widest font-black">
                             <span className="pl-1.5">Bruta</span>
-                            <span className="text-orange-400 font-mono">{rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}</span>
+                            <span className="text-orange-400 font-mono">{rawVal != null && Number.isFinite(Number(rawVal)) ? `${formatValue(rawVal)}${unit}` : '—'}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-950/50 rounded-full overflow-hidden border border-white/5">
                             <div className="h-full bg-orange-400 rounded-full" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, ((Number(rawVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
@@ -72,7 +74,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center text-[9px] text-slate-300 uppercase tracking-widest font-black">
                             <span className="pl-1.5">Histórica</span>
-                            <span className="text-blue-400 font-mono">{statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}</span>
+                            <span className="text-blue-400 font-mono">{statsVal != null && Number.isFinite(Number(statsVal)) ? `${formatValue(statsVal)}${unit}` : '—'}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-950/50 rounded-full overflow-hidden border border-white/5">
                             <div className="h-full bg-blue-400 rounded-full" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, ((Number(statsVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
@@ -81,7 +83,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center text-[9px] text-slate-300 uppercase tracking-widest font-black">
                             <span className="pl-1.5">Real</span>
-                            <span className="text-emerald-400 font-mono">{bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}</span>
+                            <span className="text-emerald-400 font-mono">{bayVal != null && Number.isFinite(Number(bayVal)) ? `${formatValue(bayVal)}${unit}` : '—'}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-950/50 rounded-full overflow-hidden border border-white/5">
                             <div className="h-full bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, ((Number(bayVal) - safeMin) / safeRange) * 100)) : 0}%` }} />

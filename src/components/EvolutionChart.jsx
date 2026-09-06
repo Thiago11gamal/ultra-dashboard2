@@ -634,7 +634,7 @@ export default React.memo(function EvolutionChart({
             <div className="glass p-12 text-center rounded-2xl animate-fade-in-down border border-slate-800">
                 <div className="text-6xl mb-4 opacity-80">📊</div>
                 <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">Gráficos de Evolução</h2>
-                Cadastre simulados para desbloquear sua máquina do tempo estatística.
+                <p className="text-slate-400 text-sm max-w-md mx-auto mb-6">Cadastre simulados para desbloquear sua máquina do tempo estatística.</p>
                 <button
                     onClick={() => window.location.hash = '#/simulados'}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
@@ -665,10 +665,11 @@ export default React.memo(function EvolutionChart({
                     
                     <button type="button" onClick={() => setShowOnlyFocus(!showOnlyFocus)}
                         aria-pressed={showOnlyFocus}
+                        aria-label={showOnlyFocus ? 'Alternar para ver todas as matérias' : 'Alternar para ver apenas matéria em foco'}
                         className={`shrink-0 flex items-center justify-center gap-2 px-5 py-1.5 h-[34px] rounded-2xl text-xs font-bold border transition-all will-change-transform active:scale-[0.985] ${showOnlyFocus ? 'bg-amber-500/30 border-amber-500/60 text-amber-200 shadow-sm' : 'bg-slate-950/80 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:border-slate-600'}`}>
                         <span className="text-base">{showOnlyFocus ? '🎯' : '👁️'}</span>
                         <span className="hidden sm:inline truncate max-w-[150px] font-semibold">
-                            Ver todas
+                            {showOnlyFocus ? 'Apenas Foco' : 'Ver todas'}
                         </span>
                     </button>
                 </div>
@@ -802,12 +803,12 @@ export default React.memo(function EvolutionChart({
                         {!accountHasData ? (
                             <div className="min-h-[360px] flex flex-col items-center justify-center gap-3">
                                 <span className="text-4xl">📉</span>
-                                Cadastre simulados para ver sua curva de domínio
+                                <p className="text-slate-400 text-sm font-medium">Cadastre simulados para ver sua curva de domínio</p>
                             </div>
                         ) : !filterHasData ? (
                             <div className="min-h-[360px] flex flex-col items-center justify-center gap-3">
                                 <span className="text-4xl opacity-50">📅</span>
-                                Nenhuma atividade no período selecionado
+                                <p className="text-slate-400 text-sm font-medium">Nenhuma atividade no período selecionado</p>
                             </div>
                         ) : (
                             <EvolutionLineChart
@@ -830,7 +831,7 @@ export default React.memo(function EvolutionChart({
             <motion.div variants={itemVariants} className="relative z-10">
                 <div className="flex items-center gap-3 mb-6 px-2">
                     <span className="text-2xl drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]">🔬</span>
-                    Análises secundárias
+                    <h3 className="text-lg font-black text-slate-200 tracking-tight">Análises Secundárias</h3>
                 </div>
 
             {/* ✅ BUG-10 FIX: z-[50] → z-10 para não cortar tooltips de charts abaixo */}
@@ -997,7 +998,7 @@ export default React.memo(function EvolutionChart({
                         <span className="text-6xl animate-pulse">🔥</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Dados insuficientes para exibir o gráfico</p>
-                            Cadastre pelo menos <span className="text-indigo-400 font-bold">1 simulado</span> na sua conta para desbloquear os gráficos.
+                            <p className="text-slate-500 text-xs mt-1">Cadastre pelo menos <span className="text-indigo-400 font-bold">1 simulado</span> na sua conta para desbloquear os gráficos.</p>
                         </div>
                     </div>
                 ) : !filterHasData ? (
@@ -1005,7 +1006,7 @@ export default React.memo(function EvolutionChart({
                         <span className="text-6xl opacity-80">📅</span>
                         <div className="text-center">
                             <p className="text-slate-300 font-bold text-base mb-1">Nenhuma atividade recente</p>
-                            Você não cadastrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.
+                            <p className="text-slate-500 text-xs mt-1">Você não cadastrou simulados nos últimos <span className="text-amber-400 font-bold">{timeWindow} dias</span>.</p>
                             <button 
                                 onClick={() => setTimeWindow("all")} 
                                 // FIX: Borda arredondada consistente (rounded-xl) e estados hover/focus aprimorados 
@@ -1379,7 +1380,7 @@ export default React.memo(function EvolutionChart({
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                Galeria de análises detalhadas
+                                <h3 className="text-base sm:text-lg font-black text-white tracking-tight">Galeria de Análises Detalhadas</h3>
                                 <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-[9px] font-black text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">
                                     Diagnóstico 360°
                                 </span>

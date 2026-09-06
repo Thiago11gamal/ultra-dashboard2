@@ -443,9 +443,11 @@ export const WeeklyEvolutionView = ({
         <div className="w-full pt-4 animate-fade-in relative flex flex-col">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-2 gap-4 shrink-0">
                 <div>
-                    Raio-X temporal avançado
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-0.5">
+                        Raio-X Temporal Avançado
+                    </span>
                     <h3 className="text-lg font-black text-white uppercase tracking-tight">
-                        Semanas por assunto
+                        {showOnlyFocus && focusSubjectId ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
                     {trendKpi && (
                         <p className="text-[10px] mt-1 text-slate-400 font-mono">

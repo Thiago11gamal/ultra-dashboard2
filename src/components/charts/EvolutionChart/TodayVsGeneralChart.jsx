@@ -113,7 +113,7 @@ export function TodayVsGeneralChart({
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
-                if (!dKey) return;
+                if (!dKey || dKey > todayKey) return;
                 if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
@@ -144,7 +144,7 @@ export function TodayVsGeneralChart({
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         return { dailyData: result, lastActiveEntry: lastEntry };
-    }, [activeCategories, maxScore, minScore]);
+    }, [activeCategories, maxScore, minScore, todayKey]);
 
     const temporalMetrics = useMemo(() => {
         const buckets = {
@@ -165,11 +165,12 @@ export function TodayVsGeneralChart({
         activeCategories.forEach(cat => {
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
+                const hDateKey = getDateKey(h.date || h.createdAt);
+                if (!hDateKey || hDateKey > todayKey) return;
                 const time = toDateMs(h.date || h.createdAt);
-                if (!time || time > now) return;
+                if (!time) return;
                 const rawScore = getSafeScore(h, safeMaxScore, safeMinScore);
                 const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
-                const hDateKey = getDateKey(h.date || h.createdAt);
                 let tot = Number(h.total) || 0;
                 let corr = Number(h.correct) || 0;
                 if (h.isPercentage) {
@@ -183,16 +184,14 @@ export function TodayVsGeneralChart({
                 }
                 corr = Math.max(0, Math.min(tot, corr));
                 if (tot === 0) return;
-                // ✅ FIX C05: isTodayDate deve usar APENAS a comparação de dateKey.
-                // A condição Math.abs(now - time) <= 86400000 verifica "últimas 24h",
-                // não "hoje". Um evento às 23h de ontem seria falsamente "hoje".
-                // A verificação por getDateKey já é suficiente e correta.
+
                 const isTodayDate = hDateKey === todayKey;
                 if (isTodayDate) { buckets.today.correct += corr; buckets.today.total += tot; }
-                if (now - time <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
-                if (now - time <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
-                if (now - time <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
-                if (now - time <= ms6Months) { buckets.month6.correct += corr; buckets.month6.total += tot; }
+                const ageMs = Math.max(0, now - time);
+                if (isTodayDate || ageMs <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
+                if (isTodayDate || ageMs <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
+                if (isTodayDate || ageMs <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
+                if (isTodayDate || ageMs <= ms6Months) { buckets.month6.correct += corr; buckets.month6.total += tot; }
             });
         });
 
@@ -214,9 +213,11 @@ export function TodayVsGeneralChart({
                 .filter(r => {
                   if (!r || (!r.createdAt && !r.date) || r.validated === false) return false;
                 
+                  const rDateKey = getDateKey(r.createdAt || r.date);
+                  if (!rDateKey || rDateKey > todayKey) return false;
+
                   const rowTime = toDateMs(r.createdAt || r.date);
-                
-                  if (!Number.isFinite(rowTime) || rowTime > now) return false;
+                  if (!Number.isFinite(rowTime)) return false;
                 
                   const rSubj = normalize(r.subject);
                   const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
@@ -431,7 +432,7 @@ export function TodayVsGeneralChart({
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex flex-col">
                         <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-1 flex items-center gap-2">
-                            Histórico recente (14 dias)
+                            Histórico Recente (14 dias)
                         </h4>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
                             Compare suas variações diárias com a linha base

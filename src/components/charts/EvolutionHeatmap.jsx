@@ -97,7 +97,7 @@ export const EvolutionHeatmap = ({
     useEffect(() => {
         const worker = workerRef.current;
         if (!worker) {
-            setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+            setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
             return;
         }
 
@@ -113,7 +113,7 @@ export const EvolutionHeatmap = ({
             if (e.data.type === 'success') {
                 setAggregated(e.data.result);
             } else {
-                setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+                setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
             }
             setIsAggregating(false);
         };
@@ -122,7 +122,7 @@ export const EvolutionHeatmap = ({
             worker.removeEventListener('message', handleMessage);
             worker.removeEventListener('error', handleError);
             console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
-            setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+            setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
             setIsAggregating(false);
         };
 
@@ -145,7 +145,7 @@ export const EvolutionHeatmap = ({
             worker.removeEventListener('message', handleMessage);
             worker.removeEventListener('error', handleError);
         };
-    }, [filtered, granularity, targetScore]);
+    }, [filtered, granularity, targetScore, safeTarget, targetScorePct, safeMin, safeMax]);
 
     const filteredDates = aggregated.dates || [];
     const filteredRows = aggregated.rows || [];

@@ -341,8 +341,8 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner w-full mt-2">
                 <span className="text-5xl">⏳</span>
                 <div className="text-center">
-                    Coletando dados de agilidade IA
-                    <p className="text-slate-500 text-sm max-w-sm px-4">
+                    <h3 className="text-lg font-bold text-slate-300">Coletando dados de agilidade IA</h3>
+                    <p className="text-slate-500 text-sm max-w-sm px-4 mt-1">
                         O sistema começou a registrar seus tempos hoje. Faça um <span className="text-cyan-400 font-bold">novo simulado IA</span> para ver seu gráfico de agilidade aqui.
                     </p>
                 </div>
@@ -360,7 +360,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                             <Clock size={16} />
                         </div>
                         <h3 className="text-base sm:text-lg font-black text-white tracking-tight truncate">
-                            Tempo médio por questão —
+                            Tempo Médio por Questão
                         </h3>
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-widest">
                             Agilidade IA
@@ -442,7 +442,9 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Última média geral</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        ÚLTIMO GERAL: <span className="font-bold text-slate-300">{legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}</span>
+                    </span>
                     <span className="text-lg sm:text-2xl font-black text-cyan-400 tracking-tight mt-1">
                         {legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}
                     </span>
@@ -450,7 +452,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Acima da média</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-rose-400">ACIMA DA MÉDIA</span>
                     <span className="text-lg sm:text-2xl font-black text-rose-400 tracking-tight mt-1">
                         {legendStats.above} {legendStats.above === 1 ? 'matéria' : 'matérias'}
                     </span>
@@ -458,7 +460,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Abaixo da média</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-400">ABAIXO DA MÉDIA</span>
                     <span className="text-lg sm:text-2xl font-black text-emerald-400 tracking-tight mt-1">
                         {legendStats.below} {legendStats.below === 1 ? 'matéria' : 'matérias'}
                     </span>

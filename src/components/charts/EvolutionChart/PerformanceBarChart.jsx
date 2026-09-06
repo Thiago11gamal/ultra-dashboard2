@@ -31,7 +31,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
         <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all group w-full min-w-0 flex flex-col justify-between h-full">
             <div className="mb-3 sm:mb-4 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                    Questões resolvidas vs acertos
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Questões Resolvidas vs Acertos</span>
                     <div className="flex items-center gap-2.5 shrink-0 bg-slate-950/60 border border-slate-800 px-2.5 py-1 rounded-lg">
                         <div className="flex items-center gap-1.5">
                             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
@@ -141,9 +141,9 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                     <LabelList 
                                         dataKey="questoes" 
                                         content={(props) => {
-                                            const { x, width, value } = props;
+                                            const { x, width, value, index } = props;
                                             if (width < 15 || !value) return null;
-                                            const entry = chartData.find(d => d.questoes === value);
+                                            const entry = (index != null && chartData[index]) ? chartData[index] : chartData.find(d => d.questoes === value);
                                             const errosH = entry ? entry.erros : 0;
                                             const labelY = errosH > 0 ? props.y - 4 : props.y - 4;
                                             return (

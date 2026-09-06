@@ -354,7 +354,7 @@ export const SubtopicsPerformanceChart = React.memo(({
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
                 <div>
                     <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-0.5">
-                        Raio-X de tópicos
+                        Raio-X de Tópicos
                     </h3>
                     <p className="text-slate-500 text-xs mt-1">Percentual de precisão real de cada pilar da sua disciplina.</p>
                 </div>
@@ -365,14 +365,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
                         aria-pressed={viewMode === 'bars'}
                     >
-                        Ranking (barras)
+                        Ranking (Barras)
                     </button>
                     <button
                         onClick={() => setViewMode('lines')}
                         className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
                         aria-pressed={viewMode === 'lines'}
                     >
-                        Tempo (linhas)
+                        Tempo (Linhas)
                     </button>
                 </div>
             </div>
@@ -382,7 +382,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <span className="text-5xl opacity-40">⏳</span>
                     <div className="text-center">
                         <p className="text-slate-300 font-bold text-base mb-1">Nenhum assunto no período atual</p>
-                        Altere o filtro de período para <b>Tudo</b> caso seus simulados sejam mais antigos.
+                        <p className="text-slate-500 text-xs mt-1">Altere o filtro de período para <b className="text-slate-400">Tudo</b> caso seus simulados sejam mais antigos.</p>
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (
