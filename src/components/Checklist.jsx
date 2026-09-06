@@ -121,15 +121,16 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         : null;
 
     return (
-        <div className="relative p-4 mx-4 mb-4 bg-gradient-to-r from-slate-900 to-slate-800/50 rounded-xl border border-white/10 shadow-inner group">
+        <div className="relative p-4 mx-4 mb-4 bg-white/[0.02] rounded-xl border border-white/5 group overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
             <div className="relative z-10 flex items-center gap-2 mb-4 text-slate-300 text-sm font-semibold uppercase tracking-wider leading-relaxed py-1">
                 <BarChart2 size={16} style={{ color: color || '#818cf8' }} />
                 <h3>Média de acerto (Simulados)</h3>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center">
-                    <span className="text-xs text-slate-500 uppercase font-bold mb-1">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center shadow-lg shadow-black/10">
+                    <span className="text-xs text-slate-500 uppercase font-bold mb-1 tracking-widest">
                         Média Geral
                     </span>
                     <span className="text-2xl font-bold" style={{ color: color || '#818cf8' }}>
@@ -142,8 +143,8 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     )}
                 </div>
 
-                <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center">
-                    <span className="text-xs text-slate-500 uppercase font-bold mb-1">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center shadow-lg shadow-black/10">
+                    <span className="text-xs text-slate-500 uppercase font-bold mb-1 tracking-widest">
                         Última
                     </span>
                     <span className="text-xl font-mono text-slate-200">
@@ -156,8 +157,8 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     )}
                 </div>
 
-                <div className={`p-3 rounded-lg border flex flex-col items-center justify-center ${levelColor}`}>
-                    <span className="text-xs uppercase font-bold mb-1 opacity-80">
+                <div className={`p-3 rounded-xl border flex flex-col items-center justify-center shadow-lg shadow-black/10 transition-colors ${levelColor}`}>
+                    <span className="text-xs uppercase font-bold mb-1 opacity-80 tracking-widest">
                         Nível
                     </span>
                     <span className="text-sm font-bold">
@@ -165,14 +166,14 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     </span>
                 </div>
 
-                <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center">
-                    <span className="text-xs text-slate-500 uppercase font-bold mb-1">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-3 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-lg shadow-black/10">
+                    <span className="text-xs text-slate-500 uppercase font-bold mb-1 tracking-widest">
                         Tendência
                     </span>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 mt-1">
                         {trendIcon}
-                        <span className="text-xs text-slate-300">
+                        <span className="text-xs text-slate-300 font-medium">
                             {trendText}
                         </span>
                     </div>
@@ -410,7 +411,7 @@ const CategoryAccordion = React.memo(({
                             e.stopPropagation();
                             setIsCategoryEditorOpen(true);
                         }}
-                        className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white shadow-[0_0_15px_rgba(0,0,0,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
+                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-white transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-white/5"
                         title="Configurar Disciplina"
                         aria-label={`Configurar disciplina ${category.name || 'sem nome'}`}
                     >
@@ -423,11 +424,11 @@ const CategoryAccordion = React.memo(({
                             e.stopPropagation();
                             onOpenDeleteCategoryModal(category.id, category.name);
                         }}
-                        className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)] transition-all transform hover:scale-110 active:scale-95 flex-shrink-0"
+                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-red-500/20"
                         title="Excluir Disciplina Permanente"
                         aria-label={`Excluir disciplina ${category.name || 'sem nome'}`}
                     >
-                        <Trash2 size={16} strokeWidth={3} />
+                        <Trash2 size={16} strokeWidth={2.5} />
                     </button>
                 </div>
 
@@ -507,10 +508,10 @@ const CategoryAccordion = React.memo(({
                             <button
                                 type="button"
                                 onClick={() => onOpenTaskModal(category.id)}
-                                className="w-full py-2 rounded-xl border border-dashed border-purple-500/30 bg-purple-900/20 text-purple-300 hover:bg-purple-800/40 hover:text-purple-100 hover:border-purple-500/50 transition-all flex items-center justify-center gap-2 group"
+                                className="w-full py-3 rounded-xl border border-dashed border-white/20 bg-white/[0.02] text-slate-400 hover:bg-white/[0.05] hover:text-white hover:border-white/40 transition-all flex items-center justify-center gap-2 group"
                             >
                                 <Plus size={18} className="group-hover:scale-110 transition-transform" />
-                                <span>Adicionar Assunto</span>
+                                <span className="font-medium tracking-wide">Adicionar Assunto</span>
                             </button>
                         </div>
                     )}
