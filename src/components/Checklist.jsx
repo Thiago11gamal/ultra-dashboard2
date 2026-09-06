@@ -710,13 +710,25 @@ function Checklist({
                             </span>.
                         </p>
                         {/* BUG-FIX: CTA para criar primeira disciplina */}
-                        <button
-                            type="button"
-                            onClick={() => setIsCatModalOpen(true)}
-                            className="mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
-                        >
-                            + Criar Primeira Disciplina
-                        </button>
+                        <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                            <button
+                                type="button"
+                                onClick={() => setIsCatModalOpen(true)}
+                                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
+                            >
+                                + Criar Primeira Disciplina
+                            </button>
+                            {onAddCategory && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsImportModalOpen(true)}
+                                    className="px-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Download size={18} />
+                                    Importar Disciplina
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -758,7 +770,7 @@ function Checklist({
                 ))}
             </div>
 
-            {onAddCategory && filter !== 'completed' && (
+            {onAddCategory && filter !== 'completed' && safeCategories.length > 0 && (
                 <div className="mt-6 flex flex-col sm:flex-row gap-4">
                     <button
                         type="button"
