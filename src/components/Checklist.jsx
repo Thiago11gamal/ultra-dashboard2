@@ -731,93 +731,97 @@ function Checklist({
     return (
         <div className="min-h-[300px] w-full">
             {safeCategories.length === 0 ? (
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-purple-500/20 bg-gradient-to-b from-slate-900/90 via-slate-900/70 to-slate-950/95 backdrop-blur-xl p-6 sm:p-8 pb-8 sm:pb-10 text-center shadow-xl shadow-purple-950/30 group">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-purple-500/20 bg-gradient-to-b from-slate-900/90 via-slate-900/70 to-slate-950/95 backdrop-blur-xl p-8 sm:p-12 shadow-xl shadow-purple-950/30 group">
                     {/* Background glow and decorative elements */}
-                    <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-80 h-80 bg-gradient-to-br from-purple-600/15 to-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-                    <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-tr from-blue-600/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -top-20 -left-20 w-96 h-96 bg-gradient-to-br from-purple-600/15 to-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-gradient-to-tr from-blue-600/10 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
-                    <div className="relative z-10 max-w-xl mx-auto flex flex-col items-center gap-3 sm:gap-3.5">
-                        {/* Pill badge */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold shadow-sm shadow-purple-500/10 backdrop-blur-md">
-                            <Sparkles size={13} className="text-purple-400" />
-                            <span>Primeiro Passo</span>
-                        </div>
-
-                        {/* Modern glowing icon container */}
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 via-indigo-500/20 to-purple-600/10 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-950/50 backdrop-blur-md group-hover:scale-105 transition-transform duration-300 relative">
-                            <div className="absolute inset-0 rounded-2xl bg-purple-500/15 blur-lg animate-pulse" />
-                            <Rocket className="w-7 h-7 sm:w-8 sm:h-8 text-purple-300 drop-shadow-[0_0_10px_rgba(168,85,247,0.5)] transform -rotate-45" />
-                        </div>
-
-                        {/* Title & Description */}
-                        <div className="flex flex-col items-center gap-1">
-                            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                                Prepare-se para o Topo!
-                            </h3>
-
-                            <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
-                                Organize sua rotina de estudos. Adicione sua primeira matéria para{' '}
-                                <span className="text-purple-400 font-semibold">
-                                    desbloquear o edital verticalizado
-                                </span>{' '}
-                                e acompanhar sua evolução.
-                            </p>
-                        </div>
-
-                        {/* Feature Highlights Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full max-w-lg">
-                            <div className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-purple-500/25 rounded-xl p-2.5 flex items-center gap-2.5 text-left transition-colors">
-                                <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
-                                    <BookOpen size={15} />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="text-xs font-bold text-slate-200">Edital Vertical</div>
-                                    <div className="text-[11px] text-slate-400 truncate">Tópicos organizados</div>
-                                </div>
+                    <div className="relative z-10 w-full mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-between gap-10 lg:gap-12">
+                        
+                        {/* Left Column: Text & Actions */}
+                        <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-5 flex-1 max-w-2xl">
+                            {/* Pill badge */}
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold shadow-sm shadow-purple-500/10 backdrop-blur-md">
+                                <Sparkles size={14} className="text-purple-400" />
+                                <span>Primeiro Passo</span>
                             </div>
 
-                            <div className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-indigo-500/25 rounded-xl p-2.5 flex items-center gap-2.5 text-left transition-colors">
-                                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
-                                    <Target size={15} />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="text-xs font-bold text-slate-200">Ciclos de Estudo</div>
-                                    <div className="text-[11px] text-slate-400 truncate">Prioridades e foco</div>
-                                </div>
+                            {/* Modern glowing icon container */}
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-purple-500/20 via-indigo-500/20 to-purple-600/10 border border-purple-500/30 flex items-center justify-center shadow-lg shadow-purple-950/50 backdrop-blur-md group-hover:scale-105 transition-transform duration-300 relative">
+                                <div className="absolute inset-0 rounded-3xl bg-purple-500/15 blur-lg animate-pulse" />
+                                <Rocket className="w-8 h-8 sm:w-10 sm:h-10 text-purple-300 drop-shadow-[0_0_12px_rgba(168,85,247,0.5)] transform -rotate-45" />
                             </div>
 
-                            <div className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-emerald-500/25 rounded-xl p-2.5 flex items-center gap-2.5 text-left transition-colors">
-                                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                                    <CheckCircle2 size={15} />
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="text-xs font-bold text-slate-200">Acompanhamento</div>
-                                    <div className="text-[11px] text-slate-400 truncate">Métricas em tempo real</div>
-                                </div>
-                            </div>
-                        </div>
+                            {/* Title & Description */}
+                            <div className="flex flex-col items-center lg:items-start gap-3 mt-2">
+                                <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                                    Prepare-se para o Topo!
+                                </h3>
 
-                        {/* Action buttons */}
-                        <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center items-stretch sm:items-center w-full sm:w-auto pt-2">
-                            <button
-                                type="button"
-                                onClick={() => setIsCatModalOpen(true)}
-                                className="px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-lg shadow-purple-900/40 hover:shadow-purple-700/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                            >
-                                <Plus size={17} />
-                                <span>Criar Primeira Disciplina</span>
-                            </button>
-                            {onAddCategory && (
+                                <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-xl">
+                                    Organize sua rotina de estudos. Adicione sua primeira matéria para{' '}
+                                    <span className="text-purple-400 font-bold">
+                                        desbloquear o edital verticalizado
+                                    </span>{' '}
+                                    e acompanhar sua evolução de perto.
+                                </p>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start w-full sm:w-auto mt-4">
                                 <button
                                     type="button"
-                                    onClick={() => setIsImportModalOpen(true)}
-                                    className="px-5 py-2.5 sm:px-6 sm:py-3 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 hover:border-white/20 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                                    onClick={() => setIsCatModalOpen(true)}
+                                    className="px-6 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-sm sm:text-base transition-all duration-200 shadow-lg shadow-purple-900/40 hover:shadow-purple-700/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                                 >
-                                    <Download size={17} />
-                                    <span>Importar Disciplina</span>
+                                    <Plus size={20} />
+                                    <span>Criar Primeira Disciplina</span>
                                 </button>
-                            )}
+                                {onAddCategory && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsImportModalOpen(true)}
+                                        className="px-6 py-3.5 sm:px-8 sm:py-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 hover:border-white/20 rounded-xl font-semibold text-sm sm:text-base transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                                    >
+                                        <Download size={20} />
+                                        <span>Importar Disciplina</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Right Column: Feature Highlights Grid */}
+                        <div className="flex flex-col gap-3 w-full lg:w-auto lg:min-w-[300px]">
+                            <div className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-purple-500/25 rounded-2xl p-4 flex items-center gap-4 text-left transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
+                                    <BookOpen size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-bold text-slate-200">Edital Vertical</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">Tópicos organizados passo a passo</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-indigo-500/25 rounded-2xl p-4 flex items-center gap-4 text-left transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0">
+                                    <Target size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-bold text-slate-200">Ciclos de Estudo</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">Mantenha o foco nas prioridades</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white/[0.03] hover:bg-white/[0.05] border border-white/[0.06] hover:border-emerald-500/25 rounded-2xl p-4 flex items-center gap-4 text-left transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                                    <CheckCircle2 size={20} />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-sm font-bold text-slate-200">Acompanhamento</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">Métricas em tempo real</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
