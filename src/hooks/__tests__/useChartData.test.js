@@ -31,6 +31,30 @@ describe('useChartData — blindagem NaN (BATCH-01)', () => {
     assertNoNaN(result.current.timeline);
   });
 
+  it('correctly scales category with custom maxScore and preserves ground truth in heatmap and metrics', () => {
+    const categories = [{
+      id: 'port',
+      name: 'Português',
+      maxScore: 20,
+      minScore: 0,
+      simuladoStats: {
+        history: [
+          // 8 correct out of 10 in a 20-point scale category
+          { date: '2026-07-04', total: 10, correct: 8, wrong: 2, score: 16 }
+        ]
+      }
+    }];
+    const { result } = renderHook(() => useChartData(categories, {}, 100, 0));
+    expect(result.current.globalMetrics.totalQuestions).toBe(10);
+    expect(result.current.globalMetrics.totalCorrect).toBe(8);
+    expect(result.current.globalMetrics.globalAccuracy).toBe(80);
+
+    const heatmapCell = result.current.heatmapData.rows[0].cells[0];
+    expect(heatmapCell.pct).toBe(80);
+    expect(heatmapCell.correct).toBe(8);
+    expect(heatmapCell.total).toBe(10);
+  });
+
   it('correct nunca excede total (clamp no acumulado bayesiano)', () => {
     const categories = [mkCat([
       { date: '2026-07-01', score: 100, total: 10, correct: 999 }

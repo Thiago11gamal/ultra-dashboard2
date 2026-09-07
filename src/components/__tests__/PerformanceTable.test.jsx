@@ -102,4 +102,28 @@ describe('PerformanceTable rendering contracts', () => {
         // Accuracy should be 80%
         expect(html).toContain('80%');
     });
+
+    it('prioritizes ground-truth correct count over net score in penalizing/Cebraspe exams', () => {
+        const categories = [
+            {
+                id: 'cat-cebraspe',
+                name: 'Direito Penal',
+                maxScore: 100,
+                minScore: 0,
+                simuladoStats: {
+                    history: [
+                        // In Cebraspe, 80 correct - 20 wrong = 60 net points. Score is 60, but correct is 80.
+                        { date: '2026-06-01', total: 100, correct: 80, wrong: 20, score: 60 }
+                    ]
+                }
+            }
+        ];
+
+        const html = renderToStaticMarkup(<PerformanceTable categories={categories} />);
+        expect(html).toContain('Direito Penal');
+        expect(html).toContain('80 AC');
+        expect(html).toContain('20 ER');
+        expect(html).toContain('+60');
+        expect(html).toContain('80%');
+    });
 });

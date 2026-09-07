@@ -18,7 +18,7 @@ const PerformanceTable = ({ categories = [] }) => {
             const historyRaw = statsObj.history || [];
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
 
-            let correct = 0, wrong = 0, totalQuestions = 0;
+            let correct = 0, totalQuestions = 0;
             const ms = cat.maxScore ?? 100;
             const minS = cat.minScore ?? 0;
             const range = Math.max(1e-9, ms - minS);
@@ -29,15 +29,16 @@ const PerformanceTable = ({ categories = [] }) => {
                 const altTotal = Math.max(0, (Number(h?.correct) || 0) + (Number(h?.wrong) || 0));
                 const t = (Number.isFinite(parsedTotal) && parsedTotal > 0) ? parsedTotal : altTotal;
                 
-                const score = getSafeScore(h, ms, minS);
-                let c = 0;
-                if (Number.isFinite(score) && range !== 0 && t > 0) {
-                    c = Math.max(0, Math.min(t, Math.round(((score - minS) / range) * t)));
-                } else if (Number.isFinite(Number(h?.correct))) {
-                    c = Math.max(0, Math.min(t, Number(h.correct)));
+                const rawC = Number(h?.correct);
+                let c = (Number.isFinite(rawC) && !h?.isPercentage) ? rawC : NaN;
+                if (!Number.isFinite(c)) {
+                    const score = getSafeScore(h, ms, minS);
+                    if (Number.isFinite(score) && range !== 0 && t > 0) {
+                        c = Math.round(((score - minS) / range) * t);
+                    }
                 }
+                c = Math.max(0, Math.min(t, Number.isFinite(c) ? c : 0));
                 correct += c;
-                wrong += Math.max(0, t - c);
                 totalQuestions += t;
             }
             

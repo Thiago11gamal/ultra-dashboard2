@@ -8,12 +8,18 @@ const VolumeRanking = ({ categories = [] }) => {
         return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
     }, [categories]);
 
-    // BUG-T12 FIX: Estabilização de referências por fingerprint.
+    // FIX: Estabilização de referências por fingerprint abrangente (inclui volume, nome e cor).
     const categoriesFingerprint = useMemo(() => {
         return safeCategories.map(c => {
             const h = c.simuladoStats?.history;
-            const histLen = Array.isArray(h) ? h.length : Object.keys(h || {}).length;
-            return `${c.id}:${histLen}`;
+            const history = Array.isArray(h) ? h : Object.values(h || {});
+            const total = history.reduce((acc, item) => {
+                const parsed = parseInt(item?.total, 10);
+                if (Number.isFinite(parsed) && parsed > 0) return acc + parsed;
+                const fallback = (Number(item?.correct) || 0) + (Number(item?.wrong) || 0);
+                return acc + Math.max(0, fallback);
+            }, 0);
+            return `${c.id}:${c.name || ''}:${c.color || ''}:${history.length}:${total}`;
         }).join('|');
     }, [safeCategories]);
 
@@ -36,10 +42,10 @@ const VolumeRanking = ({ categories = [] }) => {
             if (b.totalVolume !== a.totalVolume) {
                 return b.totalVolume - a.totalVolume;
             }
-            return a.name.localeCompare(b.name);
+            return (a.name || '').localeCompare(b.name || '');
         });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categoriesFingerprint]);
+    }, [safeCategories, categoriesFingerprint]);
 
     const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
     const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;

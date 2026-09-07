@@ -64,7 +64,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 return d && d >= startDate && d <= endDate;
             });
 
-            const range = Math.max(1e-9, maxScore - minScore);
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
+            const catRange = Math.max(1e-9, catMax - catMin);
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
 
@@ -76,19 +78,19 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
                     let total = parseInt(t.total, 10) || 0;
                     if (total === 0 && t.score != null) {
-                        total = getSyntheticTotal(maxScore);
+                        total = getSyntheticTotal(catMax);
                     } else if (total === 0) {
                         return;
                     }
                     
-                    const score = getSafeScore(t, maxScore, minScore);
+                    const score = getSafeScore(t, catMax, catMin);
                     if (!Number.isFinite(score)) return;
                     if (total <= 0) return;
-                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                    const normalizedScore = Math.max(catMin, Math.min(catMax, score));
                     
                     const correctCount = t.isPercentage
-                        ? ((normalizedScore - minScore) / range) * total
-                        : (t.correct != null ? Number(t.correct) : ((normalizedScore - minScore) / range) * total);
+                        ? ((normalizedScore - catMin) / catRange) * total
+                        : (t.correct != null ? Number(t.correct) : ((normalizedScore - catMin) / catRange) * total);
 
                     if (!Number.isFinite(correctCount)) return;
                     const safeCorrect = Math.max(0, Math.min(total, correctCount));
@@ -140,22 +142,24 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 const d = normalizeDate(getHistoryDate(h));
                 return d && d >= startDate && d <= endDate;
             });
-            const range = Math.max(1e-9, maxScore - minScore);
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
+            const catRange = Math.max(1e-9, catMax - catMin);
             for (const h of recentHistory) {
                 let t = parseInt(h.total, 10) || 0;
                 if (t === 0 && h.score != null) {
-                    t = getSyntheticTotal(maxScore);
+                    t = getSyntheticTotal(catMax);
                 } else if (t === 0) {
                     continue;
                 }
                 
-                const score = getSafeScore(h, maxScore, minScore);
+                const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) continue;
-                const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                const normalizedScore = Math.max(catMin, Math.min(catMax, score));
                 
                 const correctCount = h.isPercentage
-                    ? ((normalizedScore - minScore) / range) * t
-                    : (h.correct != null ? Number(h.correct) : ((normalizedScore - minScore) / range) * t);
+                    ? ((normalizedScore - catMin) / catRange) * t
+                    : (h.correct != null ? Number(h.correct) : ((normalizedScore - catMin) / catRange) * t);
                 
                 if (!Number.isFinite(correctCount)) continue;
                 const safeCorrect = Math.max(0, Math.min(t, correctCount));

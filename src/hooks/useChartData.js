@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
@@ -173,13 +173,6 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     const categories = Array.isArray(categoriesInput) ? categoriesInput : EMPTY_ARRAY;
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeRange = Math.max(1e-9, safeMax - safeMin);
-
-    const toRatio = useCallback((score) => {
-        const n = Number(score);
-        if (!Number.isFinite(n)) return 0;
-        return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
-    }, [safeMin, safeRange]);
 
     const categoriesVersion = useMemo(() => categories.map((cat) => {
         const history = getHistoryArray(cat);
@@ -241,7 +234,16 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);
             });
             if (!history.length) return;
-            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, safeMax, safeMin);
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catRange = Math.max(1e-9, catMax - catMin);
+            const toCatRatio = (score) => {
+                const n = Number(score);
+                if (!Number.isFinite(n)) return 0;
+                return Math.max(0, Math.min(1, (n - catMin) / catRange));
+            };
+
+            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, catMax, catMin);
             const exactByDate = {};
             history.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
@@ -249,16 +251,21 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
                 const rawTotal = Math.max(0, Number(h.total) || 0);
                 const rawC = Math.max(0, Math.min(rawTotal, Number(h.correct) || 0));
-                const score = getSafeScore(h, safeMax, safeMin);
+                const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) return;
-                const corrNorm = rawTotal > 0
-                    ? Math.max(0, Math.min(rawTotal, Math.round(toRatio(score) * rawTotal)))
-                    : rawC;
+                let corrNorm;
+                if (rawTotal > 0) {
+                    corrNorm = (!h.isPercentage && Number.isFinite(Number(h.correct)))
+                        ? rawC
+                        : Math.max(0, Math.min(rawTotal, Math.round(toCatRatio(score) * rawTotal)));
+                } else {
+                    corrNorm = rawC;
+                }
                 let compTotal = rawTotal;
                 let compCorrect = corrNorm;
                 if (rawTotal === 0 && h.score != null) {
-                    compTotal = getSyntheticTotal(safeMax);
-                    compCorrect = Math.round(toRatio(score) * compTotal);
+                    compTotal = getSyntheticTotal(catMax);
+                    compCorrect = Math.round(toCatRatio(score) * compTotal);
                 }
                 exactByDate[key].correct += corrNorm;
                 exactByDate[key].total += rawTotal;
@@ -275,10 +282,10 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 const displayTotal = exact ? (exact.compTotal > 0 ? exact.compTotal : exact.total) : 0;
                 let rawDailyScore = null;
                 if (exact && exact.compTotal >= 1) {
-                    const calc = safeMin + (exact.compCorrect / exact.compTotal) * safeRange;
+                    const calc = catMin + (exact.compCorrect / exact.compTotal) * catRange;
                     rawDailyScore = Number.isFinite(calc) ? calc : null;
                 } else if (exact && snap?.last) {
-                    const s = getSafeScore(snap.last, safeMax, safeMin);
+                    const s = getSafeScore(snap.last, catMax, catMin);
                     rawDailyScore = Number.isFinite(s) ? s : null;
                 }
                 dataByDate[date] = {
@@ -286,10 +293,10 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     [`raw_correct_${cat.id}`]: displayCorrect,
                     [`raw_total_${cat.id}`]: displayTotal,
                     [`raw_${cat.id}`]: rawDailyScore,
-                    [`bay_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.mean)) ? Number(snap.bayesian.mean) : safeMin) : null,
-                    [`bay_ci_low_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciLow)) ? Number(snap.bayesian.ciLow) : safeMin) : safeMin,
-                    [`bay_ci_high_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciHigh)) ? Number(snap.bayesian.ciHigh) : safeMax) : safeMax,
-                    [`stats_${cat.id}`]: stats ? (Number.isFinite(Number(stats.mean)) ? Number(stats.mean) : safeMin) : safeMin,
+                    [`bay_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.mean)) ? Number(snap.bayesian.mean) : catMin) : null,
+                    [`bay_ci_low_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciLow)) ? Number(snap.bayesian.ciLow) : catMin) : catMin,
+                    [`bay_ci_high_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciHigh)) ? Number(snap.bayesian.ciHigh) : catMax) : catMax,
+                    [`stats_${cat.id}`]: stats ? (Number.isFinite(Number(stats.mean)) ? Number(stats.mean) : catMin) : catMin,
                     [`trend_${cat.id}`]: stats ? (Number.isFinite(Number(stats.trendValue)) ? Number(stats.trendValue) : 0) : 0,
                     [`trend_status_${cat.id}`]: stats ? stats.trend : 'stable',
                     global_total: (Number(dataByDate[date].global_total) || 0) + displayTotal
@@ -324,21 +331,31 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         });
 
         const rows = activeCategories.map(cat => {
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catRange = Math.max(1e-9, catMax - catMin);
+            const toCatRatio = (score) => {
+                const n = Number(score);
+                if (!Number.isFinite(n)) return 0;
+                return Math.max(0, Math.min(1, (n - catMin) / catRange));
+            };
             const dayMap = {};
             getHistoryArray(cat).forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
                 let tot = Math.max(0, Number(h.total) || 0);
-                let raw = Math.max(0, Number(h.correct) || 0);
+                const raw = Math.max(0, Number(h.correct) || 0);
                 let corrNorm;
-                const score = getSafeScore(h, safeMax, safeMin);
+                const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) return;
                 if (h.score != null && tot === 0) {
-                    tot = getSyntheticTotal(safeMax);
-                    corrNorm = Math.round(toRatio(score) * tot);
+                    tot = getSyntheticTotal(catMax);
+                    corrNorm = Math.round(toCatRatio(score) * tot);
+                } else if (!h.isPercentage && Number.isFinite(Number(h.correct))) {
+                    corrNorm = Math.max(0, Math.min(tot, raw));
                 } else {
-                    corrNorm = tot > 0 ? Math.round(toRatio(score) * tot) : raw;
+                    corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
                 }
                 dayMap[key].correct += corrNorm;
                 dayMap[key].total += tot;
@@ -356,23 +373,33 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             return { cat, cells };
         });
         return { dates, rows };
-    }, [activeCategories, safeMax, safeMin, toRatio]);
+    }, [activeCategories, safeMax, safeMin]);
 
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
         let totalCorrect = 0;
         activeCategories.forEach(cat => {
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catRange = Math.max(1e-9, catMax - catMin);
+            const toCatRatio = (score) => {
+                const n = Number(score);
+                if (!Number.isFinite(n)) return 0;
+                return Math.max(0, Math.min(1, (n - catMin) / catRange));
+            };
             getHistoryArray(cat).forEach(h => {
                 let tot = Math.max(0, Number(h.total) || 0);
-                const score = getSafeScore(h, safeMax, safeMin);
+                const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) return;
                 let corrNorm;
                 if (tot === 0 && h.score != null) {
-                    tot = getSyntheticTotal(safeMax);
-                    corrNorm = Math.round(toRatio(score) * tot);
+                    tot = getSyntheticTotal(catMax);
+                    corrNorm = Math.round(toCatRatio(score) * tot);
+                } else if (!h.isPercentage && Number.isFinite(Number(h.correct))) {
+                    corrNorm = Math.max(0, Math.min(tot, Number(h.correct)));
                 } else {
                     const raw = Math.max(0, Number(h.correct) || 0);
-                    corrNorm = tot > 0 ? Math.round(toRatio(score) * tot) : raw;
+                    corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
                 }
                 // FIX 2B: blindagem extra contra NaN em corrNorm
                 if (!Number.isFinite(corrNorm)) return;
@@ -382,7 +409,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
-    }, [activeCategories, safeMax, safeMin, toRatio]);
+    }, [activeCategories, safeMax, safeMin]);
 
     return { activeCategories, timeline, heatmapData, globalMetrics };
 }

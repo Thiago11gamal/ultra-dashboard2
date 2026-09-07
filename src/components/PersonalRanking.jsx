@@ -110,15 +110,24 @@ function PersonalRanking({ categories = [] }) {
                 const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
                 return acc + Math.max(0, fallback);
             }, 0);
-            const ms = cat.maxScore ?? 100;
-            const minS = cat.minScore ?? 0;
+            const ms = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : 100;
+            const minS = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+            const range = Math.max(1e-9, ms - minS);
             const correctRaw = history.reduce((acc, h) => {
                 const parsedTotal = Number(h.total);
                 const t = (Number.isFinite(parsedTotal) && parsedTotal > 0)
                     ? parsedTotal
                     : Math.max(0, (Number(h.correct) || 0) + (Number(h.wrong) || 0));
-                const score = getSafeScore(h, ms, minS);
-                const c = Number.isFinite(score) && t > 0 ? ((score - minS) / (ms - minS)) * t : 0;
+                
+                const rawC = Number(h?.correct);
+                let c = (Number.isFinite(rawC) && !h?.isPercentage) ? rawC : NaN;
+                if (!Number.isFinite(c)) {
+                    const score = getSafeScore(h, ms, minS);
+                    if (Number.isFinite(score) && t > 0) {
+                        c = Math.round(((score - minS) / range) * t);
+                    }
+                }
+                c = Math.max(0, Math.min(t, Number.isFinite(c) ? c : 0));
                 return acc + c;
             }, 0);
             const correct = Math.max(0, Math.round(correctRaw));

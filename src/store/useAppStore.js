@@ -29,15 +29,25 @@ const idbStorage = {
       const val = await idbGet(name);
       return val || null;
     } catch (e) {
-      console.error('[Storage] Falha CRÍTICA ao ler IDB. Ativando LOCK:', e);
+      console.warn('[Storage] Falha ao ler IDB. Tentando fallback localStorage:', e);
       isStorageLocked = true;
-      return null;
+      try {
+        const localVal = localStorage.getItem(name);
+        return localVal || null;
+      } catch (fallbackErr) {
+        console.error('[Storage] Falha no fallback getItem:', fallbackErr);
+        return null;
+      }
     }
   },
   setItem: (name, value) => {
     return new Promise((resolve, reject) => {
       if (isStorageLocked) {
-        console.warn('[Storage] Operação ignorada. Lock ativo.');
+        try {
+          localStorage.setItem(name, value);
+        } catch (fallbackErr) {
+          console.error('[Storage] Falha no fallback localStorage com lock ativo:', fallbackErr);
+        }
         return resolve();
       }
       if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
@@ -66,6 +76,7 @@ const idbStorage = {
     if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
     if (savePromises[name]) savePromises[name].reject(new Error('Removed'));
     try { await idbDel(name); } catch { /* ignore */ }
+    try { localStorage.removeItem(name); } catch { /* ignore */ }
   },
 };
 

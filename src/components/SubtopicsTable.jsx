@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Target, Hash, Wallet, Minus, TrendingUp, TrendingDown } from 'lucide-react';
-import { getSafeScore, formatValue, formatPercent } from '../utils/scoreHelper';
+import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope, getSortedHistory } from '../engine';
 
 const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
@@ -19,9 +19,17 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
 
     // 2. Criar fingerprint estável para evitar re-execução por referência
     const categoriesFingerprint = useMemo(() => {
-        return stableCategories.map(c =>
-            `${c.id || c.name}:${(c.tasks || []).length}:${c.simuladoStats?.history?.length || 0}`
-        ).join('|');
+        return stableCategories.map(c => {
+            const h = c.simuladoStats?.history || [];
+            const history = Array.isArray(h) ? h : Object.values(h || {});
+            const totalQ = history.reduce((acc, item) => {
+                const p = parseInt(item?.total, 10);
+                if (Number.isFinite(p) && p > 0) return acc + p;
+                const fallback = (Number(item?.correct) || 0) + (Number(item?.wrong) || 0);
+                return acc + Math.max(0, fallback);
+            }, 0);
+            return `${c.id || c.name}:${c.name || ''}:${c.color || ''}:${(c.tasks || []).length}:${history.length}:${totalQ}`;
+        }).join('|');
     }, [stableCategories]);
 
     // 3. useMemo com fingerprint estável
@@ -43,7 +51,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                         parentCategory: cat.name,
                         categoryColor: cat.color,
                         categoryIcon: cat.icon,
-                        catMaxScore: cat.maxScore ?? maxScore,
+                        catMaxScore: Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100),
                         catMinScore,
                         correct: 0,
                         wrong: 0,
@@ -63,6 +71,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                     const name = String(t.name || '').trim();
                     if (!name) return;
                     const key = name.toLowerCase();
+                    const catMaxScore = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
                     if (!topicMap[key]) {
                         topicMap[key] = {
                             id: key,
@@ -70,7 +79,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                             parentCategory: cat.name,
                             categoryColor: cat.color,
                             categoryIcon: cat.icon,
-                            catMaxScore: cat.maxScore ?? maxScore,
+                            catMaxScore,
                             catMinScore,
                             correct: 0,
                             wrong: 0,
@@ -78,14 +87,21 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                             trendHistory: [],
                         };
                     }
-                    const catMaxScore = cat.maxScore ?? maxScore;
                     const totalParsed = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 0;
                     const total = totalParsed > 0 ? totalParsed : Math.max(0, (Number(t.correct) || 0) + (Number(t.wrong) || 0));
-                    const score = getSafeScore(t, catMaxScore, catMinScore);
-                    const range = Math.max(1e-9, catMaxScore - catMinScore);
-                    const correctCount = total > 0 && Number.isFinite(score)
-                        ? Math.round(((score - catMinScore) / range) * total)
-                        : (Number(t.correct) || 0);
+                    const catRange = Math.max(1e-9, catMaxScore - catMinScore);
+
+                    const rawC = Number(t.correct);
+                    let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
+                    if (!Number.isFinite(correctCount)) {
+                        const score = getSafeScore(t, catMaxScore, catMinScore);
+                        if (Number.isFinite(score) && total > 0) {
+                            correctCount = Math.round(((score - catMinScore) / catRange) * total);
+                        } else {
+                            correctCount = 0;
+                        }
+                    }
+                    correctCount = Math.max(0, Math.min(total, Number.isFinite(correctCount) ? correctCount : 0));
                     const wrongCount = Math.max(0, total - correctCount);
                     topicMap[key].correct += correctCount;
                     topicMap[key].wrong += wrongCount;
@@ -100,9 +116,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
         return Object.values(topicMap)
             .map(t => {
                 const balance = t.correct - t.wrong;
-                const catMinScore = t.catMinScore ?? 0;
-                const range = Math.max(1e-9, t.catMaxScore - catMinScore);
-                const percent = t.total > 0 ? Math.round(catMinScore + (t.correct / t.total) * range) : 0;
+                const percent = t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0;
                 const sortedTrend = getSortedHistory(t.trendHistory || []).slice(-10);
                 const trendValue = sortedTrend.length >= 3 ? calculateSlope(sortedTrend, t.catMaxScore) : 0;
                 const trendTolerance = 0.0167 * (t.catMaxScore / 100);
@@ -111,7 +125,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
             })
             .sort((a, b) => b.balance - a.balance);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categoriesFingerprint, maxScore]);
+    }, [stableCategories, categoriesFingerprint, maxScore]);
 
     if (safeCategories.length === 0) {
         return (
@@ -170,10 +184,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                                             {totalQuestions > 0 ? (
                                                 <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
                                                     {(() => {
-                                                        const minS = item.catMinScore ?? 0;
-                                                        const safeMax = Math.max(1, Number(maxScore) || 1);
-                                                        const range = Math.max(1e-9, safeMax - minS);
-                                                        const scorePct = Math.max(0, Math.min(100, ((Number(percentCorrect) - minS) / range) * 100));
+                                                        const scorePct = Math.max(0, Math.min(100, Number(percentCorrect) || 0));
                                                         return (
                                                             <>
                                                                 {scorePct > 0 && (
@@ -202,9 +213,9 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                                         </div>
                                     </td>
                                     <td className="p-5 text-center align-middle">
-                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= (maxScore * 0.8) ? 'text-green-400' :
-                                            percentCorrect >= (maxScore * 0.6) ? 'text-yellow-400' : percentCorrect > 0 ? 'text-red-500' : 'text-slate-500'}`}>
-                                            <span className="text-sm tracking-tight">{maxScore === 100 ? formatPercent(percentCorrect) : formatValue(percentCorrect)}</span>
+                                        <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400' :
+                                            percentCorrect >= 60 ? 'text-yellow-400' : percentCorrect > 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                                            <span className="text-sm tracking-tight">{percentCorrect}%</span>
                                         </div>
                                     </td>
                                     <td className="p-5 text-center align-middle border-l border-white/5">

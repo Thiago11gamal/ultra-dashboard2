@@ -165,11 +165,14 @@ export const SubtopicsPerformanceChart = React.memo(({
         const topicMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
 
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
+
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMinScore;
+            const catRange = Math.max(1e-9, catMax - catMin);
 
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
@@ -192,9 +195,9 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     let total = parseInt(t.total, 10) || 0;
                     if (t.isPercentage) {
-                        if (total === 0) total = getSyntheticTotal(maxScore);
+                        if (total === 0) total = getSyntheticTotal(catMax);
                     } else if (total === 0 && t.score != null) {
-                        total = getSyntheticTotal(maxScore);
+                        total = getSyntheticTotal(catMax);
                     }
                     if (total === 0) return;
                     
@@ -202,10 +205,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                     let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
                     if (!Number.isFinite(correctCount)) {
-                        const rawScore = getSafeScore(t, safeMaxScore, safeMinScore);
-                        const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
-                        const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
-                        correctCount = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;
+                        const rawScore = getSafeScore(t, catMax, catMin);
+                        const score = Number.isFinite(rawScore) ? rawScore : catMin;
+                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
+                        correctCount = total > 0 ? ((normalizedScore - catMin) / catRange) * total : 0;
                     }
                     correctCount = Math.max(0, Math.min(total, Number.isFinite(correctCount) ? correctCount : 0));
 
@@ -237,7 +240,6 @@ export const SubtopicsPerformanceChart = React.memo(({
         const topicVolumeMap = {}; 
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
 
         const toTopicKey = (name) => {
           const normalized = String(name || '').trim().toLowerCase();
@@ -248,6 +250,10 @@ export const SubtopicsPerformanceChart = React.memo(({
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
+
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMinScore;
+            const catRange = Math.max(1e-9, catMax - catMin);
 
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
@@ -273,9 +279,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                     
                     let total = parseInt(t.total, 10) || 0;
                     if (t.isPercentage) {
-                        if (total === 0) total = getSyntheticTotal(maxScore);
+                        if (total === 0) total = getSyntheticTotal(catMax);
                     } else if (total === 0 && t.score != null) {
-                        total = getSyntheticTotal(maxScore);
+                        total = getSyntheticTotal(catMax);
                     }
                     if (total === 0) return;
 
@@ -285,10 +291,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                     let correct = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
                     if (!Number.isFinite(correct)) {
-                        const rawScore = getSafeScore(t, safeMaxScore, safeMinScore);
-                        const score = Number.isFinite(rawScore) ? rawScore : safeMinScore;
-                        const normalizedScore = Math.max(safeMinScore, Math.min(safeMaxScore, score));
-                        correct = total > 0 ? ((normalizedScore - safeMinScore) / range) * total : 0;
+                        const rawScore = getSafeScore(t, catMax, catMin);
+                        const score = Number.isFinite(rawScore) ? rawScore : catMin;
+                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
+                        correct = total > 0 ? ((normalizedScore - catMin) / catRange) * total : 0;
                     }
                     correct = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
 

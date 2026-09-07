@@ -346,7 +346,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return Array.from(taskMap.values()).filter(Boolean);
   };
 
-  const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false) => {
+  const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false, localTrash = []) => {
     const mergedCatsMap = {};
     const toDateMs = (value) => {
       if (!value) return 0;
@@ -383,7 +383,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           }
         };
       } else {
-        mergedCatsMap[c.id] = c;
+        // FIX GHOST-CATEGORY: Evitar que categorias deletadas localmente sejam ressuscitadas pela nuvem
+        const isDeleted = (localTrash || []).some(t => {
+          if (t.type !== 'category') return false;
+          const catData = t.data?.category || t.data;
+          const matches = (catData?.id && catData.id === c.id) ||
+            (catData?.name && c.name && catData.name.trim().toLowerCase() === c.name.trim().toLowerCase());
+          if (!matches) return false;
+          const trashTime = toDateMs(t.deletedAt);
+          const cloudCatTime = toDateMs(c.lastUpdated || c.updatedAt);
+          return trashTime >= cloudCatTime;
+        });
+        if (!isDeleted) {
+          mergedCatsMap[c.id] = c;
+        }
       }
     });
     return Object.values(mergedCatsMap);
@@ -401,11 +414,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return merged;
   };
 
-  const mergeContestPayload = useCallback((localContest, cloudContest, preferCloudBase = false) => {
+  const mergeContestPayload = useCallback((localContest, cloudContest, preferCloudBase = false, localTrash = []) => {
     const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
     return {
       ...base,
-      categories: mergeContestCategories(localContest.categories, cloudContest.categories, preferCloudBase),
+      categories: mergeContestCategories(localContest.categories, cloudContest.categories, preferCloudBase, localTrash),
       studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
       studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
       simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
@@ -481,7 +494,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       } else {
         const cloudTime = new Date(cloudContest.lastUpdated || cloud.lastUpdated || 0).getTime();
         const localTime = new Date(localContest.lastUpdated || local.lastUpdated || 0).getTime();
-        mergedContests[id] = mergeContestPayload(localContest, cloudContest, cloudTime > localTime);
+        mergedContests[id] = mergeContestPayload(localContest, cloudContest, cloudTime > localTime, local.trash);
       }
     });
 

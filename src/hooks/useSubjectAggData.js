@@ -43,12 +43,15 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
 
         const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
         const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
-        const range = Math.max(1e-9, safeMax - safeMin);
+
+        const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+        const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+        const catRange = Math.max(1e-9, catMax - catMin);
 
         const totalQ = history.reduce((s, h) => {
           let tot = Math.max(0, Number(h.total) || 0);
-          if (tot === 0 && h.score != null) tot = getSyntheticTotal(safeMax);
-          const score = getSafeScore(h, safeMax, safeMin);
+          if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
+          const score = getSafeScore(h, catMax, catMin);
           if (!Number.isFinite(score)) return s;
           return s + tot;
         }, 0);
@@ -56,15 +59,15 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const totalCorrect = Math.round(
           history.reduce((s, h) => {
             let tot = Math.max(0, Number(h.total) || 0);
-            if (tot === 0 && h.score != null) tot = getSyntheticTotal(safeMax);
+            if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
             const rawC = Number(h.correct);
             if (!h.isPercentage && Number.isFinite(rawC)) {
               return s + Math.max(0, Math.min(tot, rawC));
             }
-            const score = getSafeScore(h, safeMax, safeMin);
+            const score = getSafeScore(h, catMax, catMin);
             if (!Number.isFinite(score)) return s;
-            const normalizedScore = Math.max(safeMin, Math.min(safeMax, score));
-            const derived = ((normalizedScore - safeMin) / range) * tot;
+            const normalizedScore = Math.max(catMin, Math.min(catMax, score));
+            const derived = ((normalizedScore - catMin) / catRange) * tot;
             return s + Math.max(0, Math.min(tot, Number.isFinite(derived) ? derived : 0));
           }, 0)
         );
@@ -88,7 +91,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
             }
             if (hasTopicWithTime) return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
             if (rootTs !== null && rootTs > 0 && Number(h.total) > 0) return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
-            if (rootTs !== null && rootTs > 0 && h.score != null) return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(maxScore) };
+            if (rootTs !== null && rootTs > 0 && h.score != null) return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(catMax) };
             return acc;
           },
           { ts: 0, tq: 0 }
