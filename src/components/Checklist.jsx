@@ -118,9 +118,14 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         ? `${Math.round((average / safeMax) * 100)}%`
         : null;
 
+    const lastNum = Number(lastAttempt);
+    const formattedLast = Number.isFinite(lastNum)
+        ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(3))
+        : lastAttempt;
+
     const lastDisplay = safeMax === 100
-        ? `${lastAttempt}%`
-        : `${lastAttempt} / ${safeMax} pts`;
+        ? `${formattedLast}%`
+        : `${formattedLast} / ${safeMax} pts`;
     const lastPctSub = safeMax !== 100
         ? `${Math.round((lastAttempt / safeMax) * 100)}%`
         : null;
