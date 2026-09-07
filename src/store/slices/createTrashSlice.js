@@ -1,4 +1,4 @@
-import { generateId } from '../../utils/idGenerator';
+import { generateId } from '../../utils/idGenerator.js';
 import { safeClone } from '../../utils/safeClone.js';
 
 export const createTrashSlice = (set) => ({

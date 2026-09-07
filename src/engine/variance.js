@@ -323,7 +323,7 @@ export function getVarianceBreakdown(stats, totalWeight) {
  * PATCH: Calcula a correlação de Pearson empírica entre duas séries de notas.
  * Emparelha os dados apenas onde o usuário estudou ambas as matérias num intervalo <= 24h.
  */
-function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
+function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15, maxScoreA = 100, minScoreA = 0, maxScoreB = maxScoreA, minScoreB = minScoreA) {
     const safeHistoryA = toHistoryArray(historyA);
     const safeHistoryB = toHistoryArray(historyB);
 
@@ -331,8 +331,12 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
 
     let pairedCount = 0;
 
-    const getScore = (h) => {
-        const s = getSafeScore(h);
+    const getScoreA = (h) => {
+        const s = getSafeScore(h, maxScoreA, minScoreA);
+        return Number.isFinite(s) ? s : 0;
+    };
+    const getScoreB = (h) => {
+        const s = getSafeScore(h, maxScoreB, minScoreB);
         return Number.isFinite(s) ? s : 0;
     };
 
@@ -345,7 +349,7 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
     safeHistoryA.forEach(h => {
         if (!h) return;
         const d = getDateStr(h);
-        if (d) mapA.set(d, getScore(h));
+        if (d) mapA.set(d, getScoreA(h));
     });
 
     const xs = [];
@@ -356,7 +360,7 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
         const d = getDateStr(h);
         if (d && mapA.has(d)) {
             xs.push(mapA.get(d));
-            ys.push(getScore(h));
+            ys.push(getScoreB(h));
             pairedCount++;
         }
     });
@@ -437,7 +441,19 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
             currentRho = Math.max(-0.999, Math.min(0.999, currentRho));
 
             if (stats[i]?.simuladoStats?.history && stats[j]?.simuladoStats?.history) {
-                currentRho = calculateDynamicCorrelation(stats[i].simuladoStats.history, stats[j].simuladoStats.history, currentRho);
+                const maxA = stats[i]?.maxScore ?? adaptiveContext?.maxScore ?? 100;
+                const minA = stats[i]?.minScore ?? adaptiveContext?.minScore ?? 0;
+                const maxB = stats[j]?.maxScore ?? adaptiveContext?.maxScore ?? 100;
+                const minB = stats[j]?.minScore ?? adaptiveContext?.minScore ?? 0;
+                currentRho = calculateDynamicCorrelation(
+                    stats[i].simuladoStats.history,
+                    stats[j].simuladoStats.history,
+                    currentRho,
+                    maxA,
+                    minA,
+                    maxB,
+                    minB
+                );
             }
 
             const covariance = currentRho * sdI * sdJ;

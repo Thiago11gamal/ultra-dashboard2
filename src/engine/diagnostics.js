@@ -19,14 +19,14 @@ function _getEntryDate(entry) {
   return parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
 }
 
-function _normalizeDiagnosticHistory(historyRaw, maxScore = 100) {
+function _normalizeDiagnosticHistory(historyRaw, maxScore = 100, minScore = 0) {
   const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
   if (!Array.isArray(history)) return [];
   return history
     .map((entry) => {
       const parsedDate = _getEntryDate(entry);
       if (!parsedDate) return null;
-      const score = getSafeScore(entry, maxScore);
+      const score = getSafeScore(entry, maxScore, minScore);
       if (!Number.isFinite(score)) return null;
       return { ...entry, date: parsedDate.toISOString(), score };
     })
@@ -338,14 +338,15 @@ export function estimateMemoryStability(history, maxScore = 100, baselineScore =
   return Number(stability.toFixed(1));
 }
 
-export function computeOptimalReviewInterval(stability, targetRetention = 0.7, mssdVolatility = null, effectiveN = null, maxScore = 100, currentMean = null, agilityPenalty = 0) {
+export function computeOptimalReviewInterval(stability, targetRetention = 0.7, mssdVolatility = null, effectiveN = null, maxScore = 100, currentMean = null, agilityPenalty = 0, minScore = 0) {
   const S = Math.max(0.5, Number(stability) || 7);
   const R = Math.max(0.05, Math.min(0.99, Number(targetRetention) || 0.7));
   let baseInterval = Math.max(1, 9 * S * ((1 / R) - 1));
 
   if (mssdVolatility != null && effectiveN != null && !Number.isNaN(Number(mssdVolatility))) {
-    const rmssd = Math.sqrt(Number(mssdVolatility));
-    const normalizedMssd = rmssd / maxScore;
+    const rmssd = Number(mssdVolatility);
+    const domain = Math.max(1e-6, maxScore - minScore);
+    const normalizedMssd = rmssd / domain;
 
     const fragilityPenalty = Math.max(0.4, 1 - (normalizedMssd * 3));
 
@@ -353,7 +354,7 @@ export function computeOptimalReviewInterval(stability, targetRetention = 0.7, m
     if (effectiveN >= 3 && normalizedMssd < 0.08) {
       const confidence = Math.min(1, effectiveN / 15);
       const stabilityBonus = Math.max(0, 0.08 - normalizedMssd) * 12;
-      const performanceFactor = currentMean !== null ? Math.max(0, (currentMean / maxScore) - 0.5) * 2.5 : 1;
+      const performanceFactor = currentMean !== null ? Math.max(0, ((currentMean - minScore) / domain) - 0.5) * 2.5 : 1;
       crystallizationBonus = 1 + (confidence * stabilityBonus * performanceFactor);
     }
     baseInterval = baseInterval * fragilityPenalty * crystallizationBonus;
@@ -365,9 +366,9 @@ export function computeOptimalReviewInterval(stability, targetRetention = 0.7, m
   return Math.max(1, Math.round(baseInterval));
 }
 
-export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null, daysSinceOverride = null, agilityPenalty = 0) {
+export function computeForgettingRisk(history, maxScore = 100, baselineScore = null, mssdVolatility = null, effectiveN = null, daysSinceOverride = null, agilityPenalty = 0, minScore = 0) {
   const noData = { risk: 'low', retentionPct: 100, stabilityDays: 3, optimalIntervalDays: 3, daysSinceLast: 0 };
-  const normalized = _normalizeDiagnosticHistory(history, maxScore);
+  const normalized = _normalizeDiagnosticHistory(history, maxScore, minScore);
   if (normalized.length === 0) return noData;
 
   const sorted = [...getSortedHistory(normalized)].filter(h => h != null && typeof h === 'object').reverse();
@@ -378,7 +379,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const retention = fsrsRetrievability(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));
 
-  const currentMean = _mean(sorted.map(h => getSafeScore(h, maxScore)));
+  const currentMean = _mean(sorted.map(h => getSafeScore(h, maxScore, minScore)));
   // ✅ LOTE-01 FIX (C5): computeOptimalReviewInterval usa a MESMA base FSRS
   // (9 * S * (1/R - 1)) mas consome mssdVolatility/effectiveN/agilityPenalty,
   // que antes eram recebidos e ignorados silenciosamente.
@@ -389,7 +390,8 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
     effectiveN,
     maxScore,
     currentMean,
-    agilityPenalty
+    agilityPenalty,
+    minScore
   );
 
   let risk;
@@ -677,10 +679,9 @@ export function computeCategoryDiagnostics({
   const hurst = diagnostic.hurstData;
   // ✅ LOTE-01 FIX (C5): diagnostic.mssd não existia (generateMathDiagnostic
   // não retorna esse campo) → mssdVolatility era sempre undefined.
-  // Calculamos o MSSD real; computeOptimalReviewInterval espera a VARIÂNCIA (sd²).
+  // Calculamos o MSSD real em unidades de desvio padrão
   const mssdSD = calculateMSSD(safeHistory, maxScore);
-  const mssdVariance = Number.isFinite(mssdSD) ? mssdSD * mssdSD : null;
-  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, mssdVariance, safeHistory.length);
+  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, mssdSD, safeHistory.length);
   const consistency = computeConsistencyIndex(safeHistory, maxScore);
   const velocity = computeLearningVelocity(safeHistory, maxScore);
 

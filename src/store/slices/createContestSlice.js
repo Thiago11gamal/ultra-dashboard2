@@ -1,5 +1,5 @@
-import { generateId } from '../../utils/idGenerator';
-import { INITIAL_DATA } from '../../data/initialData';
+import { generateId } from '../../utils/idGenerator.js';
+import { INITIAL_DATA } from '../../data/initialData.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { current } from 'immer';
 

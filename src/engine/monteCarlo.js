@@ -684,17 +684,27 @@ function hashObject(obj) {
     }
 }
 
-export function runMonteCarloAnalysis(params = {}) {
-    if (!params || typeof params !== 'object' || Array.isArray(params)) {
+export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
+    let resolvedParams = params;
+    if (Array.isArray(params)) {
+        const [meta, projectionDays, simulations, options] = legacyArgs;
+        resolvedParams = {
+            values: params,
+            meta,
+            projectionDays,
+            simulations,
+            ...(options && typeof options === 'object' ? options : {})
+        };
+    } else if (!params || typeof params !== 'object') {
         console.warn("[MC Engine] Fallback acionado. 'runMonteCarloAnalysis' requer objeto. Ignorando chamada bruta.");
         return monteCarloSimulation([], 85, 90, 5000, {});
     }
 
     // ✅ LOTE-04 FIX (A4): aceitar chave pré-computada (ex.: pureStatsHash do hook)
     // para evitar JSON.stringify de payloads enormes a cada chamada.
-    const cacheKey = (typeof params.cacheKey === 'string' && params.cacheKey.length > 0)
-        ? params.cacheKey
-        : hashObject(params);
+    const cacheKey = (typeof resolvedParams.cacheKey === 'string' && resolvedParams.cacheKey.length > 0)
+        ? resolvedParams.cacheKey
+        : hashObject(resolvedParams);
     const cached = getCachedSimulation(cacheKey);
     if (cached) return cached;
 
@@ -714,7 +724,7 @@ export function runMonteCarloAnalysis(params = {}) {
         historicalCutoffs: objHistoricalCutoffs,
         cacheKey: _providedCacheKey, // ✅ LOTE-04: não vazar para mergedOptions
         ...options
-    } = params;
+    } = resolvedParams;
 
     const safeDomain = sanitizeDomain(objMinScore, objMaxScore);
     const domainMin = safeDomain.minScore;

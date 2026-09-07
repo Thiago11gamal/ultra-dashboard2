@@ -1,6 +1,6 @@
-import { generateId } from '../../utils/idGenerator';
-import { XP_CONFIG } from '../../config/gamification';
-import { getTaskXP } from '../../utils/gamification';
+import { generateId } from '../../utils/idGenerator.js';
+import { XP_CONFIG } from '../../config/gamification.js';
+import { getTaskXP } from '../../utils/gamification.js';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {

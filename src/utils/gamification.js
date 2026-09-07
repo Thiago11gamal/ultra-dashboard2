@@ -1,4 +1,4 @@
-import { XP_CONFIG } from '../config/gamification';
+import { XP_CONFIG } from '../config/gamification.js';
 
 export const calculateLevel = (xpInput) => {
   const safeXp = Math.max(0, Math.trunc(Number(xpInput) || 0));

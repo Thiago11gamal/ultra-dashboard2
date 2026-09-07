@@ -157,7 +157,7 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     }
 
     const diff = curr.score - prev.score;
-    const dailyReturn = diff / dtDays;
+    const dailyReturn = diff / Math.sqrt(dtDays);
 
     if (Number.isFinite(dailyReturn)) {
       returns.push(dailyReturn);

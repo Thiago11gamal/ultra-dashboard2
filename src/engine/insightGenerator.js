@@ -1,6 +1,6 @@
-import { normalizeDate, toDateMs } from "../utils/dateHelper";
-import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper";
-import { pointsToRatio } from "../utils/scoreHelper.conversions";
+import { normalizeDate, toDateMs } from "../utils/dateHelper.js";
+import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper.js";
+import { pointsToRatio } from "../utils/scoreHelper.conversions.js";
 
 const toHistoryArray = (history) => {
     if (Array.isArray(history)) return history.filter(Boolean);

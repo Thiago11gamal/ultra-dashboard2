@@ -1404,6 +1404,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             hasSimulados: relevantSimulados.length > 0,
             hasHighPriorityTasks,
             completionRate: safeFixedNumber(completionRate * 100, 1),
+            efficiencyBridgeBoost: 0,
             balanceBridgeBoost: safeFixedNumber(balanceBridgeBoost),
             weight,
             srsLabel,

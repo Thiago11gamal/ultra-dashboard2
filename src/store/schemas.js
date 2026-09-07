@@ -1,9 +1,9 @@
 import { safeClone } from '../utils/safeClone.js';
-import { INITIAL_DATA } from '../data/initialData';
-import { generateId } from '../utils/idGenerator';
-import { normalize, aliases } from '../utils/normalization';
-import { getDateKey } from '../utils/dateHelper';
-import { computeCategoryStats } from '../engine';
+import { INITIAL_DATA } from '../data/initialData.js';
+import { generateId } from '../utils/idGenerator.js';
+import { normalize, aliases } from '../utils/normalization.js';
+import { getDateKey } from '../utils/dateHelper.js';
+import { computeCategoryStats } from '../engine/index.js';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
 

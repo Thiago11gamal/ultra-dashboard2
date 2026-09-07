@@ -273,8 +273,8 @@ export function generateAnalyticsStats({
 
             // ✅ LOTE-01 FIX (C3): propagar o piso da disciplina para o nível bayesiano
             const baye = computeBayesianLevel(history, 1, 1, catMaxScore, { minScore: catMinScore });
-            const stats = computeCategoryStats(history, weight, 60, catMaxScore);
-            const vol = calculateVolatility(history, catMaxScore);
+            const stats = computeCategoryStats(history, weight, 60, catMaxScore, catMinScore);
+            const vol = calculateVolatility(history, catMaxScore, catMinScore);
 
             if (stats && weight > 0) {
                 totalWeight += weight;
@@ -305,7 +305,7 @@ export function generateAnalyticsStats({
                 maxScoreByKey[weightKey] = catMaxScore;
 
                 history.forEach(h => {
-                    const currentScore = getSafeScore(h, catMaxScore);
+                    const currentScore = getSafeScore(h, catMaxScore, catMinScore);
 
                     // RIGOR FIX: Proteção contra Corrupção de Dados e o "0s Bug".
                     // 1. Evita que um NaN vicie a média do dia e destrua o dia inteiro.
@@ -465,14 +465,14 @@ export function generateAnalyticsStats({
     const globalHistory = rawGlobalHistory;
 
     const winsorizedScores = winsorizeSeries(
-        globalHistory.map(h => getSafeScore(h, safeMaxScore)),
+        globalHistory.map(h => getSafeScore(h, safeMaxScore, safeMinScore)),
         adaptiveSignal.adaptiveWinsor.low,
         adaptiveSignal.adaptiveWinsor.high
     );
 
     const robustGlobalHistory = globalHistory.map((h, idx) => ({ ...h, score: winsorizedScores[idx] }));
 
-    const temporalVolatility = calculateVolatility(robustGlobalHistory, safeMaxScore);
+    const temporalVolatility = calculateVolatility(robustGlobalHistory, safeMaxScore, safeMinScore);
     const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
 
     const avgCV = totalWeight > 0

@@ -1,5 +1,5 @@
-import { generateId } from '../../utils/idGenerator';
-import { normalize } from '../../utils/normalization';
+import { generateId } from '../../utils/idGenerator.js';
+import { normalize } from '../../utils/normalization.js';
 import { safeClone } from '../../utils/safeClone.js';
 
 export const createCategorySlice = (set) => ({

@@ -35,7 +35,7 @@ const getSafeTime = (dateInput) => {
  * NEW: Simple non-linear detrending helper (log-time improvement curve).
  * Many students improve fast then plateau.
  */
-export function computeNonLinearTrend(history, maxScore = 100, lambda = 0.08) {
+export function computeNonLinearTrend(history, maxScore = 100, lambda = 0.08, minScore = 0) {
   const sorted = getSortedHistory(history);
   if (sorted.length < 4) return { slope: 0, intercept: 50, type: 'linear' };
 
@@ -46,7 +46,7 @@ export function computeNonLinearTrend(history, maxScore = 100, lambda = 0.08) {
   let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0;
 
   sorted.forEach(h => {
-    const y = getSafeScore(h, maxScore);
+    const y = getSafeScore(h, maxScore, minScore);
     const t = Math.max(0, (getSafeTime(h.date || h.createdAt) - t0) / 86400000);
     const x = Math.log(1 + t + 1); // log time
     const w = Math.exp(-lambda * Math.max(0, (now - getSafeTime(h.date || h.createdAt)) / 86400000));
@@ -73,7 +73,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
-    const validSorted = sorted.filter(h => Number.isFinite(getSafeScore(h, maxScore)));
+    const validSorted = sorted.filter(h => Number.isFinite(getSafeScore(h, maxScore, minScore)));
     if (validSorted.length < 2) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
@@ -98,7 +98,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         const x = (parsed.getTime() - t0_vol) / 86400000;
         const t = Math.max(0, (now - parsed.getTime()) / 86400000);
         const w = Math.exp(-lambda * t);
-        const y = getSafeScore(h, maxScore);
+        const y = getSafeScore(h, maxScore, minScore);
         const val = y - (intercept + slope * x); // Resíduo (detrended)
         
         // Acumulação numa única passagem
@@ -154,7 +154,7 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
-    const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
+    const scores = history.map(h => getSafeScore(h, maxScore, minScore)).filter(Number.isFinite);
     const n = scores.length;
     if (n < 2) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
@@ -183,7 +183,7 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
   const validPairs = [];
   for (let i = 0; i < safeHistory.length; i++) {
     const h = safeHistory[i];
-    const score = getSafeScore(h, maxScore);
+    const score = getSafeScore(h, maxScore, minScore);
     const dateObj = safeDateParse(h.date || h.createdAt);
     const t = dateObj ? dateObj.getTime() : NaN;
     
@@ -312,11 +312,12 @@ export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
 // 💡 Crescimento Logístico (Curva-S)
 // -----------------------------
 export function logisticRegression(history, maxScore = 100, options = {}) {
+    const minScore = options?.minScore || 0;
     const sorted = getSortedHistory(history);
     if (sorted.length < 4) return { isLogistic: false };
 
     const now = options.referenceDate || Date.now();
-    const historicalScores = sorted.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
+    const historicalScores = sorted.map(h => getSafeScore(h, maxScore, minScore)).filter(Number.isFinite);
     if (historicalScores.length < 4) return { isLogistic: false };
     
     const meanVal = kahanSum(historicalScores) / Math.max(1, historicalScores.length);
@@ -365,7 +366,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         const w = Math.exp(-0.08 * t);
         const x = (getSafeTime(hDate) - getSafeTime(sorted[0].date || sorted[0].createdAt)) / 86400000;
         
-        let y = getSafeScore(h, maxScore);
+        let y = getSafeScore(h, maxScore, minScore);
         if (!Number.isFinite(y)) return;
         
         y = Math.max(maxScore * 0.01, Math.min(maxScore, y));
@@ -439,11 +440,11 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`
         // para projetar o futuro no Random Walk.
 
-        const rawScore = getSafeScore(sortedHistory[0], maxScore);
+        const rawScore = getSafeScore(sortedHistory[0], maxScore, minScore);
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
-            let currentPoint = getSafeScore(sortedHistory[i], maxScore);
+            let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);
             
             // PSEUDO-TRI: Rebalanceamento por dificuldade global
             if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0) {
@@ -558,7 +559,7 @@ export function monteCarloSimulation(
     // Find the last valid score in the sorted history
     let validCurrentScore = NaN;
     for (let i = sortedHistory.length - 1; i >= 0; i--) {
-        const s = getSafeScore(sortedHistory[i], maxScore);
+        const s = getSafeScore(sortedHistory[i], maxScore, minScore);
         if (Number.isFinite(s)) {
             validCurrentScore = s;
             break;
@@ -568,11 +569,11 @@ export function monteCarloSimulation(
     const fallbackScore = optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore;
     let baselineScore = forcedBaseline !== undefined ? forcedBaseline : fallbackScore;
     if (sortedHistory.length > 0) {
-        const rawScore = getSafeScore(sortedHistory[0], maxScore);
+        const rawScore = getSafeScore(sortedHistory[0], maxScore, minScore);
         let ema = Number.isFinite(rawScore) ? rawScore : 0;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
-            let currentPoint = getSafeScore(sortedHistory[i], maxScore);
+            let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);
 
             // PSEUDO-TRI: Rebalanceamento por dificuldade global
             if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0) {
@@ -631,7 +632,7 @@ export function monteCarloSimulation(
 
     // IMPROVED mean reversion (from Coach+MC analysis): give stronger weight to historical mean when performance is declining.
     // This prevents the projection from collapsing too aggressively on negative drift.
-    const histScores = sortedHistory.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
+    const histScores = sortedHistory.map(h => getSafeScore(h, maxScore, minScore)).filter(Number.isFinite);
     let historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
 
     // Aplica o esmagamento da métrica no equilíbrio de longo prazo também
@@ -708,8 +709,8 @@ export function monteCarloSimulation(
 
     let residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
         if (i === 0) return 0;
-        const prev = getSafeScore(sortedHistory[i - 1], maxScore);
-        const actualChange = getSafeScore(h, maxScore) - prev;
+        const prev = getSafeScore(sortedHistory[i - 1], maxScore, minScore);
+        const actualChange = getSafeScore(h, maxScore, minScore) - prev;
         const d1 = safeDateParse(h.date || h.createdAt);
         const d0 = safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt);
         const t1 = d1 && !Number.isNaN(d1.getTime()) ? d1.getTime() : Date.now();
@@ -743,7 +744,7 @@ export function monteCarloSimulation(
 
     const results = [];
     const lastEntry = sortedHistory[sortedHistory.length - 1];
-    const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore)}-${sortedHistory.length}`;
+    const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore, minScore)}-${sortedHistory.length}`;
     let seedValue = 2166136261;
     for (let i = 0; i < seedStr.length; i++) {
         seedValue ^= seedStr.charCodeAt(i);

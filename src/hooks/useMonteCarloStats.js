@@ -476,7 +476,8 @@ export function useMonteCarloStats({
               minCutoff: c.minCutoff || 0,
               maxScore: c.maxScore || maxScoreRef.current,
               minScore: minScoreRef.current,
-              immunityFactor: immunity
+              immunityFactor: immunity,
+              weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
             };
           });
 
@@ -547,7 +548,8 @@ export function useMonteCarloStats({
               minCutoff: c.minCutoff || 0,
               maxScore: c.maxScore || maxScoreRef.current,
               minScore: minScoreRef.current,
-              immunityFactor: immunity
+              immunityFactor: immunity,
+              weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
             };
           });
 
@@ -662,7 +664,8 @@ export function useMonteCarloStats({
                 minCutoff: c.minCutoff || 0,
                 maxScore: c.maxScore || maxScoreRef.current,
                 minScore: minScoreRef.current,
-                immunityFactor: immunity
+                immunityFactor: immunity,
+                weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
               };
             });
 
@@ -697,7 +700,8 @@ export function useMonteCarloStats({
                 minCutoff: c.minCutoff || 0,
                 maxScore: c.maxScore || maxScoreRef.current,
                 minScore: minScoreRef.current,
-                immunityFactor: immunity
+                immunityFactor: immunity,
+                weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
               };
             });
 

@@ -26,6 +26,11 @@ function safeMaxScoreValue(maxScore, fallback = 100) {
     return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+function safeMinScoreValue(minScore, fallback = 0) {
+    const n = Number(minScore);
+    return Number.isFinite(n) ? n : fallback;
+}
+
 export function computeImprovedRetentionProbability(historyLength, lastGapDays = 7, maxAlpha = 0.9) {
     const shortDecay = Math.pow(RETENTION_DECAY_SHORT, Math.max(0, lastGapDays));
     const longDecay = Math.pow(RETENTION_DECAY_LONG, Math.max(0, lastGapDays * 0.6));
@@ -89,13 +94,28 @@ export function pruneHistoryForMemory(history = [], maxPoints = 1500, maxAgeDays
 }
 
 export function weightedRegression(history, lambda = 0.08, maxScore = 100, options = {}) {
-    lambda = Math.max(0, Math.min(1, lambda ?? 0.08));
-    maxScore = safeMaxScoreValue(maxScore, 100);
+    let effectiveLambda = 0.08;
+    let effectiveMaxScore = 100;
+    let effectiveOptions = options;
 
-    const sorted = getSortedHistory(history);
+    if (typeof lambda === 'object' && lambda !== null) {
+        effectiveOptions = lambda;
+        effectiveLambda = Number.isFinite(effectiveOptions.lambda) ? effectiveOptions.lambda : 0.08;
+        effectiveMaxScore = safeMaxScoreValue(effectiveOptions.maxScore, 100);
+    } else {
+        effectiveLambda = Math.max(0, Math.min(1, Number.isFinite(Number(lambda)) ? Number(lambda) : 0.08));
+        effectiveMaxScore = safeMaxScoreValue(maxScore, 100);
+    }
+
+    const minScore = safeMinScoreValue(effectiveOptions?.minScore, 0);
+
+    const safeHistory = toHistoryArray(history);
+    if (safeHistory.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
+
+    const sorted = getSortedHistory(safeHistory);
     if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
 
-    const parsedReferenceDate = options.referenceDate != null ? safeDateParse(options.referenceDate) : null;
+    const parsedReferenceDate = effectiveOptions.referenceDate != null ? safeDateParse(effectiveOptions.referenceDate) : null;
     const now = parsedReferenceDate && Number.isFinite(parsedReferenceDate.getTime())
         ? parsedReferenceDate.getTime()
         : Date.now();
@@ -113,12 +133,12 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         const timeMs = safeDateParse(h?.date || h?.createdAt)?.getTime() ?? NaN;
         if (!Number.isFinite(timeMs)) continue;
 
-        const y = getSafeScore(h, maxScore);
+        const y = getSafeScore(h, effectiveMaxScore, minScore);
         if (!Number.isFinite(y)) continue;
 
         const t = Math.max(0, (now - timeMs) / 86400000);
         const EPSILON_WEIGHT = 1e-10;
-        const rawWeight = Math.exp(-lambda * t);
+        const rawWeight = Math.exp(-effectiveLambda * t);
         const w = Math.max(EPSILON_WEIGHT, rawWeight);
         const x = (timeMs - t0) / 86400000;
 
@@ -144,22 +164,23 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     const regularizedDenominator = varianceX + RIDGE_PENALTY;
 
     if (safeSumW < 1e-15 || regularizedDenominator < 1e-15) {
-        const fallbackScore = getSafeScore(sorted[sorted.length - 1], maxScore);
+        const fallbackScore = getSafeScore(sorted[sorted.length - 1], effectiveMaxScore, minScore);
         return { slope: 0, intercept: Number.isFinite(fallbackScore) ? fallbackScore : 0, slopeStdError: 1.5 };
     }
 
     let slope = covXY / regularizedDenominator;
-    const maxSlopeLimit = maxScore * 0.05;
+    const maxSlopeLimit = effectiveMaxScore * 0.05;
     slope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, slope));
 
     const intercept = (sumWY - slope * sumWX) / safeSumW;
-    const slopeStdError = calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options);
+    const slopeStdError = calculateSlopeStdError(sorted, slope, intercept, effectiveLambda, effectiveMaxScore, { ...effectiveOptions, minScore });
 
     return { slope, intercept, slopeStdError };
 }
 
 export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScore, options = {}) {
     maxScore = safeMaxScoreValue(maxScore, 100);
+    const minScore = safeMinScoreValue(options?.minScore, 0);
 
     const parsedReferenceDate = options.referenceDate != null ? safeDateParse(options.referenceDate) : null;
     const now = parsedReferenceDate && Number.isFinite(parsedReferenceDate.getTime())
@@ -179,7 +200,7 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
         const timeMs = safeDateParse(h?.date || h?.createdAt)?.getTime() ?? NaN;
         if (!Number.isFinite(timeMs)) continue;
 
-        const y = getSafeScore(h, maxScore);
+        const y = getSafeScore(h, maxScore, minScore);
         if (!Number.isFinite(y)) continue;
 
         const x = (timeMs - t0) / 86400000;
@@ -247,8 +268,9 @@ function getDynamicTrendThreshold(currentScore, maxScore) {
 }
 
 // ✅ FIX: getDynamicPriorSD trata array de números nus
-function getDynamicPriorSD(history, maxScore) {
+function getDynamicPriorSD(history, maxScore, minScore = 0) {
   const safeMaxScore = safeMaxScoreValue(maxScore, 100);
+  const safeMinScore = safeMinScoreValue(minScore, 0);
   const safeHistory = toHistoryArray(history);
   
   if (safeHistory.length < 5) return safeMaxScore * 0.15;
@@ -256,7 +278,7 @@ function getDynamicPriorSD(history, maxScore) {
   // ✅ FIX: Trata tanto objetos {score} quanto números nus
   const scores = safeHistory.map(h => {
     if (typeof h === 'number') return h;
-    return getSafeScore(h, safeMaxScore);
+    return getSafeScore(h, safeMaxScore, safeMinScore);
   }).filter(Number.isFinite);
   
   if (scores.length < 5) return safeMaxScore * 0.15;
@@ -277,14 +299,15 @@ export function mean(arr) {
 export const calcularMedia = mean;
 
 // ✅ FIX: standardDeviation aceita array de números nus
-export function standardDeviation(arr, maxScore = 100, customMean = null) {
+export function standardDeviation(arr, maxScore = 100, customMean = null, minScore = 0) {
   if (!arr || arr.length < 1) return 0;
   
   const safeMaxScore = safeMaxScoreValue(maxScore, 100);
+  const safeMinScore = safeMinScoreValue(minScore, 0);
   
   // ✅ FIX: Trata tanto objetos {score} quanto números nus
   const clean = arr
-    .map(v => typeof v === 'number' ? v : getSafeScore(v, safeMaxScore))
+    .map(v => typeof v === 'number' ? v : getSafeScore(v, safeMaxScore, safeMinScore))
     .filter(Number.isFinite);
   
   if (clean.length < 1) return 0;
@@ -1087,7 +1110,7 @@ export function computeAgilityMetrics(history, targetSeconds = 120) {
     };
 }
 
-export function calculateSlopePerDay(history, maxScore = 100) {
+export function calculateSlopePerDay(history, maxScore = 100, minScore = 0) {
     const safeHistory = toHistoryArray(history);
     if (safeHistory.length < 2) return 0;
 
@@ -1095,6 +1118,7 @@ export function calculateSlopePerDay(history, maxScore = 100) {
     if (sorted.length < 2) return 0;
 
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
+    const safeMinScore = safeMinScoreValue(minScore, 0);
 
     // ✅ FIX: Filtrar entradas com datas válidas ANTES de calcular.
     // Isso garante que firstDate sempre seja um timestamp válido.
@@ -1103,7 +1127,7 @@ export function calculateSlopePerDay(history, maxScore = 100) {
         const h = sorted[i];
         const dateParsed = safeDateParse(h?.date ?? h?.createdAt);
         const time = dateParsed?.getTime();
-        const y = getSafeScore(h, safeMaxScore);
+        const y = getSafeScore(h, safeMaxScore, safeMinScore);
         if (Number.isFinite(time) && Number.isFinite(y)) {
             validEntries.push({ time, y });
         }

@@ -23,7 +23,8 @@ function sanitizeSubjects(subjects) {
         minCutoff: safeNum(s?.minCutoff, 0),
         maxScore: safeNum(s?.maxScore, 100),
         minScore: safeNum(s?.minScore, 0),
-        immunityFactor: safeNum(s?.immunityFactor, 1.0)
+        immunityFactor: safeNum(s?.immunityFactor, 1.0),
+        weight: safeNum(s?.weight, 1.0)
     }));
 }
 

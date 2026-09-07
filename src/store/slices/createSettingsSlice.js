@@ -1,4 +1,4 @@
-import { validateAppState } from '../schemas';
+import { validateAppState } from '../schemas.js';
 
 const applyDarkModeToggle = (state) => {
   if (!state.appState) return;

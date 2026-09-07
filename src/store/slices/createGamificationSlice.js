@@ -1,6 +1,6 @@
-import { calculateLevel } from '../../utils/gamification';
-import { buildAchievementStats } from '../../utils/analytics';
-import { ACHIEVEMENTS } from '../../config/gamification';
+import { calculateLevel } from '../../utils/gamification.js';
+import { buildAchievementStats } from '../../utils/analytics.js';
+import { ACHIEVEMENTS } from '../../config/gamification.js';
 
 export const createGamificationSlice = (set, get) => ({
     processGamification: (xpGained) => {

@@ -1,0 +1,35 @@
+{
+  "startedAt": "2026-09-07T16:34:26.679Z",
+  "finishedAt": "2026-09-07T16:34:29.246Z",
+  "ok": false,
+  "results": [
+    {
+      "command": "node scripts/test-math-engines.mjs",
+      "status": 1,
+      "ok": false,
+      "stdout": "",
+      "stderr": "node:internal/modules/esm/resolve:274\r\n    throw new ERR_MODULE_NOT_FOUND(\r\n          ^\r\n\r\nError [ERR_MODULE_NOT_FOUND]: Cannot find module 'D:\\Downloads\\ultra-patched\\src\\utils\\retentionCore' imported from D:\\Downloads\\ultra-patched\\src\\engine\\probabilistic\\fsrs.js\r\n    at finalizeResolution (node:internal/modules/esm/resolve:274:11)\r\n    at moduleResolve (node:internal/modules/esm/resolve:864:10)\r\n    at defaultResolve (node:internal/modules/esm/resolve:990:11)\r\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:718:20)\r\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:735:38)\r\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:764:52)\r\n    at #resolve (node:internal/modules/esm/loader:700:17)\r\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:620:35)\r\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:143:33)\r\n    at ModuleJob.link (node:internal/modules/esm/module_job:228:17) {\r\n  code: 'ERR_MODULE_NOT_FOUND',\r\n  url: 'file:///D:/Downloads/ultra-patched/src/utils/retentionCore'\r\n}\r\n\r\nNode.js v24.13.0\r\n"
+    },
+    {
+      "command": "node scripts/test-math-rigorous.mjs",
+      "status": 1,
+      "ok": false,
+      "stdout": "",
+      "stderr": "node:internal/modules/esm/resolve:274\r\n    throw new ERR_MODULE_NOT_FOUND(\r\n          ^\r\n\r\nError [ERR_MODULE_NOT_FOUND]: Cannot find module 'D:\\Downloads\\ultra-patched\\src\\utils\\retentionCore' imported from D:\\Downloads\\ultra-patched\\src\\engine\\probabilistic\\fsrs.js\r\n    at finalizeResolution (node:internal/modules/esm/resolve:274:11)\r\n    at moduleResolve (node:internal/modules/esm/resolve:864:10)\r\n    at defaultResolve (node:internal/modules/esm/resolve:990:11)\r\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:718:20)\r\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:735:38)\r\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:764:52)\r\n    at #resolve (node:internal/modules/esm/loader:700:17)\r\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:620:35)\r\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:143:33)\r\n    at ModuleJob.link (node:internal/modules/esm/module_job:228:17) {\r\n  code: 'ERR_MODULE_NOT_FOUND',\r\n  url: 'file:///D:/Downloads/ultra-patched/src/utils/retentionCore'\r\n}\r\n\r\nNode.js v24.13.0\r\n"
+    },
+    {
+      "command": "node scripts/test-bootstrap-ci.mjs",
+      "status": 0,
+      "ok": true,
+      "stdout": "┌─────────┬───────────────────────────────┬──────┬───────────────────────┐\n│ (index) │ name                          │ pass │ details               │\n├─────────┼───────────────────────────────┼──────┼───────────────────────┤\n│ 0       │ 'bootstrap ci finite+ordered' │ true │ '57.70..61.10..64.60' │\n└─────────┴───────────────────────────────┴──────┴───────────────────────┘\nBootstrap CI checks passed.\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/test-math-integration.mjs",
+      "status": 1,
+      "ok": false,
+      "stdout": "",
+      "stderr": "node:internal/modules/esm/resolve:274\r\n    throw new ERR_MODULE_NOT_FOUND(\r\n          ^\r\n\r\nError [ERR_MODULE_NOT_FOUND]: Cannot find module 'D:\\Downloads\\ultra-patched\\src\\utils\\retentionCore' imported from D:\\Downloads\\ultra-patched\\src\\engine\\probabilistic\\fsrs.js\r\n    at finalizeResolution (node:internal/modules/esm/resolve:274:11)\r\n    at moduleResolve (node:internal/modules/esm/resolve:864:10)\r\n    at defaultResolve (node:internal/modules/esm/resolve:990:11)\r\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:718:20)\r\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:735:38)\r\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:764:52)\r\n    at #resolve (node:internal/modules/esm/loader:700:17)\r\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:620:35)\r\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:143:33)\r\n    at ModuleJob.link (node:internal/modules/esm/module_job:228:17) {\r\n  code: 'ERR_MODULE_NOT_FOUND',\r\n  url: 'file:///D:/Downloads/ultra-patched/src/utils/retentionCore'\r\n}\r\n\r\nNode.js v24.13.0\r\n"
+    }
+  ]
+}

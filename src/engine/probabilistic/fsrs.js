@@ -12,7 +12,8 @@ import {
     toDateMs,
     toFiniteNumber,
     MS_PER_DAY
-} from '../../utils/retentionCore';
+} from '../../utils/retentionCore.js';
+import { getSafeScore } from '../../utils/scoreHelper.js';
 
 /**
  * Retrievability FSRS: probabilidade de lembrança após `daysSince` dias.
@@ -159,8 +160,11 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
   const desiredRetention = Math.max(0.5, Math.min(0.95, Number(options.desiredRetention) || 0.85));
   const daysSince = Math.max(0, Number(options.daysSince) || 0);
 
+  const minScore = Number(options.minScore) || 0;
+  const domain = Math.max(1e-6, maxScore - minScore);
+
   const scores = safeHistory
-    .map(h => Number(h?.score ?? h?.value))
+    .map(h => getSafeScore(h, maxScore, minScore))
     .filter(Number.isFinite);
   if (scores.length === 0) return null;
 
@@ -170,8 +174,8 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
     : 0;
   const sd = Math.sqrt(Math.max(0, variance));
 
-  const consistencyFactor = Math.max(0.1, 1 - (sd / maxScore));
-  const performanceFactor = Math.max(0.1, mean / maxScore);
+  const consistencyFactor = Math.max(0.1, 1 - (sd / domain));
+  const performanceFactor = Math.max(0.1, (mean - minScore) / domain);
   const baseStability = 3 + (14 * consistencyFactor * performanceFactor * Math.min(1, scores.length / 5));
 
   const stability = Math.max(1, Math.min(180, baseStability));

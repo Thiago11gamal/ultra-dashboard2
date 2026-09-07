@@ -20,6 +20,8 @@
  * Ele só será usado se as feature flags estiverem ativas.
  */
 
+import { getSafeScore } from '../../utils/scoreHelper.js';
+
 /**
  * State Space Model para estimativa de habilidade latente.
  * Usa filtro de Kalman simplificado com média de Kahan corrigida.
@@ -121,7 +123,7 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
 
   const obs = (Array.isArray(observations) ? observations : [])
     .map((entry, index) => {
-      const score = Number(entry?.score);
+      const score = getSafeScore(entry, maxScore, minScore);
       const time = parseObservationTime(entry);
 
       return {

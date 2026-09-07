@@ -1,6 +1,6 @@
-import { generateId } from '../../utils/idGenerator';
-import { XP_CONFIG } from '../../config/gamification';
-import { SYNC_LOG_CAP } from '../../config';
+import { generateId } from '../../utils/idGenerator.js';
+import { XP_CONFIG } from '../../config/gamification.js';
+import { SYNC_LOG_CAP } from '../../config.js';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
