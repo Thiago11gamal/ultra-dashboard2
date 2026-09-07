@@ -10,10 +10,10 @@ import { normalize, aliases } from '../../../utils/normalization';
 import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const COLORS = {
-    gaugeBg: '#1e293b',
+    gaugeBg: 'rgba(255, 255, 255, 0.05)',
     gaugeFillValid: '#a855f7',
-    gaugeFillDanger: '#ef4444',
-    gaugeFillSuccess: '#22c55e',
+    gaugeFillDanger: '#f43f5e',
+    gaugeFillSuccess: '#10b981',
     reference: '#94a3b8',
     neonLine: '#c084fc',
 };
@@ -23,19 +23,27 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         return (
-            <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl">
-                <p className="text-slate-300 text-xs font-bold mb-1">{data.displayDate}</p>
-                <p className="text-white text-sm font-black flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS.neonLine }}></span>
-                    Média: {safeFix(data.accuracy)}{unit}
-                </p>
-                {data.lastTestAcc != null && (
-                    <p className="text-white text-sm font-black flex items-center gap-2 mt-1">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.lastTestColor || COLORS.gaugeFillValid }}></span>
-                        Último: {safeFix(data.lastTestAcc)}{unit}
+            <div className="bg-slate-950/90 border border-white/15 p-3.5 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 font-mono">{data.displayDate}</p>
+                <div className="space-y-1.5">
+                    <p className="text-white text-xs font-black flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
+                            <span className="w-2 h-2 rounded-full shadow-[0_0_8px_#c084fc]" style={{ backgroundColor: COLORS.neonLine }}></span>
+                            Média diária:
+                        </span>
+                        <span className="font-mono text-purple-300">{safeFix(data.accuracy)}{unit}</span>
                     </p>
-                )}
-                <p className="text-slate-500 text-[10px] mt-2 uppercase tracking-wider">{data.total} questões</p>
+                    {data.lastTestAcc != null && (
+                        <p className="text-white text-xs font-black flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.lastTestColor || COLORS.gaugeFillValid }}></span>
+                                Último teste:
+                            </span>
+                            <span className="font-mono" style={{ color: data.lastTestColor || COLORS.gaugeFillValid }}>{safeFix(data.lastTestAcc)}{unit}</span>
+                        </p>
+                    )}
+                </div>
+                <p className="text-slate-500 text-[9px] mt-2.5 pt-1.5 border-t border-white/5 uppercase tracking-wider font-semibold">{data.total} questões resolvidas</p>
             </div>
         );
     }
@@ -48,10 +56,10 @@ const CustomTooltipPie = ({ active, payload, unit }) => {
         const item = payload[0].payload;
         if (item.trueValue == null) return null;
         return (
-            <div className="bg-slate-900/95 border border-slate-700/80 p-2.5 rounded-xl shadow-2xl backdrop-blur-md">
-                <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider mb-0.5">{String(item.name ?? '').replace(' (Restante)', '')}</p>
-                <p className="text-white text-xs font-black flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.baseColor }}></span>
+            <div className="bg-slate-950/95 border border-white/15 p-2.5 rounded-xl shadow-2xl backdrop-blur-xl">
+                <p className="text-slate-400 text-[9px] uppercase font-bold tracking-wider mb-0.5">{String(item.name ?? '').replace(' (Restante)', '')}</p>
+                <p className="text-white text-xs font-black flex items-center gap-1.5 font-mono">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.baseColor, boxShadow: `0 0 8px ${item.baseColor}` }}></span>
                     {safeFix(item.trueValue)}{unit}
                 </p>
             </div>
@@ -306,34 +314,34 @@ export function TodayVsGeneralChart({
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[400px]">
-            <div className="w-full lg:w-1/3 min-w-[280px] bg-black/40 border border-slate-700/50 rounded-3xl p-6 flex flex-col items-center justify-center relative shadow-inner overflow-hidden group">
+            <div className="w-full lg:w-1/3 min-w-[280px] bg-slate-900/60 border border-slate-800/80 rounded-3xl p-6 flex flex-col items-center justify-center relative shadow-xl backdrop-blur-md overflow-hidden group">
                 <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                    <div className="p-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
                         <Target size={14} />
                     </div>
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
                         {todayAcc != null ? 'Sessão de hoje' : `Último dia ativo (${lastActiveEntry?.displayDate || 'sem data'})`}
                     </span>
                 </div>
-                <div className="absolute top-4 right-4 flex flex-col items-end gap-0.5 max-h-[calc(100%-6rem)] overflow-y-auto no-scrollbar">
+                <div className="absolute top-4 right-4 flex flex-col items-end gap-1 max-h-[calc(100%-6rem)] overflow-y-auto no-scrollbar">
                     {temporalMetrics.slice().reverse().map(metric => {
                         if (metric.val == null) {
                             return (
-                                <div key={metric.id} className="flex items-center gap-1.5 opacity-40">
-                                    <span className="text-[7px] text-slate-500 uppercase tracking-widest font-black">{metric.label}</span>
-                                    <span className="text-[10px] font-black tracking-tighter text-slate-600">--{unit}</span>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-800"></div>
+                                <div key={metric.id} className="flex items-center gap-1.5 opacity-30">
+                                    <span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold">{metric.label}</span>
+                                    <span className="text-[10px] font-bold font-mono text-slate-600">--{unit}</span>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
                                 </div>
                             );
                         }
                         const c = getColor(metric.val);
                         return (
                             <div key={metric.id} className="flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
-                                <span className="text-[7px] text-slate-500 uppercase tracking-widest font-black">{metric.label}</span>
-                                <span className="text-[10px] font-black tracking-tighter" style={{ color: c }}>
+                                <span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">{metric.label}</span>
+                                <span className="text-[10px] font-black font-mono" style={{ color: c }}>
                                     {safeFix(metric.val)}{unit}
                                 </span>
-                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, filter: `drop-shadow(0 0 4px ${c}80)` }}></div>
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }}></div>
                             </div>
                         );
                     })}
@@ -375,16 +383,16 @@ export function TodayVsGeneralChart({
                         </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
-                        <div className="text-4xl sm:text-5xl font-black text-white drop-shadow-lg tabular-nums tracking-tight">
-                            {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1">{unit}</span>
+                        <div className="text-4xl sm:text-5xl font-black text-white drop-shadow-md tabular-nums font-mono tracking-tight">
+                            {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1 font-sans">{unit}</span>
                         </div>
-                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">
                             Acertos de hoje ({unit})
                         </span>
                     </div>
                 </div>
                 <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
-                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${
+                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm backdrop-blur-sm ${
                         deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
                         deltaStatus === 'negative' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' :
                         'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
@@ -393,14 +401,14 @@ export function TodayVsGeneralChart({
                          deltaStatus === 'negative' ? <TrendingDown size={14} /> : 
                          <Minus size={14} />}
                         <div className="flex flex-col">
-                            <span className="text-sm font-black">
+                            <span className="text-sm font-black font-mono">
                                 {delta > 0 ? '+' : delta < 0 ? '−' : ''}{safeFix(deltaAbs)}{unit}
                             </span>
                             <span className="text-[7px] uppercase tracking-wider opacity-70">Geral</span>
                         </div>
                     </div>
                     {deltaLastVsToday !== null && (
-                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm ${
+                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm backdrop-blur-sm ${
                             lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' :
                             lastVsTodayStatus === 'negative' ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' :
                             'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
@@ -409,7 +417,7 @@ export function TodayVsGeneralChart({
                              lastVsTodayStatus === 'negative' ? <TrendingDown size={14} /> : 
                              <Minus size={14} />}
                             <div className="flex flex-col">
-                                <span className="text-xs font-black">
+                                <span className="text-xs font-black font-mono">
                                     {deltaLastVsToday > 0 ? '+' : deltaLastVsToday < 0 ? '−' : ''}{safeFix(Math.abs(deltaLastVsToday))}{unit}
                                 </span>
                                 <span className="text-[7px] uppercase tracking-wider opacity-70">Ritmo (Hoje)</span>
@@ -420,21 +428,21 @@ export function TodayVsGeneralChart({
                 <div className="w-full flex justify-between items-center mt-6 pt-4 border-t border-white/5 px-2">
                     <div className="flex flex-col">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Média Geral</span>
-                        <span className="text-sm font-bold text-slate-300">{safeFix(generalAccuracy)}{unit}</span>
+                        <span className="text-sm font-bold font-mono text-slate-300">{safeFix(generalAccuracy)}{unit}</span>
                     </div>
                     <div className="flex flex-col text-right">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Meta</span>
-                        <span className="text-sm font-bold text-slate-300">{formatValue(targetScore)}{unit}</span>
+                        <span className="text-sm font-bold font-mono text-emerald-400">{formatValue(targetScore)}{unit}</span>
                     </div>
                 </div>
             </div>
-            <div className="w-full lg:w-2/3 flex-1 bg-black/20 border border-slate-700/30 rounded-3xl p-4 sm:p-6 flex flex-col relative">
+            <div className="w-full lg:w-2/3 flex-1 bg-slate-900/60 border border-slate-800/80 rounded-3xl p-4 sm:p-6 flex flex-col relative backdrop-blur-md shadow-xl">
                 <div className="flex justify-between items-start mb-6">
                     <div className="flex flex-col">
-                        <h4 className="text-sm font-black text-slate-200 uppercase tracking-widest mb-1 flex items-center gap-2">
+                        <h4 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-1 flex items-center gap-2">
                             Histórico Recente (14 dias)
                         </h4>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                             Compare suas variações diárias com a linha base
                         </p>
                     </div>
@@ -444,17 +452,17 @@ export function TodayVsGeneralChart({
                         <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
                             <defs>
                                 <linearGradient id={`neonGradient_${neonGradInstanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor={COLORS.neonLine} stopOpacity={0.4} />
-                                    <stop offset="100%" stopColor={COLORS.neonLine} stopOpacity={1} />
+                                    <stop offset="0%" stopColor="#c084fc" stopOpacity={0.4} />
+                                    <stop offset="100%" stopColor="#a855f7" stopOpacity={1} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                             <XAxis 
                                 dataKey="displayDate" 
                                 stroke="#64748b" 
                                 fontSize={10} 
                                 tickLine={false} 
-                                axisLine={false} 
+                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
                                 dy={10}
                                 fontWeight={600}
                             />
@@ -463,27 +471,28 @@ export function TodayVsGeneralChart({
                                 stroke="#64748b" 
                                 fontSize={10} 
                                 tickLine={false} 
-                                axisLine={false} 
+                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
                                 tickFormatter={(v) => `${formatValue(v)}${unit}`} 
+                                fontWeight={600}
                             />
-                            <Tooltip content={<CustomTooltipTimeline unit={unit} />} cursor={{ stroke: '#ffffff1a', strokeWidth: 2 }} />
+                            <Tooltip content={<CustomTooltipTimeline unit={unit} />} cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
                             <ReferenceLine 
                                 y={generalAccuracy} 
                                 stroke={COLORS.reference} 
-                                strokeDasharray="5 5" 
-                                strokeWidth={2} 
-                                opacity={0.6}
-                                label={{ value: 'Média geral', fill: COLORS.reference, fontSize: 10, position: 'insideTopLeft' }}
+                                strokeDasharray="4 4" 
+                                strokeWidth={1.5} 
+                                opacity={0.7}
+                                label={{ value: 'Média geral', fill: COLORS.reference, fontSize: 10, fontWeight: 700, position: 'insideTopLeft', dy: -4 }}
                             />
                             <Line 
                                 type="monotoneX" 
                                 dataKey="accuracy" 
                                 stroke={`url(#neonGradient_${neonGradInstanceId})`} 
                                 strokeWidth={3} 
-                                dot={{ fill: '#1e293b', stroke: COLORS.neonLine, strokeWidth: 2, r: 4 }}
-                                activeDot={{ fill: COLORS.neonLine, stroke: '#fff', strokeWidth: 2, r: 6 }}
+                                dot={{ fill: '#0f172a', stroke: '#c084fc', strokeWidth: 2, r: 4 }}
+                                activeDot={{ fill: '#c084fc', stroke: '#fff', strokeWidth: 2, r: 6 }}
                                 isAnimationActive={true}
-                                animationDuration={1200}
+                                animationDuration={1000}
                             >
                                 <LabelList 
                                     dataKey="accuracy" 
@@ -495,7 +504,7 @@ export function TodayVsGeneralChart({
                                     fontWeight={700}
                                 />
                             </Line>
-                            <Bar dataKey="lastTestAcc" barSize={16} radius={[4,4,0,0]} isAnimationActive={true} animationDuration={1200} fill={COLORS.gaugeFillValid}>
+                            <Bar dataKey="lastTestAcc" barSize={18} radius={[6,6,0,0]} isAnimationActive={true} animationDuration={1000} fill={COLORS.gaugeFillValid}>
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.lastTestColor || COLORS.gaugeFillValid} style={{ filter: entry.lastTestColor ? `drop-shadow(0 0 6px ${entry.lastTestColor}80)` : 'none' }} />
                                 ))}

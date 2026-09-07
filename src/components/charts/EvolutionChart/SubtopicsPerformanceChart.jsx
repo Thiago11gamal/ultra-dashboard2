@@ -350,26 +350,26 @@ export const SubtopicsPerformanceChart = React.memo(({
 
 
     return (
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[600px]" id={`subtopics_container_${instanceId}`}>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
+        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl w-full min-h-[600px]" id={`subtopics_container_${instanceId}`}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 px-1 gap-3">
                 <div>
-                    <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-0.5">
+                    <h3 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-500 mb-0.5 tracking-tight">
                         Raio-X de Tópicos
                     </h3>
-                    <p className="text-slate-500 text-xs mt-1">Percentual de precisão real de cada pilar da sua disciplina.</p>
+                    <p className="text-slate-400 text-xs mt-0.5">Taxa de acertos real por assunto e volume de questões realizadas.</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/50 p-1 rounded-2xl shadow-inner shrink-0 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 p-1 rounded-2xl shadow-inner shrink-0 w-full sm:w-auto">
                     <button
                         onClick={() => setViewMode('bars')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
+                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm' : 'text-slate-400 hover:text-slate-200 border border-transparent hover:bg-slate-800/40'}`}
                         aria-pressed={viewMode === 'bars'}
                     >
                         Ranking (Barras)
                     </button>
                     <button
                         onClick={() => setViewMode('lines')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
+                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40 shadow-sm' : 'text-slate-400 hover:text-slate-200 border border-transparent hover:bg-slate-800/40'}`}
                         aria-pressed={viewMode === 'lines'}
                     >
                         Tempo (Linhas)
@@ -389,28 +389,28 @@ export const SubtopicsPerformanceChart = React.memo(({
                 <div className="w-full relative" style={{ height: Math.max(450, chartData.length * 60) }}>
                     <ChartFrame minHeight={450} label="Analisando subtópicos">
                         <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
-                        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: -5, bottom: 0 }}>
+                        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 120, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.6}/>
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
                                     <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
                                 </linearGradient>
                                 <linearGradient id={`gradWarn_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.6}/>
+                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.7}/>
                                     <stop offset="100%" stopColor="#fbbf24" stopOpacity={1}/>
                                 </linearGradient>
                                 <linearGradient id={`gradBad_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.6}/>
+                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.7}/>
                                     <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" horizontal={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
 
                             <XAxis
                                 type="number"
                                 domain={[0, 100]}
-                                stroke="#ffffff"
-                                tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }}
+                                stroke="#94a3b8"
+                                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                                 axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 tickLine={false}
                                 tickFormatter={(v) => `${v}${accuracyUnit}`}
@@ -420,16 +420,16 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 <YAxis
                                     type="category"
                                     dataKey="name"
-                                    stroke="#ffffff"
+                                    stroke="#cbd5e1"
                                     tick={(props) => {
                                         const { x, y, payload } = props;
                                         const text = payload?.value || "";
                                         const fullText = payload?.payload?.fullName || text;
-                                        const maxLen = 22;
+                                        const maxLen = 24;
                                         const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
                                         return (
                                             <g transform={`translate(${x},${y})`}>
-                                                <text x={0} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
+                                                <text x={-6} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
                                                     <title>{fullText}</title>
                                                     {truncated}
                                                 </text>
@@ -438,7 +438,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     }}
                                     axisLine={false}
                                     tickLine={false}
-                                    width={150}
+                                    width={160}
                                 />
 
                             <Tooltip
@@ -454,9 +454,16 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                             />
 
-                            <ReferenceLine x={targetScorePct} stroke="rgba(52, 211, 153, 0.6)" strokeDasharray="4 4" strokeWidth={2} />
+                            <ReferenceLine 
+                                x={targetScorePct} 
+                                stroke="#10b981" 
+                                strokeDasharray="5 3" 
+                                strokeWidth={2}
+                                strokeOpacity={0.8}
+                                label={{ position: 'top', value: 'META', fill: '#34d399', fontSize: 10, fontWeight: 'bold' }}
+                            />
 
-                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={28} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.04)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
+                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
                                 {chartData.map((entry, index) => {
                                     let barColor = `url(#gradBad_${instanceId})`;
                                     if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;

@@ -249,10 +249,10 @@ export function CompareChart({
         
         return (
             <g>
-                <rect x={labelX} y={safeY} width={boxWidth} height={20} rx={10}
-                      fill={color} fillOpacity={0.15} stroke={color} strokeOpacity={0.4} />
-                <text x={labelX + boxWidth / 2} y={safeY + 14} fill={color} fontSize={11}
-                      fontWeight="black" textAnchor="middle"
+                <rect x={labelX} y={safeY - 1} width={boxWidth} height={22} rx={8}
+                      fill="#0b0f19" fillOpacity={0.92} stroke={color} strokeOpacity={0.9} strokeWidth={1.6} />
+                <text x={labelX + boxWidth / 2} y={safeY + 14} fill="#ffffff" fontSize={10.5}
+                      fontWeight="900" textAnchor="middle"
                       style={{ textShadow: '0 2px 6px rgba(0,0,0,0.9)' }}>
                     {formatted}
                 </text>
@@ -287,55 +287,82 @@ export function CompareChart({
                             <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                         </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis 
                         dataKey="date" 
                         tickFormatter={formatDisplayDate}
-                        tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} 
+                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
                         dy={12} 
-                        axisLine={false} 
+                        axisLine={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} 
                         tickLine={false} 
-                        minTickGap={35} 
+                        minTickGap={30} 
                     />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} dx={-8} axisLine={false} tickLine={false} domain={[safeMinScore, safeMaxScore]} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} width={50} />
+                    <YAxis 
+                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
+                        dx={-8} 
+                        axisLine={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} 
+                        tickLine={false} 
+                        domain={[safeMinScore, safeMaxScore]} 
+                        allowDataOverflow={false} 
+                        tickFormatter={(v) => `${formatValue(v)}${unit}`} 
+                        width={50} 
+                    />
                     
-                                    <ReferenceArea
-                                        y1={safeTargetScore}
-                                        y2={safeMaxScore}
-                                        fill="#10b981"
-                                        fillOpacity={0.05}
-                                    />
+                    <ReferenceArea
+                        y1={safeTargetScore}
+                        y2={safeMaxScore}
+                        fill="#10b981"
+                        fillOpacity={0.05}
+                    />
                     
-                                    <ReferenceArea
-                                        y1={safeMinScore}
-                                        y2={dangerLimit}
-                                        fill="#ef4444"
-                                        fillOpacity={0.04}
-                                    />
+                    <ReferenceArea
+                        y1={safeMinScore}
+                        y2={dangerLimit}
+                        fill="#ef4444"
+                        fillOpacity={0.04}
+                    />
                     
-                                    <ReferenceLine
+                    <ReferenceLine
                         y={safeTargetScore}
                         stroke="#10b981"
-                        strokeOpacity={0.6}
+                        strokeOpacity={0.8}
                         strokeWidth={2}
-                        strokeDasharray="5 5"
+                        strokeDasharray="5 3"
                         label={{
-                          value: `Meta ${formatValue(safeTargetScore)}${unit}`,
-                          fill: '#10b981',
+                          value: `Meta: ${formatValue(safeTargetScore)}${unit}`,
+                          fill: '#34d399',
                           fontSize: 10,
-                          fontWeight: 'black',
+                          fontWeight: 'bold',
                           position: 'insideTopLeft',
-                          dy: -6,
-                          dx: 5
+                          dy: -8,
+                          dx: 8
                         }}
-                      />
+                    />
+
+                    {todayIdx >= 0 && isFuturePoint && chartData[todayIdx]?.date && (
+                        <ReferenceLine
+                            x={chartData[todayIdx].date}
+                            stroke="#a78bfa"
+                            strokeOpacity={0.65}
+                            strokeDasharray="4 4"
+                            strokeWidth={1.5}
+                            label={{
+                                value: '✦ Início Projeção MC',
+                                fill: '#c4b5fd',
+                                fontSize: 9,
+                                fontWeight: 'bold',
+                                position: 'insideTopRight',
+                                dy: -8
+                            }}
+                        />
+                    )}
                     
                     <Tooltip 
                         offset={30}
-                        cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                        cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
                         content={(props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} />} />
                     
-                    <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'black', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                    <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }} />
                     
                     <Area connectNulls type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" tooltipType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" tooltipType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
@@ -345,20 +372,20 @@ export function CompareChart({
                     {/* Bottom Layer: Glow for Nível Bayesiano */}
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={8} strokeOpacity={0.25} fill="none" activeDot={false} legendType="none" connectNulls isAnimationActive={false} />
                     {/* Top Layer: Nível Bayesiano */}
-                    <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={4}
+                    <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={3.5}
                         strokeLinecap="round" strokeLinejoin="round"
-                        fill={`url(#${CC.greenGradient})`} dot={{ r: 3, fill: '#0f172a', stroke: '#34d399', strokeWidth: 1.5 }}
+                        fill={`url(#${CC.greenGradient})`} dot={{ r: 3.5, fill: '#0f172a', stroke: '#34d399', strokeWidth: 2 }}
                         activeDot={<CustomActiveDot fill="#34d399" />} connectNulls isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
                     </Area>
                     
-                    <Line connectNulls type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={3}
-                        strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 5" 
-                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.5 }} activeDot={<CustomActiveDot fill="#fb923c" />} strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
+                    <Line connectNulls type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={2.5}
+                        strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" 
+                        dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.8 }} activeDot={<CustomActiveDot fill="#fb923c" />} strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
                     </Line>
                     
-                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.4} activeDot={<CustomActiveDot fill="#818cf8" />} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
+                    <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.5} activeDot={<CustomActiveDot fill="#818cf8" />} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
                         <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
                     </Line>
                     
@@ -372,8 +399,8 @@ export function CompareChart({
                                     <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2}>
                                         <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
                                     </circle>
-                                    <circle cx={cx} cy={cy} r={8} fill="#a78bfa" opacity="0.3">
-                                        <animate attributeName="r" values="7;12;7" dur="2s" repeatCount="indefinite" />
+                                    <circle cx={cx} cy={cy} r={9} fill="#a78bfa" opacity="0.3">
+                                        <animate attributeName="r" values="7;13;7" dur="2s" repeatCount="indefinite" />
                                         <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite" />
                                     </circle>
                                 </g>
@@ -385,11 +412,11 @@ export function CompareChart({
 
                     <Brush 
                         dataKey="date" 
-                        height={30} 
-                        stroke="#475569" 
-                        fill="rgba(15, 23, 42, 0.6)" 
+                        height={26} 
+                        stroke="#6366f1" 
+                        fill="rgba(15, 23, 42, 0.85)" 
                         tickFormatter={formatDisplayDate}
-                        travellerWidth={8}
+                        travellerWidth={10}
                     />
                 </ComposedChart>
                 </ResponsiveContainer>

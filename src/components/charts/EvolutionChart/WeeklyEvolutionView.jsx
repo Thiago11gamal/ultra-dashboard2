@@ -450,37 +450,52 @@ export const WeeklyEvolutionView = ({
                         {showOnlyFocus && focusSubjectId ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
                     {trendKpi && (
-                        <p className="text-[10px] mt-1 text-slate-400 font-mono">
-                            Tendência: <span className={trendKpi.delta >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}</span> 
-                            {' '}({trendKpi.previousN} sem. → {trendKpi.recentN} sem.)
-                        </p>
+                        <div className="inline-flex items-center gap-2 mt-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-[10px] text-slate-400 font-mono">
+                            <span>Tendência:</span>
+                            <span className={`font-black ${trendKpi.delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}
+                            </span> 
+                            <span className="text-slate-500">({trendKpi.previousN} sem. → {trendKpi.recentN} sem.)</span>
+                        </div>
                     )}
                 </div>
 
-                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-2xl p-1">
+                <div className="flex items-center bg-slate-900/90 border border-white/10 rounded-2xl p-1 shadow-inner backdrop-blur-md">
                     <button
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                            viewMode === 'performance' 
+                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                        }`}
                     >
-                        <Zap size={14} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
+                        <Zap size={13} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
                     </button>
                     <button
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                            viewMode === 'evolution' 
+                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                        }`}
                     >
-                        <TrendingUp size={14} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
+                        <TrendingUp size={13} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
                     </button>
                     <button
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                            viewMode === 'variation' 
+                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                        }`}
                     >
-                        <BarChart3 size={14} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
+                        <BarChart3 size={13} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
                     </button>
                 </div>
             </div>
@@ -500,11 +515,11 @@ export const WeeklyEvolutionView = ({
                     <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
                         {viewMode === 'evolution' ? (
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
 
-                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} dy={10} minTickGap={15} />
+                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => {
@@ -534,33 +549,33 @@ export const WeeklyEvolutionView = ({
                                 {chartData.length > 8 && (
                                     <Brush
                                         dataKey="week"
-                                        height={18}
-                                        stroke="#ffffff11"
+                                        height={22}
+                                        stroke="#6366f1"
                                         fill="#0f172a"
                                         tickFormatter={formatWeek}
-                                        className="text-[8px]"
-                                        travellerWidth={8}
+                                        className="text-[9px] font-mono"
+                                        travellerWidth={10}
                                     />
                                 )}
                             </LineChart>
                         ) : (
                             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
 
-                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                {/* 🎯 FIX: Uso do formatValue e correcção lógica para o sinal de mais (+) e o Zero perfeito */}
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} dy={10} minTickGap={15} />
                                 <YAxis 
                                     stroke="#64748b" 
                                     fontSize={10} 
+                                    fontWeight={600}
                                     tickLine={false} 
-                                    axisLine={false} 
+                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
                                     tickFormatter={(v) => {
                                         const formatted = formatValue(v);
                                         if (formatted === "0.00" || formatted === "0") return `${formatted}${unit}`;
                                         return `${v > 0 ? '+' : ''}${formatted}${unit}`;
                                     }} 
                                 />
-                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ fill: '#ffffff11' }} />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                                 <Legend 
                                     verticalAlign="bottom" 
                                     height={60} 
@@ -571,17 +586,17 @@ export const WeeklyEvolutionView = ({
                                     onMouseLeave={handleLegendLeave} 
                                     wrapperStyle={{ paddingTop: '20px' }} 
                                 />
-                                <ReferenceLine y={0} stroke="#ffffff22" />
+                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
 
                                 {chartData.length > 8 && (
                                     <Brush
                                         dataKey="week"
-                                        height={18}
-                                        stroke="#ffffff11"
+                                        height={22}
+                                        stroke="#6366f1"
                                         fill="#0f172a"
                                         tickFormatter={formatWeek}
-                                        className="text-[8px]"
-                                        travellerWidth={8}
+                                        className="text-[9px] font-mono"
+                                        travellerWidth={10}
                                     />
                                 )}
 
@@ -594,7 +609,7 @@ export const WeeklyEvolutionView = ({
                                             dataKey={`delta_${key}`}
                                             name={`${activeKeys[key].name} (Var.)`}
                                             fill={activeKeys[key].color}
-                                            radius={[4, 4, 0, 0]}
+                                            radius={[6, 6, 0, 0]}
                                             hide={hiddenKeys[key]}
                                             fillOpacity={isOtherHovered ? 0.4 : 1}
                                             style={{ transition: 'all 0.3s ease' }}
@@ -613,21 +628,21 @@ export const WeeklyEvolutionView = ({
             </div>
 
             {viewMode === 'variation' && (
-                <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">
-                        Principais quedas
+                <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-950/20 backdrop-blur-sm p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span> Principais quedas na semana
                     </p>
                     {topRegressions.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                             {topRegressions.map(item => (
-                                <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between min-w-0 gap-2">
-                                    <span className="truncate min-w-0" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
-                                    <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
+                                <div key={item.key} className="rounded-xl bg-slate-950/60 border border-white/10 px-3 py-2 text-[10px] flex items-center justify-between min-w-0 gap-2 shadow-inner">
+                                    <span className="truncate min-w-0 font-bold" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
+                                    <span className="font-mono font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">{formatValue(item.delta)}{unit}</span>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-slate-500 text-xs text-center py-4">Nenhuma queda visível no filtro atual. ✅</p>
+                        <p className="text-slate-400 text-xs text-center py-3">Nenhuma queda visível no filtro atual. ✅</p>
                     )}
                 </div>
             )}

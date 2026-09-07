@@ -152,18 +152,18 @@ const WeeklyPerformanceChart = ({
                     <h3 className="text-white font-black text-sm sm:text-base flex items-center gap-2">
                         📈 {showOnlyFocus ? 'Foco: Últimos 7 Dias' : 'Desempenho: Últimos 7 Dias'}
                     </h3>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">
                         Horas de Estudo vs. Taxa de Acerto
                     </p>
                 </div>
-                <div className="flex items-center gap-4 bg-slate-950/40 p-2 rounded-xl border border-white/5">
+                <div className="flex items-center gap-4 bg-slate-900/80 p-2 rounded-xl border border-white/10 shadow-sm backdrop-blur-sm">
                     <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]" />
-                        <span className="text-[10px] font-bold text-slate-400 capitalize">Horas</span>
+                        <div className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_#818cf8]" />
+                        <span className="text-[10px] font-bold text-slate-300 capitalize">Horas</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-                        <span className="text-[10px] font-bold text-slate-400 capitalize">Acertos</span>
+                        <span className="text-[10px] font-bold text-slate-300 capitalize">Acertos</span>
                     </div>
                 </div>
             </div>
@@ -177,26 +177,23 @@ const WeeklyPerformanceChart = ({
                         <defs>
                             <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#818cf8" stopOpacity={0.9} />
-                                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.2} />
+                                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.25} />
                             </linearGradient>
                             <linearGradient id={`areaGrad_${instanceId}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
                                 <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                             </linearGradient>
-                            <filter id={neonShadowId}>
-                                {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
-                            </filter>
                         </defs>
 
                         <CartesianGrid
-                            strokeDasharray="2 2"
-                            stroke="#1e2937"
+                            strokeDasharray="3 3"
+                            stroke="rgba(255,255,255,0.06)"
                             vertical={false}
                         />
 
                         <XAxis
                             dataKey="data"
-                            axisLine={false}
+                            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                             tickLine={false}
                             tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
                             dy={10}
@@ -206,7 +203,7 @@ const WeeklyPerformanceChart = ({
                             yAxisId="left"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#64748b', fontSize: 10 }}
+                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
                             tickFormatter={(v) => v === 0 ? '0h' : formatDuration(v)}
                             domain={[0, 'auto']}
                             allowDecimals={true}
@@ -217,14 +214,14 @@ const WeeklyPerformanceChart = ({
                             orientation="right"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#64748b', fontSize: 10 }}
+                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
                             tickFormatter={(v) => `${v}${safeUnit}`}
                             domain={[safeMinScore, safeMaxScore]}
-                            allowDataOverflow={true} // FIX: Evita quebras se o dado estourar (embora já estejamos com clamp)
+                            allowDataOverflow={true}
                         />
 
                         <Tooltip
-                            cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
+                            cursor={{ fill: 'rgba(99, 102, 241, 0.06)' }}
                             content={renderTooltip}
                         />
 
@@ -234,21 +231,21 @@ const WeeklyPerformanceChart = ({
                             name="Horas"
                             fill={`url(#${barGradId})`}
                             radius={[6, 6, 0, 0]}
-                            barSize={28}
-                            animationDuration={1500}
+                            barSize={24}
+                            animationDuration={1200}
                         />
 
                         <Area
                             yAxisId="right"
                             type="monotoneX"
                             dataKey="acertos"
-                            name="_acertos_area"                 // ✅ LOTE-02
+                            name="_acertos_area"
                             stroke="none"
                             fill={`url(#areaGrad_${instanceId})`}
-                            animationDuration={1500}
+                            animationDuration={1200}
                             connectNulls={true}
                             legendType="none"
-                            tooltipType="none" // ✅ LOTE-02
+                            tooltipType="none"
                         />
 
                         {/* Bottom Layer: Glow effect */}
@@ -256,17 +253,17 @@ const WeeklyPerformanceChart = ({
                             yAxisId="right"
                             type="monotoneX"
                             dataKey="acertos"
-                            name="_acertos_glow"                 // ✅ LOTE-02
+                            name="_acertos_glow"
                             stroke="#34d399"
-                            strokeWidth={7}
-                            strokeOpacity={0.3}
+                            strokeWidth={6}
+                            strokeOpacity={0.25}
                             dot={false}
                             activeDot={false}
                             strokeLinecap="round"
-                            animationDuration={1500}
+                            animationDuration={1200}
                             connectNulls={true}
                             legendType="none"
-                            tooltipType="none" // ✅ LOTE-02
+                            tooltipType="none"
                         />
                         {/* Top Layer: Main Line */}
                         <Line
@@ -276,10 +273,10 @@ const WeeklyPerformanceChart = ({
                             name="acertos"
                             stroke="#34d399"
                             strokeWidth={3}
-                            dot={{ r: 4, fill: '#34d399', strokeWidth: 2, stroke: '#0f172a' }}
-                            activeDot={{ r: 7, strokeWidth: 0, fill: '#10b981', className: "animate-pulse shadow-lg" }}
+                            dot={{ r: 3.5, fill: '#34d399', strokeWidth: 2, stroke: '#0f172a' }}
+                            activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981', className: "animate-pulse shadow-lg" }}
                             strokeLinecap="round"
-                            animationDuration={1500}
+                            animationDuration={1200}
                             connectNulls={true}
                         />
                     </ComposedChart>

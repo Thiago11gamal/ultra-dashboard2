@@ -230,7 +230,7 @@ export function EvolutionLineChart({
             }
 
             const formatted = `${formatValue(value)}${unit}`;
-            const boxWidth = Math.max(46, formatted.length * 7 + 14);
+            const boxWidth = Math.max(52, formatted.length * 7 + 20);
             const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
             const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth - 6));
 
@@ -241,21 +241,22 @@ export function EvolutionLineChart({
                         y={y - 11 + offsetPx}
                         width={boxWidth}
                         height={22}
-                        rx={6}
-                        fill="#020617"
-                        fillOpacity={0.7}
+                        rx={8}
+                        fill="#0b0f19"
+                        fillOpacity={0.92}
                         stroke={displayColor}
                         strokeOpacity={0.9}
-                        strokeWidth={1.5}
+                        strokeWidth={1.8}
                     />
-                                  <text 
-                                     x={labelX + boxWidth / 2} 
-                                      y={y + 4 + offsetPx}
+                    <circle cx={labelX + 8} cy={y + offsetPx} r={3} fill={displayColor} />
+                    <text 
+                        x={labelX + 8 + (boxWidth - 8) / 2} 
+                        y={y + 4 + offsetPx}
                         fill="#ffffff" 
-                        fontSize={11} 
-                        fontWeight="black" 
+                        fontSize={10.5} 
+                        fontWeight="900" 
                         textAnchor="middle"
-                        style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}
+                        style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.9)' }}
                     >
                         {formatted}
                     </text>
@@ -325,73 +326,74 @@ export function EvolutionLineChart({
                             {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                     </defs>
-                    
-                    <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.06)" vertical={false} />
 
                     <XAxis
                         dataKey="date"
                         tickFormatter={formatDisplayDate}
-                        tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }}
+                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                         dy={10}
-                        axisLine={{ stroke: '#334155', strokeWidth: 1 }}
+                        axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)', strokeWidth: 1 }}
                         tickLine={false}
-                        minTickGap={30}
-                        padding={{ left: 10, right: 5 }}
+                        minTickGap={25}
+                        padding={{ left: 10, right: 10 }}
                     />
 
                     <YAxis
-                        tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }}
+                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                         dx={-4}
-                        axisLine={{ stroke: '#334155', strokeWidth: 1 }}
+                        axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)', strokeWidth: 1 }}
                         tickLine={false}
                         domain={[safeMinScore, safeMaxScore]}
                         allowDataOverflow={false}
                         tickFormatter={(v) => `${formatValue(v)}${unit}`}
-                        width={40}
+                        width={46}
                     />
 
-                                 <ReferenceArea
-                                     y1={safeTargetScore}
-                                     y2={safeMaxScore}
-                                     fill="#10b981"
-                                     fillOpacity={0.045}
-                                 />
+                    <ReferenceArea
+                        y1={safeTargetScore}
+                        y2={safeMaxScore}
+                        fill="#10b981"
+                        fillOpacity={0.05}
+                    />
                     
-                                 <ReferenceArea
-                                     y1={safeMinScore}
-                                     y2={dangerLimit}
-                                     fill="#ef4444"
-                                     fillOpacity={0.035}
-                                 />
+                    <ReferenceArea
+                        y1={safeMinScore}
+                        y2={dangerLimit}
+                        fill="#ef4444"
+                        fillOpacity={0.04}
+                    />
                     
-                                  <ReferenceLine 
-                                      y={safeTargetScore}
+                    <ReferenceLine 
+                        y={safeTargetScore} 
                         stroke="#10b981" 
-                        strokeOpacity={0.6} 
-                        strokeWidth={1.5}
-                        strokeDasharray="4 2"
+                        strokeOpacity={0.8} 
+                        strokeWidth={2}
+                        strokeDasharray="5 3"
                         label={{ 
-                            value: `Meta ${formatValue(safeTargetScore)}${unit}`, 
-                            fill: '#22c55e', 
+                            value: `Meta: ${formatValue(safeTargetScore)}${unit}`, 
+                            fill: '#34d399', 
                             fontSize: 10, 
+                            fontWeight: 'bold',
                             position: 'insideTopLeft', 
                             dy: -12, 
-                            dx: 10 
+                            dx: 12 
                         }} 
                     />
 
                     <Tooltip 
                         offset={20}
-                        cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '2 2' }}
+                        cursor={{ stroke: 'rgba(255, 255, 255, 0.18)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
                         content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />} 
                     />
 
                     <Legend 
                         verticalAlign="top" 
-                        height={28}
-                        iconSize={6}
+                        height={32}
+                        iconSize={8}
+                        iconType="circle"
                         onClick={handleLegendClick}
-                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px', cursor: 'pointer', textTransform: 'capitalize' }} 
+                        wrapperStyle={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, paddingBottom: '8px', cursor: 'pointer', textTransform: 'capitalize' }} 
                         formatter={(value) => value}
                     />
 
@@ -480,11 +482,11 @@ export function EvolutionLineChart({
 
                     <Brush 
                         dataKey="date" 
-                        height={30} 
-                        stroke="#475569" 
-                        fill="rgba(15, 23, 42, 0.6)" 
+                        height={26} 
+                        stroke="#6366f1" 
+                        fill="rgba(15, 23, 42, 0.85)" 
                         tickFormatter={formatDisplayDate}
-                        travellerWidth={8}
+                        travellerWidth={10}
                     />
                 </ComposedChart>
                 </ResponsiveContainer>

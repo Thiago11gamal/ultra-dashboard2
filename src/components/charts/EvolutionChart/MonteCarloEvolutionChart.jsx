@@ -2,7 +2,7 @@ import React, { useMemo, useId, useState, useCallback } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
 } from 'recharts';
-import { Target, TrendingUp, AlertCircle } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, Sparkles, Compass } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDuration, normalizeDate } from '../../../utils/dateHelper';
@@ -25,43 +25,49 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
         const isGood = pointMean >= pointTarget;
 
         return (
-            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[210px]">
-                <p className="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-3 border-b border-white/10 pb-2">{fullDate}</p>
+            <div className="bg-slate-950/90 border border-white/15 p-4 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.6)] backdrop-blur-xl min-w-[220px]">
+                <div className="flex items-center justify-between gap-2 mb-3 border-b border-white/10 pb-2">
+                    <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 font-mono">{fullDate}</span>
+                    <span className="text-[9px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">MC Proj</span>
+                </div>
 
                 <div className="flex flex-col gap-2">
                     <div className="flex flex-col">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Nota projetada</span>
-                        <span className={`text-3xl font-black leading-none ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
-                            {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean} <span className="text-sm text-slate-500 ml-1">{unit}</span>
-                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className={`text-3xl font-black font-mono tracking-tight leading-none ${isGood ? 'text-emerald-400' : 'text-sky-400'}`}>
+                                {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean}
+                            </span>
+                            <span className="text-sm font-semibold text-slate-500">{unit}</span>
+                        </div>
                         {isGood && (
-                            <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-1 animate-pulse flex items-center gap-1">
-                                🚀 Na zona de aprovação
+                            <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1">
+                                <Sparkles size={11} className="animate-pulse" /> Na zona de aprovação
                             </span>
                         )}
                     </div>
-                    <div className="mt-2 bg-black/40 rounded-lg border border-white/5 p-2">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-slate-400">{dataPoint.date === 'Hoje' || dataPoint.date === 'HOJE' ? 'Hoje:' : 'Esperado:'}</span>
-                            <span className="text-[10px] font-mono text-white">
+                    <div className="mt-2 bg-black/40 rounded-xl border border-white/5 p-2.5 space-y-1.5">
+                        <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-slate-400">{dataPoint.date === 'Hoje' || dataPoint.date === 'HOJE' ? 'Hoje:' : 'Esperado:'}</span>
+                            <span className="font-mono font-bold text-slate-200">
                                 {unit === 'horas' ? formatDuration(pointMean) : `${formatValue(pointMean)}${unit}`}
                             </span>
                         </div>
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-indigo-400">Projeção:</span>
-                            <span className="text-[10px] font-mono text-indigo-300">
+                        <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-indigo-400">Projeção:</span>
+                            <span className="font-mono font-bold text-indigo-300">
                                 {unit === 'horas' ? formatDuration(projMean) : `${formatValue(projMean)}${unit}`}
                             </span>
                         </div>
-                        <div className="flex justify-between items-center mb-1 border-t border-white/5 pt-1 mt-1">
-                            <span className="text-[10px] font-bold text-slate-400">Cone (IC 95%):</span>
-                            <span className="text-[10px] font-mono text-white">
+                        <div className="flex justify-between items-center text-[10px] border-t border-white/5 pt-1.5">
+                            <span className="font-bold text-slate-400">Cone (IC 95%):</span>
+                            <span className="font-mono text-slate-300 text-[10px]">
                                 {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : `${formatValue(pointLow)}${unit} ~ ${formatValue(pointHigh)}${unit}`}
                             </span>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-slate-400">Chance de sucesso:</span>
-                            <span className={`text-[10px] font-black ${pointProb >= 70 ? 'text-green-400' : 'text-blue-400'}`}>
+                        <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-slate-400">Chance de aprovação:</span>
+                            <span className={`font-mono font-black ${pointProb >= 70 ? 'text-emerald-400' : 'text-sky-400'}`}>
                                 {formatPercent(pointProb)}
                             </span>
                         </div>
@@ -224,17 +230,17 @@ export const MonteCarloEvolutionChart = ({
     return (
         <div className="w-full min-h-[400px] flex flex-col py-4 mt-2">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-2 relative z-10">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
-                        <TrendingUp size={16} className="text-blue-400" />
+                <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center border border-indigo-500/30 text-indigo-400 shadow-sm">
+                        <TrendingUp size={18} />
                     </div>
                     <div>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-200">Rastreador de Aprovação</h3>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sua trajetória rumo à aprovação</p>
+                        <h3 className="text-sm sm:text-base font-black text-slate-100 tracking-tight">Rastreador de Aprovação</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sua trajetória rumo à aprovação</p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-700/50 rounded-2xl p-1 shadow-inner backdrop-blur-sm">
+                <div className="flex items-center gap-1 bg-slate-900/90 border border-white/10 rounded-2xl p-1 shadow-inner backdrop-blur-md">
                     {SCENARIO_OPTIONS.map(opt => (
                         <button
                             key={opt.id}
@@ -242,7 +248,11 @@ export const MonteCarloEvolutionChart = ({
                             onClick={() => setScenario(opt.id)}
                             aria-label={`Selecionar cenário ${opt.fullLabel}`}
                             aria-pressed={scenario === opt.id}
-                            className={`relative px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-150 rounded-2xl will-change-transform ${scenario === opt.id ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 hover:scale-[1.01]'}`}
+                            className={`relative px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 rounded-xl ${
+                                scenario === opt.id 
+                                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
+                                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                            }`}
                         >
                             {opt.label}
                         </button>
@@ -250,15 +260,15 @@ export const MonteCarloEvolutionChart = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-black/40 border border-white/5">
-                        <Target size={12} className="text-slate-500" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">
-                            Meta: <strong className="text-white">{unit === 'horas' ? formatDuration(safeTargetScore) : unit === '%' ? formatValue(safeTargetScore) : safeTargetScore} {unit}</strong>
-                            <small className="text-slate-500 ml-1">({scenarioLabels[scenario]})</small>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 shadow-sm">
+                        <Target size={13} className="text-emerald-400" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Meta: <strong className="text-white font-mono">{unit === 'horas' ? formatDuration(safeTargetScore) : unit === '%' ? formatValue(safeTargetScore) : safeTargetScore} {unit}</strong>
+                            <small className="text-slate-500 ml-1.5">({scenarioLabels[scenario]})</small>
                         </span>
                     </div>
                     {qualitySignal && (
-                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md border ${qualitySignal.color}`}>
+                        <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-xl border backdrop-blur-sm ${qualitySignal.color}`}>
                             {qualitySignal.label}
                         </span>
                     )}
@@ -266,23 +276,22 @@ export const MonteCarloEvolutionChart = ({
             </div>
 
             {mcAssumptions && (
-              <div className="px-2 mb-2">
-                <p className="text-[9px] uppercase tracking-widest text-slate-500">
-                  Premissas do modelo
-                </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+              <div className="px-2 mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  <span className="text-slate-500 uppercase font-bold tracking-wider text-[9px] mr-1">Premissas:</span>
                   {mcAssumptions.points} registros · IC 95% de {formatValue(mcAssumptions.ciWidth)} {unit} · Cenário {mcAssumptions.scenario}
                 </p>
               </div>
             )}
 
             {loading && (
-              <div className="absolute inset-0 z-20 bg-slate-950/40 backdrop-blur-[1px] flex items-center justify-center rounded-2xl">
+              <div className="absolute inset-0 z-20 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center rounded-3xl">
                 <div className="flex flex-col items-center gap-3">
-                  <span className="animate-spin text-indigo-400">
+                  <span className="animate-spin text-indigo-400 text-xl font-bold">
                     ↻
                   </span>
-                  <span className="text-[9px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">
+                  <span className="text-[10px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">
                     Recalculando Monte Carlo...
                   </span>
                 </div>
@@ -291,51 +300,50 @@ export const MonteCarloEvolutionChart = ({
             <div className="w-full relative h-[360px] flex items-center justify-center">
                 {displayData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={300}>
-                        {/* 🎯 FIX: margin right de 10 -> 30 para evitar que a última data seja mastigada pelo limite do componente */}
                         <AreaChart
                             data={displayData}
                             margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
                         >
                             <defs>
                                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset={0} stopColor="#10b981" stopOpacity={0.35} />
-                                    <stop offset={targetOffset} stopColor="#10b981" stopOpacity={0.05} />
-                                    <stop offset={targetOffset} stopColor="#60a5fa" stopOpacity={0.25} />
-                                    <stop offset={1} stopColor="#60a5fa" stopOpacity={0.02} />
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.32} />
+                                    <stop offset={`${Math.round(targetOffset * 100)}%`} stopColor="#10b981" stopOpacity={0.06} />
+                                    <stop offset={`${Math.round(targetOffset * 100)}%`} stopColor="#6366f1" stopOpacity={0.22} />
+                                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
                                 </linearGradient>
                                 <linearGradient id={`targetGlow-${safeId}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset={0} stopColor="#10b981" stopOpacity={0.0} />
-                                    <stop offset={1} stopColor="#10b981" stopOpacity={0.12} />
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.0} />
+                                    <stop offset="100%" stopColor="#10b981" stopOpacity={0.10} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                             
                             {/* Glowing Target Zone */}
                             <ReferenceArea y1={safeTargetScore} y2={safeMax} fill={`url(#targetGlow-${safeId})`} />
                             <ReferenceLine 
                                 y={safeTargetScore} 
                                 stroke="#10b981" 
-                                strokeDasharray="4 2" 
+                                strokeDasharray="4 3" 
                                 strokeWidth={1.5}
-                                label={{ value: `Meta`, fill: '#10b981', fontSize: 9, position: 'insideTopLeft', dy: 2 }}
+                                label={{ value: `Meta (${unit === 'horas' ? formatDuration(safeTargetScore) : safeTargetScore + unit})`, fill: '#10b981', fontSize: 10, fontWeight: 700, position: 'insideTopLeft', dy: 4 }}
                             />
                             <XAxis
                                 dataKey="displayDate"
                                 tickFormatter={(val) => val}
-                                stroke="#475569"
-                                fontSize={9}
-                                fontWeight={500}
+                                stroke="#64748b"
+                                fontSize={10}
+                                fontWeight={600}
                                 tickLine={false}
-                                axisLine={{ stroke: '#334155' }}
+                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 dy={8}
                                 minTickGap={20}
                             />
                             <YAxis
-                                stroke="#475569"
-                                fontSize={9}
-                                fontWeight={500}
+                                stroke="#64748b"
+                                fontSize={10}
+                                fontWeight={600}
                                 tickLine={false}
-                                axisLine={{ stroke: '#334155' }}
+                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 dx={-5}
                                 width={45}
                                 domain={[safeMin, safeMax]}
@@ -346,7 +354,7 @@ export const MonteCarloEvolutionChart = ({
                             <Tooltip
                                 offset={20}
                                 content={renderTooltip}
-                                cursor={{ stroke: '#ffffff33', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                cursor={{ stroke: 'rgba(255,255,255,0.18)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
                             />
 
                             <Area connectNulls
@@ -361,15 +369,15 @@ export const MonteCarloEvolutionChart = ({
                             <Area connectNulls
                                 type="monotoneX"
                                 dataKey="mean"
-                                stroke="#60a5fa"
+                                stroke="#38bdf8"
                                 strokeWidth={3}
                                 fill="none"
-                                activeDot={{ r: 5, strokeWidth: 2, fill: '#60a5fa', stroke: '#ffffff', className: "animate-pulse shadow-lg" }}
+                                activeDot={{ r: 6, strokeWidth: 2, fill: '#38bdf8', stroke: '#ffffff', className: "animate-pulse shadow-lg" }}
                                 dot={scenarioAdjustedData.length < 40 ? { 
-                                    r: Math.max(1.5, 4 - (scenarioAdjustedData.length / 12)), 
+                                    r: Math.max(1.5, 3.5 - (scenarioAdjustedData.length / 14)), 
                                     strokeWidth: 1.5, 
-                                    fill: '#0f172a', 
-                                    stroke: '#60a5fa' 
+                                    fill: '#090d16', 
+                                    stroke: '#38bdf8' 
                                 } : false}
                                 isAnimationActive={false}
                             />
@@ -377,9 +385,9 @@ export const MonteCarloEvolutionChart = ({
                             <Area connectNulls
                                 type="monotoneX"
                                 dataKey="projectedMean"
-                                stroke="#818cf8"
+                                stroke="#a855f7"
                                 strokeWidth={2}
-                                strokeDasharray="6 4"
+                                strokeDasharray="5 4"
                                 fill="none"
                                 isAnimationActive={false}
                                 dot={false}
@@ -400,47 +408,59 @@ export const MonteCarloEvolutionChart = ({
             </div>
 
             <div className="mt-4 flex flex-col gap-2 px-2">
-                <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
-                    <p className="text-xs font-bold text-blue-400 mb-1 flex items-center gap-2">
-                        <AlertCircle size={14} /> Entenda este gráfico
+                <div className="bg-slate-900/50 border border-white/10 p-4 rounded-2xl backdrop-blur-md shadow-inner">
+                    <p className="text-xs font-black text-slate-200 mb-2.5 flex items-center gap-2 uppercase tracking-wider">
+                        <Compass size={14} className="text-indigo-400" /> Guia de Leitura do Gráfico
                     </p>
-                    <div className="flex flex-col gap-3 mt-2">
-                        <div className="flex items-start gap-3 bg-blue-500/10 p-3 rounded-lg border-l-4 border-blue-400 border-y border-r border-blue-500/20">
-                            <p className="text-[11.5px] text-blue-100 leading-relaxed">
-                                <strong>Linha azul (passado):</strong> Representa a média real do seu desempenho consolidado ao longo do tempo.
-                            </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mt-1">
+                        <div className="flex items-start gap-3 bg-sky-500/10 p-3 rounded-xl border border-sky-500/20">
+                            <div className="w-2.5 h-2.5 rounded-full bg-sky-400 shrink-0 mt-1 shadow-[0_0_8px_#38bdf8]"></div>
+                            <div>
+                                <strong className="text-[11px] font-bold text-sky-300 block mb-0.5">Linha Azul (Passado)</strong>
+                                <p className="text-[11px] text-slate-300 leading-relaxed">
+                                    Média real do seu desempenho consolidado ao longo do tempo.
+                                </p>
+                            </div>
                         </div>
                         
-                        <div className="flex items-start gap-3 bg-indigo-500/10 p-3 rounded-lg border-l-4 border-indigo-400 border-dashed border-y border-r border-indigo-500/20">
-                            <p className="text-[11.5px] text-indigo-100 leading-relaxed">
-                                <strong>Linha tracejada roxa (futuro):</strong> É a projeção estatística calculada pelo motor Monte Carlo, simulando cenários futuros de prova.
-                            </p>
+                        <div className="flex items-start gap-3 bg-purple-500/10 p-3 rounded-xl border border-purple-500/20">
+                            <div className="w-2.5 h-2.5 rounded-full bg-purple-400 shrink-0 mt-1 shadow-[0_0_8px_#c084fc]"></div>
+                            <div>
+                                <strong className="text-[11px] font-bold text-purple-300 block mb-0.5">Tracejado Roxo (Futuro)</strong>
+                                <p className="text-[11px] text-slate-300 leading-relaxed">
+                                    Projeção estatística Monte Carlo simulando cenários para a prova.
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="flex items-start gap-3 bg-emerald-500/10 p-3 rounded-lg border-l-4 border-emerald-400 border-dashed border-y border-r border-emerald-500/20">
-                            <p className="text-[11.5px] text-emerald-100 leading-relaxed">
-                                <strong>Linha tracejada verde (objetivo):</strong> A meta que você configurou. O sombreamento ao redor mostra a incerteza da projeção.
-                            </p>
+                        <div className="flex items-start gap-3 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0 mt-1 shadow-[0_0_8px_#34d399]"></div>
+                            <div>
+                                <strong className="text-[11px] font-bold text-emerald-300 block mb-0.5">Cone & Linha Verde (Meta)</strong>
+                                <p className="text-[11px] text-slate-300 leading-relaxed">
+                                    Objetivo configurado e o cone com a incerteza do modelo (IC 95%).
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
                 {qualitySignal && (qualitySignal.color.includes('red') || qualitySignal.color.includes('rose')) && (
-                    <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl mt-1 animate-pulse">
-                        <p className="text-xs font-bold text-red-400 mb-1 flex items-center gap-2">
-                            Alerta de tendência
+                    <div className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-2xl mt-1 animate-pulse backdrop-blur-sm">
+                        <p className="text-xs font-bold text-rose-400 mb-1 flex items-center gap-2">
+                            <AlertCircle size={14} /> Alerta de tendência
                         </p>
-                        <p className="text-[11px] text-red-200 leading-relaxed">
+                        <p className="text-[11px] text-rose-200/90 leading-relaxed">
                             Suas projeções recentes estão caindo. Isso indica que os últimos resultados reduziram a expectativa para o dia da prova. Revise seu método de estudo e foque nos tópicos com pior desempenho.
                         </p>
                     </div>
                 )}
             </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 pt-3 border-t border-white/5 opacity-50 px-2 gap-2">
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 pt-3 border-t border-white/5 opacity-60 px-2 gap-2">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
                     A área sombreada representa o IC 95% da projeção (Margem de erro e incerteza probabilística).
                 </p>
-                <span className="text-[9px] font-bold font-mono text-slate-400 bg-black px-2 py-0.5 rounded-md border border-white/5 whitespace-nowrap">
+                <span className="text-[9px] font-bold font-mono text-slate-300 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/10 whitespace-nowrap">
                     N = {scenarioAdjustedData.length} registros
                 </span>
             </div>

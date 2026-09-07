@@ -251,9 +251,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                     type="button"
                                     onClick={() => setSelectedWeekOffset(w.offset)}
                                     aria-pressed={isActive}
-                                    className={`px-2.5 sm:px-3 py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
+                                    className={`px-3 py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${
                                         isActive
-                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_12px_rgba(99,102,241,0.5)] border border-indigo-400/40'
+                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-indigo-400/50'
                                             : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                                     }`}
                                 >
@@ -262,7 +262,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             );
                         })}
                     </div>
-                    <div className="text-[10px] sm:text-[11px] font-mono font-bold text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 px-2.5 py-1 rounded-lg">
+                    <div className="text-[10px] sm:text-[11px] font-mono font-bold text-indigo-300 bg-indigo-950/60 border border-indigo-700/50 px-3 py-1.5 rounded-xl shadow-inner">
                         {dateLabel}
                     </div>
                 </div>
@@ -271,15 +271,15 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             {/* Painéis Lado a Lado perfeitamente enquadrados */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
                 {/* Matérias críticas */}
-                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
+                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
                     <div>
                         <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">{weekTitle}</p>
-                            <span className="text-[9px] font-bold text-slate-400 bg-white/5 border border-white/5 px-2 py-0.5 rounded-md">
+                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">{weekTitle}</p>
+                            <span className="text-[9px] font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                                 {pointLeakageData.length} {pointLeakageData.length === 1 ? 'matéria' : 'matérias'}
                             </span>
                         </div>
-                        <h4 className="text-sm sm:text-base font-bold text-slate-200 mb-1 flex items-center gap-2">
+                        <h4 className="text-sm sm:text-base font-black text-slate-100 mb-1 flex items-center gap-2 tracking-tight">
                             🩸 Matérias Críticas
                         </h4>
                         <p className="text-[10px] sm:text-xs text-slate-400 mb-4 leading-relaxed">
@@ -289,13 +289,13 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
                     <div className="min-h-[220px] sm:min-h-[260px] w-full flex-1 flex flex-col justify-center">
                         {pointLeakageData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)} minWidth={1}>
-                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 60, left: -10, bottom: 0 }}>
-                                    <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={170} />
-                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                    <Bar dataKey="displayValue" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4}>
+                            <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 38)} minWidth={1}>
+                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 65, left: -5, bottom: 5 }}>
+                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Bar dataKey="displayValue" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                                         <LabelList dataKey="displayValue" position="right" offset={8}
                                             content={(props) => {
@@ -303,7 +303,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                                 const entry = pointLeakageData[index];
                                                 if (!entry || value === null || value === undefined) return null;
                                                 return (
-                                                    <text x={x + width + 10} y={y + 9} fill="#ffffff" fontSize={10} fontWeight="bold">
+                                                    <text x={x + width + 8} y={y + 11} fill="#ffffff" fontSize={10.5} fontWeight="bold">
                                                         {value}{entry.percentage > 0 ? ` (${entry.percentage}%)` : ''}
                                                     </text>
                                                 );
@@ -323,15 +323,15 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 </div>
 
                 {/* Assuntos críticos */}
-                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
+                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
                     <div>
                         <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">{weekTitle} · TODOS OS ASSUNTOS</p>
-                            <span className="text-[9px] font-bold text-slate-400 bg-white/5 border border-white/5 px-2 py-0.5 rounded-md">
+                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">{weekTitle} · TODOS OS ASSUNTOS</p>
+                            <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                                 {subtopicsData.length} {subtopicsData.length === 1 ? 'tópico' : 'tópicos'}
                             </span>
                         </div>
-                        <h4 className="text-sm sm:text-base font-bold text-slate-200 mb-1 flex items-center gap-2">
+                        <h4 className="text-sm sm:text-base font-black text-slate-100 mb-1 flex items-center gap-2 tracking-tight">
                             📏 Assuntos Críticos
                         </h4>
                         <p className="text-[10px] sm:text-xs text-slate-400 mb-4 leading-relaxed">
@@ -341,20 +341,20 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
                     <div className="min-h-[220px] sm:min-h-[260px] w-full flex-1 flex flex-col justify-center">
                         {subtopicsData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)} minWidth={1}>
-                                <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 60, left: -5, bottom: 0 }}>
-                                    <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={{ stroke: '#334155' }} tickLine={{ stroke: '#334155' }} width={170} />
-                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => {
+                            <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 38)} minWidth={1}>
+                                <BarChart data={subtopicsData} layout="vertical" margin={{ top: 5, right: 65, left: -5, bottom: 5 }}>
+                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
                                         const correct = Number(props?.payload?.correct) || 0;
                                         const errors = Math.max(0, total - correct);
                                         return [`${v} (Índice)`, `${props?.payload?.fullName || 'Assunto'} (${errors} erros)`];
                                     }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                    <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4}>
+                                    <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                                        <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                        <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10.5, fontWeight: 'bold' }} offset={8} />
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
