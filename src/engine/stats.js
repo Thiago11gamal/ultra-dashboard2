@@ -438,17 +438,16 @@ export function computeBayesianLevel(
 
     const gaps = [];
 
-    const historySortedForGaps = history
+    const historyWithTime = history
         .map(h => ({ original: h, time: getHistoryTime(h) }))
         .filter(item => Number.isFinite(item.time))
-        .sort((a, b) => a.time - b.time)
-        .map(item => item.original);
+        .sort((a, b) => a.time - b.time);
 
-    if (historySortedForGaps.length > 1) {
-        for (let i = 1; i < historySortedForGaps.length; i++) {
-            const time1 = getHistoryTime(historySortedForGaps[i]);
-            const time0 = getHistoryTime(historySortedForGaps[i - 1]);
-            const gap = (time1 - time0) / 86400000;
+    const historySortedForGaps = historyWithTime.map(item => item.original);
+
+    if (historyWithTime.length > 1) {
+        for (let i = 1; i < historyWithTime.length; i++) {
+            const gap = (historyWithTime[i].time - historyWithTime[i - 1].time) / 86400000;
             if (Number.isFinite(gap) && gap > 0) gaps.push(gap);
         }
     }
@@ -457,8 +456,8 @@ export function computeBayesianLevel(
     const baseCapacity = 250 / safeAvgGap;
     const totalQuestionsHist = history.length ? kahanSum(history.map(safeTotalEntry)) : 0;
 
-    const historyDays = historySortedForGaps.length > 1
-        ? Math.max(1, (getHistoryTime(historySortedForGaps[historySortedForGaps.length - 1]) - getHistoryTime(historySortedForGaps[0])) / 86400000)
+    const historyDays = historyWithTime.length > 1
+        ? Math.max(1, (historyWithTime[historyWithTime.length - 1].time - historyWithTime[0].time) / 86400000)
         : 1;
 
     const questionsPerDay = totalQuestionsHist / historyDays;
@@ -473,9 +472,10 @@ export function computeBayesianLevel(
     // ✅ LOTE-01 FIX: priors calculados SOBRE O MESMO ARRAY iterado abaixo.
     // Antes o slice(-2000) acontecia depois, desalinhando runningPriors[i].
     const MAX_ITERATIONS = 2000;
-    const historyToProcess = historySortedForGaps.length > MAX_ITERATIONS
-        ? historySortedForGaps.slice(-MAX_ITERATIONS)
-        : historySortedForGaps;
+    const itemsToProcess = historyWithTime.length > MAX_ITERATIONS
+        ? historyWithTime.slice(-MAX_ITERATIONS)
+        : historyWithTime;
+    const historyToProcess = itemsToProcess.map(item => item.original);
 
     const runningPriors = new Float64Array(historyToProcess.length);
     if (historyToProcess.length > 0) {
@@ -497,7 +497,7 @@ export function computeBayesianLevel(
     }
 
     const avgTotalRaw = history.length > 0
-        ? kahanSum(history.map(safeTotalEntry)) / history.length
+        ? totalQuestionsHist / history.length
         : safeSyntheticTotal;
 
     const avgTotal = Number.isFinite(avgTotalRaw) && avgTotalRaw > 0 ? avgTotalRaw : safeSyntheticTotal;
@@ -525,11 +525,8 @@ export function computeBayesianLevel(
             rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
             const pct = Math.min(1, rawPct);
 
-            const entryDate = normalizeDate(getHistoryDateValue(h));
-            const prevDate = i > 0 ? normalizeDate(getHistoryDateValue(historyToProcess[i - 1])) : entryDate;
-
-            const timeEntry = entryDate?.getTime();
-            const timePrev = prevDate?.getTime();
+            const timeEntry = itemsToProcess[i].time;
+            const timePrev = i > 0 ? itemsToProcess[i - 1].time : timeEntry;
 
             const gapDays = Number.isFinite(timeEntry) && Number.isFinite(timePrev)
                 ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000))
@@ -644,12 +641,13 @@ export function computeBayesianLevel(
         beta *= globalClamp;
     }
 
-    const lastEntry = historySortedForGaps.length > 0 ? historySortedForGaps[historySortedForGaps.length - 1] : null;
+    const lastItem = historyWithTime.length > 0 ? historyWithTime[historyWithTime.length - 1] : null;
+    const lastEntry = lastItem ? lastItem.original : null;
     const lastDateStr = lastEntry ? getHistoryDateValue(lastEntry) : options.lastEventDate;
 
     if (lastDateStr) {
-        const lastDate = normalizeDate(lastDateStr);
-        const gapToToday = Math.max(0, Math.floor((now - (lastDate ? lastDate.getTime() : now)) / 86400000));
+        const lastTime = lastItem ? lastItem.time : normalizeDate(lastDateStr)?.getTime();
+        const gapToToday = Number.isFinite(lastTime) ? Math.max(0, Math.floor((now - lastTime) / 86400000)) : 0;
 
         if (gapToToday > 0) {
             const rawFinalLambda = baseAdaptiveLambda * Math.exp(-0.15 * (historySortedForGaps.length || 1));
@@ -1114,26 +1112,29 @@ export function calculateSlopePerDay(history, maxScore = 100, minScore = 0) {
     const safeHistory = toHistoryArray(history);
     if (safeHistory.length < 2) return 0;
 
-    const sorted = getSortedHistory(safeHistory);
-    if (sorted.length < 2) return 0;
-
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
     const safeMinScore = safeMinScoreValue(minScore, 0);
 
-    // ✅ FIX: Filtrar entradas com datas válidas ANTES de calcular.
-    // Isso garante que firstDate sempre seja um timestamp válido.
+    // ✅ FIX: Filtrar entradas com datas válidas e ordenar apenas 1 vez com timestamps retidos.
     const validEntries = [];
-    for (let i = 0; i < sorted.length; i++) {
-        const h = sorted[i];
-        const dateParsed = safeDateParse(h?.date ?? h?.createdAt);
+    for (let i = 0; i < safeHistory.length; i++) {
+        const h = safeHistory[i];
+        if (typeof h === 'number') continue;
+        const dateValue = h?.date ?? h?.createdAt;
+        const dateParsed = safeDateParse(dateValue);
         const time = dateParsed?.getTime();
         const y = getSafeScore(h, safeMaxScore, safeMinScore);
         if (Number.isFinite(time) && Number.isFinite(y)) {
-            validEntries.push({ time, y });
+            validEntries.push({ time, y, id: h?.id });
         }
     }
 
     if (validEntries.length < 2) return 0;
+
+    validEntries.sort((a, b) => {
+        if (a.time !== b.time) return a.time - b.time;
+        return String(a.id || '').localeCompare(String(b.id || ''));
+    });
 
     // ✅ FIX: firstDate agora é garantidamente válido
     const firstDate = validEntries[0].time;

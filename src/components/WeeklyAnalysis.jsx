@@ -55,13 +55,31 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             return 0;
         };
 
-        // T-037 FIX: Indexar categorias por ID para lookup O(1).
-        // Antes, cada log fazia .find() em categoriesArray, gerando O(logs * categories).
+        // T-037 FIX: Indexar categorias por ID e por Nome para lookup O(1).
         const categoriesById = new Map();
+        const categoriesByName = new Map();
 
         categoriesArray.forEach(c => {
             if (c?.id != null) {
                 categoriesById.set(String(c.id), c);
+            }
+            if (c?.name != null) {
+                categoriesByName.set(c.name, c);
+            }
+        });
+
+        // Pre-indexar tarefas de cada categoria para evitar getTasksArray e .find repetidos em cada log
+        const tasksByCatAndId = new Map();
+        categoriesArray.forEach(c => {
+            if (c) {
+                const tasksArray = getTasksArray(c);
+                const taskMap = new Map();
+                tasksArray.forEach(t => {
+                    if (t?.id != null) {
+                        taskMap.set(String(t.id), t);
+                    }
+                });
+                tasksByCatAndId.set(c, taskMap);
             }
         });
 
@@ -73,10 +91,17 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 if (byId) return byId;
             }
 
-            return categoriesArray.find(c =>
-                (log.subject && c.name === log.subject) ||
-                (log.categoryName && c.name === log.categoryName)
-            );
+            if (log.subject) {
+                const bySubject = categoriesByName.get(log.subject);
+                if (bySubject) return bySubject;
+            }
+
+            if (log.categoryName) {
+                const byCatName = categoriesByName.get(log.categoryName);
+                if (byCatName) return byCatName;
+            }
+
+            return undefined;
         };
 
         const totalMinutes = logsArray.reduce((acc, log) => acc + getLogMinutes(log), 0);
@@ -93,14 +118,20 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         const topCategory = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0] || '-';
 
         // 2. Group by Date then by Category
-        // FIX: Usar normalizeDate para evitar shift de UTC midnight em datas YYYY-MM-DD
-        const sortedLogs = [...logsArray].sort((a, b) => (normalizeDate(b.date)?.getTime() ?? 0) - (normalizeDate(a.date)?.getTime() ?? 0));
+        // FIX: Precomputar dateObj e time para evitar normalizeDate redundante dentro do sort e loop
+        const logsWithTime = [];
+        for (let i = 0; i < logsArray.length; i++) {
+            const log = logsArray[i];
+            const dateObj = normalizeDate(log?.date);
+            const time = (dateObj && !Number.isNaN(dateObj.getTime())) ? dateObj.getTime() : 0;
+            logsWithTime.push({ log, dateObj, time });
+        }
+        logsWithTime.sort((a, b) => b.time - a.time);
+
         const grouped = {};
 
-        sortedLogs.forEach(log => {
-            const dateObj = normalizeDate(log.date);
-            
-            if (!dateObj || Number.isNaN(dateObj.getTime())) return;
+        logsWithTime.forEach(({ log, dateObj, time: logTime }) => {
+            if (!dateObj || !Number.isFinite(logTime)) return;
             const dateStr = formatDatePtBR(dateObj);
 
             // T-024 FIX: usar chave de dia (getDateKey) em vez de comparar strings formatadas.
@@ -149,15 +180,15 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                     name: categoryName,
                     color: categoryColor,
                     logs: [],
+                    logMap: new Map(),
                     totalMinutes: 0
                 };
             }
 
             let taskTitle = '-';
             if (category && log.taskId) {
-                // T-021 FIX: normalizar tasks antes do find
-                const tasksArray = getTasksArray(category);
-                const task = tasksArray.find(t => String(t?.id) === String(log.taskId));
+                const taskMap = tasksByCatAndId.get(category);
+                const task = taskMap?.get(String(log.taskId));
 
                 // Bug fix: data model stores task.text, not task.title
                 if (task) {
@@ -169,30 +200,34 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 taskTitle = log.taskTitle || log.task || log.title || log.taskName || '-';
             }
 
-            // Check if this task is already in the list for this day (Merge strategy)
+            // Check if this task is already in the list for this day (Merge strategy com Map O(1))
             const targetGroup = grouped[uniqueDayKey].categories[categoryId];
-            const existingLogIndex = targetGroup.logs.findIndex(l =>
-                (log.taskId && String(l.taskId) === String(log.taskId)) || (!log.taskId && l.taskTitle === taskTitle)
-            );
+            const mergeKey = log.taskId ? `id:${String(log.taskId)}` : `title:${taskTitle}`;
+            const existingLog = targetGroup.logMap.get(mergeKey);
+            const logMinutes = getLogMinutes(log);
 
-            if (existingLogIndex >= 0) {
-                targetGroup.logs[existingLogIndex].minutes += getLogMinutes(log);
-                const prevTime = normalizeDate(targetGroup.logs[existingLogIndex].date)?.getTime() ?? 0;
-                const newTime = normalizeDate(log.date)?.getTime() ?? 0;
+            if (existingLog) {
+                existingLog.minutes += logMinutes;
+                const prevTime = existingLog.time ?? 0;
+                const newTime = logTime;
                 if (newTime > prevTime) {
-                    targetGroup.logs[existingLogIndex].date = log.date;
+                    existingLog.date = log.date;
+                    existingLog.time = newTime;
                 }
             } else {
-                targetGroup.logs.push({
+                const newEntry = {
                     id: log.id,
                     taskId: log.taskId,
                     taskTitle,
-                    minutes: getLogMinutes(log),
-                    date: log.date
-                });
+                    minutes: logMinutes,
+                    date: log.date,
+                    time: logTime
+                };
+                targetGroup.logMap.set(mergeKey, newEntry);
+                targetGroup.logs.push(newEntry);
             }
 
-            targetGroup.totalMinutes += getLogMinutes(log);
+            targetGroup.totalMinutes += logMinutes;
         });
 
         // Convert Objects to Arrays for rendering
@@ -202,7 +237,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 ...cat,
                 // T-038 FIX: reduce evita estourar stack com arrays grandes
                 lastLogTime: cat.logs.reduce((max, l) => {
-                    const t = normalizeDate(l.date)?.getTime() ?? 0;
+                    const t = l.time ?? (normalizeDate(l.date)?.getTime() ?? 0);
                     return Math.max(max, t);
                 }, 0)
             })).sort((a, b) => b.lastLogTime - a.lastLogTime);

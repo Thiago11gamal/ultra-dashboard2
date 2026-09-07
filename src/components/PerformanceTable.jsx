@@ -43,7 +43,17 @@ const PerformanceTable = ({ categories = [] }) => {
             const safeCorrect = Math.max(0, Math.min(totalQuestions, Math.round(correct)));
             const balance = safeCorrect - Math.max(0, totalQuestions - safeCorrect);
 
-            return { ...cat, totalVolume: totalQuestions, balance, correct, wrong };
+            const trendHistory = getSortedHistory(history)
+                .slice(-10)
+                .map(h => ({
+                    score: getSafeScore(h, ms, minS),
+                    date: h.date
+                }));
+            const trendValue = trendHistory.length >= 3 ? calculateSlope(trendHistory, ms) : 0;
+            const trendTolerance = 0.0167 * (ms / 100);
+            const currentTrend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
+
+            return { ...cat, totalVolume: totalQuestions, balance, correct, wrong, currentTrend };
         });
 
         return stats.sort((a, b) => {
@@ -139,12 +149,6 @@ const PerformanceTable = ({ categories = [] }) => {
                     </thead>
                     <tbody className="divide-y divide-white/[0.03] text-xs" role="rowgroup">
                         {sortedCategories.map((category, index) => {
-                            const stats = category.simuladoStats || { history: [], trend: 'stable' };
-                            const historyRaw = stats.history || [];
-                            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
-                            const ms = category.maxScore ?? 100;
-                            const minS = category.minScore ?? 0;
-
                             const totalQuestions = category.totalVolume;
                             const totalCorrect = Math.max(0, Math.round(category.correct));
                             const totalWrong = Math.max(0, totalQuestions - totalCorrect);
@@ -152,15 +156,7 @@ const PerformanceTable = ({ categories = [] }) => {
                             const percentCorrect = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
                             const pctBar = percentCorrect;
 
-                            const trendHistory = getSortedHistory(history)
-                                .slice(-10)
-                                .map(h => ({
-                                    score: getSafeScore(h, ms, minS),
-                                    date: h.date
-                                }));
-                            const trendValue = trendHistory.length >= 3 ? calculateSlope(trendHistory, ms) : 0;
-                            const trendTolerance = 0.0167 * (ms / 100);
-                            const currentTrend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
+                            const currentTrend = category.currentTrend || 'stable';
 
                             const isTopThree = index < 3 && totalQuestions > 0;
                             const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';

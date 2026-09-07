@@ -124,17 +124,22 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // ✅ FIX: Ancorar ao meio-dia de Manaus para o dia corrente para evitar shift de 1 dia em outros fusos
     const todayMidday = normalizeDate(getDateKey(new Date())) || new Date();
 
+    const daysMap = new Map();
     for (let i = 13; i >= 0; i--) {
         // T-024 FIX: usar setDate em vez de subtrair ms,
         // reduzindo problemas de DST/edge cases.
         const d = new Date(todayMidday);
         d.setDate(d.getDate() - i);
 
-        last14Days.push({
+        const dayEntry = {
             fullKey: getFullKey(d),
             data: getDisplayKey(d),
             horasEstudadas: 0
-        });
+        };
+        last14Days.push(dayEntry);
+        if (dayEntry.fullKey) {
+            daysMap.set(dayEntry.fullKey, dayEntry);
+        }
     }
 
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
@@ -147,7 +152,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
         const logFullKey = getFullKey(logDate);
         if (!logFullKey) return;
         
-        const dayMatch = last14Days.find(d => d.fullKey === logFullKey);
+        const dayMatch = daysMap.get(logFullKey);
         if (dayMatch) {
             const minutes = getStudyLogMinutes(log);
             // ✅ FIX: Validar minutes antes de dividir

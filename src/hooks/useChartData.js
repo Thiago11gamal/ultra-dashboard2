@@ -79,6 +79,8 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
     let bayBeta = 1;
     let maxAlphaEver = 1;
     const DECAY_FACTOR = BAYESIAN_DECAY_FACTOR || 0.985;
+    let cachedStats = null;
+    let lastAccumulatedLen = 0;
 
     for (let i = 0; i < sortedDates.length; i++) {
         const date = sortedDates[i];
@@ -140,6 +142,10 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
         }
 
         if (accumulated.length > 0) {
+            if (accumulated.length !== lastAccumulatedLen || !cachedStats) {
+                cachedStats = computeCategoryStats(accumulated, 100, 60, safeMax, safeMin);
+                lastAccumulatedLen = accumulated.length;
+            }
             const lastEntry = accumulated[accumulated.length - 1];
             const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, safeMax, {
                 referenceDate: date,
@@ -147,8 +153,8 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
                 minScore: safeMin,
             });
             dateToStats[date] = {
-                stats: computeCategoryStats(accumulated, 100, 60, safeMax, safeMin),
-                last: accumulated[accumulated.length - 1],
+                stats: cachedStats,
+                last: lastEntry,
                 bayesian: {
                     mean: bayStats.mean,
                     ciLow: bayStats.ciLow,
