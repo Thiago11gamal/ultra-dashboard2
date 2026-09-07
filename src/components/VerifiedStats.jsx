@@ -359,6 +359,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const [targetScore, setTargetScore] = React.useState(() =>
         normalizeTargetToScale(user?.targetProbability)
     );
+    const [nowTime] = React.useState(() => Date.now());
 
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
     const pendingLocalSave = React.useRef(false);
@@ -369,7 +370,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         if (lastActiveId.current !== activeId) {
             lastActiveId.current = activeId;
             pendingLocalSave.current = false;
-            setTargetScore(normalizeTargetToScale(user?.targetProbability));
+            setTimeout(() => setTargetScore(normalizeTargetToScale(user?.targetProbability)), 0);
         }
     }, [activeId, user?.targetProbability, normalizeTargetToScale]);
 
@@ -389,7 +390,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             if (!pendingLocalSave.current) {
                 const fallback = normalizeTargetToScale(null);
                 if (Math.abs(fallback - targetScore) > 0.01) {
-                    setTargetScore(fallback);
+                    setTimeout(() => setTargetScore(fallback), 0);
                 }
             }
             return;
@@ -412,8 +413,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
         if (Math.abs(normalizedStore - targetScore) > 0.01) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setTargetScore(normalizedStore);
+            setTimeout(() => setTargetScore(normalizedStore), 0);
         }
     }, [storeTarget, targetScore, normalizeTargetToScale]);
     const [showConfig, setShowConfig] = React.useState(false);
@@ -670,7 +670,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     if (weeklyBaseSpeed > speedThreshold) {
                         const safeSpeed = Math.max(speedThreshold, weeklyBaseSpeed);
                         const daysEst = Math.min(365 * 2, (distToMax / safeSpeed) * 7);
-                        const nowTime = Date.now();
                         const dateEst = new Date(nowTime + daysEst * 86400000);
                         const fmtD = (d) => isNaN(d.getTime()) ? "--/--" : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
                         prediction = "Meta Batida!";
@@ -976,7 +975,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
         // ✅ LOTE-02 FIX (A4): minScore agora é usado internamente (targetPct, normalizações)
-    }, [baseHistoryStats, statsTarget, maxScore, minScore]);
+    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit, nowTime]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">

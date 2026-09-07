@@ -47,7 +47,7 @@ export const AchievementsGrid = ({ unlockedIds = [], stats = {} }) => {
     const isUnlocked = (a) => {
         try {
             return unlockedArray.some(u => (typeof u === 'string' ? u : u?.id) === a.id) || (a.condition && a.condition(stats));
-        } catch (e) {
+        } catch {
             return false;
         }
     };

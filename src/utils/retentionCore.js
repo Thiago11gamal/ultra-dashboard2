@@ -65,7 +65,7 @@ export function toDateMs(value) {
     try {
       const ms = value.toMillis();
       return Number.isFinite(ms) ? ms : null;
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -76,7 +76,7 @@ export function toDateMs(value) {
       return date instanceof Date
         ? (Number.isNaN(date.getTime()) ? null : date.getTime())
         : null;
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapSubjectHoursData, mapFocusEvolutionData } from '../chartDataMappers.js';
+import { mapSubjectHoursData } from '../chartDataMappers.js';
 import { analyzeProgressState } from '../ProgressStateEngine.js';
 import { getSafeScore } from '../scoreHelper.js';
 

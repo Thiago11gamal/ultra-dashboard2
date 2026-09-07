@@ -107,7 +107,7 @@ export const ACHIEVEMENTS = [
             // BUG-T11 FIX: Fallback defensivo para evitar travar o loop
             try {
                 return stats.studiedEarly === true;
-            } catch (e) {
+            } catch {
                 return true; // Assume desbloqueado se quebrar (graceful fallback)
             }
         }

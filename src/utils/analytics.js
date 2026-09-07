@@ -166,7 +166,6 @@ export const getStudyMinutes = (entry) => {
 export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompletedCycles = 0) => {
   const logsArray = toArray(studyLogs);
   const workDuration = Math.max(1, Number(pomodoroWork) || 25);
-  const todayRange = getManausDayRange(new Date());
   const todayKey = getDateKey(new Date());
 
   const minutesToday = logsArray.reduce((sum, log) => {

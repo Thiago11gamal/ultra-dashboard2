@@ -127,7 +127,7 @@ function PersonalRanking({ categories = [] }) {
 
             return { ...cat, total, correct, wrong, balance };
         });
-    }, [categories]);
+    }, [safeCategories]);
 
     const withData = categoryStats.filter(c => c.total > 0);
     const sortedByBalance = [...withData].sort((a, b) => b.balance - a.balance);

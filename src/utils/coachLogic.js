@@ -2710,7 +2710,7 @@ export function getCombinedHistory(history, simulados, maxScore = 100) {
     const deduplicatedMap = new Map();
     const allSimulados = safeArray(simulados);
 
-    allSimulados.forEach((s, idx) => {
+    allSimulados.forEach((s) => {
         const safeScore = getSafeScore(s, maxScore);
         const safeScoreStr = Number.isFinite(safeScore) ? String(Math.round(safeScore * 100)) : '0';
         // FIX: sem `id`, a chave usava `idx` (sempre único) e nunca deduplicava.

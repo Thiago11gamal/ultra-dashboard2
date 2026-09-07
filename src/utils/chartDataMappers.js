@@ -2,7 +2,6 @@
  * Mapper functions to transform application state into chart-ready data
  */
 import { normalizeDate, getDateKey } from './dateHelper.js';
-import { toArray } from './normalize.js';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -22,21 +21,7 @@ import {
     getLatestStudyMs,
     clamp,
     MS_PER_DAY as CORE_MS_PER_DAY
-} from './retentionCore';
-
-const toSafeDate = (value) => {
-    if (!value) return null;
-    
-    // Suporte a Firebase Timestamp
-    if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
-        const secs = value.seconds != null ? value.seconds : value._seconds;
-        return new Date(secs * 1000);
-    }
-    
-    const parsed = normalizeDate(value);
-    const date = parsed || new Date(value);
-    return Number.isFinite(date?.getTime()) ? date : null;
-};
+} from './retentionCore.js';
 
 /**
  * Maps categories and their tasks to retention analysis data

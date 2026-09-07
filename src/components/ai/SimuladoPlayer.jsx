@@ -15,6 +15,8 @@ export default function SimuladoPlayer({
   handleFinish,
   resetAll
 }) {
+  const touchStartX = useRef(null);
+
   if (!questions || questions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-400">
@@ -27,8 +29,6 @@ export default function SimuladoPlayer({
   const answeredCount = Object.keys(answers || {}).length;
   const timeColor = timeLeft < 180 ? 'text-red-400 border-red-500/30' : timeLeft < 300 ? 'text-amber-400 border-amber-500/30' : 'text-slate-300 border-white/10';
   const difficultyLabel = DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || form.dificuldade;
-
-  const touchStartX = useRef(null);
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;

@@ -109,9 +109,11 @@ export function useSubscription(user) {
           setLoading(false); 
       });
     } catch {
-      if (!isMounted) return;
-      setIsPremium(false);
-      setLoading(false);
+      setTimeout(() => {
+        if (!isMounted) return;
+        setIsPremium(false);
+        setLoading(false);
+      }, 0);
     }
 
     return () => { 
@@ -122,7 +124,7 @@ export function useSubscription(user) {
             fallbackUnsubRef.current = null;
         }
     };
-  }, [user?.uid, isDevBypass]);
+  }, [user, isDevBypass]);
 
   if (isDevBypass) return { isPremium: true, loading: false };
   if (!user?.uid) return { isPremium: false, loading: false };

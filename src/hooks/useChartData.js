@@ -350,7 +350,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             return { cat, cells };
         });
         return { dates, rows };
-    }, [activeCategories, safeMax, toRatio]);
+    }, [activeCategories, safeMax, safeMin, toRatio]);
 
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
@@ -376,7 +376,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
-    }, [activeCategories, safeMax, toRatio]);
+    }, [activeCategories, safeMax, safeMin, toRatio]);
 
     return { activeCategories, timeline, heatmapData, globalMetrics };
 }

@@ -792,7 +792,8 @@ export function useMonteCarloStats({
         projectDays,
         effectiveSimulateToday,
         safeCategories,
-        statsDataFingerprint
+        statsDataFingerprint,
+        statsData?.estimatedRho
     ]);
 
   const probabilityData = useMemo(() => {

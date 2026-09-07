@@ -9,7 +9,7 @@ function NextGoalCard({
     studyLogs = [],
     onStartStudying
 }) {
-    const rawCategories = toArray(categories);
+    const rawCategories = useMemo(() => toArray(categories), [categories]);
     const hasAnyTasks = useMemo(() => {
         return rawCategories.some(cat => toArray(cat?.tasks).length > 0);
     }, [rawCategories]);
@@ -18,15 +18,15 @@ function NextGoalCard({
     const [suggestion, setSuggestion] = useState(null);
 
     useEffect(() => {
-        if (rawCategories.length === 0 || !hasAnyTasks) {
-            setIsLoading(false);
-            setSuggestion(null);
-            return;
-        }
-
-        setIsLoading(true);
-        // Usa setTimeout para não bloquear o render inicial
+        // Usa setTimeout para não bloquear o render inicial e evitar setState síncrono no efeito
         const timer = setTimeout(() => {
+            if (rawCategories.length === 0 || !hasAnyTasks) {
+                setIsLoading(false);
+                setSuggestion(null);
+                return;
+            }
+
+            setIsLoading(true);
             try {
                 const normalizedCategories = rawCategories.map(category => ({
                     ...category,
@@ -93,8 +93,9 @@ function NextGoalCard({
                 setIsLoading(false);
             }
         }, 50);
+
         return () => clearTimeout(timer);
-    }, [categories, simulados, studyLogs]);
+    }, [rawCategories, hasAnyTasks, simulados, studyLogs]);
 
     if (rawCategories.length === 0 || !hasAnyTasks) {
         return null;

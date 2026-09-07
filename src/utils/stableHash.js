@@ -1,8 +1,7 @@
 const stableStringify = (value) => {
   const seen = new WeakSet();
   try {
-    try {
-    return JSON.stringify(value, function replacer(key, val) {
+    return JSON.stringify(value, function replacer(_key, val) {
       if (typeof val === 'bigint') return val.toString();
       if (val && typeof val === 'object') {
         if (seen.has(val)) return '[Circular]';
@@ -14,17 +13,11 @@ const stableStringify = (value) => {
               acc[k] = val[k];
               return acc;
             }, {});
-  } catch (e) {
-    return "";
-  }
         }
       }
       return val;
     });
-  } catch (e) {
-    return "";
-  }
-  } catch (err) {
+  } catch {
     return String(value);
   }
 };

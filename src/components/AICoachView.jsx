@@ -417,7 +417,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     startNeuralSession([{ ...task, sourceContext: sourceContextHint || 'isolated' }], 0);
     navigate('/pomodoro');
-  }, [unallocatedCards, coachPlanner, coachPlan, taskLocationMap, startNeuralSession, navigate]);
+  }, [unallocatedCards, coachPlanner, coachPlan, taskLocationMap, startNeuralSession, navigate, showToast]);
 
   const handleExport = async () => {
     setIsExporting(true);

@@ -175,16 +175,16 @@ const RetentionBar = ({ value, bg }) => (
 export default function RetentionPanel({ categories = [], onSelectCategory }) {
     const [expandedCategories, setExpandedCategories] = useState({});
 
-    // Auto-refresh tick every 60 seconds to recalculate retention
-    const [tick, setTick] = useState(0);
+    // Auto-refresh now every 60 seconds to recalculate retention
+    const [now, setNow] = useState(() => Date.now());
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!document.hidden) setTick(t => t + 1);
+            if (!document.hidden) setNow(Date.now());
         }, 60000);
 
         const handleVisibilityChange = () => {
-            if (!document.hidden) setTick(t => t + 1);
+            if (!document.hidden) setNow(Date.now());
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -213,7 +213,6 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     // Calculate retention for all categories and their tasks
     const retentionData = useMemo(() => {
-        const now = Date.now();
         const safeCategories = normalizeArray(categories);
 
         return safeCategories
@@ -275,8 +274,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                 };
             })
             .sort((a, b) => a.retention.val - b.retention.val);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categories, tick, getRetentionStyle]); // tick forces periodic recalculation
+    }, [categories, now, getRetentionStyle]); // now forces periodic recalculation
 
     // Stats summary
     const stats = useMemo(() => {

@@ -4,7 +4,6 @@ import { Minus, Plus, Layers } from 'lucide-react';
 export function PomodoroProgress({
     targetCycles,
     completedCycles,
-    sessions,
     setTargetCycles,
     syncChannel,
     STABLE_TAB_ID,

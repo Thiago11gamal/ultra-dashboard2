@@ -282,7 +282,7 @@ export const clearAllDataSecure = async () => {
       window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
       window.indexedDB.deleteDatabase('keyval-store');
       // Forçamos resolução silenciosa para não travar a aplicação
-    } catch (_e) {
+    } catch {
       // Ignorar erros
     }
   }

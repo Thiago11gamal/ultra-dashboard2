@@ -28,13 +28,15 @@ export default function LevelUpToast({ level, title, onClose }) {
 
     useEffect(() => {
         isClosedRef.current = false; // Permite reabertura se o level mudar rápido
-        setVisible(false); // Reseta estado visual temporariamente
         
         const addTimer = (fn, delay) => {
             const id = setTimeout(fn, delay);
             timersRef.current.push(id);
             return id;
         };
+
+        // Reseta estado visual temporariamente de forma assíncrona
+        addTimer(() => setVisible(false), 0);
 
         // Entrance animation
         addTimer(() => setVisible(true), 50);

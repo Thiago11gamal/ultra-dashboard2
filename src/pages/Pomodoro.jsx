@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
-import { cleanTaskTitle, parseTaskDisplay } from '../utils/taskTitleHelper';
+import { parseTaskDisplay } from '../utils/taskTitleHelper';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
@@ -145,16 +145,16 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
 // =====================================================
 // PAINEL DO MENTOR IA
 // =====================================================
-function AICoachPanel({ activeSubject, stats, categories = [], studyLogs = [], simulados = [] }) {
-    const defaultInsight = {
-        title: 'Pronto para Foco',
-        text: 'Sua mente está pronta. Selecione um objetivo tático abaixo para iniciar.',
-        color: 'indigo',
-        iconType: 'Brain'
-    };
+const DEFAULT_INSIGHT = Object.freeze({
+    title: 'Pronto para Foco',
+    text: 'Sua mente está pronta. Selecione um objetivo tático abaixo para iniciar.',
+    color: 'indigo',
+    iconType: 'Brain'
+});
 
+function AICoachPanel({ activeSubject, _stats, categories = [], studyLogs = [], simulados = [] }) {
     const insight = useMemo(() => {
-        if (!activeSubject) return defaultInsight;
+        if (!activeSubject) return DEFAULT_INSIGHT;
 
         const catId = activeSubject.categoryId || activeSubject.catId;
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -189,8 +189,8 @@ function AICoachPanel({ activeSubject, stats, categories = [], studyLogs = [], s
                     iconType
                 };
             }
-        } catch (e) {
-            console.error('[AICoachPanel] Erro ao obter insight:', e);
+        } catch {
+            // Silently fallback to default subject advice
         }
 
         return {

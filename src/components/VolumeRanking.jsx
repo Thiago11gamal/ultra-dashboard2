@@ -15,7 +15,7 @@ const VolumeRanking = ({ categories = [] }) => {
             const histLen = Array.isArray(h) ? h.length : Object.keys(h || {}).length;
             return `${c.id}:${histLen}`;
         }).join('|');
-    }, [categories]);
+    }, [safeCategories]);
 
     const sorted = useMemo(() => {
         const stats = safeCategories.map(cat => {

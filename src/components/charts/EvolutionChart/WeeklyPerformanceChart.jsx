@@ -28,7 +28,6 @@ const WeeklyPerformanceChart = ({
     const safeUnit = typeof unit === 'string' && unit.length <= 4 ? unit : '%';
     const instanceId = useId().replace(/:/g, "");
     const barGradId = `wp_barGrad_${instanceId}`;
-    const neonShadowId = `wp_neonShadow_${instanceId}`;
 
     const chartData = React.useMemo(() => {
         const days = [];

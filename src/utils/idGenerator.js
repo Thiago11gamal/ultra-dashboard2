@@ -7,7 +7,7 @@ export const generateId = (prefix = 'id') => {
   if (c && typeof c.randomUUID === 'function') {
     try {
       return `${prefix}-${c.randomUUID()}`;
-    } catch (e) {
+    } catch {
       // fallback
     }
   }

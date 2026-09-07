@@ -75,7 +75,7 @@ export const createSimuladoSlice = (set) => ({
             ? c.simuladoStats.history
             : Object.values(c.simuladoStats.history || {});
 
-          const newHistory = safeHistory.filter(h => !matchesDate(h.date));
+          const newHistory = safeHistory.filter(h => !matchesItem(h));
           const newStatsObj = { ...c.simuladoStats, history: newHistory };
 
           if (newHistory.length > 0) {

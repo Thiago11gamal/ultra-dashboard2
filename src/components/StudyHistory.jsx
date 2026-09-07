@@ -626,7 +626,7 @@ const StudyHistory = React.memo(function StudyHistory({
                             const simuladoB = groupedSimulados.find(g => g.key === activeCompBKey) || groupedSimulados[1] || groupedSimulados[0];
 
                             // Renderizador de um card de simulado
-                            const renderSimuladoCard = (group, isComparison = false, deltaInfo = null) => {
+                            const renderSimuladoCard = (group, _isComparison = false, deltaInfo = null) => {
                                 const { totalQuestions, totalCorrect, globalPct, subjects } = processSimulado(group.rows);
                                 const isToday = group.date.toDateString() === new Date().toDateString();
                                 const title = isToday ? 'Hoje' : group.date.toLocaleDateString('pt-BR');

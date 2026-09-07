@@ -445,7 +445,6 @@ export default function Coach() {
     timeIndex: -1,
     // FIX CORRIGIDO: EMPTY_ARRAY era sempre [] → o hook nunca tinha
     // datas para calcular projectDays. Agora derivamos das categorias.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     timelineDates: useMemo(() => {
         const dates = new Set();
         categories.forEach(cat => {
@@ -684,7 +683,7 @@ export default function Coach() {
     }, 1500);
   }, [
     categories, coachLoading, setData, scheduleCalibrationPersist,
-    combinedHistory, targetScorePoints, targetScoreLabel,
+    targetScorePoints, targetScoreLabel,
     currentMaxScore, userData, settingsData,
     runLearningCycle, commitLearningCycle
   ]);
