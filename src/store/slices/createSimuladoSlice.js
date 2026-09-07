@@ -28,20 +28,26 @@ export const createSimuladoSlice = (set) => ({
     const activeData = state.appState.contests[state.appState.activeId];
     if (!activeData || !dateInput) return;
 
-    const normalizedInput = String(dateInput);
+    const normalizedInput = String(dateInput).trim();
 
-    const matchesDate = (raw) => {
-      if (!raw) return false;
-      const normalizedRaw = String(raw);
-      if (normalizedInput.includes('T')) {
-        return normalizedRaw === normalizedInput;
+    const matchesItem = (item) => {
+      if (!item) return false;
+      if (item.batchId && String(item.batchId).trim() === normalizedInput) {
+        return true;
       }
-      // ✅ FIX: Validação estrita de formato YYYY-MM-DD antes de comparar
+      const raw = item.date || item.createdAt;
+      if (!raw) return false;
+      const normalizedRaw = String(raw).trim();
+      if (normalizedRaw === normalizedInput) return true;
+
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(normalizedInput)) return false;
-      // Compara apenas a parte da data (YYYY-MM-DD)
-      const rawDatePart = normalizedRaw.split('T')[0];
-      return rawDatePart === normalizedInput;
+      const inputDatePart = normalizedInput.includes('T') ? normalizedInput.split('T')[0] : normalizedInput;
+      const rawDatePart = normalizedRaw.includes('T') ? normalizedRaw.split('T')[0] : normalizedRaw;
+
+      if (dateRegex.test(inputDatePart) && rawDatePart === inputDatePart) {
+        return true;
+      }
+      return false;
     };
 
     if (activeData.simuladoRows) {
@@ -49,7 +55,7 @@ export const createSimuladoSlice = (set) => ({
         ? activeData.simuladoRows
         : Object.values(activeData.simuladoRows || {});
 
-      activeData.simuladoRows = safeRows.filter(r => !matchesDate(r.date || r.createdAt));
+      activeData.simuladoRows = safeRows.filter(r => !matchesItem(r));
     }
 
     if (activeData.simulados) {
@@ -57,7 +63,7 @@ export const createSimuladoSlice = (set) => ({
         ? activeData.simulados
         : Object.values(activeData.simulados || {});
 
-      activeData.simulados = safeSimulados.filter(s => !matchesDate(s.date || s.createdAt));
+      activeData.simulados = safeSimulados.filter(s => !matchesItem(s));
     }
 
     if (activeData.categories) {
