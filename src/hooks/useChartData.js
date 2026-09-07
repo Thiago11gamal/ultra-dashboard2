@@ -147,7 +147,7 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
                 lastAccumulatedLen = accumulated.length;
             }
             const lastEntry = accumulated[accumulated.length - 1];
-            const bayStats = computeBayesianLevel(accumulated, bayAlpha, bayBeta, safeMax, {
+            const bayStats = computeBayesianLevel(accumulated, 1, 1, safeMax, {
                 referenceDate: date,
                 lastEventDate: lastEntry ? lastEntry.date : null,
                 minScore: safeMin,
@@ -159,8 +159,8 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
                     mean: bayStats.mean,
                     ciLow: bayStats.ciLow,
                     ciHigh: bayStats.ciHigh,
-                    alpha: bayAlpha,
-                    beta: bayBeta,
+                    alpha: bayStats.alpha,
+                    beta: bayStats.beta,
                 },
             };
         }

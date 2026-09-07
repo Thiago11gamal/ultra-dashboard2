@@ -77,4 +77,29 @@ describe('PerformanceTable rendering contracts', () => {
         const html = renderToStaticMarkup(<PerformanceTable categories={categories} />);
         expect(html).toContain('Redação');
     });
+
+    it('correctly calculates volume, accuracy and balance when history items lack total but have correct and wrong', () => {
+        const categories = [
+            {
+                id: 'cat-partial',
+                name: 'Legislação Especial',
+                maxScore: 100,
+                minScore: 0,
+                simuladoStats: {
+                    history: [
+                        { createdAt: '2026-05-01T10:00:00Z', score: 80, correct: 8, wrong: 2 } // total is missing
+                    ]
+                }
+            }
+        ];
+
+        const html = renderToStaticMarkup(<PerformanceTable categories={categories} />);
+        expect(html).toContain('Legislação Especial');
+        // Volume should be 10 (8+2), not 0
+        expect(html).toContain('10');
+        // Saldo should be +6 (8 - 2)
+        expect(html).toContain('+6');
+        // Accuracy should be 80%
+        expect(html).toContain('80%');
+    });
 });

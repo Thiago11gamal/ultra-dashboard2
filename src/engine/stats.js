@@ -334,7 +334,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null, minSco
   
   const blendedSampleVar = (0.8 * sampleVar) + (0.2 * robustVar);
   
-  const POPULATION_SD = getDynamicPriorSD(arr, safeMaxScore);
+  const POPULATION_SD = getDynamicPriorSD(arr, safeMaxScore, safeMinScore);
   const KAPPA = 1;
   
   const adjustedVar = ((n - 1) * blendedSampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) / ((n - 1) + KAPPA);
@@ -356,11 +356,14 @@ export const calcularDesvioPadrao = (arr) => {
     return Math.sqrt(Math.max(0, v));
 };
 
-export function calcularAssimetria(arr) {
+export function calcularAssimetria(arr, maxScore = 100, minScore = 0) {
     if (!arr || arr.length < 3) return 0;
 
+    const safeMax = safeMaxScoreValue(maxScore, 100);
+    const safeMin = safeMinScoreValue(minScore, 0);
+
     const clean = toHistoryArray(arr)
-        .map(v => typeof v === 'number' ? v : getSafeScore(v, 100))
+        .map(v => typeof v === 'number' ? v : getSafeScore(v, safeMax, safeMin))
         .filter(Number.isFinite);
 
     const n = clean.length;
@@ -768,6 +771,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     if (!safeHistory.length) return null;
 
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
+    const safeMinScore = safeMinScoreValue(minScore, 0);
 
     const rawSynthetic = getSyntheticTotal(safeMaxScore);
     const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;
@@ -920,7 +924,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const sd = Math.max(Math.sqrt(Math.max(0, variance)), 0.001 * safeMaxScore);
     const safeSD = Number.isFinite(sd) ? sd : 0.001 * safeMaxScore;
 
-    const slopePerDay = calculateSlope(historyToUse, safeMaxScore);
+    const slopePerDay = calculateSlope(historyToUse, safeMaxScore, { minScore: safeMinScore });
     const safeSlope = Number.isFinite(slopePerDay) ? slopePerDay : 0;
 
     const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore);
@@ -938,7 +942,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const safeLastScore = Number.isFinite(lastScoreRaw) ? lastScoreRaw : m;
 
     const limiteSuperior = safeMaxScore - safeLastScore;
-    const limiteInferior = -safeLastScore;
+    const limiteInferior = safeMinScore - safeLastScore;
 
     const rawTrend = Math.max(limiteInferior, Math.min(limiteSuperior, safeSlope * 30));
     const safeRawTrend = Number.isFinite(rawTrend) ? rawTrend : 0;
@@ -961,9 +965,12 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     };
 }
 
-export const calculateEMA = (scores, alpha = 0.25) => {
+export const calculateEMA = (scores, alpha = 0.25, maxScore = 100, minScore = 0) => {
+    const safeMax = safeMaxScoreValue(maxScore, 100);
+    const safeMin = safeMinScoreValue(minScore, 0);
+
     const clean = toHistoryArray(scores)
-        .map(v => typeof v === 'number' ? v : getSafeScore(v, 100))
+        .map(v => typeof v === 'number' ? v : getSafeScore(v, safeMax, safeMin))
         .filter(Number.isFinite);
 
     if (!clean.length) return 0;
@@ -1129,7 +1136,25 @@ export function calculateSlopePerDay(history, maxScore = 100, minScore = 0) {
         }
     }
 
-    if (validEntries.length < 2) return 0;
+    if (validEntries.length < 2) {
+        // Fallback: regressão por índice se não houver datas válidas
+        const cleanScores = safeHistory
+            .map(h => typeof h === 'number' ? h : getSafeScore(h, safeMaxScore, safeMinScore))
+            .filter(Number.isFinite);
+        if (cleanScores.length < 2) return 0;
+        let sX = 0, sY = 0, sXY = 0, sX2 = 0;
+        const n = cleanScores.length;
+        for (let i = 0; i < n; i++) {
+            sX += i;
+            sY += cleanScores[i];
+            sXY += i * cleanScores[i];
+            sX2 += i * i;
+        }
+        const denom = (n * sX2) - (sX * sX);
+        if (Math.abs(denom) < 1e-12) return 0;
+        const indexSlope = ((n * sXY) - (sX * sY)) / denom;
+        return Number.isFinite(indexSlope) ? indexSlope : 0;
+    }
 
     validEntries.sort((a, b) => {
         if (a.time !== b.time) return a.time - b.time;
@@ -1152,7 +1177,20 @@ export function calculateSlopePerDay(history, maxScore = 100, minScore = 0) {
     }
 
     const denominator = (validN * sumX2) - (sumX * sumX);
-    if (Math.abs(denominator) < 1e-12) return 0;
+    if (Math.abs(denominator) < 1e-12) {
+        // Fallback: todas as provas na mesma data, calcular por sequência de prova
+        let sX = 0, sY = 0, sXY = 0, sX2 = 0;
+        for (let i = 0; i < validN; i++) {
+            sX += i;
+            sY += validEntries[i].y;
+            sXY += i * validEntries[i].y;
+            sX2 += i * i;
+        }
+        const denom = (validN * sX2) - (sX * sX);
+        if (Math.abs(denom) < 1e-12) return 0;
+        const indexSlope = ((validN * sXY) - (sX * sY)) / denom;
+        return Number.isFinite(indexSlope) ? indexSlope : 0;
+    }
 
     const slopePerDay = ((validN * sumXY) - (sumX * sumY)) / denominator;
     // ✅ LOTE-01 FIX: slope POR DIA. O "* 10" anterior inflava trendValue em 10×

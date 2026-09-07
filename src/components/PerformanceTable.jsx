@@ -21,39 +21,42 @@ const PerformanceTable = ({ categories = [] }) => {
             let correct = 0, wrong = 0, totalQuestions = 0;
             const ms = cat.maxScore ?? 100;
             const minS = cat.minScore ?? 0;
+            const range = Math.max(1e-9, ms - minS);
 
             for (let i = 0; i < history.length; i++) {
                 const h = history[i];
-                const t = parseInt(h.total, 10) || 0;
-                const score = getSafeScore(h, ms, minS);
-                const range = ms - minS;
-                const c = Number.isFinite(score) && range !== 0 ? ((score - minS) / range * t) : 0;
-                correct += c;
-                wrong += (t - c);
+                const parsedTotal = parseInt(h?.total, 10);
+                const altTotal = Math.max(0, (Number(h?.correct) || 0) + (Number(h?.wrong) || 0));
+                const t = (Number.isFinite(parsedTotal) && parsedTotal > 0) ? parsedTotal : altTotal;
                 
-                const parsedTotal = parseInt(h.total, 10);
-                if (Number.isFinite(parsedTotal) && parsedTotal > 0) {
-                    totalQuestions += parsedTotal;
-                } else {
-                    totalQuestions += Math.max(0, (Number(h.correct) || 0) + (Number(h.wrong) || 0));
+                const score = getSafeScore(h, ms, minS);
+                let c = 0;
+                if (Number.isFinite(score) && range !== 0 && t > 0) {
+                    c = Math.max(0, Math.min(t, Math.round(((score - minS) / range) * t)));
+                } else if (Number.isFinite(Number(h?.correct))) {
+                    c = Math.max(0, Math.min(t, Number(h.correct)));
                 }
+                correct += c;
+                wrong += Math.max(0, t - c);
+                totalQuestions += t;
             }
             
-            // BUG-FIX: proteger contra balance negativo
+            // Proteger contra inconsistências de arredondamento
             const safeCorrect = Math.max(0, Math.min(totalQuestions, Math.round(correct)));
-            const balance = safeCorrect - Math.max(0, totalQuestions - safeCorrect);
+            const safeWrong = Math.max(0, totalQuestions - safeCorrect);
+            const balance = safeCorrect - safeWrong;
 
             const trendHistory = getSortedHistory(history)
                 .slice(-10)
                 .map(h => ({
                     score: getSafeScore(h, ms, minS),
-                    date: h.date
+                    date: h?.date || h?.createdAt
                 }));
-            const trendValue = trendHistory.length >= 3 ? calculateSlope(trendHistory, ms) : 0;
+            const trendValue = trendHistory.length >= 3 ? calculateSlope(trendHistory, ms, { minScore: minS }) : 0;
             const trendTolerance = 0.0167 * (ms / 100);
             const currentTrend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
 
-            return { ...cat, totalVolume: totalQuestions, balance, correct, wrong, currentTrend, trendValue };
+            return { ...cat, totalVolume: totalQuestions, balance, correct: safeCorrect, wrong: safeWrong, currentTrend, trendValue };
         });
 
         return stats.sort((a, b) => {
@@ -248,7 +251,7 @@ const PerformanceTable = ({ categories = [] }) => {
                                     </td>
                                     <td className="p-5 text-center border-l border-white/5" role="gridcell">
                                         <div className="flex justify-center">
-                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 group-hover:border-white/20 group-hover:bg-black/60 transition-all duration-500 shadow-2xl relative overflow-hidden" title={`Tendência recente: ${trendValue > 0 ? '+' : ''}${trendValue.toFixed(3)} pts/registro`}>
+                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 group-hover:border-white/20 group-hover:bg-black/60 transition-all duration-500 shadow-2xl relative overflow-hidden" title={`Tendência recente: ${trendValue > 0 ? '+' : ''}${trendValue.toFixed(3)} pts/dia`}>
                                                 <div className="z-10 relative">{trendIcon}</div>
                                                 {currentTrend !== 'stable' && (
                                                     <div className={`absolute inset-0 blur-lg transition-opacity duration-700 opacity-0 group-hover:opacity-30 ${currentTrend === 'up' ? 'bg-green-500' : 'bg-red-500'

@@ -104,9 +104,14 @@ export async function generateViaGeminiDirect({
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  const handleAbort = () => controller.abort();
 
   if (signal) {
-    signal.addEventListener('abort', () => controller.abort(), { once: true });
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', handleAbort);
+    }
   }
 
   try {
@@ -137,6 +142,9 @@ export async function generateViaGeminiDirect({
     return validateAIQuestions(questions);
   } finally {
     clearTimeout(timeoutId);
+    if (signal) {
+      signal.removeEventListener('abort', handleAbort);
+    }
   }
 }
 
@@ -157,9 +165,14 @@ export async function generateViaBackend({
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  const handleAbort = () => controller.abort();
 
   if (signal) {
-    signal.addEventListener('abort', () => controller.abort(), { once: true });
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener('abort', handleAbort);
+    }
   }
 
   try {
@@ -186,9 +199,13 @@ export async function generateViaBackend({
     } catch {
       throw new Error(`Resposta inválida do backend (JSON parsing error)`);
     }
-    return validateAIQuestions(data.questions ?? []);
+    const questions = data.questions ?? [];
+    return validateAIQuestions(questions);
   } finally {
     clearTimeout(timeoutId);
+    if (signal) {
+      signal.removeEventListener('abort', handleAbort);
+    }
   }
 }
 

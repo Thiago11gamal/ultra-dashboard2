@@ -179,10 +179,14 @@ export function retentionFromHalfLife(days, halfLife) {
 }
 
 export function getLatestStudyMs(entity, tasks = []) {
+  const historyEntries = normalizeArray(entity?.simuladoStats?.history);
   const candidates = [
     toDateMs(entity?.lastStudiedAt),
     ...normalizeArray(tasks).map(task =>
       toDateMs(task?.lastStudiedAt ?? task?.completedAt)
+    ),
+    ...historyEntries.map(entry =>
+      toDateMs(entry?.date ?? entry?.createdAt)
     )
   ].filter(ms => Number.isFinite(ms));
 

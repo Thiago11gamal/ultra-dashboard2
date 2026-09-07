@@ -177,17 +177,7 @@ export const useAppStore = create(
           appState: {
             ...state.appState,
             trash: (state.appState.trash || []).slice(-10),
-            contests: Object.keys(state.appState.contests || {}).reduce((acc, id) => {
-              const c = state.appState.contests[id];
-              acc[id] = {
-                ...c,
-                simulados: (c.simulados || []).slice(-50),
-                studyLogs: (c.studyLogs || []).slice(-50),
-                monteCarloHistory: (c.monteCarloHistory || []).slice(-30),
-                simuladoRows: (c.simuladoRows || []).slice(-50),
-              };
-              return acc;
-            }, {})
+            contests: state.appState.contests
           }
         }),
       }

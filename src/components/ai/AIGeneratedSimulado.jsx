@@ -852,14 +852,18 @@ export default function AIGeneratedSimulado() {
 
   useEffect(() => {
     let interval = null;
+    let timeout = null;
     if (isLoading) {
       interval = setInterval(() => {
         setLoadingMsgIdx(prev => (prev < LOADING_MESSAGES.length - 1 ? prev + 1 : prev));
       }, 3500);
     } else {
-      setTimeout(() => setLoadingMsgIdx(0), 0);
+      timeout = setTimeout(() => setLoadingMsgIdx(0), 0);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+      if (timeout) clearTimeout(timeout);
+    };
   }, [isLoading]);
 
   if (step === 'setup') {

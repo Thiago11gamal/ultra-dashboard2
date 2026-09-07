@@ -264,6 +264,12 @@ function PomodoroTimer({
             : null;
     });
 
+    useEffect(() => {
+        return () => {
+            syncChannel?.close();
+        };
+    }, [syncChannel]);
+
     const activeSubjectRef = useRef(activeSubject);
     useEffect(() => {
         activeSubjectRef.current = activeSubject;

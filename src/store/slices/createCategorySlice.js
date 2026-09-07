@@ -17,6 +17,9 @@ export const createCategorySlice = (set) => ({
             return;
         }
 
+        const catMaxScore = Number(activeData.maxScore) > 0 ? Number(activeData.maxScore) : 100;
+        const catMinScore = Number.isFinite(Number(activeData.minScore)) ? Number(activeData.minScore) : 0;
+
         activeData.categories.push({
             id: generateId('cat'),
             name,
@@ -24,9 +27,9 @@ export const createCategorySlice = (set) => ({
             icon: '📚',
             tasks: [],
             weight: 10,
-            // BUG-FIX: maxScore ausente causava fallback silencioso a 100 em toda a engine
-            maxScore: 100,
-            minCutoff: 0,
+            maxScore: catMaxScore,
+            minScore: catMinScore,
+            minCutoff: catMinScore,
             simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
             totalMinutes: 0,
             lastStudiedAt: null
