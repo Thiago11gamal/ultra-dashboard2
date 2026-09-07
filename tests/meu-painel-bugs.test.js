@@ -263,4 +263,30 @@ describe('Meu Painel - Suíte de Regressão dos 12 Bugs', () => {
         expect(restoredId.startsWith('contest-')).toBe(true);
         expect(state.contests[restoredId].id).toBe(restoredId);
     });
+
+    it('Bug 4.5: togglePriority cicla low -> medium -> high -> low e produz novas referências de array para reatividade', () => {
+        const togglePriority = useAppStore.getState().togglePriority;
+        const getCategories = () => useAppStore.getState().appState.contests.contest_1.categories;
+
+        const initialCategories = getCategories();
+        const task = initialCategories[1].tasks[0]; // task_3: priority 'high'
+        expect(task.priority).toBe('high');
+
+        // high -> low
+        togglePriority('cat_dir', 'task_3');
+        const after1Categories = getCategories();
+        expect(after1Categories).not.toBe(initialCategories); // Nova referência de array
+        expect(after1Categories[1].tasks[0].priority).toBe('low');
+
+        // low -> medium
+        togglePriority('cat_dir', 'task_3');
+        const after2Categories = getCategories();
+        expect(after2Categories).not.toBe(after1Categories);
+        expect(after2Categories[1].tasks[0].priority).toBe('medium');
+
+        // medium -> high
+        togglePriority('cat_dir', 'task_3');
+        const after3Categories = getCategories();
+        expect(after3Categories[1].tasks[0].priority).toBe('high');
+    });
 });

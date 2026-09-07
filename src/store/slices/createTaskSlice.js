@@ -165,20 +165,32 @@ export const createTaskSlice = (set, get) => ({
         const priorities = ['low', 'medium', 'high'];
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData?.categories) return;
-        const category = activeData.categories.find(c => c.id === categoryId);
+
+        const categories = Array.isArray(activeData.categories)
+            ? activeData.categories
+            : Object.values(activeData.categories || {});
+
+        const category = categories.find(c => c && (c.id === categoryId || c.name === categoryId));
         if (!category) return;
 
-        const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId));
+        const tasks = Array.isArray(category.tasks)
+            ? category.tasks
+            : Object.values(category.tasks || {});
+
+        const task = tasks.find(t => t && ((t.id && t.id === taskId) || (t.text && t.text === taskId) || (t.title && t.title === taskId)));
         if (task) {
-            const oldPriority = task.priority || 'medium';
-            task.priority = priorities[(priorities.indexOf(task.priority || 'medium') + 1) % 3];
+            const oldPriority = String(task.priority || 'medium').toLowerCase();
+            const currentIndex = priorities.indexOf(oldPriority);
+            const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % 3;
+            const newPriority = priorities[nextIndex];
+            task.priority = newPriority;
 
             // BUG-T06 FIX: Se a tarefa já está completada, o XP concedido
             // foi baseado na prioridade antiga. Ajustar o XP do usuário
             // e o recibo awardedXP para a nova prioridade.
             if (task.completed && task.awardedXP !== undefined) {
                 const oldXP = XP_CONFIG.task[oldPriority] || XP_CONFIG.task.medium;
-                const newXP = XP_CONFIG.task[task.priority] || XP_CONFIG.task.medium;
+                const newXP = XP_CONFIG.task[newPriority] || XP_CONFIG.task.medium;
                 const diff = newXP - oldXP;
                 if (diff !== 0) {
                     const contestUser = activeData.user;
@@ -188,6 +200,10 @@ export const createTaskSlice = (set, get) => ({
                     task.awardedXP = newXP;
                 }
             }
+
+            // Garante novas referências de array para Zustand / React shallow memoization
+            category.tasks = [...tasks];
+            activeData.categories = [...categories];
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();

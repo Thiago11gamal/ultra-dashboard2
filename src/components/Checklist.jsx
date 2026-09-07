@@ -312,8 +312,12 @@ const TaskItem = ({
 
                 <button
                     type="button"
-                    onClick={() => onTogglePriority(task.id)}
-                    className={`px-3 sm:w-20 py-1.5 rounded-lg text-[9px] sm:text-xs font-black uppercase transition-all ${priority.bg} ${priority.text} ${priority.border} border`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onTogglePriority(task.id || task.text);
+                    }}
+                    className={`px-3 sm:w-20 py-1.5 rounded-lg text-[9px] sm:text-xs font-black uppercase transition-all cursor-pointer hover:scale-105 active:scale-95 select-none ${priority.bg} ${priority.text} ${priority.border} border`}
+                    title="Clique para alternar o nível: Baixa → Média → Alta"
                     aria-label={`Alternar prioridade da tarefa: ${taskTitle}`}
                 >
                     {safePriority === 'high'
@@ -519,7 +523,7 @@ const CategoryAccordion = React.memo(({
                                         onDelete={() => {
                                             onOpenDeleteTaskModal(category.id, task);
                                         }}
-                                        onTogglePriority={(id) => onTogglePriority(category.id, id)}
+                                        onTogglePriority={(id) => onTogglePriority(category.id || category.name, id)}
                                         onTriggerPlay={() => onPlayContext(category.id, task.id)}
                                     />
                                 ))
@@ -647,9 +651,13 @@ function Checklist({
     // BUG-FIX: usar categories (prop original) em vez de safeCategories
     // safeCategories é recriado a cada render → fingerprint muda a cada render
     const categoriesFingerprint = useMemo(() => {
-        return toArray(categories).map(c =>
-            `${c.id}:${(c.tasks || []).length}:${(c.tasks || []).filter(t => t?.completed).length}`
-        ).join('|');
+        return toArray(categories).map(c => {
+            const tasks = toArray(c?.tasks);
+            const tasksMeta = tasks.map(t =>
+                `${t?.id || t?.text || ''}:${t?.completed ? 1 : 0}:${t?.priority || 'medium'}:${t?.status || ''}`
+            ).join(';');
+            return `${c?.id || c?.name || ''}:${c?.name || ''}:${tasks.length}:${tasksMeta}`;
+        }).join('|');
     }, [categories]);
 
     const filteredCategories = useMemo(() => {
