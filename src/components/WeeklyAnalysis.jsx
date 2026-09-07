@@ -43,7 +43,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         const yesterdayKey = getDateKey(y);
 
         // T-029 FIX: Se minutes vier 0, mas duration existir, usa duration.
+        // FIX Bug 5: Revisões de flashcard não contam como horas de estudo (alinhado com analytics.js e chartDataMappers.js)
         const getLogMinutes = (log) => {
+            if (!log || log.type === 'flashcard') return 0;
             const minutes = Number(log?.minutes);
             const duration = Number(log?.duration);
 
@@ -274,7 +276,10 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
                 {groups.map((dayGroup, idx) => {
                     const monthName = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, month: 'long' }).format(dayGroup.dateObj);
-                    const displayTitle = dayGroup.isToday ? "Hoje" : dayGroup.isYesterday ? "Ontem" : `${dayGroup.manausDayStr} de ${monthName}`;
+                    const logYear = dayGroup.dateObj?.getFullYear?.();
+                    const currentYear = new Date().getFullYear();
+                    const yearSuffix = (logYear && logYear !== currentYear) ? ` de ${logYear}` : '';
+                    const displayTitle = dayGroup.isToday ? "Hoje" : dayGroup.isYesterday ? "Ontem" : `${dayGroup.manausDayStr} de ${monthName}${yearSuffix}`;
 
                     return (
                     <div key={dayGroup.uniqueDayKey || dayGroup.dateObj?.toISOString?.() || `day-${idx}`} className="relative z-10">
@@ -314,7 +319,6 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                         {formatTime(dayGroup.totalMinutes)}
                                     </div>
                                 </div>
-                                <div></div>
                             </div>
 
                             {/* Categories List */}
@@ -354,7 +358,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                                         <Zap size={10} className="text-slate-600" />
                                                         <span className="break-words line-clamp-2 text-xs sm:text-sm" title={log.taskTitle}>{log.taskTitle}</span>
                                                     </div>
-                                                    <span className="font-mono whitespace-nowrap opacity-60">+{log.minutes}m</span>
+                                                    <span className="font-mono whitespace-nowrap opacity-60">
+                                                        +{log.minutes >= 60 ? formatTime(log.minutes) : `${Math.round(log.minutes)}m`}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>

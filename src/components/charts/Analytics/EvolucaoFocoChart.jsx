@@ -15,11 +15,9 @@ export function EvolucaoFocoChart({ data }) {
     }
 
     return (
-        <div className="h-full min-h-[300px] w-full mt-4 pb-2">
-            {/* FIX: minWidth={300} evita que o gráfico colapse em containers
-                muito estreitos (mobile). Antes, minWidth={1} permitia largura
-                quase zero, tornando o gráfico invisível. */}
-            <ResponsiveContainer width="100%" height="100%" minHeight={250} minWidth={300}>
+        <div className="h-full min-h-[300px] w-full min-w-0 mt-4 pb-2">
+            {/* FIX BUG 8: minWidth={1} com min-w-0 no container pai permite que o gráfico se adapte fluidamente a telas mobile sem estourar o viewport */}
+            <ResponsiveContainer width="100%" height="100%" minHeight={250} minWidth={1}>
                 {/* Ajustado margin left para 10 para o eixo Y e a linha do gráfico não ficarem cortados */}
                 <AreaChart data={data} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
                     {/* ORGANIZAÇÃO: defs sempre no topo do gráfico */}

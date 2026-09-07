@@ -11,16 +11,23 @@ import { useShallow } from 'zustand/react/shallow';
 
 // FIX E-04: tick de 60s para reagir à virada de dia (meia-noite) sem recarregar.
 // Bug #1 FIX: Força re-render apenas na virada do dia, e não a cada minuto.
+// FIX E-04: tick de 60s para reagir à virada de dia (meia-noite) sem recarregar.
+// Bug #1 FIX: Força re-render apenas na virada do dia, e não a cada minuto, com suporte a visibilitychange.
 const useDayTick = () => {
     const [today, setToday] = useState(() => getDateKey(new Date()));
     useEffect(() => {
+        const check = () => {
+            const current = getDateKey(new Date());
+            setToday(prev => prev !== current ? current : prev);
+        };
         const id = setInterval(() => {
-            if (!document.hidden) {
-                const current = getDateKey(new Date());
-                setToday(prev => prev !== current ? current : prev);
-            }
+            if (!document.hidden) check();
         }, 60 * 1000);
-        return () => clearInterval(id);
+        document.addEventListener('visibilitychange', check);
+        return () => {
+            clearInterval(id);
+            document.removeEventListener('visibilitychange', check);
+        };
     }, []);
     return today;
 };
@@ -58,7 +65,7 @@ export default function Stats() {
         return Array.isArray(rawFlashcards) ? rawFlashcards : Object.values(rawFlashcards || {});
     }, [rawFlashcards]);
 
-    // FIX E-03: considera apenas linhas validadas e com dado real.
+    // FIX E-03 & BUG 11: considera apenas linhas validadas e com dado real (incluindo nota 0 válida).
     const hasSimuladoHistory = useMemo(() => {
         const rowsArray = Array.isArray(rawSimuladoRows)
             ? rawSimuladoRows
@@ -66,7 +73,7 @@ export default function Stats() {
         const hasValidRows = rowsArray.some(r =>
             r && r.validated !== false && (
                 (Number(r.total) > 0 && Number(r.correct) >= 0) ||
-                (Number(r.score) > 0 && Number(r.total) >= 0)
+                (Number.isFinite(Number(r.score)) && Number(r.score) >= 0 && Number(r.total) >= 0)
             )
         );
         if (hasValidRows) return true;
@@ -74,7 +81,7 @@ export default function Stats() {
             const h = category?.simuladoStats?.history;
             const hArray = Array.isArray(h) ? h : Object.values(h || {});
             return hArray.some(entry =>
-                entry && (Number(entry.total) > 0 || entry.score != null)
+                entry && (Number(entry.total) > 0 || (entry.score != null && Number.isFinite(Number(entry.score))))
             );
         });
     }, [rawSimuladoRows, categories]);
@@ -88,7 +95,15 @@ export default function Stats() {
         });
     }, [flashcardDecks]);
 
-    const hasStudyLogs = studyLogs.length > 0;
+    // FIX Bug 6: considera apenas logs de estudo reais (não flashcards) com tempo positivo
+    const hasStudyLogs = useMemo(() => {
+        return studyLogs.some(log =>
+            log && log.type !== 'flashcard' && (
+                (Number.isFinite(Number(log.minutes)) && Number(log.minutes) > 0) ||
+                (Number.isFinite(Number(log.duration)) && Number(log.duration) > 0)
+            )
+        );
+    }, [studyLogs]);
     const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards;
 
     // dayTick força re-cálculo ao atravessar meia-noite.
@@ -145,7 +160,7 @@ export default function Stats() {
                                                 <p className="text-[11px] text-slate-500 uppercase">Histórico de Horas Líquidas de Estudo</p>
                                             </div>
                                         </div>
-                                        <div className="flex-1"><EvolucaoFocoChart data={focusData} /></div>
+                                        <div className="flex-1 min-w-0 w-full"><EvolucaoFocoChart data={focusData} /></div>
                                     </div>
                                     <div className="glass p-6 rounded-3xl border border-white/10 shadow-2xl bg-slate-900/40 h-full flex flex-col">
                                         <div className="flex items-center gap-3 mb-6">
@@ -157,7 +172,7 @@ export default function Stats() {
                                                 <p className="text-[11px] text-slate-500 uppercase">Ranking de disciplinas por tempo investido</p>
                                             </div>
                                         </div>
-                                        <div className="flex-1"><HorasDisciplinaChart data={subjectData} /></div>
+                                        <div className="flex-1 min-w-0 w-full"><HorasDisciplinaChart data={subjectData} /></div>
                                     </div>
                                 </div>
                                 <WeeklyAnalysis studyLogs={studyLogs} categories={categories} />

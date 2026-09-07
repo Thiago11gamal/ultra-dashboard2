@@ -192,14 +192,20 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     
     // ✅ FIX: Pré-indexar categorias por ID para lookup O(1)
     const categoriesById = new Map();
-    // ✅ Bug 12 FIX: Criar categoriesByName para lookup O(1) quando usa o nome
+    // ✅ Bug 12 FIX: Criar categoriesByName para lookup O(1) insensível a maiúsculas e espaços
     const categoriesByName = new Map();
     safeCategories.forEach(c => {
         if (c) {
             if (c.id != null) categoriesById.set(String(c.id), c);
-            if (c.name != null) categoriesByName.set(c.name, c);
+            if (c.name != null) {
+                categoriesByName.set(c.name, c);
+                categoriesByName.set(String(c.name).trim().toLowerCase(), c);
+            }
         }
     });
+
+    // Mapeador dinâmico de nomes canônicos para agrupar matérias sem cadastro
+    const canonicalNames = new Map();
 
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
@@ -211,11 +217,24 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
         if (!cat) {
             const catNameSearch = log.subject || log.categoryName;
             if (catNameSearch) {
-                cat = categoriesByName.get(catNameSearch);
+                cat = categoriesByName.get(catNameSearch) || categoriesByName.get(String(catNameSearch).trim().toLowerCase());
             }
         }
         
-        const name = cat ? cat.name : (log.categoryName || log.subject || 'Outros');
+        let name;
+        if (cat) {
+            name = cat.name;
+        } else {
+            const rawName = String(log.categoryName || log.subject || 'Outros').trim();
+            const lower = rawName.toLowerCase();
+            if (canonicalNames.has(lower)) {
+                name = canonicalNames.get(lower);
+            } else {
+                canonicalNames.set(lower, rawName);
+                name = rawName;
+            }
+        }
+
         const actualMinutes = getStudyLogMinutes(log);
         
         // ✅ FIX: Validar minutes antes de acumular

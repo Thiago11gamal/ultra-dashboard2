@@ -176,10 +176,17 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
     const deltaNum = Number.isFinite(parseFloat(cat.delta)) ? parseFloat(cat.delta) : 0;
     const safeColor = typeof cat.color === 'string' ? cat.color : 'text-slate-400';
     const safeBgBorder = typeof cat.bgBorder === 'string' ? cat.bgBorder : 'border-slate-500/30';
-    // FIX 1.1: Usar mapa estático em vez de .replace() dinâmico (Tailwind purge-safe)
-    const colorClasses = getColorClasses(safeColor);
-    const sdBarColor = colorClasses.bar;
-    const sdBarGlow = colorClasses.shadow;
+    // FIX 1.1 & BUG 10: Sincronizar cores da barra de estabilidade com os tiers da legenda
+    const getSdBarStyles = (sd, maxS) => {
+        if (sd <= 0.05 * maxS) return { bar: 'bg-purple-500', shadow: 'shadow-purple-500/30' };
+        if (sd <= 0.10 * maxS) return { bar: 'bg-blue-500', shadow: 'shadow-blue-500/30' };
+        if (sd <= 0.15 * maxS) return { bar: 'bg-orange-500', shadow: 'shadow-orange-500/30' };
+        if (sd <= 0.25 * maxS) return { bar: 'bg-red-400', shadow: 'shadow-red-400/30' };
+        return { bar: 'bg-red-600', shadow: 'shadow-red-600/30' };
+    };
+    const sdStyles = getSdBarStyles(sdNum, maxScore);
+    const sdBarColor = sdStyles.bar;
+    const sdBarGlow = sdStyles.shadow;
 
     // Marcadores escalonados por maxScore (5% e 15% do domínio)
     const sd5Val = 0.05 * maxScore;
@@ -202,12 +209,12 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
                     <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd5Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd5Val}`} />
                     <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd15Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd15Val}`} />
                 </div>
-                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? sdNum.toFixed(0) : '--'}</span>
+                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? (sdNum < 1 && sdNum > 0 ? sdNum.toFixed(1) : sdNum.toFixed(0)) : '--'}</span>
             </div>
             <div className="hidden md:flex md:col-span-1 justify-center items-center">
-                {deltaNum > 0 ? (
+                {deltaNum > 0.05 ? (
                     <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}</span>
-                ) : deltaNum < 0 ? (
+                ) : deltaNum < -0.05 ? (
                     <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(0)}</span>
                 ) : (
                     <span className="text-[10px] font-bold text-slate-600">—</span>
@@ -324,15 +331,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     // (pomodoro, sessão, flashcard...). O useShallow compara os elementos.
     // ✅ CORREÇÃO — seletor que retorna referência estável
     const activeId = useAppStore(state => state.appState?.activeId);
+    // FIX Bug 4: useShallow envolve o seletor conforme API do Zustand/React
     const storeFlashcardDecks = useAppStore(
-        React.useCallback(
-            state => {
-                const rawDecks = state.appState?.contests?.[activeId]?.flashcardDecks || [];
-                return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
-            },
-            [activeId]
-        ),
-        useShallow
+        useShallow(state => {
+            const rawDecks = state.appState?.contests?.[activeId]?.flashcardDecks || [];
+            return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
+        })
     );
     const flashcardDecks = propFlashcardDecks || storeFlashcardDecks;
 
@@ -359,6 +363,16 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
     const pendingLocalSave = React.useRef(false);
 
+    // FIX Bug 7: Ao trocar de concurso ativo, redefinir targetScore imediatamente para a meta do novo concurso
+    const lastActiveId = React.useRef(activeId);
+    React.useEffect(() => {
+        if (lastActiveId.current !== activeId) {
+            lastActiveId.current = activeId;
+            pendingLocalSave.current = false;
+            setTargetScore(normalizeTargetToScale(user?.targetProbability));
+        }
+    }, [activeId, user?.targetProbability, normalizeTargetToScale]);
+
     // FIX: Wrapper para setTargetScore que trava a sincronização IMEDIATAMENTE ao interagir,
     // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
     const handleSetTargetScore = React.useCallback((newScore) => {
@@ -366,11 +380,20 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         setTargetScore(normalizeTargetToScale(newScore));
     }, [normalizeTargetToScale]);
 
-    // B-06 FIX: Sincronização Robusta com Trava de Round-trip
+    // B-06 & Bug 7 FIX: Sincronização Robusta com Trava de Round-trip e reset seguro
     const storeTarget = user?.targetProbability;
     
     React.useEffect(() => {
-        if (storeTarget == null || storeTarget === '') return;
+        if (storeTarget == null || storeTarget === '') {
+            // Se o concurso não tem meta definida, e o cadeado está aberto, adotamos o fallback da escala
+            if (!pendingLocalSave.current) {
+                const fallback = normalizeTargetToScale(null);
+                if (Math.abs(fallback - targetScore) > 0.01) {
+                    setTargetScore(fallback);
+                }
+            }
+            return;
+        }
         const parsedStore = parseFloat(storeTarget);
         if (isNaN(parsedStore)) return;
 
@@ -585,9 +608,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // Map to UI-compatible format
         const hasEnoughData = dailyHistory.length >= 3;
-        // D-02 FIX: Unificar unidades. PSE retorna pp/sessão. Multiplicamos por 30 (pp/30d) 
-        // para alinhar com o Coach e threshold de 0.5.
-        const trend30d = globalAnalysis.trend_slope * 30;
+        // FIX BUG 2: globalAnalysis.trend_slope já é escalado para 30 dias pelo ProgressStateEngine (não multiplicar por 30 novamente)
+        const trend30d = globalAnalysis.trend_slope;
         // Threshold relativo: 0.5% do teto por 30 dias, mínimo 0.5 absoluto para maxScore=100
         const trendThreshold = Math.max(0.5, 0.005 * globalRange); // ✅ LOTE-02 FIX (C3)
         const trend = !hasEnoughData ? 'insufficient' :
@@ -633,9 +655,36 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             const target = calculatedTarget;
             const distance = target - currentScore;
 
-            if (distance <= 0 || currentScore >= target) {
+            if (currentScore >= userTarget) {
+                // FIX Bug 3: O aluno já bateu ou superou a meta configurada
+                if (currentScore >= maxScore) {
+                    prediction = "Pontuação Máxima!";
+                    predictionSubtext = `Desempenho consolidado no topo (${formatValue(currentScore)}${gaugeUnit}).`;
+                    predictionStatus = "excellence";
+                } else {
+                    const distToMax = maxScore - currentScore;
+                    const weeklyBaseSpeed = slope * 7;
+                    const safeGlobalRange = Math.max(1e-9, globalRange);
+                    const speedThreshold = 0.0001 * safeGlobalRange;
+
+                    if (weeklyBaseSpeed > speedThreshold) {
+                        const safeSpeed = Math.max(speedThreshold, weeklyBaseSpeed);
+                        const daysEst = Math.min(365 * 2, (distToMax / safeSpeed) * 7);
+                        const nowTime = Date.now();
+                        const dateEst = new Date(nowTime + daysEst * 86400000);
+                        const fmtD = (d) => isNaN(d.getTime()) ? "--/--" : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
+                        prediction = "Meta Batida!";
+                        predictionSubtext = `Rumo a ${formatValue(maxScore)}${gaugeUnit} (est. ~${fmtD(dateEst)})`;
+                        predictionStatus = "excellence";
+                    } else {
+                        prediction = "Meta Batida!";
+                        predictionSubtext = `Mantenha a consistência rumo a ${formatValue(maxScore)}${gaugeUnit}!`;
+                        predictionStatus = "excellence";
+                    }
+                }
+            } else if (distance <= 0) {
                 prediction = "Meta Atingida!";
-                predictionSubtext = "Rumo aos 100%!";
+                predictionSubtext = `Excelente! Mantenha o ritmo rumo a ${formatValue(maxScore)}${gaugeUnit}!`;
                 predictionStatus = "excellence";
             } else {
                 // ✅ FIX BUG-50: proteger contra globalRange = 0
@@ -773,19 +822,22 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         };
 
         sortedCategories.forEach(cat => {
-            const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
-            if (hArray.length >= 3) {
-                // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
-                const sortedHistory = [...hArray]
-                    .filter(h => h.date && normalizeDate(h.date) !== null)
-                    .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
+            const catMaxScore = Number(cat.maxScore) || maxScore;
+            // ✅ LOTE-02 FIX (C3): normalização por RAZÃO no intervalo útil da matéria,
+            // projetada para o intervalo global. Antes: score/catMaxScore ignorava
+            // ambos os pisos (ex.: escala 200–1000, nota 600 → 60% em vez de 50%).
+            const catMinScore2 = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+            const catRange2 = Math.max(1e-9, catMaxScore - catMinScore2);
 
-                const catMaxScore = Number(cat.maxScore) || maxScore;
-                // ✅ LOTE-02 FIX (C3): normalização por RAZÃO no intervalo útil da matéria,
-                // projetada para o intervalo global. Antes: score/catMaxScore ignorava
-                // ambos os pisos (ex.: escala 200–1000, nota 600 → 60% em vez de 50%).
-                const catMinScore2 = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
-                const catRange2 = Math.max(1e-9, catMaxScore - catMinScore2);
+            const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
+            
+            // BUG FIX 98 & BUG 13 FIX: Filtrar previamente histórico com datas e notas válidas antes de checar length >= 3
+            const validHistory = hArray
+                .filter(h => h && h.date && normalizeDate(h.date) !== null && Number.isFinite(getSafeScore(h, catMaxScore, catMinScore2)))
+                .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
+
+            if (validHistory.length >= 3) {
+                const sortedHistory = validHistory;
                 const analysisHistory = sortedHistory.slice(-5).map(h => {
                     const s = getSafeScore(h, catMaxScore, catMinScore2);
                     const ratio = Math.max(0, Math.min(1, (s - catMinScore2) / catRange2));
@@ -809,6 +861,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
                 const uiState = stateMap[analysis.state] || stateMap.insufficient_data;
                 const sd = Math.sqrt(analysis.variance);
+
+                // BUG 1 FIX: Calcular delta direcional real (última nota - primeira nota da janela analisada)
+                const firstScoreInWindow = analysisHistory[0]?.score ?? 0;
+                const lastScoreInWindow = analysisHistory[analysisHistory.length - 1]?.score ?? 0;
+                const netDelta = analysisHistory.length >= 2 ? (lastScoreInWindow - firstScoreInWindow) : 0;
 
                 // --- TOPIC VARIATION ANALYSIS (Synchronized with recent window) ---
                 const topicMap = {};
@@ -865,7 +922,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     status: uiState.status,
                     color: uiState.color,
                     bgBorder: uiState.bgBorder,
-                    delta: analysis.delta,
+                    delta: netDelta,
                     sd: sd.toFixed(2),
                     rawSd: sd,
                     message: analysis.label,
@@ -886,7 +943,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // Consolidate for Global Card
         if (validCategoryAnalyses.length > 0 && eligibleCategories.length > 0) {
-            const avgDelta = validCategoryAnalyses.reduce((a, b) => a + b.delta, 0) / validCategoryAnalyses.length;
+            const avgDelta = eligibleCategories.reduce((a, b) => a + (Number(b.delta) || 0), 0) / eligibleCategories.length;
             const avgSD = Math.sqrt(
                 Math.max(
                     0,
