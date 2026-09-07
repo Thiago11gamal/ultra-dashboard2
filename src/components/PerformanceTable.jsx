@@ -53,7 +53,7 @@ const PerformanceTable = ({ categories = [] }) => {
             const trendTolerance = 0.0167 * (ms / 100);
             const currentTrend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
 
-            return { ...cat, totalVolume: totalQuestions, balance, correct, wrong, currentTrend };
+            return { ...cat, totalVolume: totalQuestions, balance, correct, wrong, currentTrend, trendValue };
         });
 
         return stats.sort((a, b) => {
@@ -157,6 +157,7 @@ const PerformanceTable = ({ categories = [] }) => {
                             const pctBar = percentCorrect;
 
                             const currentTrend = category.currentTrend || 'stable';
+                            const trendValue = category.trendValue || 0;
 
                             const isTopThree = index < 3 && totalQuestions > 0;
                             const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
