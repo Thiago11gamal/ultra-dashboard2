@@ -24,7 +24,7 @@ export default function MonteCarloDebugger({ stats }) {
         calibrationPenalty,
     } = stats;
 
-    const rawProbability = stats.simulationData?.data?.probability ?? 0;
+    const rawProbability = stats.rawProbability ?? stats.simulationData?.data?.probability ?? stats.effectiveSimulationData?.data?.probability ?? 0;
     const isOverconfident = (calibrationPenalty || 0) > 0.05;
 
     return (

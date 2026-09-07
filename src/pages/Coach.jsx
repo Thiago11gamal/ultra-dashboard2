@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  Brain, Zap, AlertCircle, ArrowUpRight, ShieldCheck, Dna, List, BookOpen, Database
+  Brain, Zap, AlertCircle, ArrowUpRight, ArrowDownRight, Minus, ShieldCheck, Dna, List, BookOpen, Database
 } from 'lucide-react';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
@@ -46,6 +46,9 @@ const BRIER_VISUAL_WARN = 0.18;
 const CALIBRATION_EVENTS_MAX = 300;
 const LEARNING_EVENT_STALE_MS = 6 * 3600000;
 
+// Cache global preservado em navegações de rotas para respeitar ALERT_COOLDOWN_MS
+const globalCalibrationAlertCache = new Map();
+
 const EMPTY_ARRAY = Object.freeze([]);
 
 function normalizeToArray(value) {
@@ -63,13 +66,13 @@ function formatSigned(value, digits = 1) {
   const fixed = n.toFixed(digits);
   return fixed === `-${(0).toFixed(digits)}` ? (0).toFixed(digits) : fixed;
 }
-function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
+function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100, targetScoreType }) {
   const safeMax = sanitizeMaxScore(maxScore);
   const safeMin = Math.max(0, Math.min(Number(minScore) || 0, safeMax));
   const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number(value) || 0));
   if (user?.targetScore != null && user.targetScore !== '' && Number.isFinite(Number(user.targetScore))) {
     let ts = Number(user.targetScore);
-    const isPercent = user.targetScoreType === 'percent';
+    const isPercent = (targetScoreType ?? user?.targetScoreType) === 'percent';
     if (isPercent) {
       ts = (ts / 100) * safeMax;
     }
@@ -82,7 +85,7 @@ function resolveTargetScorePoints({ user, minScore = 0, maxScore = 100 }) {
 }
 
 export default function Coach() {
-  const calibrationAlertCacheRef = useRef(new Map());
+  const calibrationAlertCacheRef = useRef(globalCalibrationAlertCache);
   const activeId = useAppStore(state => state.appState.activeId);
   const activeIdRef = useRef(activeId);
   useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
@@ -131,7 +134,7 @@ export default function Coach() {
   const { currentUser } = useAuth();
   const userProfile = data?.user;
   const updateCoachScore = useAppStore(state => state.updateCoachScore);
-  const { isPremium } = useSubscription(currentUser || userProfile);
+  const { isPremium } = useSubscription(currentUser);
   const navigate = useNavigate();
   const isPremiumBool = Boolean(isPremium);
   const [activeTab, setActiveTab] = useState('insights');
@@ -188,7 +191,6 @@ export default function Coach() {
     clearMcCache();
     clearUrgencyCache();
     clearTopicsCache();
-    calibrationAlertCacheRef.current.clear();
     lastPersistByCategoryRef.current.clear();
     cancelPendingCalibrationWork();
   }, [activeId, cancelPendingCalibrationWork]);
@@ -347,7 +349,8 @@ export default function Coach() {
       for (const [key, ts] of calibrationAlertCacheRef.current.entries()) {
         if (currentTime - ts > ALERT_COOLDOWN_MS) calibrationAlertCacheRef.current.delete(key);
       }
-      const lastAlertAt = Number(calibrationAlertCacheRef.current.get(normalizedCategoryId) || 0);
+      const alertKey = `${activeIdRef.current || 'global'}_${normalizedCategoryId}`;
+      const lastAlertAt = Number(calibrationAlertCacheRef.current.get(alertKey) || 0);
       if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
         const brierLabel = avgBrier !== null ? Number(avgBrier).toFixed(2) : '—';
         const severityLabel = (avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD)
@@ -357,7 +360,7 @@ export default function Coach() {
           `⚠️ Calibração ${severityLabel} em ${displaySubject(normalizedMetric.categoryName || 'categoria')} (Brier ${brierLabel}).`,
           'warning'
         );
-        calibrationAlertCacheRef.current.set(normalizedCategoryId, currentTime);
+        calibrationAlertCacheRef.current.set(alertKey, currentTime);
         if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX) {
           const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
           calibrationAlertCacheRef.current.delete(oldestKey);
@@ -494,9 +497,9 @@ export default function Coach() {
         const collectedMetrics = [];
         const contestId = activeIdRef.current;
         const rawEvents = calibrationEventsRef.current || [];
-        const { backfilled: backfilledEvents, rolling } = runLearningCycle(rawEvents, history, currentMaxScore);
+        const { backfilled: backfilledEvents, rolling } = runLearningCycle(rawEvents, combinedHistory, currentMaxScore);
         const result = getSuggestedFocus(
-          categories, history, studyLogs,
+          categories, combinedHistory, studyLogs,
           {
             user: data.user,
             targetScore,
@@ -529,14 +532,14 @@ export default function Coach() {
         }
         setSuggestedFocus(result);
         const mcFocus = result?.urgency?.monteCarlo || result?.urgency?.details?.monteCarlo;
-        const focusCat = result?.categoryId || result?.id || result?.name;
+        const focusCatName = result?.name || result?.categoryName || result?.subjectName || (categories.find(c => String(c.id) === String(result?.categoryId))?.name) || result?.categoryId || 'Geral';
         const newEvents = [];
-        if (mcFocus && Number.isFinite(Number(mcFocus.probability)) && focusCat) {
+        if (mcFocus && Number.isFinite(Number(mcFocus.probability)) && focusCatName) {
           newEvents.push(recordPredictionEvent({
             probability: Number(mcFocus.probability) / 100,
             probabilityRaw: Number(mcFocus.probabilityRaw ?? mcFocus.probability) / 100,
             targetScore,
-            category: focusCat,
+            category: focusCatName,
             sims: mcFocus?.diagnostics?.simulationCount
           }));
         }
@@ -562,7 +565,7 @@ export default function Coach() {
     isHydrated, data?.user, data?.settings?.adaptiveCalibrationEnabled,
     userProfile?.targetProbability, flashcardDue, flashcardDecks,
     scheduleCalibrationPersist, targetScorePoints,
-    currentMaxScore, targetScoreLabel, categories, history, studyLogs,
+    currentMaxScore, targetScoreLabel, categories, combinedHistory, studyLogs,
     runLearningCycle, commitLearningCycle
   ]);
 
@@ -607,11 +610,14 @@ export default function Coach() {
           ? freshContest.categories : Object.values(freshContest.categories || {});
         const freshHistory = Array.isArray(freshContest.simuladoRows)
           ? freshContest.simuladoRows : Object.values(freshContest.simuladoRows || {});
+        const freshSimulados = Array.isArray(freshContest.simulados)
+          ? freshContest.simulados : Object.values(freshContest.simulados || {});
+        const freshCombinedHistory = getCombinedHistory(freshHistory, freshSimulados, currentMaxScore);
         const freshLogs = Array.isArray(freshContest.studyLogs)
           ? freshContest.studyLogs : Object.values(freshContest.studyLogs || {});
 
         const newTasks = generateDailyGoals(
-          freshCategories, freshHistory, freshLogs,
+          freshCategories, freshCombinedHistory, freshLogs,
           {
             user: userData,
             targetScore,
@@ -651,16 +657,19 @@ export default function Coach() {
           showToastRef.current('Nenhuma sugestão necessária.', 'info');
         }
         const rawEvents = calibrationEventsRef.current || [];
-        const { backfilled } = runLearningCycle(rawEvents, history, currentMaxScore);
+        const { backfilled } = runLearningCycle(rawEvents, freshCombinedHistory, currentMaxScore);
         const taskEvents = (Array.isArray(newTasks) ? newTasks : [])
           .filter(t => Number.isFinite(Number(t?.analysis?.monteCarlo?.probability)))
-          .map(t => recordPredictionEvent({
-            probability: Number(t.analysis.monteCarlo.probability) / 100,
-            probabilityRaw: Number(t.analysis.monteCarlo.probabilityRaw ?? t.analysis.monteCarlo.probability) / 100,
-            targetScore,
-            category: t?.categoryId || t?.subject || t?.categoryName,
-            sims: t?.analysis?.monteCarlo?.diagnostics?.simulationCount
-          }))
+          .map(t => {
+            const catName = t?.subjectName || t?.subject || t?.categoryName || t?.catName || (freshCategories.find(c => String(c.id) === String(t?.categoryId))?.name) || t?.categoryId;
+            return recordPredictionEvent({
+              probability: Number(t.analysis.monteCarlo.probability) / 100,
+              probabilityRaw: Number(t.analysis.monteCarlo.probabilityRaw ?? t.analysis.monteCarlo.probability) / 100,
+              targetScore,
+              category: catName,
+              sims: t?.analysis?.monteCarlo?.diagnostics?.simulationCount
+            });
+          })
           .filter(e => e.category);
         commitLearningCycle(rawEvents, backfilled, taskEvents);
         if (collectedMetrics.length > 0) {
@@ -675,16 +684,20 @@ export default function Coach() {
     }, 1500);
   }, [
     categories, coachLoading, setData, scheduleCalibrationPersist,
-    history, targetScorePoints, targetScoreLabel,
+    combinedHistory, targetScorePoints, targetScoreLabel,
     currentMaxScore, userData, settingsData,
     runLearningCycle, commitLearningCycle
   ]);
 
   const handleClearHistory = useCallback(() => {
+    if (!window.confirm('Deseja realmente limpar todo o planejamento e histórico de metas do Coach?')) {
+      return;
+    }
     setData(() => ({
       coachPlan: [],
       coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
     }));
+    showToastRef.current('Histórico do Coach resetado com sucesso.', 'info');
   }, [setData]);
 
   if (!isHydrated || isAnalyzing || !data) {
@@ -733,6 +746,14 @@ export default function Coach() {
     suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean ?? null;
   const showGlobalMc = Number.isFinite(Number(globalProjectedMean));
 
+  const rawTrendVal = (drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100;
+  const trendVal = Number.isFinite(rawTrendVal) ? rawTrendVal : 0;
+  const formattedTrend = formatSigned(trendVal);
+  const trendNum = Number(formattedTrend);
+  const trendText = trendNum > 0 ? `+${formattedTrend}pp` : `${formattedTrend}pp`;
+  const trendColor = trendNum > 0 ? 'text-emerald-400' : (trendNum < 0 ? 'text-rose-400' : 'text-slate-400');
+  const trendIcon = trendNum > 0 ? <ArrowUpRight size={14} /> : (trendNum < 0 ? <ArrowDownRight size={14} /> : <Minus size={14} />);
+
   return (
     <PageErrorBoundary pageName="Coach">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-20 sm:pb-32">
@@ -753,14 +774,13 @@ export default function Coach() {
                 />
                 <div className="hidden sm:block w-px h-6 bg-white/10" />
                 <MonteCarloDebugger stats={mcStats} />
-                <div className="w-px h-6 bg-white/10" />
                 <CalibrationAuditPopover />
                 <div className="w-px h-6 bg-white/10" />
                 <QuickStat
                   label="Tendência"
-                  value={`${formatSigned((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100)}pp`}
-                  color="text-emerald-400"
-                  icon={<ArrowUpRight size={14} />}
+                  value={trendText}
+                  color={trendColor}
+                  icon={trendIcon}
                 />
                 <div className="w-px h-6 bg-white/10" />
                 <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
@@ -907,56 +927,59 @@ function CalibrationAuditPopover({ categoryId = null }) {
 
   if (!import.meta.env.DEV && summary.count === 0) return null;
   return (
-    <div ref={popoverRef} className="relative font-mono text-[11px] select-none shrink-0">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-        className="flex flex-col min-w-[70px] sm:min-w-[75px] text-left hover:opacity-85 transition-all active:scale-95 group focus:outline-none"
-        title="Auditoria de Calibração Monte Carlo"
-      >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="text-sky-400 opacity-80 group-hover:animate-pulse">
-            <ShieldCheck size={14} />
-          </span>
-          <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">TELEMETRIA</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-sm font-black text-sky-400 tracking-tighter">
-            {summary.count}x
-          </span>
-        </div>
-      </button>
-      {isOpen && (
-        <div
-          role="dialog"
-          aria-label="Telemetria Monte Carlo"
-          className="absolute top-full right-0 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-[calc(100vw-2rem)] max-w-64 sm:w-64 space-y-2 z-[100] animate-fade-in"
+    <>
+      <div className="w-px h-6 bg-white/10" />
+      <div ref={popoverRef} className="relative font-mono text-[11px] select-none shrink-0">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
+          aria-haspopup="dialog"
+          className="flex flex-col min-w-[70px] sm:min-w-[75px] text-left hover:opacity-85 transition-all active:scale-95 group focus:outline-none"
+          title="Auditoria de Calibração Monte Carlo"
         >
-          <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
-            <span className="text-xs font-bold text-white">Telemetria MC</span>
-            <button
-              onClick={(e) => { e.stopPropagation(); clearCalibrationTelemetry(); setIsOpen(false); }}
-              className="text-[9px] text-rose-400 hover:underline"
-            >
-              Limpar
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center text-[10px]">
-            <span className="text-slate-500">Amostras</span>
-            <span className="text-right font-medium text-sky-400">{summary.count}</span>
-            <span className="text-slate-500">Brier Médio</span>
-            <span className="text-right font-medium text-emerald-400">
-              {summary.avgBrier !== null ? summary.avgBrier.toFixed(4) : 'N/A'}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="text-sky-400 opacity-80 group-hover:animate-pulse">
+              <ShieldCheck size={14} />
             </span>
-            <span className="text-slate-500">Penalidade Média</span>
-            <span className="text-right font-medium text-amber-400">
-              {summary.avgPenalty !== null ? `${(summary.avgPenalty * 100).toFixed(1)}%` : '0.0%'}
+            <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">TELEMETRIA</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-black text-sky-400 tracking-tighter">
+              {summary.count}x
             </span>
           </div>
-        </div>
-      )}
-    </div>
+        </button>
+        {isOpen && (
+          <div
+            role="dialog"
+            aria-label="Telemetria Monte Carlo"
+            className="absolute top-full right-0 mt-4 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-[calc(100vw-2rem)] max-w-64 sm:w-64 space-y-2 z-[100] animate-fade-in"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+              <span className="text-xs font-bold text-white">Telemetria MC</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); clearCalibrationTelemetry(); setIsOpen(false); }}
+                className="text-[9px] text-rose-400 hover:underline"
+              >
+                Limpar
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center text-[10px]">
+              <span className="text-slate-500">Amostras</span>
+              <span className="text-right font-medium text-sky-400">{summary.count}</span>
+              <span className="text-slate-500">Brier Médio</span>
+              <span className="text-right font-medium text-emerald-400">
+                {summary.avgBrier !== null ? summary.avgBrier.toFixed(4) : 'N/A'}
+              </span>
+              <span className="text-slate-500">Penalidade Média</span>
+              <span className="text-right font-medium text-amber-400">
+                {summary.avgPenalty !== null ? `${(summary.avgPenalty * 100).toFixed(1)}%` : '0.0%'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -991,7 +1014,7 @@ const GovernanceBanner = React.memo(React.forwardRef(function GovernanceBanner({
       initial={{ height: 0, opacity: 0 }}
       animate={{ height: 'auto', opacity: 1 }}
       exit={{ height: 0, opacity: 0 }}
-      className="mb-6 p-4 rounded-3xl bg-rose-500/5 border border-rose-500/30 flex items-center justify-between gap-4 shadow-sm"
+      className="mb-6 p-4 rounded-3xl bg-rose-500/5 border border-rose-500/30 flex items-center justify-between gap-4 shadow-sm overflow-hidden"
     >
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 rounded-2xl bg-rose-500/15 flex items-center justify-center text-rose-400 border border-rose-500/20">
@@ -1379,7 +1402,7 @@ function RaioXDashboard({ data }) {
                         {eceVal !== null ? eceVal.toFixed(3) : '-'}
                       </td>
                       <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
-                        {toFiniteNumber(log?.calibrationPenalty) > 0.001
+                        {Math.round(toFiniteNumber(log?.calibrationPenalty) * 100) >= 1
                           ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
                       </td>
                       <td className="py-3 px-4 text-[10px] text-white font-black whitespace-nowrap">

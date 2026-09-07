@@ -23,6 +23,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
             aria-controls={panelId}
             aria-disabled={disabled}
             id={tabId}
+            title={disabled ? 'Recurso Exclusivo para assinantes PRO' : undefined}
             // FIX: expressão redundante simplificada (roving tabindex correto)
             tabIndex={active ? 0 : -1}
             className={`group relative min-w-0 rounded-2xl p-4 transition-all duration-300 ease-out outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0c14] ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${active
@@ -40,7 +41,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
                     }`}>
                     <Icon size={20} className={active ? 'drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : ''} />
                 </div>
-                <div className="flex flex-col items-start min-w-0 text-left min-h-[36px] justify-center">
+                <div className="flex flex-col items-start min-w-0 text-left min-h-[36px] justify-center flex-1">
                     <span className={`text-sm font-black tracking-tight truncate w-full transition-colors duration-300 ${active ? 'text-white' : 'text-slate-300 group-hover:text-white'
                         }`}>
                         {label}
@@ -50,6 +51,11 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, onKeyDown, icon: 
                         {subtitle}
                     </span>
                 </div>
+                {disabled && (
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-sm">
+                        PRO
+                    </span>
+                )}
             </div>
             {/* FIX (BUG-18): bottom-0 em vez de -bottom-[1px] para não ser cortado por overflow do pai */}
             {active && (

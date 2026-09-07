@@ -33,7 +33,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   const isSrsCard = Boolean(task?.analysis?.reason?.includes('SRS') || rawText.includes('SRS'));
   const isSafeCard = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
   const isChaosCard = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
-  const isPriority = parsed.priority === 'high' || isSrsCard || isSafeCard || isChaosCard;
+  const isPriority = (parsed.priority === 'high' || isSrsCard || isChaosCard) && !isSafeCard;
+  const isCompleted = parsed.isCompleted || Boolean(task?.completed) || task?.status === 'completed';
   const topicLabel = parsed.topic || rawText;
   const secondaryText = parsed.action && parsed.action !== parsed.topic ? parsed.action : '';
   return (
@@ -68,22 +69,26 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
             }}
             className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
-                : isBacklog
-                  ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
-                  : `${dayTheme.cardBorder} ${dayTheme.cardBg} hover:border-white/20`
+                : isCompleted
+                  ? 'border-emerald-500/20 bg-emerald-950/10 opacity-75'
+                  : isBacklog
+                    ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
+                    : `${dayTheme.cardBorder} ${dayTheme.cardBg} hover:border-white/20`
               }`}
           >
             <span
-              className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-gradient-to-b opacity-90 z-0 ${isBacklog
-                  ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
-                  : dayTheme.gradient
+              className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-gradient-to-b opacity-90 z-0 ${isCompleted
+                  ? 'from-emerald-500 to-teal-500'
+                  : isBacklog
+                    ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
+                    : dayTheme.gradient
                 }`}
             />
             <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
               <div className="flex items-start justify-between gap-3 min-w-0 mt-1">
                 <div className="flex items-start gap-1.5 flex-1 min-w-0 mt-0.5">
-                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-[5px] ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
-                  <span className={`text-[9.5px] font-black uppercase tracking-[0.1em] leading-snug break-words ${isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : dayTheme.text}`} title={displaySubject(subject, categories)}>
+                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-[5px] ${isCompleted ? 'bg-emerald-400' : isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
+                  <span className={`text-[9.5px] font-black uppercase tracking-[0.1em] leading-snug break-words ${isCompleted ? 'text-emerald-400/90 line-through' : isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : dayTheme.text}`} title={displaySubject(subject, categories)}>
                     {displaySubject(subject, categories)}
                   </span>
                 </div>
@@ -109,11 +114,11 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 </div>
               </div>
               <div className="mt-4 flex flex-col gap-1 pl-3">
-                <h4 className="text-[11px] sm:text-[12px] font-bold leading-normal text-slate-100 break-words tracking-normal">
+                <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
                   {topicLabel}
                 </h4>
                 {secondaryText && (
-                  <p className="text-[9.5px] sm:text-[10px] text-slate-400 font-medium leading-relaxed break-words">
+                  <p className={`text-[9.5px] sm:text-[10px] font-medium leading-relaxed break-words ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
                     {secondaryText}
                   </p>
                 )}
@@ -137,6 +142,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   prev.isBacklog === next.isBacklog &&
   prev.dayTheme?.id === next.dayTheme?.id &&
   prev.task === next.task &&
+  prev.task?.completed === next.task?.completed &&
+  prev.task?.status === next.task?.status &&
   // FIX (A1): sem comparar `categories`, renomear uma matéria não
   // re-renderizava os cards já montados (displaySubject stale).
   prev.categories === next.categories &&
@@ -242,6 +249,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     let cachedCols = null;
     let cachedRects = null;
     let lastScrollTop = window.scrollY;
+    let lastScrollLeft = window.scrollX;
 
     const refreshCache = () => {
         cachedCols = document.querySelectorAll('[data-col-id]');
@@ -250,6 +258,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
             rect: col.getBoundingClientRect()
         }));
         lastScrollTop = window.scrollY;
+        lastScrollLeft = window.scrollX;
     };
 
     refreshCache();
@@ -266,8 +275,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
         cancelAnimationFrame(animationFrameId);
         animationFrameId = requestAnimationFrame(() => {
-            // ✅ Recalcular rects se houve scroll
-            if (Math.abs(window.scrollY - lastScrollTop) > 1) {
+            // ✅ Recalcular rects se houve scroll (vertical ou horizontal) ou cache invalidado
+            if (!cachedRects || Math.abs(window.scrollY - lastScrollTop) > 1 || Math.abs(window.scrollX - lastScrollLeft) > 1) {
                 refreshCache();
             }
 
@@ -304,12 +313,12 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
 
     return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('touchmove', handleTouchMove);
-        window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('scroll', handleScroll, { capture: true });
         cancelAnimationFrame(animationFrameId);
     };
   }, [isDragging]);

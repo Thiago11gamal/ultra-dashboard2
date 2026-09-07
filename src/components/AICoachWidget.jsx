@@ -299,7 +299,9 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
   const sortedHumanReadable = useMemo(() => {
     const urgencyHumanReadable = suggestion?.urgency?.details?.humanReadable || suggestion?.urgency?.humanReadable || {};
-    return Object.entries(urgencyHumanReadable).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+    return Object.entries(urgencyHumanReadable)
+      .filter(([_, v]) => v !== null && v !== undefined && v !== '—' && v !== '')
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
   }, [suggestion?.urgency?.details?.humanReadable, suggestion?.urgency?.humanReadable]);
 
   if (!suggestion) return null;

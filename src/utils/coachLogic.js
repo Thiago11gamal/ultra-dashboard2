@@ -1720,9 +1720,9 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     if (!categories || (Array.isArray(categories) && categories.length === 0)) return null;
     const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
     if (safeCategories.length === 0) return null;
-    const ranked = categories.map(cat => ({
+    const ranked = safeCategories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: categories })
+        urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: safeCategories })
     })).sort((a, b) => {
         const valA = Number.isFinite(a.urgency?.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
         const valB = Number.isFinite(b.urgency?.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
@@ -2234,11 +2234,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const targetScore = options.targetScore ?? 80;
     const maxScore = options.maxScore ?? 100;
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
+    const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+    if (safeCategories.length === 0) return [];
     const safeSimulados = safeArray(simulados);
     const safeStudyLogs = safeArray(studyLogs);
-    const ranked = categories.map(cat => ({
+    const ranked = safeCategories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: categories })
+        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: safeCategories })
     })).sort((a, b) => {
         const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
         const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;

@@ -83,7 +83,7 @@ function AICoachCard({ task, idx, categories, onStartPomodoro, maxScore = 100 })
   const isSrsTask = Boolean(task?.analysis?.reason?.includes('SRS') || fullText.includes('SRS'));
   const isSafeTask = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção') || fullText.includes('Cruzeiro') || fullText.includes('Manutenção'));
   const isChaosTask = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos') || fullText.includes('Oscilação') || fullText.includes('Caos'));
-  const isPriority = parsed.priority === 'high' || isSrsTask || isSafeTask || isChaosTask;
+  const isPriority = (parsed.priority === 'high' || isSrsTask || isChaosTask) && !isSafeTask;
   const systemAlertMessage = isSystemAlert ? (parsed.action || parsed.topic) : null;
   const displayAssunto = parsed.topic;
   const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
@@ -301,7 +301,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const raw = activeContest?.coachPlanner || {};
     const normalized = {};
     for (const [key, val] of Object.entries(raw)) {
-      normalized[key] = Array.isArray(val) ? val : Object.values(val || {});
+      normalized[key] = (Array.isArray(val) ? val : Object.values(val || {})).map(ensureCoachTaskId);
     }
     return normalized;
   }, [activeContest?.coachPlanner]);
@@ -422,7 +422,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+      const success = await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+      if (success) {
+        showToast('Plano exportado em PDF com sucesso!', 'success');
+      } else {
+        showToast('Não foi possível gerar o PDF. Verifique se o plano está visível.', 'warning');
+      }
     } catch (err) {
       console.error('PDF Export Error:', err);
       showToast('Erro ao exportar o plano para PDF.', 'error');

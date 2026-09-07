@@ -121,6 +121,8 @@ export function parseCoachTask(task, categories = []) {
     topic: displayTopic(topicRaw),
     action,
     status,
+    isCompleted: status === 'completed',
+    isStudying: status === 'studying',
     priority,
   };
 }
