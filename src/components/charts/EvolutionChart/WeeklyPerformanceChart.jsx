@@ -43,7 +43,9 @@ const WeeklyPerformanceChart = ({
             const dow = formatWeekdayShortPtBR(d);
 
             const dailyLogs = studyLogs.filter(log => {
-                const logDate = getDateKey(log.date);
+                const rawDate = log?.date || log?.createdAt;
+                if (!rawDate) return false;
+                const logDate = getDateKey(rawDate);
                 if (logDate !== dateKey) return false;
                 if (showOnlyFocus && focusSubjectId) {
                     return log.categoryId === focusSubjectId;

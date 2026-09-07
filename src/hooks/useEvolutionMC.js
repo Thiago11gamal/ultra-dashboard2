@@ -61,15 +61,12 @@ export function useEvolutionMC({
   const currentFocusLevel = focusCategory ? categoryLevels?.[focusCategory.id] : undefined;
 
   useEffect(() => {
-    // ✅ LOTE-05: só dispara o Monte Carlo nos engines que consomem o resultado
-    const isMcEngine = activeEngine === 'compare' || activeEngine === 'mc_density';
-    if (!isMcEngine) { 
-      queueMicrotask(() => { setMcLoading(false); setMcResult(null); }); 
-      return; 
-    }
-
     if (!focusCategory?.id || !Array.isArray(historyArray) || historyArray.length === 0) {
-      queueMicrotask(() => setMcLoading(false));
+      queueMicrotask(() => {
+        setMcLoading(false);
+        setMcResult(null);
+        setMcProjectionSeries(null);
+      });
       return;
     }
 
@@ -207,7 +204,22 @@ export function useEvolutionMC({
               projectedTotalTimeSeconds,
               examDurationMinutes
             });
-            if (fallback) setMcResult({ ...fallback, categoryId: focusCategory?.id });
+            if (fallback) {
+              setMcResult({ ...fallback, categoryId: focusCategory?.id });
+              const lastDate = parseNoonLocal(hist[hist.length - 1].date);
+              if (lastDate) {
+                const nextDate = addDaysNoon(lastDate, projectDays || 30);
+                const p50 = fallback.projectedMean ?? fallback.mean ?? safeMin;
+                const lo = fallback.ci95Low ?? fallback.ci95StatLow ?? safeMin;
+                const hi = fallback.ci95High ?? fallback.ci95StatHigh ?? safeMax;
+                setMcProjectionSeries({
+                  date: getDateKey(nextDate),
+                  mc_p50: p50,
+                  mc_band: [lo, hi],
+                  categoryId: focusCategory?.id
+                });
+              }
+            }
           } catch (syncErr) {
             console.error('[useEvolutionMC] Fallback sync MC falhou:', syncErr);
           }
@@ -220,7 +232,7 @@ export function useEvolutionMC({
     return () => { cancelled = true; clearTimeout(workerDebounceTimeout); };
   }, [
     focusCategory?.id, currentFocusLevel, historyArray, debouncedTarget,
-    projectDays, runAnalysis, minScore, maxScore, activeEngine
+    projectDays, runAnalysis, minScore, maxScore
   ]);
 
   const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;

@@ -173,7 +173,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(h?.date || h?.createdAt);
                 return d && d.getTime() >= limitMs;
             });
 
@@ -251,12 +251,12 @@ export const SubtopicsPerformanceChart = React.memo(({
 
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(h?.date || h?.createdAt);
                 return d && d.getTime() >= limitMs;
             });
 
             for (const h of recentHistory) {
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(h?.date || h?.createdAt);
                 if (!d) continue;
                 const dateKey = getDateKey(d);
                 if (!dateKey) continue;

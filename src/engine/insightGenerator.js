@@ -15,10 +15,13 @@ const safeFinite = (value, fallback = 0) => {
 
 const sortByValidDate = (history) => {
     return toHistoryArray(history)
-        .filter(h => Number.isFinite(normalizeDate(h?.date)?.getTime()))
+        .filter(h => {
+            const raw = h?.date || h?.createdAt;
+            return raw && Number.isFinite(normalizeDate(raw)?.getTime());
+        })
         .sort((a, b) => {
-            const ta = normalizeDate(a?.date)?.getTime() ?? 0;
-            const tb = normalizeDate(b?.date)?.getTime() ?? 0;
+            const ta = normalizeDate(a?.date || a?.createdAt)?.getTime() ?? 0;
+            const tb = normalizeDate(b?.date || b?.createdAt)?.getTime() ?? 0;
             return ta - tb;
         });
 };
@@ -105,14 +108,14 @@ export function generateEvolutionInsights({
 
             const rawHistory = history
                 .filter(h => {
-                    const d = normalizeDate(h?.date);
+                    const d = normalizeDate(h?.date || h?.createdAt);
                     return d && Number.isFinite(d.getTime()) && d.getTime() <= now.getTime();
                 })
-                .map(h => ({ ...h, score: getSafeScore(h, safeMaxScore) }))
+                .map(h => ({ ...h, score: getSafeScore(h, safeMaxScore, safeMinScore) }))
                 .filter(h => Number.isFinite(h.score));
 
             rawHistory.forEach(h => {
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(h?.date || h?.createdAt);
                 if (!d || !Number.isFinite(d.getTime())) return;
 
                 const dow = d.getDay();
@@ -164,7 +167,7 @@ export function generateEvolutionInsights({
 
         const recentVolumeAlert = history
             .filter(h => {
-                const d = toDateMs(h?.date);
+                const d = toDateMs(h?.date || h?.createdAt);
                 return Number.isFinite(d) && (nowMs - d) >= -86400000 && (nowMs - d) <= sevenDaysMs;
             })
             .reduce((sum, h) => {
@@ -204,7 +207,7 @@ export function generateEvolutionInsights({
     if (activeEngine === "raw") {
         if (raw == null) return { type: 'info', icon: "📊", title: "Realidade Bruta", text: "Aguardando dados..." };
         const history = sortByValidDate(focusCategory.simuladoStats?.history);
-        const scores = history.map(h => getSafeScore(h, maxScore)).filter(Number.isFinite);
+        const scores = history.map(h => getSafeScore(h, safeMaxScore, safeMinScore)).filter(Number.isFinite);
         
         if (scores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
 

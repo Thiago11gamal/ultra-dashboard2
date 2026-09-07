@@ -14,8 +14,14 @@ export function filterHistoryByTimeWindow(history, timeWindow) {
   }
   const withMs = safeHistory
     .filter(Boolean)
-    .map((h) => ({ h, ms: toDateMs(getDateKey(h?.date)) }))
-    .filter((x) => Number.isFinite(x.ms));
+    .map((h) => {
+      const rawDate = h?.date || h?.createdAt;
+      if (!rawDate) return null;
+      const key = getDateKey(rawDate);
+      const ms = toDateMs(key);
+      return Number.isFinite(ms) ? { h, ms } : null;
+    })
+    .filter(Boolean);
   if (!withMs.length) return safeHistory.filter(Boolean);
   const referenceMs = toDateMs(getDateKey(new Date()));
   const limit = referenceMs - days * 24 * 60 * 60 * 1000;

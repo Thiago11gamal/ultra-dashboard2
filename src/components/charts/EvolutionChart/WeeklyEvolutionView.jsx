@@ -431,7 +431,7 @@ export const WeeklyEvolutionView = ({
         return (
             <div className="min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-3xl border border-slate-700/50 p-6 shadow-inner">
                 <HelpCircle size={40} className="text-slate-600 mb-3" />
-                Dados insuficientes
+                <p className="text-sm font-semibold text-slate-300">Dados insuficientes</p>
                 <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
                     Cadastre pelo menos uma semana de simulados para visualizar a curva de evolução e a variação semanal.
                 </p>

@@ -485,7 +485,6 @@ export default React.memo(function EvolutionChart({
 
     // 2. Determinar a chave de downsampling (memoizada separadamente)
     const primaryKey = useMemo(() => {
-      const firstPoint = historicalData.result?.[0] || {};
       const candidates = [];
     
       if (activeEngine === "compare") {
@@ -498,8 +497,9 @@ export default React.memo(function EvolutionChart({
         candidates.push(`stats_${focusCategory.id}`);
       }
     
+      const points = Array.isArray(historicalData.result) ? historicalData.result : [];
       const validKey = candidates.find(
-        key => firstPoint[key] != null && Number.isFinite(Number(firstPoint[key]))
+        key => points.some(p => p && p[key] != null && Number.isFinite(Number(p[key])))
       );
     
       return validKey || "date";
@@ -636,7 +636,9 @@ export default React.memo(function EvolutionChart({
                 <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">Gráficos de Evolução</h2>
                 <p className="text-slate-400 text-sm max-w-md mx-auto mb-6">Cadastre simulados para desbloquear sua máquina do tempo estatística.</p>
                 <button
-                    onClick={() => window.location.hash = '#/simulados'}
+                    onClick={() => {
+                        if (typeof window !== 'undefined') window.location.href = '/simulados';
+                    }}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
                 >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>

@@ -503,7 +503,7 @@ export function TodayVsGeneralChart({
                                     dataKey="lastTestAcc" 
                                     position="right" 
                                     offset={10} 
-                                    formatter={(v) => v ? `${formatValue(v)}` : ''} 
+                                    formatter={(v) => Number.isFinite(Number(v)) ? `${formatValue(v)}${unit}` : ''} 
                                     fill="#fff" 
                                     fontSize={10}
                                     fontWeight={900}

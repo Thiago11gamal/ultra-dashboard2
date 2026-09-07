@@ -229,7 +229,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     </div>
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
-                            Matriz de criticidade e pontos de fuga
+                            <h3 className="text-sm sm:text-base font-bold text-white">Matriz de criticidade e pontos de fuga</h3>
                             <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-[9px] font-black text-rose-400 border border-rose-500/20 uppercase tracking-wider">
                                 Índice de Criticidade
                             </span>

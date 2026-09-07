@@ -76,7 +76,7 @@ export const EvolutionHeatmap = ({
     }, [dates, filteredRowsByFocus, windowSize]);
 
     const [aggregated, setAggregated] = useState(() => {
-        return aggregateHeatmap(filtered, 'daily', targetScore);
+        return aggregateHeatmap(filtered, 'daily', safeMax);
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);

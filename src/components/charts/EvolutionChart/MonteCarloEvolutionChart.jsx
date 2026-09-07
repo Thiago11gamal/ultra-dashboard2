@@ -30,7 +30,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
 
                 <div className="flex flex-col gap-2">
                     <div className="flex flex-col">
-                        Nota projetada
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Nota projetada</span>
                         <span className={`text-3xl font-black leading-none ${isGood ? 'text-green-400' : 'text-blue-400'}`}>
                             {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean} <span className="text-sm text-slate-500 ml-1">{unit}</span>
                         </span>
@@ -54,13 +54,13 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                             </span>
                         </div>
                         <div className="flex justify-between items-center mb-1 border-t border-white/5 pt-1 mt-1">
-                            Cone (IC 95%):
+                            <span className="text-[10px] font-bold text-slate-400">Cone (IC 95%):</span>
                             <span className="text-[10px] font-mono text-white">
                                 {unit === 'horas' ? `${formatDuration(pointLow)} ~ ${formatDuration(pointHigh)}` : `${formatValue(pointLow)}${unit} ~ ${formatValue(pointHigh)}${unit}`}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
-                            Chance de sucesso:
+                            <span className="text-[10px] font-bold text-slate-400">Chance de sucesso:</span>
                             <span className={`text-[10px] font-black ${pointProb >= 70 ? 'text-green-400' : 'text-blue-400'}`}>
                                 {formatPercent(pointProb)}
                             </span>

@@ -137,14 +137,14 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                     }}
                                 />
                                 
-                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} radius={[0, 0, 0, 0]} isAnimationActive={true}>
+                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} radius={[0, 0, 0, 0]} isAnimationActive={true} />
+                                
+                                <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true}>
                                     <LabelList 
                                         dataKey="questoes" 
                                         content={(props) => {
-                                            const { x, width, value, index } = props;
+                                            const { x, width, value } = props;
                                             if (width < 15 || !value) return null;
-                                            const entry = (index != null && chartData[index]) ? chartData[index] : chartData.find(d => d.questoes === value);
-                                            const errosH = entry ? entry.erros : 0;
                                             const labelY = props.y - 4;
                                             return (
                                                 <text x={x + width / 2} y={labelY} fill="#94a3b8" fontSize={9} fontWeight="bold" textAnchor="middle">
@@ -154,8 +154,6 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                         }}
                                     />
                                 </Bar>
-                                
-                                <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[5, 5, 0, 0]} isAnimationActive={true} />
                             </BarChart>
                             </ResponsiveContainer>
                         </ChartFrame>
