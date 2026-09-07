@@ -120,7 +120,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 
     const lastNum = Number(lastAttempt);
     const formattedLast = Number.isFinite(lastNum)
-        ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(3))
+        ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(2))
         : lastAttempt;
 
     const lastDisplay = safeMax === 100
