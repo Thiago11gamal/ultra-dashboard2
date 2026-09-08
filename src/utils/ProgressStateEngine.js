@@ -24,21 +24,25 @@ export function analyzeProgressState(scores, config = {}) {
     high_level_limit,
     mastery_limit,
     trend_tolerance: raw_trend,
-    maxScore = 100
+    maxScore = 100,
+    minScore = 0
   } = { ...DEFAULT_CONFIG, ...config };
 
-  const scaleFactor = maxScore / 100;
+  const safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const scoreRange = Math.max(1e-9, safeMax - safeMin);
+  const scaleFactor = scoreRange / 100;
   const windowFactor = Math.sqrt(10 / Math.max(3, window_size));
   const stagnation_threshold = raw_stagnation * scaleFactor * windowFactor;
   const trend_tolerance = raw_trend * scaleFactor * windowFactor;
 
-  // ✅ FIX: Blindagem contra configs inválidas
-  let scaled_low     = low_level_limit  * scaleFactor;
-  let scaled_high    = high_level_limit * scaleFactor;
-  let scaled_mastery = mastery_limit    * scaleFactor;
-  if (!Number.isFinite(scaled_low))     scaled_low     = 60 * scaleFactor;
-  if (!Number.isFinite(scaled_high))    scaled_high    = Math.max(scaled_low, 75 * scaleFactor);
-  if (!Number.isFinite(scaled_mastery)) scaled_mastery = Math.max(scaled_high, 80 * scaleFactor);
+  // ✅ FIX: Invariância de escala para minScore > 0 ou negativo
+  let scaled_low     = safeMin + (low_level_limit / 100) * scoreRange;
+  let scaled_high    = safeMin + (high_level_limit / 100) * scoreRange;
+  let scaled_mastery = safeMin + (mastery_limit / 100) * scoreRange;
+  if (!Number.isFinite(scaled_low))     scaled_low     = safeMin + 0.60 * scoreRange;
+  if (!Number.isFinite(scaled_high))    scaled_high    = Math.max(scaled_low, safeMin + 0.75 * scoreRange);
+  if (!Number.isFinite(scaled_mastery)) scaled_mastery = Math.max(scaled_high, safeMin + 0.80 * scoreRange);
   if (scaled_high    < scaled_low)    scaled_high    = scaled_low;
   if (scaled_mastery < scaled_high)   scaled_mastery = scaled_high;
 
@@ -127,7 +131,8 @@ export function analyzeProgressState(scores, config = {}) {
       state = 'stagnation_positive'; label = 'Estagnação em nível alto'; severity = 'low';
     }
   } else {
-    const cv = mean > 1e-6 ? Math.sqrt(variance) / Math.max(mean, 30 * scaleFactor) : 0;
+    const effectiveMean = Math.max(1e-6, mean - safeMin);
+    const cv = effectiveMean > 1e-6 ? Math.sqrt(variance) / Math.max(effectiveMean, 30 * scaleFactor) : 0;
     const cvThreshold = 0.15 * Math.sqrt(10 / Math.max(3, safeWindowSize));
     const isVeryUnstable = cv > cvThreshold;
     if (normalizedSlope < -trend_tolerance) {
@@ -143,8 +148,8 @@ export function analyzeProgressState(scores, config = {}) {
 
   // BUG-T13 FIX: Clamp do trend_slope para evitar valores absurdos
   // quando há pouquíssimos pontos ou datas muito próximas.
-  // Limitar a ±5% do maxScore por 30 dias.
-  const maxSlopeLimit = 0.05 * maxScore;
+  // Limitar a ±5% da amplitude (scoreRange) por 30 dias.
+  const maxSlopeLimit = 0.05 * scoreRange;
   const clampedSlope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, rawSlope * 30));
 
   return {

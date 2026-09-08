@@ -104,24 +104,26 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             return undefined;
         };
 
-        const totalMinutes = logsArray.reduce((acc, log) => acc + getLogMinutes(log), 0);
-        const totalSessions = logsArray.length;
+        const validStudyLogs = logsArray.filter(log => getLogMinutes(log) > 0);
+        const totalMinutes = validStudyLogs.reduce((acc, log) => acc + getLogMinutes(log), 0);
+        const totalSessions = validStudyLogs.length;
 
         // Find top category
         const catCounts = {};
-        logsArray.forEach(log => {
+        validStudyLogs.forEach(log => {
             // T-037 FIX: lookup indexado
             const category = findCategoryForLog(log);
             const catName = category ? category.name : (log.categoryName || log.subject || 'Outros');
             catCounts[catName] = (catCounts[catName] || 0) + getLogMinutes(log);
         });
-        const topCategory = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0] || '-';
+        const sortedCats = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
+        const topCategory = totalMinutes > 0 ? (sortedCats[0] || '-') : '-';
 
         // 2. Group by Date then by Category
         // FIX: Precomputar dateObj e time para evitar normalizeDate redundante dentro do sort e loop
         const logsWithTime = [];
-        for (let i = 0; i < logsArray.length; i++) {
-            const log = logsArray[i];
+        for (let i = 0; i < validStudyLogs.length; i++) {
+            const log = validStudyLogs[i];
             const dateObj = normalizeDate(log?.date);
             const time = (dateObj && !Number.isNaN(dateObj.getTime())) ? dateObj.getTime() : 0;
             logsWithTime.push({ log, dateObj, time });
@@ -132,6 +134,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
 
         logsWithTime.forEach(({ log, dateObj, time: logTime }) => {
             if (!dateObj || !Number.isFinite(logTime)) return;
+            const logMinutes = getLogMinutes(log);
+            if (logMinutes <= 0) return;
+
             const dateStr = formatDatePtBR(dateObj);
 
             // T-024 FIX: usar chave de dia (getDateKey) em vez de comparar strings formatadas.
@@ -185,26 +190,21 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 };
             }
 
-            let taskTitle = '-';
+            const getCleanTitle = (val) => (val && typeof val === 'string' && val.trim() !== '-' && val.trim() !== '' ? val.trim() : null);
+            let rawTitle = null;
             if (category && log.taskId) {
                 const taskMap = tasksByCatAndId.get(category);
                 const task = taskMap?.get(String(log.taskId));
-
-                // Bug fix: data model stores task.text, not task.title
                 if (task) {
-                    taskTitle = task.text || task.title || '-';
-                } else {
-                    taskTitle = log.taskTitle || log.task || log.title || log.taskName || '-';
+                    rawTitle = getCleanTitle(task.text) || getCleanTitle(task.title);
                 }
-            } else {
-                taskTitle = log.taskTitle || log.task || log.title || log.taskName || '-';
             }
+            const taskTitle = rawTitle || getCleanTitle(log.taskTitle) || getCleanTitle(log.task) || getCleanTitle(log.title) || getCleanTitle(log.taskName) || 'Sessão de Estudo';
 
             // Check if this task is already in the list for this day (Merge strategy com Map O(1))
             const targetGroup = grouped[uniqueDayKey].categories[categoryId];
             const mergeKey = log.taskId ? `id:${String(log.taskId)}` : `title:${taskTitle}`;
             const existingLog = targetGroup.logMap.get(mergeKey);
-            const logMinutes = getLogMinutes(log);
 
             if (existingLog) {
                 existingLog.minutes += logMinutes;
@@ -268,7 +268,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
         return formatDuration(minutes / 60);
     };
 
-    if (!logsArray || logsArray.length === 0) {
+    if (!logsArray || logsArray.length === 0 || groups.length === 0) {
         return (
             <div className="glass p-12 flex flex-col items-center justify-center text-slate-500 opacity-60 min-h-[400px]">
                 <BookOpen size={64} className="mb-6 animate-pulse" />
@@ -314,7 +314,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                     const logYear = dayGroup.dateObj?.getFullYear?.();
                     const currentYear = new Date().getFullYear();
                     const yearSuffix = (logYear && logYear !== currentYear) ? ` de ${logYear}` : '';
-                    const displayTitle = dayGroup.isToday ? "Hoje" : dayGroup.isYesterday ? "Ontem" : `${dayGroup.manausDayStr} de ${monthName}${yearSuffix}`;
+                    const displayTitle = dayGroup.isToday
+                        ? `Hoje, ${dayGroup.manausDayStr} de ${monthName}`
+                        : dayGroup.isYesterday
+                            ? `Ontem, ${dayGroup.manausDayStr} de ${monthName}`
+                            : `${dayGroup.manausDayStr} de ${monthName}${yearSuffix}`;
 
                     return (
                     <div key={dayGroup.uniqueDayKey || dayGroup.dateObj?.toISOString?.() || `day-${idx}`} className="relative z-10">

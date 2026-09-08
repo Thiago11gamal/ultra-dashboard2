@@ -284,7 +284,6 @@ export const MonteCarloConfig = ({
                                 aria-label="Meta de classificação"
                                 onPointerDown={() => { isDragging.current = true; }}
                                 onPointerUp={() => { isDragging.current = false; }}
-                                touchAction="none"
                                 onTouchStart={() => { isDragging.current = true; }}
                                 onTouchEnd={() => { isDragging.current = false; }}
                                 className="custom-slider w-full h-1.5 rounded-full outline-none"
@@ -368,6 +367,10 @@ export const MonteCarloConfig = ({
                                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Nenhum corte cadastrado</span>
                             )}
                         </div>
+
+                        <p className="text-[10px] text-slate-400 mt-4 leading-relaxed font-medium bg-black/30 p-3 rounded-md border border-white/[0.04]">
+                            Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
+                        </p>
                     </div>
 
                     <div className="bg-slate-950/40 p-5 rounded-md mb-8 border border-white/[0.03] shadow-inner relative overflow-hidden">
@@ -417,10 +420,6 @@ export const MonteCarloConfig = ({
                             </div>
                         </div>
                     </div>
-
-                    <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium bg-black/20 p-3 rounded-md border border-white/[0.02]">
-                        Se você inserir notas aqui, o motor Monte Carlo irá <b>sortear a nota de corte alvo</b> a cada simulação a partir de uma Distribuição Normal baseada nestes valores, ignorando o Target fixo do slider. Isso gera previsões hiper-realistas para bancas voláteis.
-                    </p>
 
                     <div className="bg-slate-800/50 p-1 rounded-xl flex flex-col sm:flex-row my-6 border border-white/5 gap-1 sm:gap-0">
                         <button

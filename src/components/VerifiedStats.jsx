@@ -126,7 +126,10 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
     </div>
 ));
 
-const ConsistencyCard = React.memo(({ consistency }) => (
+const ConsistencyCard = React.memo(({ consistency }) => {
+    const isInsufficient = ['Dados Insuficientes', 'SEM DADOS', 'Sem Dados'].includes(consistency?.status);
+
+    return (
     <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl ${consistency.bgBorder}`}>
         <div className="flex justify-between items-start mb-3 relative z-10">
             <div className="flex items-center gap-2.5">
@@ -147,14 +150,14 @@ const ConsistencyCard = React.memo(({ consistency }) => (
         <div className="grid grid-cols-2 gap-2.5 w-full mb-3">
             <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Desvio Padrão</span>
-                <span className={`text-base sm:text-lg font-black font-mono ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
-                    {consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}` : '---'}
+                <span className={`text-base sm:text-lg font-black font-mono ${!isInsufficient ? consistency.color : 'text-slate-500'}`}>
+                    {!isInsufficient && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}` : '---'}
                 </span>
             </div>
             <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Diagnóstico</span>
                 <span className="text-xs font-black text-slate-200 text-center leading-tight line-clamp-2 px-1">
-                    {consistency.status === 'Dados Insuficientes' ? 'Pendente' :
+                    {isInsufficient ? 'Pendente' :
                         (['EXCELENTE', 'EM EVOLUÇÃO', 'DOMÍNIO'].includes(consistency.status) ? 'Alta Estabilidade' :
                             (['EM QUEDA', 'INSTÁVEL'].includes(consistency.status) ? 'Alta Variação' : 'Variação Média'))}
                 </span>
@@ -166,9 +169,10 @@ const ConsistencyCard = React.memo(({ consistency }) => (
             </p>
         </div>
     </div>
-));
+    );
+});
 
-const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
+const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100, minScore = 0 }) => {
     const safeMaxSdVal = Math.max(1e-6, Number(maxSdVal) || 0);
     const sdNum = Number.isFinite(parseFloat(cat.sd)) ? parseFloat(cat.sd) : 0;
     // BUG-26 FIX: Evitar NaN/Infinity quando maxSdVal é 0
@@ -176,21 +180,23 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
     const deltaNum = Number.isFinite(parseFloat(cat.delta)) ? parseFloat(cat.delta) : 0;
     const safeColor = typeof cat.color === 'string' ? cat.color : 'text-slate-400';
     const safeBgBorder = typeof cat.bgBorder === 'string' ? cat.bgBorder : 'border-slate-500/30';
-    // FIX 1.1 & BUG 10: Sincronizar cores da barra de estabilidade com os tiers da legenda
-    const getSdBarStyles = (sd, maxS) => {
-        if (sd <= 0.05 * maxS) return { bar: 'bg-purple-500', shadow: 'shadow-purple-500/30' };
-        if (sd <= 0.10 * maxS) return { bar: 'bg-blue-500', shadow: 'shadow-blue-500/30' };
-        if (sd <= 0.15 * maxS) return { bar: 'bg-orange-500', shadow: 'shadow-orange-500/30' };
-        if (sd <= 0.25 * maxS) return { bar: 'bg-red-400', shadow: 'shadow-red-400/30' };
+    const scoreRange = Math.max(1e-9, (Number(maxScore) || 100) - (Number(minScore) || 0));
+
+    // FIX 1.1 & BUG 10: Sincronizar cores da barra de estabilidade com os tiers da legenda baseados no scoreRange
+    const getSdBarStyles = (sd, range) => {
+        if (sd <= 0.05 * range) return { bar: 'bg-purple-500', shadow: 'shadow-purple-500/30' };
+        if (sd <= 0.10 * range) return { bar: 'bg-blue-500', shadow: 'shadow-blue-500/30' };
+        if (sd <= 0.15 * range) return { bar: 'bg-orange-500', shadow: 'shadow-orange-500/30' };
+        if (sd <= 0.25 * range) return { bar: 'bg-red-400', shadow: 'shadow-red-400/30' };
         return { bar: 'bg-red-600', shadow: 'shadow-red-600/30' };
     };
-    const sdStyles = getSdBarStyles(sdNum, maxScore);
+    const sdStyles = getSdBarStyles(sdNum, scoreRange);
     const sdBarColor = sdStyles.bar;
     const sdBarGlow = sdStyles.shadow;
 
-    // Marcadores escalonados por maxScore (5% e 15% do domínio)
-    const sd5Val = 0.05 * maxScore;
-    const sd15Val = 0.15 * maxScore;
+    // Marcadores escalonados por scoreRange (5% e 15% do domínio)
+    const sd5Val = 0.05 * scoreRange;
+    const sd15Val = 0.15 * scoreRange;
 
     return (
         <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
@@ -212,10 +218,14 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
                 <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? (sdNum < 1 && sdNum > 0 ? sdNum.toFixed(1) : sdNum.toFixed(0)) : '--'}</span>
             </div>
             <div className="hidden md:flex md:col-span-1 justify-center items-center">
-                {deltaNum > 0.05 ? (
-                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}</span>
-                ) : deltaNum < -0.05 ? (
-                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(0)}</span>
+                {deltaNum >= 0.5 ? (
+                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.round(deltaNum)}</span>
+                ) : deltaNum >= 0.1 ? (
+                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{deltaNum.toFixed(1)}</span>
+                ) : deltaNum <= -0.5 ? (
+                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{Math.round(deltaNum)}</span>
+                ) : deltaNum <= -0.1 ? (
+                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(1)}</span>
                 ) : (
                     <span className="text-[10px] font-bold text-slate-600">—</span>
                 )}
@@ -239,12 +249,13 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100 }) => {
     );
 });
 
-const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 }) => {
+const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100, minScore = 0 }) => {
     if (categoryBreakdown.length === 0) return (
         <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 3 simulados em cada matéria para gerar o diagnóstico individual.</div>
     );
 
-    const maxSdVal = Math.max(0.25 * maxScore, ...categoryBreakdown.map(c => c.rawSd || 0));
+    const scoreRange = Math.max(1e-9, (Number(maxScore) || 100) - (Number(minScore) || 0));
+    const maxSdVal = Math.max(0.25 * scoreRange, ...categoryBreakdown.map(c => c.rawSd || 0));
 
     return (
         <div className="flex flex-col gap-1">
@@ -262,15 +273,16 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
                     idx={idx}
                     maxSdVal={maxSdVal}
                     maxScore={maxScore}
+                    minScore={minScore}
                 />
             ))}
             <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-4 text-[9px] font-black uppercase tracking-widest text-slate-500 pt-4 border-t border-white/5 opacity-60">
                 {[
-                    { color: 'bg-purple-500', label: `SD ≤ ${(0.05 * maxScore).toFixed(0)}` },
-                    { color: 'bg-blue-500', label: `SD ≤ ${(0.10 * maxScore).toFixed(0)}` },
-                    { color: 'bg-orange-500', label: `SD ≤ ${(0.15 * maxScore).toFixed(0)}` },
-                    { color: 'bg-red-400', label: `SD ≤ ${(0.25 * maxScore).toFixed(0)}` },
-                    { color: 'bg-red-600', label: `SD > ${(0.25 * maxScore).toFixed(0)}` }
+                    { color: 'bg-purple-500', label: `SD ≤ ${(0.05 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-blue-500', label: `SD ≤ ${(0.10 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-orange-500', label: `SD ≤ ${(0.15 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-red-400', label: `SD ≤ ${(0.25 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-red-600', label: `SD > ${(0.25 * scoreRange).toFixed(0)}` }
                 ].map(l => (
                     <div key={l.label} className="flex items-center gap-1.5">
                         <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
@@ -321,7 +333,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             ? 70
             : Math.round(minScore + (maxScore - minScore) * 0.7);
 
-        if (!Number.isFinite(n) || n <= 0) return fallback;
+        if (!Number.isFinite(n) || (minScore >= 0 ? n <= 0 : n < minScore)) return fallback;
 
         return Math.max(minScore, Math.min(maxScore, n));
     }, [maxScore, minScore]);
@@ -764,7 +776,10 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 }
             }
         } else {
-            predictionSubtext = `Faltam ${3 - distinctDays} dias de simulados para prever.`;
+            const daysRemaining = Math.max(1, 3 - distinctDays);
+            predictionSubtext = daysRemaining === 1
+                ? 'Falta 1 dia de simulados para prever.'
+                : `Faltam ${daysRemaining} dias de simulados para prever.`;
         }
 
         // 3. Confidence Interval (Sample Size)
@@ -874,7 +889,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     if (h && h.topics) {
                         const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
                         safeTopics.forEach(t => {
-                            if (!t || !t.name) return;
+                            if (!t || !t.name || typeof t.name !== 'string' || !t.name.trim()) return;
+                            const topicName = t.name.trim();
                             let total = Number(t.total) || 0;
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
@@ -892,8 +908,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
                                 // Escala global com piso
                                 const topicScore = minScore + finalTopicRatio * globalRange;
-                                if (!topicMap[t.name]) topicMap[t.name] = [];
-                                topicMap[t.name].push(topicScore);
+                                if (!topicMap[topicName]) topicMap[topicName] = [];
+                                topicMap[topicName].push(topicScore);
                             }
                         });
                     }
@@ -1144,7 +1160,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         </span>
                     )}
                 </div>
-                <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} maxScore={maxScore} />
+                <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} maxScore={maxScore} minScore={minScore} />
             </div>
         </div>
     );

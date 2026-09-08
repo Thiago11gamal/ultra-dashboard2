@@ -137,7 +137,13 @@ export default function Stats() {
                     </div>
                 ) : (
                     <>
-                        {(hasSimuladoHistory || hasFlashcards) && (
+                        {!(hasSimuladoHistory || hasFlashcards) ? (
+                            <div className="glass p-6 rounded-2xl border border-white/5 bg-slate-900/30 text-center mb-6">
+                                <p className="text-xs font-semibold text-slate-400">
+                                    Nenhum simulado ou flashcard registrado. Registre simulados ou revise flashcards para desbloquear a Previsão IA, Análise de Consistência e Simulação de Monte Carlo.
+                                </p>
+                            </div>
+                        ) : (
                             <VerifiedStats categories={categories} user={user} flashcardDecks={flashcardDecks} />
                         )}
 

@@ -304,7 +304,8 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
 }
 
 export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
-    const trend = calculateSlopePerDay(history, maxScore);
+    const minScore = Number.isFinite(options?.minScore) ? options.minScore : 0;
+    const trend = calculateSlopePerDay(history, maxScore, minScore);
     return calculateSlope(trend, maxScore, options);
 }
 
