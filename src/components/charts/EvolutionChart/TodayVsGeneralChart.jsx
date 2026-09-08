@@ -117,13 +117,14 @@ export function TodayVsGeneralChart({
         const dayMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore);
+        const maxAllowedDateKey = new Date(nowMs + 86400000).toISOString().split('T')[0];
         activeCategories.forEach(cat => {
             const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
-                if (!dKey || dKey > todayKey) return;
+                if (!dKey || dKey > maxAllowedDateKey) return;
                 if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
                 let tot = Number(h.total) || 0;
                 let corr = 0;
@@ -158,7 +159,7 @@ export function TodayVsGeneralChart({
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         return { dailyData: result, lastActiveEntry: lastEntry };
-    }, [activeCategories, maxScore, minScore, todayKey]);
+    }, [activeCategories, maxScore, minScore, nowMs]);
 
     const temporalMetrics = useMemo(() => {
         const now = nowMs;
@@ -166,6 +167,8 @@ export function TodayVsGeneralChart({
         const ms1Month = 30 * 86400000;
         const ms3Months = 90 * 86400000;
         const ms6Months = 180 * 86400000;
+        const utcTodayKey = new Date(now).toISOString().split('T')[0];
+        const maxAllowedDateKey = new Date(now + 86400000).toISOString().split('T')[0];
 
         const buckets = {
             today: { correct: 0, total: 0 },
@@ -184,7 +187,7 @@ export function TodayVsGeneralChart({
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const hDateKey = getDateKey(h.date || h.createdAt);
-                if (!hDateKey || hDateKey > todayKey) return;
+                if (!hDateKey || hDateKey > maxAllowedDateKey) return;
                 const time = toDateMs(h.date || h.createdAt);
                 if (!time) return;
                 let tot = Number(h.total) || 0;
@@ -203,7 +206,7 @@ export function TodayVsGeneralChart({
                 corr = Math.max(0, Math.min(tot, corr));
                 if (tot === 0) return;
 
-                const isTodayDate = hDateKey === todayKey;
+                const isTodayDate = hDateKey === todayKey || hDateKey === utcTodayKey;
                 if (isTodayDate) { buckets.today.correct += corr; buckets.today.total += tot; }
                 const ageMs = Math.max(0, now - time);
                 if (isTodayDate || ageMs <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
