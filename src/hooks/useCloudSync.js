@@ -362,6 +362,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const localCat = mergedCatsMap[c.id];
         const baseCat = preferCloudBase ? { ...localCat, ...c } : { ...c, ...localCat };
         const catMaxScore = Number(c.maxScore ?? localCat.maxScore ?? 100) || 100;
+        const catMinScore = Number(c.minScore ?? localCat.minScore ?? 0) || 0;
         const historyMap = new Map();
         const getStableHistoryKey = (h) =>
           h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}-${h.correct ?? ''}-${h.total ?? ''}`;
@@ -378,7 +379,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             ...(localCat.simuladoStats || c.simuladoStats || {}),
             ...(c.simuladoStats || {}),
             history: Array.from(historyMap.values())
-              .map(h => ({ ...h, score: getSafeScore(h, catMaxScore) }))
+              .map(h => ({ ...h, score: getSafeScore(h, catMaxScore, catMinScore) }))
               .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
           }
         };

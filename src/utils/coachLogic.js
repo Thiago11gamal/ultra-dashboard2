@@ -282,13 +282,16 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
     return clamp(proficiency, 0, 1);
 };
 
-export function computeRobustVolatilityForCoach(history = [], maxScore = 100) {
-    const fallbackVol = 0.08 * maxScore;
+export function computeRobustVolatilityForCoach(history = [], maxScore = 100, minScore = 0) {
+    const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const safeMin = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMax) : 0;
+    const range = Math.max(1e-9, safeMax - safeMin);
+    const fallbackVol = 0.08 * range;
     const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
     const n = safeHistory.length;
     if (n < 2) return fallbackVol;
     const validScores = safeHistory
-        .map(h => getSafeScore(h, maxScore))
+        .map(h => getSafeScore(h, safeMax, safeMin))
         .filter(s => Number.isFinite(s));
     const validN = validScores.length;
     if (validN < 2) return fallbackVol;
@@ -444,14 +447,14 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const referenceDate = safeOptions.now ? (normalizeDate(safeOptions.now) || new Date()) : new Date();
     const referenceNow = referenceDate.getTime();
 
-    // ✅ FIX: Validar maxScore, minScore, targetScore
-    const rawMaxScore = Number(safeOptions.maxScore ?? 100);
+    // ✅ FIX: Priorizar maxScore, minScore e minCutoff da categoria sobre options global
+    const rawMaxScore = Number(safeCategory.maxScore ?? safeOptions.maxScore ?? 100);
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
 
-    const rawMinScore = Number(safeOptions.minScore ?? 0);
+    const rawMinScore = Number(safeCategory.minScore ?? safeOptions.minScore ?? 0);
     const minScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, maxScore) : 0;
 
-    const rawTargetScore = Number(safeOptions.targetScore ?? (maxScore * 0.8));
+    const rawTargetScore = Number(safeCategory.minCutoff ?? safeOptions.targetScore ?? (maxScore * 0.8));
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
@@ -511,13 +514,35 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         ? safeSimulados.filter(s => s && validCatNorms.has(normalize(s.subject || "")))
         : safeSimulados;
 
-    // FIX: normalizar cada score para [0,1] antes de somar.
-    // O anterior assumia escala única e distorcia com matérias de escalas diferentes.
+    // FIX: normalizar cada score para [0,1] usando os limites da própria matéria antes de somar.
+    const catMap = new Map();
+    (options.allCategories || []).forEach(c => {
+        if (c?.name) catMap.set(normalize(c.name), c);
+        if (c?.id) catMap.set(String(c.id), c);
+    });
+
     const validGlobalRatios = allSimsForBaseline
         .map((s) => {
-            const score = getSafeScore(s, maxScore);
+            const sCat = (s?.subject && catMap.get(normalize(s.subject))) || (s?.categoryId && catMap.get(String(s.categoryId))) || null;
+            const sMax = Number.isFinite(Number(sCat?.maxScore ?? s?.maxScore)) && Number(sCat?.maxScore ?? s?.maxScore) > 0
+                ? Number(sCat?.maxScore ?? s?.maxScore)
+                : maxScore;
+            const sMin = Number.isFinite(Number(sCat?.minScore ?? s?.minScore))
+                ? Math.min(Number(sCat?.minScore ?? s?.minScore), sMax)
+                : 0;
+            const sRange = Math.max(1e-9, sMax - sMin);
+
+            if (s?.correct != null && s?.total != null && Number(s.total) > 0) {
+                const c = sanitizeNum(s.correct);
+                const t = sanitizeNum(s.total);
+                if (Number.isFinite(c) && Number.isFinite(t) && t > 0) {
+                    return Math.max(0, Math.min(1, c / t));
+                }
+            }
+
+            const score = getSafeScore(s, sMax, sMin);
             if (!Number.isFinite(score)) return null;
-            return maxScore > 0 ? score / maxScore : null;
+            return Math.max(0, Math.min(1, (score - sMin) / sRange));
         })
         .filter((r) => r !== null);
 
@@ -529,7 +554,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     let averageScore = 0;
 
     if (relevantSimulados.length > 0) {
-        const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore), maxScore, cfg);
+        const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore, minScore), maxScore, cfg);
         const today = normalizeDate(referenceDate) || referenceDate;
         const K = coachAdaptive.decayK;
         const PESO_MIN = coachAdaptive.minWeight;
@@ -539,7 +564,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             let weightedSum = 0;
             let totalWeight = 0;
             dataset.forEach(s => {
-                const sScore = getSafeScore(s, maxScore);
+                const sScore = getSafeScore(s, maxScore, minScore);
                 if (!Number.isFinite(sScore)) return;
                 const simDate = normalizeDate(s.date || s.createdAt) || new Date(0);
                 const days = getDaysDiff(today, simDate);
@@ -551,7 +576,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 weightedSum += sScore * peso;
                 totalWeight += peso;
             });
-            return totalWeight > 0 ? weightedSum / totalWeight : (maxScore / 2);
+            return totalWeight > 0 ? weightedSum / totalWeight : (minScore + (maxScore - minScore) / 2);
         };
 
         const mostRecentSimDate = relevantSimulados.length > 0
@@ -596,7 +621,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const globalAnchor = Number.isFinite(safeOptions.globalMcStats?.currentMean)
             ? safeOptions.globalMcStats.currentMean
             : (globalBaselinePct !== 50
-                ? (globalBaselinePct / 100) * maxScore
+                ? minScore + (globalBaselinePct / 100) * domain
                 : minScore + 0.5 * domain);
         averageScore = clamp(globalAnchor, minScore, maxScore);
     }
@@ -634,7 +659,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const trendHistory = [...simuladosWithMaxScore]
         .map(s => ({
-            score: getSafeScore(s, maxScore),
+            score: getSafeScore(s, maxScore, minScore),
             date: s.date || s.createdAt
         }))
         .filter(t => Number.isFinite(t.score))
@@ -678,16 +703,16 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
       : calculateSlope(trendHistory, maxScore) * 30;
 
     const limiteSuperior = maxScore - averageScore;
-    const limiteInferior = -averageScore;
+    const limiteInferior = minScore - averageScore;
     const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
 
     // ✅ PATCH-27: Janela do MC configurável (padrão 10 para volatilidade de curto prazo)
     const MC_WINDOW = Number(cfg.MC_HISTORY_WINDOW) || 10;
-    const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, MC_WINDOW), maxScore);
+    const mcHistory = simuladosToHistory(simuladosWithMaxScore.slice(0, MC_WINDOW), maxScore, minScore);
 
     const baseMssdVolatility = mcHistory.length >= 3
-        ? calculateMSSD(mcHistory, maxScore)
-        : computeRobustVolatilityForCoach(mcHistory, maxScore);
+        ? calculateMSSD(mcHistory, maxScore, minScore)
+        : computeRobustVolatilityForCoach(mcHistory, maxScore, minScore);
 
     // ==================== LOTE 2: VOLATILIDADE DINÂMICA ====================
     let dynamicVolatility = null;
@@ -735,14 +760,15 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         ? Math.max(cfg.MC_SIMULATIONS, 1200)
         : cfg.MC_SIMULATIONS;
 
-    const DISTANCE_THRESHOLD = 0.15 * maxScore;
+    const domain = Math.max(1e-6, maxScore - minScore);
+    const DISTANCE_THRESHOLD = 0.15 * domain;
     let effectiveMCTarget = targetScore;
     let effectiveMCDays = Number.isFinite(daysToExam)
         ? Math.max(0, Math.min(daysToExam, 90))
         : 90;
 
     if (targetScore - averageScore > DISTANCE_THRESHOLD) {
-        effectiveMCTarget = averageScore + Math.max(mssdVolatility, maxScore * 0.05) + (maxScore * 0.02);
+        effectiveMCTarget = averageScore + Math.max(mssdVolatility, domain * 0.05) + (domain * 0.02);
         effectiveMCTarget = Math.min(effectiveMCTarget, targetScore);
         if (Number.isFinite(daysToExam)) {
             const totalGap = Math.max(1, targetScore - averageScore);
@@ -788,7 +814,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         maxScore,
         mcAdaptive,
         effectiveMCDays,
-        agilityPenalty
+        agilityPenalty,
+        minScore
     );
 
     const baseMcProbability = mcResult?.probability ?? null;
@@ -976,8 +1003,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         globalProjectedMean
     } = metrics;
     const minScore = metrics.minScore ?? 0;
-    const targetScore = metrics.targetScore ?? (maxScore * 0.8);
     const domain = Math.max(1e-6, maxScore - minScore);
+    const targetScore = metrics.targetScore ?? (minScore + domain * 0.8);
     const hasData = (simuladosWithMaxScore?.length || 0) > 0 || (categoryStudyLogs?.length || 0) > 0;
     // FIX: agilidade não entra mais no forgetting risk
     const forgetting = computeForgettingRisk(
@@ -986,7 +1013,9 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         averageScore,
         mssdVolatility,
         backtestWeights?.effectiveN || simuladosWithMaxScore.length,
-        recencyUnknown ? null : daysSinceLastStudy
+        recencyUnknown ? null : daysSinceLastStudy,
+        0,
+        minScore
     );
     const performanceDeficit = Math.max(0, targetScore - averageScore);
     const gapRange = Math.max(1e-6, targetScore - minScore);
@@ -1509,14 +1538,20 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
             return timeA - timeB;
         });
+        const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
+            ? Number(safeCat.maxScore)
+            : (Number(options?.maxScore) || 100);
+        const catMin = Number.isFinite(Number(safeCat.minScore))
+            ? Math.min(Number(safeCat.minScore), catMax)
+            : (Number(options?.minScore) || 0);
         const scoreChecksum = simsForChecksum.reduce((acc, s, index) => {
             if (!s) return acc;
-            const parsed = getSafeScore(s, options.maxScore || 100);
+            const parsed = getSafeScore(s, catMax, catMin);
             const validVal = Number.isNaN(parsed) ? 0 : parsed;
             return acc + (validVal * (index + 1) * 1.17);
         }, 0).toFixed(2);
         const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
-        const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${options?.maxScore ?? 100}`;
+        const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${catMax}_min${catMin}`;
         const logsForChecksum = [...safeLogs].sort((a, b) => {
             const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
             const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
@@ -1767,6 +1802,12 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     const safeCat = category || {};
     const catId = safeCat.id || safeCat.name || 'unknown';
+    const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
+        ? Number(safeCat.maxScore)
+        : (Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100);
+    const catMin = Number.isFinite(Number(safeCat.minScore))
+        ? Math.min(Number(safeCat.minScore), catMax)
+        : 0;
     const safeTasks = Array.isArray(safeCat.tasks)
         ? safeCat.tasks
         : Object.values(safeCat.tasks || {});
@@ -1791,7 +1832,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
     }
     const scoreChecksum = safeSims.reduce((acc, s, index) => {
         if (!s) return acc;
-        const parsed = getSafeScore(s, maxScore);
+        const parsed = getSafeScore(s, catMax, catMin);
         const validVal = Number.isNaN(parsed) ? 0 : parsed;
         return acc + (validVal * (index + 1) * 1.17);
     }, 0);
@@ -1816,17 +1857,24 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         fsrsb: getCoachFeature(null, 'useFsrsForSrsBoost', false),
         fsrst: getCoachFeature(null, 'useFsrsTopicScheduling', false),
     }));
-    const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${maxScore}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
+    const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${catMax}-${catMin}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
     const cacheKey = `isolate_${catId}_${hash}`;
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
     if (cachedTopics) return deepClone(cachedTopics);
-    const result = _buildSortedTopicsImpl(safeCat, safeSims, maxScore);
+    const result = _buildSortedTopicsImpl(safeCat, safeSims, catMax, catMin);
     cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, deepClone(result));
     return deepClone(result);
 }
 
-const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
+const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minScore = 0) => {
     const safeCat = category || {};
+    const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
+        ? Number(safeCat.maxScore)
+        : (Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100);
+    const catMin = Number.isFinite(Number(safeCat.minScore))
+        ? Math.min(Number(safeCat.minScore), catMax)
+        : (Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), catMax) : 0);
+    const catRange = Math.max(1e-9, catMax - catMin);
     const tasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
     const topicMap = {};
     const history = safeArray(safeCat.simuladoStats?.history);
@@ -1868,14 +1916,14 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
             let topicCorrect = 0;
             const isTotalMissing = t.total === undefined || t.total === null || String(t.total).trim() === "" || Number(t.total) === 0;
             if (t.score != null && isTotalMissing) {
-                topicTotal = getSyntheticTotal(maxScore);
-                topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
+                topicTotal = getSyntheticTotal(catMax);
+                topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
             } else if (topicTotal > 0) {
                 if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
                     const rawC = sanitizeNum(t.correct);
                     topicCorrect = Math.min(topicTotal, Number.isFinite(rawC) ? rawC : 0);
                 } else {
-                    topicCorrect = (getSafeScore(t, maxScore) / maxScore) * topicTotal;
+                    topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
                 }
             } else {
                 return;
@@ -1890,7 +1938,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100) => {
                     total: topicTotal,
                     date: entryDate.toISOString(),
                     // ✅ FIX (BUG-H05): Preservar maxScore no payload para FSRS
-                    maxScore: maxScore
+                    maxScore: catMax
                 });
                 // ✅ PATCH-28: Limitar crescimento do array interno
                 if (topicMap[name].scores.length > 20) {
@@ -2277,14 +2325,21 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
               )
             : [];
 
+        const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0
+            ? Number(category.maxScore)
+            : (maxScore > 0 ? maxScore : 100);
+        const catMin = Number.isFinite(Number(category?.minScore))
+            ? Math.min(Number(category.minScore), catMax)
+            : 0;
+        const catRange = Math.max(1e-9, catMax - catMin);
         const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l?.minutes), 0) / 60;
-        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s?.total) || getSyntheticTotal(maxScore)), 0);
+        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s?.total) || getSyntheticTotal(catMax)), 0);
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
 
         // ✅ FIX: Validar averageScore antes de calcular normalizedScore
-        const safeAverageScore = Number.isFinite(averageScore) ? averageScore : 0;
-        const normalizedScore = maxScore > 0 ? (safeAverageScore / maxScore) * 100 : 0;
+        const safeAverageScore = Number.isFinite(averageScore) ? averageScore : catMin;
+        const normalizedScore = catRange > 0 ? ((safeAverageScore - catMin) / catRange) * 100 : 0;
         const isFormingBase = normalizedScore < 45;
 
         if (totalHours > 5 && questionsPerHour < dynamicThreshold && !isFormingBase) {
@@ -2300,7 +2355,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     let globalPriorityCounter = 0;
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
     topCategories.forEach((cat) => {
-        const weakTopics = getWeakestTopicsList(cat, safeSimulados, maxScore, tasksPerCategory);
+        const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+        const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : 0;
+        const catRange = Math.max(1e-9, catMax - catMin);
+        const weakTopics = getWeakestTopicsList(cat, safeSimulados, catMax, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
         const iterations = tasksPerCategory;
         const getPriorityLabel = () => {
@@ -2337,7 +2395,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
                 }
             });
-        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && mc.probabilityRaw < adaptiveSafe) {
+        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (catRange / 100) && mc.probabilityRaw < adaptiveSafe) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido mcVolKey e mcProbKey do ID para manter estabilidade
@@ -2706,12 +2764,12 @@ export const getCoachInsight = (category, simulados = [], studyLogs = [], option
   }
 };
 
-export function getCombinedHistory(history, simulados, maxScore = 100) {
+export function getCombinedHistory(history, simulados, maxScore = 100, minScore = 0) {
     const deduplicatedMap = new Map();
     const allSimulados = safeArray(simulados);
 
     allSimulados.forEach((s) => {
-        const safeScore = getSafeScore(s, maxScore);
+        const safeScore = getSafeScore(s, maxScore, minScore);
         const safeScoreStr = Number.isFinite(safeScore) ? String(Math.round(safeScore * 100)) : '0';
         // FIX: sem `id`, a chave usava `idx` (sempre único) e nunca deduplicava.
         // Agora usa subject + data + score para deduplicar simulados sem id.

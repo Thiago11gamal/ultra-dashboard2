@@ -56,8 +56,9 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
       const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
       const subj = normalize(row.subject || row.categoryName || row.name);
-      if (!subj) return;
-      const score = getSafeScore(row, maxScore);
+      const rowMax = Number.isFinite(Number(row.maxScore)) && Number(row.maxScore) > 0 ? Number(row.maxScore) : maxScore;
+      const rowMin = Number.isFinite(Number(row.minScore)) ? Math.min(Number(row.minScore), rowMax) : 0;
+      const score = getSafeScore(row, rowMax, rowMin);
       if (!Number.isFinite(score)) return;
 
       if (!byDate[dateKey]) byDate[dateKey] = {};

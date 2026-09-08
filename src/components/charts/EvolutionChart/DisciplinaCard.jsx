@@ -3,12 +3,21 @@ import { formatValue } from '../../../utils/scoreHelper';
 import { pointsToPct } from '../../../utils/scoreHelper.conversions';
 
 export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100, minScore = 0 }) {
-    const safeMax = Math.max(1, Number(maxScore) || 100);   // ✅ LOTE-03
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : (Math.max(1, Number(maxScore) || 100));
+    const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
+    const safeMax = catMax;
+    const safeMin = catMin;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
     const val = level || 0;
-    const ok = val >= target;
-    const midThreshold = safeMin + (target - safeMin) * 0.75;
+    const effectiveTarget = Number.isFinite(Number(cat?.minCutoff))
+        ? Number(cat.minCutoff)
+        : (Number.isFinite(Number(target))
+            ? (target <= safeMax && target >= safeMin
+                ? Number(target)
+                : safeMin + (target / (Number(maxScore) || 100)) * safeRange)
+            : safeMin + safeRange * 0.8);
+    const ok = val >= effectiveTarget;
+    const midThreshold = safeMin + (effectiveTarget - safeMin) * 0.75;
     const mid = val >= midThreshold;
     const statusColor = ok ? '#22c55e' : mid ? '#f59e0b' : '#ef4444';
     const progressWidth = Math.max(0, Math.min(100, pointsToPct(val, safeMax, safeMin)));

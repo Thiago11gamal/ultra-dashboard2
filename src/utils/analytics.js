@@ -227,7 +227,10 @@ const aggregateQuestionAccuracy = (contestData) => {
     // Only supplement from history if we have no explicit validated rows
     if (validSimulados.length === 0 || totalQuestions === 0) {
         toArray(contestData?.categories).forEach(cat => {
-            const maxS = Number(cat?.maxScore) || 100;
+            const maxS = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0
+                ? Number(cat.maxScore) : 100;
+            const minS = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), maxS) : 0;
+            const rangeS = Math.max(1e-9, maxS - minS);
             const syntheticTotal = getSyntheticTotal(maxS);
 
             const histArr = toArray(cat?.simuladoStats?.history);
@@ -239,10 +242,10 @@ const aggregateQuestionAccuracy = (contestData) => {
                 if (t > 0) {
                     c = e?.correct !== undefined
                         ? Number(e.correct)
-                        : Math.round((getSafeScore(e, maxS) / maxS) * t);
+                        : Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
                 } else if (e?.score != null) {
                     t = syntheticTotal;
-                    c = Math.round((getSafeScore(e, maxS) / maxS) * t);
+                    c = Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
                 }
 
                 if (!Number.isFinite(t) || t <= 0) return;
@@ -309,8 +312,9 @@ export const buildAchievementStats = (contestData, options = {}) => {
     const hasPerfectScoreFromHistory = categoriesArray.some(cat => {
         const hist = cat.simuladoStats?.history;
         const histArr = (Array.isArray(hist) ? hist : Object.values(hist || {})).filter(filterByReset);
-        const maxS = Number(cat.maxScore) || 100;
-        return histArr?.some(h => getSafeScore(h, maxS) >= maxS || (h.correct === h.total && h.total > 0));
+        const maxS = Number.isFinite(Number(cat.maxScore)) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : 100;
+        const minS = Number.isFinite(Number(cat.minScore)) ? Math.min(Number(cat.minScore), maxS) : 0;
+        return histArr?.some(h => getSafeScore(h, maxS, minS) >= maxS || (h.correct === h.total && h.total > 0));
     }) || false;
 
     return {

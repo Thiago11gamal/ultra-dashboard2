@@ -57,6 +57,7 @@ function rollingSd(values, windowSize = 5) {
  */
 export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], options = {}) {
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+  const minScore = Number.isFinite(Number(options.minScore)) ? Math.min(Number(options.minScore), maxScore) : 0;
   const minTreatmentMinutes = Number(options.minTreatmentMinutes) || 60;
   const categoryId = options.categoryId || null;
   const categoryName = options.categoryName || null;
@@ -68,7 +69,7 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
     })
     .map((simulado, index) => {
       const time = toTime(simulado?.date ?? simulado?.createdAt);
-      const score = getSafeScore(simulado, maxScore);
+      const score = getSafeScore(simulado, maxScore, minScore);
       return {
         index,
         time,
@@ -136,6 +137,7 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
  */
 export function buildTaskCausalEvents(categories = [], simulados = [], options = {}) {
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+  const minScore = Number.isFinite(Number(options.minScore)) ? Math.min(Number(options.minScore), maxScore) : 0;
   const maxHorizonDays = Number(options.maxHorizonDays) || 45;
   const safeCategories = safeArray(categories);
   const events = [];
@@ -143,12 +145,14 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
   safeCategories.forEach((category) => {
     const categoryName = category?.name || '';
     const categoryId = category?.id || categoryName || 'unknown';
+    const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0 ? Number(category.maxScore) : maxScore;
+    const catMin = Number.isFinite(Number(category?.minScore)) ? Math.min(Number(category.minScore), catMax) : minScore;
 
     const categorySimulados = safeArray(simulados)
       .filter((simulado) => isSubjectMatch(simulado?.subject || '', categoryName))
       .map((simulado, index) => {
         const time = toTime(simulado?.date ?? simulado?.createdAt);
-        const score = getSafeScore(simulado, maxScore);
+        const score = getSafeScore(simulado, catMax, catMin);
         return {
           index,
           time,

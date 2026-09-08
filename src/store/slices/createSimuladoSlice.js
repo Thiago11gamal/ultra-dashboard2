@@ -68,7 +68,13 @@ export const createSimuladoSlice = (set) => ({
 
     if (activeData.categories) {
       activeData.categories = activeData.categories.map(c => {
-        const catMaxScore = Number(c.maxScore) || Number(activeData.maxScore) || 100;
+        const catMaxScore = Number.isFinite(Number(c.maxScore)) && Number(c.maxScore) > 0
+          ? Number(c.maxScore)
+          : (Number(activeData.maxScore) || 100);
+        const catMinScore = Number.isFinite(Number(c.minScore))
+          ? Math.min(Number(c.minScore), catMaxScore)
+          : (Number(activeData.minScore) || 0);
+        const catRange = Math.max(1e-9, catMaxScore - catMinScore);
 
         if (c.simuladoStats?.history) {
           const safeHistory = Array.isArray(c.simuladoStats.history)
@@ -79,11 +85,11 @@ export const createSimuladoSlice = (set) => ({
           const newStatsObj = { ...c.simuladoStats, history: newHistory };
 
           if (newHistory.length > 0) {
-            const newStats = computeCategoryStats(newHistory, c.weight || 10, 60, catMaxScore);
+            const newStats = computeCategoryStats(newHistory, c.weight || 10, 60, catMaxScore, catMinScore);
 
             if (newStats) {
               const last = newHistory[newHistory.length - 1];
-              const lastScore = last ? getSafeScore(last, catMaxScore) : NaN;
+              const lastScore = last ? getSafeScore(last, catMaxScore, catMinScore) : NaN;
 
               newStatsObj.average = Number((newStats.mean || 0).toFixed(2));
               newStatsObj.trend = newStats.trend || 'stable';
@@ -93,7 +99,7 @@ export const createSimuladoSlice = (set) => ({
                 : Number(
                     last?.score ?? (
                       (Number(last?.total) > 0)
-                        ? (Number(last?.correct || 0) / Number(last?.total)) * catMaxScore
+                        ? catMinScore + (Number(last?.correct || 0) / Number(last?.total)) * catRange
                         : 0
                     )
                   );

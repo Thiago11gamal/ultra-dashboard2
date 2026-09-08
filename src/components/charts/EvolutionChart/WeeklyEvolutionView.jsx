@@ -9,7 +9,7 @@ import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
 import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
 import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
-import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
+import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, stableThreshold = 2 }) => {
     if (active && payload && payload.length) {
@@ -199,12 +199,12 @@ export const WeeklyEvolutionView = ({
         const upperBound = Math.max(safeMinScore, safeMaxScore);
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
         const stableThreshold = Math.max(0.5, scoreRange * 0.02);
-        const toRatio = (score) => pointsToRatio(score, upperBound, lowerBound);
         const fromRatio = (ratio) => ratioToPoints(ratio, upperBound, lowerBound);
         const weeksTemp = {};
 
-        const processHistory = (historyArray, itemId) => {
+        const processHistory = (historyArray, itemId, cMax = upperBound, cMin = lowerBound) => {
             if (!Array.isArray(historyArray) || !itemId) return;
+            const cRange = Math.max(1e-9, cMax - cMin);
             historyArray.forEach(h => {
                 const weekStr = getMondayStr(getHistoryDate(h));
                 if (!weekStr) return;
@@ -213,27 +213,39 @@ export const WeeklyEvolutionView = ({
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
 
                 let totalQ = Math.max(0, Number(h.total) || 0);
-                const score = getSafeScore(h, upperBound, lowerBound);
-                if (!Number.isFinite(score)) return;
-
-                if (totalQ === 0 && h.score != null) {
-                    totalQ = getSyntheticTotal(upperBound);
+                let corr = 0;
+                if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
+                    const rawC = Number(h.correct);
+                    corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
+                } else {
+                    const score = getSafeScore(h, cMax, cMin);
+                    if (!Number.isFinite(score)) return;
+                    if (totalQ === 0 && h.score != null) {
+                        totalQ = getSyntheticTotal(cMax);
+                    }
+                    if (totalQ === 0) return;
+                    corr = Math.max(0, Math.min(1, (score - cMin) / cRange)) * totalQ;
                 }
                 if (totalQ === 0) return;
 
                 weeksTemp[weekStr][itemId].total += totalQ;
-                weeksTemp[weekStr][itemId].correct += toRatio(score) * totalQ;
+                weeksTemp[weekStr][itemId].correct += corr;
             });
         };
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
                 const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
-                processHistory(hArray, cat.id);
+                const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
+                const cMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
+                processHistory(hArray, cat.id, cMax, cMin);
             });
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
+                const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
+                const cMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
+                const cRange = Math.max(1e-9, cMax - cMin);
                 const hArray2 = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 hArray2.forEach(h => {
                     const topics = toArray(h.topics);
@@ -249,21 +261,29 @@ export const WeeklyEvolutionView = ({
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
                             let totalQ = Math.max(0, Number(t.total) || 0);
-                            const topicScore = getSafeScore(t, upperBound, lowerBound);
-                            if (!Number.isFinite(topicScore)) return;
-                            if (totalQ === 0 && t.score != null) {
-                                totalQ = getSyntheticTotal(upperBound);
+                            let corr = 0;
+                            if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
+                                const rawC = Number(t.correct);
+                                corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
+                            } else {
+                                const topicScore = getSafeScore(t, cMax, cMin);
+                                if (!Number.isFinite(topicScore)) return;
+                                if (totalQ === 0 && t.score != null) {
+                                    totalQ = getSyntheticTotal(cMax);
+                                }
+                                if (totalQ === 0) return;
+                                corr = Math.max(0, Math.min(1, (topicScore - cMin) / cRange)) * totalQ;
                             }
                             if (totalQ === 0) return;
                             weeksTemp[weekStr][tId].total += totalQ;
-                            weeksTemp[weekStr][tId].correct += toRatio(topicScore) * totalQ;
+                            weeksTemp[weekStr][tId].correct += corr;
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
                         const tId = toSafeKey(tName);
-                        processHistory([h], tId);
+                        processHistory([h], tId, cMax, cMin);
                     } else {
-                        processHistory([h], 'top_geral');
+                        processHistory([h], 'top_geral', cMax, cMin);
                     }
                 });
             }

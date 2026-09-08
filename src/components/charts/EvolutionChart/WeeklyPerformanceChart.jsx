@@ -60,21 +60,29 @@ const WeeklyPerformanceChart = ({
             categories.forEach(cat => {
                 if (showOnlyFocus && focusSubjectId && cat.id !== focusSubjectId) return;
 
+                const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+                const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
                     const hDate = getDateKey(h.date || h.createdAt);
                     if (hDate === dateKey) {
                         let q = Number(h.total) || 0;
-                        if (q === 0 && h.score != null) {
-                            q = getSyntheticTotal(safeMaxScore);
+                        let corr = 0;
+                        if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
+                            const rawC = Number(h.correct);
+                            corr = Math.min(q > 0 ? q : rawC, Number.isFinite(rawC) ? rawC : 0);
+                            if (q === 0) q = corr > 0 ? corr : getSyntheticTotal(catMax);
+                        } else {
+                            if (q === 0 && h.score != null) {
+                                q = getSyntheticTotal(catMax);
+                            }
+                            if (q < 1) return;
+                            const score = getSafeScore(h, catMax, catMin);
+                            const ratio = pointsToRatio(score, catMax, catMin);
+                            corr = ratio * q;
                         }
-                        if (q < 1) return; 
-
-                        const score = getSafeScore(h, safeMaxScore, safeMinScore);
-                        const ratio = pointsToRatio(score, safeMaxScore, safeMinScore);
-                        const weightedCorrect = ratio * q;
-                        if (!Number.isFinite(weightedCorrect)) return;
-                        correctTotal += weightedCorrect;
+                        if (!Number.isFinite(corr) || q < 1) return;
+                        correctTotal += corr;
                         questionsTotal += q;
                     }
                 });

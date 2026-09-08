@@ -176,7 +176,7 @@ export function deriveBacktestWeights(rawScores = [], maxScore = 100) {
   return { scoreWeight, recencyWeight, instabilityWeight, rankQuality, uplift, effectiveN: Number(effectiveN.toFixed(2)) };
 }
 
-export function simuladosToHistory(simulados, maxScore = 100) {
+export function simuladosToHistory(simulados, maxScore = 100, minScore = 0) {
   if (!simulados || !Array.isArray(simulados)) return [];
 
   const sorted = simulados
@@ -184,7 +184,7 @@ export function simuladosToHistory(simulados, maxScore = 100) {
       const parsed = Date.parse(s.date || s.createdAt);
       return {
         ...s,
-        score: getSafeScore(s, maxScore),
+        score: getSafeScore(s, maxScore, minScore),
         rawTimestamp: Number.isFinite(parsed) ? parsed : 0,
         date: Number.isFinite(parsed) ? getDateKey(new Date(parsed)) : null,
         _idx: idx
@@ -309,10 +309,10 @@ function buildCoachExplainability(r) {
   };
 }
 
-export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90, agilityPenalty = 0) {
+export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, categoryId, maxScore = 100, adaptive = null, days = 90, agilityPenalty = 0, minScore = 0) {
   const safeCfg = cfg || {};
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMinScore = 0;
+  const safeMinScore = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMaxScore) : 0;
   const range = Math.max(1e-9, safeMaxScore - safeMinScore);
   const minTarget = safeMinScore + 0.01 * range;
   const defaultTarget = safeMinScore + 0.8 * range;
@@ -322,7 +322,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
   if (!Array.isArray(relevantSimulados)) return null;
 
-  let history = simuladosToHistory(relevantSimulados, safeMaxScore).filter(h => Number.isFinite(h.score));
+  let history = simuladosToHistory(relevantSimulados, safeMaxScore, safeMinScore).filter(h => Number.isFinite(h.score));
   if (history.length < (safeCfg.MC_MIN_DATA_POINTS || 5)) return null;
   if (history.length > 2000) history = pruneHistoryForMemory(history, 1200, 365 * 4);
 
@@ -403,7 +403,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const safeSimulations = Math.max(300, Math.min(simulationCap, Math.round(safeRequestedSims * qualityBoost)));
 
     const result = monteCarloSimulation(history, safeTargetScore, days, safeSimulations,
-      { maxScore: safeMaxScore, agilityPenalty, globalBaselinePct: neutralPct });
+      { maxScore: safeMaxScore, minScore: safeMinScore, agilityPenalty, globalBaselinePct: neutralPct });
 
     if (!result || !Number.isFinite(result.probability)) return null;
 
@@ -444,7 +444,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
           const bt = monteCarloSimulation(train, safeTargetScore, gapDays,
             Math.min(500, Math.max(200, Math.floor(safeSimulations * 0.35))),
-            { maxScore: safeMaxScore, agilityPenalty, globalBaselinePct: neutralPct });
+            { maxScore: safeMaxScore, minScore: safeMinScore, agilityPenalty, globalBaselinePct: neutralPct });
 
           if (!bt || !Number.isFinite(bt.probability)) continue;
 
