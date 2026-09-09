@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
     LayoutDashboard,
     CheckSquare,
@@ -19,7 +19,10 @@ import {
     Trash2,
     Settings,
     BookOpen,
-    Calendar
+    Calendar,
+    ChevronsLeft,
+    ChevronsRight,
+    ChevronDown
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
@@ -28,7 +31,7 @@ import { useAuth } from '../context/useAuth';
 import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore, clearAllDataSecure } from '../store/useAppStore';
-import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
+import { getContestDisplayName, isMenuItemActive, handleMenuKeyDown } from './sidebarUtils';
 
 const SECTIONS = [
     {
@@ -83,64 +86,82 @@ const Sidebar = React.memo(function Sidebar({
 }) {
     const location = useLocation();
     const { logout } = useAuth();
-    const [contestsExpanded, setContestsExpanded] = React.useState(false);
-    const [settingsExpanded, setSettingsExpanded] = React.useState(false);
-    const [contestToDelete, setContestToDelete] = React.useState(null);
-    const [showResetConfirm, setShowResetConfirm] = React.useState(false);
-    const contestEntries = React.useMemo(() => Object.entries(contests || {}), [contests]);
+    const [contestsExpanded, setContestsExpanded] = useState(false);
+    const [settingsExpanded, setSettingsExpanded] = useState(false);
+    const [flyoutMenu, setFlyoutMenu] = useState(null); // 'contests' | 'settings' | null
+    const [contestToDelete, setContestToDelete] = useState(null);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+    const sidebarRef = useRef(null);
+    const contestsFlyoutRef = useRef(null);
+    const settingsFlyoutRef = useRef(null);
+
+    const contestEntries = useMemo(() => Object.entries(contests || {}), [contests]);
     const isSingleContest = contestEntries.length <= 1;
-    const sidebarRef = React.useRef(null);
 
-    React.useEffect(() => {
-        // Garantir que as configurações comecem fechadas ao expandir o menu
+    // Concurso ativo atual
+    const activeContestName = useMemo(() => {
+        if (!activeContestId || !contests) return 'Meu Painel';
+        const raw = contests[activeContestId];
+        return (typeof raw === 'string' && raw.trim()) ? raw : getContestDisplayName(raw) || 'Meu Painel';
+    }, [activeContestId, contests]);
+
+    // Fechar popovers e submenus quando recolher/expandir
+    useEffect(() => {
         if (!collapsed) {
+            setFlyoutMenu(null);
             setSettingsExpanded(false);
-        }
-    }, [collapsed]);
-
-    React.useEffect(() => {
-        if (!collapsed && contestEntries.length > 0) {
-            setContestsExpanded(true);
+            if (contestEntries.length > 0) {
+                setContestsExpanded(true);
+            }
+        } else {
+            setContestsExpanded(false);
+            setSettingsExpanded(false);
         }
     }, [collapsed, contestEntries.length]);
 
-    React.useEffect(() => {
+    // Sincronizar variável CSS para largura do sidebar
+    useEffect(() => {
         const width = collapsed ? '80px' : '280px';
         document.documentElement.style.setProperty('--sidebar-width', width);
     }, [collapsed]);
 
-    React.useEffect(() => {
+    // Se estiver em mobile e abrir o menu, garantir que não esteja recolhido
+    useEffect(() => {
         if (typeof window === 'undefined') return;
         if (isOpen && window.innerWidth < 1024 && collapsed) {
             setCollapsed(false);
         }
     }, [collapsed, isOpen, setCollapsed]);
 
-    React.useEffect(() => {
-        const handleClickOutside = (e) => {
-            // Se for desktop (lg: >= 1024px) e estiver expandido (!collapsed)
-            if (window.innerWidth >= 1024 && !collapsed) {
-                // Usar a referência real do React em vez de querySelector
-                if (sidebarRef.current && !sidebarRef.current.contains(e.target)) {
-                    // Verifica se o clique não foi no botão de toggle do header
-                    const toggleBtn = e.target.closest('[data-sidebar-toggle="true"]');
-                    if (!toggleBtn) {
-                        setCollapsed(true);
-                    }
-                }
-            }
-        };
-
-        // FIX 5.2d: passive: true para melhor performance de scroll
-        document.addEventListener('click', handleClickOutside, { passive: true });
-        return () => {
-            document.removeEventListener('click', handleClickOutside);
-        };
-    }, [collapsed, setCollapsed]);
-
-    React.useEffect(() => {
+    // Prevenir scroll do background no mobile quando o drawer estiver aberto
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
         if (isOpen && window.innerWidth < 1024) {
-            // FIX 5.2e: Mover foco para o primeiro item do menu ao abrir
+            const originalOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = originalOverflow;
+            };
+        }
+    }, [isOpen]);
+
+    // Tratar cliques fora de popovers flutuantes no modo recolhido
+    useEffect(() => {
+        if (!flyoutMenu) return;
+        const handleFlyoutClickOutside = (e) => {
+            if (contestsFlyoutRef.current && contestsFlyoutRef.current.contains(e.target)) return;
+            if (settingsFlyoutRef.current && settingsFlyoutRef.current.contains(e.target)) return;
+            setFlyoutMenu(null);
+        };
+        document.addEventListener('mousedown', handleFlyoutClickOutside);
+        return () => document.removeEventListener('mousedown', handleFlyoutClickOutside);
+    }, [flyoutMenu]);
+
+    // Mover foco para o primeiro item ao abrir no mobile
+    useEffect(() => {
+        if (isOpen && window.innerWidth < 1024) {
             const timer = setTimeout(() => {
                 const firstItem = sidebarRef.current?.querySelector('a, button');
                 if (firstItem) firstItem.focus();
@@ -149,17 +170,31 @@ const Sidebar = React.memo(function Sidebar({
         }
     }, [isOpen]);
 
-    const closeMobileSidebar = () => {
+    const closeMobileSidebar = useCallback(() => {
         if (typeof window === 'undefined') return;
         if (window.innerWidth >= 1024) return;
         if (isOpen) {
             if (typeof onCloseMobile === 'function') onCloseMobile();
         }
-    };
+    }, [isOpen, onCloseMobile]);
 
-    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+    // Tecla Escape para fechar popover ou drawer mobile
+    const handleKeyDown = useCallback((e) => {
+        if (e.key === 'Escape') {
+            if (flyoutMenu) {
+                setFlyoutMenu(null);
+                e.stopPropagation();
+                return;
+            }
+            if (isOpen) {
+                closeMobileSidebar();
+                e.stopPropagation();
+            }
+        }
+    }, [flyoutMenu, isOpen, closeMobileSidebar]);
 
     const handleLogout = () => {
+        setFlyoutMenu(null);
         setShowLogoutConfirm(true);
     };
 
@@ -168,7 +203,6 @@ const Sidebar = React.memo(function Sidebar({
             await logout();
             useAppStore.getState().resetStore();
             await del('ultra-dashboard-storage');
-            // FIX: Remover apenas as chaves do Ultra Dashboard
             const appKeys = [
                 'ultra-dashboard-storage',
                 'ultra-sync-dirty',
@@ -197,15 +231,14 @@ const Sidebar = React.memo(function Sidebar({
         }
     };
 
-
-
     return (
         <>
-            {/* Mobile Overlay */}
+            {/* Mobile Overlay com Z-index corrigido (z-125, abaixo da sidebar z-130 e acima do header mobile z-120) */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[45] lg:hidden"
+                    className="sidebar-mobile-overlay lg:hidden"
                     onClick={onToggle}
+                    aria-hidden="true"
                 />
             )}
 
@@ -214,16 +247,36 @@ const Sidebar = React.memo(function Sidebar({
                 className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}
                 role="navigation"
                 aria-label="Menu principal de navegação"
-                aria-expanded={!collapsed} // FIX 5.2b: Estado expandido/recolhido
+                aria-expanded={!collapsed}
+                onKeyDown={handleKeyDown}
             >
-                {/* Logo Area */}
-                <div className="flex items-center justify-between mb-3 px-1">
-                    <div className="sidebar-logo">
+                {/* Logo Area & Direct Toggle */}
+                <div className="sidebar-header-area">
+                    <Link
+                        to="/"
+                        className="sidebar-logo"
+                        onClick={closeMobileSidebar}
+                        title="Ultra Dashboard - Método Arraia"
+                    >
                         <img src={logo} alt="Ultra Dashboard" />
-                        <span>Método Arraia</span>
-                    </div>
+                        <div className="sidebar-logo-text">
+                            <span>Método Arraia</span>
+                            <span className="sidebar-logo-badge">Ultra Dashboard</span>
+                        </div>
+                    </Link>
 
-                    {/* Mobile Close Button */}
+                    {/* Botão de recolher/expandir direto na barra lateral no Desktop */}
+                    <button
+                        type="button"
+                        className="sidebar-toggle-btn hidden lg:flex"
+                        onClick={() => setCollapsed(!collapsed)}
+                        aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+                        title={collapsed ? "Expandir menu" : "Recolher menu"}
+                    >
+                        {collapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
+                    </button>
+
+                    {/* Botão de Fechar no Mobile */}
                     <button
                         type="button"
                         className="lg:hidden p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
@@ -236,129 +289,229 @@ const Sidebar = React.memo(function Sidebar({
 
                 <div className="sidebar-divider"></div>
 
-                {/* Nav Sections */}
+                {/* Nav Sections Scrollable Container */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
 
-                    {/* MEUS CONCURSOS COLLAPSIBLE SECTION */}
-                    <div className="mb-2">
+                    {/* MEUS CONCURSOS SECTION */}
+                    <div className="mb-2 relative sidebar-item-wrapper" ref={contestsFlyoutRef}>
                         <button
                             type="button"
                             onClick={() => {
                                 if (collapsed) {
-                                    setCollapsed(false);
-                                    setContestsExpanded(true);
+                                    setFlyoutMenu(flyoutMenu === 'contests' ? null : 'contests');
                                 } else {
                                     setContestsExpanded(!contestsExpanded);
                                 }
                             }}
                             className="sidebar-item group justify-between tour-step-1 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
-                            title={collapsed ? "Meus Concursos" : ""}
-                            aria-expanded={contestsExpanded && !collapsed}
+                            aria-expanded={collapsed ? flyoutMenu === 'contests' : contestsExpanded}
                             aria-controls="sidebar-contests-panel"
+                            aria-haspopup="true"
                         >
-                            <div className="flex items-center gap-3">
-                                <Sparkles size={16} className="text-violet-400" />
-                                <span className="font-semibold text-slate-200 text-sm">Meus Concursos</span>
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative flex items-center justify-center shrink-0">
+                                    <Sparkles size={16} className="text-violet-400" />
+                                    {activeContestId && collapsed && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50" />
+                                    )}
+                                </div>
+                                <div className="sidebar-item-text">
+                                    <span className="font-semibold text-slate-200 text-sm sidebar-item-label">Meus Concursos</span>
+                                    <ChevronDown 
+                                        size={14} 
+                                        className={`transition-transform duration-200 text-slate-400 ${contestsExpanded ? 'rotate-180' : ''}`} 
+                                    />
+                                </div>
                             </div>
-                            <span className={`text-xs transition-transform ${contestsExpanded ? 'rotate-180' : ''} text-slate-400`}>▼</span>
                         </button>
 
-                        <div id="sidebar-contests-panel" inert={(!contestsExpanded || collapsed) ? true : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${contestsExpanded && !collapsed ? 'max-h-[9999px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="nested-container space-y-1">
-                                {contestEntries.map(([id, contestData]) => {
-                                    // BUG-03 FIX: contestData is a string from contestsMetaSelector, use directly
-                                    const name = (typeof contestData === 'string' && contestData.trim())
-                                        ? contestData
-                                        : getContestDisplayName(contestData) || "Meu Painel";
-                                    const isActive = id === activeContestId;
-                                    return (
-                                        <div
-                                            key={id}
-                                            className="group relative w-full flex items-center"
-                                        >
+                        {/* Floating Tooltip no modo recolhido */}
+                        {collapsed && (
+                            <div className="sidebar-floating-tooltip">
+                                <span>Meus Concursos</span>
+                                <span className="text-[10px] text-violet-300 font-normal">({activeContestName})</span>
+                            </div>
+                        )}
+
+                        {/* Floating Flyout Popover para Concursos (Modo Recolhido) */}
+                        {collapsed && flyoutMenu === 'contests' && (
+                            <div className="sidebar-flyout-popover" role="menu">
+                                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles size={14} className="text-violet-400" />
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Concursos</span>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setFlyoutMenu(null)}
+                                        className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
+                                        aria-label="Fechar painel"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+
+                                <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+                                    {contestEntries.map(([id, contestData]) => {
+                                        const name = (typeof contestData === 'string' && contestData.trim())
+                                            ? contestData
+                                            : getContestDisplayName(contestData) || "Meu Painel";
+                                        const isActive = id === activeContestId;
+                                        return (
                                             <button
+                                                key={id}
                                                 type="button"
-                                                className={`sidebar-item !py-1.5 flex-1 min-w-0 text-left flex items-center ${isActive ? 'active' : ''}`}
-                                                title={name}
+                                                className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
+                                                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                                }`}
                                                 onClick={() => {
                                                     if (id !== activeContestId) onSwitchContest(id);
-                                                    closeMobileSidebar();
+                                                    setFlyoutMenu(null);
                                                 }}
                                             >
-                                                <div className="nested-item-marker"></div>
-                                                <LayoutDashboard size={13} className="text-slate-400 shrink-0" />
-                                                <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
-                                                {isActive && <div className={`w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0 ${collapsed ? 'hidden' : ''}`}></div>}
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <LayoutDashboard size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
+                                                    <span className="truncate">{name}</span>
+                                                </div>
+                                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
                                             </button>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => { 
-                                                    e.stopPropagation(); 
-                                                    if (!isSingleContest) setContestToDelete({ id, name });
-                                                }}
-                                                disabled={isSingleContest}
-                                                title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
-                                                className={`p-1 transition-all shrink-0 ${collapsed ? 'hidden' : ''} ${isSingleContest ? 'opacity-30 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
-                                            >
-                                                <Trash2 size={11} />
-                                            </button>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
 
                                 <button
                                     type="button"
-                                    className="sidebar-item !py-1.5 text-emerald-400/80 hover:text-emerald-300 hover:bg-emerald-500/10 relative border border-emerald-500/20"
+                                    className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
                                     onClick={() => {
                                         onCreateContest();
-                                        closeMobileSidebar();
+                                        setFlyoutMenu(null);
                                     }}
-                                    title="Criar Novo Painel"
                                 >
-                                    <div className="nested-item-marker !bg-emerald-500/20"></div>
-                                    <Plus size={13} className="text-emerald-400" />
-                                    <span className="text-[0.78rem] text-emerald-300 font-semibold">Criar Novo</span>
+                                    <Plus size={13} />
+                                    <span>Criar Novo Concurso</span>
                                 </button>
                             </div>
-                        </div>
+                        )}
 
-                        {/* Collapsed view special icons - REMOVED as requested, now inside Configurações */}
+                        {/* Accordion suave baseado em CSS Grid para modo expandido (Zero stutter) */}
+                        {!collapsed && (
+                            <div 
+                                id="sidebar-contests-panel" 
+                                className={`sidebar-accordion ${contestsExpanded ? 'expanded' : ''}`}
+                                role="region"
+                            >
+                                <div className="sidebar-accordion-inner">
+                                    <div className="nested-container space-y-1">
+                                        {contestEntries.map(([id, contestData]) => {
+                                            const name = (typeof contestData === 'string' && contestData.trim())
+                                                ? contestData
+                                                : getContestDisplayName(contestData) || "Meu Painel";
+                                            const isActive = id === activeContestId;
+                                            return (
+                                                <div
+                                                    key={id}
+                                                    className="group relative w-full flex items-center"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        className={`sidebar-item !py-1.5 flex-1 min-w-0 text-left flex items-center ${isActive ? 'active' : ''}`}
+                                                        title={name}
+                                                        onClick={() => {
+                                                            if (id !== activeContestId) onSwitchContest(id);
+                                                            closeMobileSidebar();
+                                                        }}
+                                                    >
+                                                        <div className="nested-item-marker"></div>
+                                                        <LayoutDashboard size={13} className="text-slate-400 shrink-0" />
+                                                        <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
+                                                        {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0"></div>}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            if (!isSingleContest) setContestToDelete({ id, name });
+                                                        }}
+                                                        disabled={isSingleContest}
+                                                        title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
+                                                        className={`p-1 transition-all shrink-0 ${isSingleContest ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
+                                                        aria-label={`Excluir ${name}`}
+                                                    >
+                                                        <Trash2 size={11} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+
+                                        <button
+                                            type="button"
+                                            className="sidebar-item !py-1.5 text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/15 relative border border-emerald-500/20"
+                                            onClick={() => {
+                                                onCreateContest();
+                                                closeMobileSidebar();
+                                            }}
+                                            title="Criar Novo Painel"
+                                        >
+                                            <div className="nested-item-marker !bg-emerald-500/20"></div>
+                                            <Plus size={13} className="text-emerald-400 shrink-0" />
+                                            <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="sidebar-divider"></div>
 
+                    {/* SECTIONS LIST */}
                     {SECTIONS.map((section, sIdx) => (
-                        <div key={sIdx} className={`mb-4 ${section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
+                        <div key={sIdx} className={`mb-3 ${section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
                             <h4 className="sidebar-nav-label" id={`section-${sIdx}`}>{section.label}</h4>
                             <nav className="space-y-1" aria-labelledby={`section-${sIdx}`}>
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
-                                    
                                     const currentPath = location.pathname;
                                     const isActive = isMenuItemActive(currentPath, item.path);
 
                                     return (
-                                        <Link
-                                            key={item.path}
-                                            to={item.path}
-                                            className={`sidebar-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#060810] focus-visible:ring-indigo-400/70 ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
-                                            aria-current={isActive ? "page" : undefined}
-                                            style={{
-                                                '--item-color': item.color,
-                                                '--item-color-alpha': `${item.color}15`
-                                            }}
-                                            title={item.label}
-                                            onClick={() => {
-                                                // Sinaliza navegação intencional ao Dashboard
-                                                if (item.path === '/') {
-                                                    sessionStorage.setItem('navigateToDashboard', 'true');
-                                                }
-                                                closeMobileSidebar();
-                                            }}
-                                        >
-                                            <Icon aria-hidden="true" />
-                                            <span>{item.label}</span>
-                                        </Link>
+                                        <div key={item.path} className="sidebar-item-wrapper">
+                                            <Link
+                                                to={item.path}
+                                                className={`sidebar-item focus-visible:outline-none ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
+                                                aria-current={isActive ? "page" : undefined}
+                                                style={{
+                                                    '--item-color': item.color,
+                                                    '--item-color-alpha': `${item.color}20`
+                                                }}
+                                                onClick={() => {
+                                                    if (item.path === '/') {
+                                                        sessionStorage.setItem('navigateToDashboard', 'true');
+                                                    }
+                                                    closeMobileSidebar();
+                                                }}
+                                            >
+                                                <Icon aria-hidden="true" />
+                                                <div className="sidebar-item-text">
+                                                    <span className="sidebar-item-label">{item.label}</span>
+                                                </div>
+                                            </Link>
+
+                                            {/* Instant Floating Tooltip no modo recolhido */}
+                                            {collapsed && (
+                                                <div 
+                                                    className="sidebar-floating-tooltip"
+                                                    style={{
+                                                        '--item-color': item.color,
+                                                        '--item-color-alpha': `${item.color}25`
+                                                    }}
+                                                >
+                                                    <span>{item.label}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </nav>
@@ -366,97 +519,200 @@ const Sidebar = React.memo(function Sidebar({
                     ))}
                 </div>
 
+                {/* FOOTER & CONFIGURAÇÕES */}
                 <div className="sidebar-footer px-1">
                     <div className="sidebar-divider"></div>
                     <nav className="space-y-1">
-                        {/* CONFIGURAÇÕES COLLAPSIBLE SECTION */}
-                        <div className="mb-2">
+                        {/* CONFIGURAÇÕES SECTION */}
+                        <div className="mb-1 relative sidebar-item-wrapper" ref={settingsFlyoutRef}>
                             <button
                                 type="button"
                                 onClick={() => {
                                     if (collapsed) {
-                                        setCollapsed(false);
-                                        setSettingsExpanded(true);
+                                        setFlyoutMenu(flyoutMenu === 'settings' ? null : 'settings');
                                     } else {
                                         setSettingsExpanded(!settingsExpanded);
                                     }
                                 }}
                                 className="sidebar-item group bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
-                                title={collapsed ? "Configurações" : ""}
-                                aria-expanded={settingsExpanded && !collapsed}
+                                aria-expanded={collapsed ? flyoutMenu === 'settings' : settingsExpanded}
                                 aria-controls="sidebar-settings-panel"
+                                aria-haspopup="true"
                             >
-                                <Settings size={16} className="text-slate-400" />
-                                <span className="font-semibold text-sm">Configurações</span>
+                                <Settings size={16} className="text-slate-400 shrink-0" />
+                                <div className="sidebar-item-text">
+                                    <span className="font-semibold text-sm sidebar-item-label">Configurações</span>
+                                    <ChevronDown 
+                                        size={14} 
+                                        className={`transition-transform duration-200 text-slate-400 ${settingsExpanded ? 'rotate-180' : ''}`} 
+                                    />
+                                </div>
                             </button>
 
-                            <div id="sidebar-settings-panel" inert={(!settingsExpanded || collapsed) ? true : undefined} className={`mt-1 space-y-1 overflow-hidden transition-all duration-300 ${settingsExpanded && !collapsed ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5">
-                                    <button
-                                        type="button"
-                                        className="sidebar-item !py-1.5 hover:!bg-red-500/10 text-red-300"
-                                        onClick={() => {
-                                            onOpenTrash();
-                                            closeMobileSidebar();
-                                        }}
-                                        style={{ '--item-color': '#ef4444' }}
-                                        title="Lixeira"
-                                    >
-                                        <Trash2 size={13} />
-                                        <span className="text-[0.78rem]">Lixeira</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="sidebar-item !py-1.5 hover:!bg-sky-500/10 text-sky-300"
-                                        onClick={() => {
-                                            onOpenHelp();
-                                            closeMobileSidebar();
-                                        }}
-                                        style={{ '--item-color': '#0ea5e9' }}
-                                    >
-                                        <HelpCircle size={13} />
-                                        <span className="text-[0.78rem]">Ajuda</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="sidebar-item !py-1.5 hover:!bg-indigo-500/10 text-indigo-300"
-                                        onClick={() => {
-                                            useAppStore.getState().setHasSeenTour(false);
-                                            closeMobileSidebar();
-                                        }}
-                                        style={{ '--item-color': '#818cf8' }}
-                                        title="Reiniciar Tutorial"
-                                    >
-                                        <Sparkles size={13} />
-                                        <span className="text-[0.78rem]">Reiniciar Tutorial</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="sidebar-item !py-1.5 hover:!bg-red-500/20 text-red-400 font-bold"
-                                        onClick={() => {
-                                            setShowResetConfirm(true);
-                                        }}
-                                        style={{ '--item-color': '#ef4444' }}
-                                        title="Zerar a Conta Toda"
-                                    >
-                                        <Trash2 size={13} />
-                                        <span className="text-[0.78rem]">Zerar Conta (Perigo)</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="sidebar-item logout-btn !py-1.5 hover:!bg-rose-500/10 text-rose-300"
-                                        onClick={handleLogout}
-                                        style={{ '--item-color': '#f43f5e' }}
-                                    >
-                                        <LogOut size={13} />
-                                        <span className="text-[0.78rem]">Sair da Conta</span>
-                                    </button>
+                            {/* Floating Tooltip no modo recolhido */}
+                            {collapsed && (
+                                <div className="sidebar-floating-tooltip">
+                                    <span>Configurações</span>
                                 </div>
-                            </div>
+                            )}
+
+                            {/* Floating Flyout Popover para Configurações (Modo Recolhido) */}
+                            {collapsed && flyoutMenu === 'settings' && (
+                                <div className="sidebar-flyout-popover" role="menu">
+                                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                                        <div className="flex items-center gap-2">
+                                            <Settings size={14} className="text-slate-400" />
+                                            <span className="text-xs font-bold text-white uppercase tracking-wider">Ajustes</span>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setFlyoutMenu(null)}
+                                            className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
+                                            aria-label="Fechar painel"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-red-300 hover:bg-red-500/10 transition-colors"
+                                            onClick={() => {
+                                                onOpenTrash();
+                                                setFlyoutMenu(null);
+                                            }}
+                                        >
+                                            <Trash2 size={13} className="text-red-400" />
+                                            <span>Lixeira</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-sky-300 hover:bg-sky-500/10 transition-colors"
+                                            onClick={() => {
+                                                onOpenHelp();
+                                                setFlyoutMenu(null);
+                                            }}
+                                        >
+                                            <HelpCircle size={13} className="text-sky-400" />
+                                            <span>Ajuda & Guia</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                                            onClick={() => {
+                                                useAppStore.getState().setHasSeenTour(false);
+                                                setFlyoutMenu(null);
+                                            }}
+                                        >
+                                            <Sparkles size={13} className="text-indigo-400" />
+                                            <span>Reiniciar Tutorial</span>
+                                        </button>
+
+                                        <div className="border-t border-white/5 my-1"></div>
+
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-bold text-red-400 hover:bg-red-500/20 transition-colors"
+                                            onClick={() => {
+                                                setShowResetConfirm(true);
+                                                setFlyoutMenu(null);
+                                            }}
+                                        >
+                                            <Trash2 size={13} className="text-red-400" />
+                                            <span>Zerar Conta (Perigo)</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-rose-300 hover:bg-rose-500/15 transition-colors"
+                                            onClick={handleLogout}
+                                        >
+                                            <LogOut size={13} className="text-rose-400" />
+                                            <span>Sair da Conta</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Accordion suave baseado em CSS Grid para modo expandido */}
+                            {!collapsed && (
+                                <div 
+                                    id="sidebar-settings-panel" 
+                                    className={`sidebar-accordion ${settingsExpanded ? 'expanded' : ''}`}
+                                    role="region"
+                                >
+                                    <div className="sidebar-accordion-inner">
+                                        <div className="pl-4 space-y-1 border-l border-white/5 ml-2.5 mt-1">
+                                            <button
+                                                type="button"
+                                                className="sidebar-item !py-1.5 hover:!bg-red-500/10 text-red-300"
+                                                onClick={() => {
+                                                    onOpenTrash();
+                                                    closeMobileSidebar();
+                                                }}
+                                                style={{ '--item-color': '#ef4444' }}
+                                                title="Lixeira"
+                                            >
+                                                <Trash2 size={13} />
+                                                <span className="text-[0.78rem]">Lixeira</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="sidebar-item !py-1.5 hover:!bg-sky-500/10 text-sky-300"
+                                                onClick={() => {
+                                                    onOpenHelp();
+                                                    closeMobileSidebar();
+                                                }}
+                                                style={{ '--item-color': '#0ea5e9' }}
+                                            >
+                                                <HelpCircle size={13} />
+                                                <span className="text-[0.78rem]">Ajuda</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="sidebar-item !py-1.5 hover:!bg-indigo-500/10 text-indigo-300"
+                                                onClick={() => {
+                                                    useAppStore.getState().setHasSeenTour(false);
+                                                    closeMobileSidebar();
+                                                }}
+                                                style={{ '--item-color': '#818cf8' }}
+                                                title="Reiniciar Tutorial"
+                                            >
+                                                <Sparkles size={13} />
+                                                <span className="text-[0.78rem]">Reiniciar Tutorial</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="sidebar-item !py-1.5 hover:!bg-red-500/20 text-red-400 font-bold"
+                                                onClick={() => {
+                                                    setShowResetConfirm(true);
+                                                }}
+                                                style={{ '--item-color': '#ef4444' }}
+                                                title="Zerar a Conta Toda"
+                                            >
+                                                <Trash2 size={13} />
+                                                <span className="text-[0.78rem]">Zerar Conta (Perigo)</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="sidebar-item logout-btn !py-1.5 hover:!bg-rose-500/10 text-rose-300"
+                                                onClick={handleLogout}
+                                                style={{ '--item-color': '#f43f5e' }}
+                                            >
+                                                <LogOut size={13} />
+                                                <span className="text-[0.78rem]">Sair da Conta</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </nav>
                 </div>
@@ -510,4 +766,3 @@ const Sidebar = React.memo(function Sidebar({
 }); 
 
 export default Sidebar;
-
