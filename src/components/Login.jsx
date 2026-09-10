@@ -189,9 +189,9 @@ export default function Login() {
             justifyContent: "center",
             position: "relative"
         }}>
-            <div className="container" role="main" aria-label="Autenticação Ultra Dashboard">
+            <div className="container" role="main" aria-label="Autenticação Método Arraia">
                 <div className="left">
-                    <img src={logo} alt="Ultra Dashboard" className="manta-logo-img" style={{
+                    <img src={logo} alt="Método Arraia" className="manta-logo-img" style={{
                         width: '320px',
                         filter: 'drop-shadow(0 0 40px rgba(99,102,241,0.4))',
                         animation: 'float 6s ease-in-out infinite'

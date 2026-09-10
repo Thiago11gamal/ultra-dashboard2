@@ -256,12 +256,12 @@ const Sidebar = React.memo(function Sidebar({
                         to="/"
                         className="sidebar-logo"
                         onClick={closeMobileSidebar}
-                        title="Ultra Dashboard - Método Arraia"
+                        title="Método Arraia"
                     >
-                        <img src={logo} alt="Ultra Dashboard" />
+                        <img src={logo} alt="Método Arraia" />
                         <div className="sidebar-logo-text">
                             <span>Método Arraia</span>
-                            <span className="sidebar-logo-badge">Ultra Dashboard</span>
+
                         </div>
                     </Link>
 

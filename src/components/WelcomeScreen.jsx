@@ -163,7 +163,7 @@ export default function WelcomeScreen({ onDismiss }) {
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             className="px-12 py-4 bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-full font-black tracking-widest uppercase transition-colors shadow-[0_0_30px_rgba(79,70,229,0.3)] hover:shadow-[0_0_50px_rgba(79,70,229,0.6)] border border-indigo-400/30 mt-4 cursor-pointer"
-                            aria-label="Entrar no Ultra Dashboard" // FIX 5.4a
+                            aria-label="Entrar no Método Arraia" // FIX 5.4a
                         >
                             Entrar
                         </motion.button>

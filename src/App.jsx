@@ -376,7 +376,7 @@ function MainLayout() {
           </div>
         </div>
         <div className="flex flex-col items-center gap-2">
-          <span className="text-white font-black uppercase tracking-[0.3em] text-sm animate-pulse">Ultra Dashboard</span>
+          <span className="text-white font-black uppercase tracking-[0.3em] text-sm animate-pulse">Método Arraia</span>
           <span className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Iniciando Motor de Persistência...</span>
         </div>
       </div>
