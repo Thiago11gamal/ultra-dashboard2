@@ -181,7 +181,7 @@ export default function Stats() {
                                         <div className="flex-1 min-w-0 w-full"><HorasDisciplinaChart data={subjectData} /></div>
                                     </div>
                                 </div>
-                                <WeeklyAnalysis studyLogs={studyLogs} categories={categories} />
+                                <WeeklyAnalysis studyLogs={studyLogs} categories={categories} dayTick={dayTick} />
                             </>
                         )}
                     </>

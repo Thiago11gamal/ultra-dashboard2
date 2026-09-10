@@ -11,7 +11,13 @@ const getTasksArray = (category) => {
         : Object.values(category.tasks || {});
 };
 
-export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
+// Formatação estática de mês para evitar recriação no loop de dias
+const monthFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TIMEZONE,
+    month: 'long'
+});
+
+export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
     const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
     const categoriesArray = useMemo(() => {
         const list = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -55,7 +61,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             return 0;
         };
 
-        // T-037 FIX: Indexar categorias por ID e por Nome para lookup O(1).
+        // T-037 FIX: Indexar categorias por ID e por Nome (com normalização de casing/espaços) para lookup O(1).
         const categoriesById = new Map();
         const categoriesByName = new Map();
 
@@ -65,6 +71,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             }
             if (c?.name != null) {
                 categoriesByName.set(c.name, c);
+                categoriesByName.set(String(c.name).trim().toLowerCase(), c);
             }
         });
 
@@ -92,19 +99,24 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             }
 
             if (log.subject) {
-                const bySubject = categoriesByName.get(log.subject);
+                const bySubject = categoriesByName.get(log.subject) || categoriesByName.get(String(log.subject).trim().toLowerCase());
                 if (bySubject) return bySubject;
             }
 
             if (log.categoryName) {
-                const byCatName = categoriesByName.get(log.categoryName);
+                const byCatName = categoriesByName.get(log.categoryName) || categoriesByName.get(String(log.categoryName).trim().toLowerCase());
                 if (byCatName) return byCatName;
             }
 
             return undefined;
         };
 
-        const validStudyLogs = logsArray.filter(log => getLogMinutes(log) > 0);
+        // Filtrar apenas logs com tempo positivo e data válida para alinhar KPIs do cabeçalho com a timeline
+        const validStudyLogs = logsArray.filter(log => {
+            if (getLogMinutes(log) <= 0) return false;
+            const d = normalizeDate(log?.date);
+            return d !== null && !Number.isNaN(d.getTime());
+        });
         const totalMinutes = validStudyLogs.reduce((acc, log) => acc + getLogMinutes(log), 0);
         const totalSessions = validStudyLogs.length;
 
@@ -262,7 +274,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                 topCategory
             }
         };
-    }, [logsArray, categoriesArray]);
+    }, [logsArray, categoriesArray, dayTick]);
 
     const formatTime = (minutes) => {
         return formatDuration(minutes / 60);
@@ -310,7 +322,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             {/* Timeline Content */}
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
                 {groups.map((dayGroup, idx) => {
-                    const monthName = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, month: 'long' }).format(dayGroup.dateObj);
+                    const monthName = monthFormatter.format(dayGroup.dateObj);
                     const logYear = dayGroup.dateObj?.getFullYear?.();
                     const currentYear = new Date().getFullYear();
                     const yearSuffix = (logYear && logYear !== currentYear) ? ` de ${logYear}` : '';
@@ -398,7 +410,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                                         <span className="break-words line-clamp-2 text-xs sm:text-sm" title={log.taskTitle}>{log.taskTitle}</span>
                                                     </div>
                                                     <span className="font-mono whitespace-nowrap opacity-60">
-                                                        +{log.minutes >= 60 ? formatTime(log.minutes) : `${Math.round(log.minutes)}m`}
+                                                        +{Math.round(log.minutes) >= 60 ? formatTime(log.minutes) : `${Math.round(log.minutes)}m`}
                                                     </span>
                                                 </div>
                                             ))}

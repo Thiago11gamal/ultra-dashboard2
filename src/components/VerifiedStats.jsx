@@ -278,11 +278,11 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100, m
             ))}
             <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-4 text-[9px] font-black uppercase tracking-widest text-slate-500 pt-4 border-t border-white/5 opacity-60">
                 {[
-                    { color: 'bg-purple-500', label: `SD ≤ ${(0.05 * scoreRange).toFixed(0)}` },
-                    { color: 'bg-blue-500', label: `SD ≤ ${(0.10 * scoreRange).toFixed(0)}` },
-                    { color: 'bg-orange-500', label: `SD ≤ ${(0.15 * scoreRange).toFixed(0)}` },
-                    { color: 'bg-red-400', label: `SD ≤ ${(0.25 * scoreRange).toFixed(0)}` },
-                    { color: 'bg-red-600', label: `SD > ${(0.25 * scoreRange).toFixed(0)}` }
+                    { color: 'bg-purple-500', label: `SD ≤ ${0.05 * scoreRange < 1 ? (0.05 * scoreRange).toFixed(1) : (0.05 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-blue-500', label: `SD ≤ ${0.10 * scoreRange < 1 ? (0.10 * scoreRange).toFixed(1) : (0.10 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-orange-500', label: `SD ≤ ${0.15 * scoreRange < 1 ? (0.15 * scoreRange).toFixed(1) : (0.15 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-red-400', label: `SD ≤ ${0.25 * scoreRange < 1 ? (0.25 * scoreRange).toFixed(1) : (0.25 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-red-600', label: `SD > ${0.25 * scoreRange < 1 ? (0.25 * scoreRange).toFixed(1) : (0.25 * scoreRange).toFixed(0)}` }
                 ].map(l => (
                     <div key={l.label} className="flex items-center gap-1.5">
                         <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
@@ -371,7 +371,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const [targetScore, setTargetScore] = React.useState(() =>
         normalizeTargetToScale(user?.targetProbability)
     );
-    const [nowTime] = React.useState(() => Date.now());
 
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
     const pendingLocalSave = React.useRef(false);
@@ -510,13 +509,14 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         const timer = setTimeout(() => {
             setUserData(data => {
-                if (!data?.user) return data;
+                if (!data) return data;
+                const existingUser = data.user || {};
                 // Double check inside to prevent redundant writes
-                if (Math.abs(Number(data.user.targetProbability) - parsed) <= 0.01) return data;
+                if (Math.abs(Number(existingUser.targetProbability) - parsed) <= 0.01) return data;
 
                 return {
                     ...data,
-                    user: { ...data.user, targetProbability: parsed },
+                    user: { ...existingUser, targetProbability: parsed },
                     lastUpdated: new Date().toISOString()
                 };
             }, false); // don't record history for every debounced keystroke
@@ -682,7 +682,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     if (weeklyBaseSpeed > speedThreshold) {
                         const safeSpeed = Math.max(speedThreshold, weeklyBaseSpeed);
                         const daysEst = Math.min(365 * 2, (distToMax / safeSpeed) * 7);
-                        const dateEst = new Date(nowTime + daysEst * 86400000);
+                        const currentTime = Date.now();
+                        const dateEst = new Date(currentTime + daysEst * 86400000);
                         const fmtD = (d) => isNaN(d.getTime()) ? "--/--" : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
                         prediction = "Meta Batida!";
                         predictionSubtext = `Rumo a ${formatValue(maxScore)}${gaugeUnit} (est. ~${fmtD(dateEst)})`;
@@ -991,7 +992,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
         // ✅ LOTE-02 FIX (A4): minScore agora é usado internamente (targetPct, normalizações)
-    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit, nowTime]);
+    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">
