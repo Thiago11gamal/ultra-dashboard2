@@ -10,8 +10,6 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
 // FIX E-04: tick de 60s para reagir à virada de dia (meia-noite) sem recarregar.
-// Bug #1 FIX: Força re-render apenas na virada do dia, e não a cada minuto.
-// FIX E-04: tick de 60s para reagir à virada de dia (meia-noite) sem recarregar.
 // Bug #1 FIX: Força re-render apenas na virada do dia, e não a cada minuto, com suporte a visibilitychange.
 const useDayTick = () => {
     const [today, setToday] = useState(() => getDateKey(new Date()));

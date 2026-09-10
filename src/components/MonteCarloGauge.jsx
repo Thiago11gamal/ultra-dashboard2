@@ -190,16 +190,20 @@ const MonteCarloGaugeBase = ({
     }, [categories]);
 
     // T-032 FIX: diagnóstico mais preciso do estado de espera.
-    const safeCategories = Array.isArray(categories)
-        ? categories
-        : Object.values(categories || {});
+    // ✅ FIX: memoizar para evitar recálculo a cada render
+    const safeCategories = useMemo(() => {
+        return Array.isArray(categories)
+            ? categories
+            : Object.values(categories || {});
+    }, [categories]);
 
-    const hasHistory = safeCategories.some(cat => {
+    const hasHistory = useMemo(() => safeCategories.some(cat => {
         const h = cat.simuladoStats?.history;
         return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-    });
+    }), [safeCategories]);
 
-    const totalActiveWeight = (() => {
+    // ✅ FIX: memoizar cálculo pesado que percorre todas as categorias
+    const totalActiveWeight = useMemo(() => {
         // No modo pesos iguais sempre existe peso ativo.
         if (equalWeightsMode) return 1;
 
@@ -220,7 +224,7 @@ const MonteCarloGaugeBase = ({
 
             return sum + Math.max(0, Number.isFinite(w) ? w : 0);
         }, 0);
-    })();
+    }, [equalWeightsMode, safeCategories, weights]);
 
     // T-026 FIX: unidade dinâmica.
     // Se o componente vier com unidade padrão '%' mas a escala não for 100,
@@ -682,29 +686,31 @@ export default React.memo(MonteCarloGaugeBase);
 // UX HELPERS & ATOMS
 // ==========================================
 
+// ✅ FIX: movido para escopo do módulo — era recriado a cada render do MonteCarloLoading
+const LOADING_MESSAGES = Object.freeze([
+    'Analisando estabilidade probabilística...',
+    'Calculando intervalo conformal...',
+    'Verificando confiabilidade histórica...',
+    'Executando simulações Monte Carlo...'
+]);
+
 function MonteCarloLoading() {
-    const messages = [
-        'Analisando estabilidade probabilística...',
-        'Calculando intervalo conformal...',
-        'Verificando confiabilidade histórica...',
-        'Executando simulações Monte Carlo...'
-    ];
     const [index, setIndex] = useState(0);
 
     useEffect(() => {
         const interval = setInterval(() => {
             if (!document.hidden) {
-                setIndex((prev) => (prev + 1) % messages.length);
+                setIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
             }
         }, 2400);
         return () => clearInterval(interval);
-    }, [messages.length]);
+    }, []);
 
     return (
         <div className="flex flex-col items-center justify-center p-6 h-full flex-1">
             <Gauge size={48} className="text-slate-600 animate-pulse mb-6 opacity-30" />
             <div className="animate-pulse text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center max-w-[200px]">
-                {messages[index]}
+                {LOADING_MESSAGES[index]}
             </div>
         </div>
     );

@@ -17,6 +17,11 @@ const monthFormatter = new Intl.DateTimeFormat('pt-BR', {
     month: 'long'
 });
 
+// ✅ FIX: movido para escopo do módulo — era recriado a cada render
+const formatTime = (minutes) => {
+    return formatDuration(minutes / 60);
+};
+
 export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
     const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
     const categoriesArray = useMemo(() => {
@@ -276,9 +281,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         };
     }, [logsArray, categoriesArray, dayTick]);
 
-    const formatTime = (minutes) => {
-        return formatDuration(minutes / 60);
-    };
+    // formatTime movido para escopo do módulo (performance)
 
     if (!logsArray || logsArray.length === 0 || groups.length === 0) {
         return (
@@ -321,10 +324,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
 
             {/* Timeline Content */}
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
-                {groups.map((dayGroup, idx) => {
+                {(() => { const currentYear = new Date().getFullYear(); return groups.map((dayGroup, idx) => {
                     const monthName = monthFormatter.format(dayGroup.dateObj);
                     const logYear = dayGroup.dateObj?.getFullYear?.();
-                    const currentYear = new Date().getFullYear();
                     const yearSuffix = (logYear && logYear !== currentYear) ? ` de ${logYear}` : '';
                     const displayTitle = dayGroup.isToday
                         ? `Hoje, ${dayGroup.manausDayStr} de ${monthName}`
@@ -421,7 +423,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                         </div>
                     </div>
                 );
-            })}
+            }); })()}
             </div>
         </div>
     );
