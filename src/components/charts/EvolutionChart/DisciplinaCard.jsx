@@ -1,6 +1,7 @@
 import React from 'react';
-import { formatValue } from '../../../utils/scoreHelper';
+import { formatValue, getSafeScore } from '../../../utils/scoreHelper';
 import { pointsToPct } from '../../../utils/scoreHelper.conversions';
+import { toDateMs } from '../../../utils/dateHelper';
 
 export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100, minScore = 0 }) {
     const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : (Math.max(1, Number(maxScore) || 100));
@@ -22,9 +23,37 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
     const statusColor = ok ? '#22c55e' : mid ? '#f59e0b' : '#ef4444';
     const progressWidth = Math.max(0, Math.min(100, pointsToPct(val, safeMax, safeMin)));
 
-    const rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
-    const statsVal = metrics ? metrics[`stats_${cat.id}`] : null;
-    const bayVal = metrics ? metrics[`bay_${cat.id}`] : null;
+    let rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
+    if (rawVal == null || !Number.isFinite(Number(rawVal))) {
+        const historyRaw = cat?.simuladoStats?.history;
+        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+        if (history.length > 0) {
+            let latestEntry = null;
+            let latestMs = -Infinity;
+            for (let i = 0; i < history.length; i++) {
+                const h = history[i];
+                const ms = toDateMs(h?.date || h?.createdAt) || 0;
+                if (ms >= latestMs) {
+                    latestMs = ms;
+                    latestEntry = h;
+                }
+            }
+            if (latestEntry) {
+                const s = getSafeScore(latestEntry, safeMax, safeMin);
+                if (Number.isFinite(s)) rawVal = s;
+            }
+        }
+    }
+
+    let statsVal = metrics ? metrics[`stats_${cat.id}`] : null;
+    if ((statsVal == null || !Number.isFinite(Number(statsVal))) && cat?.simuladoStats?.average != null && Number.isFinite(Number(cat.simuladoStats.average))) {
+        statsVal = Number(cat.simuladoStats.average);
+    }
+
+    let bayVal = metrics ? metrics[`bay_${cat.id}`] : null;
+    if ((bayVal == null || !Number.isFinite(Number(bayVal))) && cat?.bayesianStats?.mean != null && Number.isFinite(Number(cat.bayesianStats.mean))) {
+        bayVal = Number(cat.bayesianStats.mean);
+    }
 
     return (
         <button onClick={onClick}

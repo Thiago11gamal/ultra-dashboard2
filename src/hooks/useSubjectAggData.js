@@ -78,8 +78,9 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
             let topicsTs = 0;
             let topicsTimedQ = 0;
             let hasTopicWithTime = false;
-            if (Array.isArray(h.topics)) {
-              for (const t of h.topics) {
+            const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+            if (safeTopics.length > 0) {
+              for (const t of safeTopics) {
                 const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                 const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
                   ? t.timedQuestoes

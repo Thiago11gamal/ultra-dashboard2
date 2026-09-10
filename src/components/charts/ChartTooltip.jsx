@@ -69,7 +69,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Bruta</span>
                                     <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
                                         <span className="text-[11px] sm:text-xs font-mono text-orange-400 font-bold leading-none">
-                                            {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}
+                                            {rawVal != null && Number.isFinite(Number(rawVal)) ? `${formatValue(rawVal)}${unit}` : '—'}
                                         </span>
                                         {rawCorrect != null && rawTotal > 0 && (
                                             <span className="text-[8px] text-slate-500 font-bold font-mono tracking-tighter mt-1 leading-none">
@@ -85,7 +85,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Histórica</span>
                                     <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
                                         <span className="text-[11px] sm:text-xs font-mono text-blue-400 font-bold leading-none">
-                                            {statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}
+                                            {statsVal != null && Number.isFinite(Number(statsVal)) ? `${formatValue(statsVal)}${unit}` : '—'}
                                         </span>
                                     </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
@@ -96,7 +96,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Nível Real</span>
                                     <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
                                         <span className="text-[11px] sm:text-xs font-mono text-emerald-400 font-bold leading-none">
-                                            {bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}
+                                            {bayVal != null && Number.isFinite(Number(bayVal)) ? `${formatValue(bayVal)}${unit}` : '—'}
                                         </span>
                                     </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">

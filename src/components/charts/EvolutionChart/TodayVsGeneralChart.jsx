@@ -386,7 +386,7 @@ export function TodayVsGeneralChart({
                             {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1 font-sans">{unit}</span>
                         </div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">
-                            Acertos de hoje ({unit})
+                            {todayAcc != null ? `Acertos de hoje (${unit})` : `Último dia ativo (${unit})`}
                         </span>
                     </div>
                 </div>

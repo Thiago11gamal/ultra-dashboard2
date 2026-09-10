@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
-import { simpleHash } from "../../../utils/evolutionGuards";
+import { simpleHash, toArray } from "../../../utils/evolutionGuards";
 import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
@@ -183,7 +183,7 @@ export const SubtopicsPerformanceChart = React.memo(({
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
 
-                (h.topics || []).forEach(t => {
+                toArray(h.topics).forEach(t => {
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const n = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!n || n.toLowerCase() === 'nenhum') return;
@@ -272,7 +272,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     dateMap[dateKey] = { dateLabel, originalDate: d.getTime() };
                 }
 
-                (h.topics || []).forEach(t => {
+                toArray(h.topics).forEach(t => {
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const topicName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;

@@ -1,4 +1,5 @@
 import { formatValue } from './scoreHelper';
+import { getDateKey } from './dateHelper';
 
 const safeNum = (value, fallback = null) => {
   const n = Number(value);
@@ -147,16 +148,23 @@ export function computeEvolutionStatuses({
 
   // Constância nos últimos 14 dias
   const heatmapDates = Array.isArray(heatmapData?.dates) ? heatmapData.dates : [];
-  const heatmapRows = Array.isArray(heatmapData?.rows) ? heatmapData.rows : [];
+  const allActiveDates = new Set([
+    ...heatmapDates,
+    ...(Array.isArray(timeline) ? timeline.map((d) => d?.date).filter(Boolean) : [])
+  ]);
 
-  if (heatmapDates.length > 0) {
-    const startIndex = Math.max(0, heatmapDates.length - 14);
-    const lastDays = heatmapDates.slice(startIndex);
-
-    const activeDays = lastDays.filter((_, idx) => {
-      const realIdx = startIndex + idx;
-      return heatmapRows.some((row) => Array.isArray(row?.cells) && row.cells[realIdx]);
-    }).length;
+  if (allActiveDates.size > 0) {
+    const todayForConst = new Date();
+    todayForConst.setHours(12, 0, 0, 0);
+    let activeDays = 0;
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(todayForConst);
+      d.setDate(d.getDate() - i);
+      const k = getDateKey(d);
+      if (allActiveDates.has(k)) {
+        activeDays++;
+      }
+    }
 
     statuses.push({
       id: 'consistency',
@@ -219,11 +227,18 @@ export function computeEvolutionStatuses({
   if (Array.isArray(categories) && categories.length > 0) {
     const below = categories.filter((cat) => {
       const lvl = safeNum(
-        last?.[`bay_${cat.id}`] ?? last?.[`raw_${cat.id}`],
+        last?.[`bay_${cat.id}`] ?? 
+        last?.[`raw_${cat.id}`] ?? 
+        last?.[`stats_${cat.id}`] ?? 
+        cat?.bayesianStats?.mean ?? 
+        cat?.simuladoStats?.average,
         null
       );
+      const catTarget = Number.isFinite(Number(cat?.minCutoff))
+        ? Number(cat.minCutoff)
+        : safeTarget;
 
-      return lvl != null && lvl < safeTarget - 5 * scale;
+      return lvl != null && lvl < catTarget - 5 * scale;
     }).length;
 
     statuses.push({
@@ -236,9 +251,20 @@ export function computeEvolutionStatuses({
     });
   }
 
-  // Volume recente
+  // Volume recente (últimos 7 dias corridos)
+  const todayForVol = new Date();
+  todayForVol.setHours(12, 0, 0, 0);
+  const sevenDayKeys = new Set();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(todayForVol);
+    d.setDate(d.getDate() - i);
+    sevenDayKeys.add(getDateKey(d));
+  }
+
   const recentVolume = Array.isArray(timeline)
-    ? timeline.slice(-7).reduce((sum, d) => sum + safeNum(d?.global_total, 0), 0)
+    ? timeline
+        .filter((d) => d?.date && sevenDayKeys.has(d.date))
+        .reduce((sum, d) => sum + safeNum(d?.global_total, 0), 0)
     : 0;
 
   statuses.push({
