@@ -4,6 +4,7 @@ import {
     Zap, 
     AlertCircle, 
     ArrowUpRight,
+    ArrowDownRight,
     ShieldCheck,
     Dna,
     List,
@@ -224,7 +225,7 @@ export default function Coach() {
                     probabilityDelta < 0.01 &&
                     !reliabilitySignatureChanged;
 
-                if (shouldSkipPersist) return;
+                if (shouldSkipPersist) return prev;
             }
 
             const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
@@ -258,7 +259,11 @@ export default function Coach() {
             prev.calibrationHistoryByCategory[normalizedCategoryId] = nextHistory;
             prev.calibrationOps = calibrationOps;
             prev.calibrationAuditLog = calibrationAuditLog;
-            return; // Immer: explicit void return — mutation is intentional
+            return {
+                calibrationHistoryByCategory: prev.calibrationHistoryByCategory,
+                calibrationOps,
+                calibrationAuditLog
+            };
         });
 
         if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
@@ -310,12 +315,18 @@ export default function Coach() {
     const projectedScore = mcStats?.projectedMean ?? 0;
     // UX-STABILITY: Para o card de volatilidade, preferimos pooledSD (determinístico)
     // ao sd da simulação MC (estocástico), reduzindo "pisca/pula" visual.
-    const volatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
+    const rawVolatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
+    const volatility = Number.isFinite(Number(rawVolatility)) ? Number(rawVolatility) : 0;
     const normalizedVolatility = useMemo(() => {
         const denom = Math.max(1, Number(currentMaxScore) || 0);
         return (volatility / denom) * 100;
     }, [volatility, currentMaxScore]);
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
+    const normalizedDrift = useMemo(() => {
+        const safeDrift = Number.isFinite(Number(drift)) ? Number(drift) : 0;
+        const denom = Math.max(1, Number(currentMaxScore) || 1);
+        return ((safeDrift * 30) / denom) * 100;
+    }, [drift, currentMaxScore]);
     const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
 
     const mcStatsContext = useMemo(() => ({
@@ -368,8 +379,10 @@ export default function Coach() {
             // BEST: enrich the suggestion with global MC context for the UI
             const _mcCtx = mcStatsContextRef.current;
             if (result && _mcCtx && _mcCtx.projectedMean != null) {
+                const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
+                result.globalProjectedMean = projectedVal;
                 result.globalMcContext = {
-                    projectedMean: Number(_mcCtx.projectedMean.toFixed(1)),
+                    projectedMean: projectedVal,
                     probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
                     source: 'useMonteCarloStats'
                 };
@@ -460,13 +473,15 @@ export default function Coach() {
             );
             
             if (newTasks.length) {
-                // BUG-3 FIX: Immer mutation — explicit void return
                 setData(prev => { 
                     if(prev) {
                         prev.coachPlan = newTasks; 
                         prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
                     }
-                    return; // Immer: explicit void return — mutation is intentional
+                    return {
+                        coachPlan: newTasks,
+                        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+                    };
                 });
                 showToastRef.current('Sugestões geradas!', 'success');
             } else {
@@ -492,7 +507,10 @@ export default function Coach() {
                 prev.coachPlan = [];
                 prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
             }
-            return; // Immer: explicit void return — mutation is intentional
+            return {
+                coachPlan: [],
+                coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+            };
         });
     }, [setData]);
 
@@ -539,9 +557,9 @@ export default function Coach() {
                             <div className="w-px h-6 bg-white/10" />
                             <QuickStat
                                 label="Tendência"
-                                value={`${((drift * 30) / Math.max(1, Number(currentMaxScore) || 1) * 100).toFixed(1)}pp`}
-                                color="text-emerald-400"
-                                icon={<ArrowUpRight size={14} />}
+                                value={`${normalizedDrift.toFixed(1)}pp`}
+                                color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
+                                icon={normalizedDrift >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                             />
                             <div className="w-px h-6 bg-white/10" />
                             <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
@@ -591,10 +609,10 @@ export default function Coach() {
                                         )}
 
                                         {/* Visual global MC context */}
-                                        {suggestedFocus?.globalProjectedMean != null && (
+                                        {(suggestedFocus?.globalProjectedMean != null || suggestedFocus?.globalMcContext?.projectedMean != null) && (
                                             <div className="mb-3 flex items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-xs">
                                                 <span className="font-semibold text-emerald-300">Global MC:</span>
-                                                <span className="font-mono text-base font-bold text-emerald-200">{suggestedFocus.globalProjectedMean}%</span>
+                                                <span className="font-mono text-base font-bold text-emerald-200">{suggestedFocus.globalProjectedMean ?? suggestedFocus.globalMcContext?.projectedMean}%</span>
                                                 <span className="text-emerald-400/60">contexto global aplicado</span>
                                             </div>
                                         )}

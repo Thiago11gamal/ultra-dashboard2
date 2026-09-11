@@ -109,6 +109,9 @@ function MonteCarloGauge({ mc }) {
     const isCritical = prob < (mc.thresholds?.danger || 30);
     const color = isCritical ? 'bg-red-400' : (prob >= (mc.thresholds?.safe || 90) ? 'bg-emerald-400' : 'bg-indigo-400');
 
+    const safeVolatility = Number.isFinite(Number(mc.volatility)) ? Math.round(Number(mc.volatility)) : 0;
+    const safeBarWidth = Math.max(0, high - low);
+
     return (
         <Motion.div 
             initial={{ opacity: 0, y: 10 }}
@@ -127,7 +130,7 @@ function MonteCarloGauge({ mc }) {
                 </div>
                 <div className="text-right">
                     <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade</span>
-                    <span className="text-xs font-mono font-bold text-amber-400">±{Math.round(mc.volatility)} pts</span>
+                    <span className="text-xs font-mono font-bold text-amber-400">±{safeVolatility} pts</span>
                 </div>
             </div>
 
@@ -136,7 +139,7 @@ function MonteCarloGauge({ mc }) {
                 {/* Faixa de Confiança 95% */}
                 <Motion.div 
                     initial={{ width: 0 }}
-                    animate={{ left: `${low}%`, width: `${high - low}%` }}
+                    animate={{ left: `${low}%`, width: `${safeBarWidth}%` }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
                     className="absolute top-0 bottom-0 bg-white/10 rounded-full"
                 />
@@ -181,11 +184,16 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
     // Check if category is degraded from calibrationOps
     const calibrationOps = activeContest?.calibrationOps || {};
-    const isDegraded = calibrationOps[suggestion.id]?.degraded;
+    const isDegraded = Boolean(
+        (suggestion.id && calibrationOps[suggestion.id]?.degraded) ||
+        (suggestion.name && calibrationOps[suggestion.name]?.degraded) ||
+        (suggestion.category && calibrationOps[suggestion.category]?.degraded)
+    );
 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
     const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
+    const globalMean = suggestion.globalProjectedMean ?? suggestion.urgency?.details?.globalMcContext?.projectedMean;
 
     return (
         <Motion.div
@@ -206,8 +214,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
-                            {suggestion.globalProjectedMean != null && (
-                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">GLOBAL {suggestion.globalProjectedMean}%</span>
+                            {globalMean != null && Number.isFinite(Number(globalMean)) && (
+                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">GLOBAL {Math.round(Number(globalMean))}%</span>
                             )}
                         </div>
                     </div>

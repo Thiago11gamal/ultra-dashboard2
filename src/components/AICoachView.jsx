@@ -7,6 +7,8 @@ import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
+import { ensureCoachTaskId } from '../utils/coachTaskId';
+import { parseCoachTask } from '../utils/coachText';
 import { displaySubject } from '../utils/displaySubject';
 import { useToast } from '../hooks/useToast';
 
@@ -28,39 +30,14 @@ function renderBoldText(text) {
 
 function AICoachCard({ task, idx, onStartPomodoro }) {
     const [isExpanded, setIsExpanded] = useState(false);
-    const fullText = task.text || task.title || '';
-    const separatorIndex = fullText.indexOf(':');
-    const hasDetails = separatorIndex !== -1;
+    const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
+    const parsed = parseCoachTask({ ...task, text: rawText });
 
-    let subjectPart = task.category || task.catName || (hasDetails ? fullText.slice(0, separatorIndex) : fullText);
-    let actionPart = hasDetails ? fullText.slice(separatorIndex + 1).trim() : fullText;
-    subjectPart = subjectPart.replace(/Foco em /i, '').trim();
-
-    // Remove tags do sistema e marca como crítico
-    const isSystemAlert = /\[ALERTA MESTRE\]/i.test(actionPart);
-    const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart) || isSystemAlert;
-    actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '');
-
-    // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
-    actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
-    let topicPart = subjectPart;
-
-    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(actionPart)) {
-        actionPart = '';
-    }
-
-    // Se for um Alerta Mestre, extraímos a mensagem para uma caixa separada e forçamos o Assunto como título principal
-    let systemAlertMessage = null;
-    if (isSystemAlert) {
-        systemAlertMessage = actionPart; // Salva o alerta
-        actionPart = ""; // Limpa para não repetir no subtítulo
-        if (!topicPart) {
-            topicPart = subjectPart; // O título do card vira o nome da matéria (Ex: "Biologia")
-        }
-    }
-
-    const displayAssunto = topicPart || actionPart || 'Revisão Recomendada';
-    const displayMeta = actionPart ? actionPart : null;
+    const subjectPart = parsed.subjectRaw;
+    const isPriority = parsed.priority === 'high' || parsed.isSystemAlert;
+    const displayAssunto = parsed.topic || rawText || 'Revisão Recomendada';
+    const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
+    const systemAlertMessage = parsed.isSystemAlert ? parsed.action : null;
 
     const CARD_COLORS = [
         { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300 border-violet-500/20', glow: 'from-violet-900/20', btnHover: 'hover:bg-violet-600 hover:text-white hover:border-violet-500 hover:shadow-[0_0_20px_-3px_rgba(139,92,246,0.4)]' },
@@ -226,13 +203,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         const raw = activeContest?.coachPlanner || {};
         const normalized = {};
         for (const [key, val] of Object.entries(raw)) {
-            normalized[key] = Array.isArray(val) ? val : Object.values(val || {});
+            normalized[key] = (Array.isArray(val) ? val : Object.values(val || {})).map(ensureCoachTaskId);
         }
         return normalized;
     }, [activeContest?.coachPlanner]);
     const coachPlanRaw = useMemo(() => {
         const raw = activeContest?.coachPlan || [];
-        return Array.isArray(raw) ? raw : Object.values(raw || {});
+        return (Array.isArray(raw) ? raw : Object.values(raw || {})).map(ensureCoachTaskId);
     }, [activeContest?.coachPlan]);
     const systemAlerts = useMemo(() => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
     const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
@@ -253,12 +230,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     const handleStartNeural = (task) => {
         const allAssignedIds = new Set();
-        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-        const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(t)));
+        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(ensureCoachTaskId(t)); if (sid) allAssignedIds.add(sid); }));
+        const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(ensureCoachTaskId(t))));
         
         // BUG FIX: Se a tarefa clicada não estiver nos não-alocados (ex: foi movida), 
         // usamos a lista unallocated como base, mas buscamos o índice correto.
-        let targetIndex = unallocatedTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+        const taskSid = getSafeId(ensureCoachTaskId(task));
+        let targetIndex = unallocatedTasks.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
         let sessionTasks = unallocatedTasks;
 
         let sourceContext = 'backlog';
@@ -266,16 +244,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         if (targetIndex === -1) {
             // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
             const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
-                (tasks || []).some(t => getSafeId(t) === getSafeId(task))
+                (tasks || []).some(t => getSafeId(ensureCoachTaskId(t)) === taskSid)
             );
             if (dayEntry) {
                 sessionTasks = dayEntry[1];
-                targetIndex = sessionTasks.findIndex(t => getSafeId(t) === getSafeId(task));
+                targetIndex = sessionTasks.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
                 sourceContext = dayEntry[0];
             } else {
                 // Fallback: se não estiver no unallocated nem em nenhum dia, usa o coachPlan inteiro
                 sessionTasks = coachPlan;
-                targetIndex = coachPlan.findIndex(t => getSafeId(t) === getSafeId(task));
+                targetIndex = coachPlan.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
             }
         }
 
@@ -292,7 +270,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const handleExport = async () => {
         setIsExporting(true);
         try {
-            await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+            const ok = await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+            if (!ok) {
+                showToast('Erro ao exportar o plano para PDF.', 'error');
+            } else {
+                showToast('Plano exportado em PDF com sucesso!', 'success');
+            }
         } catch (err) {
             console.error('PDF Export Error:', err);
             showToast('Erro ao exportar o plano para PDF.', 'error');
@@ -415,8 +398,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         {hasPlan ? (
                             (() => {
                                 const allAssignedIds = new Set();
-                                Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-                                const cardTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(task)));
+                                Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(ensureCoachTaskId(t)); if (sid) allAssignedIds.add(sid); }));
+                                const cardTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(ensureCoachTaskId(task))));
                                 
                                 if (cardTasks.length === 0) {
                                     return (
@@ -430,7 +413,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 return (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
                                         {cardTasks.map((task, idx) => (
-                                            <AICoachCard key={getSafeId(task) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
+                                            <AICoachCard key={getSafeId(ensureCoachTaskId(task)) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
                                         ))}
                                     </div>
                                 );
@@ -468,8 +451,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
                         {systemAlerts.length > 0 && (
                             <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {systemAlerts.map(alertTask => {
-                                    const cleanText = alertTask.text.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
+                                {systemAlerts.map((alertTask, alertIdx) => {
+                                    const rawAlertText = String(alertTask?.text || alertTask?.title || '');
+                                    const cleanText = rawAlertText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
                                     const separatorIndex = cleanText.indexOf(':');
                                     const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
                                     const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
@@ -504,7 +488,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     }[type];
 
                                     return (
-                                        <div key={alertTask.id} className={`relative p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
+                                        <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
                                             
                                             <div className="flex items-start gap-4">
@@ -541,7 +525,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                         <Activity size={12} className={t.iconColor} />
                                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(2)}</span></span>
                                                     </div>
-                                                    {alertTask.analysis.monteCarlo.calibrationPenalty > 0.01 && (
+                                                    {alertTask.analysis.monteCarlo?.calibrationPenalty > 0.01 && (
                                                         <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
                                                             <Zap size={12} className="text-amber-400" />
                                                             <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysis.monteCarlo.calibrationPenalty * 100)}%</span></span>
