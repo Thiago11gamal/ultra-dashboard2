@@ -55,13 +55,14 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
 
         // T-029 FIX: Se minutes vier 0, mas duration existir, usa duration.
         // FIX Bug 5: Revisões de flashcard não contam como horas de estudo (alinhado com analytics.js e chartDataMappers.js)
+        // Sanitização contra timer runaway: teto de 720 min (12h) por sessão, alinhado com chartDataMappers.js
         const getLogMinutes = (log) => {
             if (!log || log.type === 'flashcard') return 0;
             const minutes = Number(log?.minutes);
             const duration = Number(log?.duration);
 
-            if (Number.isFinite(minutes) && minutes > 0) return minutes;
-            if (Number.isFinite(duration) && duration > 0) return duration;
+            if (Number.isFinite(minutes) && minutes > 0) return Math.min(720, minutes);
+            if (Number.isFinite(duration) && duration > 0) return Math.min(720, duration);
 
             return 0;
         };
@@ -116,6 +117,36 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
             return undefined;
         };
 
+        // Mapeador canônico para disciplinas sem cadastro (evita duplicar cards por diferenças de maiúsculas/espaços)
+        const canonicalCategoryNames = new Map();
+        const resolveCategoryInfo = (log) => {
+            const category = findCategoryForLog(log);
+            if (category) {
+                return {
+                    category,
+                    id: category.id,
+                    name: category.name,
+                    color: category.color || '#a855f7'
+                };
+            }
+            const rawName = String(log?.categoryName || log?.subject || 'Outros').trim();
+            const lower = rawName.toLowerCase();
+            let name;
+            if (canonicalCategoryNames.has(lower)) {
+                name = canonicalCategoryNames.get(lower);
+            } else {
+                canonicalCategoryNames.set(lower, rawName);
+                name = rawName;
+            }
+            const id = log?.categoryId != null ? String(log.categoryId) : `raw:${lower}`;
+            return {
+                category: undefined,
+                id,
+                name,
+                color: '#a855f7'
+            };
+        };
+
         // Filtrar apenas logs com tempo positivo e data válida para alinhar KPIs do cabeçalho com a timeline
         const validStudyLogs = logsArray.filter(log => {
             if (getLogMinutes(log) <= 0) return false;
@@ -128,10 +159,8 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         // Find top category
         const catCounts = {};
         validStudyLogs.forEach(log => {
-            // T-037 FIX: lookup indexado
-            const category = findCategoryForLog(log);
-            const catName = category ? category.name : (log.categoryName || log.subject || 'Outros');
-            catCounts[catName] = (catCounts[catName] || 0) + getLogMinutes(log);
+            const catInfo = resolveCategoryInfo(log);
+            catCounts[catInfo.name] = (catCounts[catInfo.name] || 0) + getLogMinutes(log);
         });
         const sortedCats = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
         const topCategory = totalMinutes > 0 ? (sortedCats[0] || '-') : '-';
@@ -190,11 +219,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
             };
 
             // Category Grouping
-            // T-037 FIX: lookup indexado
-            const category = findCategoryForLog(log);
-            const categoryId = category ? category.id : (log.categoryId || log.categoryName || log.subject || 'unknown');
-            const categoryName = category ? category.name : (log.categoryName || log.subject || 'Desconhecido');
-            const categoryColor = category?.color || '#a855f7';
+            const catInfo = resolveCategoryInfo(log);
+            const category = catInfo.category;
+            const categoryId = catInfo.id;
+            const categoryName = catInfo.name;
+            const categoryColor = catInfo.color;
 
             if (!grouped[uniqueDayKey].categories[categoryId]) {
                 grouped[uniqueDayKey].categories[categoryId] = {

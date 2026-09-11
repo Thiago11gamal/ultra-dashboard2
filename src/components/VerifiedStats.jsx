@@ -215,7 +215,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100, minScore =
                     <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd5Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd5Val}`} />
                     <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd15Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd15Val}`} />
                 </div>
-                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? (sdNum < 1 && sdNum > 0 ? sdNum.toFixed(1) : sdNum.toFixed(0)) : '--'}</span>
+                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? ((scoreRange <= 20 || sdNum < 10) && sdNum > 0 ? sdNum.toFixed(1) : sdNum.toFixed(0)) : '--'}</span>
             </div>
             <div className="hidden md:flex md:col-span-1 justify-center items-center">
                 {deltaNum >= 0.5 ? (
@@ -238,7 +238,7 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100, minScore =
                             className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full min-w-0 px-1"
                         >
                             <span className="text-slate-400 truncate font-semibold min-w-0" title={v.name}>{v.name}</span>
-                            <span className="text-red-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
+                            <span className="text-red-400 font-mono font-black shrink-0">±{Number.isFinite(v.sd) ? ((scoreRange <= 20 || v.sd < 10) && v.sd > 0 ? v.sd.toFixed(1) : v.sd.toFixed(0)) : '--'}</span>
                         </div>
                     ))
                 ) : (
@@ -666,6 +666,31 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             const currentScore = currentAvg;
             const target = calculatedTarget;
             const distance = target - currentScore;
+            const safeGlobalRange = Math.max(1e-9, globalRange);
+
+            // 🎯 Variância diária ponderada com correção de Bessel/Kish (amostral não-enviesada)
+            let quality = 0.8;
+            const totalDailyW = dailyHistory.reduce((acc, h) => acc + (h.weight || 1), 0);
+            const dailyMean = totalDailyW > 0 
+                ? dailyHistory.reduce((acc, h) => acc + h.score * (h.weight || 1), 0) / totalDailyW
+                : currentScore;
+            
+            let sumW2 = 0;
+            const dailyWeightedDiffSq = dailyHistory.reduce((acc, h) => {
+                const w = h.weight || 1;
+                sumW2 += w * w;
+                const diff = h.score - dailyMean;
+                return acc + (diff * diff) * w;
+            }, 0);
+            const kishDenom = totalDailyW > 0 && dailyHistory.length > 1
+                ? Math.max(1e-6, totalDailyW - (sumW2 / totalDailyW))
+                : totalDailyW;
+            const dailyVar = kishDenom > 0 ? dailyWeightedDiffSq / kishDenom : 0;
+            const dailySD = Math.sqrt(Math.max(0, dailyVar));
+            quality = Math.max(0.5, 1 - (dailySD / (0.40 * safeGlobalRange)));
+
+            const weeklyBaseSpeed = slope * 7;
+            const speedThreshold = 0.0001 * safeGlobalRange;
 
             if (currentScore >= userTarget) {
                 // FIX Bug 3: O aluno já bateu ou superou a meta configurada
@@ -675,12 +700,15 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     predictionStatus = "excellence";
                 } else {
                     const distToMax = maxScore - currentScore;
-                    const weeklyBaseSpeed = slope * 7;
-                    const safeGlobalRange = Math.max(1e-9, globalRange);
-                    const speedThreshold = 0.0001 * safeGlobalRange;
 
-                    if (weeklyBaseSpeed > speedThreshold) {
-                        const safeSpeed = Math.max(speedThreshold, weeklyBaseSpeed);
+                    // Rendimentos decrescentes no topo: aproximar-se do teto máximo é mais lento
+                    const scorePosition = safeGlobalRange > 0 ? (currentScore - minScore) / safeGlobalRange : 0.5;
+                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * scorePosition);
+                    const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+                    const adjustedSpeed = safe(weeklyBaseSpeed * difficultyFactor * quality);
+
+                    if (adjustedSpeed > speedThreshold) {
+                        const safeSpeed = Math.max(speedThreshold, adjustedSpeed);
                         const daysEst = Math.min(365 * 2, (distToMax / safeSpeed) * 7);
                         const currentTime = Date.now();
                         const dateEst = new Date(currentTime + daysEst * 86400000);
@@ -699,12 +727,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 predictionSubtext = `Excelente! Mantenha o ritmo rumo a ${formatValue(maxScore)}${gaugeUnit}!`;
                 predictionStatus = "excellence";
             } else {
-                // ✅ FIX BUG-50: proteger contra globalRange = 0
-                const safeGlobalRange = Math.max(1e-9, globalRange);
-                
-                const weeklyBaseSpeed = slope * 7;
-                const speedThreshold = 0.0001 * safeGlobalRange;
-
                 if (weeklyBaseSpeed <= speedThreshold) {
                     prediction = "Estagnado/Queda";
                     predictionSubtext = "Melhore sua tendência diária para gerar previsão.";
@@ -715,22 +737,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                       ? (currentScore - minScore) / safeGlobalRange 
                       : 0.5;
                     const difficultyFactor = Math.max(0.40, 1 - 0.5 * scorePosition);
-
-                    let quality = 0.8;
-                    const totalDailyW = dailyHistory.reduce((acc, h) => acc + (h.weight || 1), 0);
-                    const dailyMean = totalDailyW > 0 
-                        ? dailyHistory.reduce((acc, h) => acc + h.score * (h.weight || 1), 0) / totalDailyW
-                        : currentScore;
-                    
-                    const dailyVar = totalDailyW > 0
-                        ? dailyHistory.reduce((acc, h) => {
-                            const diff = h.score - dailyMean;
-                            return acc + (diff * diff) * (h.weight || 1);
-                        }, 0) / totalDailyW
-                        : 0;
-                    
-                    const dailySD = Math.sqrt(Math.max(0, dailyVar));
-                    quality = Math.max(0.5, 1 - (dailySD / (0.40 * safeGlobalRange)));
 
                     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
                     const adjustedSpeed = safe(weeklyBaseSpeed * difficultyFactor * quality);
@@ -770,7 +776,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
                         };
 
-                        prediction = `${fmt(dateMin)} — ${fmt(dateMax)}`;
+                        const strMin = fmt(dateMin);
+                        const strMax = fmt(dateMax);
+                        prediction = strMin === strMax ? `~${strMin}` : `${strMin} — ${strMax}`;
                         predictionSubtext = `Previsão de alcance (${formatValue(target)}${maxScore === 100 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
                         predictionStatus = "good";
                     }

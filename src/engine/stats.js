@@ -253,27 +253,30 @@ function getHistoryTime(entry) {
     return parsed ? parsed.getTime() : NaN;
 }
 
-function getDynamicTrendThreshold(currentScore, maxScore) {
+function getDynamicTrendThreshold(currentScore, maxScore, minScore = 0) {
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
-    const safeCurrent = safeFinite(currentScore, 0);
-    const currentPct = safeCurrent / safeMaxScore;
+    const safeMinScore = safeMinScoreValue(minScore, 0);
+    const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
+    const safeCurrent = safeFinite(currentScore, safeMinScore);
+    const currentPct = (safeCurrent - safeMinScore) / safeRange;
 
-    if (!Number.isFinite(currentPct)) return 0.002 * safeMaxScore;
+    if (!Number.isFinite(currentPct)) return 0.002 * safeRange;
 
-    const damping = Math.max(0, 1 - currentPct);
+    const damping = Math.max(0, 1 - Math.min(1, Math.max(0, currentPct)));
     const baseRequirement = 0.05;
     const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002;
 
-    return dynamicPct * safeMaxScore;
+    return dynamicPct * safeRange;
 }
 
-// ✅ FIX: getDynamicPriorSD trata array de números nus
+// ✅ FIX: getDynamicPriorSD trata array de números nus e respeita safeRange (invariância de escala)
 function getDynamicPriorSD(history, maxScore, minScore = 0) {
   const safeMaxScore = safeMaxScoreValue(maxScore, 100);
   const safeMinScore = safeMinScoreValue(minScore, 0);
+  const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
   const safeHistory = toHistoryArray(history);
   
-  if (safeHistory.length < 5) return safeMaxScore * 0.15;
+  if (safeHistory.length < 5) return safeRange * 0.15;
   
   // ✅ FIX: Trata tanto objetos {score} quanto números nus
   const scores = safeHistory.map(h => {
@@ -281,7 +284,7 @@ function getDynamicPriorSD(history, maxScore, minScore = 0) {
     return getSafeScore(h, safeMaxScore, safeMinScore);
   }).filter(Number.isFinite);
   
-  if (scores.length < 5) return safeMaxScore * 0.15;
+  if (scores.length < 5) return safeRange * 0.15;
   
   const globalMean = mean(scores);
   const globalVar = scores.length > 1
@@ -289,7 +292,7 @@ function getDynamicPriorSD(history, maxScore, minScore = 0) {
     : 0;
   
   const empiricalSD = Math.sqrt(Math.max(0, globalVar));
-  return Math.max(safeMaxScore * 0.05, Math.min(safeMaxScore * 0.20, empiricalSD));
+  return Math.max(safeRange * 0.05, Math.min(safeRange * 0.20, empiricalSD));
 }
 
 export function mean(arr) {
@@ -339,7 +342,8 @@ export function standardDeviation(arr, maxScore = 100, customMean = null, minSco
   
   const adjustedVar = ((n - 1) * blendedSampleVar + KAPPA * Math.pow(POPULATION_SD, 2)) / ((n - 1) + KAPPA);
   
-  const finalSdFloor = MIN_SD_FLOOR * safeMaxScore;
+  const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
+  const finalSdFloor = MIN_SD_FLOOR * safeRange;
   return Math.max(finalSdFloor, Math.sqrt(Math.max(0, adjustedVar)));
 }
 
@@ -772,6 +776,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
     const safeMinScore = safeMinScoreValue(minScore, 0);
+    const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
 
     const rawSynthetic = getSyntheticTotal(safeMaxScore);
     const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;
@@ -879,7 +884,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const rawSampleVar = sumW > 0 ? wVarSum / kishDenom : 0;
         const sampleVar = Number.isFinite(rawSampleVar) ? Math.max(0, rawSampleVar) : 0;
 
-        const POPULATION_SD = getDynamicPriorSD(historyToUse, safeMaxScore);
+        const POPULATION_SD = getDynamicPriorSD(historyToUse, safeMaxScore, safeMinScore);
         const safePopulationSD = Number.isFinite(POPULATION_SD) ? POPULATION_SD : 0;
         const popVar = Math.pow(safePopulationSD, 2);
 
@@ -904,7 +909,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
         if (
             historyToUse.length >= 2 &&
-            sampleVar < (0.0004 * safeMaxScore * safeMaxScore) &&
+            sampleVar < (0.0004 * safeRange * safeRange) &&
             timeSpreadDays > 7
         ) {
             KAPPA = KAPPA * Math.exp(-timeSpreadDays / 14);
@@ -917,17 +922,17 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const rawVariance = (kishDenomTerm * sampleVar + KAPPA * popVar) / (kishDenomTerm + KAPPA);
         variance = Number.isFinite(rawVariance) ? Math.max(0, rawVariance) : popVar;
     } else {
-        const priorSD = getDynamicPriorSD(historyToUse, safeMaxScore);
+        const priorSD = getDynamicPriorSD(historyToUse, safeMaxScore, safeMinScore);
         variance = Math.pow(Number.isFinite(priorSD) ? priorSD : 0, 2);
     }
 
-    const sd = Math.max(Math.sqrt(Math.max(0, variance)), 0.001 * safeMaxScore);
-    const safeSD = Number.isFinite(sd) ? sd : 0.001 * safeMaxScore;
+    const sd = Math.max(Math.sqrt(Math.max(0, variance)), 0.001 * safeRange);
+    const safeSD = Number.isFinite(sd) ? sd : 0.001 * safeRange;
 
     const slopePerDay = calculateSlope(historyToUse, safeMaxScore, { minScore: safeMinScore });
     const safeSlope = Number.isFinite(slopePerDay) ? slopePerDay : 0;
 
-    const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore);
+    const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore, safeMinScore);
 
     const validHistoryForTrend = historyToUse.filter(h =>
         Number.isFinite(getSafeScore(h, safeMaxScore, minScore))
@@ -951,7 +956,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     if (safeRawTrend > trendThreshold) trendLabel = 'up';
     else if (safeRawTrend < -trendThreshold) trendLabel = 'down';
 
-    const level = m > 0.7 * safeMaxScore ? 'ALTO' : m > 0.4 * safeMaxScore ? 'MÉDIO' : 'BAIXO';
+    const level = m > (safeMinScore + 0.7 * safeRange) ? 'ALTO' : m > (safeMinScore + 0.4 * safeRange) ? 'MÉDIO' : 'BAIXO';
 
     return {
         mean: m,
@@ -961,7 +966,9 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         history: safeHistory,
         trend: trendLabel,
         trendValue: safeRawTrend,
-        level
+        level,
+        minScore: safeMinScore,
+        maxScore: safeMaxScore
     };
 }
 
