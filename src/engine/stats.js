@@ -351,7 +351,7 @@ export const calcularDesvioPadrao = (arr) => {
 
     const m = kahanMean(clean);
     const sumSq = clean.map(x => Math.pow(x - m, 2));
-    const v = clean.length > 0 ? kahanSum(sumSq) / clean.length : 0;
+    const v = clean.length > 1 ? kahanSum(sumSq) / (clean.length - 1) : 0;
 
     return Math.sqrt(Math.max(0, v));
 };

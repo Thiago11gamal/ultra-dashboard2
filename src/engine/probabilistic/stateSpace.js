@@ -81,7 +81,7 @@ function kahanVariance(values, mean = null) {
     count++;
   }
 
-  return count === 0 ? 0 : sum / count;
+  return count <= 1 ? 0 : sum / (count - 1);
 }
 
 /**
@@ -315,10 +315,8 @@ export function runStateSpaceModel(scores, options = {}) {
     // Trend
     if (trendCount > 0) {
       trendSum += ability - prevAbility;
-      trendCount++;
-    } else {
-      trendCount = 1;
     }
+    trendCount++;
 
     prevAbility = ability;
   }

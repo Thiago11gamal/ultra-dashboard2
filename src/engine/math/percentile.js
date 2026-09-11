@@ -43,7 +43,7 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
             } else {
                 const finite = Array.from(arr).filter(v => Number.isFinite(Number(v)));
                 if (finite.length === 0) return 0;
-                sorted = finite; // Keep relative order
+                sorted = finite.sort((a, b) => Number(a) - Number(b));
             }
         }
     } else if (arr instanceof Float64Array || arr instanceof Float32Array) {
