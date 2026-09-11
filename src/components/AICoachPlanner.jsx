@@ -203,7 +203,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     const safePlan = Array.isArray(plan) ? plan : Object.values(plan || {});
     for (const t of safePlan) {
       if (!t || isSystemAlertTask(t)) { i++; continue; }
-      const sid = getSafeId(t);
+      const sid = getSafeId(ensureCoachTaskId(t));
       if (sid && assigned.has(sid)) { i++; continue; }
       const item = take(t, `backlog-${i}`);
       if (item) backlog.push(item);

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { db } from '../services/firebase';
+import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
 export function useSubscription(user) {
-  const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true';
+  const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || isLocalMode || user?.uid === 'local-user';
 
   const [isPremium, setIsPremium] = useState(isDevBypass);
   const [loading, setLoading] = useState(!isDevBypass);
@@ -35,6 +35,11 @@ export function useSubscription(user) {
     let isMounted = true;
 
     try {
+      if (typeof user.getIdTokenResult !== 'function') {
+        setIsPremium(true);
+        setLoading(false);
+        return;
+      }
       // Ler claims do token JWT (definidas server-side via Cloud Functions)
       user.getIdTokenResult(true).then((tokenResult) => {
         if (!isMounted) return;
