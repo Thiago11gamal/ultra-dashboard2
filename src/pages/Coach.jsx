@@ -106,7 +106,8 @@ export default function Coach() {
 
     const [activeTab, setActiveTab] = useState('insights');
 
-    const safeActiveTab = activeTab === 'analytics' ? 'analytics' : 'insights';
+    const VALID_TABS = new Set(['insights', 'analytics']);
+    const safeActiveTab = VALID_TABS.has(activeTab) ? activeTab : 'insights';
     
     useEffect(() => {
         if (activeTab && activeTab !== safeActiveTab) {
@@ -278,9 +279,9 @@ export default function Coach() {
             if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
                 showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')} (Brier ${Number(avgBrier).toFixed(2)}).`, 'warning');
                 calibrationAlertCacheRef.current.set(normalizedCategoryId, now);
-                if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX) {
+                if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX && calibrationAlertCacheRef.current.size > 0) {
                     const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
-                    calibrationAlertCacheRef.current.delete(oldestKey);
+                    if (oldestKey !== undefined) calibrationAlertCacheRef.current.delete(oldestKey);
                 }
             }
         }

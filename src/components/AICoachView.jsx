@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle, Trophy, Activity } from 'lucide-react';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
@@ -154,10 +154,10 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     <div className={`bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]`}>
                         <div className="flex items-center justify-between z-10 relative">
                             <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                            <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility)}</span>
+                            <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility || 0)}</span>
                         </div>
                         <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (task.analysis.monteCarlo.volatility / 20) * 100))}%` }} />
+                            <div className={`h-full rounded-full transition-all duration-1000 ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (Number(task.analysis.monteCarlo.volatility) || 0) / 20 * 100))}%` }} />
                         </div>
                     </div>
                 </div>
@@ -220,6 +220,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
 export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, onClearHistory }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     const coachPlanner = useMemo(() => {
         const raw = activeContest?.coachPlanner || {};
@@ -239,6 +240,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
     const showToast = useToast();
+
+    const handleClearWithConfirm = useCallback(() => {
+        setShowClearConfirm(true);
+    }, []);
+
+    const handleConfirmClear = useCallback(() => {
+        onClearHistory();
+        setShowClearConfirm(false);
+        showToast('Plano limpo com sucesso.', 'info');
+    }, [onClearHistory, showToast]);
 
     const handleStartNeural = (task) => {
         const allAssignedIds = new Set();
@@ -339,7 +350,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     Export
                                 </button>
                                 <button
-                                    onClick={onClearHistory}
+                                    onClick={handleClearWithConfirm}
                                     className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/5 border border-rose-500/10 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/10 transition"
                                 >
                                     <Trash2 size={12} />
@@ -560,6 +571,54 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     </Motion.div>
                 )}
 
+            </AnimatePresence>
+
+            {/* Modal de Confirmação para Limpar Plano */}
+            <AnimatePresence>
+                {showClearConfirm && (
+                    <Motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                        onClick={() => setShowClearConfirm(false)}
+                    >
+                        <Motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="bg-[#0d1117] border border-rose-500/20 rounded-3xl p-8 max-w-sm mx-4 shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex flex-col items-center gap-5">
+                                <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                                    <Trash2 size={28} className="text-rose-400" />
+                                </div>
+                                <div className="text-center">
+                                    <h3 className="text-lg font-black text-white mb-2">Limpar Plano?</h3>
+                                    <p className="text-sm text-slate-400 leading-relaxed">
+                                        Isso vai apagar <span className="text-rose-300 font-bold">todas as sugestões</span> e o <span className="text-rose-300 font-bold">planejamento semanal</span>. Essa ação não pode ser desfeita.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3 w-full">
+                                    <button
+                                        onClick={() => setShowClearConfirm(false)}
+                                        className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-sm font-bold text-slate-300 hover:bg-white/5 transition"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmClear}
+                                        className="flex-1 px-4 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-sm font-bold text-rose-300 hover:bg-rose-500/30 transition"
+                                    >
+                                        Sim, Limpar
+                                    </button>
+                                </div>
+                            </div>
+                        </Motion.div>
+                    </Motion.div>
+                )}
             </AnimatePresence>
         </div>
     );

@@ -13,7 +13,7 @@ const stableIdMap = new WeakMap();
  * or a stable content-based hash if not.
  */
 export const getSafeId = (task) => {
-    if (!task) return `task-null-${crypto.randomUUID()}`;
+    if (!task) return 'task-null-sentinel';
     if (typeof task === 'string') return task;
     if (task.id) return String(task.id);
     
