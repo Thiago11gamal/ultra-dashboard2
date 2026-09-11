@@ -94,8 +94,13 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
 };
 
 function PersonalRanking({ categories = [] }) {
+    // MELHORIA: proteger contra categories vazio
+    const safeCategories = React.useMemo(() => {
+        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+    }, [categories]);
+
     const categoryStats = React.useMemo(() => {
-        return categories.map(cat => {
+        return safeCategories.map(cat => {
             const stats = cat.simuladoStats || { history: [] };
             const historyRaw = stats.history || [];
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
@@ -105,13 +110,24 @@ function PersonalRanking({ categories = [] }) {
                 const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
                 return acc + Math.max(0, fallback);
             }, 0);
-            const ms = cat.maxScore ?? 100;
+            const ms = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : 100;
+            const minS = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+            const range = Math.max(1e-9, ms - minS);
             const correctRaw = history.reduce((acc, h) => {
                 const parsedTotal = Number(h.total);
                 const t = (Number.isFinite(parsedTotal) && parsedTotal > 0)
                     ? parsedTotal
                     : Math.max(0, (Number(h.correct) || 0) + (Number(h.wrong) || 0));
-                const c = t > 0 ? (getSafeScore(h, ms) / ms) * t : 0;
+                
+                const rawC = Number(h?.correct);
+                let c = (Number.isFinite(rawC) && !h?.isPercentage) ? rawC : NaN;
+                if (!Number.isFinite(c)) {
+                    const score = getSafeScore(h, ms, minS);
+                    if (Number.isFinite(score) && t > 0) {
+                        c = Math.round(((score - minS) / range) * t);
+                    }
+                }
+                c = Math.max(0, Math.min(t, Number.isFinite(c) ? c : 0));
                 return acc + c;
             }, 0);
             const correct = Math.max(0, Math.round(correctRaw));
@@ -120,7 +136,7 @@ function PersonalRanking({ categories = [] }) {
 
             return { ...cat, total, correct, wrong, balance };
         });
-    }, [categories]);
+    }, [safeCategories]);
 
     const withData = categoryStats.filter(c => c.total > 0);
     const sortedByBalance = [...withData].sort((a, b) => b.balance - a.balance);
@@ -131,6 +147,14 @@ function PersonalRanking({ categories = [] }) {
     const weakest = sortedByBalance.length > 1 ? sortedByBalance[sortedByBalance.length - 1] : null;
     const mostProductive = sortedByVolume[0] || null;
     const mostBehind = sortedByErrors[0]?.wrong > 0 ? sortedByErrors[0] : null;
+
+    if (safeCategories.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-12 text-slate-500 h-full border border-white/5 rounded-2xl bg-slate-900/40">
+                Nenhuma disciplina cadastrada ainda.
+            </div>
+        );
+    }
 
     return (
         <div className="w-full">
@@ -196,4 +220,5 @@ function PersonalRanking({ categories = [] }) {
 }
 
 export default React.memo(PersonalRanking);
+
 

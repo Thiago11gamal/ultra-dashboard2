@@ -1,356 +1,582 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { Play, BrainCircuit, Calendar } from 'lucide-react';
+import {
+  Play, BrainCircuit, CalendarDays, GripVertical, Sparkles, Inbox
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { getSafeId } from '../utils/idGenerator';
 import { displaySubject } from '../utils/displaySubject';
+import { isSystemAlertTask, parseCoachTask } from '../utils/coachText';
+import { hashString } from '../utils/coachSafe';
+// FIX (C4): helper compartilhado com o AICoachView (mesma lógica de ID)
+import { ensureCoachTaskId } from '../utils/coachTaskId';
 
-// BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
-
+// ⚠️ SEM "scale/rotate" no over e SEM backdrop-blur em nenhum painel:
+// transform/backdrop-filter em ANCESTRAL quebra o position:fixed do dnd.
 const DAYS = [
-    { id: 'mon', label: 'SEG', full: 'Segunda', gradient: 'from-violet-600 to-indigo-600', bg: 'bg-violet-500/10', border: 'border-violet-500/25', text: 'text-violet-300', dot: 'bg-violet-500', over: 'bg-violet-500/10 border-violet-500/40', cardBg: 'bg-violet-500/[0.08]', cardBorder: 'border-violet-500/20', cardHover: 'hover:border-violet-500/40 hover:bg-violet-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(139,92,246,0.3)]' },
-    { id: 'tue', label: 'TER', full: 'Terça', gradient: 'from-sky-500 to-cyan-500', bg: 'bg-sky-500/10', border: 'border-sky-500/25', text: 'text-sky-300', dot: 'bg-sky-500', over: 'bg-sky-500/10 border-sky-500/40', cardBg: 'bg-sky-500/[0.08]', cardBorder: 'border-sky-500/20', cardHover: 'hover:border-sky-500/40 hover:bg-sky-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(14,165,233,0.3)]' },
-    { id: 'wed', label: 'QUA', full: 'Quarta', gradient: 'from-pink-500 to-rose-500', bg: 'bg-pink-500/10', border: 'border-pink-500/25', text: 'text-pink-300', dot: 'bg-pink-500', over: 'bg-pink-500/10 border-pink-500/40', cardBg: 'bg-pink-500/[0.08]', cardBorder: 'border-pink-500/20', cardHover: 'hover:border-pink-500/40 hover:bg-pink-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(236,72,153,0.3)]' },
-    { id: 'thu', label: 'QUI', full: 'Quinta', gradient: 'from-orange-500 to-amber-500', bg: 'bg-orange-500/10', border: 'border-orange-500/25', text: 'text-orange-300', dot: 'bg-orange-500', over: 'bg-orange-500/10 border-orange-500/40', cardBg: 'bg-orange-500/[0.08]', cardBorder: 'border-orange-500/20', cardHover: 'hover:border-orange-500/40 hover:bg-orange-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(249,115,22,0.3)]' },
-    { id: 'fri', label: 'SEX', full: 'Sexta', gradient: 'from-emerald-500 to-teal-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25', text: 'text-emerald-300', dot: 'bg-emerald-500', over: 'bg-emerald-500/10 border-emerald-500/40', cardBg: 'bg-emerald-500/[0.08]', cardBorder: 'border-emerald-500/20', cardHover: 'hover:border-emerald-500/40 hover:bg-emerald-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(16,185,129,0.3)]' },
-    { id: 'sat', label: 'SAB', full: 'Sábado', gradient: 'from-cyan-500 to-blue-500', bg: 'bg-cyan-500/10', border: 'border-cyan-500/25', text: 'text-cyan-300', dot: 'bg-cyan-500', over: 'bg-cyan-500/10 border-cyan-500/40', cardBg: 'bg-cyan-500/[0.08]', cardBorder: 'border-cyan-500/20', cardHover: 'hover:border-cyan-500/40 hover:bg-cyan-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(6,182,212,0.3)]' },
-    { id: 'sun', label: 'DOM', full: 'Domingo', gradient: 'from-rose-500 to-red-500', bg: 'bg-rose-500/10', border: 'border-rose-500/25', text: 'text-rose-300', dot: 'bg-rose-500', over: 'bg-rose-500/10 border-rose-500/40', cardBg: 'bg-rose-500/[0.08]', cardBorder: 'border-rose-500/20', cardHover: 'hover:border-rose-500/40 hover:bg-rose-500/[0.12] hover:shadow-[0_10px_30px_-10px_rgba(244,63,94,0.3)]' },
+  // FIX (A7): strings Tailwind corrigidas (espaços internos invalidavam
+  // as classes: gradiente, sombra inset e texto do dia).
+  { id: 'mon', label: 'SEG', full: 'Segunda', gradient: 'from-violet-600 to-indigo-600', text: 'text-violet-300', dot: 'bg-violet-500', headerBg: 'bg-violet-500/10', headerBorder: 'border-violet-500/25', over: 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)]', cardBg: 'bg-violet-500/[0.07]', cardBorder: 'border-violet-500/20' },
+  { id: 'tue', label: 'TER', full: 'Terça', gradient: 'from-sky-500 to-cyan-500', text: 'text-sky-300', dot: 'bg-sky-500', headerBg: 'bg-sky-500/10', headerBorder: 'border-sky-500/25', over: 'border-sky-400/80 bg-sky-500/20 shadow-[inset_0_0_30px_rgba(14,165,233,0.15)]', cardBg: 'bg-sky-500/[0.07]', cardBorder: 'border-sky-500/20' },
+  { id: 'wed', label: 'QUA', full: 'Quarta', gradient: 'from-pink-500 to-rose-500', text: 'text-pink-300', dot: 'bg-pink-500', headerBg: 'bg-pink-500/10', headerBorder: 'border-pink-500/25', over: 'border-pink-400/80 bg-pink-500/20 shadow-[inset_0_0_30px_rgba(236,72,153,0.15)]', cardBg: 'bg-pink-500/[0.07]', cardBorder: 'border-pink-500/20' },
+  { id: 'thu', label: 'QUI', full: 'Quinta', gradient: 'from-orange-500 to-amber-500', text: 'text-orange-300', dot: 'bg-orange-500', headerBg: 'bg-orange-500/10', headerBorder: 'border-orange-500/25', over: 'border-orange-400/80 bg-orange-500/20 shadow-[inset_0_0_30px_rgba(249,115,22,0.15)]', cardBg: 'bg-orange-500/[0.07]', cardBorder: 'border-orange-500/20' },
+  { id: 'fri', label: 'SEX', full: 'Sexta', gradient: 'from-emerald-500 to-teal-500', text: 'text-emerald-300', dot: 'bg-emerald-500', headerBg: 'bg-emerald-500/10', headerBorder: 'border-emerald-500/25', over: 'border-emerald-400/80 bg-emerald-500/20 shadow-[inset_0_0_30px_rgba(16,185,129,0.15)]', cardBg: 'bg-emerald-500/[0.07]', cardBorder: 'border-emerald-500/20' },
+  { id: 'sat', label: 'SAB', full: 'Sábado', gradient: 'from-cyan-500 to-blue-500', text: 'text-cyan-300', dot: 'bg-cyan-500', headerBg: 'bg-cyan-500/10', headerBorder: 'border-cyan-500/25', over: 'border-cyan-400/80 bg-cyan-500/20 shadow-[inset_0_0_30px_rgba(6,182,212,0.15)]', cardBg: 'bg-cyan-500/[0.07]', cardBorder: 'border-cyan-500/20' },
+  { id: 'sun', label: 'DOM', full: 'Domingo', gradient: 'from-rose-500 to-red-500', text: 'text-rose-300', dot: 'bg-rose-500', headerBg: 'bg-rose-500/10', headerBorder: 'border-rose-500/25', over: 'border-rose-400/80 bg-rose-500/20 shadow-[inset_0_0_30px_rgba(244,63,94,0.15)]', cardBg: 'bg-rose-500/[0.07]', cardBorder: 'border-rose-500/20' },
 ];
 
-import ReactDOM from 'react-dom';
-
-const getPortalRoot = () => {
-    let el = document.getElementById('dnd-portal');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'dnd-portal';
-        // Make sure the portal sits on top of everything
-        el.style.position = 'absolute';
-        el.style.top = '0';
-        el.style.left = '0';
-        el.style.width = '100%';
-        el.style.zIndex = '999999';
-        document.body.appendChild(el);
-    }
-    return el;
-};
-
-const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, onStartPomodoro }) => {
-    const sanitizeHtml = (str) => {
-        if (typeof str !== 'string') return '';
-        // Remove completely any HTML tags and their attributes to prevent literal XSS payloads from polluting the UI
-        return str.trim();
-    };
-
-    const rawText = task.text || task.title || '';
-    const fullText = sanitizeHtml(rawText) || rawText; // fallback se ficar vazio e não for html puro
-
-    const parts = fullText.split(':');
-    const hasDetails = parts.length > 1;
-
-    let subject = task.category || task.catName || (hasDetails ? parts[0] : fullText);
-    let actionPart = hasDetails ? parts.slice(1).join(':').trim() : fullText;
-    subject = subject.replace(/Foco em /i, '').trim();
-
-    // Clean up redundant priority labels for cleaner UI
-    const isPriority = /\[PROTOCOLO PRIORITÁRIO\]/i.test(actionPart);
-    actionPart = actionPart.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '');
-
-    // Strip legacy AI tags completely (e.g., [REVISÃO], [OTIMIZAÇÃO DE BASE])
-    actionPart = actionPart.replace(/^\[(.*?)\]\s*/i, '').trim();
-    let topicPart = subject;
-
-    const displayTopic = topicPart || (actionPart !== 'Revisão Geral' ? actionPart : '');
-    let secondaryText = (topicPart && actionPart !== topicPart) ? actionPart : '';
-    
-    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
-        secondaryText = '';
-    }
-
-    const cardBg = !isBacklog && dayTheme ? dayTheme.cardBg : 'bg-white/[0.02]';
-    const cardBorder = !isBacklog && dayTheme ? dayTheme.cardBorder : 'border-white/[0.05]';
-    const accentColor = !isBacklog && dayTheme ? dayTheme.text : 'text-violet-300';
-    const accentBorder = !isBacklog && dayTheme ? dayTheme.border : 'border-violet-500/30';
-    const gradientLine = !isBacklog && dayTheme ? dayTheme.gradient : 'from-violet-600 to-indigo-600';
-
-    return (
-        <Draggable draggableId={stableId} index={index}>
-            {(provided, snapshot) => {
-                const child = (
-                    <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        className={`pb-3 ${snapshot.isDragging ? 'z-[99999]' : ''}`}
-                        style={provided.draggableProps.style}
-                    >
-                        <div className={`group relative p-3 sm:p-3.5 rounded-xl select-none overflow-hidden h-full border ${snapshot.isDragging
-                                ? `bg-slate-900 border-2 ${accentBorder} shadow-lg scale-[1.02]`
-                                : `${cardBg} ${cardBorder} hover:border-white/10 transition-all duration-200`
-                            }`}>
-                            {!isBacklog && dayTheme && (
-                                <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${gradientLine} opacity-60`} />
-                            )}
-
-                            <div className="flex flex-col h-full relative z-10">
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                    <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest ${isBacklog ? 'bg-violet-500/10 text-violet-300 border border-violet-500/20' : `bg-black/30 ${accentColor} border-white/10`
-                                        }`}>
-                                        <div className={`w-1 h-1 rounded-full ${isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'} shrink-0`} />
-                                        <span className="leading-[1.32] truncate">{displaySubject(subject)}</span>
-                                    </div>
-
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onStartPomodoro?.(task);
-                                        }}
-                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors shrink-0 ${!isBacklog && dayTheme ? `${dayTheme.text} hover:bg-white/10` : 'bg-violet-500/10 text-violet-400 hover:bg-violet-500 hover:text-white'}`}
-                                    >
-                                        <Play size={11} className="fill-current" />
-                                    </button>
-                                </div>
-
-                                <div className="flex flex-col flex-1 justify-center gap-0.5">
-                                    <h4 className="text-[12px] sm:text-[13px] font-semibold leading-[1.35] tracking-tight text-slate-100 group-hover:text-white">
-                                        {displayTopic}
-                                    </h4>
-                                    {secondaryText && (
-                                        <p className="text-[10px] text-slate-400 leading-snug line-clamp-2">
-                                            {secondaryText}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-                if (snapshot.isDragging) {
-                    return ReactDOM.createPortal(child, getPortalRoot());
-                }
-
-                return child;
+const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categories = [], onStartPomodoro }) => {
+  const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
+  const parsed = parseCoachTask({ ...task, text: rawText }, categories);
+  const subject = parsed.subjectRaw;
+  const isSrsCard = Boolean(task?.analysis?.reason?.includes('SRS') || rawText.includes('SRS'));
+  const isSafeCard = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+  const isChaosCard = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+  const isPriority = (parsed.priority === 'high' || isSrsCard || isChaosCard) && !isSafeCard;
+  const isCompleted = parsed.isCompleted || Boolean(task?.completed) || task?.status === 'completed';
+  const topicLabel = parsed.topic || rawText;
+  const secondaryText = parsed.action && parsed.action !== parsed.topic ? parsed.action : '';
+  return (
+    <Draggable draggableId={stableId} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          role="listitem"
+          style={
+            snapshot.isDragging
+              ? {
+                ...provided.draggableProps.style,
+                ...(snapshot.draggingOver && snapshot.draggingOver !== 'backlog'
+                  // FIX (M6): width fixa de 180px encolhia cards em telas largas
+                  ? { width: '100%', maxWidth: '220px' }
+                  : {})
+              }
+              : provided.draggableProps.style
+          }
+          className="outline-none focus-visible:ring-2 focus-visible:ring-violet-500/60 rounded-lg select-none"
+        >
+          <div
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            style={{
+              paddingLeft: '1.25rem',
+              boxShadow: snapshot.isDragging
+                ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
+                : undefined,
             }}
-        </Draggable>
-    );
-});
-
-export default function AICoachPlanner() {
-    const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-
-    const defaultCoachPlan = useMemo(() => [], []);
-    const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
-
-    const rawCoachPlanner = activeContest?.coachPlanner || defaultCoachPlanner;
-    const rawCoachPlan = activeContest?.coachPlan || defaultCoachPlan;
-
-    const coachPlanner = useMemo(() => {
-        const normalized = {};
-        for (const [key, val] of Object.entries(rawCoachPlanner)) {
-            normalized[key] = Array.isArray(val) ? val : Object.values(val || {});
-        }
-        return normalized;
-    }, [rawCoachPlanner]);
-
-    const coachPlan = useMemo(() => {
-        return Array.isArray(rawCoachPlan) ? rawCoachPlan : Object.values(rawCoachPlan || {});
-    }, [rawCoachPlan]);
-
-    const setData = useAppStore(state => state.setData);
-    const startNeuralSession = useAppStore(state => state.startNeuralSession);
-    const navigate = useNavigate();
-    const [isDragging, setIsDragging] = useState(false);
-
-    const getInitialColumns = React.useCallback(() => {
-        const allAssignedIds = new Set();
-        DAYS.forEach(d => (coachPlanner[d.id] || []).forEach(t => { const sid = getSafeId(t); if (sid) allAssignedIds.add(sid); }));
-        const activeBacklog = (coachPlan || []).filter(t => { 
-            if (!t) return false; 
-            // Exclude system alerts from being rendered in the draggable planner
-            if (/\[ALERTA MESTRE\]|\[STATUS\]/i.test(t.text)) return false;
-            const sid = getSafeId(t); 
-            return !allAssignedIds.has(sid); 
-        });
-        return { backlog: activeBacklog, mon: coachPlanner.mon || [], tue: coachPlanner.tue || [], wed: coachPlanner.wed || [], thu: coachPlanner.thu || [], fri: coachPlanner.fri || [], sat: coachPlanner.sat || [], sun: coachPlanner.sun || [] };
-    }, [coachPlan, coachPlanner]);
-
-    const [columns, setColumns] = useState(() => getInitialColumns());
-    const currentHash = useMemo(() => JSON.stringify({ coachPlan, coachPlanner }), [coachPlan, coachPlanner]);
-
-    useEffect(() => {
-        if (!isDragging) {
-            const timer = setTimeout(() => {
-                setColumns(getInitialColumns());
-            }, 0);
-            return () => clearTimeout(timer);
-        }
-    }, [currentHash, isDragging, getInitialColumns]);
-
-    const onDragEnd = (result) => {
-        if (!result.destination) { setIsDragging(false); return; }
-        const { source, destination } = result;
-        if (source.droppableId === destination.droppableId && source.index === destination.index) { setIsDragging(false); return; }
-
-        const startCol = columns[source.droppableId];
-        const finishCol = columns[destination.droppableId];
-        const startList = Array.from(startCol);
-        const [removed] = startList.splice(source.index, 1);
-        const finishList = (source.droppableId === destination.droppableId) ? startList : Array.from(finishCol);
-        finishList.splice(destination.index, 0, removed);
-
-        const newCols = { ...columns, [source.droppableId]: startList, [destination.droppableId]: finishList };
-        setColumns(newCols);
-
-        // BUG-6 FIX: Use Immer mutation (consistent with Coach.jsx) and derive from prev.coachPlanner
-        // to avoid stale data during rapid drags
-        if (destination.droppableId === 'backlog' || source.droppableId === 'backlog') {
-            // Preserve system alerts that were filtered out of the draggable columns
-            const systemAlerts = (coachPlan || []).filter(t => t && /\[ALERTA MESTRE\]|\[STATUS\]/i.test(t.text));
-
-            const newCoachPlan = [
-                ...systemAlerts,
-                ...(newCols.backlog || []),
-                ...(newCols.mon || []),
-                ...(newCols.tue || []),
-                ...(newCols.wed || []),
-                ...(newCols.thu || []),
-                ...(newCols.fri || []),
-                ...(newCols.sat || []),
-                ...(newCols.sun || [])
-            ];
-
-            setData(prev => {
-                if (!prev) return;
-                // Derive from prev.coachPlanner (not closure) to avoid stale data
-                const freshPlanner = { ...(prev.coachPlanner || {}) };
-                if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
-                if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-                prev.coachPlanner = freshPlanner;
-                prev.coachPlan = newCoachPlan;
-                return; // Immer: explicit void return
-            });
-        } else {
-            setData(prev => {
-                if (!prev) return;
-                const freshPlanner = { ...(prev.coachPlanner || {}) };
-                if (source.droppableId !== 'backlog') freshPlanner[source.droppableId] = startList;
-                if (destination.droppableId !== 'backlog') freshPlanner[destination.droppableId] = finishList;
-                prev.coachPlanner = freshPlanner;
-                return; // Immer: explicit void return
-            });
-        }
-        setIsDragging(false);
-    };
-
-    const handleStartTask = (task, dayId) => {
-        if (!task) return;
-
-        let sessionTasks = [];
-        if (dayId === 'backlog') {
-            sessionTasks = columns.backlog || [];
-        } else {
-            sessionTasks = columns[dayId] || [];
-        }
-
-        let startIndex = sessionTasks.findIndex(t => getSafeId(t) === getSafeId(task));
-        if (startIndex === -1) return;
-
-        // FIX: Injetar o contexto do dia para a Store conseguir ler, mantendo toda a fila
-        const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext: dayId }));
-
-        startNeuralSession(sessionWithContext, startIndex);
-        navigate('/pomodoro');
-    };
-
-    return (
-        <DragDropContext onDragStart={() => setIsDragging(true)} onDragEnd={onDragEnd}>
-            <div className="flex flex-col xl:flex-row gap-5">
-                <div className="w-full xl:w-64 shrink-0">
-                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col h-full min-h-[400px] xl:min-h-[610px] relative overflow-hidden">
-                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
-                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.08]">
-                            <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                                <BrainCircuit size={15} className="text-violet-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-200">Sugestões</h3>
-                                <p className="text-[8px] font-medium text-slate-500 tracking-widest">IA Coach</p>
-                            </div>
-                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-violet-500/10 text-violet-300 border border-violet-500/20">
-                                {columns.backlog.length}
-                            </span>
-                        </div>
-                        <Droppable droppableId="backlog">
-                            {(provided, snapshot) => (
-                                <div className={`flex-1 flex flex-col gap-2 p-2 min-h-[200px] overflow-y-auto no-scrollbar border border-dashed border-white/10 rounded-xl bg-black/10 ${snapshot.isDraggingOver ? 'border-violet-500/50 bg-violet-500/5' : ''}`}>
-                                    <div
-                                        ref={provided.innerRef}
-                                        {...provided.droppableProps}
-                                        className="flex flex-col h-full"
-                                    >
-                                        {columns.backlog.map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog onStartPomodoro={(t) => handleStartTask(t, 'backlog')} />; })}
-                                        {provided.placeholder}
-                                    </div>
-                                </div>
-                            )}
-                        </Droppable>
-                    </div>
+            className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${snapshot.isDragging
+                ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
+                : isCompleted
+                  ? 'border-emerald-500/20 bg-emerald-950/10 opacity-75'
+                  : isBacklog
+                    ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
+                    : `${dayTheme.cardBorder} ${dayTheme.cardBg} hover:border-white/20`
+              }`}
+          >
+            <span
+              className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-gradient-to-b opacity-90 z-0 ${isCompleted
+                  ? 'from-emerald-500 to-teal-500'
+                  : isBacklog
+                    ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
+                    : dayTheme.gradient
+                }`}
+            />
+            <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
+              <div className="flex items-start justify-between gap-3 min-w-0 mt-1">
+                <div className="flex items-start gap-1.5 flex-1 min-w-0 mt-0.5">
+                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-[5px] ${isCompleted ? 'bg-emerald-400' : isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
+                  <span className={`text-[9.5px] font-black uppercase tracking-[0.1em] leading-snug break-words ${isCompleted ? 'text-emerald-400/90 line-through' : isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : dayTheme.text}`} title={displaySubject(subject, categories)}>
+                    {displaySubject(subject, categories)}
+                  </span>
                 </div>
-
-                <div className="w-full flex-1 min-w-0">
-                    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 overflow-hidden flex flex-col h-full relative">
-                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
-                        <div className="flex items-center justify-between mb-6 shrink-0 px-1">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shadow-lg shadow-indigo-500/5 group-hover:scale-110 transition-transform">
-                                    <Calendar size={16} className="text-indigo-400 shrink-0" />
-                                </div>
-                                <div className="flex flex-col">
-                                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-200">Planejamento Semanal</h3>
-                                    <p className="text-[8px] font-bold text-slate-500 tracking-widest uppercase">Agenda do Aluno</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="pb-4 overflow-x-auto overflow-y-hidden no-scrollbar [touch-action:pan-x]">
-                            <div className="flex gap-3 min-w-[1500px] min-h-[520px] pr-2">
-                                {DAYS.map((day) => (
-                                    <div key={day.id} className="flex-1 flex flex-col min-w-[195px]">
-                                        <div className={`mb-4 rounded-2xl border ${day.border} ${day.bg} p-3.5 relative overflow-hidden`}>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex flex-col">
-                                                    <span className={`text-sm font-black tracking-[0.15em] ${day.text} uppercase`}>
-                                                        {day.label}
-                                                    </span>
-                                                    <span className="text-[8px] font-medium text-slate-500 tracking-widest uppercase">Semana</span>
-                                                </div>
-                                                <div className={`text-xs font-bold px-2 py-0.5 rounded-md ${day.text} bg-black/20 border ${day.border}`}>
-                                                    {columns[day.id]?.length || 0}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <Droppable droppableId={day.id}>
-                                            {(provided, snapshot) => (
-                                                <div className={`flex-1 p-2 pt-3 rounded-lg border border-dashed transition-colors ${snapshot.isDraggingOver ? 'border-violet-500/60 bg-violet-500/5' : 'bg-black/10 border-white/[0.06] hover:border-white/10'}`}>
-                                                    <div
-                                                        ref={provided.innerRef}
-                                                        {...provided.droppableProps}
-                                                        className="h-full flex flex-col min-h-[80px] gap-1"
-                                                    >
-                                                        {columns[day.id].map((task, idx) => { const safeId = getSafeId(task); return <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} onStartPomodoro={(t) => handleStartTask(t, day.id)} />; })}
-                                                        {provided.placeholder}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </Droppable>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+                <div className="flex items-center gap-1 shrink-0 bg-black/20 rounded-md border border-white/5 p-0.5">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); if (typeof onStartPomodoro === 'function') onStartPomodoro(task, isBacklog ? 'backlog' : dayTheme?.id); }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
+                    title="Estudar agora no Pomodoro"
+                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${!isBacklog && dayTheme
+                        ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
+                        : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
+                      }`}
+                  >
+                    <Play size={8} className="fill-current ml-0.5" />
+                  </button>
+                  <div className="w-4 h-5 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors pointer-events-none">
+                    <GripVertical size={11} className="pointer-events-none" />
+                  </div>
                 </div>
+              </div>
+              <div className="mt-4 flex flex-col gap-1 pl-3">
+                <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                  {topicLabel}
+                </h4>
+                {secondaryText && (
+                  <p className={`text-[9.5px] sm:text-[10px] font-medium leading-relaxed break-words ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
+                    {secondaryText}
+                  </p>
+                )}
+              </div>
+              {isSrsCard && (
+                <div className="mt-3 pt-2 border-t border-white/5 flex items-center pl-3">
+                  <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                    SRS
+                  </span>
+                </div>
+              )}
             </div>
-        </DragDropContext>
-    );
+          </div>
+        </div>
+      )}
+    </Draggable>
+  );
+}, (prev, next) => (
+  prev.stableId === next.stableId &&
+  prev.index === next.index &&
+  prev.isBacklog === next.isBacklog &&
+  prev.dayTheme?.id === next.dayTheme?.id &&
+  prev.task === next.task &&
+  prev.task?.completed === next.task?.completed &&
+  prev.task?.status === next.task?.status &&
+  // FIX (A1): sem comparar `categories`, renomear uma matéria não
+  // re-renderizava os cards já montados (displaySubject stale).
+  prev.categories === next.categories &&
+  prev.onStartPomodoro === next.onStartPomodoro
+));
+
+export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
+  const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+  const categories = propCategories || activeContest?.categories || [];
+  const defaultCoachPlan = useMemo(() => [], []);
+  const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
+  const rawCoachPlanner = propPlannerData || activeContest?.coachPlanner || defaultCoachPlanner;
+  const rawCoachPlan = activeContest?.coachPlan || defaultCoachPlan;
+
+  const coachPlanner = useMemo(() => {
+    const normalized = {};
+    for (const [key, val] of Object.entries(rawCoachPlanner)) {
+      normalized[key] = Array.isArray(val) ? val.map(ensureCoachTaskId) : Object.values(val || {}).map(ensureCoachTaskId);
+    }
+    return normalized;
+  }, [rawCoachPlanner]);
+
+  const coachPlan = useMemo(
+    () => (Array.isArray(rawCoachPlan) ? rawCoachPlan : Object.values(rawCoachPlan || {})).map(ensureCoachTaskId),
+    [rawCoachPlan]
+  );
+
+  const setData = useAppStore(state => state.setData);
+  const startNeuralSession = useAppStore(state => state.startNeuralSession);
+  const navigate = useNavigate();
+
+  // ==========================================================
+  // FIX (BUG-02/03/04): FONTE ÚNICA DE VERDADE.
+  // `storeColumns` é derivado do store; `dragColumns` é um override
+  // congelado SOMENTE durante o drag. Não há mais useEffect de reset
+  // nem skipResetCountRef — nada para dessincronizar.
+  // ==========================================================
+  const deriveColumns = useCallback((plan, planner) => {
+    const assigned = new Set();
+    DAYS.forEach(d => (planner?.[d.id] || []).forEach(t => {
+      const sid = getSafeId(ensureCoachTaskId(t));
+      if (sid) assigned.add(sid);
+    }));
+    const seen = new Set(); // FIX (BUG-08): dedupe de draggableId entre colunas
+    const take = (t, fallbackIndex) => {
+      if (!t) return null;
+      const withId = ensureCoachTaskId(t);
+      // FIX C-05: usa id explícito se existir; senão usa id estável por índice,
+      // evitando fundir duas tarefas distintas com o mesmo texto.
+      const sid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
+      if (seen.has(sid)) return null;
+      seen.add(sid);
+      return { ...withId, id: sid };
+    };
+    const backlog = [];
+    let i = 0;
+    const safePlan = Array.isArray(plan) ? plan : Object.values(plan || {});
+    for (const t of safePlan) {
+      if (!t || isSystemAlertTask(t)) { i++; continue; }
+      const sid = getSafeId(t);
+      if (sid && assigned.has(sid)) { i++; continue; }
+      const item = take(t, `backlog-${i}`);
+      if (item) backlog.push(item);
+      i++;
+    }
+    const cleanCol = (arr) => {
+      const out = [];
+      let j = 0;
+      for (const t of (Array.isArray(arr) ? arr : [])) {
+        const item = take(t, `col-${j}`);
+        if (item) out.push(item);
+        j++;
+      }
+      return out;
+    };
+    return {
+      backlog,
+      mon: cleanCol(planner?.mon), tue: cleanCol(planner?.tue),
+      wed: cleanCol(planner?.wed), thu: cleanCol(planner?.thu),
+      fri: cleanCol(planner?.fri), sat: cleanCol(planner?.sat),
+      sun: cleanCol(planner?.sun)
+    };
+  }, []);
+
+  const storeColumns = useMemo(
+    () => deriveColumns(coachPlan, coachPlanner),
+    [coachPlan, coachPlanner, deriveColumns]
+  );
+
+  const [dragColumns, setDragColumns] = useState(null);
+  const columns = dragColumns || storeColumns;
+
+  // FIX (BUG-01): contadores AO VIVO durante o drag
+  const [dragInfo, setDragInfo] = useState(null); // { source, destination }
+  const [hoveredCol, setHoveredCol] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Tracking global do ponteiro (acende colunas imediatamente, inclusive no header)
+  useEffect(() => {
+    if (!isDragging) return;
+
+    // ✅ FIX P01: Cache dos elementos no início do drag
+    let cachedCols = null;
+    let cachedRects = null;
+    let lastScrollTop = window.scrollY;
+    let lastScrollLeft = window.scrollX;
+
+    const refreshCache = () => {
+        cachedCols = document.querySelectorAll('[data-col-id]');
+        cachedRects = Array.from(cachedCols).map(col => ({
+            id: col.getAttribute('data-col-id'),
+            rect: col.getBoundingClientRect()
+        }));
+        lastScrollTop = window.scrollY;
+        lastScrollLeft = window.scrollX;
+    };
+
+    refreshCache();
+
+    let animationFrameId = null;
+    let lastClientX = -1;
+    let lastClientY = -1;
+
+    const updateHover = (clientX, clientY) => {
+        // Skip se a posição não mudou
+        if (clientX === lastClientX && clientY === lastClientY) return;
+        lastClientX = clientX;
+        lastClientY = clientY;
+
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(() => {
+            // ✅ Recalcular rects se houve scroll (vertical ou horizontal) ou cache invalidado
+            if (!cachedRects || Math.abs(window.scrollY - lastScrollTop) > 1 || Math.abs(window.scrollX - lastScrollLeft) > 1) {
+                refreshCache();
+            }
+
+            if (!cachedRects) return;
+
+            let found = null;
+            for (const { id, rect } of cachedRects) {
+                if (clientX >= rect.left && clientX <= rect.right &&
+                    clientY >= rect.top && clientY <= rect.bottom) {
+                    found = id;
+                    break;
+                }
+            }
+            setHoveredCol(prev => (prev === found ? prev : found));
+        });
+    };
+
+    const handleMouseMove = (e) => updateHover(e.clientX, e.clientY);
+    const handleTouchMove = (e) => {
+        const touch = e.touches[0];
+        if (touch) updateHover(touch.clientX, touch.clientY);
+    };
+    const handleScroll = () => {
+        // Invalidar cache em scroll
+        cachedRects = null;
+        // FIX (M12): reavalia imediatamente a coluna sob um ponteiro estático.
+        // Antes, após scroll sem mousemove, hoveredCol ficava stale.
+        if (lastClientX >= 0) {
+            const x = lastClientX, y = lastClientY;
+            lastClientX = -1; lastClientY = -1; // força reprocessamento
+            updateHover(x, y);
+        }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+
+    return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('scroll', handleScroll, { capture: true });
+        cancelAnimationFrame(animationFrameId);
+    };
+  }, [isDragging]);
+
+  const onDragStart = useCallback((start) => {
+    setIsDragging(true);
+    setDragColumns(storeColumns); // congela snapshot local só durante o drag
+    setDragInfo({ source: start?.source?.droppableId ?? null, destination: null });
+  }, [storeColumns]);
+
+  const onDragUpdate = useCallback((update) => {
+    setDragInfo(prev => {
+      // FIX (M18): source vem do snapshot de onDragStart (já está em prev) —
+      // não depender de update.source, que não é contrato garantido.
+      const source = prev?.source ?? update?.source?.droppableId ?? null;
+      const destination = update?.destination?.droppableId ?? null;
+      if (prev && prev.source === source && prev.destination === destination) return prev;
+      return { source, destination };
+    });
+  }, []);
+
+  // ==========================================================
+  // FIX (BUG-03): o drop aplica a OPERAÇÃO de mover sobre o snapshot
+  // ATUAL do store (dentro do setData), nunca um snapshot local stale.
+  // Atualizações externas ocorridas durante o drag são preservadas.
+  // ==========================================================
+  const onDragEnd = useCallback((result) => {
+    setIsDragging(false);
+    setHoveredCol(null); // Fix cascading render transferido do useEffect
+    setDragColumns(null);
+    setDragInfo(null);
+
+    const { source, destination } = result;
+    // FIX: Validar destination antes de processar
+    if (!destination || !source) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    // FIX: Validar draggableId
+    if (!result.draggableId) return;
+
+    setData(prev => {
+      if (!prev) return prev;
+      const cur = deriveColumns(
+        Array.isArray(prev.coachPlan) ? prev.coachPlan : Object.values(prev.coachPlan || {}),
+        prev.coachPlanner || {}
+      );
+      const startList = [...(cur[source.droppableId] || [])];
+      
+      const realSourceIndex = startList.findIndex(t => getSafeId(t) === result.draggableId || t.id === result.draggableId);
+      const safeSourceIndex = realSourceIndex !== -1 ? realSourceIndex : source.index;
+      
+      const [moved] = startList.splice(safeSourceIndex, 1);
+      if (!moved) return prev;
+      
+      const finishList = (source.droppableId === destination.droppableId)
+        ? startList
+        : [...(cur[destination.droppableId] || [])];
+        
+      const safeDestIndex = Math.max(0, Math.min(destination.index, finishList.length));
+      finishList.splice(safeDestIndex, 0, moved);
+
+      const nextCols = {
+        ...cur,
+        [source.droppableId]: startList,
+        [destination.droppableId]: finishList
+      };
+
+      const existingPlan = Array.isArray(prev.coachPlan) ? prev.coachPlan : Object.values(prev.coachPlan || {});
+      const systemAlerts = existingPlan.filter(t => t && isSystemAlertTask(t));
+      const nextPlan = [
+        ...systemAlerts,
+        ...(nextCols.backlog || []),
+        ...DAYS.flatMap(d => nextCols[d.id] || [])
+      ];
+      const freshPlanner = {};
+      DAYS.forEach(d => { freshPlanner[d.id] = nextCols[d.id] || []; });
+
+      return { coachPlanner: freshPlanner, coachPlan: nextPlan };
+    });
+  }, [setData, deriveColumns]);
+
+  const handleStartTask = useCallback((task, dayId) => {
+    if (propOnStart) { propOnStart(task, dayId); return; }
+    if (!task) return;
+    // FIX: lê `columns` derivado (nunca ref stale)
+    const sessionTasks = columns[dayId || 'backlog'] || [];
+    const taskToFind = getSafeId(task);
+    const startIndex = sessionTasks.findIndex(t => {
+      const idT = getSafeId(t);
+      return (taskToFind && idT === taskToFind) || t === task || (t?.title && t.title === task?.title);
+    });
+    if (startIndex === -1) {
+      startNeuralSession([{ ...task, sourceContext: dayId || 'isolated' }], 0);
+      navigate('/pomodoro');
+      return;
+    }
+    startNeuralSession(sessionTasks.map(t => ({ ...t, sourceContext: dayId })), startIndex);
+    navigate('/pomodoro');
+  }, [columns, startNeuralSession, navigate, propOnStart]);
+
+  // FIX (BUG-01): contador ao vivo (−1 na origem, +1 no destino durante o drag)
+  const liveCount = useCallback((colId, base) => {
+    if (!dragInfo) return base;
+    let n = base;
+    if (dragInfo.source === colId) n -= 1;
+    if (dragInfo.destination === colId) n += 1;
+    return Math.max(0, n);
+  }, [dragInfo]);
+
+  const liveWeekTotal = useMemo(
+    () => DAYS.reduce((acc, d) => acc + liveCount(d.id, (columns[d.id] || []).length), 0),
+    [columns, liveCount]
+  );
+
+  // FIX (BUG-09): removido o gate `enabled` (flash de primeiro frame).
+  const [isDndReady, setIsDndReady] = useState(false);
+  useEffect(() => {
+      const timer = setTimeout(() => setIsDndReady(true), 0);
+      return () => clearTimeout(timer);
+  }, []);
+
+  if (!isDndReady) return <div className="min-h-[500px]" />;
+
+  return (
+    <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+      <div className="flex flex-col xl:flex-row gap-4 items-stretch mt-6 w-full">
+        {/* ================= BACKLOG ================= */}
+        <div className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col" data-col-id="backlog">
+          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 min-h-[380px] relative overflow-hidden shadow-2xl">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+            <Droppable droppableId="backlog">
+              {(provided, snapshot) => {
+                const isHighlight = hoveredCol ? (hoveredCol === 'backlog') : snapshot.isDraggingOver;
+                const backlogCount = liveCount('backlog', (columns.backlog || []).length);
+                return (
+                  <div className={`flex-1 flex flex-col transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
+                    <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
+                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
+                        <BrainCircuit size={15} className={`transition-colors ${isHighlight ? 'text-violet-200' : 'text-violet-400'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`text-xs font-black uppercase tracking-[0.16em] transition-colors ${isHighlight ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
+                        <p className={`text-[9px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
+                      </div>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
+                        {backlogCount}
+                      </span>
+                    </div>
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      role="list"
+                      aria-label="Sugestões de tarefas não alocadas"
+                      className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-75 overflow-y-auto max-h-[580px] custom-scrollbar ${isHighlight
+                          ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
+                          : 'bg-black/20 border-white/[0.08]'
+                        }`}
+                    >
+                      {(columns.backlog || []).filter(Boolean).map((task, idx) => {
+                        const safeId = getSafeId(task) || `backlog-${idx}`;
+                        return (
+                          <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog categories={categories} onStartPomodoro={handleStartTask} />
+                        );
+                      })}
+                      {provided.placeholder}
+                      {(columns.backlog || []).length === 0 && (
+                        <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 my-auto">
+                          <Sparkles size={20} className="mb-2 text-violet-400/50" />
+                          <p className="text-xs font-medium text-slate-400">Tudo distribuído!</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Arraste itens de volta se quiser reorganizar.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              }}
+            </Droppable>
+          </div>
+        </div>
+
+        {/* ================= SEMANA ================= */}
+        <div className="w-full flex-1 min-w-0 flex flex-col">
+          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 relative shadow-2xl overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.08] shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                  <CalendarDays size={15} className="text-indigo-400" />
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-200">Planejamento Semanal</h3>
+                  <p className="text-[9px] font-semibold text-slate-400 tracking-wider uppercase">Agenda do Aluno</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0">
+                {liveWeekTotal} tarefa{liveWeekTotal === 1 ? '' : 's'} na semana
+              </span>
+            </div>
+            <div className="w-full overflow-x-auto kanban-scrollbar pb-2 pt-1 flex-1 flex flex-col">
+              <div className="flex gap-3 min-w-[900px] xl:min-w-0 w-full flex-1">
+                {DAYS.map((day) => {
+                  const dayTasks = columns[day.id] || [];
+                  const dayCount = liveCount(day.id, dayTasks.length);
+                  return (
+                    <div key={day.id} className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col" data-col-id={day.id}>
+                      <Droppable droppableId={day.id}>
+                        {(provided, snapshot) => {
+                          const isHighlight = hoveredCol ? (hoveredCol === day.id) : snapshot.isDraggingOver;
+                          return (
+                            <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
+                              <div className={`mb-2 rounded-lg border transition-all duration-75 ${isHighlight ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
+                                } p-2 relative overflow-hidden`}>
+                                <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex flex-col min-w-0">
+                                    <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
+                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
+                                  </div>
+                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-75 ${isHighlight ? day.over : day.headerBorder}`}>
+                                    {dayCount}
+                                  </div>
+                                </div>
+                              </div>
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                role="list"
+                                aria-label={`Tarefas de ${day.full}`}
+                                className={`flex-1 p-1.5 rounded-lg border border-dashed transition-all duration-75 flex flex-col min-h-[160px] max-h-[580px] overflow-y-auto kanban-scrollbar ${isHighlight
+                                    ? `${day.over} ring-1 ring-white/20`
+                                    : 'bg-black/20 border-white/[0.08] hover:border-white/15'
+                                  }`}
+                              >
+                                {dayTasks.filter(Boolean).map((task, idx) => {
+                                  const safeId = getSafeId(task) || `${day.id}-${idx}`;
+                                  return (
+                                    <TaskCard key={safeId} stableId={safeId} task={task} index={idx} isBacklog={false} dayTheme={day} categories={categories} onStartPomodoro={handleStartTask} />
+                                  );
+                                })}
+                                {provided.placeholder}
+                                {dayTasks.length === 0 && !snapshot.isDraggingOver && (
+                                  <div className={`w-full flex-1 min-h-[100px] flex flex-col items-center justify-center gap-1 border border-dashed ${day.headerBorder} opacity-40 rounded-lg p-2 text-center my-auto bg-black/10`}>
+                                    <Inbox size={14} className={day.text} />
+                                    <span className={`text-[9px] font-semibold tracking-wider uppercase ${day.text} opacity-70`}>Arraste aqui</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        }}
+                      </Droppable>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </DragDropContext>
+  );
 }

@@ -17,193 +17,149 @@ const DEFAULT_CONFIG = {
 };
 
 export function analyzeProgressState(scores, config = {}) {
-    const {
-        window_size,
-        stagnation_threshold: raw_stagnation,
-        low_level_limit,
-        high_level_limit,
-        mastery_limit,
-        trend_tolerance: raw_trend,
-        maxScore = 100
-    } = { ...DEFAULT_CONFIG, ...config };
+  const {
+    window_size,
+    stagnation_threshold: raw_stagnation,
+    low_level_limit,
+    high_level_limit,
+    mastery_limit,
+    trend_tolerance: raw_trend,
+    maxScore = 100,
+    minScore = 0
+  } = { ...DEFAULT_CONFIG, ...config };
 
-    // SCALE FIX: Escalonar thresholds pela amplitude da escala (maxScore)
-    const scaleFactor = maxScore / 100;
-    const windowFactor = Math.sqrt(10 / Math.max(3, window_size));
-    const stagnation_threshold = raw_stagnation * scaleFactor * windowFactor;
-    const trend_tolerance = raw_trend * scaleFactor * windowFactor;
+  const safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const scoreRange = Math.max(1e-9, safeMax - safeMin);
+  const scaleFactor = scoreRange / 100;
+  const windowFactor = Math.sqrt(10 / Math.max(3, window_size));
+  const stagnation_threshold = raw_stagnation * scaleFactor * windowFactor;
+  const trend_tolerance = raw_trend * scaleFactor * windowFactor;
 
-    // FIX 3: Escalonar limites de nível (Mastery/Low) para suportar escalas diferentes de 100
-    const scaled_low = low_level_limit * scaleFactor;
-    const scaled_high = high_level_limit * scaleFactor;
-    const scaled_mastery = mastery_limit * scaleFactor;
+  // ✅ FIX: Invariância de escala para minScore > 0 ou negativo
+  let scaled_low     = safeMin + (low_level_limit / 100) * scoreRange;
+  let scaled_high    = safeMin + (high_level_limit / 100) * scoreRange;
+  let scaled_mastery = safeMin + (mastery_limit / 100) * scoreRange;
+  if (!Number.isFinite(scaled_low))     scaled_low     = safeMin + 0.60 * scoreRange;
+  if (!Number.isFinite(scaled_high))    scaled_high    = Math.max(scaled_low, safeMin + 0.75 * scoreRange);
+  if (!Number.isFinite(scaled_mastery)) scaled_mastery = Math.max(scaled_high, safeMin + 0.80 * scoreRange);
+  if (scaled_high    < scaled_low)    scaled_high    = scaled_low;
+  if (scaled_mastery < scaled_high)   scaled_mastery = scaled_high;
 
-    // Safety: Window size must be at least 3 for meaningful variance and MAV calculation
-    // (With only 2 points, variance = one single squared difference — not representative)
-    const safeWindowSize = Math.max(3, window_size);
-
-    // 3. Pre-condition check
-    const safeScores = Array.isArray(scores) ? scores : Object.values(scores || {});
-    if (!safeScores || safeScores.length < safeWindowSize) {
-        return {
-            state: 'insufficient_data',
-            label: 'Dados Insuficientes',
-            mean_score: 0,
-            delta: 0,
-            variance: 0,
-            trend_slope: 0,
-            severity: 'none'
-        };
-    }
-
-    // 4. Extract window
-    // CORREÇÃO: Gerar a âncora sintética ANTES de ordenar para preservar o eixo cronológico verdadeiro
-    const syntheticNow = Date.now();
-    const sortedScores = [...safeScores].map((d, index) => {
-        let time = typeof d === 'object' ? toDateMs(d.date) : NaN;
-        if (Number.isNaN(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
-        return { original: d, safeTime: time };
-    }).sort((a, b) => a.safeTime - b.safeTime);
-
-    const validSortedScores = sortedScores.filter(d => {
-        const score = typeof d.original === 'object' ? d.original.score : d.original;
-        return Number.isFinite(score);
-    });
-    
-    const recentData = validSortedScores.slice(-safeWindowSize);
-    const finiteRecentScores = recentData.map(d => typeof d.original === 'object' ? d.original.score : d.original);
-    
-    // BUG FIX: Em vez de recalcular as datas e arruinar a ordem cronológica, 
-    // extraímos a safeTime validada no bloco anterior, preservando o eixo-X perfeitamente.
-    const recentDates = recentData.map(d => d.safeTime);
-
-    // 4.1 Safety Check after filtering invalid scores
-    if (finiteRecentScores.length < safeWindowSize) {
-        return {
-            state: 'insufficient_data',
-            label: 'Dados Insuficientes',
-            mean_score: 0,
-            delta: 0,
-            variance: 0,
-            trend_slope: 0,
-            severity: 'none'
-        };
-    }
-
-    // 5.1 Mean (Absolute Level)
-    const mean = finiteRecentScores.reduce((a, b) => a + b, 0) / finiteRecentScores.length;
-
-    // 5.2 Delta (Mean Absolute Variation)
-    let variationTotal = 0;
-    for (let i = 1; i < finiteRecentScores.length; i++) {
-        variationTotal += Math.abs(finiteRecentScores[i] - finiteRecentScores[i - 1]);
-    }
-    const delta = variationTotal / (finiteRecentScores.length - 1);
-
-    // 5.3 Variance (Consistency)
-    const variance = finiteRecentScores.reduce((acc, score) =>
-        acc + Math.pow(score - mean, 2), 0) / (finiteRecentScores.length - 1);
-
-    // 5.4 Trend (Linear Regression Slope - TIME AWARE)
-    // 🎯 MATH BUG FIX: Transição da Regressão Linear do índice (Cego ao tempo) 
-    // para o eixo X de dias reais passados.
-    const n = finiteRecentScores.length;
-    const startTime = recentDates[0] || Date.now();
-    // CORREÇÃO: Forçar spread artificial mínimo (micro-passos) se os testes colidirem no mesmo dia (Bug 1.1 Fix)
-    const xDays = [];
-    recentDates.forEach((d, i) => {
-        let days = (d - startTime) / 86400000;
-        if (i > 0 && days <= xDays[i - 1]) {
-            days = xDays[i - 1] + 0.01; // Adiciona um micro-delta temporal (~14 minutos)
-        }
-        xDays.push(days);
-    });
-    const xMean = xDays.reduce((a, b) => a + b, 0) / n;
-
-    let numerator = 0;
-    let denominator = 0;
-
-    for (let i = 0; i < n; i++) {
-        numerator += (xDays[i] - xMean) * (finiteRecentScores[i] - mean);
-        denominator += Math.pow(xDays[i] - xMean, 2);
-    }
-
-    // FIX: Clamp do denominador para impedir distorção por "Time Crunch" (testes em curtos intervalos)
-    // Se o denominador for menor que 0.25 (1/4 de dia), assumimos um valor seguro para diluir o impacto
-    const safeDenominator = denominator < 0.25 ? 0.25 : denominator;
-
-    // slope em pontos/dia.
-    const rawSlope = safeDenominator > 0 ? numerator / safeDenominator : 0; 
-    
-    // Normalização para 30 dias para alinhar com trend_tolerance (pp/30d)
-    const normalizedSlope = rawSlope * 30;
-    // 6. Stagnation Detection
-    const stagnated = delta <= stagnation_threshold && Math.abs(normalizedSlope) <= trend_tolerance;
-
-    // 7. Semantic Classification
-    let state = '';
-    let label = '';
-    let severity = 'none';
-
-    if (stagnated) {
-        // 7.1 Qualified Stagnation or Mastery
-        if (mean >= scaled_mastery) {
-            state = 'mastery';
-            label = 'Domínio (Consistente no Topo)';
-            severity = 'none';
-        } else if (mean < scaled_low) {
-            state = 'stagnation_negative';
-            label = 'Estagnação em nível baixo';
-            severity = 'high';
-        } else if (mean < scaled_high) {
-            state = 'stagnation_neutral';
-            label = 'Estagnação em nível médio';
-            severity = 'medium';
-        } else {
-            state = 'stagnation_positive';
-            label = 'Estagnação em nível alto';
-            severity = 'low';
-        }
-    } else {
-        // 7.2 Dynamic States (Not Stagnated) with Trend Tolerance
-        // BUG-GLOBAL-06 FIX: Usar Coeficiente de Variação (CV) em vez de variância bruta.
-        // Antes: variance > 25*scaleFactor² era calibrado para window_size=10 e falha com n diferentes.
-        // CV > 15% é invariante ao n e à escala da prova.
-        // FIX: Adicionado amortecimento Bayesiano no denominador (max(mean, 30 * scaleFactor))
-        // Impede que alunos iniciantes (com média baixa) sejam falsamente diagnosticados como "Erráticos"
-        // apenas por causa do ruído normal da nota (ex: oscilar 3 pontos numa média de 15 dava CV = 20%).
-        const cv = mean > 1e-6 ? Math.sqrt(variance) / Math.max(mean, 30 * scaleFactor) : 0;
-        const isVeryUnstable = cv > 0.15;
-
-        // FIX 3.2 (Visual e Lógica): A instabilidade não deve proteger um aluno em queda livre.
-        // Se a inclinação (slope) é fortemente negativa, é regressão, independentemente da variância.
-        if (normalizedSlope < -trend_tolerance) {
-            state = 'regression';
-            label = isVeryUnstable ? 'Queda Acentuada (Instável)' : 'Em regressão';
-            severity = 'high'; 
-        } else if (normalizedSlope > trend_tolerance && !isVeryUnstable) {
-            state = 'progression';
-            label = 'Em evolução';
-            severity = 'none';
-        } else {
-            state = 'unstable'; 
-            label = 'Instável / Flutuação';
-            severity = 'medium';
-        }
-    }
-
-    // 8. Standardized Output
+  const safeWindowSize = Math.max(3, window_size);
+  const safeScores = Array.isArray(scores) ? scores : Object.values(scores || {});
+  if (!safeScores || safeScores.length < safeWindowSize) {
     return {
-    // trend_slope em pp/dia (regressão linear sobre eixo-X em dias reais).
-    // O motor está calibrado para este valor; compará-lo com pp/dia (calculateSlope) causaria confusão.
-        state,
-        label,
-        mean_score: Number(mean.toFixed(2)),
-        delta: Number(delta.toFixed(2)),
-        variance: Number(variance.toFixed(2)),
-        trend_slope: Number(rawSlope.toFixed(4)),
-        severity
+      state: 'insufficient_data',
+      label: 'Dados Insuficientes',
+      mean_score: 0, delta: 0, variance: 0, trend_slope: 0, severity: 'none'
     };
+  }
+
+  const syntheticNow = Date.now();
+  const sortedScores = safeScores
+    .filter(d => d != null)
+    .map((d, index) => {
+      let time = (d && typeof d === 'object') ? toDateMs(d.date) : NaN;
+      if (!Number.isFinite(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
+      return { original: d, safeTime: time };
+    })
+    .filter(item => Number.isFinite(item.safeTime))
+    .sort((a, b) => a.safeTime - b.safeTime);
+
+  const validSortedScores = sortedScores.filter(d => {
+    const score = typeof d.original === 'object' ? d.original.score : d.original;
+    return Number.isFinite(score);
+  });
+  const recentData = validSortedScores.slice(-safeWindowSize);
+  const finiteRecentScores = recentData.map(d => typeof d.original === 'object' ? d.original.score : d.original);
+  if (finiteRecentScores.length < safeWindowSize) {
+    return {
+      state: 'insufficient_data',
+      label: 'Dados Insuficientes',
+      mean_score: 0, delta: 0, variance: 0, trend_slope: 0, severity: 'none'
+    };
+  }
+
+  const validScores = finiteRecentScores.filter(s => Number.isFinite(s));
+  const nTotal = validScores.length;
+  const mean = nTotal > 0 ? validScores.reduce((a, b) => a + b, 0) / nTotal : 0;
+  let variationTotal = 0;
+  for (let i = 1; i < validScores.length; i++) {
+    variationTotal += Math.abs(validScores[i] - validScores[i - 1]);
+  }
+  const delta = variationTotal / Math.max(1, validScores.length - 1);
+  const variance = validScores.reduce((acc, score) =>
+    acc + Math.pow(score - mean, 2), 0) / Math.max(1, validScores.length - 1);
+
+  const recentDates = recentData.map(d => d.safeTime);
+  const n = finiteRecentScores.length;
+  const startTime = recentDates[0] || Date.now();
+  const xDays = [];
+  recentDates.forEach((d, i) => {
+    let days = (d - startTime) / 86400000;
+    if (i > 0 && days <= xDays[i - 1]) {
+      days = xDays[i - 1] + 0.001;
+    }
+    xDays.push(days);
+  });
+  const xMean = xDays.reduce((a, b) => a + b, 0) / n;
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i++) {
+    numerator += (xDays[i] - xMean) * (finiteRecentScores[i] - mean);
+    denominator += Math.pow(xDays[i] - xMean, 2);
+  }
+  const safeDenominator = denominator < 0.25 ? 0.25 : denominator;
+  const rawSlope = safeDenominator > 0 ? numerator / safeDenominator : 0;
+  const normalizedSlope = rawSlope * 30;
+
+  const stagnated = delta <= stagnation_threshold && Math.abs(normalizedSlope) <= trend_tolerance;
+
+  let state = '';
+  let label = '';
+  let severity = 'none';
+
+  if (stagnated) {
+    if (mean >= scaled_mastery) {
+      state = 'mastery'; label = 'Domínio (Consistente no Topo)'; severity = 'none';
+    } else if (mean < scaled_low) {
+      state = 'stagnation_negative'; label = 'Estagnação em nível baixo'; severity = 'high';
+    } else if (mean < scaled_high) {
+      state = 'stagnation_neutral'; label = 'Estagnação em nível médio'; severity = 'medium';
+    } else {
+      state = 'stagnation_positive'; label = 'Estagnação em nível alto'; severity = 'low';
+    }
+  } else {
+    const effectiveMean = Math.max(1e-6, mean - safeMin);
+    const cv = effectiveMean > 1e-6 ? Math.sqrt(variance) / Math.max(effectiveMean, 30 * scaleFactor) : 0;
+    const cvThreshold = 0.15 * Math.sqrt(10 / Math.max(3, safeWindowSize));
+    const isVeryUnstable = cv > cvThreshold;
+    if (normalizedSlope < -trend_tolerance) {
+      state = 'regression';
+      label = isVeryUnstable ? 'Queda Acentuada (Instável)' : 'Em regressão';
+      severity = 'high';
+    } else if (normalizedSlope > trend_tolerance && !isVeryUnstable) {
+      state = 'progression'; label = 'Em evolução'; severity = 'none';
+    } else {
+      state = 'unstable'; label = 'Instável / Flutuação'; severity = 'medium';
+    }
+  }
+
+  // BUG-T13 FIX: Clamp do trend_slope para evitar valores absurdos
+  // quando há pouquíssimos pontos ou datas muito próximas.
+  // Limitar a ±5% da amplitude (scoreRange) por 30 dias.
+  const maxSlopeLimit = 0.05 * scoreRange;
+  const clampedSlope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, rawSlope * 30));
+
+  return {
+    state, label,
+    mean_score: Number(mean.toFixed(2)),
+    delta: Number(delta.toFixed(2)),
+    variance: Number(variance.toFixed(2)),
+    trend_slope: Number(clampedSlope.toFixed(4)),
+    severity
+  };
 }
 
 export function getUIHints(state) {
@@ -222,3 +178,4 @@ export function getUIHints(state) {
 }
 
 export default { analyzeProgressState, getUIHints };
+

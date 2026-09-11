@@ -4,6 +4,7 @@
 import { bootstrapCI } from '../engine/math/bootstrap.js';
 import { kahanSum, kahanMean } from '../engine/math/kahan.js';
 import { safeDateParse } from './dateHelper.js';
+import { clamp, toFiniteNumber } from './retentionCore.js';
 
 // t crítico bicaudal 95% (quantil 0.975) para amostras pequenas.
 // Evita subestimar IC quando n é baixo.
@@ -104,7 +105,6 @@ export function winsorizeSeries(values, lowerPct = 0.05, upperPct = 0.95) {
     // [FIX 4] Jamais force um 0 em domínios não triviais. Deixe o filtro NaN tratar jusante.
     if (finiteValues.length === 0) return values;
     if (finiteValues.length < 5) {
-        // Retorna a série intacta. A injeção forçada de NaN colapsa motores a jusante.
         return values; 
     }
 
@@ -171,7 +171,10 @@ export const calcSlopeWithSignificance = (dados) => {
 
     // FIX 1: Centralização dos eixos X (Mean Centering) para anular a perda de precisão
     // em matrizes de ponto flutuante durante a elevação ao quadrado de datas gigantes.
-    const minX = Math.min(...rawXs);
+    let minX = Infinity;
+    for (let i = 0; i < n; i++) {
+        if (rawXs[i] < minX) minX = rawXs[i];
+    }
     const Xs = rawXs.map(x => x - minX);
     
     const sumX = kahanSum(Xs);
@@ -238,9 +241,29 @@ export function computeAdaptiveSignal(historyOrScores = []) {
 
     const sumW = kahanSum(weighted);
     const sumW2 = kahanSum(weighted.map(w => w * w));
-    const effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
+    const weightsCollapsed = sumW < 1e-6; // ✅ FIX: flag única p/ média E variância
+
+    // ✅ FIX: Se os pesos decaíram para zero, fazer fallback para média simples.
+    // Isso evita que a média ponderada colapse para 0 quando todos os
+    // dados são "antigos" demais para o lambda configurado.
+    let effectiveN;
+    let weightedMean;
+
+    if (weightsCollapsed) {
+      // Fallback: pesos decaíram completamente → média simples com N real
+      effectiveN = finiteScores.length;
+      weightedMean = kahanMean(finiteScores);
+      // ✅ FIX: Marcar explicitamente que NÃO houve ponderação
+      // para que consumidores downstream saibam que é fallback
+    } else {
+      effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
+      weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / sumW;
+    }
     
-    const weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / Math.max(1e-9, sumW);
+    // FIX: Garantir que weightedMean nunca é NaN/Infinity
+    if (!Number.isFinite(weightedMean)) {
+        weightedMean = kahanMean(finiteScores) || 0;
+    }
 
     // Robustez adaptativa: Huber-like clipping guiado por MAD para reduzir impacto de outliers
     const sorted = [...finiteScores].sort((a, b) => a - b);
@@ -254,11 +277,19 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const robustSigma = Math.max(0.5, 1.4826 * mad);
     const huberK = 2.5 * robustSigma;
 
-    const weightedVariance = kahanSum(finiteScores.map((s, i) => {
-        const d = s - weightedMean;
-        const clipped = Math.max(-huberK, Math.min(huberK, d));
-        return weighted[i] * clipped * clipped;
-    })) / Math.max(1e-9, sumW);
+    // ✅ FIX: quando os pesos decaíram, usar variância simples (não ponderada).
+    // Antes, numerator≈0 / sumW≈0 → sd≈0 → motor ficava superconfiante em séries antigas.
+    const weightedVariance = weightsCollapsed
+        ? kahanSum(finiteScores.map((s) => {
+            const d = s - weightedMean;
+            const clipped = Math.max(-huberK, Math.min(huberK, d));
+            return clipped * clipped;
+          })) / Math.max(1, finiteScores.length)
+        : kahanSum(finiteScores.map((s, i) => {
+            const d = s - weightedMean;
+            const clipped = Math.max(-huberK, Math.min(huberK, d));
+            return weighted[i] * clipped * clipped;
+          })) / Math.max(1e-9, sumW);
 
     // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo (que só funcionava para N=10) 
     // pela verdadeira Correção de Bessel adaptável ao Tamanho Efetivo da Amostra (effectiveN).
@@ -360,7 +391,8 @@ export function adaptiveConfidenceShrinkage(options = {}) {
     // FIX BUG 4: Incluir a incerteza da tendência no cálculo final de contração
     // Redistribuir os pesos para incluir a incerteza da tendência (15%)
     const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendPenaltyFactor * 0.15); 
-    const finalShrink = Math.max(0, Math.min(maxShrink, rawShrink));
+    const safeMaxShrink = Number.isFinite(Number(maxShrink)) ? Number(maxShrink) : 0.6;
+    const finalShrink = Math.max(0, Math.min(safeMaxShrink, rawShrink));
 
     return {
         shrinkFactor: Number(finalShrink.toFixed(4)),
@@ -372,8 +404,10 @@ export function adaptiveConfidenceShrinkage(options = {}) {
         },
         // Helper: aplica o shrinkage a um valor
         apply: (value) => {
-            const v = Number(value) || 0;
-            return v * (1 - finalShrink) + neutralValue * finalShrink;
+            const rawV = Number(value) || 0;
+            const v = Number.isFinite(rawV) ? rawV : 0;
+            if (!Number.isFinite(v)) return neutralValue;
+      return v * (1 - finalShrink) + neutralValue * finalShrink;
         }
     };
 }
@@ -424,22 +458,24 @@ export function computeAdaptiveCoachWeight(scores = []) {
  * @returns {number} Percentual de Retenção (0.20 a 1.0)
  */
 export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificuldade = 0.5) => {
-    const baseline = 0.2; // Limiar mínimo de retenção
-    const tempoDias = Math.max(0, horasDesdeEstudo / 24);
+    const baseline = 0.2;
     
-    // CORREÇÃO CIENTÍFICA (FSRS): A dificuldade afeta a construção da Estabilidade (S), 
-    // não deve aplicar um corte instantâneo de penalização na hora t=0.
-    const difficultyFactor = 1 - (Math.max(0.1, Math.min(1.0, dificuldade)) * 0.15); 
+    const safeHoras = toFiniteNumber(horasDesdeEstudo, 0);
+    const safeForca = toFiniteNumber(forcaMemoria, 1);
+    const safeDiff = toFiniteNumber(dificuldade, 0.5);
+
+    const tempoDias = Math.max(0, safeHoras / 24);
     
-    // S = exp(forcaMemoria * fator_escala) modulado pela dificuldade do item.
-    // Tópicos difíceis geram consolidações mais frágeis (menor Estabilidade).
-    const stability = Math.max(0.5, Math.exp(forcaMemoria * 0.45) * difficultyFactor);
+    const difficultyFactor = 1 - (clamp(safeDiff, 0.1, 1.0) * 0.35); 
     
-    // Retrievability FSRS: R = (1 + t/(9·S))^(-1)
-    // Power-law decay: decai mais lentamente que exponencial para intervalos longos,
-    // mais rápido para intervalos curtos — conforme dados empíricos do FSRS.
+    const baseStability = Math.exp(safeForca * 0.45) * difficultyFactor;
+    // T-010 FIX: Estabilidade não deve ser infinita e deve ter piso realista.
+    const stability = clamp(baseStability, 0.5, 365);
+    
     const retrievability = Math.pow(1 + tempoDias / (9 * stability), -1);
-    const finalRetention = retrievability; 
     
-    return Math.max(baseline, finalRetention);
+    const finalRetention = Number.isFinite(retrievability) ? retrievability : 0; 
+    
+    return clamp(finalRetention, baseline, 1.0);
 };
+

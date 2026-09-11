@@ -8,8 +8,14 @@ export function useLevelUp() {
   const [queue, setQueue] = useState([]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
     const handleLevelUp = (e) => {
-      setQueue(prev => [...prev, e.detail]);
+      if (!e?.detail) return;
+      setQueue(prev => {
+        if (prev.some(item => item?.level === e.detail.level)) return prev;
+        return [...prev, e.detail];
+      });
     };
 
     window.addEventListener('level-up', handleLevelUp);
@@ -23,3 +29,4 @@ export function useLevelUp() {
     clearLevelUp: clearCurrent 
   };
 }
+

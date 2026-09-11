@@ -1,21 +1,30 @@
 import React from 'react';
-import { CHART_COLORS } from '../../utils/chartConfig';
+// ✅ LOTE-04 FIX: CHART_COLORS removido — nunca era usado e o módulo
+// utils/chartConfig não existe no pacote (risco de quebra de build).
 import { formatValue } from '../../utils/scoreHelper';
 
-export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%' }) => {
+export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%', maxScore = 100, minScore = 0 }) => {
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const scaleRange = Math.max(1, safeMax - safeMin);
     if (!active || !payload?.length) return null;
 
-    const currentData = chartData.find(d => d.displayDate === label || d.date === label);
+    const currentData = payload?.[0]?.payload || (Array.isArray(chartData) ? chartData.find(d => d.displayDate === label || d.date === label) : null);
 
     return (
-        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-sm z-50 backdrop-blur-xl">
+        <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-[calc(100vw-2rem)] sm:max-w-sm z-50 backdrop-blur-xl pointer-events-none transition-transform duration-200 overflow-hidden">
             <p className="text-slate-300 mb-3 font-bold border-b border-white/10 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
             </p>
             <div className="space-y-3">
                 {payload
                     .filter(p => !p.name?.startsWith('_') && !['Bay CI High', 'Bay CI Low', 'Cenário Range', 'Banda Bayesiana', 'Ganho Estimado'].includes(p.name))
-                    .sort((a, b) => (Number(b.value) || -Infinity) - (Number(a.value) || -Infinity))
+                    .filter((p, index, self) => self.findIndex(t => t.name === p.name) === index)
+                    .sort((a, b) => {
+                        const valA = Array.isArray(a?.value) ? a.value[0] : a?.value;
+                        const valB = Array.isArray(b?.value) ? b.value[0] : b?.value;
+                        return (Number(valB) || -Infinity) - (Number(valA) || -Infinity);
+                    })
                     .map((p, i) => {
                     if (isCompare) {
                         const val = Number(p.value);
@@ -34,7 +43,9 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                     const dataKey = p.dataKey;
                     if (typeof dataKey !== 'string') return null;
 
-                    const catId = dataKey.replace(/^(raw|bay|bay_ci_low|bay_ci_high|stats|trend|trend_status)_/, '');
+                    // ✅ LOTE-04 FIX (M9): raw_correct/raw_total ANTES de raw,
+                    // senão "raw_correct_x" virava catId "correct_x" (lookup errado)
+                    const catId = dataKey.replace(/^(bay_ci_low|bay_ci_high|trend_status|raw_correct|raw_total|raw|bay|stats|trend)_/, '');
                     const subjName = p.name;
 
                     const rawCorrect = currentData ? currentData[`raw_correct_${catId}`] : null;
@@ -53,51 +64,65 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     {subjName}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-4 gap-2 text-center">
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Bruta</span>
-                                    <span className="text-xs font-mono text-orange-400 font-bold">
-                                        {rawVal != null && Number.isFinite(Number(rawVal)) ? formatValue(rawVal) : '—'}{unit}
-                                    </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Bruta</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className="text-[11px] sm:text-xs font-mono text-orange-400 font-bold leading-none">
+                                            {rawVal != null && Number.isFinite(Number(rawVal)) ? `${formatValue(rawVal)}${unit}` : '—'}
+                                        </span>
+                                        {rawCorrect != null && rawTotal > 0 && (
+                                            <span className="text-[8px] text-slate-500 font-bold font-mono tracking-tighter mt-1 leading-none">
+                                                {rawCorrect}/{rawTotal}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
-                                        <div className="h-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, rawVal)) : 0}%` }} />
+                                        <div className="h-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, ((rawVal - safeMin) / scaleRange) * 100)) : 0}%` }} />
                                     </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Histórica</span>
-                                    <span className="text-xs font-mono text-blue-400 font-bold">
-                                        {statsVal != null && Number.isFinite(Number(statsVal)) ? formatValue(statsVal) : '—'}{unit}
-                                    </span>
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Histórica</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className="text-[11px] sm:text-xs font-mono text-blue-400 font-bold leading-none">
+                                            {statsVal != null && Number.isFinite(Number(statsVal)) ? `${formatValue(statsVal)}${unit}` : '—'}
+                                        </span>
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
-                                        <div className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, statsVal)) : 0}%` }} />
+                                        <div className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, ((statsVal - safeMin) / scaleRange) * 100)) : 0}%` }} />
                                     </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Nível Real</span>
-                                    <span className="text-xs font-mono text-emerald-400 font-bold">
-                                        {bayVal != null && Number.isFinite(Number(bayVal)) ? formatValue(bayVal) : '—'}{unit}
-                                    </span>
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Nível Real</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className="text-[11px] sm:text-xs font-mono text-emerald-400 font-bold leading-none">
+                                            {bayVal != null && Number.isFinite(Number(bayVal)) ? `${formatValue(bayVal)}${unit}` : '—'}
+                                        </span>
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
-                                        <div className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, bayVal)) : 0}%` }} />
+                                        <div className="h-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, ((bayVal - safeMin) / scaleRange) * 100)) : 0}%` }} />
                                     </div>
                                 </div>
-                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-2.5">
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">Tendência</span>
-                                    <span className={`text-xs font-mono font-bold flex items-center justify-center gap-0.5 ${trendStatus === 'up' ? 'text-emerald-400' : trendStatus === 'down' ? 'text-rose-400' : 'text-slate-400'}`}>
-                                        {trendVal != null && Number.isFinite(Number(trendVal)) ? (
-                                            <>
-                                                {trendVal > 0 ? '↑' : trendVal < 0 ? '↓' : ''}
-                                                <span>{trendVal > 0 ? `+${formatValue(trendVal)}` : formatValue(trendVal)}</span>
-                                            </>
-                                        ) : '—'}
-                                    </span>
+                                <div className="flex flex-col bg-slate-900/40 p-1.5 rounded-md border border-white/5 relative overflow-hidden pb-3">
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase mb-1">Tendência</span>
+                                    <div className="flex flex-col items-center justify-center min-h-[28px] z-10">
+                                        <span className={`text-[11px] sm:text-xs font-mono font-bold flex items-center justify-center gap-0.5 leading-none ${trendStatus === 'up' ? 'text-emerald-400' : trendStatus === 'down' ? 'text-rose-400' : 'text-slate-400'}`}>
+                                            {trendVal != null && Number.isFinite(Number(trendVal)) ? (
+                                                <>
+                                                    {trendVal > 0 ? '↑' : trendVal < 0 ? '↓' : ''}
+                                                    <span>{trendVal > 0 ? `+${formatValue(trendVal)}` : formatValue(trendVal)}</span>
+                                                </>
+                                            ) : '—'}
+                                        </span>
+                                    </div>
                                     <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800/80">
                                         <div className={`h-full ${trendStatus === 'up' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] w-full' : trendStatus === 'down' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)] w-full' : 'bg-slate-500 w-full'}`} style={{ opacity: trendVal != null && Number.isFinite(Number(trendVal)) ? 1 : 0 }} />
                                     </div>
                                 </div>
                             </div>
                             {rawTotal > 0 && (() => {
-                                const errs = rawTotal - rawCorrect;
+                                const safeCorr = Math.max(0, Math.min(rawTotal, Number(rawCorrect) || 0));
+                                const errs = Math.max(0, rawTotal - safeCorr);
                                 const errPct = Math.round((errs / rawTotal) * 100);
                                 const correctPct = 100 - errPct;
                                 return (
@@ -122,3 +147,4 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
         </div>
     );
 };
+

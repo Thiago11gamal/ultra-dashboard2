@@ -1,115 +1,145 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
-import logger from '../utils/logger.js';
+// 🔒 [SECURITY] Sem fallback hardcoded para projeto real.
+// Se faltar config, entra em modo local estrito.
 
-// 1. Otimização da função clean
-const clean = (val) => {
-    if (!val || typeof val !== 'string') return null; // Retorna nulo se for vazio
-    const cleaned = val.trim().replace(/['";]/g, '');
-    if (cleaned === 'undefined' || cleaned === 'null' || cleaned === '') return null;
-    return cleaned;
+import { initializeApp } from 'firebase/app';
+import {
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager,
+    clearIndexedDbPersistence,
+} from 'firebase/firestore';
+import { getAuth, signOut } from 'firebase/auth';
+import { getAnalytics } from 'firebase/analytics';
+
+export const firebaseConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// 2. Extração limpa via Regex (Substitui os múltiplos IFs)
-const deriveProjectId = (rawConfig) => {
-    let id = clean(rawConfig.projectId);
-    if (id) return id;
+// 🛡️ [SECURITY] Sem fallback hardcoded. Se faltar config, modo local estrito.
+export const hasValidFirebaseConfig = Boolean(
+    firebaseConfig.apiKey &&
+    firebaseConfig.projectId &&
+    firebaseConfig.appId
+);
 
-    const sources = [rawConfig.authDomain, rawConfig.storageBucket];
-    for (let source of sources) {
-        const cleanedSource = clean(source);
-        if (cleanedSource) {
-            // Pega tudo antes do primeiro ponto caso pertença aos domínios do Firebase
-            const match = cleanedSource.match(/^([^.]+)\.(?:firebaseapp\.com|firebasestorage\.app|appspot\.com|web\.app)$/);
-            if (match && match[1]) return match[1];
-        }
-    }
-    return null;
-};
+export const isLocalMode =
+    import.meta.env.VITE_LOCAL_MODE === 'true' ||
+    !hasValidFirebaseConfig;
 
-const rawConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.VITE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.VITE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.VITE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.VITE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || import.meta.env.VITE_MEASUREMENT_ID
-};
-
-const derivedProjectId = deriveProjectId(rawConfig);
-if (!clean(rawConfig.projectId) && derivedProjectId) {
-    console.warn(`[Firebase] VITE_FIREBASE_PROJECT_ID missing. Derived: ${derivedProjectId}`);
-}
-
-const firebaseConfig = {
-    apiKey: clean(rawConfig.apiKey),
-    authDomain: clean(rawConfig.authDomain),
-    projectId: derivedProjectId,
-    storageBucket: clean(rawConfig.storageBucket),
-    messagingSenderId: clean(rawConfig.messagingSenderId),
-    appId: clean(rawConfig.appId),
-    measurementId: clean(rawConfig.measurementId)
-};
-
+// Só inicializa se config for válida
 let app = null;
 let db = null;
 let auth = null;
+let analytics = null;
 
-// 3. Blindagem contra ausência de variáveis e objetos "Nulos" vazando para a aplicação
-export const isLocalMode = import.meta.env.VITE_LOCAL_MODE === 'true' || !firebaseConfig.apiKey || !firebaseConfig.projectId;
+export function getAppAnalytics(appInstance = app) {
+    if (!appInstance) return null;
+    return getAnalytics(appInstance);
+}
 
-if (isLocalMode) {
-    console.warn(`%c[Firebase] Chaves ausentes. O Ultra Dashboard funcionará apenas em modo LOCAL (Offline).`, "color: #fbbf24; font-weight: bold;");
-    
-    // Evita crashes criando objetos ocos (Mocks)
-    // Se algum componente chamar db.collection("..."), ele não vai travar a tela inteira.
-    const createMock = (name) => new Proxy({}, {
-        get: (target, prop) => {
-            // Permite que o SDK modular acesse certas propriedades sem quebrar
-            if (prop === 'INTERNAL') return {};
-            if (prop === 'app') return { name: '[MOCK]' };
-            if (prop === 'then') return undefined;
-            // Devolve Array vazio para iteradores típicos do Firestore
-            if (prop === 'docs' || prop === 'map' || prop === 'forEach') return []; 
-            if (prop === 'data') return () => ({});
-            
-            console.debug(`[Local Mode] Chamada ignorada no serviço ${name}.${String(prop)}.`);
-            return () => createMock(name); // Retorna uma função que retorna outro mock
-        }
-    });
-    
-    db = createMock('Firestore');
-    auth = createMock('Auth');
-    
-} else {
+if (!isLocalMode) {
     try {
-        // 4. Prevenção de erro "duplicate-app" no Vite/React Strict Mode
-        app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-        
+        app = initializeApp(firebaseConfig);
+
         db = initializeFirestore(app, {
             localCache: persistentLocalCache({
-                tabManager: persistentMultipleTabManager()
-            })
+                tabManager: persistentMultipleTabManager(),
+            }),
         });
+
         auth = getAuth(app);
-        logger.styled(`[Firebase] Inicializado: ${firebaseConfig.projectId}`, "color: #10b981;");
+
+        try {
+            analytics = getAppAnalytics(app);
+        } catch (err) {
+            // ✅ FIX #7: Log analytics failure para observabilidade
+            console.warn('[Firebase] Analytics inicialização falhou (opcional):', err.message);
+        }
     } catch (err) {
-        logger.error("[Firebase] Erro na inicialização:", err);
+        console.error('[Firebase] Falha ao inicializar. Entrando em modo local.', err);
     }
 }
 
-const getAppAnalytics = async () => {
-    if (typeof window === "undefined" || !app) return null;
-    try {
-        const supported = await isAnalyticsSupported();
-        if (supported) return getAnalytics(app);
-    } catch (err) {
-        console.error("[Firebase] Analytics não suportado no ambiente atual:", err);
-    }
-    return null;
-};
+/**
+ * Limpeza segura de persistência local do Firestore.
+ * Deve ser chamada no logout para evitar vazamento entre usuários.
+ */
+export async function clearFirestoreCache() {
+    if (!db) return;
 
-export { db, auth, getAppAnalytics };
+    try {
+        await clearIndexedDbPersistence(db);
+    } catch (err) {
+        console.warn('[Firebase] Não foi possível limpar IDB persistence:', err);
+    }
+}
+
+/**
+ * Logout seguro: signOut + limpeza de persistência + limpeza de storages.
+ */
+export async function secureLogout() {
+    let signOutFailed = false;
+    try {
+        if (auth) await signOut(auth);
+        await clearFirestoreCache();
+    } catch (err) {
+        console.error('[Firebase] Erro durante logout:', err);
+        signOutFailed = true;
+    } finally {
+        // ✅ FIX N-01: Limpar TODAS as chaves relevantes, incluindo IndexedDB
+        const keysToRemove = [
+            'ultra-dashboard-storage',
+            'ultra-sync-dirty',
+            'pomodoroState',
+            'focusPanelLocked',
+            'pomodoroLayoutLocked',
+            'ultra_local_session',
+            'coach_calibration_events_v1',
+            'coach_flag_optimizer_state_v1',
+            'coach_causal_model_v1',
+            'coach_auto_tuner_history_v1',
+            'coach_evaluation_results_v1',
+            'coach_model_health_v1',
+            'coach_control_center_state_v1',
+            'hasSeenWelcomeScreen',
+            'page-has-been-force-refreshed',
+            'ultra-last-activity',
+        ];
+        keysToRemove.forEach(key => {
+            try {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            } catch { /* ignore */ }
+        });
+
+        // ✅ FIX N-01: Limpar IndexedDB do app (idb-keyval)
+        try {
+            const { del } = await import('idb-keyval');
+            await del('ultra-dashboard-storage');
+        } catch (e) {
+            console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
+        }
+
+        // ✅ FIX N-01: Limpar chaves de quarantine
+        try {
+            const quarantineKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith('quarantine:')) quarantineKeys.push(k);
+            }
+            quarantineKeys.forEach(k => localStorage.removeItem(k));
+        } catch { /* ignore */ }
+
+        if (signOutFailed) {
+            console.warn('[Firebase] Logout local executado, mas signOut remoto falhou.');
+        }
+    }
+}
+
+export { app, db, auth, analytics };
+

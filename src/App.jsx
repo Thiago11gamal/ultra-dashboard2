@@ -7,11 +7,15 @@ import Header from './components/Header';
 import Login from './components/Login';
 import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
-import LevelUpToast from './components/LevelUpToast';
-import OnboardingTour from './components/OnboardingTour';
-import TrashModal from './components/TrashModal';
-import WelcomeScreen from './components/WelcomeScreen';
 import { lazyWithRetry } from './utils/lazyRetry';
+
+// ✅ FIX P01: Importação Tardia (Lazy Loading) de Modais e Componentes Pesados
+// Movemos LevelUpToast, OnboardingTour e TrashModal para fora do bundle principal.
+const LevelUpToast = lazyWithRetry(() => import('./components/LevelUpToast'));
+const OnboardingTour = lazyWithRetry(() => import('./components/OnboardingTour'));
+const TrashModal = lazyWithRetry(() => import('./components/TrashModal'));
+// WelcomeScreen não pode ser lazy porque precisa bloquear a interface no primeiro render
+import WelcomeScreen from './components/WelcomeScreen';
 
 // Página Principal (Dashboard) - Lazy Loading para otimizar o bundle inicial
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
@@ -50,11 +54,44 @@ import useIdleLogout from './hooks/useIdleLogout';
 
 import './components/Loading.css';
 
-const EMPTY_OBJECT = {};
+const EMPTY_OBJECT = Object.freeze({});
+
+const RootRedirect = () => {
+  const { currentUser } = useAuth();
+
+  useEffect(() => {
+    if (currentUser) {
+      const intentionalDashboard = sessionStorage.getItem('navigateToDashboard');
+      if (intentionalDashboard) {
+        sessionStorage.removeItem('navigateToDashboard');
+        localStorage.removeItem(`lastRoute_${currentUser.uid}`);
+      }
+    }
+  }, [currentUser]);
+
+  if (currentUser) {
+    // Se o usuário clicou explicitamente em "Meu Painel", não redirecionar
+    const intentionalDashboard = sessionStorage.getItem('navigateToDashboard');
+    if (intentionalDashboard) {
+      return <Dashboard />;
+    }
+    const lastRoute = localStorage.getItem(`lastRoute_${currentUser.uid}`);
+    if (lastRoute && lastRoute !== '/') {
+      return <Navigate to={lastRoute} replace />;
+    }
+  }
+  return <Dashboard />;
+};
 
 function MainLayout() {
   const location = useLocation();
   const { currentUser, loading, logout } = useAuth();
+
+  useEffect(() => {
+    if (currentUser && location.pathname !== '/' && location.pathname !== '/login') {
+      localStorage.setItem(`lastRoute_${currentUser.uid}`, location.pathname + location.search);
+    }
+  }, [location, currentUser]);
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
 
   const activeContestId = useAppStore(state => state.appState.activeId);
@@ -161,14 +198,28 @@ function MainLayout() {
       rescueAttemptsRef.current = 0;
     }
 
+    let rescueTimer = null;
+    let resetTimer = null;
+
     if (isStoreHydrated && !headerData.exists && rescueAttemptsRef.current < 3) {
       const keys = Object.keys(contestsMetaList || {});
       if (keys.length > 0) {
         console.warn('[Rescue] Concurso ativo inválido. Selecionando fallback:', keys[0]);
         rescueAttemptsRef.current += 1;
-        setTimeout(() => switchContest(keys[0]), 0); // Empurra para o fim da event loop para dar tempo ao Zustand de propagar o estado
+        
+        rescueTimer = setTimeout(() => switchContest(keys[0]), 100);
+        
+        // Reset após 30s de estabilidade
+        resetTimer = setTimeout(() => { 
+          rescueAttemptsRef.current = 0; 
+        }, 30000);
       }
     }
+
+    return () => {
+      if (rescueTimer) clearTimeout(rescueTimer);
+      if (resetTimer) clearTimeout(resetTimer);
+    };
   }, [showToast, isStoreHydrated, headerData.exists, contestsMetaList, switchContest]);
 
   const cloudStatusHeader = React.useMemo(() => ({
@@ -194,23 +245,62 @@ function MainLayout() {
     showToast('Ação desfeita! ↩️', 'info');
   }, [undo, showToast]);
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const handleImport = useCallback((event) => {
     const file = event.target.files[0];
     if (!file) return;
     event.target.value = '';
 
+    if (file.size > 50 * 1024 * 1024) { // 50MB
+      showToast('O arquivo de backup é grande demais (máx 50MB).', 'error');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
+      if (!isMountedRef.current) return;
       showToast('A processar backup... ⏳', 'info');
 
       // Joga o processamento pesado para o final da fila de eventos, 
       // deixando a animação do Toast ocorrer fluida.
       if (importTimeoutRef.current) clearTimeout(importTimeoutRef.current);
       importTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
         try {
           const currentAppState = useAppStore.getState().appState;
           const result = parseImportedData(e.target.result, currentAppState);
-          setAppState(result.data);
+          if (!result || !result.data || typeof result.data !== 'object') {
+            showToast('Backup inválido ou corrompido.', 'error');
+            return;
+          }
+          // ✅ FIX: Validar estrutura mínima antes de aplicar
+          const importedData = result.data;
+          if (!importedData.contests || typeof importedData.contests !== 'object') {
+            showToast('Backup sem estrutura de concursos. Verifique o arquivo.', 'error');
+            return;
+          }
+          // ✅ FIX: Garantir que activeId aponta para um concurso existente
+          const contestIds = Object.keys(importedData.contests);
+          if (contestIds.length === 0) {
+            showToast('Backup sem concursos.', 'error');
+            return;
+          }
+          if (!importedData.activeId || !importedData.contests[importedData.activeId]) {
+            importedData.activeId = contestIds[0];
+          }
+          // ✅ FIX: Validar que cada concurso tem estrutura mínima
+          for (const [id, contest] of Object.entries(importedData.contests)) {
+            if (!contest || typeof contest !== 'object') {
+              showToast(`Concurso "${id}" inválido no backup.`, 'error');
+              return;
+            }
+          }
+          setAppState(importedData);
           showToast('Backup restaurado com sucesso! ✨', 'success');
         } catch (err) {
           console.error("Import Error:", err);
@@ -219,6 +309,11 @@ function MainLayout() {
           importTimeoutRef.current = null;
         }
       }, 350); // Delay de 350ms permite que a animação de entrada do Toast complete suavemente
+    };
+
+    // FIX: Adicionar handler de erro no FileReader
+    reader.onerror = () => {
+      showToast('Erro ao ler arquivo.', 'error');
     };
 
     reader.readAsText(file);
@@ -247,7 +342,7 @@ function MainLayout() {
           </div>
         }>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<RootRedirect />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/pomodoro" element={<Pomodoro />} />
             <Route path="/tasks" element={<Tasks />} />
@@ -281,7 +376,7 @@ function MainLayout() {
           </div>
         </div>
         <div className="flex flex-col items-center gap-2">
-          <span className="text-white font-black uppercase tracking-[0.3em] text-sm animate-pulse">Ultra Dashboard</span>
+          <span className="text-white font-black uppercase tracking-[0.3em] text-sm animate-pulse">Método Arraia</span>
           <span className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Iniciando Motor de Persistência...</span>
         </div>
       </div>
@@ -356,9 +451,10 @@ function MainLayout() {
                 <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 mt-0 pt-[110px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
                   <Motion.div 
                     key={`${activeContestId}-${location.pathname}`} 
-                    initial={{ opacity: 0.9, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={{ opacity: 0.9 }}
+                    animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
+                    style={{ transform: "none", filter: "none", willChange: "auto" }}
                   >
                     {routesContent}
                   </Motion.div>
@@ -404,3 +500,4 @@ function App() {
 }
 
 export default App;
+

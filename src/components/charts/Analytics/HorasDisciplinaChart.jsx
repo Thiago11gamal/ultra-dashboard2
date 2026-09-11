@@ -5,7 +5,7 @@ import { formatDuration } from '../../../utils/dateHelper';
 const COLORS = ['#818cf8', '#6366f1', '#4f46e5', '#4338ca', '#3730a3'];
 
 export function HorasDisciplinaChart({ data }) {
-    if (!data || data.length === 0) {
+    if (!data || !Array.isArray(data) || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-[300px] border border-white/5 rounded-2xl bg-black/20">
                 <p className="text-slate-500 text-sm font-medium italic">Dados insuficientes para análise por matéria.</p>
@@ -13,8 +13,8 @@ export function HorasDisciplinaChart({ data }) {
         );
     }
 
-    // Sort by hours descending
-    const sortedData = [...data].sort((a, b) => b.horas - a.horas);
+    // Sort by hours descending (ensuring numerical sort)
+    const sortedData = [...data].sort((a, b) => (Number(b.horas) || 0) - (Number(a.horas) || 0));
 
     // FIX: Altura base de 300px (para o eixo X ficar sempre no fundo alinhado ao outro gráfico), 
     // mas se tiver muitas matérias, cresce proporcionalmente para não amassar as barras.
@@ -34,7 +34,10 @@ export function HorasDisciplinaChart({ data }) {
                         type="number"
                         stroke="#94a3b8"
                         fontSize={10}
-                        domain={[0, dataMax => Math.max(1, Math.ceil(dataMax * 1.1))]}
+                        domain={[0, dataMax => {
+                            const safeMax = Number.isFinite(dataMax) ? dataMax : 0;
+                            return Math.max(1, Math.ceil(safeMax * 1.1));
+                        }]}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(val) => formatDuration(val)}
@@ -48,7 +51,20 @@ export function HorasDisciplinaChart({ data }) {
                         axisLine={false}
                         tickLine={false}
                         width={80}
-                        tick={{ fill: '#e2e8f0', fontSize: 9, fontWeight: 600 }}
+                        tick={(props) => {
+                            const { x, y, payload } = props;
+                            let rawText = String(payload.value || '');
+                            if (rawText.length > 13) {
+                                rawText = rawText.substring(0, 13).trim() + '...';
+                            }
+                            return (
+                                <g transform={`translate(${x},${y})`}>
+                                    <text x={0} y={0} dy={3} dx={-5} textAnchor="end" fill="#e2e8f0" fontSize={9} fontWeight={600}>
+                                        {rawText}
+                                    </text>
+                                </g>
+                            );
+                        }}
                     />
 
                     <Tooltip
@@ -74,3 +90,4 @@ export function HorasDisciplinaChart({ data }) {
         </div>
     );
 }
+

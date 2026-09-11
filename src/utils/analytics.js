@@ -1,38 +1,72 @@
 import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
+import { parseNoonLocal } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
+import { safeDate } from '../engine/math/date.js';
 import { format } from 'date-fns';
+import { toFinite } from '../engine/math/safe.js';
+import { toArray } from './normalize.js';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// T-024 FIX: helper para ancorar "hoje" em America/Manaus (UTC-4).
+// Se o timezone do app mudar, este offset precisa acompanhar APP_TIMEZONE.
+const getManausDayRange = (dateInput) => {
+    const key = getDateKey(dateInput);
+
+    if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        return null;
+    }
+
+    const [year, month, day] = key.split('-').map(Number);
+
+    // America/Manaus é UTC-4.
+    // Meia-noite de Manaus = 04:00 UTC.
+    const start = Date.UTC(year, month - 1, day, 4, 0, 0, 0);
+
+    return {
+        key,
+        start,
+        end: start + MS_PER_DAY
+    };
+};
 
 /**
  * Distributes a rounding remainder across items based on their decimal parts.
  * Uses the "Largest Remainder Method" to ensure percentages sum to exactly 100%.
  */
+// ✅ FIX L01: Adicionado limite máximo de iterações para prevenir loop
+// infinito caso diff seja maior que items.length * N.
 const distributeRoundingRemainder = (items, targetSum = 100) => {
     if (!items.length) return items;
 
-    // 1. Calculate floor percentages and track remainders
     const withRemainders = items.map(item => {
-        const value = item.rawPercentage || 0;
+        const value = Number(item.rawPercentage) || 0;
         const floor = Math.floor(value);
-        return {
-            ...item,
-            percentage: floor,
-            remainder: value - floor
-        };
+        return { ...item, percentage: floor, remainder: value - floor };
     });
 
     const currentSum = withRemainders.reduce((sum, item) => sum + item.percentage, 0);
     let diff = targetSum - currentSum;
 
     if (diff > 0) {
-        // 2. Sort by remainder descending and distribute the rounding remainder
-        // BUGFIX M1: Loop while diff > 0 to ensure sum reaches targetSum even if diff > items.length
         withRemainders.sort((a, b) => b.remainder - a.remainder);
         let i = 0;
-        while (diff > 0 && withRemainders.length > 0) {
+        // ✅ FIX: Limite máximo de iterações = items.length * 2
+        // (cada item pode receber no máximo ~2 incrementos extras)
+        const maxIterations = withRemainders.length * 2;
+        let iterations = 0;
+
+        while (diff > 0 && withRemainders.length > 0 && iterations < maxIterations) {
             withRemainders[i % withRemainders.length].percentage += 1;
             diff--;
             i++;
+            iterations++;
+        }
+
+        // Se ainda houver diff após o limite, distribuir uniformemente
+        if (diff > 0) {
+            console.warn('[distributeRoundingRemainder] diff residual após limite:', diff);
         }
     }
 
@@ -40,58 +74,56 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
 };
 
 export const calculateStudyStreak = (studyLogs) => {
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    if (!logsArray || logsArray.length === 0) {
-        return { current: 0, best: 0, longest: 0, isActive: false };
-    }
-
-    // 1. Agrupar por dia único (YYYY-MM-DD local) para ignorar horas/minutos
-    const daySet = new Set(
-        logsArray.map(log => getDateKey(log.date)).filter(Boolean)
-    );
-    const sortedDays = Array.from(daySet).sort((a, b) =>
-        new Date(b) - new Date(a)
-    );
-
-    const todayStr = getDateKey(new Date());
-    const lastDayStr = sortedDays[0];
-
-    // 2. Cálculo do Gap (Perdão do Dia Atual)
-    // BUGFIX: Não usamos diferença em ms do Date.now().
-    // Comparamos a diferença entre as strings de data normalizadas para 12:00:00
-    // para evitar problemas de fuso horário e horário de verão.
-    const t = new Date(todayStr + 'T12:00:00');
-    const l = new Date((lastDayStr || todayStr) + 'T12:00:00');
-    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
-
-    // Se o gap for >= 2, ele pulou o dia de ontem INTEIRO. Streak quebrado.
-    if (diffDays >= 2) {
-        const longest = calculateLongest(sortedDays);
-        return { current: 0, best: longest, longest, isActive: false };
-    }
-
-    // 3. Contagem regressiva da Ofensiva
-    let streak = 0;
-    // O cursor começa no último dia de estudo real
-    let dateCursor = new Date(lastDayStr + 'T12:00:00');
-
-    for (let i = 0; i < sortedDays.length * 2; i++) {
-        const dString = getDateKey(dateCursor);
-        if (daySet.has(dString)) {
-            streak++;
-            dateCursor.setDate(dateCursor.getDate() - 1);
-        } else {
-            break; // Fim da sequência
-        }
-    }
-
+  const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+  if (!logsArray || logsArray.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+  const daySet = new Set(
+    logsArray
+      // BUG-FIX: contar flashcards como atividade (getStudyMinutes retorna 0 para flashcards)
+      .filter(log => log && log.date && (getStudyMinutes(log) > 0 || log.type === 'flashcard'))
+      .map(log => getDateKey(log.date))
+      .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
+  );
+  const sortedDays = Array.from(daySet).sort((a, b) =>
+    parseNoonLocal(b) - parseNoonLocal(a)
+  );
+  if (sortedDays.length === 0) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+  const todayStr = getDateKey(new Date());
+  const lastDayStr = sortedDays[0];
+  const t = parseNoonLocal(todayStr);
+  const l = parseNoonLocal(lastDayStr);
+  // BUG-FIX: validar datas antes de calcular diff
+  if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
+    return { current: 0, best: 0, longest: 0, isActive: false };
+  }
+  const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
+  if (diffDays >= 2) {
     const longest = calculateLongest(sortedDays);
-    return {
-        current: streak,
-        best: longest,
-        longest: longest,
-        isActive: diffDays <= 1 // Ativo se estudou hoje ou ontem
-    };
+    return { current: 0, best: longest, longest, isActive: false };
+  }
+  let streak = 0;
+  let cursorKey = lastDayStr;
+  // BUG-FIX: proteger contra loop quase-infinito com datas inválidas
+  const maxIterations = Math.min(sortedDays.length + 2, 3660);
+  let prevCursorKey = null;
+  for (let i = 0; i < maxIterations; i++) {
+    if (!cursorKey || !daySet.has(cursorKey)) break;
+    // BUG-FIX: detectar cursor travado (mesma chave = bug de timezone)
+    if (cursorKey === prevCursorKey) break;
+    prevCursorKey = cursorKey;
+    streak++;
+    const anchoredIso = `${cursorKey}T12:00:00-04:00`;
+    const anchored = new Date(anchoredIso);
+    anchored.setDate(anchored.getDate() - 1);
+    const nextKey = getDateKey(anchored);
+    if (!nextKey) break;
+    cursorKey = nextKey;
+  }
+  const longest = calculateLongest(sortedDays);
+  return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
 };
 
 
@@ -101,8 +133,8 @@ const calculateLongest = (uniqueDays) => {
     let current = 1;
     // uniqueDays está ordenado DECRESCENTE — iteramos do mais recente ao mais antigo
     for (let i = 1; i < uniqueDays.length; i++) {
-        const dCurrent = new Date(`${uniqueDays[i]}T12:00:00`);
-        const dPrev = new Date(`${uniqueDays[i - 1]}T12:00:00`);
+        const dCurrent = parseNoonLocal(uniqueDays[i]);
+        const dPrev = parseNoonLocal(uniqueDays[i - 1]);
         const diff = Math.round((dPrev - dCurrent) / (1000 * 60 * 60 * 24));
         if (diff === 1) {
             current++;
@@ -114,11 +146,17 @@ const calculateLongest = (uniqueDays) => {
     return longest;
 };
 
-const getStudyMinutes = (entry) => {
-    const duration = Number(entry?.duration);
-    const minutes = Number(entry?.minutes);
-    const raw = Number.isFinite(duration) ? duration : (Number.isFinite(minutes) ? minutes : 0);
-    return Math.max(0, raw);
+// T-024 FIX: fallback seguro entre minutes e duration.
+// Se minutes === 0 mas duration > 0, ainda aproveitamos duration.
+export const getStudyMinutes = (entry) => {
+    // ✅ FIX N-02: Ignorar logs de flashcard
+    if (entry?.type === 'flashcard') return 0;
+
+    const minutes = toFinite(entry?.minutes, 0);
+    const duration = toFinite(entry?.duration, 0);
+    if (Number.isFinite(minutes) && minutes > 0) return minutes;
+    if (Number.isFinite(duration) && duration > 0) return duration;
+    return 0;
 };
 
 /**
@@ -126,69 +164,102 @@ const getStudyMinutes = (entry) => {
  * extraCompletedCycles cobre blocos de foco da sessão ativa ainda não persistidos em log.
  */
 export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompletedCycles = 0) => {
-    const startOfToday = getLocalMidnight().getTime();
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    const workDuration = Math.max(1, Number(pomodoroWork) || 25);
+  const logsArray = toArray(studyLogs);
+  const workDuration = Math.max(1, Number(pomodoroWork) || 25);
+  const todayKey = getDateKey(new Date());
 
-    const minutesToday = logsArray.reduce((sum, log) => {
-        const d = normalizeDate(log?.date);
-        if (!d || d.getTime() < startOfToday) return sum;
-        return sum + getStudyMinutes(log);
-    }, 0);
+  const minutesToday = logsArray.reduce((sum, log) => {
+    const d = safeDate(log?.date);
+    if (!d) return sum;
+    if (getDateKey(d) === todayKey) return sum + getStudyMinutes(log);
+    return sum;
+  }, 0);
 
-    const pomodorosFromLogs = Math.floor(minutesToday / workDuration);
-    const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
-    
-    // extraCompletedCycles are cycles from the current active session that haven't been 
-    // committed to logs yet. We should just add them to the daily total.
-    return pomodorosFromLogs + safeExtra;
+  const pomodorosFromLogs = Number.isFinite(minutesToday)
+    ? Math.floor(minutesToday / workDuration) : 0;
+  const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
+  return pomodorosFromLogs + safeExtra;
 };
 
 /** Total de pomodoros (vida útil) baseado em minutos reais, não contagem de sessões. */
 export const countPomodorosTotal = (studyLogs, studySessions, pomodoroWork = 25) => {
     const workDuration = Math.max(1, Number(pomodoroWork) || 25);
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    const sessionsArray = Array.isArray(studySessions) ? studySessions : Object.values(studySessions || {});
 
-    const totalMinutes = sessionsArray.length > 0
-        ? sessionsArray.reduce((sum, s) => sum + getStudyMinutes(s), 0)
-        : logsArray.reduce((sum, log) => sum + getStudyMinutes(log), 0);
+    // T-019/T-024 FIX: normalizar entradas
+    const logsArray = toArray(studyLogs);
+    const sessionsArray = toArray(studySessions);
+
+    const logsMinutes = logsArray.reduce((sum, log) => sum + getStudyMinutes(log), 0);
+    const sessionsMinutes = sessionsArray.reduce((sum, s) => sum + getStudyMinutes(s), 0);
+    
+    const totalMinutes = Math.max(logsMinutes, sessionsMinutes);
 
     return Math.floor(totalMinutes / workDuration);
 };
 
 const aggregateQuestionAccuracy = (contestData) => {
-    const validSimulados = (contestData.simuladoRows || []).filter(
+    // T-011 FIX: garantir que correct nunca ultrapasse total.
+    const clampCorrect = (correct, total) => {
+        const t = Number(total);
+        if (!Number.isFinite(t) || t <= 0) return 0;
+
+        const c = Number(correct);
+        if (!Number.isFinite(c)) return 0;
+
+        return Math.max(0, Math.min(t, c));
+    };
+
+    const validSimulados = toArray(contestData?.simuladoRows).filter(
         r => r?.validated && Number(r?.total) > 0 && r?.correct !== undefined
     );
 
-    let totalQuestions = validSimulados.reduce((acc, r) => acc + Number(r.total), 0);
-    let totalCorrect = validSimulados.reduce((acc, r) => acc + Number(r.correct), 0);
+    let totalQuestions = 0;
+    let totalCorrect = 0;
 
-    // Only supplement from history if we have no explicit validated rows (legacy or no submissions)
-    // This prevents double-counting recent simulado data that exists in both rows and history.
+    validSimulados.forEach(r => {
+        const t = Number(r.total);
+        if (!Number.isFinite(t) || t <= 0) return;
+
+        totalQuestions += t;
+        totalCorrect += clampCorrect(r.correct, t);
+    });
+
+    // Only supplement from history if we have no explicit validated rows
     if (validSimulados.length === 0 || totalQuestions === 0) {
-        (contestData.categories || []).forEach(cat => {
-            const maxS = Number(cat.maxScore) || 100;
+        toArray(contestData?.categories).forEach(cat => {
+            const maxS = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0
+                ? Number(cat.maxScore) : 100;
+            const minS = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), maxS) : 0;
+            const rangeS = Math.max(1e-9, maxS - minS);
             const syntheticTotal = getSyntheticTotal(maxS);
-            const histArr = Array.isArray(cat.simuladoStats?.history)
-                ? cat.simuladoStats.history
-                : Object.values(cat.simuladoStats?.history || {});
+
+            const histArr = toArray(cat?.simuladoStats?.history);
 
             histArr.forEach(e => {
-                let t = Number(e.total) || 0;
+                let t = Number(e?.total) || 0;
                 let c = 0;
+
                 if (t > 0) {
-                    c = e.correct !== undefined ? Number(e.correct) : Math.round((getSafeScore(e, maxS) / maxS) * t);
-                } else if (e.score != null) {
+                    c = e?.correct !== undefined
+                        ? Number(e.correct)
+                        : Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
+                } else if (e?.score != null) {
                     t = syntheticTotal;
-                    c = Math.round((getSafeScore(e, maxS) / maxS) * t);
+                    c = Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
                 }
+
+                if (!Number.isFinite(t) || t <= 0) return;
+
+                c = clampCorrect(c, t);
+
                 totalQuestions += t;
                 totalCorrect += c;
             });
         });
     }
+
+    // T-011 FIX: blindagem final contra dados corrompidos
+    totalCorrect = Math.max(0, Math.min(totalQuestions, totalCorrect));
 
     return {
         totalQuestions,
@@ -207,41 +278,48 @@ export const buildAchievementStats = (contestData, options = {}) => {
     const pomodoroWork = Math.max(1, Number(options.pomodoroWork ?? contestData.settings?.pomodoroWork) || 25);
     const extraCompletedCycles = Math.max(0, Number(options.extraCompletedCycles) || 0);
 
-    const studyLogs = Array.isArray(contestData.studyLogs)
-        ? contestData.studyLogs
-        : Object.values(contestData.studyLogs || {});
-    const studySessions = Array.isArray(contestData.studySessions)
-        ? contestData.studySessions
-        : Object.values(contestData.studySessions || {});
+    // BUG-T05 FIX: Se houve reset manual, ignorar conquistas desbloqueadas antes.
+    const resetAt = contestData?.user?.achievementsResetAt
+        ? new Date(contestData.user.achievementsResetAt).getTime()
+        : 0;
+
+    // T-019 FIX: normalizar dados de forma consistente e filtrar por resetAt
+    const filterByReset = (item) => {
+        if (!resetAt) return true;
+        const time = new Date(item?.date || item?.createdAt || item?.startTime || 0).getTime();
+        return time >= resetAt;
+    };
+
+    const studyLogs = toArray(contestData?.studyLogs).filter(filterByReset);
+    const studySessions = toArray(contestData?.studySessions).filter(filterByReset);
 
     const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
 
-    let studiedEarly = contestData.user?.studiedEarly || false;
-    let studiedLate = contestData.user?.studiedLate || false;
-    let studiedWeekend = false;
-
-    studyLogs.forEach(log => {
-        const d = normalizeDate(log?.date);
+    let studiedEarly = Boolean(contestData.user?.studiedEarly);
+    let studiedLate = Boolean(contestData.user?.studiedLate);
+    let studiedWeekend = Boolean(contestData.user?.studiedWeekend);
+    // Garante que studiedWeekend é setado a partir dos logs
+    const logsArrayForWeekend = toArray(studyLogs);
+    logsArrayForWeekend.forEach(log => {
+        const d = safeDate(log?.date);
         if (!d) return;
-        const hr = d.getHours();
         const day = d.getDay();
-        if (hr >= 4 && hr < 7) studiedEarly = true;
-        if (hr >= 23 || hr < 4) studiedLate = true;
         if (day === 0 || day === 6) studiedWeekend = true;
     });
 
-    const categoriesArray = Array.isArray(contestData.categories) ? contestData.categories : Object.values(contestData.categories || {});
+    const categoriesArray = toArray(contestData?.categories);
 
     const hasPerfectScoreFromHistory = categoriesArray.some(cat => {
         const hist = cat.simuladoStats?.history;
-        const histArr = Array.isArray(hist) ? hist : Object.values(hist || {});
-        const maxS = Number(cat.maxScore) || 100;
-        return histArr?.some(h => getSafeScore(h, maxS) >= maxS || (h.correct === h.total && h.total > 0));
+        const histArr = (Array.isArray(hist) ? hist : Object.values(hist || {})).filter(filterByReset);
+        const maxS = Number.isFinite(Number(cat.maxScore)) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : 100;
+        const minS = Number.isFinite(Number(cat.minScore)) ? Math.min(Number(cat.minScore), maxS) : 0;
+        return histArr?.some(h => getSafeScore(h, maxS, minS) >= maxS || (h.correct === h.total && h.total > 0));
     }) || false;
 
     return {
         completedTasks: categoriesArray.reduce(
-            (sum, cat) => sum + ((Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t.completed)?.length || 0), 0
+            (sum, cat) => sum + ((Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t.completed && (!resetAt || new Date(t.completedAt || 0).getTime() >= resetAt))?.length || 0), 0
         ) || 0,
         currentStreak: calculateStudyStreak(studyLogs).current,
         totalQuestions,
@@ -251,6 +329,8 @@ export const buildAchievementStats = (contestData, options = {}) => {
         pomodorosToday: countPomodorosToday(studyLogs, pomodoroWork, extraCompletedCycles),
         studiedEarly,
         studiedLate,
+        // BUG-T10 FIX: Garantir que studiedWeekend está sempre presente
+        // no objeto retornado para consumo pelas conquistas.
         studiedWeekend,
         subjectsStudied: new Set(studyLogs.filter(log => log.categoryId).map(log => log.categoryId)).size,
         // Flashcard indicators as measures
@@ -262,10 +342,12 @@ export const buildAchievementStats = (contestData, options = {}) => {
             return (correct / fcLogs.length) * 100;
         })(),
         flashcardReviewsToday: (() => {
-            const startOfToday = getLocalMidnight().getTime();
-            return studyLogs.filter(log => 
-                log.type === 'flashcard' && 
-                normalizeDate(log?.date)?.getTime() >= startOfToday
+            // T-024 FIX: usar getDateKey em vez de timestamp local
+            const todayKey = getDateKey(new Date());
+
+            return studyLogs.filter(log =>
+                log?.type === 'flashcard' &&
+                getDateKey(log?.date) === todayKey
             ).length;
         })(),
         // Enhanced deck-based flashcard indicators (for KPIs, Coach, Retention)
@@ -278,7 +360,8 @@ export const buildAchievementStats = (contestData, options = {}) => {
 };
 
 export const analyzeSubjectBalance = (categories) => {
-    const safeCategories = Array.isArray(categories) ? categories : [];
+    // T-019 FIX: aceitar objeto Firebase
+    const safeCategories = toArray(categories);
     const totalMinutes = safeCategories.reduce((sum, c) => sum + Math.max(0, Number(c?.totalMinutes) || 0), 0);
 
     if (totalMinutes === 0) {
@@ -293,7 +376,8 @@ export const analyzeSubjectBalance = (categories) => {
     // Distribution with Rounding Protection (B-05 FIX)
     let distribution = safeCategories.map(c => {
         const minutes = Math.max(0, Number(c?.totalMinutes) || 0);
-        const tasks = Array.isArray(c?.tasks) ? c.tasks : [];
+        // T-019 FIX: tasks podem ser objeto
+        const tasks = toArray(c?.tasks);
         const rawPercentage = totalMinutes > 0 ? (minutes / totalMinutes) * 100 : 0;
         return {
             subject: c?.name || 'Sem nome',
@@ -351,24 +435,33 @@ export const analyzeSubjectBalance = (categories) => {
 };
 
 export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
-    const safeCategories = Array.isArray(categories) ? categories : [];
-    const safeLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    // T-019 FIX: normalização universal
+    const safeCategories = toArray(categories);
+    const safeLogs = toArray(studyLogs);
 
+    // T-024 FIX: se duration vier 0 mas minutes existir, usa minutes.
     const getMinutes = (entry) => {
-        const duration = Number(entry?.duration);
         const minutes = Number(entry?.minutes);
-        const raw = Number.isFinite(duration) ? duration : (Number.isFinite(minutes) ? minutes : 0);
-        return Math.max(0, raw);
+        const duration = Number(entry?.duration);
+
+        if (Number.isFinite(minutes) && minutes > 0) return Math.max(0, minutes);
+        if (Number.isFinite(duration) && duration > 0) return Math.max(0, duration);
+
+        return 0;
     };
 
     const totalMinutes = safeLogs.length > 0
         ? safeLogs.reduce((sum, l) => sum + getMinutes(l), 0)
         : safeCategories.reduce((sum, c) => sum + Math.max(0, Number(c?.totalMinutes) || 0), 0);
     // Bug fix: optional chaining on c.tasks throughout to avoid crash if tasks is undefined
-    const totalTasks = safeCategories.reduce((sum, c) => sum + (Array.isArray(c?.tasks) ? c.tasks.length : 0), 0);
-    const completedTasks = safeCategories.reduce((sum, c) =>
-        sum + (Array.isArray(c?.tasks) ? c.tasks.filter(t => t?.completed).length : 0), 0
-    );
+    // T-019 FIX: tasks normalizadas
+    const totalTasks = safeCategories.reduce((sum, c) => {
+        return sum + toArray(c?.tasks).length;
+    }, 0);
+
+    const completedTasks = safeCategories.reduce((sum, c) => {
+        return sum + toArray(c?.tasks).filter(t => t?.completed).length;
+    }, 0);
 
     if (totalMinutes === 0 && completedTasks === 0) {
         return {
@@ -434,8 +527,9 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
         parseFloat((completedTasks / (totalMinutes / 60)).toFixed(2)) : 0;
 
     // Análise de tarefas de alta prioridade
+    // T-019 FIX: tasks normalizadas
     const highPriorityTasks = safeCategories.flatMap(c =>
-        (Array.isArray(c?.tasks) ? c.tasks : []).filter(t => t?.priority === 'high')
+        toArray(c?.tasks).filter(t => t?.priority === 'high')
     );
     const highPriorityCompleted = highPriorityTasks.filter(t => t.completed).length;
     const highPriorityRate = highPriorityTasks.length > 0
@@ -500,17 +594,24 @@ const generateEfficiencyRecommendations = ({ minutesPerTask, completionRate, hig
 };
 
 export const detectProcrastination = (categories, studyLogs) => {
-    if (!Array.isArray(categories)) categories = [];
+    // T-019 FIX: normalização universal
+    const categoriesArray = toArray(categories);
     const now = new Date();
     // BUG-02 FIX: Usar âncora de 12:00:00 para comparação de dias, 
     // garantindo paridade com o resto do sistema de datas (dateHelper).
-    const normalizedNow = normalizeDate(now).getTime();
+    const normalizedNowDate = normalizeDate(now);
+
+    if (!normalizedNowDate || Number.isNaN(normalizedNowDate.getTime())) {
+      return { warnings: [] };
+    }
+
+    const normalizedNow = normalizedNowDate.getTime();
     const warnings = [];
 
     // Fix 3: Pre-index logs by taskId and categoryId to avoid O(logs) filter inside each loop
     const logsByTaskId = {};
     const logsByCategoryId = {};
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const logsArray = toArray(studyLogs);
     logsArray.forEach(log => {
         if (log.taskId) {
             if (!logsByTaskId[log.taskId]) logsByTaskId[log.taskId] = [];
@@ -522,7 +623,7 @@ export const detectProcrastination = (categories, studyLogs) => {
         } else if (log.categoryName) {
             // 🎯 BUG 2.2 FIX: Fallback para logs sem categoryId mas com categoryName.
             // Permite que estudos "livres" sem vínculo de ID ainda protejam a categoria contra alertas de procrastinação.
-            const matchingCat = categories.find(c => c.name === log.categoryName);
+            const matchingCat = categoriesArray.find(c => c.name === log.categoryName);
             if (matchingCat) {
                 if (!logsByCategoryId[matchingCat.id]) logsByCategoryId[matchingCat.id] = [];
                 logsByCategoryId[matchingCat.id].push(log);
@@ -531,8 +632,9 @@ export const detectProcrastination = (categories, studyLogs) => {
     });
 
     // 1. Tarefas de alta prioridade sem progresso recente
-    categories.forEach(cat => {
-        cat.tasks?.forEach(task => {
+    categoriesArray.forEach(cat => {
+        // T-019 FIX: tasks normalizadas
+        toArray(cat?.tasks).forEach(task => {
             if (task.priority === 'high' && !task.completed) {
                 const taskLogs = logsByTaskId[task.id] || [];
                 const recentLogs = taskLogs.filter(log => {
@@ -565,8 +667,8 @@ export const detectProcrastination = (categories, studyLogs) => {
     });
 
     // 2. Categoria sem atividade há mais de 5 dias
-    categories.forEach(cat => {
-        if ((cat.tasks || []).length > 0) {
+    categoriesArray.forEach(cat => {
+        if (toArray(cat?.tasks).length > 0) {
             const categoryLogs = (logsByCategoryId[cat.id] || []).filter(Boolean);
             if (categoryLogs.length > 0) {
                 const lastLog = categoryLogs.reduce((latest, log) =>
@@ -597,9 +699,12 @@ export const detectProcrastination = (categories, studyLogs) => {
             return daysDiff <= 7;
         });
 
-        const uniqueDays = new Set(last7Days.map(log =>
-            getDateKey(log.date)
-        )).size;
+        // T-024 FIX: remover chaves inválidas/null do set
+        const uniqueDays = new Set(
+            last7Days
+                .map(log => getDateKey(log.date))
+                .filter(Boolean)
+        ).size;
 
         if (uniqueDays < 3) {
             warnings.push({
@@ -630,72 +735,87 @@ export const DAILY_GOAL_MINUTES = 240; // Configurado para 4 horas padrão
 export const calculatePomodoroStats = (stats) => {
     const { studySessions = [], studyLogs = [], categories = [], user = {}, settings = {} } = stats || {};
 
-    // Get dynamic goal (B-11 FIX: Link dashboard UI to dynamic goal engine)
-    const dynamicGoal = calculateDailyPomodoroGoal(categories, user);
+    // T-019 FIX: normalização universal
+    const safeStudySessions = toArray(studySessions);
+    const safeStudyLogs = toArray(studyLogs);
+    const safeCategories = toArray(categories);
+
+    // Get dynamic goal
+    const dynamicGoal = calculateDailyPomodoroGoal(safeCategories, user);
     const dailyGoalPomodoros = dynamicGoal.daily;
     const pomodoroDuration = settings?.pomodoroWork || 25;
     const dailyGoalMinutes = dailyGoalPomodoros * pomodoroDuration;
 
-    // B-02 FIX: Usar objeto Date local, não toISOString() que sempre retorna UTC.
-    // 🕒 PADRONIZAÇÃO MANAUS: Garante que "hoje" começa à meia-noite exata de Manaus (UTC-4)
-    const startOfDay = getLocalMidnight();
+    // T-024 FIX: usar range ancorado em Manaus, com fallback local
+    const todayRange = getManausDayRange(new Date()) || {
+        start: getLocalMidnight().getTime(),
+        end: getLocalMidnight().getTime() + MS_PER_DAY
+    };
 
-    // Fix: Filter sessions where the end time crosses into today or later
-    const todaySessions = studySessions.filter(s => {
-        const start = new Date(s.startTime);
-        const end = s.endTime ? new Date(s.endTime) : new Date(start.getTime() + (s.duration || 0) * 60000);
-        return end > startOfDay;
+    const todaySessions = safeStudySessions.filter(s => {
+        const start = safeDate(s?.startTime);
+        if (!start) return false;
+
+        const end = s?.endTime
+            ? safeDate(s.endTime)
+            : new Date(start.getTime() + (Number(s.duration) || 0) * 60000);
+
+        return (
+            Number.isFinite(end?.getTime()) &&
+            end.getTime() > todayRange.start &&
+            start.getTime() < todayRange.end
+        );
     });
 
     let todayMinutes = 0;
-    let fractionalPomodoros = 0; // FIX: Contagem baseada no esforço real/proporcional
+    let fractionalPomodoros = 0;
     const todaySubjects = {};
 
     todaySessions.forEach(session => {
-        const start = new Date(session.startTime);
+        const start = safeDate(session.startTime);
+        if (!start) return;
 
-        // G-02 Duration Recovery Fallback
         let sessionDuration = Number(session.duration) || 0;
+
         if (sessionDuration === 0 && session.startTime && session.endTime) {
-            const end = new Date(session.endTime);
-            sessionDuration = Math.round((end.getTime() - start.getTime()) / 60000);
+            const end = safeDate(session.endTime);
+            if (end) {
+                sessionDuration = Math.round((end.getTime() - start.getTime()) / 60000);
+            }
         }
 
-        const end = session.endTime ? new Date(session.endTime) : new Date(start.getTime() + sessionDuration * 60000);
-        // BUGFIX: Usar construtor nativo para evitar bugs de Horário de Verão (DST)
-        const startOfNextDay = new Date(startOfDay.getFullYear(), startOfDay.getMonth(), startOfDay.getDate() + 1);
+        const end = session.endTime
+            ? safeDate(session.endTime)
+            : new Date(start.getTime() + sessionDuration * 60000);
 
-        // BUGFIX M1: Clamp session duration to the boundaries of "today"
-        const effectiveStart = Math.max(start.getTime(), startOfDay.getTime());
-        const effectiveEnd = Math.min(end.getTime(), startOfNextDay.getTime());
+        if (!Number.isFinite(end?.getTime())) return;
+
+        const effectiveStart = Math.max(start.getTime(), todayRange.start);
+        const effectiveEnd = Math.min(end.getTime(), todayRange.end);
 
         let minutesToCount = 0;
         if (effectiveEnd > effectiveStart) {
             minutesToCount = Math.round((effectiveEnd - effectiveStart) / 60000);
         }
 
-        // Safety cap: cannot exceed the session's own duration
-        minutesToCount = Math.min(sessionDuration, minutesToCount);
+        const safeSessionDuration = Math.max(0, Number(sessionDuration) || 0);
+        minutesToCount = Math.min(safeSessionDuration, minutesToCount);
 
         todayMinutes += minutesToCount;
-        // FIX: Adiciona apenas a fração do pomodoro que pertence a "hoje"
-        // Calcula o equivalente em blocos de pomodoro de 25 minutos
         fractionalPomodoros += (minutesToCount / pomodoroDuration);
 
-        const cat = categories.find(c => c.id === session.categoryId);
+        const cat = safeCategories.find(c => c?.id === session.categoryId);
         if (cat) {
             todaySubjects[cat.name] = (todaySubjects[cat.name] || 0) + minutesToCount;
         }
     });
 
-    // Calcular a série de dias (streak)
-    const streakSource = (Array.isArray(studyLogs) && studyLogs.length > 0)
-        ? studyLogs
-        : studySessions.map(s => ({ date: s.startTime || s.date }));
+    const streakSource = safeStudyLogs.length > 0
+        ? safeStudyLogs
+        : safeStudySessions.map(s => ({ date: s?.startTime || s?.date }));
+
     const streak = calculateStudyStreak(streakSource);
 
-    // Calcular progresso da meta (G-01: Used dynamic goal minutes)
-    // BUGFIX M3: Protection against division by zero when goal is 0.
     const progressPercentage = dailyGoalMinutes > 0
         ? Math.min(100, Math.round((todayMinutes / dailyGoalMinutes) * 100))
         : (todayMinutes > 0 ? 100 : 0);
@@ -712,25 +832,31 @@ export const calculatePomodoroStats = (stats) => {
 };
 
 export const calculateDailyPomodoroGoal = (categories, user) => {
-    const pendingTasks = categories.reduce((sum, c) =>
-        sum + (c.tasks || []).filter(t => !t.completed).length, 0
-    );
+    // T-020 FIX: normalizar categories e tasks
+    const categoriesArray = toArray(categories);
 
-    const highPriorityPending = categories.reduce((sum, c) =>
-        sum + (c.tasks || []).filter(t => !t.completed && t.priority === 'high').length, 0
-    );
+    const getTasks = (cat) => toArray(cat?.tasks);
+
+    const pendingTasks = categoriesArray.reduce((sum, c) => {
+        return sum + getTasks(c).filter(t => t && !t.completed).length;
+    }, 0);
+
+    const highPriorityPending = categoriesArray.reduce((sum, c) => {
+        return sum + getTasks(c).filter(t => t && !t.completed && t.priority === 'high').length;
+    }, 0);
 
     // Fórmula: 2 pomodoros por alta prioridade + 1 por tarefa normal
     const baseGoal = (highPriorityPending * 2) + (pendingTasks - highPriorityPending);
 
-    // Ajuste por nível (quanto maior, mais capacidade)
-    // Fix: user.level might be undefined, fallback to 1
+    // Ajuste por nível
     const lvl = user?.level || 1;
     const levelMultiplier = 1 + (lvl * 0.05); // 5% por nível
     const adjustedGoal = Math.ceil(baseGoal * levelMultiplier);
 
-    // Limitar entre 3 e 12 pomodoros (razoável)
-    const dailyGoal = pendingTasks === 0 ? 0 : Math.max(3, Math.min(12, adjustedGoal));
+    // Limitar entre 3 e 12 pomodoros
+    const dailyGoal = pendingTasks === 0
+        ? 0
+        : Math.max(3, Math.min(12, adjustedGoal));
 
     return {
         daily: dailyGoal,
@@ -745,20 +871,26 @@ export const calculateDailyPomodoroGoal = (categories, user) => {
 };
 
 export const getCompleteReport = (data) => {
-    const studyLogs = data.studyLogs || [];
+    // T-019 FIX: normalização universal antes de todos os motores
+    const studyLogs = toArray(data?.studyLogs);
+    const categories = toArray(data?.categories);
+    const user = data?.user || {};
+    const settings = data?.settings || {};
+
     const streak = calculateStudyStreak(studyLogs);
-    const balance = analyzeSubjectBalance(data.categories || []);
-    const efficiency = analyzeEfficiency(data.categories || [], studyLogs, data.user);
-    const procrastination = detectProcrastination(data.categories || [], studyLogs);
-    const goals = calculateDailyPomodoroGoal(data.categories, data.user);
-    const pomodoroWork = data.settings?.pomodoroWork || 25;
+    const balance = analyzeSubjectBalance(categories);
+    const efficiency = analyzeEfficiency(categories, studyLogs, user);
+    const procrastination = detectProcrastination(categories, studyLogs);
+    const goals = calculateDailyPomodoroGoal(categories, user);
+
+    const pomodoroWork = settings?.pomodoroWork || 25;
     const pomodorosToday = countPomodorosToday(studyLogs, pomodoroWork);
 
     return {
         performance: {
-            xp: data.user?.xp || 0,
-            level: data.user?.level || 1,
-            xpProgress: getXPProgress(data.user?.xp || 0),
+            xp: data?.user?.xp || 0,
+            level: data?.user?.level || 1,
+            xpProgress: getXPProgress(data?.user?.xp || 0),
         },
         consistency: streak,
         balance,
@@ -771,9 +903,6 @@ export const getCompleteReport = (data) => {
                 ? 100
                 : Math.max(0, Math.min(100, Math.round((pomodorosToday / goals.daily) * 100)))
         },
-        // IMP-GLOBAL-08 FIX: Pesos diferenciados para métricas com distribuições assimétricas.
-        // Antes: média simples de 4 componentes com ranges/distribuições muito diferentes.
-        // Agora: 35% eficiência, 20% procrastinação, 20% streak, 25% equilíbrio.
         overallScore: Math.round(
             (efficiency.score * 0.35) +
             (procrastination.score * 0.20) +
@@ -816,9 +945,11 @@ export const getCompleteReport = (data) => {
 export function getFlashcardDueTodayCount(decks = []) {
   const todayKey = getFlashcardTodayKey();
   let due = 0;
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   decksArray.forEach(deck => {
-    (deck.cards || []).forEach(card => {
+    if (!deck || typeof deck !== 'object') return; // ✅ FIX: validar deck
+    toArray(deck?.cards).forEach(card => {
+      if (!card || typeof card !== 'object') return; // ✅ FIX: validar card
       if (!card?.due || card.due <= todayKey) due++;
     });
   });
@@ -827,9 +958,11 @@ export function getFlashcardDueTodayCount(decks = []) {
 
 export function getFlashcardMasteryPct(decks = []) {
   let total = 0, mastered = 0;
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   decksArray.forEach(deck => {
-    (deck.cards || []).forEach(card => {
+    if (!deck || typeof deck !== 'object') return;
+    toArray(deck?.cards).forEach(card => {
+      if (!card || typeof card !== 'object') return;
       total++;
       if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
     });
@@ -842,12 +975,12 @@ export function getFlashcardImmunity(decks = []) {
   let globalTotal = 0;
   let globalMastered = 0;
 
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   decksArray.forEach(deck => {
-    const subject = deck.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
+    const subject = deck?.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
     
     let total = 0, mastered = 0;
-    (deck.cards || []).forEach(card => {
+    toArray(deck?.cards).forEach(card => {
       total++;
       if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 21) mastered++;
     });
@@ -883,12 +1016,12 @@ export function getFlashcardImmunity(decks = []) {
 }
 
 export function getFlashcardTotalCards(decks = []) {
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
-  return decksArray.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
+  const decksArray = toArray(decks);
+  return decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
 }
 
 export function getFlashcardDeckCount(decks = []) {
-  const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+  const decksArray = toArray(decks);
   return decksArray.length;
 }
 
@@ -898,10 +1031,10 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
     const todayKey = getFlashcardTodayKey();
     const counts = {};
 
-    const safeDecks = Array.isArray(decks) ? decks : Object.values(decks || {});
+    const safeDecks = toArray(decks);
 
     safeDecks.forEach(deck => {
-        (deck.cards || []).forEach(card => {
+        toArray(deck?.cards).forEach(card => {
             let dueKey = card && card.due ? String(card.due) : todayKey;
             if (!/^\d{4}-\d{2}-\d{2}$/.test(dueKey)) {
                 dueKey = todayKey;
@@ -956,3 +1089,4 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
         horizon: safeHorizon
     };
 }
+

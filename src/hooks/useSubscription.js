@@ -1,26 +1,64 @@
-import { useState, useEffect } from 'react';
-import { db, isLocalMode } from '../services/firebase';
+import { useState, useEffect, useRef } from 'react';
+import { db } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
-const ADMIN_UIDS = [
-    'F4Py5tJoRjQmXTSPE6vQUX3th662',
-];
-
 export function useSubscription(user) {
-    const isAdmin = Boolean(user?.uid && ADMIN_UIDS.includes(user.uid));
-    const shouldBypassBilling = isLocalMode || isAdmin;
+  const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true';
 
-    const [isPremium, setIsPremium] = useState(shouldBypassBilling);
-    const [loading, setLoading] = useState(!shouldBypassBilling);
+  const [isPremium, setIsPremium] = useState(isDevBypass);
+  const [loading, setLoading] = useState(!isDevBypass);
+  const fallbackUnsubRef = useRef(null);
 
-    useEffect(() => {
-        if (shouldBypassBilling || !user?.uid || !db) return;
+  useEffect(() => {
+    if (isDevBypass) {
+        return;
+    }
+    
+    if (!user?.uid) { 
+        const t = setTimeout(() => {
+            setIsPremium(false); 
+            setLoading(false); 
+        }, 0);
+        return () => clearTimeout(t);
+    }
+
+    // Explicit bypass for admin email
+    if (user?.email === 'antunest040@gmail.com') {
+        const t = setTimeout(() => {
+            setIsPremium(true);
+            setLoading(false);
+        }, 0);
+        return () => clearTimeout(t);
+    }
+    
+    let unsub = null;
+    let isMounted = true;
+
+    try {
+      // Ler claims do token JWT (definidas server-side via Cloud Functions)
+      user.getIdTokenResult(true).then((tokenResult) => {
+        if (!isMounted) return;
+        const claims = tokenResult.claims || {};
+        const isAdminClaim = Boolean(claims.admin || claims.premium || claims.plan === 'vitalicio');
+        
+        if (isAdminClaim) {
+            setIsPremium(true);
+            setLoading(false);
+            return;
+        }
+
+        // Se não for admin claim, verificar pagamentos (Stripe)
+        if (!db) {
+            setIsPremium(false);
+            setLoading(false);
+            return;
+        }
 
         const paymentsRef = collection(db, 'customers', user.uid, 'payments');
         const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
-        let unsubscribeFallback = null;
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        unsub = onSnapshot(q, (snapshot) => {
+            if (!isMounted) return;
             if (snapshot.empty) {
                 setIsPremium(false);
                 setLoading(false);
@@ -38,11 +76,13 @@ export function useSubscription(user) {
             setIsPremium(hasValidPayment);
             setLoading(false);
         }, (error) => {
+            if (!isMounted) return;
             console.error('[Stripe] Erro ao buscar pagamentos:', error);
 
             if (error?.code === 'permission-denied') {
                 const userRef = doc(db, 'users', user.uid);
-                unsubscribeFallback = onSnapshot(userRef, (userDoc) => {
+                fallbackUnsubRef.current = onSnapshot(userRef, (userDoc) => {
+                    if (!isMounted) return;
                     const profile = userDoc.exists() ? userDoc.data() : {};
                     const premiumFromProfile = Boolean(
                         profile?.isPremium
@@ -51,8 +91,8 @@ export function useSubscription(user) {
                     );
                     setIsPremium(premiumFromProfile);
                     setLoading(false);
-                }, (profileErr) => {
-                    console.error('[Stripe] Falha no fallback de perfil:', profileErr);
+                }, (_profileErr) => {
+                    if (!isMounted) return;
                     setIsPremium(false);
                     setLoading(false);
                 });
@@ -63,18 +103,36 @@ export function useSubscription(user) {
             setLoading(false);
         });
 
-        return () => {
-            unsubscribe();
-            if (unsubscribeFallback) unsubscribeFallback();
-        };
-    }, [shouldBypassBilling, user?.uid]);
-
-    if (shouldBypassBilling) return { isPremium: true, loading: false };
-    if (!user?.uid) return { isPremium: false, loading: false };
-    if (!db) {
-        console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
-        return { isPremium: false, loading: false };
+      }).catch(() => { 
+          if (!isMounted) return;
+          setIsPremium(false); 
+          setLoading(false); 
+      });
+    } catch {
+      setTimeout(() => {
+        if (!isMounted) return;
+        setIsPremium(false);
+        setLoading(false);
+      }, 0);
     }
 
-    return { isPremium, loading };
+    return () => { 
+        isMounted = false;
+        if (unsub) unsub(); 
+        if (fallbackUnsubRef.current) {
+            fallbackUnsubRef.current();
+            fallbackUnsubRef.current = null;
+        }
+    };
+  }, [user, isDevBypass]);
+
+  if (isDevBypass) return { isPremium: true, loading: false };
+  if (!user?.uid) return { isPremium: false, loading: false };
+  if (!db) {
+      console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
+      return { isPremium: false, loading: false };
+  }
+
+  return { isPremium, loading };
 }
+

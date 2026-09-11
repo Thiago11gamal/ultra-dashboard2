@@ -7,11 +7,14 @@ import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
+import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
+import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
+import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
-const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) => {
+const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, stableThreshold = 2 }) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[280px] sm:max-w-none break-words whitespace-normal sm:whitespace-nowrap sm:break-normal">
+            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[320px] break-words whitespace-normal">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
                     Semana de {label}
                 </p>
@@ -29,7 +32,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
                         const meta = entry.payload[`meta_${baseKey}`];
 
                         if (isDelta) {
-                            const isStable = Math.abs(val) <= 2;
+                            const isStable = Math.abs(val) <= stableThreshold;
                             const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                             const prefix = val > 0 ? '+' : '';
                             const currentPct = (meta?.currPct === null || meta?.currPct === undefined || meta?.currPct === '') ? entry.payload?.[baseKey] : (Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey]);
@@ -84,10 +87,9 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit }) 
 });
 
 const getMondayStr = (dateStr) => {
-    const dt = typeof dateStr === 'string' && dateStr.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
-        ? new Date(`${dateStr}T12:00:00`)
-        : new Date(dateStr);
-    if (isNaN(dt.getTime())) return null;
+    const dt = parseNoonLocal(dateStr);
+    // ✅ BUG-3 FIX: parseNoonLocal pode retornar null → guard antes de getTime()
+    if (!dt || isNaN(dt.getTime())) return null;
     const day = dt.getDay();
     const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
     dt.setDate(diff);
@@ -138,28 +140,9 @@ export const WeeklyEvolutionView = ({
 
     const [hoveredLine, setHoveredLine] = useState(null);
 
-    const categoriesSignature = useMemo(() => categories.map((cat) => {
-        const history = Array.isArray(cat?.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat?.simuladoStats?.history || {});
-        const tasks = cat?.tasks || [];
-        const historyDigest = history.map((h) => [
-            getMondayStr(h?.date) || 'nodate',
-            Number(h?.score ?? 0),
-            Number(h?.correct ?? 0),
-            Number(h?.total ?? 0),
-            Array.isArray(h?.topics) ? h.topics.length : 0,
-            h?.taskId || ''
-        ].join(':')).join('|');
-        return [
-            cat?.id,
-            cat?.name || '',
-            tasks.length,
-            tasks.map((t) => `${t?.id || ''}:${t?.text || ''}`).join(','),
-            historyDigest
-        ].join('|');
-    }).join('||'), [categories]);
-
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
+        const toSafeKey = (name) => `top_${String(name || '').replace(/[^a-zA-Z0-9_]/g, '_')}`;
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
@@ -175,27 +158,32 @@ export const WeeklyEvolutionView = ({
                 (cat.tasks || []).forEach(task => {
                     const tName = String(task?.text || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!tName) return;
-                    itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                    const key = toSafeKey(tName);
+                    itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                 });
 
                 const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 hArray.forEach(h => {
-                    if (h.topics && Array.isArray(h.topics)) {
-                        h.topics.forEach(t => {
+                    const topics = toArray(h.topics);
+                    
+                    if (topics.length > 0) {
+                        topics.forEach(t => {
                             const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                             if (!tName) return;
-                            if (!itemsMap[tName.toLowerCase()]) {
-                                itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                            const key = toSafeKey(tName);
+                            if (!itemsMap[key]) {
+                                itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                             }
                         });
                     } else if (h.taskId) {
                         const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        if (!itemsMap[tName.toLowerCase()]) {
-                            itemsMap[tName.toLowerCase()] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                        const key = toSafeKey(tName);
+                        if (!itemsMap[key]) {
+                            itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                         }
                     } else {
-                        if (!itemsMap['geral']) {
-                            itemsMap['geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
+                        if (!itemsMap['top_geral']) {
+                            itemsMap['top_geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
                         }
                     }
                 });
@@ -210,63 +198,92 @@ export const WeeklyEvolutionView = ({
         const lowerBound = Math.min(safeMinScore, safeMaxScore);
         const upperBound = Math.max(safeMinScore, safeMaxScore);
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
-        const toRatio = (score) => (Math.max(lowerBound, Math.min(upperBound, Number(score) || lowerBound)) - lowerBound) / scoreRange;
-        const fromRatio = (ratio) => lowerBound + (Math.max(0, Math.min(1, Number(ratio) || 0)) * scoreRange);
+        const stableThreshold = Math.max(0.5, scoreRange * 0.02);
+        const fromRatio = (ratio) => ratioToPoints(ratio, upperBound, lowerBound);
         const weeksTemp = {};
 
-        const processHistory = (historyArray, itemId) => {
+        const processHistory = (historyArray, itemId, cMax = upperBound, cMin = lowerBound) => {
             if (!Array.isArray(historyArray) || !itemId) return;
+            const cRange = Math.max(1e-9, cMax - cMin);
             historyArray.forEach(h => {
-                const weekStr = getMondayStr(h.date);
+                const weekStr = getMondayStr(getHistoryDate(h));
                 if (!weekStr) return;
 
                 if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
 
-                let totalQ = Number(h.total) || 0;
-                const score = getSafeScore(h, upperBound);
-
-                if (totalQ === 0 && h.score != null) {
-                    totalQ = getSyntheticTotal(maxScore);
+                let totalQ = Math.max(0, Number(h.total) || 0);
+                let corr = 0;
+                if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
+                    const rawC = Number(h.correct);
+                    corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
+                } else {
+                    const score = getSafeScore(h, cMax, cMin);
+                    if (!Number.isFinite(score)) return;
+                    if (totalQ === 0 && h.score != null) {
+                        totalQ = getSyntheticTotal(cMax);
+                    }
+                    if (totalQ === 0) return;
+                    corr = Math.max(0, Math.min(1, (score - cMin) / cRange)) * totalQ;
                 }
+                if (totalQ === 0) return;
 
                 weeksTemp[weekStr][itemId].total += totalQ;
-                weeksTemp[weekStr][itemId].correct += toRatio(score) * totalQ;
+                weeksTemp[weekStr][itemId].correct += corr;
             });
         };
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
                 const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
-                processHistory(hArray, cat.id);
+                const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
+                const cMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
+                processHistory(hArray, cat.id, cMax, cMin);
             });
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
+                const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
+                const cMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
+                const cRange = Math.max(1e-9, cMax - cMin);
                 const hArray2 = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 hArray2.forEach(h => {
-                    if (h.topics && Array.isArray(h.topics)) {
-                        h.topics.forEach(t => {
-                            const tId = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').toLowerCase().trim();
-                            const weekStr = getMondayStr(h.date);
+                    const topics = toArray(h.topics);
+                    
+                    if (topics.length > 0) {
+                        topics.forEach(t => {
+                            const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                            if (!tName) return;
+                            const tId = toSafeKey(tName);
+                            const weekStr = getMondayStr(getHistoryDate(h));
                             if (!weekStr) return;
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
-                            let totalQ = Number(t.total) || 0;
-                            const topicScore = getSafeScore(t, upperBound);
-                            if (totalQ === 0 && t.score != null) {
-                                totalQ = getSyntheticTotal(maxScore);
+                            let totalQ = Math.max(0, Number(t.total) || 0);
+                            let corr = 0;
+                            if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
+                                const rawC = Number(t.correct);
+                                corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
+                            } else {
+                                const topicScore = getSafeScore(t, cMax, cMin);
+                                if (!Number.isFinite(topicScore)) return;
+                                if (totalQ === 0 && t.score != null) {
+                                    totalQ = getSyntheticTotal(cMax);
+                                }
+                                if (totalQ === 0) return;
+                                corr = Math.max(0, Math.min(1, (topicScore - cMin) / cRange)) * totalQ;
                             }
+                            if (totalQ === 0) return;
                             weeksTemp[weekStr][tId].total += totalQ;
-                            weeksTemp[weekStr][tId].correct += toRatio(topicScore) * totalQ;
+                            weeksTemp[weekStr][tId].correct += corr;
                         });
                     } else if (h.taskId) {
-                        const tId = String(cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto').toLowerCase().trim();
-                        processHistory([h], tId);
+                        const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const tId = toSafeKey(tName);
+                        processHistory([h], tId, cMax, cMin);
                     } else {
-                        // BUG 2 FIX: Se não tem topics nem taskId, agrupar em "geral" para não perder os dados na visualização Foco
-                        processHistory([h], 'geral');
+                        processHistory([h], 'top_geral', cMax, cMin);
                     }
                 });
             }
@@ -283,6 +300,11 @@ export const WeeklyEvolutionView = ({
                 displayDate: formatWeek(weekObj.week)
             };
 
+            const currentWeekDate = parseNoonLocal(weekObj.week);
+            const expectedPrevDate = new Date(currentWeekDate);
+            expectedPrevDate.setDate(expectedPrevDate.getDate() - 7);
+            const expectedPrevKey = getDateKey(expectedPrevDate);
+            
             validIds.forEach(id => {
                 const currentData = weekObj[id];
 
@@ -290,31 +312,53 @@ export const WeeklyEvolutionView = ({
                     const ratio = currentData.correct / currentData.total;
                     const currentScore = fromRatio(ratio);
                     const safeCurrentScore = Number.isFinite(currentScore) ? currentScore : 0;
-                    const currentPct = Number(Math.max(lowerBound, Math.min(upperBound, safeCurrentScore)).toFixed(2));
+                    const currentPct = Number(
+                        Math.max(lowerBound, Math.min(upperBound, safeCurrentScore)).toFixed(2)
+                    );
+
                     dataPoint[id] = currentPct;
 
-                    if (memoryByItem[id] !== undefined) {
-                        const prevPct = memoryByItem[id].pct;
-                        const safeDelta = Number.isFinite(currentPct - prevPct) ? (currentPct - prevPct) : 0;
-                        const delta = Number(safeDelta.toFixed(2));
+                    const last = memoryByItem[id];
 
-                        const isStable = Math.abs(delta) <= 2;
+                    if (last && last.week === expectedPrevKey) {
+                        const prevPct = last.pct;
+                        const safeDelta = Number.isFinite(currentPct - prevPct)
+                            ? currentPct - prevPct
+                            : 0;
+
+                        const delta = Number(safeDelta.toFixed(2));
+                        const isStable = Math.abs(delta) <= stableThreshold;
+
                         dataPoint[`delta_${id}`] = delta;
-                        dataPoint[`deltaColor_${id}`] = isStable ? '#eab308' : (delta > 0 ? '#10b981' : '#ef4444');
+                        dataPoint[`deltaColor_${id}`] = isStable
+                            ? '#eab308'
+                            : delta > 0
+                            ? '#10b981'
+                            : '#ef4444';
 
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
                             currPct: currentPct,
-                            prevPct: prevPct,
-                            prevTot: memoryByItem[id].total
+                            prevPct,
+                            prevTot: last.total
                         };
                     } else {
                         dataPoint[`delta_${id}`] = null;
                         dataPoint[`deltaColor_${id}`] = '#94a3b8';
-                        dataPoint[`meta_${id}`] = { currTot: currentData.total, currPct: currentPct, prevPct: null, prevTot: 0 };
+
+                        dataPoint[`meta_${id}`] = {
+                            currTot: currentData.total,
+                            currPct: currentPct,
+                            prevPct: null,
+                            prevTot: 0
+                        };
                     }
 
-                    memoryByItem[id] = { pct: currentPct, total: currentData.total };
+                    memoryByItem[id] = {
+                        pct: currentPct,
+                        total: currentData.total,
+                        week: weekObj.week
+                    };
                 } else {
                     dataPoint[id] = null;
                     dataPoint[`delta_${id}`] = null;
@@ -336,8 +380,7 @@ export const WeeklyEvolutionView = ({
         const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
         return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore, categoriesSignature]);
+    }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore]);
 
     const keys = Object.keys(activeKeys);
 
@@ -389,21 +432,28 @@ export const WeeklyEvolutionView = ({
         );
     }, [hiddenKeys, activeKeys]);
 
+    const stableThreshold = useMemo(() => {
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+        const scoreRange = Math.max(1e-9, Math.abs(safeMaxScore - safeMinScore));
+        return Math.max(0.5, scoreRange * 0.02);
+    }, [minScore, maxScore]);
+
     // M2 FIX: Tooltip extraído em useCallback para restaurar memoização do Recharts.
     // Arrow functions inline quebram a memoização porque criam nova referência a cada render.
     const renderWeeklyTooltip = useCallback(
-        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} />,
-        [hiddenKeys, unit]
+        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} />,
+        [hiddenKeys, unit, stableThreshold]
     );
 
 
     if (chartData.length < 1) {
         return (
-            <div className="h-[300px] flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800 p-6">
+            <div className="min-h-[400px] flex flex-col items-center justify-center bg-slate-950/40 rounded-3xl border border-slate-700/50 p-6 shadow-inner">
                 <HelpCircle size={40} className="text-slate-600 mb-3" />
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-wider text-center">Dados Insuficientes</p>
+                <p className="text-sm font-semibold text-slate-300">Dados insuficientes</p>
                 <p className="text-slate-500 text-[10px] mt-2 text-center max-w-[250px]">
-                    Registre pelo menos 1 semana de simulados para visualizar a curva de evolução e a variação de deltas.
+                    Cadastre pelo menos uma semana de simulados para visualizar a curva de evolução e a variação semanal.
                 </p>
             </div>
         );
@@ -413,42 +463,59 @@ export const WeeklyEvolutionView = ({
         <div className="w-full pt-4 animate-fade-in relative flex flex-col">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-2 gap-4 shrink-0">
                 <div>
-                    <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Raio-X Temporal Avançado</h4>
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block mb-0.5">
+                        Raio-X Temporal Avançado
+                    </span>
                     <h3 className="text-lg font-black text-white uppercase tracking-tight">
-                        {showOnlyFocus ? 'Semanas por Assunto' : 'Semanas por Matéria'}
+                        {showOnlyFocus && focusSubjectId ? 'Semanas por Assunto' : 'Semanas por Matéria'}
                     </h3>
                     {trendKpi && (
-                        <p className="text-[10px] mt-1 text-slate-400 font-mono">
-                            Tendência: <span className={trendKpi.delta >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}</span> 
-                            {' '}({trendKpi.previousN} sem. → {trendKpi.recentN} sem.)
-                        </p>
+                        <div className="inline-flex items-center gap-2 mt-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 border border-white/10 text-[10px] text-slate-400 font-mono">
+                            <span>Tendência:</span>
+                            <span className={`font-black ${trendKpi.delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}
+                            </span> 
+                            <span className="text-slate-500">({trendKpi.previousN} sem. → {trendKpi.recentN} sem.)</span>
+                        </div>
                     )}
                 </div>
 
-                <div className="flex items-center bg-slate-900/60 border border-slate-800 rounded-2xl p-1">
+                <div className="flex items-center bg-slate-900/90 border border-white/10 rounded-2xl p-1 shadow-inner backdrop-blur-md">
                     <button
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'performance' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                            viewMode === 'performance' 
+                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                        }`}
                     >
-                        <Zap size={14} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
+                        <Zap size={13} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
                     </button>
                     <button
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'evolution' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                            viewMode === 'evolution' 
+                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                        }`}
                     >
-                        <TrendingUp size={14} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
+                        <TrendingUp size={13} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
                     </button>
                     <button
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-2xl text-[10px] font-bold uppercase transition-all will-change-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${viewMode === 'variation' ? 'bg-indigo-600/20 text-indigo-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'}`}
+                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                            viewMode === 'variation' 
+                                ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                        }`}
                     >
-                        <BarChart3 size={14} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
+                        <BarChart3 size={13} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
                     </button>
                 </div>
             </div>
@@ -468,11 +535,11 @@ export const WeeklyEvolutionView = ({
                     <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
                         {viewMode === 'evolution' ? (
                             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
 
-                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} allowDataOverflow={true} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
-                                <Tooltip offset={200} content={renderWeeklyTooltip} cursor={{ stroke: '#ffffff22', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} dy={10} minTickGap={15} />
+                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => {
@@ -502,45 +569,54 @@ export const WeeklyEvolutionView = ({
                                 {chartData.length > 8 && (
                                     <Brush
                                         dataKey="week"
-                                        height={18}
-                                        stroke="#ffffff11"
+                                        height={22}
+                                        stroke="#6366f1"
                                         fill="#0f172a"
                                         tickFormatter={formatWeek}
-                                        className="text-[8px]"
-                                        travellerWidth={8}
+                                        className="text-[9px] font-mono"
+                                        travellerWidth={10}
                                     />
                                 )}
                             </LineChart>
                         ) : (
                             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 8, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff0a" vertical={false} />
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
 
-                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} minTickGap={15} />
-                                {/* 🎯 FIX: Uso do formatValue e correcção lógica para o sinal de mais (+) e o Zero perfeito */}
+                                <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} dy={10} minTickGap={15} />
                                 <YAxis 
                                     stroke="#64748b" 
                                     fontSize={10} 
+                                    fontWeight={600}
                                     tickLine={false} 
-                                    axisLine={false} 
+                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
                                     tickFormatter={(v) => {
                                         const formatted = formatValue(v);
                                         if (formatted === "0.00" || formatted === "0") return `${formatted}${unit}`;
                                         return `${v > 0 ? '+' : ''}${formatted}${unit}`;
                                     }} 
                                 />
-                                <Tooltip offset={200} content={renderWeeklyTooltip} cursor={{ fill: '#ffffff11' }} />
-                                <Legend verticalAlign="bottom" height={40} iconType="square" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
-                                <ReferenceLine y={0} stroke="#ffffff22" />
+                                <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                                <Legend 
+                                    verticalAlign="bottom" 
+                                    height={60} 
+                                    iconType="square" 
+                                    formatter={renderLegendText} 
+                                    onClick={handleLegendClick} 
+                                    onMouseEnter={handleLegendHover} 
+                                    onMouseLeave={handleLegendLeave} 
+                                    wrapperStyle={{ paddingTop: '20px' }} 
+                                />
+                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
 
                                 {chartData.length > 8 && (
                                     <Brush
                                         dataKey="week"
-                                        height={18}
-                                        stroke="#ffffff11"
+                                        height={22}
+                                        stroke="#6366f1"
                                         fill="#0f172a"
                                         tickFormatter={formatWeek}
-                                        className="text-[8px]"
-                                        travellerWidth={8}
+                                        className="text-[9px] font-mono"
+                                        travellerWidth={10}
                                     />
                                 )}
 
@@ -553,7 +629,7 @@ export const WeeklyEvolutionView = ({
                                             dataKey={`delta_${key}`}
                                             name={`${activeKeys[key].name} (Var.)`}
                                             fill={activeKeys[key].color}
-                                            radius={[0, 0, 0, 0]}
+                                            radius={[6, 6, 0, 0]}
                                             hide={hiddenKeys[key]}
                                             fillOpacity={isOtherHovered ? 0.4 : 1}
                                             style={{ transition: 'all 0.3s ease' }}
@@ -572,21 +648,21 @@ export const WeeklyEvolutionView = ({
             </div>
 
             {viewMode === 'variation' && (
-                <div className="mt-3 rounded-xl border border-rose-900/40 bg-rose-950/20 p-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2">
-                        Top Regressões {topRegressions[0]?.week ? `· Semana ${topRegressions[0].week}` : ''}
+                <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-950/20 backdrop-blur-sm p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-300 mb-2.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span> Principais quedas na semana
                     </p>
                     {topRegressions.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                             {topRegressions.map(item => (
-                                <div key={item.key} className="rounded-lg bg-black/30 border border-white/5 px-2 py-1.5 text-[10px] flex items-center justify-between">
-                                    <span className="truncate" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
-                                    <span className="font-mono font-black text-rose-300">{formatValue(item.delta)}{unit}</span>
+                                <div key={item.key} className="rounded-xl bg-slate-950/60 border border-white/10 px-3 py-2 text-[10px] flex items-center justify-between min-w-0 gap-2 shadow-inner">
+                                    <span className="truncate min-w-0 font-bold" style={{ color: item.color }} title={item.fullName}>{item.name}</span>
+                                    <span className="font-mono font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">{formatValue(item.delta)}{unit}</span>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-[10px] text-slate-400">Sem regressões visíveis no filtro atual. ✅</p>
+                        <p className="text-slate-400 text-xs text-center py-3">Nenhuma queda visível no filtro atual. ✅</p>
                     )}
                 </div>
             )}
@@ -594,10 +670,11 @@ export const WeeklyEvolutionView = ({
             {viewMode !== 'performance' && (
                 <div className="flex justify-center mt-3 opacity-60">
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-md border border-slate-800 shrink-0 select-none">
-                        💡 Dica: Clique nos itens da Legenda para ocultar/isolar o gráfico.
+                        💡 Dica: clique nos itens da legenda para ocultar ou isolar o gráfico.
                     </p>
                 </div>
             )}
         </div>
     );
 };
+

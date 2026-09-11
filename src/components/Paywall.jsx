@@ -33,6 +33,10 @@ export default function Paywall({ user, onLogout }) {
     }, []);
 
     const handleSubscribe = async () => {
+        if (!user || !user.uid) {
+            setError("Faça login para assinar.");
+            return;
+        }
         setLoading(true);
         setError(null);
         // BUG-22 FIX: Limpar listener/timeout anteriores antes de criar novos
@@ -46,7 +50,7 @@ export default function Paywall({ user, onLogout }) {
             const docRef = await addDoc(checkoutRefs, {
                 line_items: [
                     {
-                        price: 'price_1T9ewlFOUB7khZQdnFYtD0g2',
+                        price: import.meta.env.VITE_STRIPE_PRICE_ID || 'price_1T9ewlFOUB7khZQdnFYtD0g2',
                         quantity: 1,
                     },
                 ],
@@ -59,14 +63,14 @@ export default function Paywall({ user, onLogout }) {
 
             let isResolved = false;
 
-            // Timer de segurança: Se a extensão não funcionar em 12s, desarma a tela.
+            // Timer de segurança: Se a extensão não funcionar em 25s (tolerando Cold Start do Firebase), desarma a tela.
             timeoutRef.current = setTimeout(() => {
                 if (!isResolved) {
-                    logger.error("[Stripe] Timeout atingido. A extensão não respondeu.");
-                    setError("O servidor de pagamentos não respondeu. Verifique se a extensão 'Run Payments with Stripe' está instalada e configurada para observar a coleção 'customers'.");
+                    logger.error("[Stripe] Timeout atingido. A extensão não respondeu em 25s.");
+                    setError("O servidor de pagamentos demorou para responder (possível Cold Start na região). Tente clicar novamente ou verifique os logs de 'createCheckoutSession' no Firebase Console.");
                     setLoading(false);
                 }
-            }, 12000);
+            }, 25000);
 
             // Aguardar a extensão popular a sessão
             unsubRef.current = onSnapshot(docRef, async (snap) => {
@@ -87,13 +91,23 @@ export default function Paywall({ user, onLogout }) {
                 if (url) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    if (unsubRef.current) unsubRef.current(); // ← Cleanup imediato
                     logger.log("[Stripe] Redirecionando via URL...");
                     window.location.assign(url);
                 } else if (sessionId) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    if (unsubRef.current) unsubRef.current(); // ← Cleanup imediato
                     logger.log("[Stripe] Redirecionando via SessionId...");
                     const stripe = await getStripe();
+                    
+                    // ✅ FIX: Verificar null
+                    if (!stripe) {
+                        setError('Stripe não configurado. Verifique VITE_STRIPE_PUBLIC_KEY.');
+                        setLoading(false);
+                        return;
+                    }
+
                     stripe.redirectToCheckout({ sessionId });
                 }
             });
@@ -176,3 +190,4 @@ export default function Paywall({ user, onLogout }) {
         </div>
     );
 }
+

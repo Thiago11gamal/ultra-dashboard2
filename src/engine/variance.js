@@ -9,6 +9,12 @@ import { getDateKey } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { normalize } from '../utils/normalization.js';
 
+function toHistoryArray(history) {
+    if (Array.isArray(history)) return history.filter(Boolean);
+    if (history && typeof history === 'object') return Object.values(history).filter(Boolean);
+    return [];
+}
+
 /**
  * Compute weighted variance from category statistics
  * Formula: Var = (1 - ρ) × [Σ wi² × σi²] + ρ × [Σ (wi × σi)]²
@@ -37,9 +43,9 @@ export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation b
  * Tries to estimate from real user performance history (simulado rows) when sufficient data exists.
  * Falls back gracefully to the conservative prior.
  */
-export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION) {
+export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION, maxScore = 100) {
   try {
-    const safeSimuladoRows = Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
+    const safeSimuladoRows = (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean);
     if (!Array.isArray(safeSimuladoRows) || safeSimuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
       return fallback;
     }
@@ -50,8 +56,9 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
       const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
       const subj = normalize(row.subject || row.categoryName || row.name);
-      if (!subj) return;
-      const score = getSafeScore(row);
+      const rowMax = Number.isFinite(Number(row.maxScore)) && Number(row.maxScore) > 0 ? Number(row.maxScore) : maxScore;
+      const rowMin = Number.isFinite(Number(row.minScore)) ? Math.min(Number(row.minScore), rowMax) : 0;
+      const score = getSafeScore(row, rowMax, rowMin);
       if (!Number.isFinite(score)) return;
 
       if (!byDate[dateKey]) byDate[dateKey] = {};
@@ -74,8 +81,15 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
 export function computeEffectiveSampleSizeFromWeights(weights = []) {
     const clean = Array.isArray(weights) ? weights.map(w => Number(w)).filter(w => Number.isFinite(w) && w > 0) : [];
     if (clean.length === 0) return 0;
-    const sumW = kahanSum(clean);
-    const sumW2 = kahanSum(clean.map(w => w * w));
+    
+    // Normalizar pesos localmente ANTES de calcular o Kish
+    const rawSumW = clean.reduce((sum, w) => sum + w, 0);
+    if (rawSumW <= 0) return 0;
+    const normalized = clean.map(w => w / rawSumW);
+    
+    const sumW = normalized.reduce((sum, w) => sum + w, 0); // ~1.0
+    const sumW2 = normalized.reduce((sum, w) => sum + w * w, 0);
+    
     return sumW2 > 0 ? (sumW * sumW) / sumW2 : 0;
 }
 
@@ -118,10 +132,10 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
 
     if (effectiveTotalWeight === 0) return 0;
 
-    // FIX 2: Sincronização do piso com o estimateInterSubjectCorrelation.
-    // Permite que o motor explore a variância de disciplinas com correlação inversa.
-    // BUG 3.1 FIX: Floor ajustado de -0.15 para 0.0 para garantir Positive Semi-Definiteness (PSD)
-    const validRho = Math.max(0.0, Math.min(0.85, rho));
+    // ✅ LOTE-03 FIX (M2): piso de ρ unificado em 0.0 conforme a intenção documentada.
+    // ρ negativo podia gerar variância/covariância não-PSD e falhas de Cholesky;
+    // o clamp final Math.max(0, ...) apenas mascarava o problema na saída.
+    const validRho = Math.max(0, Math.min(0.85, rho));
     const rawWeights = stats.map(cat => toFiniteNonNegative(cat?.weight));
     const adjustedSDs = stats.map(cat => toFiniteSd(cat?.sd));
 
@@ -146,7 +160,7 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
         finalVar *= effectiveTotalWeight;
     }
 
-    return finalVar;
+    return Math.max(0, Number.isFinite(finalVar) ? finalVar : 0);
 }
 
 /**
@@ -159,9 +173,8 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
  * drasticamente o cone de incerteza no longo prazo.
  */
 export function computePooledSD(stats, totalWeight, rho = INTER_SUBJECT_CORRELATION) {
-    // CORREÇÃO B2: Alinhado o clamp com computeWeightedVariance [0.0, 0.85]
-    // O piso 0.0 previne matrizes de covariância não-PSD e falhas de Cholesky
-    const validRho = Number.isFinite(rho) ? Math.max(0.0, Math.min(0.85, rho)) : INTER_SUBJECT_CORRELATION;
+    // ✅ LOTE-03 FIX (M2): clamp alinhado com computeWeightedVariance [0.0, 0.85]
+    const validRho = Number.isFinite(rho) ? Math.max(0, Math.min(0.85, rho)) : INTER_SUBJECT_CORRELATION;
     const weightedVariance = computeWeightedVariance(stats, totalWeight, validRho);
     return Math.sqrt(weightedVariance);
 }
@@ -210,22 +223,34 @@ export function estimateInterSubjectCorrelation(
             const meanX = kahanSum(xs) / n;
             const meanY = kahanSum(ys) / n;
 
-            let covArr = [];
-            let varXArr = [];
-            let varYArr = [];
+            let cov = 0.0, c_cov = 0.0;
+            let varX = 0.0, c_x = 0.0;
+            let varY = 0.0, c_y = 0.0;
+
             for (let k = 0; k < n; k++) {
                 const dx = xs[k] - meanX;
                 const dy = ys[k] - meanY;
-                covArr.push(dx * dy);
-                varXArr.push(dx * dx);
-                varYArr.push(dy * dy);
+                
+                const y_cov = (dx * dy) - c_cov;
+                const t_cov = cov + y_cov;
+                c_cov = (t_cov - cov) - y_cov;
+                cov = t_cov;
+
+                const y_x = (dx * dx) - c_x;
+                const t_x = varX + y_x;
+                c_x = (t_x - varX) - y_x;
+                varX = t_x;
+
+                const y_y = (dy * dy) - c_y;
+                const t_y = varY + y_y;
+                c_y = (t_y - varY) - y_y;
+                varY = t_y;
             }
-            const cov = kahanSum(covArr);
-            const varX = kahanSum(varXArr);
-            const varY = kahanSum(varYArr);
 
             const epsilon = 1e-15;
-            const denom = Math.sqrt((varX + epsilon) * (varY + epsilon));
+            const safeVarX = Math.max(0, varX);
+            const safeVarY = Math.max(0, varY);
+            const denom = Math.sqrt((safeVarX + epsilon) * (safeVarY + epsilon));
             const corr = cov / denom;
 
             // Mecanismo de Controlo de Effective Sample Size (ESS) para regular o encolhimento de pares com sobreposição fraca (n < 8)
@@ -266,10 +291,10 @@ export function estimateInterSubjectCorrelation(
     const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (essPairs / (essPairs + 6))));
     const blended = (shrink * empirical) + ((1 - shrink) * fallback);
 
-    // PATCH (Bug 3.1): Limite inferior blindado (0.0) para garantir estabilidade da Matriz PSD.
-    // Impede falhas matemáticas no motor de Monte Carlo por autocorrelação não-definitiva
-    // quando o sistema tentar realizar a decomposição de Cholesky N > 7.
-    return Math.max(0.0, Math.min(0.85, blended));
+    // ✅ LOTE-03 FIX (M2): limite inferior 0.0 (PSD-safe), como o comentário já
+    // determinava. Correlações negativas continuam sendo calculadas INTERNAMENTE
+    // no Fisher Z (para não inflar a média), mas o ρ entregue ao motor nunca é negativo.
+    return Math.max(0, Math.min(0.85, blended));
 }
 
 /**
@@ -299,38 +324,44 @@ export function getVarianceBreakdown(stats, totalWeight) {
  * PATCH: Calcula a correlação de Pearson empírica entre duas séries de notas.
  * Emparelha os dados apenas onde o usuário estudou ambas as matérias num intervalo <= 24h.
  */
-function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
-    if (!historyA || !historyB) return fallback;
-    let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15, maxScoreA = 100, minScoreA = 0, maxScoreB = maxScoreA, minScoreB = minScoreA) {
+    const safeHistoryA = toHistoryArray(historyA);
+    const safeHistoryB = toHistoryArray(historyB);
+
+    if (!safeHistoryA.length || !safeHistoryB.length) return fallback;
+
     let pairedCount = 0;
 
-    const getScore = (h) => {
-        const s = getSafeScore(h);
+    const getScoreA = (h) => {
+        const s = getSafeScore(h, maxScoreA, minScoreA);
         return Number.isFinite(s) ? s : 0;
     };
+    const getScoreB = (h) => {
+        const s = getSafeScore(h, maxScoreB, minScoreB);
+        return Number.isFinite(s) ? s : 0;
+    };
+
     const getDateStr = (h) => {
-        return getDateKey(h.date || h.createdAt);
+        return getDateKey(h?.date || h?.createdAt);
     };
 
     const mapA = new Map();
-    historyA.forEach(h => {
+
+    safeHistoryA.forEach(h => {
         if (!h) return;
         const d = getDateStr(h);
-        if (d) mapA.set(d, getScore(h));
+        if (d) mapA.set(d, getScoreA(h));
     });
 
-    historyB.forEach(h => {
+    const xs = [];
+    const ys = [];
+
+    safeHistoryB.forEach(h => {
         if (!h) return;
         const d = getDateStr(h);
         if (d && mapA.has(d)) {
-            const scoreA = mapA.get(d);
-            const scoreB = getScore(h);
-            
-            sumA += scoreA;
-            sumB += scoreB;
-            sumAB += (scoreA * scoreB);
-            sumA2 += (scoreA * scoreA);
-            sumB2 += (scoreB * scoreB);
+            xs.push(mapA.get(d));
+            ys.push(getScoreB(h));
             pairedCount++;
         }
     });
@@ -338,13 +369,39 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15) {
     if (pairedCount < 5) return fallback;
 
     const n = pairedCount;
-    const numerator = (n * sumAB) - (sumA * sumB);
-    const varA = Math.max(0, (n * sumA2) - (sumA * sumA));
-    const varB = Math.max(0, (n * sumB2) - (sumB * sumB));
-    const denominator = Math.sqrt(varA * varB);
+    let meanX = 0;
+    let meanY = 0;
 
-    if (denominator === 0) return fallback;
-    const pearsonR = numerator / denominator;
+    for (let i = 0; i < n; i++) {
+        meanX += xs[i];
+        meanY += ys[i];
+    }
+
+    meanX /= n;
+    meanY /= n;
+
+    let cov = 0;
+    let varX = 0;
+    let varY = 0;
+
+    for (let i = 0; i < n; i++) {
+        const dx = xs[i] - meanX;
+        const dy = ys[i] - meanY;
+        cov += dx * dy;
+        varX += dx * dx;
+        varY += dy * dy;
+    }
+
+    const safeVarX = Math.max(0, varX);
+    const safeVarY = Math.max(0, varY);
+    const denominator = Math.sqrt(safeVarX * safeVarY);
+
+    if (!Number.isFinite(denominator) || denominator === 0) return fallback;
+
+    const pearsonR = cov / denominator;
+
+    if (!Number.isFinite(pearsonR)) return fallback;
+
     return Math.max(-0.3, Math.min(0.8, pearsonR));
 }
 
@@ -358,7 +415,7 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
     const matrix = Array(n).fill(0).map(() => Array(n).fill(0));
 
     // NEW: Support full adaptive rho from context
-    let effectiveDefaultRho = defaultRho;
+    let effectiveDefaultRho = Number.isFinite(defaultRho) ? defaultRho : INTER_SUBJECT_CORRELATION;
     if (adaptiveContext && adaptiveContext.simuladoRows && adaptiveContext.categoryNames) {
       effectiveDefaultRho = getAdaptiveInterSubjectCorrelation(
         stats,
@@ -370,19 +427,34 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
     
     // FIX 5: Estrutura O(N^2) reduzida via simetria de matriz
     for (let i = 0; i < n; i++) {
-        const sdI = Number.isFinite(stats[i]?.sd) ? stats[i].sd : 0;
+        const sdI = Math.max(0, Number.isFinite(stats[i]?.sd) ? Number(stats[i].sd) : 0);
         matrix[i][i] = sdI * sdI; // A variância pura ocupa apenas a diagonal principal
 
         for (let j = i + 1; j < n; j++) {
-            const sdJ = Number.isFinite(stats[j]?.sd) ? stats[j].sd : 0;
+            const sdJ = Math.max(0, Number.isFinite(stats[j]?.sd) ? Number(stats[j].sd) : 0);
             
-            const rhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
+            const rawRhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
+            const rhoIJ = Math.max(-0.999, Math.min(0.999, Number.isFinite(Number(rawRhoIJ)) ? Number(rawRhoIJ) : effectiveDefaultRho));
             const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
             
             let currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
+            if (!Number.isFinite(currentRho)) currentRho = effectiveDefaultRho;
+            currentRho = Math.max(-0.999, Math.min(0.999, currentRho));
 
             if (stats[i]?.simuladoStats?.history && stats[j]?.simuladoStats?.history) {
-                currentRho = calculateDynamicCorrelation(stats[i].simuladoStats.history, stats[j].simuladoStats.history, currentRho);
+                const maxA = stats[i]?.maxScore ?? adaptiveContext?.maxScore ?? 100;
+                const minA = stats[i]?.minScore ?? adaptiveContext?.minScore ?? 0;
+                const maxB = stats[j]?.maxScore ?? adaptiveContext?.maxScore ?? 100;
+                const minB = stats[j]?.minScore ?? adaptiveContext?.minScore ?? 0;
+                currentRho = calculateDynamicCorrelation(
+                    stats[i].simuladoStats.history,
+                    stats[j].simuladoStats.history,
+                    currentRho,
+                    maxA,
+                    minA,
+                    maxB,
+                    minB
+                );
             }
 
             const covariance = currentRho * sdI * sdJ;
@@ -425,3 +497,4 @@ export default {
     calcularVariancia,
     buildCovarianceMatrix
 };
+

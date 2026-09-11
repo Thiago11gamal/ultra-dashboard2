@@ -1,95 +1,133 @@
+import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
+import { safeClone } from '../../utils/safeClone.js';
+
+function safeNumber(val, fallback = 0) {
+  if (val === null || val === undefined || val === '') return fallback;
+  const num = Number(val);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 export const createMonteCarloSlice = (set) => ({
-    recordMonteCarloSnapshot: (date, prob, metadata = {}) => set((state) => {
-        const activeId = state.appState.activeId;
-        const activeData = state.appState.contests[activeId];
-        if (!activeData) return;
+  recordMonteCarloSnapshot: (date, prob, metadata = {}) => set((state) => {
+    try {
+      const activeId = state.appState?.activeId;
+      if (!activeId) return;
+      const activeData = state.appState.contests?.[activeId];
+      if (!activeData) return;
 
-        const history = Array.isArray(activeData.monteCarloHistory) ? activeData.monteCarloHistory : [];
-        const snapshot = { date, probability: prob, ...metadata };
-        let newHistory;
-        const idx = history.findIndex(h => h.date === date);
+      const rawProb = safeNumber(prob, null);
+      if (rawProb === null) return;
 
-        if (idx >= 0) {
-            newHistory = [...history];
-            newHistory[idx] = { ...history[idx], ...snapshot };
-        } else {
-            newHistory = [...history, snapshot];
-        }
-        // Immutable sort + limit
-        newHistory = newHistory
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-            .slice(-30);
+      const snapshot = {
+        date: getDateKey(normalizeDate(date)),
+        probability: rawProb,
+        ...safeClone(metadata)
+      };
 
-        // Assign immutably to avoid direct mutation issues
-        state.appState.contests[activeId] = {
-            ...activeData,
-            monteCarloHistory: newHistory
-        };
+      const targetDateStr = snapshot.date;
+      const targetCategoryId = snapshot.categoryId || null;
+      const existingHistory = Array.isArray(activeData.monteCarloHistory)
+        ? activeData.monteCarloHistory
+        : [];
 
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+      const idx = existingHistory.findIndex(h =>
+        getDateKey(normalizeDate(h.date)) === targetDateStr &&
+        (h.categoryId || null) === targetCategoryId
+      );
 
-    setMcEqualWeights: (enabled) => set((state) => {
-        state.appState.mcEqualWeights = enabled;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+      let newHistory;
+      if (idx >= 0) {
+        newHistory = existingHistory.map((h, i) => i === idx ? { ...h, ...snapshot } : h);
+      } else {
+        newHistory = [...existingHistory, snapshot];
+      }
 
-    setHistoricalCutoffs: (cutoffs) => set((state) => {
-        const activeId = state.appState.activeId;
-        const activeData = state.appState.contests[activeId];
-        if (!activeData) return;
-        activeData.historicalCutoffs = cutoffs;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+      newHistory.sort((a, b) => {
+        const timeA = new Date(a.date).getTime() || 0;
+        const timeB = new Date(b.date).getTime() || 0;
+        return timeA - timeB;
+      });
 
-    recordCalibrationMetric: (categoryId, metric) => set((state) => {
-        const activeId = state.appState.activeId;
-        const activeData = state.appState.contests[activeId];
-        if (!activeData) return;
-        
-        if (!activeData.calibrationMetrics) activeData.calibrationMetrics = {};
-        if (!activeData.calibrationMetrics[categoryId]) activeData.calibrationMetrics[categoryId] = [];
-        
-        const history = activeData.calibrationMetrics[categoryId];
-        activeData.calibrationMetrics[categoryId] = [...history, { 
-            ...metric, 
-            timestamp: new Date().toISOString() 
-        }].slice(-50);
-        
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+      const categoryCount = (activeData.categories || []).length || 1;
+      const MAX_SNAPSHOTS = 30 * categoryCount;
+      if (newHistory.length > MAX_SNAPSHOTS) {
+        newHistory = newHistory.slice(-MAX_SNAPSHOTS);
+      }
 
-    updateCoachScore: (score) => set((state) => {
-        const activeId = state.appState.activeId;
-        const activeData = state.appState.contests[activeId];
-        if (!activeData) return;
-        
-        if (activeData.coachScore === score) return;
-        activeData.coachScore = score;
-        
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+      try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
 
-    setExamConfig: (durationMinutes, totalQuestions) => set((state) => {
-        const activeId = state.appState.activeId;
-        const activeData = state.appState.contests[activeId];
-        if (!activeData) return;
-        
-        activeData.examDurationMinutes = durationMinutes;
-        activeData.examTotalQuestions = totalQuestions;
-        
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+      state.appState.contests[activeId].monteCarloHistory = newHistory;
+      state.appState.version = (state.appState.version || 0) + 1;
+      state.appState.lastUpdated = new Date().toISOString();
+      try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+    } catch (e) {
+      console.warn('Error saving MC snapshot:', e);
+    }
+  }),
+
+  setMcEqualWeights: (enabled) => set((state) => {
+    state.appState.mcEqualWeights = Boolean(enabled);
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+  }),
+
+  setHistoricalCutoffs: (cutoffs) => set((state) => {
+    const activeId = state.appState?.activeId;
+    if (!activeId || !state.appState.contests?.[activeId]) return;
+    
+    state.appState.contests[activeId].historicalCutoffs = safeClone(cutoffs);
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+  }),
+
+  updateCoachScore: (score) => set((state) => {
+    const activeId = state.appState?.activeId;
+    if (!activeId || !state.appState.contests?.[activeId]) return;
+    const currentScore = state.appState.contests[activeId].coachScore;
+    const newScore = safeNumber(score, currentScore);
+    if (Object.is(currentScore, newScore)) return;
+    
+    state.appState.contests[activeId].coachScore = newScore;
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+  }),
+
+  setExamConfig: (durationMinutes, totalQuestions) => set((state) => {
+    const activeId = state.appState?.activeId;
+    if (!activeId || !state.appState.contests?.[activeId]) return;
+    const dMin = safeNumber(durationMinutes, 240);
+    const tQ = safeNumber(totalQuestions, 100);
+    
+    state.appState.contests[activeId].examDurationMinutes = dMin;
+    state.appState.contests[activeId].examTotalQuestions = tQ;
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+  }),
+
+  recordCalibrationMetric: (categoryId, metric) => set((state) => {
+    const activeId = state.appState?.activeId;
+    if (!activeId || !state.appState.contests?.[activeId]) return;
+    const activeData = state.appState.contests[activeId];
+    
+    const currentMetrics = activeData.calibrationMetrics || {};
+    const history = currentMetrics[categoryId] || [];
+    
+    const newMetrics = [...history, {
+      ...metric,
+      timestamp: new Date().toISOString()
+    }].slice(-50);
+
+    if (!activeData.calibrationMetrics) {
+      activeData.calibrationMetrics = {};
+    }
+    activeData.calibrationMetrics[categoryId] = newMetrics;
+    
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+  })
 });

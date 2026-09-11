@@ -1,6 +1,6 @@
-import { generateId } from '../../utils/idGenerator';
-import { INITIAL_DATA } from '../../data/initialData';
-import { safeClone } from '../safeClone.js';
+import { generateId } from '../../utils/idGenerator.js';
+import { INITIAL_DATA } from '../../data/initialData.js';
+import { safeClone } from '../../utils/safeClone.js';
 import { current } from 'immer';
 
 // BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
@@ -67,23 +67,30 @@ export const createContestSlice = (set) => ({
             });
         }
 
+        const wasActive = contestId === state.appState.activeId;
         delete state.appState.contests[contestId];
         const remainingIds = Object.keys(state.appState.contests);
         if (remainingIds.length === 0) {
             state.appState.contests['default'] = safeClone(INITIAL_DATA);
             state.appState.activeId = 'default';
-            // CORREÇÃO: Impedir que um Pomodoro ativo continue a rodar em background num painel que acabou de ser aniquilado
-            if (state.appState.pomodoro?.activeSubject) {
-                state.appState.pomodoro = { ...RESET_POMODORO };
-                localStorage.removeItem('pomodoroState');
-            }
-        } else if (contestId === state.appState.activeId) {
+        } else if (wasActive) {
             state.appState.activeId = remainingIds[0];
-            if (state.appState.pomodoro?.activeSubject) {
-                state.appState.pomodoro = { ...RESET_POMODORO };
-                localStorage.removeItem('pomodoroState');
-            }
         }
+        
+        if (wasActive || remainingIds.length === 0) {
+            state.appState.pomodoro = {
+                activeSubject: null,
+                sessions: 1,
+                targetCycles: 1,
+                completedCycles: 0,
+                accumulatedMinutes: 0,
+                mode: 'work',
+                neuralQueue: [],
+                neuralMode: false,
+            };
+            try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
+        }
+        
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
@@ -95,4 +102,17 @@ export const createContestSlice = (set) => ({
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
     }),
+
+    renameContest: (contestId, newName) => set((state) => {
+        const id = contestId || state.appState.activeId;
+        const contest = state.appState.contests[id];
+        const trimmed = typeof newName === 'string' ? newName.trim() : '';
+        if (!contest || !trimmed) return;
+        contest.contestName = trimmed;
+        contest.lastUpdated = new Date().toISOString();
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        localStorage.setItem('ultra-sync-dirty', 'true');
+    }),
 });
+

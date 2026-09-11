@@ -1,5 +1,5 @@
 import React, { useId } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
 
 export function EvolucaoFocoChart({ data }) {
@@ -15,7 +15,8 @@ export function EvolucaoFocoChart({ data }) {
     }
 
     return (
-        <div className="h-full min-h-[300px] w-full mt-4 pb-2">
+        <div className="h-full min-h-[300px] w-full min-w-0 mt-4 pb-2">
+            {/* FIX BUG 8: minWidth={1} com min-w-0 no container pai permite que o gráfico se adapte fluidamente a telas mobile sem estourar o viewport */}
             <ResponsiveContainer width="100%" height="100%" minHeight={250} minWidth={1}>
                 {/* Ajustado margin left para 10 para o eixo Y e a linha do gráfico não ficarem cortados */}
                 <AreaChart data={data} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
@@ -42,7 +43,10 @@ export function EvolucaoFocoChart({ data }) {
                     <YAxis
                         stroke="#94a3b8"
                         fontSize={11}
-                        domain={[0, dataMax => Math.max(1, Math.ceil(dataMax * 1.15))]}
+                        domain={[0, dataMax => {
+                            const safeMax = Number.isFinite(dataMax) ? dataMax : 0;
+                            return Math.max(1, Math.ceil(safeMax * 1.15));
+                        }]}
                         axisLine={false}
                         tickLine={false}
                         dx={-5}
@@ -70,3 +74,4 @@ export function EvolucaoFocoChart({ data }) {
         </div>
     );
 }
+

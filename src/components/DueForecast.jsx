@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Calendar, TrendingUp } from 'lucide-react';
 import { computeFlashcardDueForecast } from '../utils/analytics';
+import { toArray } from '../utils/normalize';
 import DueForecastChart from './charts/DueForecastChart';
 
 /**
@@ -8,19 +9,25 @@ import DueForecastChart from './charts/DueForecastChart';
  * Componente reutilizável com resumo + gráfico de barras.
  */
 export default function DueForecast({ decks = [], horizon = 14, compact = false }) {
-    const safeHorizon = Math.max(1, Math.min(30, horizon));
-    const decksArray = Array.isArray(decks) ? decks : Object.values(decks || {});
+    const safeHorizon = Math.max(1, Math.min(30, Number(horizon) || 14));
 
-    const { forecast, totalDueInHorizon, maxDaily, horizon: usedHorizon } = useMemo(
-        () => computeFlashcardDueForecast(decksArray, safeHorizon),
-        [decksArray, safeHorizon]
-    );
+    const { forecast, totalDueInHorizon, maxDaily, horizon: usedHorizon, totalCards } = useMemo(() => {
+        const decksArray = toArray(decks);
+        const res = computeFlashcardDueForecast(decksArray, safeHorizon);
+        const cardsCount = decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
+        return {
+            ...res,
+            totalCards: cardsCount
+        };
+    }, [decks, safeHorizon]);
 
-    const totalCards = decksArray.reduce((sum, d) => sum + (d.cards?.length || 0), 0);
     const todayCount = forecast[0]?.count || 0;
-    // Safe peakDay (never crash)
+    // FIX CORRIGIDO: peakDay podia ser undefined quando forecast não-vazio
+    // mas maxDaily=0 (find retornava undefined, fallback || forecast[0] ok).
+    // Mas se forecast.length > 0 E maxDaily > 0 E nenhum item tem count === maxDaily
+    // (impossível matematicamente, mas blindamos por segurança).
     const peakDay = forecast.length > 0
-        ? (forecast.find(d => d.count === maxDaily) || forecast[0])
+        ? (forecast.find(d => d.count === maxDaily) ?? forecast[0] ?? { label: '-', dateLabel: '-' })
         : { label: '-', dateLabel: '-' };
 
     if (!totalCards) {
@@ -50,7 +57,14 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
                     <div className="text-xl font-black text-amber-300 tabular-nums">{nextN}</div>
                 </div>
                 <div className="ml-auto text-[10px] text-right text-slate-400">
-                    Pico: <span className="font-bold text-white">{maxDaily}</span> em {peakDay.label}
+                    {/* T-034 FIX: não mostrar pico falso quando tudo está zerado */}
+                    {maxDaily > 0 ? (
+                        <>
+                            Pico: <span className="font-bold text-white">{maxDaily}</span> em {peakDay.label}
+                        </>
+                    ) : (
+                        <span className="text-emerald-400">Sem vencimentos no período</span>
+                    )}
                 </div>
             </div>
         );
@@ -90,8 +104,17 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
                     <div className="text-[10px] text-slate-500">Pico diário</div>
-                    <div className="text-2xl font-black text-amber-400 tabular-nums">{maxDaily}</div>
-                    <div className="text-[10px] text-amber-400/70">{peakDay.label} ({peakDay.dateLabel})</div>
+
+                    {/* T-034 FIX: estado elegante quando não há vencimentos */}
+                    <div className={`text-2xl font-black tabular-nums ${maxDaily > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {maxDaily > 0 ? maxDaily : '—'}
+                    </div>
+
+                    <div className="text-[10px] text-amber-400/70">
+                        {maxDaily > 0
+                            ? `${peakDay.label} (${peakDay.dateLabel})`
+                            : 'Nenhum vencimento programado'}
+                    </div>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
                     <div className="text-[10px] text-slate-500">Total no horizonte</div>
@@ -113,3 +136,4 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
         </div>
     );
 }
+

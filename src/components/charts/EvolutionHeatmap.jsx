@@ -1,12 +1,59 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
-export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', showOnlyFocus, focusSubjectId }) => {
+// ✅ FIX: Worker singleton compartilhado entre todas as instâncias
+let sharedWorker = null;
+let sharedWorkerRefCount = 0;
+
+function getSharedWorker() {
+  if (!sharedWorker) {
+    try {
+      sharedWorker = new Worker(
+        new URL('../../engine/heatmap.worker.js', import.meta.url),
+        { type: 'module' }
+      );
+    } catch (e) {
+      console.warn("[EvolutionHeatmap] Web Worker not available:", e);
+      return null;
+    }
+  }
+  sharedWorkerRefCount++;
+  return sharedWorker;
+}
+
+function releaseSharedWorker() {
+  sharedWorkerRefCount--;
+  if (sharedWorkerRefCount < 0) sharedWorkerRefCount = 0;
+  if (sharedWorkerRefCount === 0 && sharedWorker) {
+    sharedWorker.terminate();
+    sharedWorker = null;
+  }
+}
+
+export const EvolutionHeatmap = ({ 
+    heatmapData, 
+    targetScore = 70, 
+    showOnlyFocus, 
+    focusSubjectId,
+    maxScore = 100,
+    minScore = 0 
+}) => {
     const { dates = [], rows = [] } = heatmapData || {};
     
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const range = Math.max(1e-9, safeMax - safeMin);
+    
+    const safeTarget = Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMin;
+    
+    const targetScorePct = Math.max(
+      0,
+      Math.min(100, ((safeTarget - safeMin) / range) * 100)
+    );
+
     // 🎯 FILTRO DE FOCO: Aplica o filtro de "Todas as Matérias" vs "Apenas Foco"
     const filteredRowsByFocus = useMemo(() => {
-        if (!showOnlyFocus) return rows;
+        if (!showOnlyFocus || !focusSubjectId) return rows;
         return rows.filter(row => row.cat?.id === focusSubjectId);
     }, [rows, showOnlyFocus, focusSubjectId]);
 
@@ -29,52 +76,76 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
     }, [dates, filteredRowsByFocus, windowSize]);
 
     const [aggregated, setAggregated] = useState(() => {
-        // Renderização síncrona para testes (renderToStaticMarkup)
-        if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
-            return aggregateHeatmap(filtered, 'daily', targetScore);
-        }
-        return { dates: [], rows: [] };
+        return aggregateHeatmap(filtered, 'daily', safeMax);
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
+    const didAcquireWorker = useRef(false);
 
     useEffect(() => {
+        const worker = getSharedWorker();
+        workerRef.current = worker;
+        didAcquireWorker.current = worker !== null;
+        
         return () => {
-            if (workerRef.current) workerRef.current.terminate();
+            if (didAcquireWorker.current) releaseSharedWorker();
+            workerRef.current = null;
+            didAcquireWorker.current = false;
         };
     }, []);
 
     useEffect(() => {
-        if (!workerRef.current) {
-            try {
-                workerRef.current = new Worker(new URL('../../engine/heatmap.worker.js', import.meta.url), { type: 'module' });
-            } catch (e) {
-                console.warn("[EvolutionHeatmap] Web Worker not available, fallback to sync.", e);
-            }
-        }
-        
         const worker = workerRef.current;
         if (!worker) {
-            setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+            setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
             return;
         }
 
+        const msgId = `${Date.now()}_${Math.random()}`;
         setIsAggregating(true);
-        worker.onmessage = (e) => {
+
+        const handleMessage = (e) => {
+            if (e.data?.id !== msgId) return;
+
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
+
             if (e.data.type === 'success') {
                 setAggregated(e.data.result);
             } else {
-                setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+                setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
             }
             setIsAggregating(false);
         };
-        worker.onerror = () => {
-            setAggregated(aggregateHeatmap(filtered, granularity, targetScore));
+
+        const handleError = (err) => {
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
+            console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
+            setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
             setIsAggregating(false);
         };
 
-        worker.postMessage({ id: Date.now(), payload: { filtered, granularity, targetScore } });
-    }, [filtered, granularity, targetScore]);
+        worker.addEventListener('message', handleMessage);
+        worker.addEventListener('error', handleError);
+
+        worker.postMessage({
+          id: msgId,
+          payload: {
+            filtered,
+            granularity,
+            targetScore: safeTarget,
+            targetScorePct,
+            minScore: safeMin,
+            maxScore: safeMax
+          }
+        });
+
+        return () => {
+            worker.removeEventListener('message', handleMessage);
+            worker.removeEventListener('error', handleError);
+        };
+    }, [filtered, granularity, targetScore, safeTarget, targetScorePct, safeMin, safeMax]);
 
     const filteredDates = aggregated.dates || [];
     const filteredRows = aggregated.rows || [];
@@ -85,18 +156,57 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
     const maxCellTotal = totals.length > 0 ? totals.reduce((m, v) => Math.max(m, v), 1) : 1;
 
     const cellColor = (pct, total = 0) => {
-        if (pct == null) return { bg: 'rgba(255,255,255,0.02)', text: '#64748b', border: '#1e293b', density: 0 };
-        const density = Math.min(1, (Number(total) || 0) / maxCellTotal);
-        if (pct >= targetScore) return { bg: 'rgba(34,197,94,0.45)', text: '#4ade80', border: 'rgba(34,197,94,0.6)', density };
-        if (pct >= targetScore * 0.8) return { bg: 'rgba(251,191,36,0.4)', text: '#fcd34d', border: 'rgba(251,191,36,0.6)', density };
-        if (pct >= targetScore * 0.6) return { bg: 'rgba(251,146,60,0.4)', text: '#fb923c', border: 'rgba(251,146,60,0.6)', density };
-        return { bg: 'rgba(239,68,68,0.4)', text: '#f87171', border: 'rgba(239,68,68,0.6)', density };
+      if (pct == null || !Number.isFinite(Number(pct))) {
+        return {
+          bg: 'rgba(255,255,255,0.02)',
+          text: '#64748b',
+          border: '#1e293b',
+          density: 0
+        };
+      }
+    
+      const safePct = Number(pct);
+      const density = Math.min(1, (Number(total) || 0) / maxCellTotal);
+    
+      if (safePct >= targetScorePct) {
+        return {
+          bg: 'rgba(34,197,94,0.45)',
+          text: '#4ade80',
+          border: 'rgba(34,197,94,0.6)',
+          density
+        };
+      }
+    
+      if (safePct >= targetScorePct * 0.8) {
+        return {
+          bg: 'rgba(251,191,36,0.4)',
+          text: '#fcd34d',
+          border: 'rgba(251,191,36,0.6)',
+          density
+        };
+      }
+    
+      if (safePct >= targetScorePct * 0.6) {
+        return {
+          bg: 'rgba(251,146,60,0.4)',
+          text: '#fb923c',
+          border: 'rgba(251,146,60,0.6)',
+          density
+        };
+      }
+    
+      return {
+        bg: 'rgba(239,68,68,0.4)',
+        text: '#f87171',
+        border: 'rgba(239,68,68,0.6)',
+        density
+      };
     };
 
     const formatPct = (value) => {
         if (!Number.isFinite(value)) return '—';
         const rounded = Number(value.toFixed(2));
-        return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}${unit}`;
+        return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}%`;
     };
 
     if (!filteredDates.length) return (
@@ -110,8 +220,12 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
         </div>
     );
 
+    const targetFmt = `${Math.round(targetScorePct)}%`;
+    const t60Fmt = `${Math.round(targetScorePct * 0.6)}%`;
+    const t80Fmt = `${Math.round(targetScorePct * 0.8)}%`;
+
     return (
-        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pb-8 sm:pb-10 px-1 rounded-xl border border-slate-800/80 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
+        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-4 pb-8 sm:pb-10 px-1 min-h-[240px] rounded-xl border border-slate-800/80 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
             <div className="flex flex-wrap items-center gap-3.5 mb-5 text-[11px] text-slate-300">
                 <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-lg p-1.5 mr-2 shadow-sm">
                     {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (
@@ -142,10 +256,10 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
                     ))}
                 </div>
                 {[
-                    { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${Math.round(targetScore * 0.6)}${unit}` },
-                    { bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${Math.round(targetScore * 0.6)}–${Math.round(targetScore * 0.8)}${unit}` },
-                    { bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${Math.round(targetScore * 0.8)}–${targetScore}${unit}` },
-                    { bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetScore}${unit} ✓ meta` },
+                    { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${t60Fmt}` },
+                    { bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${t60Fmt}–${t80Fmt}` },
+                    { bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${t80Fmt}–${targetFmt}` },
+                    { bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetFmt} ✓ meta` },
                 ].map(item => (
                     <span key={item.label} className="flex items-center gap-1.5">
                         <span className="w-3 h-3 rounded-sm inline-block shrink-0" style={{ background: item.bg, border: `1px solid ${item.border}` }} />
@@ -153,14 +267,18 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
                     </span>
                 ))}
             </div>
-            {granularity !== 'daily' && (
-                <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
-                    Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): células representam múltiplos dias.
-                </p>
-            )}
-
-            <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
-                <div style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
+                    {granularity !== 'daily' && (
+                        <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
+                            Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): cada célula representa vários dias.
+                        </p>
+                    )}
+            
+                   <div className="mb-3 rounded-xl border border-white/5 bg-black/20 p-2.5 text-[10px] text-slate-400">
+                       Leitura rápida: verde = acima da meta; amarelo/laranja = atenção; vermelho = risco; vazio = sem simulado cadastrado.
+                   </div>
+            
+                    <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
                     <div />
                     {filteredDates.map(d => (
                         <div key={d.key} className="flex flex-col items-center gap-1">
@@ -177,10 +295,10 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
 
                 <div className="space-y-2.5">
                     {filteredRows.map(({ cat, cells }, ri) => (
-                        <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `168px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
+                        <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
                             <div className="flex items-center gap-2.5 pr-4 min-w-0">
                                 <span className="text-lg shrink-0">{cat.icon}</span>
-                                <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight" style={{ color: cat.color }} title={cat.name}>
+                                <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight capitalize" style={{ color: cat.color }} title={cat.name}>
                                     {cat.name}
                                 </span>
                             </div>
@@ -214,7 +332,7 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
                                         {cell && (
                                             <div className={`absolute ${ri === 0 ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-slate-950 border border-slate-500 rounded-xl p-4 min-w-[145px] shadow-[0_25px_60px_rgba(0,0,0,1)] whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
                                                 <span className="text-[10px] text-slate-300 font-black uppercase tracking-[0.15em] mb-2.5 pb-2 border-b border-slate-800 w-full">
-                                                    {filteredDates[ci].dayName} • {filteredDates[ci].label}
+                                                    {filteredDates[ci] ? `${filteredDates[ci].dayName} • ${filteredDates[ci].label}` : ''}
                                                 </span>
                                                 {Number.isFinite(Number(filteredDates[ci]?.count)) && Number(filteredDates[ci].count) > 1 && (
                                                     <span className="text-[9px] text-cyan-400 font-bold mb-2">
@@ -247,3 +365,4 @@ export const EvolutionHeatmap = ({ heatmapData, targetScore = 70, unit = '%', sh
         </div>
     );
 };
+

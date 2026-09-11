@@ -1,70 +1,185 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Zap, Activity } from 'lucide-react';
+import { BookOpen, Zap, Calendar, Clock, CheckCircle2 } from 'lucide-react'; // ✅ LOTE-04: Activity removido (não usado)
 import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
 
-export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
+// ✅ LOTE-04 FIX: movido para o escopo do módulo — antes era recriado a cada render
+// T-021 FIX: tasks podem ser arrays ou objetos no Firebase.
+const getTasksArray = (category) => {
+    if (!category?.tasks) return [];
+    return Array.isArray(category.tasks)
+        ? category.tasks
+        : Object.values(category.tasks || {});
+};
 
-    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    const categoriesArray = Array.isArray(categories) ? categories : Object.values(categories || {});
+// Formatação estática de mês para evitar recriação no loop de dias
+const monthFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TIMEZONE,
+    month: 'long'
+});
+
+// ✅ FIX: movido para escopo do módulo — era recriado a cada render
+const formatTime = (minutes) => {
+    return formatDuration(minutes / 60);
+};
+
+export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
+    const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
+    const categoriesArray = useMemo(() => {
+        const list = Array.isArray(categories) ? categories : Object.values(categories || {});
+        return list.filter(Boolean).map(c => {
+            const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
+            return {
+                ...c,
+                tasks: tasks.filter(Boolean)
+            };
+        });
+    }, [categories]);
 
     const { groups, stats } = useMemo(() => {
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
-        // 1. Calculate Stats
-        // BUGFIX: Alguns logs antigos/sincronizados usam `duration` em vez de `minutes`.
-        // Sem fallback, cards e timeline subcontabilizam tempo no menu de Estatísticas.
-        const getLogMinutes = (log) => Number(log?.minutes ?? log?.duration) || 0;
-        const totalMinutes = logsArray.reduce((acc, log) => acc + getLogMinutes(log), 0);
-        const totalSessions = logsArray.length;
+        // Criar formatadores UMA vez, fora do loop
+        const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            weekday: 'long'
+        });
+        const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
+            timeZone: APP_TIMEZONE,
+            day: 'numeric'
+        });
+        const now = new Date();
+        const todayKey = getDateKey(now);
+        const y = new Date(now);
+        y.setDate(y.getDate() - 1);
+        const yesterdayKey = getDateKey(y);
+
+        // T-029 FIX: Se minutes vier 0, mas duration existir, usa duration.
+        // FIX Bug 5: Revisões de flashcard não contam como horas de estudo (alinhado com analytics.js e chartDataMappers.js)
+        const getLogMinutes = (log) => {
+            if (!log || log.type === 'flashcard') return 0;
+            const minutes = Number(log?.minutes);
+            const duration = Number(log?.duration);
+
+            if (Number.isFinite(minutes) && minutes > 0) return minutes;
+            if (Number.isFinite(duration) && duration > 0) return duration;
+
+            return 0;
+        };
+
+        // T-037 FIX: Indexar categorias por ID e por Nome (com normalização de casing/espaços) para lookup O(1).
+        const categoriesById = new Map();
+        const categoriesByName = new Map();
+
+        categoriesArray.forEach(c => {
+            if (c?.id != null) {
+                categoriesById.set(String(c.id), c);
+            }
+            if (c?.name != null) {
+                categoriesByName.set(c.name, c);
+                categoriesByName.set(String(c.name).trim().toLowerCase(), c);
+            }
+        });
+
+        // Pre-indexar tarefas de cada categoria para evitar getTasksArray e .find repetidos em cada log
+        const tasksByCatAndId = new Map();
+        categoriesArray.forEach(c => {
+            if (c) {
+                const tasksArray = getTasksArray(c);
+                const taskMap = new Map();
+                tasksArray.forEach(t => {
+                    if (t?.id != null) {
+                        taskMap.set(String(t.id), t);
+                    }
+                });
+                tasksByCatAndId.set(c, taskMap);
+            }
+        });
+
+        const findCategoryForLog = (log) => {
+            if (!log) return undefined;
+
+            if (log.categoryId != null) {
+                const byId = categoriesById.get(String(log.categoryId));
+                if (byId) return byId;
+            }
+
+            if (log.subject) {
+                const bySubject = categoriesByName.get(log.subject) || categoriesByName.get(String(log.subject).trim().toLowerCase());
+                if (bySubject) return bySubject;
+            }
+
+            if (log.categoryName) {
+                const byCatName = categoriesByName.get(log.categoryName) || categoriesByName.get(String(log.categoryName).trim().toLowerCase());
+                if (byCatName) return byCatName;
+            }
+
+            return undefined;
+        };
+
+        // Filtrar apenas logs com tempo positivo e data válida para alinhar KPIs do cabeçalho com a timeline
+        const validStudyLogs = logsArray.filter(log => {
+            if (getLogMinutes(log) <= 0) return false;
+            const d = normalizeDate(log?.date);
+            return d !== null && !Number.isNaN(d.getTime());
+        });
+        const totalMinutes = validStudyLogs.reduce((acc, log) => acc + getLogMinutes(log), 0);
+        const totalSessions = validStudyLogs.length;
 
         // Find top category
         const catCounts = {};
-        logsArray.forEach(log => {
-            const catId = log.categoryId;
-            // Usa fallback minutes/duration para manter consistência com outros módulos.
-            catCounts[catId] = (catCounts[catId] || 0) + getLogMinutes(log);
+        validStudyLogs.forEach(log => {
+            // T-037 FIX: lookup indexado
+            const category = findCategoryForLog(log);
+            const catName = category ? category.name : (log.categoryName || log.subject || 'Outros');
+            catCounts[catName] = (catCounts[catName] || 0) + getLogMinutes(log);
         });
-        const topCatId = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a])[0];
-        const topCategory = categoriesArray.find(c => String(c.id) === String(topCatId))?.name || '-';
+        const sortedCats = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
+        const topCategory = totalMinutes > 0 ? (sortedCats[0] || '-') : '-';
 
         // 2. Group by Date then by Category
-        // FIX: Usar normalizeDate para evitar shift de UTC midnight em datas YYYY-MM-DD
-        const sortedLogs = [...logsArray].sort((a, b) => (normalizeDate(b.date)?.getTime() ?? 0) - (normalizeDate(a.date)?.getTime() ?? 0));
+        // FIX: Precomputar dateObj e time para evitar normalizeDate redundante dentro do sort e loop
+        const logsWithTime = [];
+        for (let i = 0; i < validStudyLogs.length; i++) {
+            const log = validStudyLogs[i];
+            const dateObj = normalizeDate(log?.date);
+            const time = (dateObj && !Number.isNaN(dateObj.getTime())) ? dateObj.getTime() : 0;
+            logsWithTime.push({ log, dateObj, time });
+        }
+        logsWithTime.sort((a, b) => b.time - a.time);
+
         const grouped = {};
 
-        sortedLogs.forEach(log => {
-            const dateObj = normalizeDate(log.date);
-            
-            if (!dateObj || Number.isNaN(dateObj.getTime())) return;
+        logsWithTime.forEach(({ log, dateObj, time: logTime }) => {
+            if (!dateObj || !Number.isFinite(logTime)) return;
+            const logMinutes = getLogMinutes(log);
+            if (logMinutes <= 0) return;
+
             const dateStr = formatDatePtBR(dateObj);
 
-            // Determine friendly day label
-            const now = new Date();
-            const today = formatDatePtBR(now);
-            const y = new Date(now);
-            y.setDate(y.getDate() - 1);
-            const yesterday = formatDatePtBR(y);
+            // T-024 FIX: usar chave de dia (getDateKey) em vez de comparar strings formatadas.
+            // Isso reduz divergência de timezone perto da meia-noite.
+            const uniqueDayKey = getDateKey(dateObj) || dateStr;
+
             let dayLabel = dateStr;
-            const rawWeekday = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, weekday: 'long' }).format(dateObj);
+            const rawWeekday = weekdayFormatter.format(dateObj);
             const weekDayName = rawWeekday.charAt(0).toUpperCase() + rawWeekday.slice(1).split('-')[0];
 
             let isToday = false;
             let isYesterday = false;
 
-            if (dateStr === today) {
+            if (uniqueDayKey === todayKey) {
                 dayLabel = "Hoje";
                 isToday = true;
-            } else if (dateStr === yesterday) {
+            } else if (uniqueDayKey === yesterdayKey) {
                 dayLabel = "Ontem";
                 isYesterday = true;
             } else {
                 dayLabel = dateStr;
             }
-
-            const uniqueDayKey = getDateKey(dateObj) || dateStr;
-            const manausDayStr = new Intl.DateTimeFormat('pt-BR', { timeZone: APP_TIMEZONE, day: 'numeric' }).format(dateObj);
+            const manausDayStr = dayFormatter.format(dateObj);
 
             if (!grouped[uniqueDayKey]) grouped[uniqueDayKey] = {
+                uniqueDayKey,
                 label: dayLabel,
                 subLabel: weekDayName,
                 manausDayStr,
@@ -75,9 +190,10 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             };
 
             // Category Grouping
-            const category = categoriesArray.find(c => String(c.id) === String(log.categoryId));
-            const categoryId = log.categoryId;
-            const categoryName = category ? category.name : 'Desconhecido';
+            // T-037 FIX: lookup indexado
+            const category = findCategoryForLog(log);
+            const categoryId = category ? category.id : (log.categoryId || log.categoryName || log.subject || 'unknown');
+            const categoryName = category ? category.name : (log.categoryName || log.subject || 'Desconhecido');
             const categoryColor = category?.color || '#a855f7';
 
             if (!grouped[uniqueDayKey].categories[categoryId]) {
@@ -86,49 +202,66 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                     name: categoryName,
                     color: categoryColor,
                     logs: [],
+                    logMap: new Map(),
                     totalMinutes: 0
                 };
             }
 
-            let taskTitle = '-';
+            const getCleanTitle = (val) => (val && typeof val === 'string' && val.trim() !== '-' && val.trim() !== '' ? val.trim() : null);
+            let rawTitle = null;
             if (category && log.taskId) {
-                const task = category.tasks?.find(t => String(t.id) === String(log.taskId));
-                // Bug fix: data model stores task.text, not task.title
-                if (task) taskTitle = task.text || task.title || '-';
+                const taskMap = tasksByCatAndId.get(category);
+                const task = taskMap?.get(String(log.taskId));
+                if (task) {
+                    rawTitle = getCleanTitle(task.text) || getCleanTitle(task.title);
+                }
             }
+            const taskTitle = rawTitle || getCleanTitle(log.taskTitle) || getCleanTitle(log.task) || getCleanTitle(log.title) || getCleanTitle(log.taskName) || 'Sessão de Estudo';
 
-            // Check if this task is already in the list for this day (Merge strategy)
+            // Check if this task is already in the list for this day (Merge strategy com Map O(1))
             const targetGroup = grouped[uniqueDayKey].categories[categoryId];
-            const existingLogIndex = targetGroup.logs.findIndex(l =>
-                (log.taskId && String(l.taskId) === String(log.taskId)) || (!log.taskId && l.taskTitle === taskTitle)
-            );
+            const mergeKey = log.taskId ? `id:${String(log.taskId)}` : `title:${taskTitle}`;
+            const existingLog = targetGroup.logMap.get(mergeKey);
 
-            if (existingLogIndex >= 0) {
-                targetGroup.logs[existingLogIndex].minutes += getLogMinutes(log);
+            if (existingLog) {
+                existingLog.minutes += logMinutes;
+                const prevTime = existingLog.time ?? 0;
+                const newTime = logTime;
+                if (newTime > prevTime) {
+                    existingLog.date = log.date;
+                    existingLog.time = newTime;
+                }
             } else {
-                targetGroup.logs.push({
+                const newEntry = {
                     id: log.id,
                     taskId: log.taskId,
                     taskTitle,
-                    minutes: getLogMinutes(log),
-                    date: log.date
-                });
+                    minutes: logMinutes,
+                    date: log.date,
+                    time: logTime
+                };
+                targetGroup.logMap.set(mergeKey, newEntry);
+                targetGroup.logs.push(newEntry);
             }
 
-            targetGroup.totalMinutes += getLogMinutes(log);
+            targetGroup.totalMinutes += logMinutes;
         });
 
         // Convert Objects to Arrays for rendering
-        const finalGroups = Object.values(grouped).sort((a, b) => b.dateObj - a.dateObj).map((dayGroup) => {
+        const finalGroups = Object.values(grouped).sort((a, b) => (b.dateObj?.getTime?.() ?? 0) - (a.dateObj?.getTime?.() ?? 0)).map((dayGroup) => {
             // Sort categories by Last Activity Time (Chronological)
             const cats = Object.values(dayGroup.categories).map(cat => ({
                 ...cat,
-                // Find latest log time for this category on this day
-                lastLogTime: cat.logs.length > 0 ? Math.max(...cat.logs.map(l => normalizeDate(l.date)?.getTime() ?? 0)) : 0
+                // T-038 FIX: reduce evita estourar stack com arrays grandes
+                lastLogTime: cat.logs.reduce((max, l) => {
+                    const t = l.time ?? (normalizeDate(l.date)?.getTime() ?? 0);
+                    return Math.max(max, t);
+                }, 0)
             })).sort((a, b) => b.lastLogTime - a.lastLogTime);
 
             const dayTotalMinutes = cats.reduce((acc, c) => acc + c.totalMinutes, 0);
             const dayTotalSessions = cats.reduce((acc, c) => acc + c.logs.length, 0);
+
             return {
                 ...dayGroup,
                 categories: cats,
@@ -137,14 +270,20 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
             };
         });
 
-        return { groups: finalGroups, stats: { totalMinutes, totalSessions, topCategory } };
-    }, [logsArray, categories]);
+        return {
+            groups: finalGroups,
+            stats: {
+                totalDays: finalGroups.length,
+                totalMinutes,
+                totalSessions,
+                topCategory
+            }
+        };
+    }, [logsArray, categoriesArray, dayTick]);
 
-    const formatTime = (minutes) => {
-        return formatDuration(minutes / 60);
-    };
+    // formatTime movido para escopo do módulo (performance)
 
-    if (!logsArray || logsArray.length === 0) {
+    if (!logsArray || logsArray.length === 0 || groups.length === 0) {
         return (
             <div className="glass p-12 flex flex-col items-center justify-center text-slate-500 opacity-60 min-h-[400px]">
                 <BookOpen size={64} className="mb-6 animate-pulse" />
@@ -155,39 +294,48 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
     }
 
     return (
-        <div className="space-y-8 animate-fade-in-up">
-            <div className="flex items-center gap-3 mb-2 px-2">
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-lg shadow-purple-500/20">
-                    <Activity className="text-white" size={20} />
+        <div className="glass rounded-3xl p-6 sm:p-8 space-y-8 relative overflow-hidden bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-black/80 border border-white/5 shadow-2xl animate-fade-in-up">
+            {/* Header with Stats Summary */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 relative z-10">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                        <Calendar size={22} />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                            Linha do Tempo de Estudos
+                        </h3>
+                        <p className="text-xs text-slate-400">Histórico dia a dia de sessões e tarefas concluídas</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">Timeline de Estudos</h2>
-                    <p className="text-sm text-slate-400">Diário detalhado das suas conquistas.</p>
+
+                {/* Micro KPIs */}
+                <div className="flex items-center gap-3 self-start sm:self-auto">
+                    <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                        <Clock size={14} className="text-slate-400" />
+                        <span className="text-xs font-bold text-slate-200">{formatTime(stats.totalMinutes)}</span>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 flex items-center gap-2">
+                        <CheckCircle2 size={14} className="text-slate-400" />
+                        <span className="text-xs font-bold text-slate-200">{stats.totalSessions} blocos</span>
+                    </div>
                 </div>
             </div>
 
-            {/* OVERVIEW STATS */}
-            {stats && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
-                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Tempo de Foco</span>
-                        <span className="text-3xl font-black text-white leading-none">{formatTime(stats.totalMinutes)}</span>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
-                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Total de Sessões</span>
-                        <span className="text-3xl font-black text-purple-400 leading-none">{stats.totalSessions} <span className="text-sm text-slate-500 font-bold ml-1">blocos</span></span>
-                    </div>
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex flex-col shadow-lg">
-                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Matéria Favorita</span>
-                        <span className="text-base sm:text-lg font-black text-indigo-400 break-words line-clamp-3 leading-tight mt-1" title={stats.topCategory}>{stats.topCategory}</span>
-                    </div>
-                </div>
-            )}
-
             {/* Timeline Content */}
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
-                {groups.map((dayGroup, idx) => (
-                    <div key={dayGroup.dateObj?.toISOString?.() ?? `day-${idx}`} className="relative z-10">
+                {(() => { const currentYear = new Date().getFullYear(); return groups.map((dayGroup, idx) => {
+                    const monthName = monthFormatter.format(dayGroup.dateObj);
+                    const logYear = dayGroup.dateObj?.getFullYear?.();
+                    const yearSuffix = (logYear && logYear !== currentYear) ? ` de ${logYear}` : '';
+                    const displayTitle = dayGroup.isToday
+                        ? `Hoje, ${dayGroup.manausDayStr} de ${monthName}`
+                        : dayGroup.isYesterday
+                            ? `Ontem, ${dayGroup.manausDayStr} de ${monthName}`
+                            : `${dayGroup.manausDayStr} de ${monthName}${yearSuffix}`;
+
+                    return (
+                    <div key={dayGroup.uniqueDayKey || dayGroup.dateObj?.toISOString?.() || `day-${idx}`} className="relative z-10">
                         {/* Day Marker */}
                         <div className="absolute -left-[47px] sm:-left-[73px] top-0 flex flex-col items-center w-7 sm:w-14">
                             <div className={`w-7 h-7 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl flex flex-col items-center justify-center shadow-xl border-2 sm:border-4 ${dayGroup.isToday
@@ -211,7 +359,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                 }`}>
                                 <div className="flex items-center gap-3 justify-start">
                                     <h3 className={`text-lg font-bold ${dayGroup.isToday ? 'text-purple-300' : 'text-slate-300'}`}>
-                                        {dayGroup.label} {dayGroup.isToday ? '' : `de ${dayGroup.dateObj.toLocaleString('pt-BR', { month: 'long' })}`}
+                                        {displayTitle}
                                     </h3>
                                     {dayGroup.isToday && (
                                         <span className="text-[10px] font-bold bg-purple-500 text-white px-2 py-0.5 rounded-full shadow-lg animate-pulse">
@@ -224,7 +372,6 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                         {formatTime(dayGroup.totalMinutes)}
                                     </div>
                                 </div>
-                                <div></div>
                             </div>
 
                             {/* Categories List */}
@@ -259,12 +406,14 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                                         {/* Task Details (Always Visible but subtle) */}
                                         <div className="px-5 pb-3 pt-0 space-y-1">
                                             {cat.logs.map((log, logIdx) => (
-                                                <div key={log.taskId || `log-${logIdx}`} className="flex items-center justify-between text-xs py-1.5 border-t border-white/5 text-slate-400 hover:text-slate-300 transition-colors">
+                                                <div key={`${log.taskId || 'log'}-${logIdx}`} className="flex items-center justify-between text-xs py-1.5 border-t border-white/5 text-slate-400 hover:text-slate-300 transition-colors">
                                                     <div className="flex items-center gap-2 pr-4 min-w-0">
                                                         <Zap size={10} className="text-slate-600" />
                                                         <span className="break-words line-clamp-2 text-xs sm:text-sm" title={log.taskTitle}>{log.taskTitle}</span>
                                                     </div>
-                                                    <span className="font-mono whitespace-nowrap opacity-60">+{log.minutes}m</span>
+                                                    <span className="font-mono whitespace-nowrap opacity-60">
+                                                        +{Math.round(log.minutes) >= 60 ? formatTime(log.minutes) : `${Math.round(log.minutes)}m`}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>
@@ -273,8 +422,10 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [] }) {
                             </div>
                         </div>
                     </div>
-                ))}
+                );
+            }); })()}
             </div>
         </div>
     );
 }
+

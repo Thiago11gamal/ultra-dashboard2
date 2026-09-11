@@ -5,10 +5,10 @@ import { Calendar, Plus, Trash2, Clock, Target, ChevronLeft, ChevronRight } from
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateId } from '../utils/idGenerator';
-import { getDateKey } from '../utils/dateHelper';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
+import ConfirmModal from '../components/ConfirmModal';
 
-const EMPTY_ARRAY = [];
+const EMPTY_ARRAY = Object.freeze([]);
 
 function getActiveContest(state) {
   const id = state.appState.activeId;
@@ -22,6 +22,8 @@ export default function Agenda() {
   const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
+
+  const [eventToDelete, setEventToDelete] = useState(null);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -41,13 +43,16 @@ export default function Agenda() {
   };
 
   // Month grid days
-  const monthDays = useMemo(() => {
+  const calendarDays = useMemo(() => {
     const start = startOfMonth(currentMonth);
     const end = endOfMonth(currentMonth);
-    return eachDayOfInterval({ start, end });
+    const days = eachDayOfInterval({ start, end });
+    const padding = start.getDay();
+    const prefix = Array.from({ length: padding }).fill(null);
+    return [...prefix, ...days];
   }, [currentMonth]);
 
-  const selectedDateStr = getDateKey(selectedDate) || format(selectedDate, 'yyyy-MM-dd');
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
 
   const eventsForSelected = useMemo(() => {
     return agenda
@@ -56,7 +61,7 @@ export default function Agenda() {
   }, [agenda, selectedDateStr]);
 
   const upcomingEvents = useMemo(() => {
-    const todayStr = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
     return agenda
       .filter(e => e.date >= todayStr)
       .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''))
@@ -79,7 +84,7 @@ export default function Agenda() {
   function openAddForSelected() {
     setForm({
       title: '',
-      subject: categories[0]?.name || 'Estudo Geral',
+      subject: categories[0]?.name || 'Geral',
       duration: 60,
       notes: '',
       time: '09:00'
@@ -109,15 +114,21 @@ export default function Agenda() {
   };
 
   const deleteEvent = (id) => {
-    if (!window.confirm('Remover este compromisso?')) return;
-    const next = agenda.filter(e => e.id !== id);
+    const ev = agenda.find(e => e.id === id);
+    if (ev) setEventToDelete(ev);
+  };
+
+  const handleConfirmDeleteEvent = () => {
+    if (!eventToDelete) return;
+    const next = agenda.filter(e => e.id !== eventToDelete.id);
     persistAgenda(next);
     showToast('Removido da agenda', 'info');
+    setEventToDelete(null);
   };
 
   // Calendar day with event dot count
   const getEventsOnDay = (day) => {
-    const dstr = getDateKey(day) || format(day, 'yyyy-MM-dd');
+    const dstr = format(day, 'yyyy-MM-dd');
     return agenda.filter(ev => ev.date === dstr).length;
   };
 
@@ -165,7 +176,10 @@ export default function Agenda() {
           </div>
 
           <div className="grid grid-cols-7 gap-1">
-            {monthDays.map((day, idx) => {
+            {calendarDays.map((day, idx) => {
+              if (!day) {
+                return <div key={`empty-${idx}`} className="aspect-square border border-transparent" />;
+              }
               const eventCount = getEventsOnDay(day);
               const isSel = isSameDay(day, selectedDate);
               const isTod = isToday(day);
@@ -250,7 +264,11 @@ export default function Agenda() {
                 <div key={ev.id} className="flex items-start justify-between rounded-xl bg-white/[0.025] px-3 py-2 text-sm border border-white/5">
                   <div>
                     <div className="font-medium leading-tight">{ev.title}</div>
-                    <div className="text-[11px] text-teal-300/90">{format(new Date(ev.date), 'dd/MM')} {ev.time ? `• ${ev.time}` : ''} • {ev.duration}min</div>
+                    <div className="text-[11px] text-teal-300/90">
+                      {ev.date ? format(new Date(ev.date + 'T12:00:00'), 'dd/MM') : '--'}
+                      {ev.time ? ` • ${ev.time}` : ''}
+                      {ev.duration ? ` • ${ev.duration}min` : ''}
+                    </div>
                   </div>
                   <button onClick={() => deleteEvent(ev.id)} className="text-rose-400/70 hover:text-rose-400">
                     <Trash2 size={15} />
@@ -279,9 +297,9 @@ export default function Agenda() {
                 <div>
                   <label className="micro-label mb-1 block">Disciplina</label>
                   <select value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm">
-                    {categories.length > 0 ? categories.map(c => (
+                    {categories.map(c => (
                       <option key={c.id} value={c.name}>{c.name}</option>
-                    )) : <option value="Geral">Geral</option>}
+                    ))}
                     <option value="Geral">Geral</option>
                   </select>
                 </div>
@@ -310,7 +328,19 @@ export default function Agenda() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={handleConfirmDeleteEvent}
+        title="Remover Compromisso"
+        message={`Deseja remover o compromisso "${eventToDelete?.title || ''}" da sua agenda?`}
+        confirmText="Remover"
+        type="danger"
+        icon={Trash2}
+      />
     </div>
     </PageErrorBoundary>
   );
 }
+

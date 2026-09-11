@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
 import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper.js';
+import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
 
 const WeeklyPerformanceChart = ({
     categories = [],
@@ -19,13 +20,14 @@ const WeeklyPerformanceChart = ({
     showOnlyFocus = false,
     focusSubjectId = null,
     maxScore = 100,
+    minScore = 0,
     unit = '%'
 }) => {
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeUnit = typeof unit === 'string' && unit.length <= 4 ? unit : '%';
     const instanceId = useId().replace(/:/g, "");
     const barGradId = `wp_barGrad_${instanceId}`;
-    const neonShadowId = `wp_neonShadow_${instanceId}`;
 
     const chartData = React.useMemo(() => {
         const days = [];
@@ -40,7 +42,9 @@ const WeeklyPerformanceChart = ({
             const dow = formatWeekdayShortPtBR(d);
 
             const dailyLogs = studyLogs.filter(log => {
-                const logDate = getDateKey(log.date);
+                const rawDate = log?.date || log?.createdAt;
+                if (!rawDate) return false;
+                const logDate = getDateKey(rawDate);
                 if (logDate !== dateKey) return false;
                 if (showOnlyFocus && focusSubjectId) {
                     return log.categoryId === focusSubjectId;
@@ -48,7 +52,7 @@ const WeeklyPerformanceChart = ({
                 return true;
             });
             // 🎯 FIX: Calcular apenas os minutos puros para entregar ao Recharts
-            const minutos = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+            const totalMinutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
 
             let correctTotal = 0;
             let questionsTotal = 0;
@@ -56,47 +60,58 @@ const WeeklyPerformanceChart = ({
             categories.forEach(cat => {
                 if (showOnlyFocus && focusSubjectId && cat.id !== focusSubjectId) return;
 
+                const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+                const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
-                    const hDate = getDateKey(h.date);
+                    const hDate = getDateKey(h.date || h.createdAt);
                     if (hDate === dateKey) {
                         let q = Number(h.total) || 0;
-                        if (q === 0 && h.score != null) {
-                            q = getSyntheticTotal(safeMaxScore);
+                        let corr = 0;
+                        if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
+                            const rawC = Number(h.correct);
+                            corr = Math.min(q > 0 ? q : rawC, Number.isFinite(rawC) ? rawC : 0);
+                            if (q === 0) q = corr > 0 ? corr : getSyntheticTotal(catMax);
+                        } else {
+                            if (q === 0 && h.score != null) {
+                                q = getSyntheticTotal(catMax);
+                            }
+                            if (q < 1) return;
+                            const score = getSafeScore(h, catMax, catMin);
+                            const ratio = pointsToRatio(score, catMax, catMin);
+                            corr = ratio * q;
                         }
-                        if (q < 1) return; 
-
-                        const score = getSafeScore(h, safeMaxScore);
-                        const weightedCorrect = (score / safeMaxScore) * q;
-                        if (!Number.isFinite(weightedCorrect)) return;
-                        correctTotal += weightedCorrect;
+                        if (!Number.isFinite(corr) || q < 1) return;
+                        correctTotal += corr;
                         questionsTotal += q;
                     }
                 });
             });
 
-            const acertosRaw = questionsTotal > 0 ? (correctTotal / questionsTotal) * safeMaxScore : null;
-            const safeAcertosRaw = Number.isFinite(acertosRaw) ? acertosRaw : 0;
+            const acertosRaw = questionsTotal > 0 ? ratioToPoints(correctTotal / questionsTotal, safeMaxScore, safeMinScore) : null;
+            const safeAcertosRaw = Number.isFinite(acertosRaw) ? acertosRaw : safeMinScore;
             const acertos = acertosRaw == null
                 ? null
-                : Number(Math.max(0, Math.min(safeMaxScore, safeAcertosRaw)).toFixed(2)); // FIX: Clamp preventivo absoluto
+                : Number(Math.max(safeMinScore, Math.min(safeMaxScore, safeAcertosRaw)).toFixed(2));
 
             days.push({
                 data: i === 0 ? "HOJE" : dow,
                 fullDate: dateKey,
-                minutos: minutos / 60, // 🎯 FIX: Convertemos para horas decimais para o formatDuration funcionar corretamente
+                minutos: totalMinutes / 60, // Horas decimais para o formatDuration funcionar corretamente
                 acertos
             });
         }
         return days;
-    }, [categories, studyLogs, showOnlyFocus, focusSubjectId, safeMaxScore]);
+    }, [categories, studyLogs, showOnlyFocus, focusSubjectId, safeMaxScore, safeMinScore]);
 
 
     const renderTooltip = useCallback(({ active, payload, label }) => {
         if (!(active && payload && payload.length)) return null;
 
         // Dedup para evitar que Line e Area sobrepostos com o mesmo dataKey apareçam duas vezes
-        const uniquePayload = payload.filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
+        const uniquePayload = payload
+            .filter((v) => !String(v.name || '').startsWith('_'))   // ✅ LOTE-02
+            .filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
 
         return (
             <div className="bg-slate-950/80 border border-white/10 p-3 sm:p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl">
@@ -124,6 +139,19 @@ const WeeklyPerformanceChart = ({
         );
     }, [safeUnit]);
 
+    const hasAnyData = chartData.some(
+      d => d.minutos > 0 || d.acertos != null
+    );
+
+    if (!hasAnyData) {
+      return (
+        <div className="w-full h-[320px] sm:h-[400px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
+          <span className="text-3xl">📭</span>
+          Sem atividade nos últimos 7 dias.
+        </div>
+      );
+    }
+
     return (
         <div className="w-full h-[320px] sm:h-[400px] flex flex-col">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-1 gap-2 shrink-0">
@@ -131,18 +159,18 @@ const WeeklyPerformanceChart = ({
                     <h3 className="text-white font-black text-sm sm:text-base flex items-center gap-2">
                         📈 {showOnlyFocus ? 'Foco: Últimos 7 Dias' : 'Desempenho: Últimos 7 Dias'}
                     </h3>
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mt-0.5">
                         Horas de Estudo vs. Taxa de Acerto
                     </p>
                 </div>
-                <div className="flex items-center gap-4 bg-slate-950/40 p-2 rounded-xl border border-white/5">
+                <div className="flex items-center gap-4 bg-slate-900/80 p-2 rounded-xl border border-white/10 shadow-sm backdrop-blur-sm">
                     <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_#6366f1]" />
-                        <span className="text-[10px] font-bold text-slate-400 capitalize">Horas</span>
+                        <div className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_#818cf8]" />
+                        <span className="text-[10px] font-bold text-slate-300 capitalize">Horas</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-                        <span className="text-[10px] font-bold text-slate-400 capitalize">Acertos</span>
+                        <span className="text-[10px] font-bold text-slate-300 capitalize">Acertos</span>
                     </div>
                 </div>
             </div>
@@ -156,31 +184,23 @@ const WeeklyPerformanceChart = ({
                         <defs>
                             <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#818cf8" stopOpacity={0.9} />
-                                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.2} />
+                                <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.25} />
                             </linearGradient>
                             <linearGradient id={`areaGrad_${instanceId}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
                                 <stop offset="100%" stopColor="#34d399" stopOpacity={0.01} />
                             </linearGradient>
-                            <filter id={neonShadowId}>
-                                <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
-                                <feOffset in="blur" dx="0" dy="0" result="offsetBlur" />
-                                <feMerge>
-                                    <feMergeNode in="offsetBlur" />
-                                    <feMergeNode in="SourceGraphic" />
-                                </feMerge>
-                            </filter>
                         </defs>
 
                         <CartesianGrid
-                            strokeDasharray="2 2"
-                            stroke="#1e2937"
+                            strokeDasharray="3 3"
+                            stroke="rgba(255,255,255,0.06)"
                             vertical={false}
                         />
 
                         <XAxis
                             dataKey="data"
-                            axisLine={false}
+                            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                             tickLine={false}
                             tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }}
                             dy={10}
@@ -190,8 +210,8 @@ const WeeklyPerformanceChart = ({
                             yAxisId="left"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#64748b', fontSize: 10 }}
-                            tickFormatter={(v) => formatDuration(v)}
+                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
+                            tickFormatter={(v) => v === 0 ? '0h' : formatDuration(v)}
                             domain={[0, 'auto']}
                             allowDecimals={true}
                         />
@@ -201,37 +221,58 @@ const WeeklyPerformanceChart = ({
                             orientation="right"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#64748b', fontSize: 10 }}
+                            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
                             tickFormatter={(v) => `${v}${safeUnit}`}
-                            domain={[0, safeMaxScore]}
-                            allowDataOverflow={true} // FIX: Evita quebras se o dado estourar (embora já estejamos com clamp)
+                            domain={[safeMinScore, safeMaxScore]}
+                            allowDataOverflow={true}
                         />
 
                         <Tooltip
-                            cursor={{ fill: 'rgba(99, 102, 241, 0.08)' }}
+                            cursor={{ fill: 'rgba(99, 102, 241, 0.06)' }}
                             content={renderTooltip}
                         />
 
                         <Bar
                             yAxisId="left"
                             dataKey="minutos"
-                            name="Tempo de Estudo"
+                            name="Horas"
                             fill={`url(#${barGradId})`}
                             radius={[6, 6, 0, 0]}
-                            barSize={28}
-                            animationDuration={1500}
+                            barSize={24}
+                            animationDuration={1200}
                         />
 
                         <Area
                             yAxisId="right"
                             type="monotoneX"
                             dataKey="acertos"
+                            name="_acertos_area"
                             stroke="none"
                             fill={`url(#areaGrad_${instanceId})`}
-                            animationDuration={1500}
+                            animationDuration={1200}
                             connectNulls={true}
+                            legendType="none"
+                            tooltipType="none"
                         />
 
+                        {/* Bottom Layer: Glow effect */}
+                        <Line
+                            yAxisId="right"
+                            type="monotoneX"
+                            dataKey="acertos"
+                            name="_acertos_glow"
+                            stroke="#34d399"
+                            strokeWidth={6}
+                            strokeOpacity={0.25}
+                            dot={false}
+                            activeDot={false}
+                            strokeLinecap="round"
+                            animationDuration={1200}
+                            connectNulls={true}
+                            legendType="none"
+                            tooltipType="none"
+                        />
+                        {/* Top Layer: Main Line */}
                         <Line
                             yAxisId="right"
                             type="monotoneX"
@@ -239,11 +280,10 @@ const WeeklyPerformanceChart = ({
                             name="acertos"
                             stroke="#34d399"
                             strokeWidth={3}
-                            dot={{ r: 4, fill: '#34d399', strokeWidth: 2, stroke: '#0f172a' }}
-                            activeDot={{ r: 7, strokeWidth: 0, fill: '#10b981', className: "animate-pulse shadow-lg" }}
+                            dot={{ r: 3.5, fill: '#34d399', strokeWidth: 2, stroke: '#0f172a' }}
+                            activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981', className: "animate-pulse shadow-lg" }}
                             strokeLinecap="round"
-                            filter={`url(#${neonShadowId})`}
-                            animationDuration={1500}
+                            animationDuration={1200}
                             connectNulls={true}
                         />
                     </ComposedChart>
@@ -254,3 +294,4 @@ const WeeklyPerformanceChart = ({
 };
 
 export default WeeklyPerformanceChart;
+

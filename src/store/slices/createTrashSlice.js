@@ -1,5 +1,5 @@
-import { generateId } from '../../utils/idGenerator';
-import { safeClone } from '../safeClone.js';
+import { generateId } from '../../utils/idGenerator.js';
+import { safeClone } from '../../utils/safeClone.js';
 
 export const createTrashSlice = (set) => ({
     restoreFromTrash: (trashId) => set((state) => {
@@ -8,16 +8,13 @@ export const createTrashSlice = (set) => ({
         if (index === -1) return;
 
         const item = state.appState.trash[index];
-
         if (item.type === 'category') {
             const targetContestId = state.appState.contests[item.contestId] ? item.contestId : state.appState.activeId;
             const contest = state.appState.contests[targetContestId];
             if (contest) {
                 if (!contest.categories) contest.categories = [];
-
                 const catData = safeClone(item.data.category || item.data);
                 const oldId = catData.id;
-
                 if (contest.categories.some(c => c.id === oldId)) {
                     catData.id = generateId('cat');
                 }
@@ -48,16 +45,36 @@ export const createTrashSlice = (set) => ({
                     if (!contest.mcWeights) contest.mcWeights = {};
                     contest.mcWeights[newId] = item.data.mcWeight;
                 }
+
+                // ✅ FIX N-04: Restaurar referências em coachPlan
+                if (contest.coachPlan && Array.isArray(contest.coachPlan)) {
+                    contest.coachPlan = contest.coachPlan.map(task =>
+                        task?.categoryId === oldId ? { ...task, categoryId: newId } : task
+                    );
+                }
+
+                // ✅ FIX N-04: Restaurar referências em coachPlanner
+                if (contest.coachPlanner && typeof contest.coachPlanner === 'object') {
+                    Object.keys(contest.coachPlanner).forEach(day => {
+                        if (Array.isArray(contest.coachPlanner[day])) {
+                            contest.coachPlanner[day] = contest.coachPlanner[day].map(task =>
+                                task?.categoryId === oldId ? { ...task, categoryId: newId } : task
+                            );
+                        }
+                    });
+                }
             }
         } else if (item.type === 'contest') {
             let newId = item.contestId;
             if (state.appState.contests[newId]) {
                 newId = generateId('contest');
             }
+            if (item.data && typeof item.data === 'object') {
+                item.data.id = newId;
+            }
             state.appState.contests[newId] = item.data;
             state.appState.activeId = newId;
         }
-
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
@@ -71,3 +88,4 @@ export const createTrashSlice = (set) => ({
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });
+

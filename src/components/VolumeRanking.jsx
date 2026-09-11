@@ -4,8 +4,26 @@ import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertC
 import { formatValue } from '../utils/scoreHelper';
 
 const VolumeRanking = ({ categories = [] }) => {
+    const safeCategories = useMemo(() => {
+        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+    }, [categories]);
+
+    // FIX: Estabilização de referências por fingerprint abrangente (inclui volume, nome e cor).
+    const categoriesFingerprint = useMemo(() => {
+        return safeCategories.map(c => {
+            const h = c.simuladoStats?.history;
+            const history = Array.isArray(h) ? h : Object.values(h || {});
+            const total = history.reduce((acc, item) => {
+                const parsed = parseInt(item?.total, 10);
+                if (Number.isFinite(parsed) && parsed > 0) return acc + parsed;
+                const fallback = (Number(item?.correct) || 0) + (Number(item?.wrong) || 0);
+                return acc + Math.max(0, fallback);
+            }, 0);
+            return `${c.id}:${c.name || ''}:${c.color || ''}:${history.length}:${total}`;
+        }).join('|');
+    }, [safeCategories]);
+
     const sorted = useMemo(() => {
-        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
         const stats = safeCategories.map(cat => {
             const simStats = cat.simuladoStats || { history: [] };
             const historyRaw = simStats.history || [];
@@ -24,9 +42,10 @@ const VolumeRanking = ({ categories = [] }) => {
             if (b.totalVolume !== a.totalVolume) {
                 return b.totalVolume - a.totalVolume;
             }
-            return a.name.localeCompare(b.name);
+            return (a.name || '').localeCompare(b.name || '');
         });
-    }, [categories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [safeCategories, categoriesFingerprint]);
 
     const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
     const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;
@@ -47,6 +66,14 @@ const VolumeRanking = ({ categories = [] }) => {
         hidden: { opacity: 0, x: 20 },
         show: { opacity: 1, x: 0 }
     };
+
+    if (safeCategories.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-12 text-slate-500 h-full border border-white/5 rounded-2xl bg-slate-900/40">
+                Nenhuma disciplina cadastrada ainda.
+            </div>
+        );
+    }
 
     return (
         <div className="bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl h-full flex flex-col overflow-hidden shadow-2xl">
@@ -172,4 +199,5 @@ const VolumeRanking = ({ categories = [] }) => {
 };
 
 export default React.memo(VolumeRanking);
+
 

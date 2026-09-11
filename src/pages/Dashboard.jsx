@@ -1,5 +1,6 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
+import { X } from 'lucide-react';
 import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
 import PriorityProgress from '../components/PriorityProgress';
@@ -8,6 +9,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
+import { toArray } from '../utils/normalize';
 
 export default function Dashboard() {
     const setData = useAppStore(state => state.setData);
@@ -19,17 +21,29 @@ export default function Dashboard() {
     const togglePriority = useAppStore(state => state.togglePriority);
     const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
     const setDashboardFilter = useAppStore(state => state.setDashboardFilter);
+    const importCategory = useAppStore(state => state.importCategory);
+
     const showToast = useToast();
     const navigate = useNavigate();
 
     const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
     const isHydrated = useAppStore(state => state.appState.isHydrated);
     const activeId = useAppStore(state => state.appState.activeId);
-    const contests = useAppStore(state => state.appState.contests || {});
-    const importCategory = useAppStore(state => state.importCategory);
-    
-    // Otimização: Agrupar as extrações de estado para reduzir re-renders desnecessários usando useShallow
-    const { categories, simulados, simuladoRows, rawStudyLogs, user, pomodorosCompleted } = useAppStore(useShallow(state => {
+
+    const contestsRaw = useAppStore(state => state.appState.contests);
+    const contests = React.useMemo(() => contestsRaw || {}, [contestsRaw]);
+
+    const {
+        categories,
+        simulados,
+        simuladoRows,
+        rawStudyLogs,
+        user,
+        pomodorosCompleted,
+        flashcardDecks,
+        settings,
+        studySessions
+    } = useAppStore(useShallow(state => {
         const contest = state.appState.contests?.[activeId] || {};
         return {
             categories: contest.categories,
@@ -37,33 +51,65 @@ export default function Dashboard() {
             simuladoRows: contest.simuladoRows,
             rawStudyLogs: contest.studyLogs,
             user: contest.user,
-            pomodorosCompleted: contest.pomodorosCompleted
+            pomodorosCompleted: contest.pomodorosCompleted,
+            flashcardDecks: contest.flashcardDecks,
+            settings: contest.settings,
+            studySessions: contest.studySessions
         };
     }));
 
     const studyLogs = React.useMemo(() => {
-        return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
+        return toArray(rawStudyLogs);
     }, [rawStudyLogs]);
 
     const safeCategories = React.useMemo(() => {
-        const cats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        return cats.map(c => ({ ...c, tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {}) }));
+        return toArray(categories).map(c => ({
+            ...c,
+            tasks: toArray(c.tasks)
+        }));
     }, [categories]);
 
     const safeSimulados = React.useMemo(() => {
-        return Array.isArray(simulados) ? simulados : Object.values(simulados || {});
+        return toArray(simulados);
     }, [simulados]);
 
     const safeSimuladoRows = React.useMemo(() => {
-        return Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {});
+        return toArray(simuladoRows);
     }, [simuladoRows]);
 
+    const safeFlashcardDecks = React.useMemo(() => {
+        return toArray(flashcardDecks);
+    }, [flashcardDecks]);
+
+    const safeStudySessions = React.useMemo(() => {
+        return toArray(studySessions);
+    }, [studySessions]);
+
     const data = React.useMemo(() => ({
-        categories: safeCategories, simulados: safeSimulados, simuladoRows: safeSimuladoRows, studyLogs, user, pomodorosCompleted
-    }), [safeCategories, safeSimulados, safeSimuladoRows, studyLogs, user, pomodorosCompleted]);
+        categories: safeCategories,
+        simulados: safeSimulados,
+        simuladoRows: safeSimuladoRows,
+        studyLogs: Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}),
+        user,
+        pomodorosCompleted,
+        flashcardDecks: safeFlashcardDecks,
+        settings: settings || {},
+        studySessions: safeStudySessions
+    }), [
+        safeCategories,
+        safeSimulados,
+        safeSimuladoRows,
+        studyLogs,
+        user,
+        pomodorosCompleted,
+        safeFlashcardDecks,
+        settings,
+        safeStudySessions
+    ]);
 
     const setGoalDate = React.useCallback((d) => setData(contest => {
         if (!contest) return contest;
+
         return {
             ...contest,
             user: {
@@ -74,46 +120,86 @@ export default function Dashboard() {
     }), [setData]);
 
     const handleStartStudying = React.useCallback((categoryId, taskId) => {
-        const cat = data.categories?.find(c => c.id === categoryId);
-        const tsk = cat?.tasks?.find(t => t.id === taskId);
+        const currentCategories = useAppStore.getState().appState?.contests?.[
+            useAppStore.getState().appState?.activeId
+        ]?.categories || [];
+        const safeCategoriesList = Array.isArray(currentCategories)
+            ? currentCategories
+            : Object.values(currentCategories || {});
+        const cat = safeCategoriesList.find(c => c.id === categoryId);
+        const tsk = toArray(cat?.tasks).find(t => t.id === taskId || t.text === taskId);
 
-        if (cat && tsk) {
-            startPomodoroSession({
-                categoryId: cat.id,
-                taskId: tsk.id,
-                category: cat.name,
-                task: tsk.title || tsk.text || 'Estudo',
-                priority: tsk.priority,
-                source: 'dashboard'
-            });
+        if (!cat || !tsk) return;
 
-            setData(activeContest => {
-                if (!activeContest || !activeContest.categories) return activeContest;
-                return {
-                    ...activeContest,
-                    categories: activeContest.categories.map(c => {
-                        return {
-                            ...c,
-                            tasks: (c.tasks || []).map(t => {
-                                if (c.id === cat.id && t.id === tsk.id) {
-                                    return { ...t, status: 'studying' };
-                                }
-                                if (t.status === 'studying') {
-                                    return { ...t, status: undefined };
-                                }
-                                return t;
-                            })
-                        };
-                    })
-                };
-            });
-            const taskLabel = tsk.title || tsk.text || 'Estudo';
-            showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');
+        const currentActiveSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
+        const isAlreadyActive = currentActiveSubject &&
+            (currentActiveSubject.taskId === tsk.id || currentActiveSubject.taskId === taskId) &&
+            tsk.status === 'studying';
+        if (isAlreadyActive) {
             navigate('/pomodoro');
+            return;
         }
-    }, [data.categories, startPomodoroSession, setData, showToast, navigate]);
 
-    // ✅ DEPOIS (Barreira de Hidratação Atómica - Relaxada para permitir categorias vazias)
+        // BUG-FIX: setData ANTES de startPomodoroSession (ordem correta)
+        setData(activeContest => {
+            if (!activeContest || activeContest.categories == null) {
+                return activeContest;
+            }
+
+            return {
+                ...activeContest,
+                categories: toArray(activeContest.categories).map(c => {
+                    return {
+                        ...c,
+                        tasks: toArray(c.tasks).map(t => {
+                            if (c.id === cat.id && (t.id === tsk.id || t.id === taskId)) {
+                                return { ...t, status: 'studying' };
+                            }
+
+                            if (t.status === 'studying') {
+                                return { ...t, status: null };
+                            }
+
+                            return t;
+                        })
+                    };
+                })
+            };
+        });
+
+        startPomodoroSession({
+            categoryId: cat.id,
+            taskId: tsk.id,
+            category: cat.name,
+            task: tsk.title || tsk.text || 'Estudo',
+            priority: tsk.priority,
+            source: 'dashboard'
+        });
+
+        const taskLabel = tsk.title || tsk.text || 'Estudo';
+        showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');
+        navigate('/pomodoro');
+    }, [startPomodoroSession, setData, showToast, navigate]);
+
+    const [bannerDismissed, setBannerDismissed] = React.useState(() => {
+        try {
+            return localStorage.getItem('dismissed_feature_banner_v1') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    const handleDismissBanner = React.useCallback(() => {
+        setBannerDismissed(true);
+        try {
+            localStorage.setItem('dismissed_feature_banner_v1', 'true');
+        } catch {
+            // ignore
+        }
+    }, []);
+
+    const hasTasks = React.useMemo(() => safeCategories.some(c => (c.tasks || []).length > 0), [safeCategories]);
+
     if (!isHydrated) {
         return (
             <div className="flex items-center justify-center h-[70vh] w-full animate-fade-in">
@@ -123,52 +209,76 @@ export default function Dashboard() {
                         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
                     </div>
                     <div className="flex flex-col items-center">
-                        <p className="text-indigo-400 font-black uppercase tracking-[0.2em] text-xs">A Calibrar Motor</p>
-                        <p className="text-slate-500 text-[10px] uppercase tracking-widest mt-1">A carregar perfil de aprendizagem</p>
+                        <p className="text-indigo-400 font-black uppercase tracking-[0.2em] text-xs">
+                            A Calibrar Motor
+                        </p>
+                        <p className="text-slate-500 text-[10px] uppercase tracking-widest mt-1">
+                            A carregar perfil de aprendizagem
+                        </p>
                     </div>
                 </div>
             </div>
         );
     }
 
-    return (<PageErrorBoundary pageName="Dashboard">
-        <div className="space-y-6 animate-fade-in">
-            {/* Visual hint for new tools */}
-            <div className="hidden lg:flex items-center gap-2 text-[10px] text-teal-400/70 font-bold uppercase tracking-widest mb-1 px-1">
-                <span className="inline-block w-2 h-px bg-teal-400/50"></span> NOVO: Flashcards e Agenda de Estudos disponíveis no menu
-            </div>
-            <div className="tour-step-4">
-                <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
-            </div>
+    return (
+        <PageErrorBoundary pageName="Dashboard">
+            <div className="space-y-4 sm:space-y-5 animate-fade-in">
+                {!bannerDismissed && (
+                    <div className="hidden lg:flex items-center justify-between text-[11px] text-teal-400/90 bg-teal-500/10 border border-teal-500/20 px-3 py-1.5 rounded-xl font-medium mb-1 shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+                            <span><strong className="font-bold text-teal-300">NOVO:</strong> Flashcards e Agenda de Estudos disponíveis no menu</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleDismissBanner}
+                            className="text-teal-400/60 hover:text-teal-200 p-0.5 rounded-md hover:bg-teal-500/20 transition-colors cursor-pointer"
+                            title="Dispensar aviso"
+                            aria-label="Dispensar aviso"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
 
-            <div className="tour-step-5">
-                <NextGoalCard
-                    categories={data.categories}
-                    simulados={data.simulados || []}
-                    studyLogs={data.studyLogs || []}
-                    onStartStudying={handleStartStudying}
-                />
-            </div>
+                <div className="tour-step-4">
+                    <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
+                </div>
 
-            <PriorityProgress categories={data.categories} />
+                {hasTasks && (
+                    <div className="tour-step-5">
+                        <NextGoalCard
+                            categories={data.categories}
+                            simulados={data.simulados}
+                            studyLogs={data.studyLogs}
+                            onStartStudying={handleStartStudying}
+                        />
+                    </div>
+                )}
 
-            <div className="mt-4 tour-step-6">
-                <Checklist
-                    categories={data.categories}
-                    onToggleTask={toggleTask}
-                    onDeleteTask={deleteTask}
-                    onAddCategory={addCategory}
-                    onDeleteCategory={deleteCategory}
-                    onAddTask={addTask}
-                    onTogglePriority={togglePriority}
-                    onPlayContext={handleStartStudying}
-                    filter={filter}
-                    setFilter={setDashboardFilter}
-                    contests={contests}
-                    activeId={activeId}
-                    onImportCategory={importCategory}
-                />
+                <PriorityProgress categories={data.categories} />
+
+                <div className="tour-step-6">
+                    <Checklist
+                        categories={data.categories}
+                        onToggleTask={toggleTask}
+                        onDeleteTask={deleteTask}
+                        onAddCategory={addCategory}
+                        onDeleteCategory={deleteCategory}
+                        onAddTask={addTask}
+                        onTogglePriority={togglePriority}
+                        onPlayContext={handleStartStudying}
+                        showSimuladoStats
+                        filter={filter}
+                        setFilter={setDashboardFilter}
+                        contests={contests}
+                        activeId={activeId}
+                        onImportCategory={importCategory}
+                    />
+                </div>
             </div>
-        </div>
-    </PageErrorBoundary>);
+        </PageErrorBoundary>
+    );
 }
+

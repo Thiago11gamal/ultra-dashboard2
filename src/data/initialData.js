@@ -41,6 +41,9 @@ export const INITIAL_DATA = {
     // Math calibration events for continuous improvement
     calibrationEvents: [],
 
+    // Sorteio Inteligente do Monte Carlo (Cortes Históricos)
+    historicalCutoffs: [],
+
     settings: {
         darkMode: 'auto',
         soundEnabled: true,
@@ -88,3 +91,4 @@ export const exportData = (state) => {
         exportRevokeTimeoutId = null;
     }, 100);
 };
+

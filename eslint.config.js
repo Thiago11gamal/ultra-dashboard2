@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'scripts/legacy_migrations/**', 'move*.js', 'move*.cjs', 'script.js']),
+  globalIgnores(['dist', 'build', 'coverage', 'test-results', 'playwright-report', 'ultra-patched/**', '**/*.min.js', 'scripts/legacy_migrations/**', 'move*.js', 'move*.cjs', 'script.js']),
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -27,6 +27,14 @@ export default defineConfig([
     ],
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.0.type='TemplateLiteral']",
+          message: 'Use parseNoonLocal()/normalizeDate() — nunca concatene timezone manualmente.',
+        },
+      ],
     },
   },
 ])
+

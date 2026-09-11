@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { normalize, aliases } from '../utils/normalization';
+import ConfirmModal from './ConfirmModal';
 
-import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both' }) {
     const categoriesArray = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -14,20 +15,36 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     // Using index as stable fallback avoids any mutation during render.
     const [prevPropRows, setPrevPropRows] = useState(propRows);
     const [rows, setLocalRows] = useState(() => (propRows && propRows.length > 0)
-        ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
+        ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${normalize(r.subject || '')}-${normalize(r.topic || '')}-${i}` }))
         : []
     );
 
     if (propRows !== prevPropRows) {
         setPrevPropRows(propRows);
         setLocalRows((propRows && propRows.length > 0)
-            ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${i}` }))
+            ? propRows.map((r, i) => ({ ...r, id: r.id || `row-${normalize(r.subject || '')}-${normalize(r.topic || '')}-${i}` }))
             : []
         );
     }
 
     // Helper to report changes up to parent
     const [analysisData, setAnalysisData] = useState(null);
+
+    // ✅ NOVO: Resetta analysisData quando as rows mudam (novo simulado salvo)
+    const rowsSignature = React.useMemo(
+      () => rows.map((r) => `${r.id || ''}-${r.total || 0}-${r.correct || 0}`).join('|'),
+      [rows]
+    );
+
+    const [loading, setLoading] = useState(false);
+    const prevSignatureRef = React.useRef(rowsSignature);
+    React.useEffect(() => {
+        if (prevSignatureRef.current !== rowsSignature) {
+            prevSignatureRef.current = rowsSignature;
+            setAnalysisData(null);
+            setLoading(false);
+        }
+    }, [rowsSignature]);
     const [error, setError] = useState(null);
     const [errorIndices, setErrorIndices] = useState(() => ({ subjects: new Set(), topics: new Set() }));
 
@@ -45,8 +62,6 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         if (onRowsChange) onRowsChange(Array.isArray(newRows) ? newRows : []);
     };
 
-    const [loading, setLoading] = useState(false);
-
     const updateRow = (index, field, value) => {
         setError(null);
         // 1. Sanitização: Apenas números para campos numéricos
@@ -60,7 +75,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             if (field === 'correct') {
                 const currentTotal = parseInt(rows[index]?.total, 10) || 0;
                 // Enforce: Correct cannot exceed Total (unless Total is empty/0)
-                if (val !== '' && val > currentTotal) finalValue = currentTotal;
+                if (val !== '' && currentTotal > 0 && val > currentTotal) finalValue = currentTotal;
                 else finalValue = val;
             } else if (field === 'total') {
                 const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;
@@ -77,8 +92,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         const newRows = rows.map((row, i) => {
             if (i === index) {
                 const updatedRow = { ...row, [field]: finalValue };
-                const c = Math.max(0, parseFloat(updatedRow.correct) || 0);
+                let c = Math.max(0, parseFloat(updatedRow.correct) || 0);
                 const t = Math.max(0, parseFloat(updatedRow.total) || 0);
+                
+                if (t > 0 && c > t) {
+                    c = t;
+                    updatedRow.correct = c;
+                }
+                
                 updatedRow.score = t > 0 ? Math.min(100, (c / t) * 100) : 0;
                 return updatedRow;
             }
@@ -90,11 +111,16 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
 
 
+    const [showResetScoresConfirm, setShowResetScoresConfirm] = useState(false);
+
     const resetScores = () => {
-        if (window.confirm('Deseja zerar apenas os valores (Acertos/Total) e manter as matérias?')) {
-            const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
-            setRows(newRows);
-        }
+        setShowResetScoresConfirm(true);
+    };
+
+    const handleConfirmResetScores = () => {
+        const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
+        setRows(newRows);
+        setShowResetScoresConfirm(false);
     };
 
     const addTenToAll = () => {
@@ -112,15 +138,21 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
 
     const addTenToAllCorrect = () => {
         const newRows = rows.map(row => {
-            const currentTotal = parseInt(row.total, 10) || 0;
+            let currentTotal = parseInt(row.total, 10) || 0;
             let newCorrect = (parseInt(row.correct, 10) || 0) + 10;
-            // Não permite que os acertos ultrapassem o total (se o total for maior que zero)
-            if (currentTotal > 0 && newCorrect > currentTotal) {
-                newCorrect = currentTotal;
+            
+            if (newCorrect > currentTotal) {
+                if (currentTotal === 0) {
+                    currentTotal = newCorrect;
+                } else {
+                    newCorrect = currentTotal;
+                }
             }
+            
             return {
                 ...row,
                 correct: newCorrect,
+                total: currentTotal,
                 score: currentTotal > 0 ? Math.min(100, (newCorrect / currentTotal) * 100) : 0
             };
         });
@@ -192,35 +224,54 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             });
 
             if (invalidSubjects.size > 0 || invalidTopics.size > 0) {
-                setErrorIndices({ subjects: invalidSubjects, topics: invalidTopics });
-
-                if (firstInvalidSubject && firstInvalidTopic) {
-                    setError(`Matéria '${firstInvalidSubject}' e Assunto '${firstInvalidTopic}' não encontrados.`);
-                } else if (firstInvalidSubject) {
-                    setError(`A matéria '${firstInvalidSubject}' não existe no Dashboard.`);
-                } else if (firstInvalidTopic) {
-                    setError(`O assunto '${firstInvalidTopic}' não existe na matéria '${targetSubject}'.`);
+                if (viewMode === 'report') {
+                    // Em modo relatório, NÃO bloquear por assunto não encontrado
+                    // Apenas renderizar o que existe
+                    setErrorIndices({ subjects: new Set(), topics: new Set() });
+                } else {
+                    setErrorIndices({ subjects: invalidSubjects, topics: invalidTopics });
+    
+                    if (firstInvalidSubject && firstInvalidTopic) {
+                        setError(`Matéria '${firstInvalidSubject}' e Assunto '${firstInvalidTopic}' não encontrados.`);
+                    } else if (firstInvalidSubject) {
+                        setError(`A matéria '${firstInvalidSubject}' não existe no Dashboard.`);
+                    } else if (firstInvalidTopic) {
+                        setError(`O assunto '${firstInvalidTopic}' não existe na matéria '${targetSubject}'.`);
+                    }
+    
+                    setAnalysisData(null);
+                    setLoading(false);
+                    return;
                 }
-
-                setAnalysisData(null);
-                setLoading(false);
-                return;
             }
             // Clear errors if all valid
-            setErrorIndices({ subjects: new Set(), topics: new Set() });
+            if (viewMode !== 'report') {
+                setErrorIndices({ subjects: new Set(), topics: new Set() });
+            }
         }
 
         // BUG FIX: Separation of row validation for Analytics vs Storage/Audit
         // Somente processar linhas onde o TOTAL foi explicitamente digitado e é maior que zero.
         const rowsToProcess = rows.filter(r => r?.subject && parseInt(r?.total, 10) > 0);
-        const validRowsForAnalysis = rowsToProcess.filter(r => String(r.topic || '').trim());
-
-        if (rowsToProcess.length === 0) {
-            setError("Preencha o desempenho em pelo menos um assunto.");
+        
+        // Validação: avisar o usuário se preencheu acertos mas esqueceu do total
+        const rowsWithMissingTotal = rows.filter(r => r?.subject && parseInt(r?.correct, 10) > 0 && !(parseInt(r?.total, 10) > 0));
+        if (rowsWithMissingTotal.length > 0) {
+            setError(`O campo "Total" deve ser preenchido para o assunto '${rowsWithMissingTotal[0].topic || rowsWithMissingTotal[0].subject}'.`);
+            setLoading(false);
             return;
         }
 
-        const validRows = validRowsForAnalysis;
+        if (rowsToProcess.length === 0) {
+            setError("Preencha o desempenho em pelo menos um assunto.");
+            setLoading(false);
+            return;
+        }
+
+        const validRows = rowsToProcess.map(r => ({
+            ...r,
+            topic: String(r.topic || '').trim() || 'Geral'
+        }));
 
 
 
@@ -254,7 +305,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     }
 
                     const total = Math.max(0, parseInt(row.total, 10) || 0);
-                    const correct = Math.max(0, parseInt(row.correct, 10) || 0);
+                    let correct = Math.max(0, parseInt(row.correct, 10) || 0);
+
+                    if (total > 0) {
+                      correct = Math.min(correct, total);
+                    }
                     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
 
                     let status = 'ATENÇÃO';
@@ -368,13 +423,16 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setLoading(false);
             }
         }, viewMode === 'report' ? 0 : 800); // Remove delay when just viewing report
-    }, [categories, rows, viewMode, onAnalysisComplete]);
+         
+    }, [categoriesArray, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
         if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
-            setTimeout(() => handleAnalyze(), 0);
+            const timer = setTimeout(() => handleAnalyze(), 100);
+            return () => clearTimeout(timer);
         }
-    }, [viewMode, rows.length, analysisData, loading, handleAnalyze]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewMode, rowsSignature, analysisData, loading, handleAnalyze]);
 
     return (
         <div className={`w-full mx-auto space-y-6 animate-fade-in pb-20`}>
@@ -634,7 +692,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             {/* Cards por disciplina */}
                             {analysisData.disciplines.map((disc, idx) => {
                                 const discPct = disc.percentage || 0;
-                                const category = categories.find(c => c.name === disc.name);
+                                const category = categoriesArray.find(c => c.name === disc.name);
                                 const subjectColor = category?.color || '#3b82f6';
 
                                 const discCfg =
@@ -724,7 +782,19 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 </div>
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={showResetScoresConfirm}
+                onClose={() => setShowResetScoresConfirm(false)}
+                onConfirm={handleConfirmResetScores}
+                title="Zerar Valores do Simulado"
+                message="Deseja zerar apenas os valores de acertos e total, mantendo todas as matérias cadastradas?"
+                confirmText="Zerar Valores"
+                type="warning"
+                icon={RotateCcw}
+            />
         </div>
     );
 }
+
 

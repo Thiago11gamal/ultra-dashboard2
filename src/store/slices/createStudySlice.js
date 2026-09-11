@@ -1,173 +1,228 @@
-import { generateId } from '../../utils/idGenerator';
-import { XP_CONFIG } from '../../config/gamification';
-import { SYNC_LOG_CAP } from '../../config';
+import { generateId } from '../../utils/idGenerator.js';
+import { XP_CONFIG } from '../../config/gamification.js';
+import { SYNC_LOG_CAP } from '../../config.js';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
 
 export const createStudySlice = (set, get) => ({
-    handleUpdateStudyTime: (categoryId, minutes, taskId) => {
-        let pendingXp = 0;
-        set((state) => {
-            const now = new Date().toISOString();
-            const activeData = state.appState.contests[state.appState.activeId];
+  handleUpdateStudyTime: (categoryId, minutes, taskId) => {
+    const rawMinutes = Number(minutes);
+    if (!Number.isFinite(rawMinutes) || rawMinutes <= 0) {
+      console.warn('[StudySlice] minutes inválido, ignorando:', minutes);
+      return;
+    }
+    const safeMinutes = Math.min(1440, Math.max(0.1, rawMinutes));
 
-            const logId = generateId('log');
-            const sessionId = generateId('session');
+    let pendingXp = 0;
 
-            const category = activeData?.categories?.find(c => c.id === categoryId);
-            let taskTitle = '';
-            if (category && taskId) {
-                const task = category.tasks?.find(t => t.id === taskId || t.text === taskId || t.title === taskId);
-                taskTitle = task?.title || task?.text || (String(taskId).startsWith('task') ? '' : taskId);
-            }
+    set((state) => {
+      const now = new Date().toISOString();
+      const activeData = state.appState.contests[state.appState.activeId];
 
-            const newLog = { id: logId, date: now, categoryId, taskId, minutes, taskTitle };
-            const newSession = { 
-                id: sessionId, 
-                startTime: now, 
-                duration: minutes, 
-                categoryId, 
-                taskId, 
-                taskTitle,
-                logReferenceId: logId 
-            };
+      if (!activeData) return;
 
-            const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
-            const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
-            activeData.studyLogs = [...safeLogs, newLog].slice(-LOG_CAP);
-            activeData.studySessions = [...safeSessions, newSession].slice(-SESSION_CAP);
+      const logId = generateId('log');
+      const sessionId = generateId('session');
 
-            if (category) {
-                category.totalMinutes = (category.totalMinutes || 0) + minutes;
-                category.lastStudiedAt = now;
-                if (taskId) {
-                    const task = category.tasks.find(t => t.id === taskId);
-                    if (task) task.lastStudiedAt = now;
-                }
-            }
+      const category = activeData?.categories?.find(c => c.id === categoryId);
 
-            const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1; 
-            const baseXP = Math.floor(minutes * xpPerMinute);
-            const bonusXP = taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
-            const startHour = new Date(now).getHours();
-            if (activeData.user) {
-                if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
-                if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
-            }
+      let taskTitle = '';
 
-            pendingXp = baseXP + bonusXP;
+      if (category && taskId) {
+        const task = (category.tasks || []).find(
+          t => t.id === taskId || t.text === taskId || t.title === taskId
+        );
 
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
-        });
+        taskTitle = task?.title || task?.text || (String(taskId).startsWith('task') ? '' : taskId);
+      }
 
-        if (pendingXp > 0 && get().awardExperience) {
-            get().awardExperience(pendingXp);
+      const newLog = {
+        id: logId,
+        date: now,
+        categoryId,
+        taskId,
+        minutes: safeMinutes,
+        taskTitle
+      };
+
+      const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
+      const baseXP = Math.floor(minutes * xpPerMinute);
+      const bonusXP = taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
+      pendingXp = baseXP + bonusXP;
+
+      const newSession = {
+        id: sessionId,
+        startTime: now,
+        duration: minutes,
+        categoryId,
+        taskId,
+        taskTitle,
+        logReferenceId: logId,
+        awardedXP: pendingXp // ✅ FIX: Guarda o recibo exato de XP concedido
+      };
+
+      const safeLogs = Array.isArray(activeData.studyLogs)
+        ? activeData.studyLogs
+        : Object.values(activeData.studyLogs || {});
+
+      const safeSessions = Array.isArray(activeData.studySessions)
+        ? activeData.studySessions
+        : Object.values(activeData.studySessions || {});
+
+      activeData.studyLogs = [...safeLogs, newLog].slice(-LOG_CAP);
+      activeData.studySessions = [...safeSessions, newSession].slice(-SESSION_CAP);
+
+      if (category) {
+        category.totalMinutes = (category.totalMinutes || 0) + minutes;
+        category.lastStudiedAt = now;
+
+        if (taskId) {
+          const task = (category.tasks || []).find(t => t.id === taskId);
+          if (task) task.lastStudiedAt = now;
         }
-    },
+      }
+      
+      const startHour = new Date(now).getHours();
+      if (activeData.user) {
+        if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;
+        if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
+      }
 
-    deleteSession: (sessionId) => {
-        let xpToDeduct = 0;
-        set((state) => {
-            const activeData = state.appState.contests[state.appState.activeId];
-            const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
-            const sessionIndex = safeSessions.findIndex(s => s.id === sessionId);
-            if (sessionIndex === -1) return;
+      state.appState.version = (state.appState.version || 0) + 1;
+      state.appState.lastUpdated = new Date().toISOString();
+      localStorage.setItem('ultra-sync-dirty', 'true');
+    });
 
-            const session = safeSessions[sessionIndex];
-            
-            const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
-            const baseXP = Math.floor((session.duration || 0) * xpPerMinute);
-            const bonusXP = session.taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
-            xpToDeduct = baseXP + bonusXP;
+    if (pendingXp > 0 && typeof get().awardExperience === 'function') {
+      get().awardExperience(pendingXp);
+    }
+  },
 
-            const category = activeData.categories.find(c => c.id === session.categoryId);
-            if (category) {
-                category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));
-            }
+  deleteSession: (sessionId) => {
+    let xpToDeduct = 0;
 
-            safeSessions.splice(sessionIndex, 1);
-            activeData.studySessions = safeSessions;
+    set((state) => {
+      const activeData = state.appState.contests[state.appState.activeId];
 
-            if (activeData.studyLogs) {
-                const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
-                if (session.logReferenceId) {
-                    activeData.studyLogs = safeLogs.filter(l => l.id !== session.logReferenceId);
-                } else {
-                    activeData.studyLogs = safeLogs.filter(l => l.id !== session.id);
-                }
-            }
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
-        });
+      if (!activeData) return;
 
-        if (xpToDeduct > 0 && get().awardExperience) {
-            get().awardExperience(-xpToDeduct);
+      const safeSessions = Array.isArray(activeData.studySessions)
+        ? activeData.studySessions
+        : Object.values(activeData.studySessions || {});
+
+      const sessionIndex = safeSessions.findIndex(s => s.id === sessionId);
+      if (sessionIndex === -1) return;
+
+      const session = safeSessions[sessionIndex];
+
+      // ✅ FIX: Usar recibo de XP (awardedXP) se existir, senão recalcular (para dados legados)
+      if (Number.isFinite(session.awardedXP)) {
+        xpToDeduct = session.awardedXP;
+      } else {
+        const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
+        const baseXP = Math.floor((session.duration || 0) * xpPerMinute);
+        const bonusXP = session.taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
+        xpToDeduct = baseXP + bonusXP;
+      }
+
+      const category = (activeData.categories || []).find(c => c.id === session.categoryId);
+
+      if (category) {
+        category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));
+      }
+
+      safeSessions.splice(sessionIndex, 1);
+      activeData.studySessions = safeSessions;
+
+      if (activeData.studyLogs) {
+        const safeLogs = Array.isArray(activeData.studyLogs)
+          ? activeData.studyLogs
+          : Object.values(activeData.studyLogs || {});
+
+        if (session.logReferenceId) {
+          activeData.studyLogs = safeLogs.filter(l => l.id !== session.logReferenceId);
+        } else {
+          activeData.studyLogs = safeLogs.filter(l => l.id !== session.id);
         }
-    },
+      }
 
-    logFlashcardReview: (deckId, cardId, rating, subject, minutes = 0.5) => {
-        set((state) => {
-            const activeData = state.appState.contests[state.appState.activeId];
-            if (!activeData) return;
+      state.appState.version = (state.appState.version || 0) + 1;
+      state.appState.lastUpdated = new Date().toISOString();
+      localStorage.setItem('ultra-sync-dirty', 'true');
+    });
 
-            const now = new Date().toISOString();
-            const logId = generateId('flashlog');
+    if (xpToDeduct > 0 && typeof get().awardExperience === 'function') {
+      get().awardExperience(-xpToDeduct);
+    }
+  },
 
-            // Find matching category by subject name
-            let categoryId = null;
-            const normSubject = (subject || '').toLowerCase().trim();
-            if (activeData.categories && normSubject) {
-                const match = activeData.categories.find(c => 
-                    (c.name || '').toLowerCase().trim() === normSubject ||
-                    (c.name || '').toLowerCase().includes(normSubject) ||
-                    normSubject.includes((c.name || '').toLowerCase())
-                );
-                if (match) categoryId = match.id;
-            }
+  logFlashcardReview: (deckId, cardId, rating, subject, minutes = 0.5) => {
+    set((state) => {
+      const activeData = state.appState.contests[state.appState.activeId];
+      if (!activeData) return;
 
-            const isCorrect = rating >= 2;
-            const newLog = {
-                id: logId,
-                date: now,
-                categoryId: categoryId || 'flashcards',
-                taskId: deckId,
-                minutes: minutes,
-                taskTitle: 'Revisão de Flashcard',
-                type: 'flashcard',
-                deckId,
-                cardId,
-                rating,
-                correct: isCorrect
-            };
+      const now = new Date().toISOString();
+      const logId = generateId('flashlog');
 
-            const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
-            activeData.studyLogs = [...safeLogs, newLog].slice(-LOG_CAP);
+      let categoryId = null;
+      const normSubject = (subject || '').toLowerCase().trim();
 
-            // Update category flashcard stats if matched
-            if (categoryId) {
-                const cat = activeData.categories.find(c => c.id === categoryId);
-                if (cat) {
-                    cat.flashcardReviews = (cat.flashcardReviews || 0) + 1;
-                    cat.lastFlashcardReview = now;
-                    if (isCorrect) {
-                        cat.flashcardCorrect = (cat.flashcardCorrect || 0) + 1;
-                    }
-                }
-            }
+      if (activeData.categories && normSubject) {
+        const normCatName = (name) => (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        const match = activeData.categories.find(c =>
+          normCatName(c.name) === normSubject
+        ) || activeData.categories.find(c =>
+          normCatName(c.name).startsWith(normSubject) || normSubject.startsWith(normCatName(c.name))
+        );
 
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
-        });
+        if (match) categoryId = match.id;
+      }
 
-        // Award XP
-        if (get().awardExperience) {
-            const xp = rating >= 2 ? 3 : 1;
-            get().awardExperience(xp);
+      const isCorrect = rating >= 2;
+
+      const newLog = {
+        id: logId,
+        date: now,
+        categoryId: categoryId || null,
+        taskId: deckId,
+        minutes,
+        taskTitle: 'Revisão de Flashcard',
+        type: 'flashcard',
+        deckId,
+        cardId,
+        rating,
+        correct: isCorrect
+      };
+
+      const safeLogs = Array.isArray(activeData.studyLogs)
+        ? activeData.studyLogs
+        : Object.values(activeData.studyLogs || {});
+
+      activeData.studyLogs = [...safeLogs, newLog].slice(-LOG_CAP);
+
+      if (categoryId) {
+        const cat = activeData.categories.find(c => c.id === categoryId);
+
+        if (cat) {
+          cat.flashcardReviews = (cat.flashcardReviews || 0) + 1;
+          cat.lastFlashcardReview = now;
+
+          if (isCorrect) {
+            cat.flashcardCorrect = (cat.flashcardCorrect || 0) + 1;
+          }
         }
-    },
+      }
+
+      state.appState.version = (state.appState.version || 0) + 1;
+      state.appState.lastUpdated = new Date().toISOString();
+      localStorage.setItem('ultra-sync-dirty', 'true');
+    });
+
+    if (typeof get().awardExperience === 'function') {
+      const xp = rating >= 2 ? 3 : 1;
+      get().awardExperience(xp);
+    }
+  },
 });
+

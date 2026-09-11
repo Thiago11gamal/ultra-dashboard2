@@ -221,8 +221,8 @@ describe('IMP-MATH-05: Temporal decayK', () => {
         }));
         const freqParams = deriveCoachAdaptiveParams(frequent, 100, {});
         const spacedParams = deriveCoachAdaptiveParams(spaced, 100, {});
-        // Sessões frequentes = decayK maior (esquece mais rápido)
-        expect(freqParams.decayK).toBeGreaterThan(spacedParams.decayK);
+        // Sessões frequentes (gap pequeno) = memória consolidada = decayK MENOR
+        expect(freqParams.decayK).toBeLessThan(spacedParams.decayK);
     });
 
     test('medianGapDays é retornado na saída', () => {

@@ -4,8 +4,10 @@ import {
     ResponsiveContainer, LabelList, Cell, ReferenceLine,
     LineChart, Line, Legend
 } from "recharts";
-import { normalizeDate, getDateKey, formatDisplayDate } from "../../../utils/dateHelper";
-import { getSafeScore, formatValue } from "../../../utils/scoreHelper";
+import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
+import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
+import { simpleHash, toArray } from "../../../utils/evolutionGuards";
+import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -32,10 +34,20 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
 
         return (
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
-                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
-                    <span>📅 {label}</span>
-                    <span className="text-slate-500 font-bold bg-slate-900/50 px-2 py-0.5 rounded">META: {safeFix(targetScorePct, 0)}%</span>
-                </p>
+                {(() => {
+                  const parsedLabel = parseNoonLocal(label) || new Date(label);
+                
+                  const formattedLabel = Number.isFinite(parsedLabel?.getTime?.())
+                    ? `${String(parsedLabel.getDate()).padStart(2, '0')}/${String(parsedLabel.getMonth() + 1).padStart(2, '0')}`
+                    : String(label);
+                
+                  return (
+                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
+                      <span>📅 {formattedLabel}</span>
+                      <span>Meta: {targetScorePct.toFixed(1)}%</span>
+                    </p>
+                  );
+                })()}
                 <div className="space-y-4">
                     {sortedPayload.map((entry, index) => {
                         const pct = Math.max(0, Math.min(100, entry.value));
@@ -51,7 +63,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                             <div key={`item-${index}`} className="flex flex-col gap-1.5">
                                 <div className="flex justify-between items-end">
                                     <div className="flex flex-col gap-0.5">
-                                        <span style={{ color: entry.color }} className="font-bold flex items-center gap-2 truncate max-w-[200px]" title={entry.name}>
+                                        <span style={{ color: entry.color }} className="font-bold flex items-center gap-2 min-w-0 max-w-[200px]" title={entry.name}>
                                             <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: entry.color, boxShadow: `0 0 8px ${entry.color}88` }}></span>
                                             <span className="truncate">{entry.name}</span>
                                             {isTargetMet && <span title="Meta atingida" className="text-[10px] shrink-0 drop-shadow-md">🔥</span>}
@@ -103,8 +115,27 @@ export const SubtopicsPerformanceChart = React.memo(({
     const [viewMode, setViewMode] = useState('bars');
     const accuracyUnit = '%';
     
-    const range = maxScore - minScore;
-    const targetScorePct = range > 0 ? ((targetScore - minScore) / range) * 100 : 0;
+    // FIX 5A: garantir range mínimo e fallback sensato
+    const safeMinScorePct = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScorePct = Number(maxScore) > safeMinScorePct ? Number(maxScore) : safeMinScorePct + 1;
+    const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
+    
+    const safeTargetScorePctRaw = Number.isFinite(Number(targetScore))
+      ? Number(targetScore)
+      : safeMinScorePct;
+    
+    const safeTargetScorePctClamped = Math.max(
+      safeMinScorePct,
+      Math.min(safeMaxScorePct, safeTargetScorePctRaw)
+    );
+    
+    const targetScorePct = Math.max(
+      0,
+      Math.min(
+        100,
+        ((safeTargetScorePctClamped - safeMinScorePct) / safeRangePct) * 100
+      )
+    );
 
     const renderLineTooltip = useCallback(
         (props) => <CustomLineTooltip {...props} targetScorePct={targetScorePct} />,
@@ -132,22 +163,29 @@ export const SubtopicsPerformanceChart = React.memo(({
 
     const chartData = useMemo(() => {
         const topicMap = {};
+        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
 
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
 
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMinScore;
+            const catRange = Math.max(1e-9, catMax - catMin);
+
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(h?.date || h?.createdAt);
                 return d && d.getTime() >= limitMs;
             });
 
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
 
-                (h.topics || []).forEach(t => {
-                    const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                toArray(h.topics).forEach(t => {
+                    const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    const n = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!n || n.toLowerCase() === 'nenhum') return;
                     const key = n.toLowerCase();
 
@@ -155,15 +193,24 @@ export const SubtopicsPerformanceChart = React.memo(({
                         topicMap[key] = { name: n, correct: 0, total: 0 };
                     }
 
-                    const total = parseInt(t.total, 10) || 0;
+                    let total = parseInt(t.total, 10) || 0;
+                    if (t.isPercentage) {
+                        if (total === 0) total = getSyntheticTotal(catMax);
+                    } else if (total === 0 && t.score != null) {
+                        total = getSyntheticTotal(catMax);
+                    }
                     if (total === 0) return;
                     
-                    const score = getSafeScore(t, maxScore);
-                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-                    const range = Math.max(1e-9, maxScore - minScore);
-                    const correctCount = total > 0
-                        ? ((normalizedScore - minScore) / range) * total
-                        : (Number(t.correct) || 0);
+                    const rawC = Number(t.correct);
+                    let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
+
+                    if (!Number.isFinite(correctCount)) {
+                        const rawScore = getSafeScore(t, catMax, catMin);
+                        const score = Number.isFinite(rawScore) ? rawScore : catMin;
+                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
+                        correctCount = total > 0 ? ((normalizedScore - catMin) / catRange) * total : 0;
+                    }
+                    correctCount = Math.max(0, Math.min(total, Number.isFinite(correctCount) ? correctCount : 0));
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
@@ -179,8 +226,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                 return {
                     name: d.name.length > 25 ? d.name.substring(0, 23) + '...' : d.name,
                     fullName: d.name,
-                    correct: d.correct,
-                    total: d.total,
+                    correct: Math.round(d.correct),
+                    total: Math.round(d.total),
                     accuracy: Number(acc.toFixed(2)),
                 };
             })
@@ -191,19 +238,31 @@ export const SubtopicsPerformanceChart = React.memo(({
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
         const dateMap = {}; 
         const topicVolumeMap = {}; 
+        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
+        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+
+        const toTopicKey = (name) => {
+          const normalized = String(name || '').trim().toLowerCase();
+          const slug = normalized.replace(/[^a-z0-9]+/g, '_');
+          return `top_${slug}_${simpleHash(normalized)}`;
+        };
 
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
 
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMinScore;
+            const catRange = Math.max(1e-9, catMax - catMin);
+
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(h?.date || h?.createdAt);
                 return d && d.getTime() >= limitMs;
             });
 
             for (const h of recentHistory) {
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(h?.date || h?.createdAt);
                 if (!d) continue;
                 const dateKey = getDateKey(d);
                 if (!dateKey) continue;
@@ -213,24 +272,35 @@ export const SubtopicsPerformanceChart = React.memo(({
                     dateMap[dateKey] = { dateLabel, originalDate: d.getTime() };
                 }
 
-                (h.topics || []).forEach(t => {
-                    const topicName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                toArray(h.topics).forEach(t => {
+                    const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    const topicName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
-                    const total = parseInt(t.total, 10) || 0;
+                    let total = parseInt(t.total, 10) || 0;
+                    if (t.isPercentage) {
+                        if (total === 0) total = getSyntheticTotal(catMax);
+                    } else if (total === 0 && t.score != null) {
+                        total = getSyntheticTotal(catMax);
+                    }
                     if (total === 0) return;
 
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
 
-                    const score = getSafeScore(t, maxScore);
-                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
-                    const range = Math.max(1e-9, maxScore - minScore);
-                    const correct = total > 0
-                        ? ((normalizedScore - minScore) / range) * total
-                        : (Number(t.correct) || 0);
+                    const rawC = Number(t.correct);
+                    let correct = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
 
-                    const totKey = `${topicName}_total`;
-                    const corKey = `${topicName}_correct`;
+                    if (!Number.isFinite(correct)) {
+                        const rawScore = getSafeScore(t, catMax, catMin);
+                        const score = Number.isFinite(rawScore) ? rawScore : catMin;
+                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
+                        correct = total > 0 ? ((normalizedScore - catMin) / catRange) * total : 0;
+                    }
+                    correct = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
+
+                    const sKey = toTopicKey(topicName);
+                    const totKey = `${sKey}_total`;
+                    const corKey = `${sKey}_correct`;
 
                     if (dateMap[dateKey][totKey] === undefined) {
                         dateMap[dateKey][totKey] = 0;
@@ -242,36 +312,43 @@ export const SubtopicsPerformanceChart = React.memo(({
             }
         });
 
-        const topTopics = Object.entries(topicVolumeMap)
+        const topTopicNames = Object.entries(topicVolumeMap)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 8)
             .map(entry => entry[0]);
+
+        const topTopics = topTopicNames
+          .map(name => ({
+            name,
+            key: toTopicKey(name)
+          }))
+          .filter((topic, index, self) => self.findIndex(t => t.key === topic.key) === index);
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
 
         let prevAccMap = {};
         series.forEach(entry => {
             topTopics.forEach(topic => {
-                const tot = entry[`${topic}_total`];
-                const cor = entry[`${topic}_correct`];
+                const tot = entry[`${topic.key}_total`];
+                const cor = entry[`${topic.key}_correct`];
                 if (tot !== undefined && tot > 0) {
                     const accRaw = (cor / tot) * 100;
                     const safeAccRaw = Number.isFinite(accRaw) ? accRaw : 0;
                     const acc = Number(Math.max(0, Math.min(100, safeAccRaw)).toFixed(2));
-                    entry[topic] = acc;
+                    entry[topic.key] = acc;
                     
-                    if (prevAccMap[topic] !== undefined) {
-                        entry[`${topic}_delta`] = Number((acc - prevAccMap[topic]).toFixed(2));
+                    if (prevAccMap[topic.key] !== undefined) {
+                        entry[`${topic.key}_delta`] = Number((acc - prevAccMap[topic.key]).toFixed(2));
                     } else {
-                        entry[`${topic}_delta`] = null;
+                        entry[`${topic.key}_delta`] = null;
                     }
-                    prevAccMap[topic] = acc;
+                    prevAccMap[topic.key] = acc;
                 }
             });
         });
 
         series = series.filter(entry => {
-            return topTopics.some(topic => entry[topic] !== undefined);
+            return topTopics.some(topic => entry[topic.key] !== undefined);
         });
 
         return { timeSeriesData: series, uniqueTopics: topTopics };
@@ -279,25 +356,27 @@ export const SubtopicsPerformanceChart = React.memo(({
 
 
     return (
-        <div className="rounded-2xl border border-slate-800/70 bg-slate-950/50 p-2 sm:p-5 shadow-xl w-full min-h-[600px]" id={`subtopics_container_${instanceId}`}>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-2 gap-3">
+        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl w-full min-h-[600px]" id={`subtopics_container_${instanceId}`}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 px-1 gap-3">
                 <div>
-                    <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-amber-500 mb-0.5">
-                        🔬 Raio-X de Tópicos {viewMode === 'lines' ? <span className="text-slate-400 text-sm ml-1">(Evolução Temporal)</span> : <span className="text-amber-400/60 text-sm ml-1">(Ranking de Desempenho)</span>}
+                    <h3 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-500 mb-0.5 tracking-tight">
+                        Raio-X de Tópicos
                     </h3>
-                    <p className="text-slate-500 text-xs mt-1">Percentual de precisão real de cada pilar da sua disciplina.</p>
+                    <p className="text-slate-400 text-xs mt-0.5">Taxa de acertos real por assunto e volume de questões realizadas.</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/50 p-1 rounded-2xl shadow-inner shrink-0 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 p-1 rounded-2xl shadow-inner shrink-0 w-full sm:w-auto">
                     <button
                         onClick={() => setViewMode('bars')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
+                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all will-change-transform ${viewMode === 'bars' ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm' : 'text-slate-400 hover:text-slate-200 border border-transparent hover:bg-slate-800/40'}`}
+                        aria-pressed={viewMode === 'bars'}
                     >
                         Ranking (Barras)
                     </button>
                     <button
                         onClick={() => setViewMode('lines')}
-                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-bold rounded-2xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-500 hover:text-slate-300 border border-transparent hover:bg-slate-800/40'}`}
+                        className={`flex-1 sm:flex-none px-4 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-xl transition-all will-change-transform ${viewMode === 'lines' ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40 shadow-sm' : 'text-slate-400 hover:text-slate-200 border border-transparent hover:bg-slate-800/40'}`}
+                        aria-pressed={viewMode === 'lines'}
                     >
                         Tempo (Linhas)
                     </button>
@@ -309,49 +388,64 @@ export const SubtopicsPerformanceChart = React.memo(({
                     <span className="text-5xl opacity-40">⏳</span>
                     <div className="text-center">
                         <p className="text-slate-300 font-bold text-base mb-1">Nenhum assunto no período atual</p>
-                        <p className="text-slate-500 text-sm max-w-xs block">Mude o filtro de "Período" ali em cima para <b>Tudo</b> caso seus simulados sejam mais antigos.</p>
+                        <p className="text-slate-500 text-xs mt-1">Altere o filtro de período para <b className="text-slate-400">Tudo</b> caso seus simulados sejam mais antigos.</p>
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (
                 <div className="w-full relative" style={{ height: Math.max(450, chartData.length * 60) }}>
-                    <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
-                        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: -5, bottom: 0 }}>
+                    <ChartFrame minHeight={450} label="Analisando subtópicos">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
+                        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 120, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.6}/>
+                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
                                     <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
                                 </linearGradient>
                                 <linearGradient id={`gradWarn_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.6}/>
+                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.7}/>
                                     <stop offset="100%" stopColor="#fbbf24" stopOpacity={1}/>
                                 </linearGradient>
                                 <linearGradient id={`gradBad_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.6}/>
+                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.7}/>
                                     <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" horizontal={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
 
                             <XAxis
                                 type="number"
                                 domain={[0, 100]}
-                                stroke="#ffffff"
-                                tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }}
+                                stroke="#94a3b8"
+                                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                                 axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                 tickLine={false}
                                 tickFormatter={(v) => `${v}${accuracyUnit}`}
                                 allowDataOverflow={true}
                             />
 
-                            <YAxis
-                                type="category"
-                                dataKey="name"
-                                stroke="#ffffff"
-                                tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }}
-                                axisLine={false}
-                                tickLine={false}
-                                width={150}
-                            />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    stroke="#cbd5e1"
+                                    tick={(props) => {
+                                        const { x, y, payload } = props;
+                                        const text = payload?.value || "";
+                                        const fullText = payload?.payload?.fullName || text;
+                                        const maxLen = 24;
+                                        const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
+                                        return (
+                                            <g transform={`translate(${x},${y})`}>
+                                                <text x={-6} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
+                                                    <title>{fullText}</title>
+                                                    {truncated}
+                                                </text>
+                                            </g>
+                                        );
+                                    }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={160}
+                                />
 
                             <Tooltip
                                 offset={30}
@@ -359,15 +453,23 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 contentStyle={CustomTooltipStyle}
                                 itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
                                 formatter={(value, name, props) => {
-                                    const entry = props.payload;
-                                    return [`${formatValue(value)}% (${entry.correct}/${entry.total} acertos)`, 'Precisão'];
+                                    const entry = props?.payload;
+                                    if (!entry) return [value, name];
+                                    return [`${formatValue(value)}% (${entry.correct || 0}/${entry.total || 0} acertos)`, 'Precisão'];
                                 }}
                                 labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                             />
 
-                            <ReferenceLine x={targetScorePct} stroke="rgba(52, 211, 153, 0.6)" strokeDasharray="4 4" strokeWidth={2} />
+                            <ReferenceLine 
+                                x={targetScorePct} 
+                                stroke="#10b981" 
+                                strokeDasharray="5 3" 
+                                strokeWidth={2}
+                                strokeOpacity={0.8}
+                                label={{ position: 'top', value: 'META', fill: '#34d399', fontSize: 10, fontWeight: 'bold' }}
+                            />
 
-                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={28} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.04)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
+                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
                                 {chartData.map((entry, index) => {
                                     let barColor = `url(#gradBad_${instanceId})`;
                                     if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
@@ -380,6 +482,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     content={(props) => {
                                         const { x, y, width, height, value, index } = props;
                                         const entry = chartData[index];
+                                        if (!entry) return null;
                                         return (
                                             <g>
                                                 <text x={x + width + 8} y={y + height / 2 + 4} fill="#ffffff" fontSize={12} fontWeight="black">
@@ -400,7 +503,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 />
                             </Bar>
                         </BarChart>
-                    </ResponsiveContainer>
+                        </ResponsiveContainer>
+                    </ChartFrame>
                 </div>
             ) : (
                 // 🎯 FIX: Altura reduzida de 750px para 500px para caber melhor na tela
@@ -411,7 +515,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                     {timeSeriesData.length > 0 ? (
                         <div className="w-full overflow-x-auto custom-scrollbar pb-2">
                             <div className="min-w-[700px] lg:min-w-full">
-                                <ResponsiveContainer width="100%" height={500} minWidth={1}>
+                                <ChartFrame minHeight={500} label="Analisando subtópicos">
+                                    <ResponsiveContainer width="100%" height={500} minWidth={1}>
                                     {/* 🎯 FIX: left de -20 para 0 para evitar corte do eixo Y */}
                                     <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
                                         <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
@@ -423,7 +528,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                             tickLine={false}
                                             tickFormatter={(val) => {
-                                                const d = new Date(val);
+                                                const d = parseNoonLocal(val) || new Date(val);
                                                 return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
                                             }}
                                         />
@@ -451,14 +556,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             iconType="circle"
                                         />
 
-                                        {uniqueTopics.map((topicName, index) => {
+                                        {uniqueTopics.map((topic, index) => {
                                             const color = MEGA_PALETTE[index % MEGA_PALETTE.length];
                                             return (
                                                 <Line connectNulls
-                                                    key={topicName}
+                                                    key={topic.key || topic.name}
                                                     type="monotoneX"
-                                                    dataKey={topicName}
-                                                    name={topicName}
+                                                    dataKey={topic.key || topic.name}
+                                                    name={topic.name}
                                                     stroke={color}
                                                     strokeWidth={3}
                                                     dot={{ r: 3, fill: '#0f172a', strokeWidth: 1.5, stroke: color }}
@@ -469,7 +574,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             );
                                         })}
                                     </LineChart>
-                                </ResponsiveContainer>
+                                    </ResponsiveContainer>
+                                </ChartFrame>
                             </div>
                         </div>
                     ) : (
@@ -484,3 +590,4 @@ export const SubtopicsPerformanceChart = React.memo(({
         </div>
     );
 });
+

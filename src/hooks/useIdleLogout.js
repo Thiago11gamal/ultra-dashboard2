@@ -11,21 +11,56 @@ import { logger } from '../utils/logger';
 export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     const timerRef = useRef(null);
     const logoutRef = useRef(logout);
+    const lastActivityRef = useRef(0);
 
     // LEAK-06 FIX: Keep logout function updated in a ref to avoid resetTimer dependency
     useEffect(() => {
         logoutRef.current = logout;
     }, [logout]);
 
+    const resetTimerRef = useRef(null);
+
+    const isMounted = useRef(true);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     const resetTimer = useCallback(() => {
+        const now = Date.now();
+        lastActivityRef.current = now;
+        try {
+            localStorage.setItem('ultra-last-activity', now.toString());
+        } catch (e) {
+            console.debug('[IdleLogout] localStorage.setItem failed:', e.message);
+        }
+        
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
-        timerRef.current = setTimeout(() => {
+        timerRef.current = setTimeout(async () => {
+            if (!isMounted.current) return;
+            try {
+                const { useAppStore } = await import('../store/useAppStore');
+                if (!isMounted.current) return;
+                const pomodoroActive = useAppStore.getState()?.appState?.pomodoro?.activeSubject;
+                if (pomodoroActive) {
+                    logger.log('[IdleLogout] Pomodoro ativo — adiando logout.');
+                    if (typeof resetTimerRef.current === 'function') resetTimerRef.current();
+                    return;
+                }
+            } catch { /* se falhar, prossegue com logout */ }
+            if (!isMounted.current) return;
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
-            if (logoutRef.current) logoutRef.current();
+            if (typeof logoutRef.current === 'function') logoutRef.current();
         }, timeoutMs);
     }, [timeoutMs]);
+
+    useEffect(() => {
+        resetTimerRef.current = resetTimer;
+    }, [resetTimer]);
 
     useEffect(() => {
         // BUG-25 FIX: Removed unused effectiveTimeout variable
@@ -39,6 +74,9 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             'click'
         ];
 
+        // FIX: Initialize lastActivity on mount (not during render to preserve purity)
+        if (!lastActivityRef.current) lastActivityRef.current = Date.now();
+
         // Initial set
         resetTimer();
 
@@ -46,6 +84,35 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         events.forEach(event => {
             window.addEventListener(event, resetTimer);
         });
+
+        // ✅ FIX: Computar tempo real ao voltar do background cruzando com localStorage
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                let lastAct = lastActivityRef.current || Date.now();
+                try {
+                    const stored = localStorage.getItem('ultra-last-activity');
+                    if (stored) {
+                        const storedTime = parseInt(stored, 10);
+                        // ✅ FIX: Validar que o valor é um número finito
+                        if (Number.isFinite(storedTime) && storedTime > 0 && storedTime > lastAct) {
+                            lastAct = storedTime;
+                        }
+                    }
+                } catch (e) {
+                    console.debug('[IdleLogout] localStorage.getItem failed:', e.message);
+                }
+
+                const elapsed = Date.now() - lastAct;
+                if (elapsed >= timeoutMs) {
+                    logger.log('[IdleLogout] Aba voltou ao foco e o tempo estava expirado. Deslogando...');
+                    if (typeof logoutRef.current === 'function') logoutRef.current();
+                } else {
+                    lastActivityRef.current = lastAct; // Sync ref with storage
+                    resetTimer();
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
 
         return () => {
             // Cleanup on unmount
@@ -55,6 +122,8 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             events.forEach(event => {
                 window.removeEventListener(event, resetTimer);
             });
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
-    }, [resetTimer]);
+    }, [resetTimer, timeoutMs]);
 }
+

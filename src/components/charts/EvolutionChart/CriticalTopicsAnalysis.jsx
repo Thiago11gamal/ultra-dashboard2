@@ -5,15 +5,28 @@ import {
 } from "recharts";
 import { normalizeDate } from "../../../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
+import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 
 const CustomTooltipStyle = {
-    backgroundColor: '#0a0f1e',
-    border: '1px solid rgba(99,102,241,0.25)',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '12px',
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontSize: '12px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
 };
+
+// Mover para top-level (antes do componente)
+const WEEKS = [
+    { label: "Semana 4", offset: 4 },
+    { label: "Semana 3", offset: 3 },
+    { label: "Semana 2", offset: 2 },
+    { label: "Semana 1", offset: 1 },
+    { label: "Semana atual", offset: 0 },
+];
+
+import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
 
 export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0 }) => {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
@@ -33,36 +46,31 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         return {
             startDate: start,
             endDate: end,
-            dateLabel: `${format(start)}—${format(end)}`
+            dateLabel: `${format(start)} — ${format(end)}`
         };
     }, [selectedWeekOffset]);
-
-    const WEEKS = [
-        { label: "SEMANA 4", offset: 4 },
-        { label: "SEMANA 3", offset: 3 },
-        { label: "SEMANA 2", offset: 2 },
-        { label: "SEMANA 1", offset: 1 },
-        { label: "SEMANA ATUAL", offset: 0 },
-    ];
 
     const subtopicsData = useMemo(() => {
         if (!categories || !categories.length) return [];
         const topicMap = {};
 
         categories.forEach(cat => {
-            const history = Object.values(cat.simuladoStats?.history || {});
+            const historyRaw = cat.simuladoStats?.history;
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
             if (!history.length) return;
 
             const recentHistory = history.filter(h => {
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(getHistoryDate(h));
                 return d && d >= startDate && d <= endDate;
             });
 
-            const range = Math.max(1e-9, maxScore - minScore);
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
+            const catRange = Math.max(1e-9, catMax - catMin);
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
 
-                (h.topics || []).forEach(t => {
+                toArray(h.topics).forEach(t => {
                     const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!n) return;
                     const key = n.toLowerCase();
@@ -70,20 +78,25 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
                     let total = parseInt(t.total, 10) || 0;
                     if (total === 0 && t.score != null) {
-                        total = getSyntheticTotal(maxScore);
+                        total = getSyntheticTotal(catMax);
                     } else if (total === 0) {
                         return;
                     }
                     
-                    const score = t.score != null ? Number(t.score) : getSafeScore(t, maxScore);
-                    const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                    const score = getSafeScore(t, catMax, catMin);
+                    if (!Number.isFinite(score)) return;
+                    if (total <= 0) return;
+                    const normalizedScore = Math.max(catMin, Math.min(catMax, score));
                     
-                    const correctCount = (t.isPercentage && t.score != null && total > 0)
-                        ? ((normalizedScore - minScore) / range) * total
-                        : (t.correct != null ? Number(t.correct) : ((normalizedScore - minScore) / range) * total);
+                    const correctCount = t.isPercentage
+                        ? ((normalizedScore - catMin) / catRange) * total
+                        : (t.correct != null ? Number(t.correct) : ((normalizedScore - catMin) / catRange) * total);
+
+                    if (!Number.isFinite(correctCount)) return;
+                    const safeCorrect = Math.max(0, Math.min(total, correctCount));
 
                     topicMap[key].total += total;
-                    topicMap[key].correct += correctCount;
+                    topicMap[key].correct += safeCorrect;
                 });
             }
         });
@@ -93,7 +106,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const item = topicMap[key];
             const accuracy = item.total > 0 ? item.correct / item.total : 0;
             const erroAbsoluto = item.total - item.correct;
-            // Índice de Criticidade Composto: penaliza matérias com baixo rendimento mais pesadamente
+            // Índice de criticidade
             item.criticidade = erroAbsoluto * (1 - accuracy);
         });
 
@@ -103,12 +116,12 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             .sort((a, b) => b.criticidade - a.criticidade);
 
         return result.slice(0, 15).map((item, i, arr) => {
-            const isLong = item.name.length > 20;
+            const isLong = item.name.length > 34;
             return {
                 ...item,
-                name: isLong ? item.name.substring(0, 18) + '...' : item.name,
+                name: isLong ? item.name.substring(0, 32) + '...' : item.name,
                 fullName: item.name,
-                value: Math.round(item.criticidade * 10) / 10, // Arredondar para 1 casa decimal para o gráfico
+                value: Math.round(item.criticidade * 10) / 10,
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
@@ -122,30 +135,36 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const rawData = categories.map(cat => {
             let total = 0;
             let correct = 0;
-            const history = Object.values(cat.simuladoStats?.history || {});
+            const historyRaw = cat.simuladoStats?.history;
+            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
 
             const recentHistory = history.filter(h => {
-                const d = normalizeDate(h.date);
+                const d = normalizeDate(getHistoryDate(h));
                 return d && d >= startDate && d <= endDate;
             });
-            const range = Math.max(1e-9, maxScore - minScore);
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
+            const catRange = Math.max(1e-9, catMax - catMin);
             for (const h of recentHistory) {
                 let t = parseInt(h.total, 10) || 0;
                 if (t === 0 && h.score != null) {
-                    t = getSyntheticTotal(maxScore);
+                    t = getSyntheticTotal(catMax);
                 } else if (t === 0) {
                     continue;
                 }
                 
-                const score = h.score != null ? Number(h.score) : getSafeScore(h, maxScore);
-                const normalizedScore = Math.max(minScore, Math.min(maxScore, score));
+                const score = getSafeScore(h, catMax, catMin);
+                if (!Number.isFinite(score)) continue;
+                const normalizedScore = Math.max(catMin, Math.min(catMax, score));
                 
-                const correctCount = (h.isPercentage && h.score != null && t > 0)
-                    ? ((normalizedScore - minScore) / range) * t
-                    : (h.correct != null ? Number(h.correct) : ((normalizedScore - minScore) / range) * t);
+                const correctCount = h.isPercentage
+                    ? ((normalizedScore - catMin) / catRange) * t
+                    : (h.correct != null ? Number(h.correct) : ((normalizedScore - catMin) / catRange) * t);
                 
+                if (!Number.isFinite(correctCount)) continue;
+                const safeCorrect = Math.max(0, Math.min(t, correctCount));
                 total += t;
-                correct += correctCount;
+                correct += safeCorrect;
             }
             
             const accuracy = total > 0 ? correct / total : 0;
@@ -159,11 +178,11 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         data.forEach(d => { totalCriticidade += d.value; });
 
         return data.slice(0, 10).map((item, i, arr) => {
-            const isLong = item.name.length > 20;
+            const isLong = item.name.length > 24;
             return {
                 ...item,
                 fullName: item.name,
-                name: isLong ? item.name.substring(0, 18) + '...' : item.name,
+                name: isLong ? item.name.substring(0, 22) + '...' : item.name,
                 color: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))],
                 percentage: totalCriticidade > 0 ? Math.round((item.value / totalCriticidade) * 100) : 0,
                 displayValue: Math.round(item.value * 10) / 10
@@ -171,52 +190,116 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         });
     }, [categories, startDate, endDate, maxScore, minScore]);
 
+    const hasData = useMemo(() => {
+      if (!categories) return false;
+    
+      return categories.some(cat => {
+        const historyRaw = cat.simuladoStats?.history;
+        const history = Array.isArray(historyRaw)
+          ? historyRaw
+          : Object.values(historyRaw || {});
+    
+        return history.some(h => {
+          const d = normalizeDate(getHistoryDate(h));
+          const topics = toArray(h.topics);
+    
+          const hasTopicData = topics.some(
+            t => Number(t.total) > 0 || t.score != null
+          );
+    
+          return (
+            d &&
+            d >= startDate &&
+            d <= endDate &&
+            (
+              parseInt(h.total, 10) > 0 ||
+              h.score != null ||
+              hasTopicData
+            )
+          );
+        });
+      });
+    }, [categories, startDate, endDate]);
+
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
 
     return (
-        <div className="col-span-1 md:col-span-2 pt-6">
-            {/* Week Selector Header */}
-            <div className="flex flex-col items-center sm:items-end mb-5 pr-1">
-                <div className="flex items-center gap-1 sm:gap-2 mb-2 overflow-x-auto max-w-full no-scrollbar py-2 px-1 bg-slate-900/30 rounded-full border border-slate-800/50 shadow-inner">
-                    {WEEKS.map((w, idx) => {
-                        const isActive = selectedWeekOffset === w.offset;
-                        return (
-                            <div key={w.label} className="flex items-center">
-                                {!isActive && idx !== 0 && idx !== WEEKS.findIndex(ww => ww.offset === selectedWeekOffset) - 1 && <span className="mx-1.5 text-slate-600 font-bold opacity-60">•</span>}
+        <div className="w-full space-y-4 pt-2">
+            {/* Header com Navegação Temporal Unificada */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md shadow-lg">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-inner shrink-0">
+                        <ShieldAlert size={20} />
+                    </div>
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm sm:text-base font-bold text-white">Matriz de criticidade e pontos de fuga</h3>
+                            <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-[9px] font-black text-rose-400 border border-rose-500/20 uppercase tracking-wider">
+                                Índice de Criticidade
+                            </span>
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
+                            Identifique matérias e assuntos específicos que mais geram perdas de pontos
+                        </p>
+                    </div>
+                </div>
+
+                {/* Week Selector + Date Range Badge */}
+                <div className="flex flex-wrap items-center gap-2 self-start md:self-center shrink-0">
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-1 bg-slate-950/80 rounded-xl border border-slate-800/80 shadow-inner">
+                        {WEEKS.map((w) => {
+                            const isActive = selectedWeekOffset === w.offset;
+                            return (
                                 <button
+                                    key={w.label}
+                                    type="button"
                                     onClick={() => setSelectedWeekOffset(w.offset)}
-                                    className={`
-                                        relative px-3.5 py-1.5 text-[10px] sm:text-xs font-black tracking-widest rounded-full transition-all shrink-0
-                                        ${isActive
-                                            ? 'bg-gradient-to-r from-[#9d4edd] to-[#7b2cbf] text-white shadow-[0_0_20px_rgba(157,78,221,0.8)] scale-105 border border-purple-400/30 ring-1 ring-purple-500/20'
-                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 shadow-sm'
-                                        }
-                                    `}
+                                    aria-pressed={isActive}
+                                    className={`px-3 py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${
+                                        isActive
+                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-indigo-400/50'
+                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                                    }`}
                                 >
                                     {w.label}
                                 </button>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
+                    <div className="text-[10px] sm:text-[11px] font-mono font-bold text-indigo-300 bg-indigo-950/60 border border-indigo-700/50 px-3 py-1.5 rounded-xl shadow-inner">
+                        {dateLabel}
+                    </div>
                 </div>
-                <div className="text-[11px] sm:text-xs text-slate-400 font-mono tracking-widest mr-3 font-bold bg-slate-900/40 px-3 py-1 rounded-md border border-slate-800">{dateLabel}</div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                {/* Matérias Críticas */}
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                    <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">{weekTitle}</p>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">🩸 Matérias Críticas <span className="text-slate-600 font-normal">({pointLeakageData.length})</span></h3>
-                    <p className="text-[9px] sm:text-xs text-slate-500 mb-2 sm:mb-4">Disciplinas com maior Índice de Criticidade (Erros x Ineficiência).</p>
-                    <div className="min-h-[220px] sm:min-h-[260px] w-full">
+            {/* Painéis Lado a Lado perfeitamente enquadrados */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
+                {/* Matérias críticas */}
+                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
+                    <div>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">{weekTitle}</p>
+                            <span className="text-[9px] font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                {pointLeakageData.length} {pointLeakageData.length === 1 ? 'matéria' : 'matérias'}
+                            </span>
+                        </div>
+                        <h4 className="text-sm sm:text-base font-black text-slate-100 mb-1 flex items-center gap-2 tracking-tight">
+                            🩸 Matérias Críticas
+                        </h4>
+                        <p className="text-[10px] sm:text-xs text-slate-400 mb-4 leading-relaxed">
+                            Disciplinas com maior Índice de Criticidade (Erros acumulados × taxa de erro).
+                        </p>
+                    </div>
+
+                    <div className="min-h-[220px] sm:min-h-[260px] w-full flex-1 flex flex-col justify-center">
                         {pointLeakageData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 36)} minWidth={1}>
-                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 0, right: 60, left: -10, bottom: 0 }}>
-                                    <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                    <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={80} />
-                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => [`${v} (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                    <Bar dataKey="displayValue" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4}>
+                            <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 38)} minWidth={1}>
+                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 65, left: -5, bottom: 5 }}>
+                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Bar dataKey="displayValue" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                                         <LabelList dataKey="displayValue" position="right" offset={8}
                                             content={(props) => {
@@ -224,7 +307,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                                 const entry = pointLeakageData[index];
                                                 if (!entry || value === null || value === undefined) return null;
                                                 return (
-                                                    <text x={x + width + 10} y={y + 9} fill="#ffffff" fontSize={10} fontWeight="bold">
+                                                    <text x={x + width + 8} y={y + 11} fill="#ffffff" fontSize={10.5} fontWeight="bold">
                                                         {value}{entry.percentage > 0 ? ` (${entry.percentage}%)` : ''}
                                                     </text>
                                                 );
@@ -234,42 +317,56 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                                <span className="text-4xl mb-3">🎉</span>
-                                Nenhum erro registrado neste período!
+                            <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
+                                <span className="text-4xl mb-2">{hasData ? '🎉' : '⏳'}</span>
+                                <p className="font-bold text-slate-300 mb-1">{hasData ? 'Sem erros críticos!' : 'Nenhum dado registrado'}</p>
+                                Cadastre simulados para visualizar este gráfico.
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Assuntos Críticos */}
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 sm:p-5 shadow-lg hover:border-slate-700 transition-all w-full min-w-0">
-                    <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider mb-1 truncate">{weekTitle} · todos os assuntos</p>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-200 mb-1 truncate">📏 Assuntos Críticos <span className="text-slate-600 font-normal">({subtopicsData.length})</span></h3>
-                    <p className="text-[9px] sm:text-[11px] text-slate-500 mb-2 sm:mb-4">Tópicos com maior Índice de Criticidade (Erros x Ineficiência).</p>
-                    <div className="min-h-[220px] sm:min-h-[260px] w-full">
+                {/* Assuntos críticos */}
+                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
+                    <div>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">{weekTitle} · TODOS OS ASSUNTOS</p>
+                            <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                {subtopicsData.length} {subtopicsData.length === 1 ? 'tópico' : 'tópicos'}
+                            </span>
+                        </div>
+                        <h4 className="text-sm sm:text-base font-black text-slate-100 mb-1 flex items-center gap-2 tracking-tight">
+                            📏 Assuntos Críticos
+                        </h4>
+                        <p className="text-[10px] sm:text-xs text-slate-400 mb-4 leading-relaxed">
+                            Tópicos com maior urgência de revisão e reforço teórico.
+                        </p>
+                    </div>
+
+                    <div className="min-h-[220px] sm:min-h-[260px] w-full flex-1 flex flex-col justify-center">
                         {subtopicsData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 36)} minWidth={1}>
-                                <BarChart data={subtopicsData} layout="vertical" margin={{ top: 0, right: 60, left: -5, bottom: 0 }}>
-                                    <CartesianGrid stroke="rgba(255,255,255,0.1)" horizontal={false} />
-                                    <XAxis type="number" stroke="#ffffff" tick={{ fontSize: 10, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} axisLine={{ stroke: 'rgba(255,255,255,0.2)' }} tickLine={{ stroke: 'rgba(255,255,255,0.2)' }} width={85} />
-                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} formatter={(v, n, props) => {
+                            <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 38)} minWidth={1}>
+                                <BarChart data={subtopicsData} layout="vertical" margin={{ top: 5, right: 65, left: -5, bottom: 5 }}>
+                                    <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
                                         const correct = Number(props?.payload?.correct) || 0;
                                         const errors = Math.max(0, total - correct);
                                         return [`${v} (Índice)`, `${props?.payload?.fullName || 'Assunto'} (${errors} erros)`];
                                     }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
-                                    <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} minPointSize={4}>
+                                    <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                                        <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10, fontWeight: 'bold' }} offset={8} />
+                                        <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10.5, fontWeight: 'bold' }} offset={8} />
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-slate-500 text-sm italic text-center px-4">
-                                <span className="text-4xl mb-3">🎉</span>
-                                Nenhum erro registrado neste período!
+                            <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
+                                <span className="text-4xl mb-2">{hasData ? '🎉' : '⏳'}</span>
+                                <p className="font-bold text-slate-300 mb-1">{hasData ? 'Sem assuntos críticos!' : 'Nenhum dado registrado'}</p>
+                                <p className="text-xs text-slate-500">{hasData ? 'Nenhum erro registrado neste período.' : 'Registre simulados para visualizar este gráfico.'}</p>
                             </div>
                         )}
                     </div>
@@ -278,3 +375,4 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         </div>
     );
 });
+

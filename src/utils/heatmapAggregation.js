@@ -20,7 +20,6 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
     if (!buckets.has(key)) buckets.set(key, { key, indices: [], label: d.label });
     buckets.get(key).indices.push(index);
   });
-
   const dates = [...buckets.values()].map((b, i) => ({
     key: b.key,
     label: granularity === 'monthly' ? b.key : b.label,
@@ -28,32 +27,27 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
     count: b.indices.length,
     isWeekend: false,
   }));
-
   const rows = (filtered?.rows || []).map((row) => ({
     ...row,
     cells: [...buckets.values()].map(({ indices }) => {
       const samples = indices.map(i => row.cells?.[i]).filter(Boolean);
       if (!samples.length) return null;
-      // CORREÇÃO: Normalizar strings de dados legados com vírgulas ANTES de tentar somar
+      // ✅ FIX: Normalizar strings de dados legados com vírgulas
       const total = samples.reduce((a, c) => {
-          let val = c.total;
-          if (typeof val === 'string') val = val.replace(',', '.');
-          return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+        let val = c.total;
+        if (typeof val === 'string') val = val.replace(',', '.');
+        return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
       }, 0);
-      
       const correct = samples.reduce((a, c) => {
-          let val = c.correct;
-          if (typeof val === 'string') val = val.replace(',', '.');
-          return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+        let val = c.correct;
+        if (typeof val === 'string') val = val.replace(',', '.');
+        return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
       }, 0);
-      // BUG-GLOBAL-02 FIX: pct deve ser percentual [0,100], não score em [0, maxScore].
-      // Antes: (correct/total) * maxScore → para maxScore=120, 8/10 → 96 (errado).
-      // Agora: (correct/total) * 100 → 8/10 → 80% (correto, invariante à escala).
-      const pct = total > 0 ? (correct / total) * 100 : null;
+      // ✅ FIX: pct é SEMPRE percentual [0,100], invariante à escala
+      const pct = total > 0 ? Math.max(0, Math.min(100, (correct / total) * 100)) : null;
       return { total, correct, pct };
     })
   }));
-
   return { dates, rows };
 }
 
@@ -63,29 +57,32 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
  * antes da divisão final, e aplica Shrinkage Bayesiano (K=5).
  */
 export const calculateSubjectMastery = (subtopics) => {
-    const safeSubtopics = Array.isArray(subtopics) ? subtopics : Object.values(subtopics || {});
-    if (!safeSubtopics || safeSubtopics.length === 0) return 0;
+  if (!subtopics) return 0;
+  let safeSubtopics = [];
+  if (Array.isArray(subtopics)) {
+    safeSubtopics = subtopics;
+  } else if (typeof subtopics === 'object' && subtopics.history && Array.isArray(subtopics.history)) {
+    safeSubtopics = subtopics.history;
+  } else if (typeof subtopics === 'object') {
+    safeSubtopics = Object.values(subtopics);
+  }
+  if (safeSubtopics.length === 0) return 0;
 
-    // BUG-01 FIX: Cálculo Agregado Bruto para eliminar o Paradoxo de Simpson.
-    // Nunca tire média de porcentagens ou aplique shrinkage por tópico na agregação macro.
-    // Agregamos os valores brutos (acertos/total) para garantir precisão real.
-    let totalAcertos = 0;
-    let totalQuestoes = 0;
-
-    safeSubtopics.forEach(topic => {
-        // Suporte polimórfico para diferentes chaves de dados
-        const hits = Number(topic.acertos ?? topic.hits ?? 0);
-        const total = Number(topic.total ?? topic.questoes ?? 0);
-        
-        totalAcertos += hits;
-        totalQuestoes += total;
-    });
-
-    if (totalQuestoes === 0) return 0;
-
-    // BUG FIX: Aplicação autêntica do Shrinkage Bayesiano (K=5, Prior=0.5) 
-    // conforme documentado, para evitar anomalias de baixo volume (ex: 1/1 -> 100%).
-    const K = 5;
-    const prior = 0.5;
-    return ((totalAcertos + K * prior) / (totalQuestoes + K)) * 100;
+  let totalAcertos = 0;
+  let totalQuestoes = 0;
+  safeSubtopics.forEach(topic => {
+    if (!topic) return;
+    const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
+    const rawHits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
+    const hits = Math.min(total, rawHits);
+    if (Number.isFinite(hits) && Number.isFinite(total)) {
+      totalAcertos += hits;
+      totalQuestoes += total;
+    }
+  });
+  if (totalQuestoes === 0) return 0;
+  const K = 5;
+  const prior = 0.5;
+  return ((totalAcertos + K * prior) / (totalQuestoes + K)) * 100;
 };
+

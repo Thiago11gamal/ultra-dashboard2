@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ArrowLeft, ArrowRight, Award, CheckCircle2, XCircle } from 'lucide-react';
@@ -15,13 +15,49 @@ export default function SimuladoPlayer({
   handleFinish,
   resetAll
 }) {
+  const touchStartX = useRef(null);
+
+  if (!questions || questions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-slate-400">
+        <p className="mb-4">Nenhuma questão disponível.</p>
+        <button onClick={resetAll} className="px-4 py-2 bg-slate-800 rounded-lg text-white">Voltar</button>
+      </div>
+    );
+  }
   const currentQuestion = questions[currentIndex];
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = Object.keys(answers || {}).length;
   const timeColor = timeLeft < 180 ? 'text-red-400 border-red-500/30' : timeLeft < 300 ? 'text-amber-400 border-amber-500/30' : 'text-slate-300 border-white/10';
   const difficultyLabel = DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || form.dificuldade;
 
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchStartX.current) return;
+    const touch = e.changedTouches?.[0];
+    if (!touch || !touchStartX.current) return;
+
+    const touchEndX = touch.clientX;
+    const diff = touchStartX.current - touchEndX;
+
+    if (Math.abs(diff) > 50) { // Threshold de 50px
+      if (diff > 0 && currentIndex < questions.length - 1) {
+        goTo(currentIndex + 1); // Swipe left -> next
+      } else if (diff < 0 && currentIndex > 0) {
+        goTo(currentIndex - 1); // Swipe right -> prev
+      }
+    }
+    touchStartX.current = null;
+  };
+
 return (
-      <div className="w-full">
+      <div 
+        className="w-full"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* ═══ TOP BAR ═══ */}
         <div className="mb-6 rounded-2xl border border-white/[0.06] overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(30,27,75,0.4), rgba(15,23,42,0.7))', backdropFilter: 'blur(20px)' }}>
           <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -179,3 +215,4 @@ return (
     );
   
 }
+

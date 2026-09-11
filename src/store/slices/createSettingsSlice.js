@@ -1,100 +1,79 @@
-import { validateAppState, sanitizeContest } from '../schemas';
+import { validateAppState } from '../schemas.js';
+
+const applyDarkModeToggle = (state) => {
+  if (!state.appState) return;
+  const activeData = state.appState.contests?.[state.appState.activeId];
+  if (!activeData) return;
+  if (!activeData.settings) activeData.settings = {};
+  activeData.settings.darkMode = !(activeData.settings.darkMode ?? true);
+  state.appState.version = (state.appState.version || 0) + 1;
+  state.appState.lastUpdated = new Date().toISOString();
+  localStorage.setItem('ultra-sync-dirty', 'true');
+};
 
 export const createSettingsSlice = (set) => ({
-    setHasSeenTour: (value) => set((state) => {
-        state.appState.hasSeenTour = value;
-        if (value) {
-            state.appState.lastSeenTourDate = new Date().toDateString();
-        }
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
-
-    setDashboardFilter: (filterOrEvent) => set((state) => {
-        const rawFilter = (filterOrEvent && typeof filterOrEvent === 'object' && 'target' in filterOrEvent)
-            ? filterOrEvent.target?.value
-            : filterOrEvent;
-        const nextFilter = typeof rawFilter === 'string' ? rawFilter : 'all';
-
-        state.appState.dashboardFilter = nextFilter || 'all';
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-    }),
-
-    updateCoachPlanner: (newPlannerData) => set((state) => {
-        const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData) return;
-        if (JSON.stringify(activeData.coachPlanner) === JSON.stringify(newPlannerData)) return;
-        activeData.coachPlanner = newPlannerData;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
-
-    setThemeMode: () => set((state) => {
-        const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData) return;
-        if (!activeData.settings) activeData.settings = {};
-        activeData.settings.darkMode = !activeData.settings.darkMode;
-    }),
-
-    toggleDarkMode: () => set((state) => {
-        const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData) return;
-        if (!activeData.settings) activeData.settings = {};
-        activeData.settings.darkMode = !activeData.settings.darkMode;
-    }),
-
-    setAppState: (newStateObj) => set((state) => {
-        let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
-        if (!nextState) return;
-
-        if (nextState === state.appState) return;
-
-        nextState = validateAppState(nextState);
-
-        // SYNC SAFETY: guarantee a valid contests tree/activeId so every menu
-        // receives a coherent dataset after cloud/local merges.
-        const nextContests = (nextState.contests && typeof nextState.contests === 'object')
-            ? nextState.contests
-            : state.appState.contests;
-
-        const contestIds = Object.keys(nextContests || {});
-        const fallbackActiveId = contestIds[0] || state.appState.activeId;
-        const nextActiveId = (nextState.activeId && nextContests?.[nextState.activeId])
-            ? nextState.activeId
-            : fallbackActiveId;
-
-        const { history: _history, ...otherState } = nextState;
-        Object.assign(state.appState, {
-            ...otherState,
-            contests: nextContests,
-            activeId: nextActiveId
-        });
-
-        state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
-    }),
-
-    setData: (newDataCallback, _shouldRecordHistory = true) => set((state) => {
-        const contestId = state.appState.activeId;
-        const currentData = state.appState.contests[contestId];
-        if (!currentData) return;
-
-        const nextData = typeof newDataCallback === 'function'
-            ? newDataCallback(currentData)
-            : newDataCallback;
-
-        if (nextData !== undefined && nextData !== null && typeof nextData === 'object') {
-            state.appState.contests[contestId] = sanitizeContest(nextData);
-        }
-
-        const nowIso = new Date().toISOString();
-        if (state.appState.contests[contestId]) {
-            state.appState.contests[contestId].lastUpdated = nowIso;
-        }
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = nowIso;
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+  setHasSeenTour: (value) => set((state) => {
+    if (!state.appState) return;
+    if (state.appState) if (state.appState) state.appState.hasSeenTour = value;
+    if (value) {
+      state.appState.lastSeenTourDate = new Date().toDateString();
+    }
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }),
+  
+  setDashboardFilter: (filterOrEvent) => set((state) => {
+    if (!state.appState) return;
+    const rawFilter = (filterOrEvent && typeof filterOrEvent === 'object' && 'target' in filterOrEvent)
+      ? filterOrEvent.target?.value
+      : filterOrEvent;
+    const nextFilter = typeof rawFilter === 'string' ? rawFilter : 'all';
+    state.appState.dashboardFilter = nextFilter || 'all';
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }),
+  
+  updateCoachPlanner: (newPlannerData) => set((state) => {
+    if (!state.appState) return;
+    const activeData = state.appState.contests?.[state.appState.activeId];
+    if (!activeData) return;
+    if (JSON.stringify(activeData.coachPlanner) === JSON.stringify(newPlannerData)) return;
+    activeData.coachPlanner = newPlannerData;
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }),
+  
+  setThemeMode: () => set(applyDarkModeToggle),
+  toggleDarkMode: () => set(applyDarkModeToggle),
+  
+  setAppState: (newStateObj) => set((state) => {
+    if (!state.appState) return;
+    let nextState = typeof newStateObj === 'function' ? newStateObj(state.appState) : newStateObj;
+    if (!nextState) return;
+    if (nextState === state.appState) return;
+    
+    nextState = validateAppState(nextState);
+    
+    const nextContests = (nextState.contests && typeof nextState.contests === 'object')
+      ? nextState.contests : state.appState.contests;
+    const contestIds = Object.keys(nextContests || {});
+    const fallbackActiveId = contestIds[0] || state.appState.activeId;
+    const nextActiveId = (nextState.activeId && nextContests?.[nextState.activeId])
+      ? nextState.activeId : fallbackActiveId;
+    
+    const { history: _history, ...otherState } = nextState;
+    
+    Object.assign(state.appState, {
+      ...otherState,
+      contests: nextContests,
+      activeId: nextActiveId
+    });
+    
+    state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
+  }),
+  
 });
+

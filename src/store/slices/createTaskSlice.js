@@ -1,5 +1,6 @@
-import { generateId } from '../../utils/idGenerator';
-import { getTaskXP } from '../../utils/gamification';
+import { generateId } from '../../utils/idGenerator.js';
+import { XP_CONFIG } from '../../config/gamification.js';
+import { getTaskXP } from '../../utils/gamification.js';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
@@ -11,7 +12,7 @@ export const createTaskSlice = (set, get) => ({
             const category = activeData.categories.find(c => c.id === categoryId);
             if (!category) return;
 
-            const task = category.tasks.find(t => t.id === taskId);
+            const task = category.tasks.find(t => t && (t.id || t.text) === taskId);
             if (!task) return;
 
             const completed = !task.completed;
@@ -20,10 +21,14 @@ export const createTaskSlice = (set, get) => ({
 
             task.completed = completed;
             task.completedAt = completed ? new Date().toISOString() : null;
+
             if (completed) {
                 task.lastStudiedAt = new Date().toISOString();
+                // ✅ FIX N-03: Gravar o XP concedido como "recibo" imutável
                 task.awardedXP = Math.abs(xpChange);
             } else {
+                // ✅ FIX N-03: Ao desmarcar, usar o recibo gravado (não o XP atual da prioridade)
+                // Isso impede o exploit de mudar prioridade após completar
                 delete task.awardedXP;
             }
 
@@ -31,13 +36,13 @@ export const createTaskSlice = (set, get) => ({
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
         });
-        
         if (pendingXpChange !== 0 && get().awardExperience) {
             get().awardExperience(pendingXpChange);
         }
     },
 
     toggleNeuralTask: (taskId) => {
+        let pendingXpChange = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];
             if (!activeData) return;
@@ -49,6 +54,7 @@ export const createTaskSlice = (set, get) => ({
                 const task = activeData.coachPlan.find(t => t && (t.id === taskId || t.text === taskId));
                 if (task && !task.completed) {
                     task.completed = true;
+                    pendingXpChange += getTaskXP(task, true);
                     found = true;
                 }
             }
@@ -59,6 +65,23 @@ export const createTaskSlice = (set, get) => ({
                     const task = (dayTasks || []).find(t => t && (t.id === taskId || t.text === taskId));
                     if (task && !task.completed) {
                         task.completed = true;
+                        pendingXpChange += getTaskXP(task, true);
+                        found = true;
+                    }
+                });
+            }
+
+            // Search in categories (Priority tasks in Pomodoro Focus Panel / Neural Core)
+            if (activeData.categories) {
+                (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
+                    const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => t && (t.id === taskId || t.text === taskId));
+                    if (task && !task.completed) {
+                        task.completed = true;
+                        task.completedAt = new Date().toISOString();
+                        task.lastStudiedAt = new Date().toISOString();
+                        const xp = getTaskXP(task, true);
+                        task.awardedXP = Math.abs(xp);
+                        pendingXpChange += xp;
                         found = true;
                     }
                 });
@@ -70,6 +93,10 @@ export const createTaskSlice = (set, get) => ({
                 localStorage.setItem('ultra-sync-dirty', 'true');
             }
         });
+
+        if (pendingXpChange !== 0 && get().awardExperience) {
+            get().awardExperience(pendingXpChange);
+        }
     },
 
     addTask: (categoryId, title) => set((state) => {
@@ -80,6 +107,13 @@ export const createTaskSlice = (set, get) => ({
         if (!activeData?.categories) return;
         const category = activeData.categories.find(c => c.id === categoryId);
         if (category) {
+            // BUG-T04 FIX: Impedir duplicatas por nome normalizado.
+            const normNew = trimmedTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+            const alreadyExists = (category.tasks || []).some(t => {
+                const existing = String(t.text || t.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                return existing === normNew;
+            });
+            if (alreadyExists) return;
             category.tasks.push({
                 id: generateId('task'),
                 text: trimmedTitle,
@@ -100,11 +134,23 @@ export const createTaskSlice = (set, get) => ({
             if (!activeData?.categories) return;
             const category = activeData.categories.find(c => c.id === categoryId);
             if (category) {
-                const task = category.tasks.find(t => t.id === taskId);
+                const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId));
                 if (task && task.completed) {
-                    pendingXpDeduction = task.awardedXP || Math.abs(getTaskXP(task, true));
+                    // BUG-T01 FIX: awardedXP === 0 é um valor válido gravado.
+                    // Usar ?? em vez de || para não cair no fallback quando
+                    // awardedXP é 0 (o que causaria dedução errada).
+                    const rawAwarded = task.awardedXP;
+                    if (rawAwarded !== undefined && rawAwarded !== null && Number.isFinite(Number(rawAwarded))) {
+                        pendingXpDeduction = Math.abs(Number(rawAwarded));
+                    } else {
+                        pendingXpDeduction = Math.abs(getTaskXP(task, true));
+                    }
                 }
-                category.tasks = category.tasks.filter(t => t.id !== taskId);
+                const activeSubjectTaskId = state.appState.pomodoro?.activeSubject?.taskId;
+                if (activeSubjectTaskId && (activeSubjectTaskId === taskId || (task && (activeSubjectTaskId === task.id || activeSubjectTaskId === task.text)))) {
+                    state.appState.pomodoro.activeSubject = null;
+                }
+                category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId);
             }
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -119,15 +165,49 @@ export const createTaskSlice = (set, get) => ({
         const priorities = ['low', 'medium', 'high'];
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData?.categories) return;
-        const category = activeData.categories.find(c => c.id === categoryId);
+
+        const categories = Array.isArray(activeData.categories)
+            ? activeData.categories
+            : Object.values(activeData.categories || {});
+
+        const category = categories.find(c => c && (c.id === categoryId || c.name === categoryId));
         if (!category) return;
 
-        const task = category.tasks.find(t => t.id === taskId);
+        const tasks = Array.isArray(category.tasks)
+            ? category.tasks
+            : Object.values(category.tasks || {});
+
+        const task = tasks.find(t => t && ((t.id && t.id === taskId) || (t.text && t.text === taskId) || (t.title && t.title === taskId)));
         if (task) {
-            task.priority = priorities[(priorities.indexOf(task.priority || 'medium') + 1) % 3];
+            const oldPriority = String(task.priority || 'medium').toLowerCase();
+            const currentIndex = priorities.indexOf(oldPriority);
+            const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % 3;
+            const newPriority = priorities[nextIndex];
+            task.priority = newPriority;
+
+            // BUG-T06 FIX: Se a tarefa já está completada, o XP concedido
+            // foi baseado na prioridade antiga. Ajustar o XP do usuário
+            // e o recibo awardedXP para a nova prioridade.
+            if (task.completed && task.awardedXP !== undefined) {
+                const oldXP = XP_CONFIG.task[oldPriority] || XP_CONFIG.task.medium;
+                const newXP = XP_CONFIG.task[newPriority] || XP_CONFIG.task.medium;
+                const diff = newXP - oldXP;
+                if (diff !== 0) {
+                    const contestUser = activeData.user;
+                    if (contestUser) {
+                        contestUser.xp = Math.max(0, (contestUser.xp || 0) + diff);
+                    }
+                    task.awardedXP = newXP;
+                }
+            }
+
+            // Garante novas referências de array para Zustand / React shallow memoization
+            category.tasks = [...tasks];
+            activeData.categories = [...categories];
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });
+

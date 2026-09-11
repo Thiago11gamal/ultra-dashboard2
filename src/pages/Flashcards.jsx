@@ -8,7 +8,9 @@ import { format } from 'date-fns';
 import { getFlashcardTodayKey, getFlashcardNextDueKey, isFlashcardDue } from '../utils/dateHelper';
 import DueForecast from '../components/DueForecast';
 
-const EMPTY_ARRAY = [];
+import ConfirmModal from '../components/ConfirmModal';
+
+const EMPTY_ARRAY = Object.freeze([]);
 
 function getActiveContest(state) {
   const id = state.appState.activeId;
@@ -23,6 +25,7 @@ export default function Flashcards() {
   const logFlashcardReview = useAppStore(state => state.logFlashcardReview);
 
   const [selectedDeckId, setSelectedDeckId] = useState(null);
+  const [deckToDelete, setDeckToDelete] = useState(null);
   const [showCreateDeck, setShowCreateDeck] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
   const [newDeckSubject, setNewDeckSubject] = useState('');
@@ -37,14 +40,27 @@ export default function Flashcards() {
   const [studyIndex, setStudyIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [studyStats, setStudyStats] = useState({ reviewed: 0, known: 0 });
+  const [pendingClose, setPendingClose] = useState(false);
+
+  const closeStudy = React.useCallback(() => {
+    setIsStudying(false);
+    setStudyDeck(null);
+    setStudyIndex(0);
+    setIsFlipped(false);
+  }, []);
+
+  React.useEffect(() => {
+    if (!pendingClose) return;
+    const timer = setTimeout(() => {
+      closeStudy();
+      setPendingClose(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [pendingClose, closeStudy]);
 
   const selectedDeck = useMemo(() => decks.find(d => d.id === selectedDeckId), [decks, selectedDeckId]);
 
-  const dueCards = useMemo(() => {
-    if (!selectedDeck || !selectedDeck.cards) return [];
-    const safeCards = Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {});
-    return safeCards.filter(c => isFlashcardDue(c.due));
-  }, [selectedDeck]);
+
 
   function persistDecks(nextDecks) {
     setData(contest => ({
@@ -78,11 +94,17 @@ export default function Flashcards() {
 
   // Delete deck
   const deleteDeck = (deckId) => {
-    if (!window.confirm('Excluir este deck e todos os cartões?')) return;
-    const next = decks.filter(d => d.id !== deckId);
+    const deck = decks.find(d => d.id === deckId);
+    if (deck) setDeckToDelete(deck);
+  };
+
+  const handleConfirmDeleteDeck = () => {
+    if (!deckToDelete) return;
+    const next = decks.filter(d => d.id !== deckToDelete.id);
     persistDecks(next);
-    if (selectedDeckId === deckId) setSelectedDeckId(null);
+    if (selectedDeckId === deckToDelete.id) setSelectedDeckId(null);
     showToast('Deck removido', 'info');
+    setDeckToDelete(null);
   };
 
   // Add card
@@ -119,21 +141,47 @@ export default function Flashcards() {
     const nextDecks = decks.map(deck => {
       if (deck.id !== selectedDeckId) return deck;
       const cards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
-      return { ...deck, cards: cards.filter(c => c.id !== cardId) };
+      const nextCards = cards.filter(c => c.id !== cardId);
+      return { 
+        ...deck, 
+        cards: nextCards,
+        stats: {
+          ...deck.stats,
+          mastered: nextCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) > 6).length
+        }
+      };
     });
     persistDecks(nextDecks);
     showToast('Cartão excluído', 'info');
   };
 
   // Start study
+  const getDueCardsForDeck = (deck) => {
+    if (!deck || !deck.cards) return [];
+    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+    return safeCards.filter(c => isFlashcardDue(c.due));
+  };
+
   const startStudy = (deck) => {
-    if (!deck.cards || deck.cards.length === 0) {
+    if (!deck) return;
+
+    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+
+    if (safeCards.length === 0) {
       showToast('Adicione cartões antes de estudar', 'error');
       return;
     }
-    // Use due cards first, fallback to all
-    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
-    const cardsToStudy = dueCards.length > 0 ? dueCards : safeCards;
+
+    const dueForDeck = getDueCardsForDeck(deck);
+    
+    if (dueForDeck.length === 0) {
+      showToast('Nenhum cartão para revisar hoje!', 'success');
+      return;
+    }
+
+    const cardsToStudy = dueForDeck;
+
+    setSelectedDeckId(deck.id);
     setStudyDeck({ ...deck, cardsToStudy });
     setStudyIndex(0);
     setIsFlipped(false);
@@ -141,17 +189,13 @@ export default function Flashcards() {
     setIsStudying(true);
   };
 
-  const closeStudy = () => {
-    setIsStudying(false);
-    setStudyDeck(null);
-    setStudyIndex(0);
-    setIsFlipped(false);
-  };
+
 
   const flipCard = () => setIsFlipped(f => !f);
 
   // SRS simple
   function rateCard(rating) {
+    if (pendingClose) return;
     // rating: 0=Esqueci, 1=Difícil, 2=Bom, 3=Fácil
     if (!studyDeck || !studyDeck.cardsToStudy) return;
 
@@ -168,10 +212,10 @@ export default function Flashcards() {
       newInterval = Math.max(1, Math.floor(newInterval * 0.8));
       newEase = Math.max(1.3, newEase - 0.15);
     } else if (rating === 2) {
-      newInterval = Math.floor(newInterval * newEase);
+      newInterval = Math.min(365 * 5, Math.floor(newInterval * newEase));
       newEase = Math.min(3.0, newEase + 0.05);
     } else {
-      newInterval = Math.floor(newInterval * (newEase + 0.2));
+      newInterval = Math.min(365 * 5, Math.floor(newInterval * (newEase + 0.2)));
       newEase = Math.min(3.2, newEase + 0.1);
     }
 
@@ -206,7 +250,7 @@ export default function Flashcards() {
     persistDecks(nextDecks);
 
     // Integrate as measure: log review for stats, activity, gamification, coach
-    if (logFlashcardReview && studyDeck) {
+    if (typeof logFlashcardReview === 'function' && studyDeck) {
         logFlashcardReview(studyDeck.id, currentCard.id, rating, studyDeck.subject || studyDeck.name);
     }
 
@@ -215,14 +259,31 @@ export default function Flashcards() {
     updatedStudyCards[studyIndex] = {
       ...updatedStudyCards[studyIndex],
       interval: newInterval,
+      ease: newEase,
       due: nextDue
     };
 
-    const newStats = {
-      reviewed: studyStats.reviewed + 1,
-      known: studyStats.known + (rating >= 2 ? 1 : 0)
-    };
-    setStudyStats(newStats);
+    const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
+    const isKnown = safeRating >= 2;
+    const projectedKnown = studyStats.known + (isKnown ? 1 : 0);
+    const projectedReviewed = studyStats.reviewed + 1;
+
+    setStudyStats(prev => {
+      const pSafeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
+      const pIsKnown = pSafeRating >= 2;
+      const newReviewed = prev.reviewed + 1;
+      const newKnown = prev.known + (pIsKnown ? 1 : 0);
+      
+      if (prev.reviewed === newReviewed && prev.known === newKnown) {
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        reviewed: newReviewed,
+        known: newKnown,
+      };
+    });
 
     // Next card
     if (studyIndex + 1 < updatedStudyCards.length) {
@@ -231,17 +292,18 @@ export default function Flashcards() {
       setStudyDeck({ ...studyDeck, cardsToStudy: updatedStudyCards });
     } else {
       // Finished
-      showToast(`Sessão concluída! ${newStats.known}/${newStats.reviewed} dominados.`, 'success');
-      setTimeout(() => {
-        closeStudy();
-      }, 800);
+      setIsFlipped(false);
+      showToast(`Sessão concluída! ${projectedKnown}/${projectedReviewed} dominados.`, 'success');
+      setPendingClose(true);
     }
   }
 
   const currentStudyCard = studyDeck?.cardsToStudy?.[studyIndex];
 
+  const pageTitle = studyDeck?.name || "Flashcards";
+
   return (
-    <PageErrorBoundary pageName="Flashcards">
+    <PageErrorBoundary pageName={pageTitle}>
     <div className="animate-fade-in pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
@@ -491,7 +553,19 @@ export default function Flashcards() {
       {!selectedDeck && decks.length > 0 && (
         <p className="text-center text-slate-500 mt-4 text-sm">Selecione um deck acima para gerenciar ou estudar.</p>
       )}
+
+      <ConfirmModal
+        isOpen={!!deckToDelete}
+        onClose={() => setDeckToDelete(null)}
+        onConfirm={handleConfirmDeleteDeck}
+        title="Excluir Deck"
+        message={`Tem certeza que deseja excluir o deck "${deckToDelete?.name || ''}" e todos os seus cartões? Essa ação não pode ser desfeita.`}
+        confirmText="Excluir Deck"
+        type="danger"
+        icon={Trash2}
+      />
     </div>
     </PageErrorBoundary>
   );
 }
+

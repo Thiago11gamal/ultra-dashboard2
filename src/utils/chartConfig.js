@@ -56,3 +56,4 @@ export const CHART_DEFAULTS = {
         fontSize: "12px"
     }
 };
+

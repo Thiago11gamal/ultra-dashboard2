@@ -47,3 +47,4 @@ export function useThemeSync(darkModeSetting) {
     return undefined;
   }, [darkModeSetting]);
 }
+

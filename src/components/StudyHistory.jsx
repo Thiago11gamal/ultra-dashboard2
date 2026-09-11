@@ -1,7 +1,13 @@
-import React, { useMemo } from 'react';
-import { Clock, Calendar, TrendingUp, BarChart3, Zap, BrainCircuit, AlertCircle, Trophy, Siren, Trash2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+    Clock, Calendar, TrendingUp, TrendingDown, BarChart3, Zap, BrainCircuit,
+    AlertCircle, Trophy, Siren, Trash2, Search, Filter, ChevronDown, ChevronUp,
+    ArrowUpDown, CheckCircle2, Columns, LayoutList, CalendarDays, BookOpen, Layers,
+    Eye, Sparkles, X
+} from 'lucide-react';
 import { useToast } from '../hooks/useToast';
-import { normalizeDate, formatDuration as globalFormatDuration } from '../utils/dateHelper';
+import { normalizeDate, getDateKey, formatDuration as globalFormatDuration } from '../utils/dateHelper';
+import ConfirmModal from './ConfirmModal';
 
 const formatDuration = (minutes) => {
     return globalFormatDuration((minutes || 0) / 60);
@@ -30,6 +36,15 @@ const StudyHistory = React.memo(function StudyHistory({
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
     const [currentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
+    const [sessionToDelete, setSessionToDelete] = useState(null);
+    const [simuladoToDelete, setSimuladoToDelete] = useState(null);
+    const [selectedSimuladoKey, setSelectedSimuladoKey] = useState(null);
+    const [compareKeys, setCompareKeys] = useState({ keyA: null, keyB: null });
+    const [viewMode, setViewMode] = useState('focus'); // 'focus' | 'compare' | 'timeline'
+    const [topicSearch, setTopicSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'dominated' | 'attention' | 'critical'
+    const [sortOrder, setSortOrder] = useState('critical-first'); // 'critical-first' | 'best-first' | 'name-asc'
+    const [collapsedSubjects, setCollapsedSubjects] = useState({});
 
     // Calculate total weeks available (Sunday to Sunday boundaries)
     const availableWeeks = useMemo(() => {
@@ -98,10 +113,14 @@ const StudyHistory = React.memo(function StudyHistory({
 
         // Selected week's data (group by day)
         const weekData = [];
+        const weekSessions = [];
         for (let i = 0; i < 7; i++) {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + i);
             const dateStr = date.toDateString();
+
+            const daySessions = sessionsByDateStr[dateStr]?.sessions || [];
+            weekSessions.push(...daySessions);
 
             weekData.push({
                 day: getDayName(date),
@@ -119,7 +138,7 @@ const StudyHistory = React.memo(function StudyHistory({
         // BUG-110: Garantir que minutes seja numérico antes de Math.max
         const maxDayMinutes = Math.max(...weekData.map(d => Number(d.minutes) || 0), 30);
 
-        return { todaySessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
+        return { todaySessions, weekSessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
     }, [studySessions, selectedWeekOffset, currentTime]);
 
     // Get category name by ID
@@ -130,12 +149,20 @@ const StudyHistory = React.memo(function StudyHistory({
 
     // Get subject name by ID or fallback
     const getSubjectName = (categoryId, taskId, taskTitle = '') => {
-        if (taskTitle) return taskTitle;
+        const isInternalId = (str) => {
+            if (!str) return false;
+            const s = String(str);
+            return s.startsWith('task') || s.startsWith('cat-') || s.includes('-weaktopic-');
+        };
+
+        if (taskTitle && !isInternalId(taskTitle)) return taskTitle;
         if (!taskId) return '';
+        
         const cat = categories.find(c => c.id === categoryId);
-        if (!cat || !cat.tasks) return (String(taskId).startsWith('task') ? '' : taskId);
+        if (!cat || !cat.tasks) return isInternalId(taskId) ? '' : taskId;
+        
         const task = cat.tasks.find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
-        return task?.text || task?.title || (String(taskId).startsWith('task') ? '' : taskId);
+        return task?.text || task?.title || (isInternalId(taskId) ? '' : taskId);
     };
 
     const getCategoryIcon = (categoryId) => {
@@ -144,7 +171,7 @@ const StudyHistory = React.memo(function StudyHistory({
     };
 
     // Helper to get color for performance subjects
-    const getSubjectColor = (name) => {
+    const _getSubjectColor = (name) => {
         const safeName = String(name || '').toLowerCase();
         const cat = categories.find(c => String(c?.name || '').toLowerCase() === safeName);
         if (cat?.color) return cat.color;
@@ -293,16 +320,16 @@ const StudyHistory = React.memo(function StudyHistory({
                         </div>
                     </div>
 
-                    {/* Today's Sessions - Enhanced */}
+                    {/* Week Sessions - Enhanced */}
                     <div className="w-full glass p-4">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
                             <Zap size={14} />
-                            Sessões de Hoje ({stats.todaySessions.length})
+                            Sessões da Semana ({stats.weekSessions.length})
                         </h3>
 
-                        {stats.todaySessions.length > 0 ? (
+                        {stats.weekSessions.length > 0 ? (
                             <div className="space-y-2 max-h-72 overflow-y-auto custom-scrollbar">
-                                {[...stats.todaySessions].reverse().map((session, idx) => (
+                                {[...stats.weekSessions].sort((a, b) => new Date(normalizeDate(b.startTime) || 0).getTime() - new Date(normalizeDate(a.startTime) || 0).getTime()).map((session, idx) => (
                                     <div key={session.id || idx} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
                                         <div className="flex items-center gap-2.5">
                                             <span className="text-lg">{getCategoryIcon(session.categoryId)}</span>
@@ -324,21 +351,14 @@ const StudyHistory = React.memo(function StudyHistory({
                                             <div className="text-sm font-bold text-emerald-400">
                                                 {formatDuration(session.duration)}
                                             </div>
-                                            {onDeleteSession && (
+                                            {typeof onDeleteSession === 'function' && (
                                                 <button
                                                     onClick={() => {
                                                         if (!session.id) {
                                                             showToast('Erro: ID da sessão não encontrado.', 'error');
                                                             return;
                                                         }
-                                                        if (window.confirm('Excluir esta sessão de estudo? O tempo será subtraído da categoria.')) {
-                                                            try {
-                                                                onDeleteSession(session.id);
-                                                                showToast('Sessão excluída.', 'info');
-                                                            } catch {
-                                                                showToast('Erro ao excluir sessão.', 'error');
-                                                            }
-                                                        }
+                                                        setSessionToDelete(session);
                                                     }}
                                                     className="p-1.5 rounded-md bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
                                                     title="Excluir Sessão"
@@ -353,7 +373,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         ) : (
                             <div className="text-center py-6 text-slate-500">
                                 <Clock size={28} className="mx-auto mb-2 opacity-30" />
-                                <p className="text-sm">Nenhuma sessão hoje ainda</p>
+                                <p className="text-sm">Nenhuma sessão nesta semana ainda</p>
                                 <p className="text-xs mt-1 text-slate-600">Use o Pomodoro para começar!</p>
                             </div>
                         )}
@@ -361,67 +381,172 @@ const StudyHistory = React.memo(function StudyHistory({
                 </div>
             )}
 
-            {/* CORREÇÃO 7: minHeight menor para não criar espaço vazio gigante */}
+            {/* SESSÃO DE HISTÓRICO DE DESEMPENHO EM SIMULADOS */}
             {(mode === 'full' || mode === 'performance') && (
-                <div className="relative rounded-2xl overflow-hidden -mt-6" style={{ minHeight: '400px' }}>
-                    {/* Premium Glass Background with animated gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/80 via-purple-900/60 to-slate-900"></div>
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/15 via-transparent to-indigo-500/10"></div>
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-purple-500/15 blur-3xl rounded-full"></div>
-                    <div className="absolute inset-[1px] rounded-2xl border border-indigo-500/20"></div>
+                <div className="relative rounded-2xl overflow-hidden" style={{ minHeight: '400px' }}>
+                    {/* Background com gradiente sutil e moderno */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900/95 to-indigo-950/40"></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent"></div>
+                    <div className="absolute inset-[1px] rounded-2xl border border-white/10"></div>
 
-                    {/* Content */}
-                    <div className="relative p-6 flex flex-col h-full" style={{ minHeight: '280px' }}>
-                        {/* Quick Legend - Now at top right */}
-                        <div className="flex justify-end mb-4">
-                            <div className="flex items-center gap-3 text-[10px]">
-                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    <span className="text-emerald-400">≥70%</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
-                                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                    <span className="text-amber-400">50-69%</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-rose-500/10 border border-rose-500/20">
-                                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                                    <span className="text-rose-400">&lt;50%</span>
-                                </div>
-                            </div>
-                        </div>
-
+                    <div className="relative p-5 sm:p-7 flex flex-col h-full space-y-6">
                         {(() => {
-                            const now = new Date();
-                            const todayStr = now.toDateString();
-
-                            // CORREÇÃO 5: Cálculo seguro do dia anterior (sem - 24*60*60*1000)
-                            const yesterday = new Date(now);
-                            yesterday.setDate(now.getDate() - 1);
-                            const yesterdayStr = yesterday.toDateString();
-
-                            // CORREÇÃO 6: Normalização de UTC para fuso local nas linhas
-                            const todayRows = simuladoRows.filter(r => {
-                                if (!r.createdAt || !r.validated) return false;
+                            // Agrupar simulados do histórico por batchId ou data
+                            const groupedSimulados = Object.values(simuladoRows.reduce((acc, r) => {
+                                if (!r.date && !r.createdAt) return acc;
+                                const hasData = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
+                                if (!r.validated && !hasData) return acc;
                                 const rDate = normalizeDate(r.date || r.createdAt);
-                                return rDate && rDate.toDateString() === todayStr;
+                                if (!rDate) return acc;
+                                const isAi = r.source === 'ai-generated' || (r.batchId && r.source !== 'manual');
+                                const key = (isAi && r.batchId) ? String(r.batchId) : getDateKey(rDate);
+                                if (!acc[key]) {
+                                    acc[key] = { key, date: rDate, rows: [], isAi };
+                                }
+                                acc[key].rows.push(r);
+                                return acc;
+                            }, {})).sort((a, b) => b.date.getTime() - a.date.getTime());
+
+                            if (groupedSimulados.length === 0) {
+                                return (
+                                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                                        <div className="relative mb-4">
+                                            <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-2xl"></div>
+                                            <div className="relative p-5 bg-slate-800/80 rounded-2xl border border-indigo-500/30">
+                                                <BrainCircuit size={44} className="text-indigo-400" />
+                                            </div>
+                                        </div>
+                                        <h3 className="text-base font-bold text-white">Nenhum dado de simulado encontrado</h3>
+                                        <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                                            Adicione resultados de simulados manuais ou gere simulados IA para acompanhar seu histórico de desempenho aqui.
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            // Estatísticas Globais Acumuladas
+                            let totalGlobalQuestions = 0;
+                            let totalGlobalCorrect = 0;
+                            const uniqueTopicStats = new Map();
+
+                            groupedSimulados.forEach(group => {
+                                const valid = group.rows.filter(r => r.subject && r.topic);
+                                valid.forEach(r => {
+                                    const tot = parseInt(r.total, 10) || 0;
+                                    const cor = parseInt(r.correct, 10) || 0;
+                                    const safeC = Math.min(cor, tot);
+                                    totalGlobalQuestions += tot;
+                                    totalGlobalCorrect += safeC;
+
+                                    const tKey = `${r.subject}__${r.topic}`;
+                                    if (!uniqueTopicStats.has(tKey)) {
+                                        uniqueTopicStats.set(tKey, { correct: 0, total: 0 });
+                                    }
+                                    const current = uniqueTopicStats.get(tKey);
+                                    current.correct += safeC;
+                                    current.total += tot;
+                                });
                             });
 
-                            const yesterdayRows = simuladoRows.filter(r => {
-                                if (!r.createdAt || !r.validated) return false;
-                                const rDate = normalizeDate(r.date || r.createdAt);
-                                return rDate && rDate.toDateString() === yesterdayStr;
+                            const globalAllTimePct = totalGlobalQuestions > 0
+                                ? Math.max(0, Math.min(100, Math.round((totalGlobalCorrect / totalGlobalQuestions) * 100)))
+                                : 0;
+
+                            let dominatedCount = 0;
+                            let attentionCount = 0;
+                            let criticalCount = 0;
+
+                            uniqueTopicStats.forEach(({ correct, total }) => {
+                                const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+                                if (pct >= 70) dominatedCount++;
+                                else if (pct >= 50) attentionCount++;
+                                else criticalCount++;
                             });
 
-                            const renderSection = (rows, title, icon, isToday, side = 'left') => {
+                            // Helpers de status
+                            const getStatus = (pct) => {
+                                const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+                                if (safePct >= 70) {
+                                    return {
+                                        id: 'dominated',
+                                        label: 'DOMINADO',
+                                        color: 'emerald',
+                                        dotBg: 'bg-emerald-500',
+                                        icon: Trophy,
+                                        wrapper: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                    };
+                                }
+                                if (safePct >= 50) {
+                                    return {
+                                        id: 'attention',
+                                        label: 'ATENÇÃO',
+                                        color: 'amber',
+                                        dotBg: 'bg-amber-500',
+                                        icon: AlertCircle,
+                                        wrapper: 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                    };
+                                }
+                                return {
+                                    id: 'critical',
+                                    label: 'CRÍTICO',
+                                    color: 'rose',
+                                    dotBg: 'bg-rose-500',
+                                    icon: Siren,
+                                    wrapper: 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                                };
+                            };
+
+                            const getAction = (pct) => {
+                                const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+                                if (safePct >= 70) return 'Manter Revisão Periódica';
+                                if (safePct >= 50) return 'Treino Prático Intensivo';
+                                return 'Revisão Teórica + Questões';
+                            };
+
+                            const getGlobalBannerStyle = (pct) => {
+                                const safePct = Math.max(0, Math.min(100, Math.round(pct || 0)));
+                                if (safePct >= 70) {
+                                    return {
+                                        border: 'border-emerald-500/30 shadow-emerald-500/5',
+                                        gradient: 'from-emerald-500/15 via-emerald-500/5 to-transparent',
+                                        bar: 'bg-emerald-500',
+                                        iconBg: 'bg-emerald-500/20 text-emerald-400',
+                                        titleColor: 'text-emerald-300',
+                                        badgeBg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+                                        statusLabel: 'Desempenho Excelente',
+                                        message: 'Excelente! Você está dominando o conteúdo com consistência. Mantenha as revisões periódicas!'
+                                    };
+                                }
+                                if (safePct >= 50) {
+                                    return {
+                                        border: 'border-amber-500/30 shadow-amber-500/5',
+                                        gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
+                                        bar: 'bg-amber-500',
+                                        iconBg: 'bg-amber-500/20 text-amber-400',
+                                        titleColor: 'text-amber-300',
+                                        badgeBg: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+                                        statusLabel: 'Atenção Necessária',
+                                        message: `Bom ritmo! Sua média é de ${safePct}%. Foco nos tópicos em atenção para consolidar a zona de aprovação.`
+                                    };
+                                }
+                                return {
+                                    border: 'border-rose-500/30 shadow-rose-500/5',
+                                    gradient: 'from-rose-500/15 via-rose-500/5 to-transparent',
+                                    bar: 'bg-rose-500',
+                                    iconBg: 'bg-rose-500/20 text-rose-400',
+                                    titleColor: 'text-rose-300',
+                                    badgeBg: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+                                    statusLabel: 'Reforço Urgente',
+                                    message: 'Atenção! Sua média global indica necessidade de reforçar a base teórica e praticar questões básicas dos tópicos críticos.'
+                                };
+                            };
+
+                            // Função de processamento de simulado
+                            const processSimulado = (rows) => {
                                 const validRows = rows.filter(r => r.subject && r.topic);
-                                if (validRows.length === 0) return null;
-
                                 const totalQuestions = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
-
-                                // Visualize empty state if no questions answered yet (e.g. auto-cloned rows)
-                                if (totalQuestions === 0) return null;
-                                const totalCorrect = validRows.reduce((acc, r) => acc + (parseInt(r.correct, 10) || 0), 0);
-                                const globalPct = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+                                const totalCorrect = validRows.reduce((acc, r) => acc + Math.min(parseInt(r.correct, 10) || 0, parseInt(r.total, 10) || 0), 0);
+                                const globalPct = totalQuestions > 0 ? Math.max(0, Math.min(100, Math.round((totalCorrect / totalQuestions) * 100))) : 0;
 
                                 const subjectMap = {};
                                 validRows.forEach(row => {
@@ -430,215 +555,604 @@ const StudyHistory = React.memo(function StudyHistory({
                                     if (!subjectMap[subj]) {
                                         subjectMap[subj] = { name: subj, correct: 0, total: 0, topicMap: {} };
                                     }
-                                    const correct = parseInt(row.correct, 10) || 0;
-                                    const total = parseInt(row.total, 10) || 0;
-                                    subjectMap[subj].correct += correct;
-                                    subjectMap[subj].total += total;
-                                    
+                                    const cor = Math.min(parseInt(row.correct, 10) || 0, parseInt(row.total, 10) || 0);
+                                    const tot = parseInt(row.total, 10) || 0;
+                                    subjectMap[subj].correct += cor;
+                                    subjectMap[subj].total += tot;
+
                                     if (!subjectMap[subj].topicMap[top]) {
                                         subjectMap[subj].topicMap[top] = { name: top, correct: 0, total: 0 };
                                     }
-                                    subjectMap[subj].topicMap[top].correct += correct;
-                                    subjectMap[subj].topicMap[top].total += total;
+                                    subjectMap[subj].topicMap[top].correct += cor;
+                                    subjectMap[subj].topicMap[top].total += tot;
                                 });
 
-                                const subjects = Object.values(subjectMap).map(subj => ({
-                                    ...subj,
-                                    topics: Object.values(subj.topicMap).map(t => ({
-                                        ...t,
-                                        pct: t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0
-                                    }))
-                                })).sort((a, b) => {
-                                    const pctA = a.total > 0 ? (a.correct / a.total) * 100 : 0;
-                                    const pctB = b.total > 0 ? (b.correct / b.total) * 100 : 0;
-                                    return pctA - pctB;
+                                let subjects = Object.values(subjectMap).map(subj => {
+                                    let topics = Object.values(subj.topicMap).map(t => {
+                                        const safeC = Math.min(t.correct, t.total);
+                                        const pct = t.total > 0 ? Math.round((safeC / t.total) * 100) : 0;
+                                        return {
+                                            ...t,
+                                            correct: safeC,
+                                            pct: Math.max(0, Math.min(100, pct))
+                                        };
+                                    });
+
+                                    // Filtro de busca
+                                    if (topicSearch.trim()) {
+                                        const q = topicSearch.trim().toLowerCase();
+                                        topics = topics.filter(t => t.name.toLowerCase().includes(q) || subj.name.toLowerCase().includes(q));
+                                    }
+
+                                    // Filtro de status
+                                    if (statusFilter !== 'all') {
+                                        topics = topics.filter(t => getStatus(t.pct).id === statusFilter);
+                                    }
+
+                                    // Ordenação de tópicos
+                                    topics.sort((a, b) => {
+                                        if (sortOrder === 'critical-first') return a.pct - b.pct;
+                                        if (sortOrder === 'best-first') return b.pct - a.pct;
+                                        return a.name.localeCompare(b.name, 'pt-BR');
+                                    });
+
+                                    const safeSubjC = Math.min(subj.correct, subj.total);
+                                    const subjPct = subj.total > 0 ? Math.round((safeSubjC / subj.total) * 100) : 0;
+
+                                    return {
+                                        ...subj,
+                                        correct: safeSubjC,
+                                        pct: Math.max(0, Math.min(100, subjPct)),
+                                        topics
+                                    };
+                                }).filter(s => s.topics.length > 0);
+
+                                subjects.sort((a, b) => {
+                                    if (sortOrder === 'critical-first') return a.pct - b.pct;
+                                    if (sortOrder === 'best-first') return b.pct - a.pct;
+                                    return a.name.localeCompare(b.name, 'pt-BR');
                                 });
 
-                                // Helpers for status and actions
-                                const getStatus = (pct) => {
-                                    if (pct >= 70) return { label: 'DOMINADO', color: 'emerald', icon: Trophy, wrapper: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
-                                    if (pct >= 50) return { label: 'ATENÇÃO', color: 'amber', icon: AlertCircle, wrapper: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
-                                    return { label: 'CRÍTICO', color: 'rose', icon: Siren, wrapper: 'bg-rose-500/20 text-rose-400 border-rose-500/30' };
-                                };
+                                return { validRows, totalQuestions, totalCorrect, globalPct, subjects };
+                            };
 
-                                const getAction = (pct) => {
-                                    if (pct >= 70) return 'Manter Revisão Periódica';
-                                    if (pct >= 50) return 'Treino Prático Intensivo';
-                                    return 'Revisão Teórica + Questões';
-                                };
+                            // Configuração de datas ativas para os modos
+                            const activeFocusKey = selectedSimuladoKey || groupedSimulados[0]?.key;
+                            const activeSimulado = groupedSimulados.find(g => g.key === activeFocusKey) || groupedSimulados[0];
 
-                                const getInsight = (pct) => {
-                                    if (pct >= 70) return `Excelente desempenho (${pct}%). Continue assim!`;
-                                    if (pct >= 50) return `Desempenho mediano (${pct}%). Pode evoluir mais.`;
-                                    return `Crítico (${pct}%). Atenção urgente necessária.`;
-                                };
+                            const activeCompAKey = compareKeys.keyA || groupedSimulados[0]?.key;
+                            const activeCompBKey = compareKeys.keyB || (groupedSimulados[1] ? groupedSimulados[1]?.key : groupedSimulados[0]?.key);
+                            const simuladoA = groupedSimulados.find(g => g.key === activeCompAKey) || groupedSimulados[0];
+                            const simuladoB = groupedSimulados.find(g => g.key === activeCompBKey) || groupedSimulados[1] || groupedSimulados[0];
 
-                                const globalInsight = globalPct >= 70
-                                    ? "Excelente! Você está dominando o conteúdo. Mantenha o ritmo!"
-                                    : globalPct >= 50
-                                        ? `Bom trabalho! Média global de ${globalPct}%. Ajuste os pontos fracos para subir de nível.`
-                                        : "Atenção! Sua média global indica que é preciso reforçar a base teórica.";
+                            // Renderizador de um card de simulado
+                            const renderSimuladoCard = (group, _isComparison = false, deltaInfo = null) => {
+                                const { totalQuestions, totalCorrect, globalPct, subjects } = processSimulado(group.rows);
+                                const isToday = group.date.toDateString() === new Date().toDateString();
+                                const title = isToday ? 'Hoje' : group.date.toLocaleDateString('pt-BR');
+                                const bannerStyle = getGlobalBannerStyle(globalPct);
 
                                 return (
-                                    <div className={`flex-1 flex flex-col h-full min-h-0 ${isToday ? '' : 'opacity-90'} ${side === 'left' ? 'pr-2' : 'pl-2'}`}>
-                                        {/* Horizontal Header (Top) */}
-                                        <div className="flex items-center justify-between mb-4 bg-slate-800/40 rounded-xl border border-indigo-500/20 shadow-xl px-5 py-3 group">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-2xl filter grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">{icon}</span>
-                                                <h3 className={`text-sm font-black tracking-widest uppercase ${isToday ? 'text-emerald-400' : 'text-indigo-400'}`}>
-                                                    {title}
-                                                </h3>
-                                            </div>
-
-                                            {/* DELETE BUTTON */}
-                                            {onDeleteSimulado && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const dateToDelete = rows[0]?.date || rows[0]?.createdAt || new Date().toISOString();
-                                                        onDeleteSimulado(dateToDelete);
-                                                    }}
-                                                    className="p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/20"
-                                                    title={`Excluir histórico de ${title}`}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {/* Content Column */}
-                                        <div className="flex-1 min-w-0 pr-1">
-                                            {/* Global Insight Banner - More Spacing */}
-                                            <div className="mb-6 bg-slate-800/80 rounded-xl border border-indigo-500/30 p-5 shadow-lg shadow-indigo-500/5 relative overflow-hidden group">
-                                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 opacity-50"></div>
-                                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl"></div>
-                                                <div className="relative flex items-center gap-3">
-                                                    <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
-                                                        <BrainCircuit size={20} />
+                                    <div key={group.key} className="flex-1 flex flex-col min-w-0 bg-slate-900/40 rounded-2xl border border-white/10 p-4 sm:p-6 shadow-xl backdrop-blur-sm">
+                                        {/* Cabeçalho do Card */}
+                                        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-white/10">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 border ${
+                                                    group.isAi 
+                                                        ? 'bg-purple-500/20 border-purple-500/30 text-purple-300' 
+                                                        : isToday 
+                                                            ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300' 
+                                                            : 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300'
+                                                }`}>
+                                                    {group.isAi ? '🤖' : (isToday ? '⚡' : '🕰️')}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <h3 className={`text-base font-black tracking-tight truncate ${isToday ? 'text-emerald-400' : 'text-white'}`}>
+                                                            {title}
+                                                        </h3>
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                                                            group.isAi
+                                                                ? 'bg-purple-500/15 border-purple-500/30 text-purple-300'
+                                                                : 'bg-slate-800 border-slate-700 text-slate-300'
+                                                        }`}>
+                                                            {group.isAi ? 'Simulado IA' : 'Simulado'}
+                                                        </span>
+                                                        {deltaInfo !== null && (
+                                                            <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                                                                deltaInfo > 0
+                                                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                                                                    : deltaInfo < 0
+                                                                        ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                                                                        : 'bg-slate-800 border-slate-700 text-slate-400'
+                                                            }`}>
+                                                                {deltaInfo > 0 ? <TrendingUp size={11} /> : deltaInfo < 0 ? <TrendingDown size={11} /> : null}
+                                                                {deltaInfo > 0 ? `+${deltaInfo}%` : `${deltaInfo}%`} vs anterior
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <div>
-                                                        <h4 className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-0.5">Média Geral</h4>
-                                                        <p className="text-sm text-white font-medium">{globalInsight}</p>
-                                                    </div>
+                                                    <p className="text-[11px] text-slate-400 mt-0.5 capitalize truncate">
+                                                        {group.date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                                                    </p>
                                                 </div>
                                             </div>
 
-                                            {/* Subjects List */}
-                                            <div className="space-y-6">
-                                                {subjects.map((subj) => {
-                                                    const subjPct = subj.total > 0 ? Math.round((subj.correct / subj.total) * 100) : 0;
-                                                    const insight = getInsight(subjPct);
-                                                    const subjColor = getSubjectColor(subj.name);
+                                            {/* Contadores e Ação de Exclusão */}
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right hidden sm:block">
+                                                    <span className="text-xs font-bold text-slate-200 block">
+                                                        {totalCorrect.toLocaleString('pt-BR')} / {totalQuestions.toLocaleString('pt-BR')}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">acertos</span>
+                                                </div>
+
+                                                {typeof onDeleteSimulado === 'function' && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSimuladoToDelete({
+                                                                key: group.key,
+                                                                title,
+                                                                date: group.date,
+                                                                totalQuestions
+                                                            });
+                                                        }}
+                                                        className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-all active:scale-95 shrink-0"
+                                                        title={`Excluir histórico de ${title}`}
+                                                        aria-label={`Excluir simulado de ${title}`}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Global Insight Banner Dinâmico */}
+                                        <div className={`mb-6 rounded-xl border p-5 relative overflow-hidden bg-slate-800/80 ${bannerStyle.border}`}>
+                                            <div className={`absolute inset-0 bg-gradient-to-r ${bannerStyle.gradient}`}></div>
+                                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${bannerStyle.bar} rounded-l-xl`}></div>
+                                            <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`p-2.5 rounded-xl ${bannerStyle.iconBg}`}>
+                                                        <BrainCircuit size={22} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className={`text-xs font-bold uppercase tracking-widest ${bannerStyle.titleColor}`}>
+                                                                Média Geral
+                                                            </h4>
+                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${bannerStyle.badgeBg}`}>
+                                                                {bannerStyle.statusLabel}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-2xl font-black text-white mt-0.5">{globalPct}%</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-right hidden sm:block">
+                                                    <span className="text-xs text-slate-400 font-medium">Taxa de Acerto</span>
+                                                    <p className="text-sm font-bold text-white font-mono">
+                                                        {totalCorrect.toLocaleString('pt-BR')} de {totalQuestions.toLocaleString('pt-BR')} questões
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <p className="relative mt-3 text-xs text-slate-300 leading-relaxed font-medium">
+                                                {bannerStyle.message}
+                                            </p>
+                                        </div>
+
+                                        {/* Lista de Matérias */}
+                                        <div className="space-y-4 flex-1">
+                                            {subjects.length === 0 ? (
+                                                <div className="p-8 text-center bg-slate-950/40 rounded-xl border border-white/5">
+                                                    <Search size={24} className="mx-auto text-slate-600 mb-2" />
+                                                    <p className="text-xs text-slate-400 font-medium">Nenhum assunto corresponde aos filtros aplicados.</p>
+                                                </div>
+                                            ) : (
+                                                subjects.map((subj) => {
+                                                    const subjStatus = getStatus(subj.pct);
+                                                    const isCollapsed = Boolean(collapsedSubjects[`${group.key}__${subj.name}`]);
+                                                    const toggleCollapse = () => {
+                                                        setCollapsedSubjects(prev => ({
+                                                            ...prev,
+                                                            [`${group.key}__${subj.name}`]: !isCollapsed
+                                                        }));
+                                                    };
 
                                                     return (
-                                                        <div key={subj.name} className="rounded-xl overflow-hidden border border-indigo-500/30 bg-gradient-to-r from-indigo-900/60 via-purple-900/40 to-slate-900/60 mr-2">
-                                                            {/* Subject Header - Clean Spacing */}
-                                                            <div className="relative py-4 pr-10 flex items-center justify-between border-b border-indigo-500/20"
-                                                                style={{ borderLeft: `4px solid ${subjColor}`, paddingLeft: '28px' }}>
-                                                                <div className="flex items-center gap-3">
-                                                                    <h3 className="text-lg font-bold tracking-tight relative z-10" style={{ color: subjColor }}>{subj.name}</h3>
+                                                        <div key={subj.name} className="rounded-xl border border-white/10 bg-slate-950/40 overflow-hidden transition-all hover:border-white/20">
+                                                            {/* Subject Header */}
+                                                            <div
+                                                                onClick={toggleCollapse}
+                                                                className="px-5 py-3.5 bg-slate-800/70 border-b border-white/5 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-800/90 transition-colors select-none"
+                                                            >
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                    <button
+                                                                        type="button"
+                                                                        className="p-1 rounded-md text-slate-400 hover:text-white transition-colors"
+                                                                        aria-label={isCollapsed ? "Expandir matéria" : "Recolher matéria"}
+                                                                    >
+                                                                        {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                                                                    </button>
+                                                                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${subjStatus.dotBg} shadow-[0_0_8px_currentColor]`}></div>
+                                                                    <h4 className="text-sm font-bold text-white truncate">{subj.name}</h4>
+                                                                    <span className="text-[10px] text-slate-400 font-medium hidden sm:inline-block">
+                                                                        ({subj.topics.length} {subj.topics.length === 1 ? 'tópico' : 'tópicos'})
+                                                                    </span>
                                                                 </div>
-                                                                <span className="text-[10px] text-slate-300 italic" style={{ paddingRight: '24px' }}>
-                                                                    {insight}
-                                                                </span>
+
+                                                                <div className="flex items-center gap-4 shrink-0">
+                                                                    <div className="w-20 hidden md:block">
+                                                                        <div className="h-2 w-full bg-slate-700/50 rounded-full overflow-hidden">
+                                                                            <div
+                                                                                className={`h-full rounded-full transition-all duration-500 ${
+                                                                                    subj.pct >= 70 ? 'bg-emerald-500' : subj.pct >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                                                                                }`}
+                                                                                style={{ width: `${subj.pct}%` }}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <span className="text-base font-black text-white">{subj.pct}%</span>
+                                                                        <span className="text-[10px] text-slate-400 font-mono block">
+                                                                            {subj.correct.toLocaleString('pt-BR')}/{subj.total.toLocaleString('pt-BR')}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
                                                             </div>
 
                                                             {/* Topics Table */}
-                                                            <div className="p-4">
-                                                                {/* Table Header */}
-                                                                <div className="hidden sm:grid grid-cols-12 gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6 py-3 border-b border-indigo-500/20 mb-2">
-                                                                    <div className="col-span-4">Assunto</div>
-                                                                    <div className="col-span-3 text-center">Status</div>
-                                                                    <div className="col-span-2 text-center">Desempenho</div>
-                                                                    <div className="col-span-3 text-right" style={{ paddingRight: '24px' }}>Ação Recomendada</div>
-                                                                </div>
+                                                            {!isCollapsed && (
+                                                                <div className="p-2 sm:p-3 space-y-2">
+                                                                    {/* Column Headers Rigorosamente Alinhados */}
+                                                                    <div className="hidden sm:grid sm:grid-cols-12 gap-3 px-4 sm:px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/70 rounded-lg border border-white/5">
+                                                                        <div className="col-span-4 text-left">Assunto / Tópico</div>
+                                                                        <div className="col-span-3 text-center">Status</div>
+                                                                        <div className="col-span-2 text-center">Desempenho</div>
+                                                                        <div className="col-span-3 text-right">Ação Recomendada</div>
+                                                                    </div>
 
-                                                                {/* Topics Rows */}
-                                                                <div className="space-y-2">
-                                                                    {subj.topics.map((topic) => {
-                                                                        const topicStatus = getStatus(topic.pct);
-                                                                        const action = getAction(topic.pct);
-                                                                        const TopicIcon = topicStatus.icon;
+                                                                    {/* Rows */}
+                                                                    <div className="space-y-1.5">
+                                                                        {subj.topics.map((topic) => {
+                                                                            const topicStatus = getStatus(topic.pct);
+                                                                            const action = getAction(topic.pct);
+                                                                            const TopicIcon = topicStatus.icon;
 
-                                                                        return (
-                                                                            <div key={topic.name} className="flex flex-col sm:grid sm:grid-cols-12 gap-4 items-center px-4 sm:px-6 py-4 rounded-lg bg-slate-900/40 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20">
-
-                                                                                <div className="w-full sm:col-span-4 text-sm font-semibold text-white sm:pr-2 whitespace-normal break-words leading-tight text-center sm:text-left">
-                                                                                    {topic.name}
-                                                                                </div>
-
-                                                                                <div className="col-span-3 flex justify-center">
-                                                                                    <div className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md border ${topicStatus.wrapper}`}>
-                                                                                        <TopicIcon size={12} />
-                                                                                        <span className="text-[10px] font-bold tracking-wide">{topicStatus.label}</span>
+                                                                            return (
+                                                                                <div
+                                                                                    key={topic.name}
+                                                                                    className="flex flex-col sm:grid sm:grid-cols-12 gap-3 items-center px-4 sm:px-6 py-3 rounded-lg bg-slate-900/50 hover:bg-slate-800/60 transition-colors border border-transparent hover:border-indigo-500/20"
+                                                                                >
+                                                                                    {/* Assunto */}
+                                                                                    <div className="w-full sm:col-span-4 text-sm font-semibold text-white sm:pr-2 whitespace-normal break-words leading-tight text-center sm:text-left flex items-center gap-2 justify-center sm:justify-start">
+                                                                                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${topicStatus.dotBg}`}></span>
+                                                                                        <span className="truncate" title={topic.name}>{topic.name}</span>
                                                                                     </div>
-                                                                                </div>
-                                                                                <div className="w-full sm:col-span-2 flex flex-col items-center justify-center">
-                                                                                    <div className="relative w-10 h-10">
-                                                                                        {/* CORREÇÃO 9: viewBox obrigatório para manter a geometria SVG */}
-                                                                                        <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
-                                                                                            <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
-                                                                                            <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent"
-                                                                                                stroke={topic.pct >= 70 ? '#10b981' : topic.pct >= 50 ? '#f59e0b' : '#f43f5e'}
-                                                                                                strokeLinecap="round"
-                                                                                                strokeDasharray={2 * Math.PI * 16}
-                                                                                                strokeDashoffset={2 * Math.PI * 16 * (1 - topic.pct / 100)}
-                                                                                            />
-                                                                                        </svg>
-                                                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                                                            <span className="text-[10px] font-bold text-white">{topic.pct}%</span>
+
+                                                                                    {/* Status Badge */}
+                                                                                    <div className="w-full sm:col-span-3 flex justify-center">
+                                                                                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black tracking-wide ${topicStatus.wrapper}`}>
+                                                                                            <TopicIcon size={12} className="shrink-0" />
+                                                                                            <span>{topicStatus.label}</span>
                                                                                         </div>
                                                                                     </div>
-                                                                                    <span className="text-[9px] text-slate-400 mt-1 font-mono">{topic.correct}/{topic.total}</span>
-                                                                                </div>
 
-                                                                                {/* CORREÇÃO 10: Sem padding Right hardcoded, usa margem fluida */}
-                                                                                <div className="w-full sm:col-span-3 text-center sm:text-right">
-                                                                                    <span className="text-[10px] sm:text-xs text-slate-200 font-medium break-words">{action}</span>
+                                                                                    {/* Desempenho Gauge */}
+                                                                                    <div className="w-full sm:col-span-2 flex flex-col items-center justify-center">
+                                                                                        <div className="relative w-9 h-9">
+                                                                                            <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
+                                                                                                <circle cx="20" cy="20" r="16" strokeWidth="3" fill="transparent" className="stroke-slate-700/50" />
+                                                                                                {topic.pct > 0 && (
+                                                                                                    <circle
+                                                                                                        cx="20"
+                                                                                                        cy="20"
+                                                                                                        r="16"
+                                                                                                        strokeWidth="3"
+                                                                                                        fill="transparent"
+                                                                                                        stroke={topic.pct >= 70 ? '#10b981' : topic.pct >= 50 ? '#f59e0b' : '#f43f5e'}
+                                                                                                        strokeLinecap="round"
+                                                                                                        strokeDasharray={2 * Math.PI * 16}
+                                                                                                        strokeDashoffset={2 * Math.PI * 16 * (1 - Math.min(100, topic.pct) / 100)}
+                                                                                                    />
+                                                                                                )}
+                                                                                            </svg>
+                                                                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                                                                <span className="text-[10px] font-bold text-white">{topic.pct}%</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <span className="text-[9px] text-slate-400 mt-0.5 font-mono tracking-tight">
+                                                                                            {topic.correct.toLocaleString('pt-BR')}/{topic.total.toLocaleString('pt-BR')}
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                    {/* Ação Recomendada */}
+                                                                                    <div className="w-full sm:col-span-3 text-center sm:text-right">
+                                                                                        <span className="text-[11px] text-slate-200 font-medium break-words leading-tight inline-block px-2.5 py-1 rounded-md bg-white/5 border border-white/5">
+                                                                                            {action}
+                                                                                        </span>
+                                                                                    </div>
                                                                                 </div>
-                                                                            </div>
-                                                                        );
-                                                                    })}
+                                                                            );
+                                                                        })}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
+                                                            )}
                                                         </div>
                                                     );
-                                                })}
-                                            </div>
+                                                })
+                                            )}
                                         </div>
                                     </div>
                                 );
                             };
 
-                            const todaySection = renderSection(todayRows, 'Hoje', '⚡', true, 'left');
-                            const yesterdaySection = renderSection(yesterdayRows, 'Ontem', '🕰️', false, 'right');
-
-                            if (!todaySection && !yesterdaySection) {
-                                return (
-                                    <div className="flex flex-col items-center justify-center py-12">
-                                        <div className="relative mb-4">
-                                            <div className="absolute inset-0 bg-cyan-500/20 rounded-full blur-2xl"></div>
-                                            <div className="relative p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                                                <BrainCircuit size={40} className="text-slate-500" />
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-slate-400 font-medium">Nenhum dado de simulado</p>
-                                        <p className="text-xs text-slate-600 mt-1">Use o menu Simulado para adicionar questões</p>
-                                    </div>
-                                );
-                            }
+                            // Delta para o modo comparativo
+                            const { globalPct: pctA } = processSimulado(simuladoA.rows);
+                            const { globalPct: pctB } = processSimulado(simuladoB.rows);
+                            const compareDelta = pctA - pctB;
 
                             return (
-                                <div className="flex flex-col lg:flex-row gap-8 flex-1 overflow-y-visible" style={{ minHeight: '400px' }}>
-                                    {todaySection || (
-                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
-                                            <span className="text-xs text-slate-500 font-medium">Sem dados hoje</span>
+                                <div className="space-y-6">
+                                    {/* 1. PAINEL DE KPIS GLOBAIS */}
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                                        <div className="p-4 rounded-xl bg-slate-900/60 border border-white/10 flex items-center gap-3.5">
+                                            <div className="p-2.5 rounded-xl bg-blue-500/15 border border-blue-500/25 text-blue-400">
+                                                <CalendarDays size={20} />
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Simulados</span>
+                                                <span className="text-xl font-black text-white">{groupedSimulados.length}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl bg-slate-900/60 border border-white/10 flex items-center gap-3.5">
+                                            <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400">
+                                                <BrainCircuit size={20} />
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Média Acumulada</span>
+                                                <span className={`text-xl font-black ${
+                                                    globalAllTimePct >= 70 ? 'text-emerald-400' : globalAllTimePct >= 50 ? 'text-amber-400' : 'text-rose-400'
+                                                }`}>
+                                                    {globalAllTimePct}%
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl bg-slate-900/60 border border-white/10 flex items-center gap-3.5">
+                                            <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/25 text-purple-400">
+                                                <Layers size={20} />
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Questões Feitas</span>
+                                                <span className="text-xl font-black text-white font-mono">
+                                                    {totalGlobalQuestions.toLocaleString('pt-BR')}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-xl bg-slate-900/60 border border-white/10 flex items-center gap-3.5">
+                                            <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400">
+                                                <Trophy size={20} />
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tópicos Dominados</span>
+                                                <div className="flex items-center gap-1.5 text-sm font-black text-white">
+                                                    <span className="text-emerald-400">{dominatedCount}</span>
+                                                    <span className="text-slate-500">/</span>
+                                                    <span className="text-amber-400">{attentionCount}</span>
+                                                    <span className="text-slate-500">/</span>
+                                                    <span className="text-rose-400">{criticalCount}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 2. BARRA DE CONTROLES E SELEÇÃO DE MODO */}
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/60 border border-white/10">
+                                        {/* Modos de visualização */}
+                                        <div className="flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-white/5 self-start md:self-auto">
+                                            <button
+                                                onClick={() => setViewMode('focus')}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    viewMode === 'focus'
+                                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                                }`}
+                                            >
+                                                <LayoutList size={14} />
+                                                <span>Foco por Data</span>
+                                            </button>
+
+                                            {groupedSimulados.length > 1 && (
+                                                <button
+                                                    onClick={() => setViewMode('compare')}
+                                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                        viewMode === 'compare'
+                                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                                    }`}
+                                                >
+                                                    <Columns size={14} />
+                                                    <span>Comparativo</span>
+                                                </button>
+                                            )}
+
+                                            <button
+                                                onClick={() => setViewMode('timeline')}
+                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                    viewMode === 'timeline'
+                                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                                }`}
+                                            >
+                                                <Layers size={14} />
+                                                <span>Linha do Tempo</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Legenda Dinâmica e Rápida */}
+                                        <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">
+                                                <Trophy size={11} />
+                                                <span>≥70% Dominado</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold">
+                                                <AlertCircle size={11} />
+                                                <span>50-69% Atenção</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold">
+                                                <Siren size={11} />
+                                                <span>&lt;50% Crítico</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 3. FILTROS E BUSCA */}
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                                        {/* Campo de Busca */}
+                                        <div className="relative flex-1 max-w-md">
+                                            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                            <input
+                                                type="text"
+                                                value={topicSearch}
+                                                onChange={(e) => setTopicSearch(e.target.value)}
+                                                placeholder="Buscar por matéria ou tópico..."
+                                                className="w-full pl-9 pr-8 py-2 bg-slate-900/60 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50"
+                                            />
+                                            {topicSearch && (
+                                                <button
+                                                    onClick={() => setTopicSearch('')}
+                                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Filtro de Status + Ordenação */}
+                                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                            <select
+                                                value={statusFilter}
+                                                onChange={(e) => setStatusFilter(e.target.value)}
+                                                className="px-3 py-2 bg-slate-900/60 border border-white/10 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-indigo-500/50"
+                                            >
+                                                <option value="all">Todos os Status</option>
+                                                <option value="critical">🚨 Apenas Críticos (&lt;50%)</option>
+                                                <option value="attention">⚠️ Apenas Atenção (50-69%)</option>
+                                                <option value="dominated">🏆 Apenas Dominados (≥70%)</option>
+                                            </select>
+
+                                            <select
+                                                value={sortOrder}
+                                                onChange={(e) => setSortOrder(e.target.value)}
+                                                className="px-3 py-2 bg-slate-900/60 border border-white/10 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-indigo-500/50"
+                                            >
+                                                <option value="critical-first">⚡ Pior Desempenho Primeiro</option>
+                                                <option value="best-first">🏆 Melhor Desempenho Primeiro</option>
+                                                <option value="name-asc">🔤 Ordem Alfabética (A-Z)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* 4. CONTEÚDO PRINCIPAL BASEADO NO MODO */}
+                                    {viewMode === 'focus' && (
+                                        <div className="space-y-4">
+                                            {/* Seletor de Datas em Pills */}
+                                            {groupedSimulados.length > 1 && (
+                                                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                                    {groupedSimulados.map((g, idx) => {
+                                                        const isSelected = g.key === activeFocusKey;
+                                                        const isToday = g.date.toDateString() === new Date().toDateString();
+                                                        const label = isToday ? 'Hoje' : g.date.toLocaleDateString('pt-BR');
+                                                        return (
+                                                            <button
+                                                                key={g.key}
+                                                                onClick={() => setSelectedSimuladoKey(g.key)}
+                                                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-2 border ${
+                                                                    isSelected
+                                                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-white/20 shadow-lg shadow-indigo-600/30 scale-105'
+                                                                        : 'bg-slate-900/50 text-slate-400 border-white/5 hover:bg-slate-800 hover:text-white'
+                                                                }`}
+                                                            >
+                                                                <span>{g.isAi ? '🤖' : (isToday ? '⚡' : '📅')}</span>
+                                                                <span>{label}</span>
+                                                                {idx === 0 && (
+                                                                    <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-white/10 text-white">
+                                                                        Recente
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {/* Renderização do Simulado Selecionado em Largura Total */}
+                                            {renderSimuladoCard(activeSimulado)}
                                         </div>
                                     )}
 
-                                    {yesterdaySection || (
-                                        <div className="flex-1 flex flex-col items-center justify-center py-10 bg-slate-800/30 rounded-xl border-2 border-slate-700/40">
-                                            <span className="text-xs text-slate-500 font-medium">Sem dados ontem</span>
+                                    {viewMode === 'compare' && (
+                                        <div className="space-y-4">
+                                            {/* Barra de Seleção dos Dois Simulados */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-900/60 border border-white/10">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                                                        Simulado A (Base Recente)
+                                                    </label>
+                                                    <select
+                                                        value={activeCompAKey}
+                                                        onChange={(e) => setCompareKeys(prev => ({ ...prev, keyA: e.target.value }))}
+                                                        className="w-full px-3 py-2 bg-slate-950 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                                                    >
+                                                        {groupedSimulados.map(g => (
+                                                            <option key={g.key} value={g.key}>
+                                                                {g.date.toLocaleDateString('pt-BR')} ({g.isAi ? 'IA' : 'Manual'})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                                                        Simulado B (Para Comparação)
+                                                    </label>
+                                                    <select
+                                                        value={activeCompBKey}
+                                                        onChange={(e) => setCompareKeys(prev => ({ ...prev, keyB: e.target.value }))}
+                                                        className="w-full px-3 py-2 bg-slate-950 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                                                    >
+                                                        {groupedSimulados.map(g => (
+                                                            <option key={g.key} value={g.key}>
+                                                                {g.date.toLocaleDateString('pt-BR')} ({g.isAi ? 'IA' : 'Manual'})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            {/* Cards Lado a Lado */}
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                {renderSimuladoCard(simuladoA, true, compareDelta)}
+                                                {renderSimuladoCard(simuladoB, true, null)}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {viewMode === 'timeline' && (
+                                        <div className="space-y-6">
+                                            {groupedSimulados.map((g, idx) => {
+                                                const prevSimulado = groupedSimulados[idx + 1];
+                                                let delta = null;
+                                                if (prevSimulado) {
+                                                    const cur = processSimulado(g.rows).globalPct;
+                                                    const prev = processSimulado(prevSimulado.rows).globalPct;
+                                                    delta = cur - prev;
+                                                }
+                                                return renderSimuladoCard(g, false, delta);
+                                            })}
                                         </div>
                                     )}
                                 </div>
@@ -647,8 +1161,54 @@ const StudyHistory = React.memo(function StudyHistory({
                     </div>
                 </div>
             )}
+
+            {/* Modal de confirmação para exclusão de sessão Pomodoro */}
+            <ConfirmModal
+                isOpen={!!sessionToDelete}
+                onClose={() => setSessionToDelete(null)}
+                onConfirm={() => {
+                    if (sessionToDelete?.id) {
+                        try {
+                            if (typeof onDeleteSession === 'function') {
+                                onDeleteSession(sessionToDelete.id);
+                                showToast('Sessão excluída.', 'info');
+                            }
+                        } catch {
+                            showToast('Erro ao excluir sessão.', 'error');
+                        }
+                    }
+                }}
+                title="Excluir Sessão de Estudo"
+                message="Excluir esta sessão de estudo? O tempo será subtraído da categoria."
+                confirmText="Excluir Sessão"
+                type="danger"
+                icon={Trash2}
+            />
+
+            {/* Modal de confirmação seguro para exclusão de simulado */}
+            <ConfirmModal
+                isOpen={!!simuladoToDelete}
+                onClose={() => setSimuladoToDelete(null)}
+                onConfirm={() => {
+                    if (simuladoToDelete?.key && typeof onDeleteSimulado === 'function') {
+                        try {
+                            onDeleteSimulado(simuladoToDelete.key);
+                            showToast(`Simulado de ${simuladoToDelete.title} excluído.`, 'info');
+                        } catch {
+                            showToast('Erro ao excluir simulado.', 'error');
+                        }
+                        setSimuladoToDelete(null);
+                    }
+                }}
+                title={`Excluir Simulado (${simuladoToDelete?.title || ''})`}
+                message="Deseja realmente excluir este simulado do histórico? Todas as respostas e dados de desempenho desta avaliação serão removidos."
+                confirmText="Excluir Simulado"
+                type="danger"
+                icon={Trash2}
+            />
         </div>
     );
 });
 
 export default StudyHistory;
+

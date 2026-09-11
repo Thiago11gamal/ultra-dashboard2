@@ -49,18 +49,18 @@ body::before {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-image:
-    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(129, 140, 248, 0.1) 0px, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(244, 114, 182, 0.05) 0px, transparent 50%);
-  pointer-events: none;
+  width: 100vw;
+  height: 100vh;
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 35%),
+    radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 35%),
+    radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.06), transparent 40%);
   z-index: -1;
   animation: meshMove 30s ease-in-out infinite alternate;
   opacity: var(--mesh-opacity, 1);
   /* PERFORM-01: GPU acceleration for fixed mesh */
-  will-change: transform;
+  /* will-change removido — só ativar durante animação se necessário */
+  transform: translateZ(0); /* GPU acceleration sem will-change permanente */
 }
 
 
@@ -126,18 +126,15 @@ body::before {
 @keyframes pageEntrance {
   0% {
     opacity: 0;
-    transform: translateY(8px);
   }
-
   100% {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .animate-page-entrance {
   animation: pageEntrance 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  will-change: transform, opacity;
+  will-change: opacity;
 }
 
 /* Neon text effect */
@@ -151,48 +148,81 @@ body::before {
 /* Custom scrollbar utility */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: var(--neon-purple) transparent;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  display: block;
+  width: 5px;
+  height: 5px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.2);
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--neon-purple, #818cf8), var(--neon-pink, #f472b6));
+  background: rgba(139, 92, 246, 0.25);
   border-radius: 99px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--neon-blue, #38bdf8), var(--neon-purple, #818cf8));
+  background: rgba(139, 92, 246, 0.55);
+}
+
+/* Kanban horizontal thin scrollbar */
+.kanban-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.25) transparent;
+}
+
+.kanban-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 99px;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 99px;
+  transition: background 0.2s ease;
+}
+
+.kanban-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.55);
+}
+
+/* Hide scrollbar buttons (arrows) */
+.kanban-scrollbar::-webkit-scrollbar-button,
+.custom-scrollbar::-webkit-scrollbar-button,
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Premium Global Scrollbar Styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.25);
   border-radius: 99px;
-  border: 2px solid #0f172a;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.6);
+  background: rgba(139, 92, 246, 0.55);
 }
 
 
@@ -207,15 +237,6 @@ body::before {
 }
 
 /* Animations */
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
 
 @keyframes pulse-slow {
 
@@ -294,6 +315,33 @@ body::before {
 
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Hide scrollbar while keeping scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 @media (max-width: 768px) {
@@ -798,6 +846,23 @@ input[type=range].custom-slider::-moz-range-thumb:active {
   background: rgba(56, 189, 248, 0.22);
 }
 
+/* Acessibilidade: foco visível para elementos com tabindex */
+[tabindex="0"]:focus-visible {
+  outline: 2px solid rgba(168, 85, 247, 0.7);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Reduz animações para usuários com preferência de menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-fade-in-down,
+  .animate-scan-fast,
+  .animate-shimmer {
+    animation: none !important;
+  }
+}
+
 /* Nice primary action buttons for tools */
 .tool-btn {
   display: inline-flex;
@@ -853,3 +918,36 @@ input[type=range].custom-slider::-moz-range-thumb:active {
   border-radius: 18px;
   padding: 3rem 2rem;
 }
+
+/* LOTE 5 - Custom focus outline for keyboard navigation */
+:focus-visible {
+    outline: 2px solid theme('colors.indigo.400');
+    outline-offset: 2px;
+}
+
+/* Sleek custom scrollbars */
+.custom-scrollbar::-webkit-scrollbar,
+.kanban-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+.kanban-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.kanban-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.kanban-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+

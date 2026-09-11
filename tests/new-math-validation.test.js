@@ -10,7 +10,7 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // Matéria com peso alto (8 -> multiplicador ~1.2)
         // Aluno com nota 0. Sem o fix, o scoreComponent estaria travado em dynamicScoreMax (45).
         // Com o fix, deve chegar a ~45 * 1.2 = 54.
-        const res = calculateUrgency(baseCategory, [], [], { maxScore: 100 });
+        const res = calculateUrgency(baseCategory, [{ subject: 'Matemática', score: 0, total: 100, date: '2026-01-01' }], [], { maxScore: 100 });
         
         // No config padrão: dynamicScoreMax = 45, dynamicRecencyMax = 25, dynamicInstabilityMax = 15
         // total ~85 + boosts.
@@ -54,7 +54,7 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         expect(res.recommendation).not.toContain('Sinais de estafa');
     });
 
-    it('🧠 Rotation Penalty deve escalar com a performance (fatigueRatio)', () => {
+    it('🧠 Rotation Penalty NÃO deve escalar com a performance (evitar dupla penalização)', () => {
         const studyLogs = [{ categoryId: 'test-cat', date: new Date().toISOString(), minutes: 60 }];
         
         // Caso A: Aluno com performance baixa (10%)
@@ -65,12 +65,13 @@ describe('Nova Matemática do Coach AI - Auditoria de Regressão', () => {
         // Caso B: Aluno com performance alta (90%)
         const resHigh = calculateUrgency(baseCategory, [{ subject: 'Matemática', score: 90, total: 100, date: '2026-01-01' }], studyLogs, { maxScore: 100 });
         
-        // Pelo fix, o rotationPenalty (penalidade negativa) deve ser maior no resHigh 
-        // porque fatigueRatio é maior.
+        // Com a nova regra, o fatigueRatio foi fixado em 1.0 para evitar penalizar 
+        // o aluno com nota alta duas vezes (pela meta do SCORE_MAX e pelo rotationPenalty).
+        // Portanto, a penalidade de rotação deve ser idêntica.
         
         expect(resLow.details.components.rotationPenalty).toBeDefined();
         expect(resHigh.details.components.rotationPenalty).toBeDefined();
-        expect(resHigh.details.components.rotationPenalty).toBeGreaterThan(resLow.details.components.rotationPenalty);
+        expect(resHigh.details.components.rotationPenalty).toBeCloseTo(resLow.details.components.rotationPenalty, 5);
     });
 
     it('💥 simuladosToHistory deve manter a ordem intra-dia por timestamp', () => {

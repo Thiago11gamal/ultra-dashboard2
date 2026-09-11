@@ -1,18 +1,163 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { normalizeDate, formatDuration, getDateKey } from '../utils/dateHelper';
 
-function ActivityHeatmap({ studyLogs = [] }) {
-    const [monthOffset, setMonthOffset] = React.useState(0);
+// FIX 5.5a: Definir cores como constantes reutilizáveis
+const HEATMAP_COLORS = {
+    empty: 'bg-slate-800/40 border-white/5',
+    level1: 'bg-emerald-900/40 border-emerald-800/50',
+    level2: 'bg-emerald-600/50 border-emerald-500/50',
+    level3: 'bg-emerald-500/80 border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.3)]',
+    level4: 'bg-emerald-400 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)] font-bold text-emerald-900',
+};
 
+const getLevelColor = (level) => {
+    switch (level) {
+        case 0: return HEATMAP_COLORS.empty;
+        case 1: return HEATMAP_COLORS.level1;
+        case 2: return HEATMAP_COLORS.level2;
+        case 3: return HEATMAP_COLORS.level3;
+        case 4: return HEATMAP_COLORS.level4;
+        default: return HEATMAP_COLORS.empty;
+    }
+};
+
+// FIX 5.5b: Componente de tooltip acessível
+const HeatmapTooltip = ({ day, visible, position }) => {
+    if (!visible || !day) return null;
+    
+    const minutes = day.minutes || 0;
+    const sessions = day.sessions || 0;
+    const dateStr = day.date ? format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR }) : '';
+    
+    return (
+        <div 
+            className={`absolute ${position} z-50 pointer-events-none transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            role="tooltip"
+            aria-hidden={!visible}
+        >
+            <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-2xl min-w-[140px] text-center">
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-900 border-b border-r border-white/10 rotate-45"></div>
+                <p className="relative z-10 text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-widest">{dateStr}</p>
+                <p className="relative z-10 text-sm font-black text-white">
+                    {minutes > 0 ? (
+                        <span className="text-emerald-400">{formatDuration(minutes / 60)}</span>
+                    ) : 'Descanso'}
+                </p>
+                {sessions > 0 && (
+                    <p className="relative z-10 text-[10px] text-slate-400 mt-1">{sessions} {sessions === 1 ? 'sessão' : 'sessões'}</p>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// FIX 5.5c: Célula acessível com navegação por teclado
+const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipToggle, dayIndex }) => {
+    const cellRef = useRef(null);
+    
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (document.activeElement === cellRef.current) {
+                onTooltipToggle(day);
+            }
+        }
+        if (e.key === 'Escape') {
+            onTooltipToggle(null, null);
+        }
+    };
+    
+    // Calcula posição do tooltip para não cortar nas bordas
+    const tooltipPosition = dayIndex === 0 ? 'bottom-full left-0 mb-3 ml-[-10px]' : 
+                            dayIndex === 6 ? 'bottom-full right-0 mb-3 mr-[-10px]' : 
+                            'bottom-full left-1/2 -translate-x-1/2 mb-3';
+    
+    if (!day) {
+        return (
+            <div className="w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 bg-transparent border-transparent" />
+        );
+    }
+    
+    return (
+        <div className="relative group">
+            <button
+                ref={cellRef}
+                className={`w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-pointer 
+                           ${day.level >= 0 ? getLevelColor(day.level) : HEATMAP_COLORS.empty} 
+                           ${day.isToday ? 'ring-2 ring-emerald-500 ring-inset z-10' : ''}
+                           hover:scale-110 hover:z-20 hover:border-white/50
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900`}
+                role="gridcell"
+                aria-label={`${format(day.date, "dd 'de' MMMM", { locale: ptBR })}: ${day.minutes > 0 ? `${Math.round(day.minutes)} minutos estudados` : 'Sem dados de estudo'}`}
+                aria-describedby={tooltipVisible ? `heatmap-tooltip-${index}` : undefined}
+                tabIndex={0}
+                onKeyDown={handleKeyDown}
+                onFocus={() => onFocus(day)}
+                onBlur={() => onBlur()}
+                onClick={() => onTooltipToggle(day)}
+                onMouseEnter={() => onFocus(day)}
+                onMouseLeave={() => onBlur()}
+                data-index={index}
+            />
+            <HeatmapTooltip
+                day={day}
+                visible={tooltipVisible}
+                position={tooltipPosition}
+            />
+        </div>
+    );
+};
+
+function ActivityHeatmap({ studyLogs = [] }) {
+    const [monthOffset, setMonthOffset] = useState(0);
+    const [now, setNow] = useState(() => new Date());
+    const [tooltipState, setTooltipState] = useState({ visible: false, day: null, dateKey: null });
+    const containerRef = useRef(null);
+
+    // ✅ FIX: Só atualizar a cada 5 minutos — suficiente para heatmap
+    useEffect(() => {
+        const id = setInterval(() => {
+            setNow(new Date());
+        }, 5 * 60 * 1000); // 5 minutos em vez de 1
+        return () => clearInterval(id);
+    }, []);
+
+    // FIX 5.5d: Fechar tooltip com Escape global
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setTooltipState({ visible: false, day: null, dateKey: null });
+            }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    const handleTooltipToggle = useCallback((day) => {
+        const dateKey = day?.dateKey;
+        setTooltipState(prev => ({
+            visible: prev.dateKey === dateKey ? false : true,
+            day,
+            dateKey: prev.dateKey === dateKey ? null : dateKey
+        }));
+    }, []);
+    
+    const handleFocus = useCallback((day) => {
+        setTooltipState({ visible: true, day, dateKey: day?.dateKey });
+    }, []);
+    
+    const handleBlur = useCallback(() => {
+        setTooltipState(prev => ({ ...prev, visible: false }));
+    }, []);
 
     const currentMonth = useMemo(() => {
-        const base = new Date();
+        const base = new Date(now.getFullYear(), now.getMonth(), 1);
         return monthOffset < 0 ? subMonths(base, Math.abs(monthOffset)) :
             monthOffset > 0 ? addMonths(base, monthOffset) : base;
-    }, [monthOffset]);
+    }, [monthOffset, now]);
 
     const calendarData = useMemo(() => {
         const start = startOfMonth(currentMonth);
@@ -25,7 +170,9 @@ function ActivityHeatmap({ studyLogs = [] }) {
             const rawDate = normalizeDate(log?.date);
             if (!rawDate) return;
             const dateKey = getDateKey(rawDate) || format(rawDate, 'yyyy-MM-dd');
-            const minutes = Math.max(0, Number(log?.minutes) || 0);
+            const rawMin = Number(log?.minutes);
+            const rawDur = Number(log?.duration);
+            const minutes = Math.max(0, (Number.isFinite(rawMin) && rawMin > 0) ? rawMin : (Number.isFinite(rawDur) && rawDur > 0 ? rawDur : 0));
             studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
         });
 
@@ -37,7 +184,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
             currentWeek.push(null);
         }
 
-        const today = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
+        const today = getDateKey(now) || format(now, 'yyyy-MM-dd');
 
         days.forEach(day => {
             const dateKey = getDateKey(day) || format(day, 'yyyy-MM-dd');
@@ -80,20 +227,12 @@ function ActivityHeatmap({ studyLogs = [] }) {
         const totalTimeStr = formatDuration(totalMinutes / 60);
 
         return { weeks, totalDays, studiedDays, totalMinutes, totalTimeStr };
-    }, [currentMonth, studyLogs]);
-
-    const levelColors = [
-        'bg-slate-800/40 border-white/5',
-        'bg-emerald-900/40 border-emerald-800/50',
-        'bg-emerald-600/50 border-emerald-500/50',
-        'bg-emerald-500/80 border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.3)]',
-        'bg-emerald-400 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)] font-bold text-emerald-900',
-    ];
+    }, [currentMonth, studyLogs, now]);
 
     const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
     return (
-        <div className="w-full max-w-2xl mx-auto">
+        <div className="w-full max-w-2xl mx-auto" ref={containerRef}>
             <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
                 <div className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -126,50 +265,45 @@ function ActivityHeatmap({ studyLogs = [] }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-7 gap-2 mb-3">
-                {weekDays.map(day => (
-                    <div key={day} className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
-                        {day}
+            {/* FIX 5.5c: Grid com roles adequados */}
+            <div 
+                className="grid grid-cols-7 gap-2"
+                role="grid"
+                aria-label="Mapa de atividade mensal"
+            >
+                {/* Cabeçalhos de dias */}
+                <div className="grid grid-cols-7 gap-2 mb-3 col-span-7" role="row" aria-hidden="true">
+                    {weekDays.map(day => (
+                        <div key={day} className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
+                            {day}
+                        </div>
+                    ))}
+                </div>
+                
+                {/* Células */}
+                {calendarData.weeks.map((week, weekIdx) => (
+                    <div key={weekIdx} role="row" className="grid grid-cols-7 gap-2 col-span-7">
+                        {week.map((day, dayIdx) => (
+                            <HeatmapCell
+                                key={`${weekIdx}-${dayIdx}`}
+                                day={day}
+                                dayIndex={dayIdx}
+                                index={weekIdx * 7 + dayIdx}
+                                onFocus={handleFocus}
+                                onBlur={handleBlur}
+                                tooltipVisible={tooltipState.visible && tooltipState.dateKey === day?.dateKey}
+                                onTooltipToggle={handleTooltipToggle}
+                            />
+                        ))}
                     </div>
                 ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-2">
-                {calendarData.weeks.flatMap((week, weekIndex) =>
-                    week.map((day, dayIndex) => (
-                        <div
-                            key={`${weekIndex}-${dayIndex}`}
-                            tabIndex={day ? 0 : -1}
-                            role={day ? 'button' : undefined}
-                            aria-label={day ? `${Math.round(Number(day.minutes) || 0)} minutos estudados em ${format(day.date, "dd 'de' MMMM", { locale: ptBR })}` : 'Sem dados de estudo'}
-                            className={`
-                                w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-default group relative focus:outline-none focus:ring-2 focus:ring-emerald-400
-                                ${day ? levelColors[day.level] : 'bg-transparent border-transparent'}
-                                ${day?.isToday ? 'ring-2 ring-emerald-500 ring-inset z-10' : ''}
-                                ${day ? 'hover:scale-110 hover:z-20 hover:border-white/50' : ''}
-                            `}
-                        >
-                            {day && (
-                                <div className={`absolute bottom-full mb-3 px-4 py-3 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl text-center whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-50 transform translate-y-2 group-hover:translate-y-0 focus-within:opacity-100 focus-within:translate-y-0 ${dayIndex === 0 ? 'left-[-10px]' : dayIndex === 6 ? 'right-[-10px]' : 'left-1/2 -translate-x-1/2'}`}>
-                                    <div className={`absolute -bottom-2 w-4 h-4 bg-slate-900 border-b border-r border-white/10 rotate-45 ${dayIndex === 0 ? 'left-6' : dayIndex === 6 ? 'right-6' : 'left-1/2 -translate-x-1/2'}`}></div>
-                                    <p className="relative z-10 text-[10px] text-slate-400 font-bold capitalize mb-1 tracking-widest">{format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR })}</p>
-                                    <p className="relative z-10 text-sm font-black text-white">
-                                        {day.minutes > 0
-                                            ? <span className="text-emerald-400">{formatDuration(day.minutes / 60)}</span>
-                                            : 'Descanso'}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    ))
-                )}
             </div>
 
             <div className="mt-8 pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 bg-slate-900/50 px-4 py-2 rounded-full border border-white/5">
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Menos</span>
                     <div className="flex gap-1.5 mx-2">
-                        {levelColors.map((color, i) => (
+                        {[HEATMAP_COLORS.empty, HEATMAP_COLORS.level1, HEATMAP_COLORS.level2, HEATMAP_COLORS.level3, HEATMAP_COLORS.level4].map((color, i) => (
                             <div key={i} className={`w-4 h-4 rounded-md border ${color.split(' ')[0]} ${color.split(' ')[1]}`} />
                         ))}
                     </div>
@@ -193,3 +327,4 @@ function ActivityHeatmap({ studyLogs = [] }) {
 }
 
 export default React.memo(ActivityHeatmap);
+

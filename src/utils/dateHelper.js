@@ -1,248 +1,252 @@
-/**
- * Centralized date utilities for consistency across the application.
- */
 import { addDays } from 'date-fns';
 
 export const APP_TIMEZONE = 'America/Manaus';
 
-/**
- * [FIX-WEBKIT-01] Garante que strings de data SQL (YYYY-MM-DD HH:MM:SS) sejam
- * convertidas para o padrão ISO (YYYY-MM-DDTHH:MM:SS) compatível com Safari/WebKit.
- */
-export const safeDateParse = (dateInput) => {
-    if (!dateInput) return new Date(0);
-    // Transforma string SQL "YYYY-MM-DD HH:MM:SS" em padrão ISO WebKit-Safe
-    const normalizedString = typeof dateInput === 'string' 
-        ? dateInput.replace(' ', 'T') 
-        : dateInput;
-    const d = new Date(normalizedString);
-    return isNaN(d.getTime()) ? new Date(0) : d;
+export const safeDateParse = (dateInput, fallback = null) => {
+  if (!dateInput) return fallback;
+  if (typeof dateInput === 'boolean' || (typeof dateInput === 'object' && !(dateInput instanceof Date))) return fallback;
+  const normalizedString = typeof dateInput === 'string'
+    ? dateInput.replace(' ', 'T')
+    : dateInput;
+  const d = new Date(normalizedString);
+  return isNaN(d.getTime()) ? fallback : d;
 };
 
+export function parseGoalDateUnified(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    const normalized = value.includes('T') ? value : `${value}T12:00:00`;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const fallback = new Date(value);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+// ✅ FIX: getDateKey com suporte a YY-MM-DD e extração direta de ISO
 export const getDateKey = (rawDate) => {
-    if (!rawDate) return null;
-    let date;
+  if (!rawDate) return new Date().toISOString().split('T')[0];
 
-    // Suporte a Firebase Timestamp (seconds/nanoseconds)
-    if (typeof rawDate === 'object' && (rawDate.seconds != null || rawDate._seconds != null)) {
-        const secs = rawDate.seconds != null ? rawDate.seconds : rawDate._seconds;
-        date = new Date(secs * 1000);
-    } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
-        // Suporte ao padrão DD/MM/YYYY (importação/CSV)
-        const parts = rawDate.split(/[/-]/);
-        if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-            date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
-        } else {
-            date = new Date(rawDate);
-        }
-    } else if (typeof rawDate === 'string' && rawDate.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
-        // FIX CRÍTICO: Strings YYYY-MM-DD interpretadas por new Date() como meia-noite UTC,
-        // o que recua 1 dia em fusos negativos (ex: UTC-4, 00:00 UTC = 20:00 do dia anterior).
-        // Ao forçar T12:00:00-04:00 (meio-dia de Manaus), o dia do calendário fica 100% ancorado ao fuso alvo.
-        date = new Date(`${rawDate}T12:00:00-04:00`);
-    } else {
-        date = new Date(rawDate);
+  if (typeof rawDate === 'string') {
+    const trimmed = rawDate.trim();
+    // ISO 'YYYY-MM-DD' → extração direta
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
     }
-
-    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
-
-    // 🕒 PADRONIZAÇÃO LOCAL: MANAUS (America/Manaus | UTC-4)
-    // Garante que o agrupamento de dias no Heatmap e Streaks ocorre sempre no mesmo fuso,
-    // independentemente de onde o utilizador esteja geograficamente.
-    try {
-        const formatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: APP_TIMEZONE,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        });
-        const parts = formatter.formatToParts(date);
-        const p = {};
-        parts.forEach(({ type, value }) => p[type] = value);
-        return `${p.year}-${p.month}-${p.day}`;
-    } catch {
-        // Fallback seguro caso o navegador não suporte fusos horários
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+    // YY-MM-DD → previne regressão para ano 1900
+    if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
+      const parts = trimmed.split('-');
+      const year = parseInt(parts[0], 10);
+      const fullYear = year < 100 ? 2000 + year : year;
+      return `${fullYear}-${parts[1]}-${parts[2]}`;
     }
+  }
+
+  if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
+    const secs = rawDate.seconds || rawDate._seconds;
+    const d = new Date(secs * 1000);
+    return d.toISOString().split('T')[0];
+  }
+
+  try {
+    const d = normalizeDate(rawDate) || new Date();
+    const manausDate = new Date(d.getTime() - (4 * 3600000));
+    const year = manausDate.getUTCFullYear();
+    const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(manausDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
 };
 
-/**
- * Calcula a meia-noite (início do dia) exata no fuso horário local.
- * Utilizado para filtrar sessões "de hoje" nas estatísticas diárias.
- */
 export const getLocalMidnight = (date = new Date()) => {
-    try {
-        const d = new Date(date);
-        d.setHours(0, 0, 0, 0);
-        return d;
-    } catch {
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  try {
+    const dateKey = getDateKey(date);
+    if (!dateKey) {
+      const utc = new Date(date);
+      return new Date(
+        Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) +
+        4 * 3600000
+      );
     }
+    // ✅ FIX: Offset fixo de Manaus (-04:00)
+    const isoMidnight = `${dateKey}T00:00:00-04:00`;
+    return new Date(isoMidnight);
+  } catch {
+    const utc = new Date(date);
+    return new Date(
+      Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) +
+      4 * 3600000
+    );
+  }
 };
 
 export const formatDisplayDate = (dateStr) => {
-    if (!dateStr) return '';
-    const parts = String(dateStr).split('-');
-    if (parts.length < 3) return dateStr;
-    return `${parts[2]}/${parts[1]}`;
+  if (!dateStr) return '';
+  if (typeof dateStr === 'number' || (typeof dateStr === 'string' && /^\d{10,13}$/.test(dateStr.trim()))) {
+    const d = new Date(Number(dateStr));
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${day}/${month}`;
+    }
+  }
+  const cleanStr = String(dateStr).split('T')[0];
+  const parts = cleanStr.split('-');
+  if (parts.length < 3) return cleanStr;
+  return `${parts[2]}/${parts[1]}`;
 };
 
-/**
- * Normalizes any date input (string or Date) to a JS Date object at Local Noon
- * to prevent UTC off-by-one errors when comparing YYYY-MM-DD strings.
- */
+// ✅ FIX: normalizeDate com offset -04:00 para YYYY-MM-DD
 export const normalizeDate = (raw) => {
-    if (!raw) return null;
-    let d;
-    const isDateOnly = typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  if (!raw) return null;
+  let d;
+  let isDateOnly = false;
+  let normalizedRaw = raw;
 
-    if (typeof raw === 'object' && (raw.seconds != null || raw._seconds != null)) {
-        const secs = raw.seconds != null ? raw.seconds : raw._seconds;
-        d = new Date(secs * 1000);
-    } else if (typeof raw === 'string' && raw.includes('/')) {
-        const parts = raw.split(/[/-]/);
-        if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-            d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`);
-        } else {
-            d = new Date(raw);
-        }
-    } else if (typeof raw === 'string') {
-        d = isDateOnly ? new Date(`${raw}T12:00:00-04:00`) : new Date(raw);
-    } else {
-        d = new Date(raw);
+  if (typeof raw === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      isDateOnly = true;
+    } else if (/^\d{2}-\d{2}-\d{2}$/.test(raw)) {
+      isDateOnly = true;
+      const parts = raw.split('-');
+      const year = parseInt(parts[0], 10);
+      const fullYear = year < 100 ? 2000 + year : year;
+      normalizedRaw = `${fullYear}-${parts[1]}-${parts[2]}`;
     }
+  }
 
-    if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
+  if (typeof raw === "object" && (raw.seconds != null || raw._seconds != null)) {
+    const secs = raw.seconds != null ? raw.seconds : raw._seconds;
+    d = new Date(secs * 1000);
+  } else if (typeof raw === "string" && /^\d{2}-\d{2}-\d{4}$/.test(raw)) {
+    // DD-MM-YYYY com traços (formato pt-BR)
+    const parts = raw.split('-');
+    const isoBr = `${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`;
+    d = new Date(isoBr);
+  } else if (typeof raw === "string" && raw.includes("/")) {
+    const parts = raw.split(/[/-]/);
+    if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
+      const isoBr = `${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`;
+      d = new Date(isoBr);
+    } else {
+      d = new Date(raw);
+    }
+  } else if (typeof raw === "string") {
+    // ✅ FIX: YYYY-MM-DD → meio-dia de Manaus (UTC-4)
+    const isoNoon = `${normalizedRaw}T12:00:00-04:00`;
+    d = isDateOnly
+      ? new Date(isoNoon)
+      : new Date(raw);
+  } else {
+    d = new Date(raw);
+  }
 
-    return d;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
+  return d;
 };
 
 export const toDateMs = (value) => {
-    if (!value) return Number.NaN;
-
-    if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
-        const secs = value.seconds != null ? value.seconds : value._seconds;
-        return Number(secs) * 1000;
-    }
-
-    const parsed = normalizeDate(value);
-    return parsed ? parsed.getTime() : new Date(value).getTime();
+  if (!value) return Number.NaN;
+  if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
+    const secs = value.seconds != null ? value.seconds : value._seconds;
+    return Number(secs) * 1000;
+  }
+  const parsed = normalizeDate(value);
+  return parsed ? parsed.getTime() : new Date(value).getTime();
 };
 
-/**
- * Centralised "time ago" formatter with correct Portuguese pluralization.
- * Uses normalizeDate to avoid UTC midnight shift on YYYY-MM-DD strings.
- * Returns: "Agora há pouco" | "Xh atrás" | "Ontem" | "X dias atrás" |
- *          "X semana(s) atrás" | "X mês/meses atrás"
- */
 export const formatTimeAgo = (date) => {
-    if (!date) return 'Nunca';
-    const timeMs = toDateMs(date);
-
-    if (Number.isNaN(timeMs)) return 'Data inválida';
-
-    const rawDiff = Date.now() - timeMs;
-    // Aplica tolerância somente para pequenas datas futuras (clock skew).
-    if (rawDiff < 0) {
-        if (Math.abs(rawDiff) <= 60_000) return 'Agora há pouco';
-        return 'No futuro';
-    }
-    const diff = rawDiff;
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-    const weeks = Math.floor(days / 7);
-    const months = Math.floor(days / 30);
-
-    if (hours < 1) return 'Agora há pouco';
-    if (hours < 24) return `${hours}h atrás`;
-    if (days === 1) return 'Ontem';
-    // CORREÇÃO 11: Remoção do dead code condicional inatingível 
-    if (days < 7) return `${days} dias atrás`;
-    if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
-    return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
+  if (!date) return 'Nunca';
+  const timeMs = toDateMs(date);
+  if (timeMs == null || Number.isNaN(timeMs)) return 'Data inválida';
+  const rawDiff = Date.now() - timeMs;
+  if (rawDiff < 0) {
+    if (Math.abs(rawDiff) <= 60_000) return 'Agora há pouco';
+    return 'No futuro';
+  }
+  const diff = rawDiff;
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+  if (hours < 1) return 'Agora há pouco';
+  if (hours < 24) return `${hours}h atrás`;
+  if (days === 1) return 'Ontem';
+  if (days < 7) return `${days} dias atrás`;
+  if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
+  return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
 };
 
-/**
- * Formata horas decimais (ex: 1.25) para o formato "1h15".
- */
 export const formatDuration = (decimalHours) => {
-    const safe = Number.isFinite(Number(decimalHours)) ? Number(decimalHours) : 0;
-    const normalized = Math.max(0, safe);
-    let hours = Math.floor(normalized);
-    let minutes = Math.round((normalized - hours) * 60);
-    // BUGFIX: 1.999h virava "1h60"; normalizar carry para horas.
-    if (minutes >= 60) {
-        hours += 1;
-        minutes = 0;
-    }
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '0h00';
-    return `${hours}h${String(Math.max(0, minutes)).padStart(2, '0')}`;
+  const safe = Number.isFinite(Number(decimalHours)) ? Number(decimalHours) : 0;
+  const normalized = Math.max(0, safe);
+  let hours = Math.floor(normalized);
+  let minutes = Math.round((normalized - hours) * 60);
+  if (minutes >= 60) { hours += 1; minutes = 0; }
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '0h00';
+  return `${hours}h${String(Math.max(0, minutes)).padStart(2, '0')}`;
 };
 
 export const formatDatePtBR = (date) => {
-    try {
-        if (!date) return '--/--/----';
-        const parsed = normalizeDate(date);
-        if (!parsed || Number.isNaN(parsed.getTime())) return '--/--/----';
-        return new Intl.DateTimeFormat('pt-BR', {
-            timeZone: APP_TIMEZONE,
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        }).format(parsed);
-    } catch {
-        return '--/--/----';
-    }
+  try {
+    if (!date) return '--/--/----';
+    const parsed = normalizeDate(date);
+    if (!parsed || Number.isNaN(parsed.getTime())) return '--/--/----';
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: APP_TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric'
+    }).format(parsed);
+  } catch {
+    return '--/--/----';
+  }
 };
 
 export const formatDateTimePtBR = (date) => {
-    try {
-        if (!date) return '--/--/---- --:--:--';
-        const parsed = normalizeDate(date);
-        if (!parsed || Number.isNaN(parsed.getTime())) return '--/--/---- --:--:--';
-        return new Intl.DateTimeFormat('pt-BR', {
-            timeZone: APP_TIMEZONE,
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        }).format(parsed);
-    } catch {
-        return '--/--/---- --:--:--';
-    }
+  try {
+    if (!date) return '--/--/---- --:--:--';
+    const parsed = normalizeDate(date);
+    if (!parsed || Number.isNaN(parsed.getTime())) return '--/--/---- --:--:--';
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: APP_TIMEZONE, day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).format(parsed);
+  } catch {
+    return '--/--/---- --:--:--';
+  }
 };
 
 export const formatWeekdayShortPtBR = (date) => {
-    try {
-        if (!date) return '';
-        const parsed = normalizeDate(date);
-        if (!parsed || Number.isNaN(parsed.getTime())) return '';
-        return new Intl.DateTimeFormat('pt-BR', {
-            timeZone: APP_TIMEZONE,
-            weekday: 'short'
-        }).format(parsed).replace('.', '').toUpperCase();
-    } catch {
-        return '';
-    }
+  try {
+    if (!date) return '';
+    const parsed = normalizeDate(date);
+    if (!parsed || Number.isNaN(parsed.getTime())) return '';
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: APP_TIMEZONE, weekday: 'short'
+    }).format(parsed).replace('.', '').toUpperCase();
+  } catch {
+    return '';
+  }
 };
 
-/**
- * Flashcard SRS date helpers - ensures ALL due dates use the same
- * TZ-normalized YYYY-MM-DD keys as getDateKey (America/Manaus).
- * This fixes the previous mismatch between toISOString().split('T')[0]
- * (UTC day) and the rest of the app.
- */
 export const getFlashcardTodayKey = () => getDateKey(new Date());
 
 export const getFlashcardNextDueKey = (intervalDays = 1) => {
-  const safeDays = Math.max(1, Math.floor(Number(intervalDays) || 1));
-  const future = addDays(new Date(), safeDays);
-  return getDateKey(future);
+  const raw = Number(intervalDays);
+  const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
+  const anchorIso = `${getDateKey(new Date())}T12:00:00-04:00`;
+  const anchor = new Date(anchorIso);
+  const future = addDays(anchor, safeDays);
+  const key = getDateKey(future);
+  return key || getFlashcardTodayKey();
 };
 
 export const isFlashcardDue = (cardDue, referenceKey = null) => {
@@ -250,3 +254,6 @@ export const isFlashcardDue = (cardDue, referenceKey = null) => {
   const todayKey = referenceKey || getFlashcardTodayKey();
   return cardDue <= todayKey;
 };
+
+
+export { parseNoonLocal } from './parseNoonLocal.js';

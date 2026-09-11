@@ -1,24 +1,36 @@
-import React, { useId } from 'react';
+import React, { useId, useState, useRef, useMemo } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
-    LabelList, Brush
+   LabelList, Brush, ReferenceArea
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
-import { normalizeDate } from '../../../utils/dateHelper';
-import { formatValue } from '../../../utils/scoreHelper';
+import { ChartFrame } from "../ChartFrame";
+import { normalizeDate, formatDisplayDate } from '../../../utils/dateHelper';
+import { formatValue, normalizeScoreDomain } from '../../../utils/scoreHelper';
 
 const CustomActiveDot = (props) => {
-    const { cx, cy, fill, stroke } = props;
+    const { cx, cy, fill, stroke, onClick, isDimmed } = props;
     if (cx == null || cy == null) return null;
     return (
-        <g>
-            {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
-            <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
-                <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
-                <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
-            </circle>
-            <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+        <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', pointerEvents: 'all' }}>
+            {!isDimmed && (
+                <>
+                    <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
+                        <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
+                    </circle>
+                    <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
+                </>
+            )}
+            {/* Dimmed dot - no glow, just a static smaller dot */}
+            {isDimmed && (
+                <>
+                    <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.5} stroke={stroke || "#ffffff"} strokeWidth={1} strokeOpacity={0.5} />
+                    {/* Invisible larger target for easy clicking when dimmed */}
+                    <circle cx={cx} cy={cy} r={15} fill="rgba(255,255,255,0.01)" stroke="transparent" />
+                </>
+            )}
         </g>
     );
 };
@@ -30,8 +42,8 @@ const CustomActiveDot = (props) => {
  * focus highlighting, and adaptive label anti-collision.
  */
 export function EvolutionLineChart({
-    filteredChartData,
-    activeCategories,
+    filteredChartData = [],
+    activeCategories = [],
     engine,
     targetScore,
     focusSubjectId,
@@ -43,14 +55,55 @@ export function EvolutionLineChart({
     const instanceId = useId().replace(/:/g, "");
     const shadowId = `el_lineShadow_${instanceId}`;
 
+    const [highlightedDataKey, setHighlightedDataKey] = useState(null);
+    const isLineClicked = useRef(false);
+    
+    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMaxScore = Number(maxScore) > safeMinScore ? Number(maxScore) : safeMinScore + 1;
+    const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
+    
+    const safeTargetScore = Math.max(
+      safeMinScore,
+      Math.min(
+        safeMaxScore,
+        Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMinScore
+      )
+    );
+    
+    const dangerLimit = Math.max(safeMinScore, safeTargetScore - (safeRange * 0.08));
 
+    const safeActiveCategories = useMemo(() => Array.isArray(activeCategories) ? activeCategories : [], [activeCategories]);
+    const safeChartData = useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
+
+    const handleLegendClick = (e) => {
+        if (!e || typeof e !== 'object') return;
+
+        if (e.domEvent && typeof e.domEvent.stopPropagation === 'function') {
+            e.domEvent.stopPropagation();
+        } else if (typeof e.stopPropagation === 'function') {
+            e.stopPropagation();
+        }
+
+        // Find the category ID from the clicked legend item (it usually passes payload)
+        let catId = e.payload?.id || e.id;
+        if (!catId && typeof e.dataKey === 'string') {
+            catId = e.dataKey.replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
+        }
+        if (!catId && e.payload && typeof e.payload.dataKey === 'string') {
+            catId = e.payload.dataKey.replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
+        }
+        
+        if (catId && typeof catId === 'string' && catId.trim() !== '') {
+            setHighlightedDataKey(prev => prev === catId ? null : catId);
+        }
+    };
 
     // Refined chart data with defensive sorting and date normalization
     const enhancedChartData = React.useMemo(() => {
-        if (!filteredChartData || !filteredChartData.length) return [];
+        if (!safeChartData || !safeChartData.length) return [];
         
         // BUG-Z1 FIX: Defensive sort to prevent zig-zag lines if data is unordered
-        const sortedData = [...filteredChartData].sort((a, b) => {
+        const sortedData = [...safeChartData].sort((a, b) => {
             const dateA = a.date ? (normalizeDate(a.date)?.getTime() ?? 0) : 0;
             const dateB = b.date ? (normalizeDate(b.date)?.getTime() ?? 0) : 0;
             return dateA - dateB;
@@ -58,118 +111,154 @@ export function EvolutionLineChart({
 
         return sortedData.map(d => {
             const copy = { ...d };
-            activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+            safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
                 const low = d[`bay_ci_low_${cat.id}`];
                 const high = d[`bay_ci_high_${cat.id}`];
-                if (low != null && high != null) {
-                    copy[`band_${cat.id}`] = [low, high];
+                if (low != null && Number.isFinite(Number(low)) && high != null && Number.isFinite(Number(high))) {
+                    copy[`band_${cat.id}`] = [Number(low), Number(high)];
                 }
             });
             // Fallback defensivo para o eixo X (BUG-T1 Fix)
             copy.displayDate = copy.displayDate || copy.date;
             return copy;
         });
-    }, [filteredChartData, activeCategories, showOnlyFocus, focusSubjectId]);
+    }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId]);
 
-    // Gather final points for label positioning
-    const finalPoints = React.useMemo(() => {
-        if (!enhancedChartData.length) return [];
+    // Gather final points for label positioning (busca regressiva para pegar o último ponto com dado de cada matéria)
+    const { finalPoints, lastValidIndexByCat } = React.useMemo(() => {
+        if (!enhancedChartData.length) return { finalPoints: [], lastValidIndexByCat: {} };
         const pts = [];
-        const lastIndex = enhancedChartData.length - 1;
+        const idxMap = {};
         
-        activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
+        safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
             const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-            const lastVal = enhancedChartData[lastIndex]?.[dataKey];
-            if (lastVal != null && Number.isFinite(Number(lastVal))) {
-                pts.push({ id: cat.id, name: cat.name, value: Number(lastVal), color: cat.color });
+            let lastVal = null;
+            let lastIdx = -1;
+            for (let i = enhancedChartData.length - 1; i >= 0; i--) {
+                const v = enhancedChartData[i]?.[dataKey];
+                if (v != null && Number.isFinite(Number(v))) {
+                    lastVal = Number(v);
+                    lastIdx = i;
+                    break;
+                }
+            }
+            if (lastVal != null) {
+                pts.push({ id: cat.id, name: cat.name, value: lastVal, color: cat.color });
+                idxMap[cat.id] = lastIdx;
             }
         });
         // Sort by value descending (highest values first)
-        return pts.sort((a, b) => b.value - a.value);
-    }, [enhancedChartData, activeCategories, showOnlyFocus, focusSubjectId, engine]);
+        return { finalPoints: pts.sort((a, b) => b.value - a.value), lastValidIndexByCat: idxMap };
+    }, [enhancedChartData, safeActiveCategories, showOnlyFocus, focusSubjectId, engine]);
 
     // Adaptive label collision logic (Hardened for variable score scales)
     const yAdjustedMap = React.useMemo(() => {
         if (!finalPoints.length) return {};
 
-        const range = maxScore - minScore;
-        const yPositions = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
+        const localMin = safeMinScore;
+        const localMax = safeMaxScore;
+        const range = safeRange;
+        const labels = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
         
-        const topLimit = maxScore - (range * 0.02);
-        const bottomLimit = minScore + (range * 0.05);
+        const topLimit = localMax - (range * 0.01);
+        const bottomLimit = localMin + (range * 0.03);
         const safeSpace = Math.max(0.1, topLimit - bottomLimit);
         
-        const MIN_PCT_DISTANCE = range * 0.075; // 7.5% distance threshold
-        const requiredSpace = (yPositions.length - 1) * MIN_PCT_DISTANCE;
+        const MIN_PCT_DISTANCE = range * 0.10; // 10% distance threshold (was 7.5%)
+        const requiredSpace = (labels.length - 1) * MIN_PCT_DISTANCE;
         
         // Dynamic compression if too many labels for the space
         const effectiveDistance = requiredSpace > safeSpace 
-            ? safeSpace / Math.max(1, yPositions.length - 1) 
+            ? safeSpace / Math.max(1, labels.length - 1) 
             : MIN_PCT_DISTANCE;
 
-        // Pass 1: Push down to separate colliding labels
-        for (let i = 1; i < yPositions.length; i++) {
-            if (yPositions[i - 1].yPos - yPositions[i].yPos < effectiveDistance) {
-                yPositions[i].yPos = yPositions[i - 1].yPos - effectiveDistance;
+        // Iterative relaxation algorithm to spread out colliding labels
+        const ITERATIONS = 25;
+        for (let iter = 0; iter < ITERATIONS; iter++) {
+            let overlapFound = false;
+            for (let i = 0; i < labels.length - 1; i++) {
+                const l1 = labels[i];
+                const l2 = labels[i + 1];
+                const diff = l1.yPos - l2.yPos; // Expect l1 > l2 since they are sorted descending
+                
+                if (diff < effectiveDistance) {
+                    overlapFound = true;
+                    const adjustment = (effectiveDistance - diff) / 2;
+                    l1.yPos += adjustment;
+                    l2.yPos -= adjustment;
+                }
             }
+            
+            // Apply boundary constraints gently (shift all to maintain separation)
+            if (labels.length > 0 && labels[0].yPos > topLimit) {
+                const diff = labels[0].yPos - topLimit;
+                labels.forEach(l => l.yPos -= diff);
+            }
+            
+            if (labels.length > 0 && labels[labels.length - 1].yPos < bottomLimit) {
+                const diff = bottomLimit - labels[labels.length - 1].yPos;
+                labels.forEach(l => l.yPos += diff);
+            }
+            
+            if (!overlapFound) break;
         }
 
-        // Pass 2: Bottom recovery (avoid falling off the bottom boundary)
-        if (yPositions.length > 0 && yPositions[yPositions.length - 1].yPos < bottomLimit) {
-            const shift = bottomLimit - yPositions[yPositions.length - 1].yPos;
-            yPositions.forEach(p => p.yPos += shift);
-        }
-
-        // Pass 3: Top recovery (avoid cutting the top of the chart)
-        if (yPositions.length > 0 && yPositions[0].yPos > topLimit) {
-            const shift = yPositions[0].yPos - topLimit;
-            yPositions.forEach(p => p.yPos -= shift);
+        // Force strict limits one last time for safety
+        for (let i = 0; i < labels.length; i++) {
+            if (labels[i].yPos > topLimit) labels[i].yPos = topLimit;
+            if (labels[i].yPos < bottomLimit) labels[i].yPos = bottomLimit;
         }
 
         const map = {};
-        yPositions.forEach(p => { map[p.id] = p.yPos; });
+        labels.forEach(p => { map[p.id] = p.yPos; });
         return map;
-    }, [finalPoints, maxScore, minScore]);
+    }, [finalPoints, safeMaxScore, safeMinScore, safeRange]);
 
     const renderCustomLabel = (props, catId, displayColor, isFocused, hasFocus) => {
         const { x, y, index, value, viewBox } = props;
 
         if (hasFocus && !isFocused) return null;
 
-        if (index === filteredChartData.length - 1 && value != null) {
+        if (index === lastValidIndexByCat[catId] && value != null) {   // ✅ LOTE-03
             let offsetPx = 0;
             const adjustedY = yAdjustedMap[catId];
 
             if (adjustedY !== undefined && adjustedY !== value) {
-                const range = maxScore - minScore;
+                const { range } = normalizeScoreDomain(minScore, maxScore);
                 const pxPerPct = (viewBox?.height > 0) ? viewBox.height / (range || 1) : 2.5;
                 offsetPx = (value - adjustedY) * pxPerPct;
             }
 
+            const formatted = `${formatValue(value)}${unit}`;
+            const boxWidth = Math.max(52, formatted.length * 7 + 20);
+            const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
+            const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth - 6));
+
             return (
                 <g style={{ zIndex: 100, transition: 'all 0.3s ease' }}>
                     <rect
-                        x={x + 8}
+                        x={labelX}
                         y={y - 11 + offsetPx}
-                        width={46}
+                        width={boxWidth}
                         height={22}
-                        rx={6}
-                        fill="#020617"
-                        fillOpacity={0.7}
+                        rx={8}
+                        fill="#0b0f19"
+                        fillOpacity={0.92}
                         stroke={displayColor}
                         strokeOpacity={0.9}
-                        strokeWidth={1.5}
+                        strokeWidth={1.8}
                     />
+                    <circle cx={labelX + 8} cy={y + offsetPx} r={3} fill={displayColor} />
                     <text 
-                        x={x + 31} 
-                        y={y + 4 + offsetPx} 
+                        x={labelX + 8 + (boxWidth - 8) / 2} 
+                        y={y + 4 + offsetPx}
                         fill="#ffffff" 
-                        fontSize={11} 
-                        fontWeight="black" 
+                        fontSize={10.5} 
+                        fontWeight="900" 
                         textAnchor="middle"
-                        style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.8)' }}
+                        style={{ textShadow: '0px 2px 4px rgba(0,0,0,0.9)' }}
                     >
-                        {formatValue(value)}{unit}
+                        {formatted}
                     </text>
                 </g>
             );
@@ -177,19 +266,48 @@ export function EvolutionLineChart({
         return null;
     };
 
+
+
+    const visibleCategories = safeActiveCategories.filter(
+      cat => !showOnlyFocus || cat.id === focusSubjectId
+    );
+    
+    if (!enhancedChartData.length || visibleCategories.length === 0) {
+      return (
+        <div className="h-[360px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
+          <span className="text-3xl">🔍</span>
+          Nenhuma disciplina visível com o filtro atual.
+        </div>
+      );
+    }
+
     return (
-        <div className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
-            <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
+        <div className="relative h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
+            {highlightedDataKey && (
+                <button 
+                    type="button" 
+                    onClick={() => setHighlightedDataKey(null)}
+                    className="absolute top-0 right-4 z-10 flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:bg-slate-800 hover:border-slate-500 text-slate-300 text-[10px] font-bold rounded-lg shadow-lg transition-all"
+                >
+                    <span>👁️</span> Mostrar Todos
+                </button>
+            )}
+            <ChartFrame minHeight={360} label="Traçando evolução">
+                <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 <ComposedChart 
                     data={enhancedChartData} 
                     syncId="evolutionSync"
-                    // 🎯 FIX: Aumento da margem direita (right: 110) para acomodar a Label formatada
-                    margin={{ top: 20, right: 110, left: 0, bottom: 20 }} 
-                    style={{ outline: 'none' }} 
+                    margin={{ top: 20, right: 140, left: 0, bottom: 20 }} 
+                    style={{ outline: 'none', cursor: highlightedDataKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
+                    onClick={() => {
+                        if (highlightedDataKey && !isLineClicked.current) {
+                            setHighlightedDataKey(null);
+                        }
+                    }}
                 >
                     <defs>
-                        {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
+                        {safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
                             const displayColor = cat.color || '#3b82f6';
                             return (
                             <React.Fragment key={`defs_${cat.id}`}>
@@ -205,85 +323,101 @@ export function EvolutionLineChart({
                             );
                         })}
                         <filter id={shadowId} height="200%">
-                            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
-                            <feOffset in="blur" dx="0" dy="0" result="offsetBlur" />
-                            <feMerge>
-                                <feMergeNode in="offsetBlur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
+                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                     </defs>
-                    
-                    <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.06)" vertical={false} />
 
                     <XAxis
                         dataKey="date"
-                        tickFormatter={(val) => {
-                            if (!val) return '';
-                            const parts = String(val).split('-');
-                            return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : val;
-                        }}
-                        tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }}
+                        tickFormatter={formatDisplayDate}
+                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                         dy={10}
-                        axisLine={{ stroke: '#334155', strokeWidth: 1 }}
+                        axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)', strokeWidth: 1 }}
                         tickLine={false}
-                        minTickGap={30}
-                        padding={{ left: 10, right: 5 }}
+                        minTickGap={25}
+                        padding={{ left: 10, right: 10 }}
                     />
 
                     <YAxis
-                        tick={{ fontSize: 9, fill: '#64748b', fontWeight: 500 }}
+                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                         dx={-4}
-                        axisLine={{ stroke: '#334155', strokeWidth: 1 }}
+                        axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)', strokeWidth: 1 }}
                         tickLine={false}
-                        domain={[minScore, maxScore]}
+                        domain={[safeMinScore, safeMaxScore]}
                         allowDataOverflow={false}
                         tickFormatter={(v) => `${formatValue(v)}${unit}`}
-                        width={40}
+                        width={46}
                     />
 
+                    <ReferenceArea
+                        y1={safeTargetScore}
+                        y2={safeMaxScore}
+                        fill="#10b981"
+                        fillOpacity={0.05}
+                    />
+                    
+                    <ReferenceArea
+                        y1={safeMinScore}
+                        y2={dangerLimit}
+                        fill="#ef4444"
+                        fillOpacity={0.04}
+                    />
+                    
                     <ReferenceLine 
-                        y={targetScore} 
+                        y={safeTargetScore} 
                         stroke="#10b981" 
-                        strokeOpacity={0.6} 
-                        strokeWidth={1.5}
-                        strokeDasharray="4 2"
+                        strokeOpacity={0.8} 
+                        strokeWidth={2}
+                        strokeDasharray="5 3"
                         label={{ 
-                            value: `Meta ${targetScore}${unit}`, 
-                            fill: '#22c55e', 
+                            value: `Meta: ${formatValue(safeTargetScore)}${unit}`, 
+                            fill: '#34d399', 
                             fontSize: 10, 
-                            position: 'insideBottomLeft', 
-                            dy: -4, 
-                            dx: 5 
+                            fontWeight: 'bold',
+                            position: 'insideTopLeft', 
+                            dy: -12, 
+                            dx: 12 
                         }} 
                     />
 
                     <Tooltip 
-                        offset={25}
-                        cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '2 2' }}
-                        content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} />} 
+                        offset={20}
+                        cursor={{ stroke: 'rgba(255, 255, 255, 0.18)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+                        content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />} 
                     />
 
                     <Legend 
                         verticalAlign="top" 
-                        height={28}
-                        iconSize={6}
-                        wrapperStyle={{ fontSize: '9px', color: '#64748b', fontWeight: 600, paddingBottom: '6px' }} 
+                        height={32}
+                        iconSize={8}
+                        iconType="circle"
+                        onClick={handleLegendClick}
+                        wrapperStyle={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, paddingBottom: '8px', cursor: 'pointer', textTransform: 'capitalize' }} 
+                        formatter={(value) => value}
                     />
 
-                    {activeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
-                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : false;
-                        const hasFocus = showOnlyFocus ? !!focusSubjectId : false;
+                    {safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
-                        const lineType = engine?.style || 'linear'; // FIX: Mudado de monotoneX para linear como padrão para evitar o bug do Recharts (spaghetti/zig-zag effect) com connectNulls
-                        const displayColor = cat.color || '#3b82f6';
+                        const lineType = engine?.style || 'linear';
+                        // Determine focus state based on category ID rather than dataKey to survive engine changes
+                        const isLegendHighlighted = highlightedDataKey === cat.id;
+                        const isAnyHighlighted = !!highlightedDataKey;
+
+                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
+                        const hasFocus = showOnlyFocus ? !!focusSubjectId : isAnyHighlighted;
+                        
+                        let displayColor = cat.color || '#3b82f6';
+                        if (isLegendHighlighted) {
+                            displayColor = '#fbbf24'; // Vivid amber/gold highlight
+                        }
 
                         const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
                         const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.5) : 2;
 
                         return [
                             // Bayesian Confidence Interval Band
-                            (isFocused && engine?.id === 'bayesian') ? (
+                            (engine?.id === 'bayesian' && (!hasFocus || isFocused)) ? (
                                 <Area connectNulls key={`bay_ci_${cat.id}`} type={lineType}
                                     dataKey={`band_${cat.id}`}
                                     name="_IC 95%" stroke="none"
@@ -296,9 +430,26 @@ export function EvolutionLineChart({
                                 <Area connectNulls key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
                                     fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" />
                             ) : null,
-                            // The Performance Evolution Line
+                            // Bottom layer: Glow effect (thicker, transparent line)
+                            <Line connectNulls 
+                                key={`glow_${cat.id}`} 
+                                type={lineType} 
+                                dataKey={dataKey} 
+                                name={`_glow_${cat.name}`}
+                                stroke={displayColor} 
+                                strokeWidth={lineWidth + 4}
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                                strokeOpacity={(isFocused || !hasFocus) ? lineOpacity * 0.3 : 0}
+                                dot={false}
+                                activeDot={false}
+                                legendType="none"
+                                isAnimationActive={false}
+                            />,
+                            // Top layer: The Performance Evolution Line
                             <Line connectNulls 
                                 key={cat.id} 
+                                id={cat.id}
                                 type={lineType} 
                                 dataKey={dataKey} 
                                 name={cat.name}
@@ -308,9 +459,21 @@ export function EvolutionLineChart({
                                 strokeLinejoin="round"
                                 strokeOpacity={lineOpacity}
                                 dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
-                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" />}
-                                style={{ filter: (isFocused || !hasFocus) ? `url(#${shadowId})` : 'none', transition: 'opacity 0.2s ease' }}
+                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" isDimmed={hasFocus && !isFocused} onClick={(e) => {
+                                    if (e && e.stopPropagation) e.stopPropagation();
+                                    isLineClicked.current = true;
+                                    setHighlightedDataKey(cat.id);
+                                    setTimeout(() => { isLineClicked.current = false; }, 50);
+                                }} />}
+                                style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
                                 isAnimationActive={false}
+                                onClick={(props, e) => {
+                                    if (e && e.stopPropagation) e.stopPropagation();
+                                    if (props && props.nativeEvent && props.nativeEvent.stopPropagation) props.nativeEvent.stopPropagation();
+                                    isLineClicked.current = true;
+                                    setHighlightedDataKey(cat.id);
+                                    setTimeout(() => { isLineClicked.current = false; }, 50);
+                                }}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
                             </Line>
@@ -319,13 +482,16 @@ export function EvolutionLineChart({
 
                     <Brush 
                         dataKey="date" 
-                        height={30} 
-                        stroke="#64748b" 
-                        fill="rgba(15, 23, 42, 0.4)" 
-                        tickFormatter={(val) => val ? val.split('-').slice(1).reverse().join('/') : ''}
+                        height={26} 
+                        stroke="#6366f1" 
+                        fill="rgba(15, 23, 42, 0.85)" 
+                        tickFormatter={formatDisplayDate}
+                        travellerWidth={10}
                     />
                 </ComposedChart>
-            </ResponsiveContainer>
+                </ResponsiveContainer>
+            </ChartFrame>
         </div>
     );
 }
+

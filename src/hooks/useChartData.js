@@ -3,153 +3,179 @@ import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 
-const EMPTY_OBJECT = {};
-const EMPTY_ARRAY = [];
+const EMPTY_OBJECT = Object.freeze({});
+const EMPTY_ARRAY = Object.freeze([]);
 
+const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean);
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
-function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100) {
-    const aggregatedHistoryByDateMap = new Map();
+function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0) {
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeRange = Math.max(1e-9, safeMax - safeMin);
+    const toRatio = (score) => {
+        const n = Number(score);
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(1, (n - safeMin) / safeRange));
+    };
+    // FIX 2A: validar sortedDates
+    if (!Array.isArray(sortedDates) || sortedDates.length === 0) return {};
 
+    // ── PASSO 1: agregar por data em UMA passagem ──────────────────
+    const aggregatedByDate = new Map();
     for (const h of history) {
         const key = getDateKey(getHistoryDate(h));
         if (!key) continue;
+        const entry = aggregatedByDate.get(key);
+        const rawTotal = Math.max(0, Number(h?.total) || 0);
+        const rawCorrect = Math.max(0, Math.min(rawTotal, Number(h?.correct) || 0));
+        const score = getSafeScore(h, safeMax, safeMin);
+        const safeScore = Number.isFinite(score) ? score : NaN;
 
-        const existing = aggregatedHistoryByDateMap.get(key);
-        const rawTotal = Number(h.total) || 0;
-        const rawCorrect = Number(h.correct) || 0;
-        const score = getSafeScore(h, maxScore);
-        
         let compTotal = rawTotal;
-        let compCorrect = rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect;
+        let compCorrect = rawTotal > 0 && Number.isFinite(safeScore)
+            ? Math.round(toRatio(safeScore) * rawTotal)
+            : rawCorrect;
 
-        if (rawTotal === 0 && h.score != null) {
-            compTotal = getSyntheticTotal(maxScore);
-            const pct = Math.min(1, Math.max(0, score / maxScore));
-            compCorrect = Math.round(pct * compTotal);
+        if (rawTotal === 0 && h?.score != null && Number.isFinite(safeScore)) {
+            compTotal = getSyntheticTotal(safeMax);
+            compCorrect = Math.round(toRatio(safeScore) * compTotal);
         }
+        compCorrect = Math.max(0, Math.min(compTotal, Number.isFinite(compCorrect) ? compCorrect : 0));
 
-        if (existing) {
-            existing.compCorrect = (existing.compCorrect || 0) + compCorrect;
-            existing.compTotal = (existing.compTotal || 0) + compTotal;
-            existing.total += rawTotal;
-            existing.correct += rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect;
-            existing.score = (existing.compCorrect / existing.compTotal) * maxScore;
+        if (entry) {
+            entry.compCorrect += compCorrect;
+            entry.compTotal += compTotal;
+            entry.total += rawTotal;
+            entry.correct += Math.max(0, Math.min(rawTotal, Math.max(0, Number(h?.correct) || 0)));
+            entry.score = entry.compTotal > 0
+                ? safeMin + (entry.compCorrect / entry.compTotal) * safeRange
+                : NaN;
         } else {
-            aggregatedHistoryByDateMap.set(key, { 
-                ...h, 
-                date: key, 
-                correct: rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawCorrect, 
-                total: rawTotal, 
-                compCorrect, 
-                compTotal, 
-                score 
+            aggregatedByDate.set(key, {
+                date: key,
+                compCorrect,
+                compTotal,
+                total: rawTotal,
+                correct: Math.max(0, Math.min(rawTotal, Math.max(0, Number(h?.correct) || 0))),
+                score: safeScore,
             });
         }
     }
 
-    const aggregatedHistory = Array.from(aggregatedHistoryByDateMap.values()).sort((a, b) => {
-        const dA = normalizeDate(a.date);
-        const dB = normalizeDate(b.date);
-        return (dA?.getTime() || 0) - (dB?.getTime() || 0);
+    // Ordenar as chaves uma única vez
+    const sortedKeys = [...aggregatedByDate.keys()].sort((a, b) => {
+        const da = normalizeDate(a)?.getTime() ?? 0;
+        const db = normalizeDate(b)?.getTime() ?? 0;
+        return da - db;
     });
 
+    // ── PASSO 2: varrer sortedDates com índice incremental ─────────
+    // Cada entrada do histórico agregado é consumida UMA ÚNICA VEZ.
     const dateToStats = {};
     let accumulated = [];
     let histIdx = 0;
-
-    // Bayesian accumulators — Prior Beta(1,1) Neutral Laplace
     let bayAlpha = 1;
-    let bayBeta  = 1;
+    let bayBeta = 1;
     let maxAlphaEver = 1;
-    const DECAY_FACTOR = BAYESIAN_DECAY_FACTOR || 0.985; // 🎯 MATH SYNC: Fator central do engine (stats.js)
+    const DECAY_FACTOR = BAYESIAN_DECAY_FACTOR || 0.985;
+    let cachedStats = null;
+    let lastAccumulatedLen = 0;
 
     for (let i = 0; i < sortedDates.length; i++) {
         const date = sortedDates[i];
-        
-        while (histIdx < aggregatedHistory.length) {
-            const key = aggregatedHistory[histIdx].date;
-            if (key && key <= date) {
-                // 🎯 BAYESIAN DECAY: Aplica o decaimento baseado no gap temporal
-                const entry = aggregatedHistory[histIdx];
-                const entryDate = normalizeDate(entry.date);
-                const prevDate = histIdx > 0 ? normalizeDate(aggregatedHistory[histIdx - 1].date) : entryDate;
-                const gapDays = Math.max(1, Math.floor((entryDate - prevDate) / (1000 * 60 * 60 * 24)));
-                
-                if (histIdx > 0) {
-                    const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
-                    
-                    // 🎯 DRIFT BAYESIANO: Preservar o ratio atual durante o decaimento.
-                    if (entryDecay < 1.0) {
-                        const currentN = bayAlpha + bayBeta;
-                        const currentP = bayAlpha / currentN;
+
+        // Consome entradas do histórico ordenado até a data atual
+        while (histIdx < sortedKeys.length && sortedKeys[histIdx] <= date) {
+            const key = sortedKeys[histIdx];
+            const entry = aggregatedByDate.get(key);
+            histIdx++;
+            if (!entry) continue;
+
+            const entryDate = normalizeDate(entry.date);
+            const prevDate = histIdx > 1 ? normalizeDate(sortedKeys[histIdx - 2]) : entryDate;
+            const gapDays = Math.max(
+                1,
+                Math.floor(((entryDate?.getTime() ?? 0) - (prevDate?.getTime() ?? 0)) / 86400000)
+            );
+
+            // Decaimento bayesiano entre eventos
+            if (histIdx > 1) {
+                const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
+                // ✅ FIX L05: bayAlpha e bayBeta nunca podem ser negativos.
+                // Adicionadas verificações de sanidade após cada operação.
+                if (entryDecay < 1.0) {
+                    const currentN = bayAlpha + bayBeta;
+                    if (currentN > 0) {
+                        const currentP = Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN));
                         const newN = Math.max(2, currentN * entryDecay);
-                        bayAlpha = newN * currentP;
-                        bayBeta = newN * (1 - currentP);
-                    }
-
-                    // AMNÉSIA BAYESIANA: Piso de retenção permanente (30% do maior alpha já alcançado)
-                    const retentionFloor = maxAlphaEver * 0.3;
-                    if (bayAlpha < retentionFloor) {
-                        const currentN = bayAlpha + bayBeta;
-                        const currentP = (currentN > 0 && bayAlpha > 0) ? bayAlpha / currentN : 0.01;
-                        const safeP = Math.min(0.999999, Math.max(0.000001, currentP));
-                        bayAlpha = retentionFloor;
-                        bayBeta = bayAlpha * ((1 - safeP) / safeP);
+                        bayAlpha = Math.max(0.000001, newN * currentP);
+                        bayBeta = Math.max(0.000001, newN * (1 - currentP));
                     }
                 }
-
-                // entry já foi declarado acima na linha 55
-                // Usa os valores computados (com sintéticos) para estabilidade Bayesiana
-                let total   = entry.compTotal !== undefined ? entry.compTotal : (Number(entry.total) || 0);
-                let correct = entry.compCorrect !== undefined ? entry.compCorrect : (Number(entry.correct) || 0);
                 
-                // LOGIC-1 FIX: Fallback para entradas sem total/correct no gráfico
-                // BUG 4 FIX: Use maxScore instead of hardcoded 100.
-                // FIX BUG 1 (Matemática): Consistência Bayesiana para entradas percentuais
-                if (total === 0 && entry.score != null) {
-                    const pct = Math.min(1, Math.max(0, Number(entry.score) / maxScore));
-                    total = getSyntheticTotal(maxScore);
-                    correct = Math.round(pct * total);
+                const retentionFloor = Math.max(3, maxAlphaEver * 0.3);
+                if (bayAlpha < retentionFloor) {
+                    const currentN = bayAlpha + bayBeta;
+                    const currentP = currentN > 0 && bayAlpha > 0
+                        ? Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN))
+                        : 0.5;
+                    bayAlpha = retentionFloor;
+                    bayBeta = Math.max(0.000001, retentionFloor * ((1 - currentP) / currentP));
                 }
-
-                if (total >= 1) {
-                    bayAlpha += Number(correct);
-                    bayBeta  += (Number(total) - Number(correct));
-                    if (bayAlpha > maxAlphaEver) maxAlphaEver = bayAlpha;
-                }
-                accumulated.push(entry);
-                histIdx++;
-            } else {
-                break;
+                
+                // ✅ FIX: Garantia final de sanidade
+                if (!Number.isFinite(bayAlpha) || bayAlpha < 0) bayAlpha = 1;
+                if (!Number.isFinite(bayBeta) || bayBeta < 0) bayBeta = 1;
             }
+
+            const total = entry.compTotal > 0 ? entry.compTotal : 0;
+            const correct = entry.compCorrect > 0 ? entry.compCorrect : 0;
+
+            if (total >= 1) {
+                bayAlpha += Number(correct);
+                bayBeta += Number(total) - Number(correct);
+                if (bayAlpha > maxAlphaEver) maxAlphaEver = bayAlpha;
+            }
+
+            accumulated.push(entry);
         }
+
         if (accumulated.length > 0) {
-            // BUG 4b FIX: Propagate maxScore to computeCategoryStats and computeBayesianLevel
-            const lastEntry = accumulated.length > 0 ? accumulated[accumulated.length - 1] : null;
-            const bayStats = computeBayesianLevel([], bayAlpha, bayBeta, maxScore, {
+            if (accumulated.length !== lastAccumulatedLen || !cachedStats) {
+                cachedStats = computeCategoryStats(accumulated, 100, 60, safeMax, safeMin);
+                lastAccumulatedLen = accumulated.length;
+            }
+            const lastEntry = accumulated[accumulated.length - 1];
+            const bayStats = computeBayesianLevel(accumulated, 1, 1, safeMax, {
                 referenceDate: date,
-                lastEventDate: lastEntry ? lastEntry.date : null
+                lastEventDate: lastEntry ? lastEntry.date : null,
+                minScore: safeMin,
             });
             dateToStats[date] = {
-                stats: computeCategoryStats(accumulated, 100, 60, maxScore),
-                last:  accumulated[accumulated.length - 1],
+                stats: cachedStats,
+                last: lastEntry,
                 bayesian: {
-                    mean:   bayStats.mean,
-                    ciLow:  bayStats.ciLow,
+                    mean: bayStats.mean,
+                    ciLow: bayStats.ciLow,
                     ciHigh: bayStats.ciHigh,
-                    alpha:  bayAlpha,
-                    beta:   bayBeta,
+                    alpha: bayStats.alpha,
+                    beta: bayStats.beta,
                 },
             };
         }
     }
+
     return dateToStats;
 }
 
-export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100) {
+export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJECT, maxScore = 100, minScore = 0) {
+    const categories = Array.isArray(categoriesInput) ? categoriesInput : EMPTY_ARRAY;
+    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+
     const categoriesVersion = useMemo(() => categories.map((cat) => {
-        const history = Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT);
+        const history = getHistoryArray(cat);
         const tasks = Array.isArray(cat?.tasks) ? cat.tasks : EMPTY_ARRAY;
         const histDigest = history.map((h) => [
             getDateKey(getHistoryDate(h)) || 'nodate',
@@ -167,134 +193,135 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
             const hist = c.simuladoStats?.history;
             return hist && Object.values(hist).length > 0;
         });
-
+        const getVol = (h) => {
+            const t = Math.max(0, Number(h?.total) || 0);
+            if (t > 0) return t;
+            if (h?.score != null) return getSyntheticTotal(safeMax);
+            return 0;
+        };
         valid.sort((a, b) => {
-            const historyA = Object.values(a.simuladoStats?.history || EMPTY_OBJECT);
-            const historyB = Object.values(b.simuladoStats?.history || EMPTY_OBJECT);
-            const volA = historyA.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
-            const volB = historyB.reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            const historyA = getHistoryArray(a);
+            const historyB = getHistoryArray(b);
+            const volA = historyA.reduce((sum, h) => sum + getVol(h), 0);
+            const volB = historyB.reduce((sum, h) => sum + getVol(h), 0);
             return volB - volA;
         });
-
         return valid;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categories, categoriesVersion]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categories, categoriesVersion, safeMax]);
 
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];
-
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
+            getHistoryArray(cat).forEach(h => {
                 const dateKey = getDateKey(getHistoryDate(h));
                 if (dateKey) allDatesSet.add(dateKey);
             });
         });
-
         const sortedDates = Array.from(allDatesSet).sort();
         const dates = sortedDates;
         const dataByDate = {};
-
         dates.forEach((date) => {
             const [, month, day] = date.split("-");
-            dataByDate[date] = {
-                date,
-                displayDate: `${day}/${month}`
-            };
+            dataByDate[date] = { date, displayDate: `${day}/${month}` };
         });
 
         activeCategories.forEach(cat => {
-            const history = Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).sort((a, b) => {
+            const history = getHistoryArray(cat).sort((a, b) => {
                 const dA = normalizeDate(getHistoryDate(a));
                 const dB = normalizeDate(getHistoryDate(b));
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);
             });
             if (!history.length) return;
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catRange = Math.max(1e-9, catMax - catMin);
+            const toCatRatio = (score) => {
+                const n = Number(score);
+                if (!Number.isFinite(n)) return 0;
+                return Math.max(0, Math.min(1, (n - catMin) / catRange));
+            };
 
-            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, maxScore);
-
+            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, catMax, catMin);
             const exactByDate = {};
             history.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
-                
-                const rawTotal = Number(h.total) || 0;
-                const rawC = Number(h.correct) || 0;
-                const score = getSafeScore(h, maxScore);
-                const corrNorm = rawTotal > 0 ? Math.round((score / maxScore) * rawTotal) : rawC;
-
+                const rawTotal = Math.max(0, Number(h.total) || 0);
+                const rawC = Math.max(0, Math.min(rawTotal, Number(h.correct) || 0));
+                const score = getSafeScore(h, catMax, catMin);
+                if (!Number.isFinite(score)) return;
+                let corrNorm;
+                if (rawTotal > 0) {
+                    corrNorm = (!h.isPercentage && Number.isFinite(Number(h.correct)))
+                        ? rawC
+                        : Math.max(0, Math.min(rawTotal, Math.round(toCatRatio(score) * rawTotal)));
+                } else {
+                    corrNorm = rawC;
+                }
                 let compTotal = rawTotal;
                 let compCorrect = corrNorm;
                 if (rawTotal === 0 && h.score != null) {
-                    compTotal = getSyntheticTotal(maxScore);
-                    const pct = Math.min(1, Math.max(0, score / maxScore));
-                    compCorrect = Math.round(pct * compTotal);
+                    compTotal = getSyntheticTotal(catMax);
+                    compCorrect = Math.round(toCatRatio(score) * compTotal);
                 }
-
                 exactByDate[key].correct += corrNorm;
-                exactByDate[key].total   += rawTotal;
+                exactByDate[key].total += rawTotal;
                 exactByDate[key].compCorrect += compCorrect;
-                exactByDate[key].compTotal   += compTotal;
+                exactByDate[key].compTotal += compTotal;
             });
 
             dates.forEach(date => {
                 const snap = cumulativeByDate[date];
                 if (!snap) return;
-
                 const { stats } = snap;
                 const exact = exactByDate[date];
-
-                const correct = exact ? exact.correct : 0;
-                const total = exact ? exact.total : 0;
-
-                const rawDailyScore = exact && exact.compTotal >= 1
-                    ? (exact.compCorrect / exact.compTotal) * maxScore
-                    : (exact && snap?.last?.score != null ? getSafeScore(snap.last, maxScore) : null);
-
+                const displayCorrect = exact ? (exact.compTotal > 0 ? exact.compCorrect : exact.correct) : 0;
+                const displayTotal = exact ? (exact.compTotal > 0 ? exact.compTotal : exact.total) : 0;
+                let rawDailyScore = null;
+                if (exact && exact.compTotal >= 1) {
+                    const calc = catMin + (exact.compCorrect / exact.compTotal) * catRange;
+                    rawDailyScore = Number.isFinite(calc) ? calc : null;
+                } else if (exact && snap?.last) {
+                    const s = getSafeScore(snap.last, catMax, catMin);
+                    rawDailyScore = Number.isFinite(s) ? s : null;
+                }
                 dataByDate[date] = {
                     ...dataByDate[date],
-                    [`raw_correct_${cat.id}`]: correct,
-                    [`raw_total_${cat.id}`]: total,
+                    [`raw_correct_${cat.id}`]: displayCorrect,
+                    [`raw_total_${cat.id}`]: displayTotal,
                     [`raw_${cat.id}`]: rawDailyScore,
-                    [`bay_${cat.id}`]: snap.bayesian ? (Number(snap.bayesian.mean) || 0) : null,
-                    [`bay_ci_low_${cat.id}`]: snap.bayesian ? (Number(snap.bayesian.ciLow) || 0) : 0,
-                    [`bay_ci_high_${cat.id}`]: snap.bayesian ? (Number(snap.bayesian.ciHigh) || 0) : 0,
-                    [`stats_${cat.id}`]: stats ? (Number(stats.mean) || 0) : 0,
-                    [`trend_${cat.id}`]: stats ? (Number(stats.trendValue) || 0) : 0,
+                    [`bay_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.mean)) ? Number(snap.bayesian.mean) : catMin) : null,
+                    [`bay_ci_low_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciLow)) ? Number(snap.bayesian.ciLow) : catMin) : catMin,
+                    [`bay_ci_high_${cat.id}`]: snap.bayesian ? (Number.isFinite(Number(snap.bayesian.ciHigh)) ? Number(snap.bayesian.ciHigh) : catMax) : catMax,
+                    [`stats_${cat.id}`]: stats ? (Number.isFinite(Number(stats.mean)) ? Number(stats.mean) : catMin) : catMin,
+                    [`trend_${cat.id}`]: stats ? (Number.isFinite(Number(stats.trendValue)) ? Number(stats.trendValue) : 0) : 0,
                     [`trend_status_${cat.id}`]: stats ? stats.trend : 'stable',
-                    global_total: (Number(dataByDate[date].global_total) || 0) + total
+                    global_total: (Number(dataByDate[date].global_total) || 0) + displayTotal
                 };
             });
-
-            // 🎯 RIGOR-10 FIX: Removed direct object mutation that caused "object is not extensible" errors.
-            // Component-level decoration should happen in the UI layer or via useMemo to preserve immutability.
-            // (Decoration logic for currentLevels removed as it was unused and violating prop immutability)
-
         });
-
-
         return dates.map(d => dataByDate[d]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeCategories, weights, maxScore, categoriesVersion]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeCategories, weights, safeMax, safeMin, categoriesVersion]);
 
     const heatmapData = useMemo(() => {
         if (!activeCategories.length) return { dates: [], rows: [] };
-
         const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         const allDatesSet = new Set();
         activeCategories.forEach(cat => {
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
+            getHistoryArray(cat).forEach(h => {
                 const dateKey = getDateKey(getHistoryDate(h));
                 if (dateKey) allDatesSet.add(dateKey);
             });
         });
-
         const sortedDates = Array.from(allDatesSet).sort();
-        const datesToUse = sortedDates.slice(-60);
+        const datesToUse = sortedDates;
         const dates = datesToUse.map(dateStr => {
             const d = normalizeDate(dateStr);
-            const [_y, m, day] = dateStr.split('-');
+            const [, m, day] = dateStr.split('-');
             return {
                 key: dateStr,
                 dayName: DAY_NAMES[d.getDay()],
@@ -304,78 +331,86 @@ export function useChartData(categories = EMPTY_ARRAY, weights = EMPTY_OBJECT, m
         });
 
         const rows = activeCategories.map(cat => {
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catRange = Math.max(1e-9, catMax - catMin);
+            const toCatRatio = (score) => {
+                const n = Number(score);
+                if (!Number.isFinite(n)) return 0;
+                return Math.max(0, Math.min(1, (n - catMin) / catRange));
+            };
             const dayMap = {};
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
+            getHistoryArray(cat).forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                let tot = Number(h.total) || 0;
-                let raw = Number(h.correct) || 0;
+                let tot = Math.max(0, Number(h.total) || 0);
+                const raw = Math.max(0, Number(h.correct) || 0);
                 let corrNorm;
-                const score = getSafeScore(h, maxScore);
+                const score = getSafeScore(h, catMax, catMin);
+                if (!Number.isFinite(score)) return;
                 if (h.score != null && tot === 0) {
-                    // BUG 4 FIX: No heatmap, não injetamos volume sintético para não sujar o visual
-                    // de questões totais, mas mostramos a cor/porcentagem calculada.
-                    tot = 1; // Volume mínimo para exibir a cor
-                    corrNorm = score / maxScore; // Sem Math.round para preservar a exatidão (ex: 0.75 -> 75%)
+                    tot = getSyntheticTotal(catMax);
+                    corrNorm = Math.round(toCatRatio(score) * tot);
+                } else if (!h.isPercentage && Number.isFinite(Number(h.correct))) {
+                    corrNorm = Math.max(0, Math.min(tot, raw));
                 } else {
-                    corrNorm = tot > 0 ? Math.round((score / maxScore) * tot) : raw;
+                    corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
                 }
                 dayMap[key].correct += corrNorm;
                 dayMap[key].total += tot;
             });
-
             const cells = datesToUse.map(dateStr => {
                 const entry = dayMap[dateStr];
                 if (!entry || entry.total === 0) return null;
+                const pct = (entry.correct / entry.total) * 100;
                 return {
-                    pct: (entry.correct / entry.total) * 100,
+                    pct: Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0)),
                     correct: entry.correct,
                     total: entry.total,
                 };
             });
-
             return { cat, cells };
         });
-
         return { dates, rows };
-    }, [activeCategories, maxScore]);
+    }, [activeCategories, safeMax, safeMin]);
 
-        const globalMetrics = useMemo(() => {
+    const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
         let totalCorrect = 0;
         activeCategories.forEach(cat => {
-            Object.values(cat.simuladoStats?.history || EMPTY_OBJECT).forEach(h => {
-                let tot = Number(h.total) || 0;
+            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+            const catRange = Math.max(1e-9, catMax - catMin);
+            const toCatRatio = (score) => {
+                const n = Number(score);
+                if (!Number.isFinite(n)) return 0;
+                return Math.max(0, Math.min(1, (n - catMin) / catRange));
+            };
+            getHistoryArray(cat).forEach(h => {
+                let tot = Math.max(0, Number(h.total) || 0);
+                const score = getSafeScore(h, catMax, catMin);
+                if (!Number.isFinite(score)) return;
                 let corrNorm;
-                
-                // BUG 3 FIX: Incorporar simulados percentuais na Acurácia Global
-                // FIX BUG 2 (Matemática): Previne distorção na quantidade absoluta total.
-                // Se o usuário apenas inseriu nota (tot = 0), computamos isso com volume mínimo (1)
-                // para que a nota participe da Global Accuracy, sem adicionar centenas de questões 
-                // fantasmas ao "Total de Questões" resolvido.
                 if (tot === 0 && h.score != null) {
-                    tot = 1;
-                    corrNorm = (getSafeScore(h, maxScore) / maxScore) * tot;
+                    tot = getSyntheticTotal(catMax);
+                    corrNorm = Math.round(toCatRatio(score) * tot);
+                } else if (!h.isPercentage && Number.isFinite(Number(h.correct))) {
+                    corrNorm = Math.max(0, Math.min(tot, Number(h.correct)));
                 } else {
-                    const raw = Number(h.correct) || 0;
-                    corrNorm = tot > 0 
-                        ? Math.round((getSafeScore(h, maxScore) / maxScore) * tot)
-                        : raw;
+                    const raw = Math.max(0, Number(h.correct) || 0);
+                    corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
                 }
-                
+                // FIX 2B: blindagem extra contra NaN em corrNorm
+                if (!Number.isFinite(corrNorm)) return;
                 totalQuestions += tot;
                 totalCorrect += corrNorm;
             });
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
         return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
-    }, [activeCategories, maxScore]);
+    }, [activeCategories, safeMax, safeMin]);
 
-    return {
-        activeCategories,
-        timeline,
-        heatmapData,
-        globalMetrics
-    };
+    return { activeCategories, timeline, heatmapData, globalMetrics };
 }
+

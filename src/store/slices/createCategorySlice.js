@@ -1,6 +1,6 @@
-import { generateId } from '../../utils/idGenerator';
-import { normalize } from '../../utils/normalization';
-import { safeClone } from '../safeClone.js';
+import { generateId } from '../../utils/idGenerator.js';
+import { normalize } from '../../utils/normalization.js';
+import { safeClone } from '../../utils/safeClone.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => set((state) => {
@@ -17,6 +17,9 @@ export const createCategorySlice = (set) => ({
             return;
         }
 
+        const catMaxScore = Number(activeData.maxScore) > 0 ? Number(activeData.maxScore) : 100;
+        const catMinScore = Number.isFinite(Number(activeData.minScore)) ? Number(activeData.minScore) : 0;
+
         activeData.categories.push({
             id: generateId('cat'),
             name,
@@ -24,9 +27,9 @@ export const createCategorySlice = (set) => ({
             icon: '📚',
             tasks: [],
             weight: 10,
-            // BUG-FIX: maxScore ausente causava fallback silencioso a 100 em toda a engine
-            maxScore: 100,
-            minCutoff: 0,
+            maxScore: catMaxScore,
+            minScore: catMinScore,
+            minCutoff: catMinScore,
             simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
             totalMinutes: 0,
             lastStudiedAt: null
@@ -93,6 +96,13 @@ export const createCategorySlice = (set) => ({
 
         if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
             state.appState.pomodoro.activeSubject = null;
+            state.appState.pomodoro.neuralMode = false;
+            state.appState.pomodoro.neuralQueue = [];
+            try {
+                localStorage.removeItem('pomodoroState');
+            } catch {
+                // ignore
+            }
         }
 
         if (activeData.coachPlanner) {
@@ -103,6 +113,12 @@ export const createCategorySlice = (set) => ({
                     );
                 }
             });
+        }
+
+        if (Array.isArray(activeData.coachPlan)) {
+            activeData.coachPlan = activeData.coachPlan.filter(
+                task => task.categoryId !== id
+            );
         }
 
         state.appState.version = (state.appState.version || 0) + 1;
@@ -166,157 +182,234 @@ export const createCategorySlice = (set) => ({
     }),
 
     safelyMergeDuplicates: () => set((state) => {
-        const activeId = state.appState.activeId;
-        const activeData = state.appState.contests[activeId];
-        if (!activeId || !activeData || !Array.isArray(activeData.categories)) return;
+  const activeId = state.appState.activeId;
+  const activeData = state.appState.contests[activeId];
 
-        // BUG-FIX: O guard de versão bloqueava o merge após hidratação (IDB restore).
-        // Substituído por verificação real de duplicatas para só sair cedo se não há trabalho.
-        const hasDuplicates = (() => {
-            const seen = new Set();
-            return activeData.categories.some(cat => {
-                const key = normalize(cat.name);
-                if (seen.has(key)) return true;
-                seen.add(key);
-                return false;
-            });
-        })();
-        if (!hasDuplicates) return;
+  if (!activeId || !activeData || !Array.isArray(activeData.categories)) return;
 
-        const groups = {};
-        activeData.categories.forEach(cat => {
-            const norm = normalize(cat.name);
-            if (!groups[norm]) groups[norm] = [];
-            groups[norm].push(cat);
+  const hasDuplicates = (() => {
+    const seen = new Set();
+
+    return activeData.categories.some(cat => {
+      const key = normalize(cat.name);
+
+      if (seen.has(key)) return true;
+
+      seen.add(key);
+      return false;
+    });
+  })();
+
+  if (!hasDuplicates) return;
+
+  const groups = {};
+
+  activeData.categories.forEach(cat => {
+    const norm = normalize(cat.name);
+
+    if (!groups[norm]) groups[norm] = [];
+
+    groups[norm].push(cat);
+  });
+
+  let changed = false;
+  const newCategories = [];
+
+  Object.values(groups).forEach(group => {
+    if (group.length === 1) {
+      newCategories.push(group[0]);
+      return;
+    }
+
+    changed = true;
+    console.warn(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
+
+    const primary = group.sort((a, b) => {
+      const getHistoryLen = (obj) => {
+        const h = obj.simuladoStats?.history;
+        if (!h) return 0;
+
+        return Array.isArray(h) ? h.length : Object.values(h).length;
+      };
+
+      const aData = (a.tasks?.length || 0) + getHistoryLen(a);
+      const bData = (b.tasks?.length || 0) + getHistoryLen(b);
+
+      return bData - aData;
+    })[0];
+
+    const getHistoryArr = (c) => {
+      const h = c.simuladoStats?.history;
+      if (!h) return [];
+
+      return Array.isArray(h) ? h : Object.values(h);
+    };
+
+    const historyKey = (h) => {
+      if (!h) return 'invalid';
+
+      return h.id || `${h.date || ''}-${h.score ?? ''}-${h.total ?? ''}-${h.correct ?? ''}-${normalize(h.topic || '')}`;
+    };
+
+    const mergedTasks = [...(primary.tasks || [])];
+    const mergedHistory = [...getHistoryArr(primary)];
+    const seenHistory = new Set(mergedHistory.map(historyKey));
+
+    group.forEach(cat => {
+      if (cat.id === primary.id) return;
+
+      (cat.tasks || []).forEach(t => {
+        const taskTitle = (t.title || t.text || '').trim();
+
+        if (!mergedTasks.some(mt => (mt.title || mt.text || '').trim() === taskTitle)) {
+          mergedTasks.push(t);
+        }
+      });
+
+      getHistoryArr(cat).forEach(h => {
+        const key = historyKey(h);
+
+        if (!seenHistory.has(key)) {
+          seenHistory.add(key);
+          mergedHistory.push(h);
+        }
+      });
+
+      const oldId = cat.id;
+      const newId = primary.id;
+
+      if (activeData.studyLogs) {
+        const safeLogs = Array.isArray(activeData.studyLogs)
+          ? activeData.studyLogs
+          : Object.values(activeData.studyLogs || {});
+
+        safeLogs.forEach(l => {
+          if (l.categoryId === oldId) l.categoryId = newId;
         });
 
-        let changed = false;
-        const newCategories = [];
+        activeData.studyLogs = safeLogs;
+      }
 
-        Object.values(groups).forEach(group => {
-            if (group.length === 1) {
-                newCategories.push(group[0]);
+      if (activeData.studySessions) {
+        const safeSessions = Array.isArray(activeData.studySessions)
+          ? activeData.studySessions
+          : Object.values(activeData.studySessions || {});
+
+        safeSessions.forEach(s => {
+          if (s.categoryId === oldId) s.categoryId = newId;
+        });
+
+        activeData.studySessions = safeSessions;
+      }
+
+      if (activeData.simuladoRows) {
+        const safeRows = Array.isArray(activeData.simuladoRows)
+          ? activeData.simuladoRows
+          : Object.values(activeData.simuladoRows || {});
+
+        safeRows.forEach(r => {
+          if (r.categoryId === oldId) r.categoryId = newId;
+        });
+
+        activeData.simuladoRows = safeRows;
+      }
+    });
+
+    newCategories.push({
+      ...primary,
+      tasks: mergedTasks,
+      simuladoStats: {
+        ...primary.simuladoStats,
+        history: mergedHistory
+      }
+    });
+  });
+
+  if (changed) {
+    activeData.categories = newCategories;
+
+    if (activeData.mcWeights) {
+      const validKeys = new Set();
+
+      newCategories.forEach(c => {
+        validKeys.add(c.id);
+        validKeys.add(c.name);
+        validKeys.add(normalize(c.name));
+      });
+
+      Object.keys(activeData.mcWeights).forEach(key => {
+        if (!validKeys.has(key) && !validKeys.has(normalize(key))) {
+          delete activeData.mcWeights[key];
+        }
+      });
+    }
+
+    state.appState.version = (state.appState.version || 0) + 1;
+    state.appState.lastUpdated = new Date().toISOString();
+    localStorage.setItem('ultra-sync-dirty', 'true');
+  }
+}),
+
+    importCategory: (sourceContestId, categoryId) => {
+        let result = false;
+        set((state) => {
+            const sourceData = state.appState.contests[sourceContestId];
+            const activeData = state.appState.contests[state.appState.activeId];
+
+            if (!sourceData || !activeData || !Array.isArray(sourceData.categories)) return;
+
+            const categoryToImport = sourceData.categories.find(c => c.id === categoryId);
+            if (!categoryToImport) return;
+
+            if (!activeData.categories) activeData.categories = [];
+
+            // Check duplicates
+            const normName = normalize(categoryToImport.name);
+            if (activeData.categories.some(c => normalize(c.name) === normName)) {
+                console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
+                // BUG-T03 FIX: Retornar um valor que o caller possa usar
+                // para exibir feedback. O caller (Checklist) já faz a
+                // verificação antes de chamar, mas este é o fallback.
                 return;
             }
 
-            changed = true;
-            console.warn(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
+            const newId = generateId('cat');
+            const importedCat = safeClone(categoryToImport);
+            importedCat.id = newId;
 
-            const primary = group.sort((a, b) => {
-                const getHistoryLen = (obj) => {
-                    const h = obj.simuladoStats?.history;
-                    if (!h) return 0;
-                    return Array.isArray(h) ? h.length : Object.values(h).length;
-                };
-                const aData = (a.tasks?.length || 0) + getHistoryLen(a);
-                const bData = (b.tasks?.length || 0) + getHistoryLen(b);
-                return bData - aData;
-            })[0];
-
-            const getHistoryArr = (c) => {
-                const h = c.simuladoStats?.history;
-                if (!h) return [];
-                return Array.isArray(h) ? h : Object.values(h);
+            // Resetar histórico, tempo e estatísticas para o novo concurso
+            importedCat.totalMinutes = 0;
+            importedCat.lastStudiedAt = null;
+            importedCat.simuladoStats = {
+                history: [],
+                average: 0,
+                lastAttempt: 0,
+                trend: 'stable',
+                level: 'BAIXO'
             };
 
-            const mergedTasks = [...(primary.tasks || [])];
-            const mergedHistory = [...getHistoryArr(primary)];
-
-            group.forEach(cat => {
-                if (cat.id === primary.id) return;
-
-                (cat.tasks || []).forEach(t => {
-                    const taskTitle = (t.title || t.text || '').trim();
-                    if (!mergedTasks.some(mt => (mt.title || mt.text || '').trim() === taskTitle)) {
-                        mergedTasks.push(t);
-                    }
-                });
-
-                getHistoryArr(cat).forEach(h => {
-                    const exists = mergedHistory.some(mh => mh.date === h.date && normalize(mh.topic) === normalize(h.topic));
-                    if (!exists) mergedHistory.push(h);
-                });
-
-                const oldId = cat.id;
-                const newId = primary.id;
-
-                if (activeData.studyLogs) {
-                    const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
-                    safeLogs.forEach(l => { if (l.categoryId === oldId) l.categoryId = newId; });
-                    activeData.studyLogs = safeLogs;
-                }
-                if (activeData.studySessions) {
-                    const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
-                    safeSessions.forEach(s => { if (s.categoryId === oldId) s.categoryId = newId; });
-                    activeData.studySessions = safeSessions;
-                }
-                if (activeData.simuladoRows) {
-                    const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
-                    safeRows.forEach(r => { if (r.categoryId === oldId) r.categoryId = newId; });
-                    activeData.simuladoRows = safeRows;
-                }
+            // Regenerar IDs das tarefas e resetar progresso para o novo certame
+            const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
+            importedCat.tasks = rawTasks.map(t => {
+                const taskClone = safeClone(t);
+                return {
+                    ...taskClone,
+                    id: generateId('task'),
+                    completed: false,
+                    completedAt: null,
+                    status: null,
+                    awardedXP: undefined
+                };
             });
 
-            newCategories.push({
-                ...primary,
-                tasks: mergedTasks,
-                simuladoStats: {
-                    ...primary.simuladoStats,
-                    history: mergedHistory
-                }
-            });
-        });
-
-        if (changed) {
-            activeData.categories = newCategories;
-
-            // CLEANUP: Remover pesos órfãos
-            if (activeData.mcWeights) {
-                const validKeys = new Set();
-                newCategories.forEach(c => {
-                    validKeys.add(c.id);
-                    validKeys.add(c.name);
-                    validKeys.add(normalize(c.name));
-                });
-                Object.keys(activeData.mcWeights).forEach(key => {
-                    if (!validKeys.has(key) && !validKeys.has(normalize(key))) {
-                        delete activeData.mcWeights[key];
-                    }
-                });
-            }
+            activeData.categories.push(importedCat);
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
             localStorage.setItem('ultra-sync-dirty', 'true');
-        }
-    }),
-
-    importCategory: (sourceContestId, categoryId) => set((state) => {
-        const sourceData = state.appState.contests[sourceContestId];
-        const activeData = state.appState.contests[state.appState.activeId];
-
-        if (!sourceData || !activeData || !Array.isArray(sourceData.categories)) return;
-
-        const categoryToImport = sourceData.categories.find(c => c.id === categoryId);
-        if (!categoryToImport) return;
-
-        if (!activeData.categories) activeData.categories = [];
-
-        // Check duplicates
-        const normName = normalize(categoryToImport.name);
-        if (activeData.categories.some(c => normalize(c.name) === normName)) {
-            console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
-            return;
-        }
-
-        const newId = generateId('cat');
-        const importedCat = safeClone(categoryToImport);
-        importedCat.id = newId;
-
-        activeData.categories.push(importedCat);
-
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
-    }),
+            result = true;
+        });
+        return result;
+    },
 });
+

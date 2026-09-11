@@ -1,12 +1,23 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Target, AlertTriangle, ShieldCheck, HelpCircle, Activity, AlertCircle, Settings2, Plus, RotateCcw, BookOpen } from 'lucide-react';
+import {
+    TrendingUp,
+    TrendingDown,
+    Minus,
+    Target,
+    HelpCircle,
+    Activity,
+    Settings2,
+    BookOpen
+} from 'lucide-react';
 import MonteCarloGauge from './MonteCarloGauge';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
 import { useAppStore } from '../store/useAppStore';
+// ✅ LOTE-02 FIX (A1): shallow comparison para seletores que retornam arrays novos
+import { useShallow } from 'zustand/react/shallow';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
-import { getSafeScore } from '../utils/scoreHelper';
+import { getSafeScore, formatValue } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
-import { getDateKey, normalizeDate } from '../utils/dateHelper';
+import { getDateKey, normalizeDate, APP_TIMEZONE } from '../utils/dateHelper';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 import DueForecast from './DueForecast';
 
@@ -21,8 +32,19 @@ const TAILWIND_COLOR_MAP = {
 };
 const getColorClasses = (textColor) => TAILWIND_COLOR_MAP[textColor] || TAILWIND_COLOR_MAP['text-slate-400'];
 
-// FIX 1.4: Mapa unificado de prioridade de estados (usado para sorting E para mediana)
-const STATE_PRIORITY = { regression: 0, stagnation_negative: 1, unstable: 2, stagnation_neutral: 3, progression: 4, stagnation_positive: 5, mastery: 6 };
+// T-030 FIX: incluir insufficient_data explicitamente
+const STATE_PRIORITY = {
+    regression: 0,
+    stagnation_negative: 1,
+    unstable: 2,
+    stagnation_neutral: 3,
+    progression: 4,
+    stagnation_positive: 5,
+    mastery: 6,
+    insufficient_data: 7
+};
+
+const EMPTY_ARRAY = Object.freeze([]);
 
 const InfoTooltip = React.memo(({ text }) => (
     <div className="relative group/tooltip inline-block ml-auto z-10">
@@ -33,59 +55,68 @@ const InfoTooltip = React.memo(({ text }) => (
     </div>
 ));
 
-const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData }) => (
-    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.15)] hover:shadow-[0_0_25px_rgba(168,85,247,0.3)]' :
-        status === 'warning' ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.3)]' :
-            'border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:shadow-[0_0_25px_rgba(59,130,246,0.3)]'
+const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData, maxScore = 100 }) => (
+    <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.12)]' :
+        status === 'warning' ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.12)]' :
+            'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.12)]'
         }`}>
-        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
-        <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-lg border bg-opacity-20 flex items-center justify-center ${status === 'excellence' || status === 'good' ? 'bg-purple-500/20 border-purple-500/30' : status === 'warning' ? 'bg-red-500/20 border-red-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
+        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl rounded-full pointer-events-none group-hover:from-blue-500/20 group-hover:via-purple-500/20 transition-all duration-700" />
+        <div className="flex justify-between items-start mb-3 relative z-10">
+            <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shadow-lg ${status === 'excellence' || status === 'good' ? 'bg-purple-500/20 border-purple-500/30' : status === 'warning' ? 'bg-red-500/20 border-red-500/30' : 'bg-blue-500/20 border-blue-500/30'}`}>
                     <Target size={18} className={status === 'excellence' || status === 'good' ? "text-purple-400" : status === 'warning' ? "text-red-400" : "text-blue-400"} />
                 </div>
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                    Previsão IA
-                    {trend !== 'stable' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
-                </span>
+                <div>
+                    <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5 leading-none">
+                        Previsão IA
+                        {(trend === 'up' || trend === 'down') && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400 mt-0.5 block">Motor Preditivo</span>
+                </div>
             </div>
         </div>
-        <div className="text-center my-4 relative z-10 pb-1">
-            <h2 className={`text-base sm:text-lg md:text-[22px] font-black leading-tight whitespace-nowrap ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-500' :
-                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-500' :
-                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-500'
+        <div className="text-center my-3 relative z-10 pb-1">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-black leading-tight tracking-tight ${status === 'excellence' || status === 'good' ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-purple-400' :
+                status === 'warning' ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-300 to-red-400' :
+                    'text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-400'
                 }`}>
                 {prediction}
             </h2>
         </div>
-        <div className="grid grid-cols-2 gap-2 w-full mb-3 relative z-10">
-            <div className="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Meta</span>
+        <div className="grid grid-cols-2 gap-2.5 w-full mb-3 relative z-10">
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-slate-900/70 transition-colors">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Meta</span>
                 <div className="flex items-baseline gap-0.5">
-                    <span className="text-sm sm:text-base font-black text-slate-200">{targetScore ?? 70}</span>
-                    <span className="text-[10px] text-slate-500 font-bold">%</span>
+                    <span className="text-base sm:text-lg font-black text-white font-mono">{formatValue(targetScore ?? 70)}</span>
+
+                    {/* T-026 FIX: unidade dinâmica */}
+                    {maxScore === 100 ? (
+                        <span className="text-[10px] text-slate-400 font-bold">%</span>
+                    ) : (
+                        <span className="text-[8px] text-slate-400 font-bold">/{maxScore}</span>
+                    )}
                 </div>
             </div>
-            <div className="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-black/70 transition-colors">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter md:tracking-wider mb-1">Tendência</span>
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner hover:bg-slate-900/70 transition-colors">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Tendência</span>
                 <div className="flex items-center gap-1.5">
                     {hasEnoughData ? (
                         <>
-                            {trend === 'up' && <TrendingUp size={14} className="text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" />}
-                            {trend === 'down' && <TrendingDown size={14} className="text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]" />}
-                            {trend === 'stable' && <Minus size={14} className="text-slate-500" />}
-                            <span className="text-[11px] sm:text-xs font-black text-slate-200 uppercase">
+                            {trend === 'up' && <TrendingUp size={14} className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" />}
+                            {trend === 'down' && <TrendingDown size={14} className="text-rose-400 drop-shadow-[0_0_5px_rgba(244,63,94,0.5)]" />}
+                            {trend === 'stable' && <Minus size={14} className="text-slate-400" />}
+                            <span className="text-xs font-black text-white uppercase tracking-wider">
                                 {trend === 'up' ? 'Alta' : trend === 'down' ? 'Baixa' : 'Estável'}
                             </span>
                         </>
                     ) : (
-                        <span className="text-xs font-black text-slate-500 uppercase tracking-tighter">Pendente</span>
+                        <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Pendente</span>
                     )}
                 </div>
             </div>
         </div>
-        <div className="mt-auto pt-3 border-t border-white/10 relative z-10">
-            <p className="text-[10px] text-slate-400 text-center leading-relaxed font-semibold">
+        <div className="mt-auto pt-2.5 border-t border-white/10 relative z-10">
+            <p className="text-[10.5px] text-slate-400 text-center leading-relaxed font-medium">
                 {subtext}
             </p>
         </div>
@@ -95,57 +126,77 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
     </div>
 ));
 
-const ConsistencyCard = React.memo(({ consistency }) => (
-    <div className={`glass h-full p-4 rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900 via-slate-900 to-black/80 group hover:bg-black/40 transition-colors shadow-2xl ${consistency.bgBorder}`}>
-        <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="flex items-center gap-2">
-                <div className={`p-1.5 rounded-lg border bg-opacity-20 ${getColorClasses(consistency.color).bg20} ${consistency.bgBorder}`}>
+const ConsistencyCard = React.memo(({ consistency }) => {
+    const isInsufficient = ['Dados Insuficientes', 'SEM DADOS', 'Sem Dados'].includes(consistency?.status);
+
+    return (
+    <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl ${consistency.bgBorder}`}>
+        <div className="flex justify-between items-start mb-3 relative z-10">
+            <div className="flex items-center gap-2.5">
+                <div className={`w-9 h-9 rounded-xl border ${getColorClasses(consistency.color).bg20} ${consistency.bgBorder} flex items-center justify-center shadow-lg`}>
                     <Activity size={18} className={consistency.color} />
                 </div>
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Consistência</span>
+                <div>
+                    <span className="text-xs font-black text-white uppercase tracking-wider leading-none">Consistência</span>
+                    <span className="text-[10px] font-medium text-slate-400 mt-0.5 block">Estabilidade Global</span>
+                </div>
             </div>
         </div>
-        <div className="text-center my-4 relative z-10">
-            <h2 className={`text-lg md:text-xl font-black leading-tight ${consistency.color} drop-shadow-md`}>
+        <div className="text-center my-3 relative z-10">
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-black leading-tight tracking-tight ${consistency.color} drop-shadow-md`}>
                 {consistency.status}
             </h2>
         </div>
-        <div className="grid grid-cols-2 gap-2 w-full mb-3">
-            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Desvio Padrão</span>
-                <span className={`text-sm font-black ${consistency.status !== 'Dados Insuficientes' ? consistency.color : 'text-slate-500'}`}>
-                    {consistency.status !== 'Dados Insuficientes' && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}` : '---'}
+        <div className="grid grid-cols-2 gap-2.5 w-full mb-3">
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Desvio Padrão</span>
+                <span className={`text-base sm:text-lg font-black font-mono ${!isInsufficient ? consistency.color : 'text-slate-500'}`}>
+                    {!isInsufficient && !isNaN(parseFloat(consistency.sd)) ? `±${consistency.sd}` : '---'}
                 </span>
             </div>
-            <div className="bg-black/40 p-2 rounded-lg border border-white/10 flex flex-col items-center shadow-inner">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Diagnóstico</span>
-                <span className="text-xs font-bold text-slate-200 text-center leading-tight line-clamp-2 px-1">
-                    {consistency.status === 'Dados Insuficientes' ? 'Pendente' :
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex flex-col items-center justify-center shadow-inner">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Diagnóstico</span>
+                <span className="text-xs font-black text-slate-200 text-center leading-tight line-clamp-2 px-1">
+                    {isInsufficient ? 'Pendente' :
                         (['EXCELENTE', 'EM EVOLUÇÃO', 'DOMÍNIO'].includes(consistency.status) ? 'Alta Estabilidade' :
                             (['EM QUEDA', 'INSTÁVEL'].includes(consistency.status) ? 'Alta Variação' : 'Variação Média'))}
                 </span>
             </div>
         </div>
-        <div className="mt-auto pt-2 border-t border-white/10">
-            <p className="text-[10px] text-slate-300 text-center leading-relaxed font-medium">
+        <div className="mt-auto pt-2.5 border-t border-white/10">
+            <p className="text-[10.5px] text-slate-300 text-center leading-relaxed font-medium">
                 {consistency.message}
             </p>
         </div>
     </div>
-));
+    );
+});
 
-const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
+const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100, minScore = 0 }) => {
     const safeMaxSdVal = Math.max(1e-6, Number(maxSdVal) || 0);
     const sdNum = Number.isFinite(parseFloat(cat.sd)) ? parseFloat(cat.sd) : 0;
     // BUG-26 FIX: Evitar NaN/Infinity quando maxSdVal é 0
-    const barWidth = maxSdVal === 0 ? 100 : Math.max(0, 100 - (sdNum / safeMaxSdVal) * 100);
+    const barWidth = maxSdVal === 0 ? 100 : Math.min(100, Math.max(0, 100 - (sdNum / safeMaxSdVal) * 100));
     const deltaNum = Number.isFinite(parseFloat(cat.delta)) ? parseFloat(cat.delta) : 0;
     const safeColor = typeof cat.color === 'string' ? cat.color : 'text-slate-400';
     const safeBgBorder = typeof cat.bgBorder === 'string' ? cat.bgBorder : 'border-slate-500/30';
-    // FIX 1.1: Usar mapa estático em vez de .replace() dinâmico (Tailwind purge-safe)
-    const colorClasses = getColorClasses(safeColor);
-    const sdBarColor = colorClasses.bar;
-    const sdBarGlow = colorClasses.shadow;
+    const scoreRange = Math.max(1e-9, (Number(maxScore) || 100) - (Number(minScore) || 0));
+
+    // FIX 1.1 & BUG 10: Sincronizar cores da barra de estabilidade com os tiers da legenda baseados no scoreRange
+    const getSdBarStyles = (sd, range) => {
+        if (sd <= 0.05 * range) return { bar: 'bg-purple-500', shadow: 'shadow-purple-500/30' };
+        if (sd <= 0.10 * range) return { bar: 'bg-blue-500', shadow: 'shadow-blue-500/30' };
+        if (sd <= 0.15 * range) return { bar: 'bg-orange-500', shadow: 'shadow-orange-500/30' };
+        if (sd <= 0.25 * range) return { bar: 'bg-red-400', shadow: 'shadow-red-400/30' };
+        return { bar: 'bg-red-600', shadow: 'shadow-red-600/30' };
+    };
+    const sdStyles = getSdBarStyles(sdNum, scoreRange);
+    const sdBarColor = sdStyles.bar;
+    const sdBarGlow = sdStyles.shadow;
+
+    // Marcadores escalonados por scoreRange (5% e 15% do domínio)
+    const sd5Val = 0.05 * scoreRange;
+    const sd15Val = 0.15 * scoreRange;
 
     return (
         <div className={`grid grid-cols-[1fr_auto_100px] md:grid-cols-12 gap-2 px-3 py-2.5 rounded-xl items-center transition-all duration-300 hover:bg-white/[0.03] ${idx % 2 === 0 ? 'bg-black/10' : ''}`}>
@@ -161,24 +212,31 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
             <div className="flex items-center gap-2 md:col-span-4 min-w-0">
                 <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
                     <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (5 / safeMaxSdVal) * 100)}%` }} title="SD=5" />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.min(100, (15 / safeMaxSdVal) * 100)}%` }} title="SD=15" />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd5Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd5Val}`} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd15Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd15Val}`} />
                 </div>
-                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? sdNum.toFixed(0) : '--'}</span>
+                <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? (sdNum < 1 && sdNum > 0 ? sdNum.toFixed(1) : sdNum.toFixed(0)) : '--'}</span>
             </div>
             <div className="hidden md:flex md:col-span-1 justify-center items-center">
-                {deltaNum > 0 ? (
-                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.abs(deltaNum).toFixed(0)}</span>
-                ) : deltaNum < 0 ? (
-                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(0)}</span>
+                {deltaNum >= 0.5 ? (
+                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.round(deltaNum)}</span>
+                ) : deltaNum >= 0.1 ? (
+                    <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{deltaNum.toFixed(1)}</span>
+                ) : deltaNum <= -0.5 ? (
+                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{Math.round(deltaNum)}</span>
+                ) : deltaNum <= -0.1 ? (
+                    <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(1)}</span>
                 ) : (
                     <span className="text-[10px] font-bold text-slate-600">—</span>
                 )}
             </div>
             <div className="hidden md:flex md:col-span-2 flex-col justify-center gap-0.5 min-w-0 pr-3">
                 {cat.villains && cat.villains.length > 0 ? (
-                    cat.villains.slice(0, 2).map((v) => (
-                        <div key={v.name} className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full min-w-0 px-1">
+                    cat.villains.slice(0, 2).map((v, vIdx) => (
+                        <div
+                            key={`${cat.id || cat.name}-${v.name}-${vIdx}`}
+                            className="flex items-center justify-between gap-1 text-[12px] leading-tight min-h-[14px] w-full min-w-0 px-1"
+                        >
                             <span className="text-slate-400 truncate font-semibold min-w-0" title={v.name}>{v.name}</span>
                             <span className="text-red-400 font-mono font-black shrink-0">±{v.sd.toFixed(0)}</span>
                         </div>
@@ -191,12 +249,13 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal }) => {
     );
 });
 
-const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 }) => {
+const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100, minScore = 0 }) => {
     if (categoryBreakdown.length === 0) return (
-        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 1 simulado em cada matéria para gerar o diagnóstico individual.</div>
+        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 3 simulados em cada matéria para gerar o diagnóstico individual.</div>
     );
 
-    const maxSdVal = Math.max(0.25 * maxScore, ...categoryBreakdown.map(c => c.rawSd || 0));
+    const scoreRange = Math.max(1e-9, (Number(maxScore) || 100) - (Number(minScore) || 0));
+    const maxSdVal = Math.max(0.25 * scoreRange, ...categoryBreakdown.map(c => c.rawSd || 0));
 
     return (
         <div className="flex flex-col gap-1">
@@ -208,15 +267,22 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
                 <div className="hidden md:block md:col-span-2 text-center">Vilões</div>
             </div>
             {categoryBreakdown.map((cat, idx) => (
-                <CategoryRow key={cat.name} cat={cat} idx={idx} maxSdVal={maxSdVal} />
+                <CategoryRow
+                    key={cat.id || cat.name}
+                    cat={cat}
+                    idx={idx}
+                    maxSdVal={maxSdVal}
+                    maxScore={maxScore}
+                    minScore={minScore}
+                />
             ))}
             <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-4 text-[9px] font-black uppercase tracking-widest text-slate-500 pt-4 border-t border-white/5 opacity-60">
                 {[
-                    { color: 'bg-purple-500', label: 'SD ≤ 5' },
-                    { color: 'bg-blue-500', label: 'SD ≤ 10' },
-                    { color: 'bg-orange-500', label: 'SD ≤ 15' },
-                    { color: 'bg-red-400', label: 'SD ≤ 25' },
-                    { color: 'bg-red-600', label: 'SD > 25' }
+                    { color: 'bg-purple-500', label: `SD ≤ ${0.05 * scoreRange < 1 ? (0.05 * scoreRange).toFixed(1) : (0.05 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-blue-500', label: `SD ≤ ${0.10 * scoreRange < 1 ? (0.10 * scoreRange).toFixed(1) : (0.10 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-orange-500', label: `SD ≤ ${0.15 * scoreRange < 1 ? (0.15 * scoreRange).toFixed(1) : (0.15 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-red-400', label: `SD ≤ ${0.25 * scoreRange < 1 ? (0.25 * scoreRange).toFixed(1) : (0.25 * scoreRange).toFixed(0)}` },
+                    { color: 'bg-red-600', label: `SD > ${0.25 * scoreRange < 1 ? (0.25 * scoreRange).toFixed(1) : (0.25 * scoreRange).toFixed(0)}` }
                 ].map(l => (
                     <div key={l.label} className="flex items-center gap-1.5">
                         <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
@@ -228,61 +294,128 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100 })
     );
 });
 
-export default function VerifiedStats({ categories = [], user }) {
+export default function VerifiedStats({ categories = [], user, flashcardDecks: propFlashcardDecks }) {
     const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
-    const maxScore = useMemo(() => {
-        const scores = safeCategories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
-        return scores.length > 0 ? Math.max(...scores) : 100;
+    // ✅ FIX: usar hash estável das categorias como dependência
+    const categoriesHash = useMemo(() => {
+      return JSON.stringify(
+        safeCategories.map(c => ({ 
+          id: c.id, 
+          maxScore: c.maxScore, 
+          minScore: c.minScore 
+        }))
+      );
     }, [safeCategories]);
 
-    const flashcardDecks = useAppStore(state => {
-        const activeId = state.appState?.activeId;
-        const contest = state.appState?.contests?.[activeId] || {};
-        const rawDecks = contest.flashcardDecks || [];
-        return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
-    });
+    // ✅ LOTE-02 FIX (M5): reduce em vez de spread — evita RangeError com muitas categorias
+    const maxScore = useMemo(() => {
+        const scores = safeCategories.map(c => Number(c.maxScore)).filter(s => Number.isFinite(s) && s > 0);
+        return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoriesHash]);
+    const minScore = useMemo(() => {
+        const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
+        return scores.length > 0 ? scores.reduce((a, b) => Math.min(a, b), Infinity) : 0;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [categoriesHash]);
+
+    // T-039 FIX: estabilizar a prop unit para ajudar na memoização do gauge
+    const gaugeUnit = useMemo(() => {
+        return maxScore === 100 ? '%' : ' pts';
+    }, [maxScore]);
+
+    // FIX LÓGICO: Clampar meta à escala [minScore, maxScore] sem loops multiplicativos
+    const normalizeTargetToScale = React.useCallback((raw) => {
+        const n = Number(raw);
+
+        const fallback = maxScore === 100
+            ? 70
+            : Math.round(minScore + (maxScore - minScore) * 0.7);
+
+        if (!Number.isFinite(n) || (minScore >= 0 ? n <= 0 : n < minScore)) return fallback;
+
+        return Math.max(minScore, Math.min(maxScore, n));
+    }, [maxScore, minScore]);
+
+    // ✅ LOTE-02 FIX (A1): sem useShallow, Object.values criava um array NOVO a cada
+    // snapshot da store → o componente re-renderizava em qualquer mudança global
+    // (pomodoro, sessão, flashcard...). O useShallow compara os elementos.
+    // ✅ CORREÇÃO — seletor que retorna referência estável
+    const activeId = useAppStore(state => state.appState?.activeId);
+    // FIX Bug 4: useShallow envolve o seletor conforme API do Zustand/React
+    const storeFlashcardDecks = useAppStore(
+        useShallow(state => {
+            const rawDecks = state.appState?.contests?.[activeId]?.flashcardDecks || [];
+            return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
+        })
+    );
+    const flashcardDecks = propFlashcardDecks || storeFlashcardDecks;
 
     const flashcardIndicators = useMemo(() => {
-        const decks = flashcardDecks || [];
-        // Centralized helpers (consistent TZ dates + mastery >=6)
+        const decks = Array.isArray(flashcardDecks) ? flashcardDecks : Object.values(flashcardDecks || {});
         const totalCards = getFlashcardTotalCards(decks);
         return {
             totalDecks: getFlashcardDeckCount(decks),
             totalCards,
             dueToday: getFlashcardDueTodayCount(decks),
             masteryPct: getFlashcardMasteryPct(decks),
-            totalReviews: decks.reduce((sum, d) => sum + (d.cards || []).reduce((r, c) => r + (c.reviews || 0), 0), 0)
+            totalReviews: decks.reduce((sum, d) => {
+                const cards = d?.cards ? (Array.isArray(d.cards) ? d.cards : Object.values(d.cards)) : [];
+                return sum + cards.reduce((r, c) => r + (Number(c?.reviews) || 0), 0);
+            }, 0)
         };
     }, [flashcardDecks]);
 
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
-    const [targetScore, setTargetScore] = React.useState(() => {
-        const userTarget = parseFloat(user?.targetProbability);
-        return !isNaN(userTarget) ? userTarget : 70;
-    });
+    const [targetScore, setTargetScore] = React.useState(() =>
+        normalizeTargetToScale(user?.targetProbability)
+    );
 
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
     const pendingLocalSave = React.useRef(false);
+
+    // FIX Bug 7: Ao trocar de concurso ativo, redefinir targetScore imediatamente para a meta do novo concurso
+    const lastActiveId = React.useRef(activeId);
+    React.useEffect(() => {
+        if (lastActiveId.current !== activeId) {
+            lastActiveId.current = activeId;
+            pendingLocalSave.current = false;
+            setTimeout(() => setTargetScore(normalizeTargetToScale(user?.targetProbability)), 0);
+        }
+    }, [activeId, user?.targetProbability, normalizeTargetToScale]);
 
     // FIX: Wrapper para setTargetScore que trava a sincronização IMEDIATAMENTE ao interagir,
     // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
     const handleSetTargetScore = React.useCallback((newScore) => {
         pendingLocalSave.current = true;
-        setTargetScore(newScore);
-    }, []);
+        setTargetScore(normalizeTargetToScale(newScore));
+    }, [normalizeTargetToScale]);
 
-    // B-06 FIX: Sincronização Robusta com Trava de Round-trip
+    // B-06 & Bug 7 FIX: Sincronização Robusta com Trava de Round-trip e reset seguro
     const storeTarget = user?.targetProbability;
     
     React.useEffect(() => {
+        if (storeTarget == null || storeTarget === '') {
+            // Se o concurso não tem meta definida, e o cadeado está aberto, adotamos o fallback da escala
+            if (!pendingLocalSave.current) {
+                const fallback = normalizeTargetToScale(null);
+                if (Math.abs(fallback - targetScore) > 0.01) {
+                    setTimeout(() => setTargetScore(fallback), 0);
+                }
+            }
+            return;
+        }
         const parsedStore = parseFloat(storeTarget);
         if (isNaN(parsedStore)) return;
+
+        // T-026 FIX: normalizar o valor vindo da store para a escala atual
+        const normalizedStore = normalizeTargetToScale(parsedStore);
 
         // Se estamos aguardando um salvamento local
         if (pendingLocalSave.current) {
             // SÓ abrimos o cadeado quando a Store refletir o novo valor
-            if (Math.abs(parsedStore - targetScore) < 0.01) {
+            if (Math.abs(normalizedStore - targetScore) < 0.01) {
                 pendingLocalSave.current = false;
             }
             // Enquanto o cadeado estiver fechado, ignoramos o que vem da Store
@@ -290,12 +423,23 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
-        if (Math.abs(parsedStore - targetScore) > 0.01) {
-            setTimeout(() => setTargetScore(parsedStore), 0);
+        if (Math.abs(normalizedStore - targetScore) > 0.01) {
+            setTimeout(() => setTargetScore(normalizedStore), 0);
         }
-    }, [storeTarget, targetScore]);
+    }, [storeTarget, targetScore, normalizeTargetToScale]);
     const [showConfig, setShowConfig] = React.useState(false);
     const [showSubjects, setShowSubjects] = React.useState(false);
+
+    // T-039 FIX: adiar levemente a montagem do gauge futuro para reduzir o pico inicial de cálculo.
+    const [mountFutureGauge, setMountFutureGauge] = React.useState(false);
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setMountFutureGauge(true);
+        }, 150);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     // Performance Fix: Debounce targetScore for the heavy 'stats' calculation
     const [statsTarget, setStatsTarget] = React.useState(targetScore);
@@ -304,12 +448,23 @@ export default function VerifiedStats({ categories = [], user }) {
         return () => clearTimeout(timer);
     }, [targetScore]);
 
-    const activeId = useAppStore(state => state.appState?.activeId);
+
     const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || null);
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
-    const equalWeightsMode = useAppStore(state => !!state.appState?.mcEqualWeights);
+    const equalWeightsMode = useAppStore(state => state.appState?.mcEqualWeights ?? true);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
-    const historicalCutoffs = useAppStore(state => state.appState?.contests?.[activeId]?.historicalCutoffs) || [];
+    // T-008 FIX: Normalizar para array. Se vier como objeto Firebase,
+    // convertemos com Object.values para evitar crash em .map().
+    const rawHistoricalCutoffs = useAppStore(
+        state => state.appState?.contests?.[activeId]?.historicalCutoffs
+    );
+    const historicalCutoffs = useMemo(() => {
+        if (Array.isArray(rawHistoricalCutoffs)) return rawHistoricalCutoffs;
+        if (rawHistoricalCutoffs && typeof rawHistoricalCutoffs === 'object') {
+            return Object.values(rawHistoricalCutoffs);
+        }
+        return EMPTY_ARRAY;
+    }, [rawHistoricalCutoffs]);
     const setHistoricalCutoffs = useAppStore(state => state.setHistoricalCutoffs);
 
     const getEqualWeights = React.useCallback(() => {
@@ -333,44 +488,47 @@ export default function VerifiedStats({ categories = [], user }) {
     const setUserData = useAppStore(state => state.setData);
 
     React.useEffect(() => {
-        const parsed = Number(targetScore);
-        if (!Number.isFinite(parsed) || isNaN(parsed)) return;
+        const parsed = normalizeTargetToScale(targetScore);
+        if (!Number.isFinite(parsed)) return;
 
-        // Se o valor local já é igual ao da Store, não fazemos nada
-        const currentStoreTarget = parseFloat(storeTarget);
-        if (Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
+        // T-026 FIX: comparar valores já normalizados para a escala atual
+        const parsedStore = parseFloat(storeTarget);
+        const currentStoreTarget = normalizeTargetToScale(parsedStore);
+
+        // Se o valor local já é igual ao da Store (e a store não está vazia), não fazemos nada
+        if (!isNaN(parsedStore) && Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
 
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
         pendingLocalSave.current = true;
-        // BUG-06 FIX: Fail-safe timeout para evitar deadlock permanente se a rede falhar ou houver imprecisão
-        setTimeout(() => {
+        // ✅ LOTE-02 FIX (A5): fail-safe de 3s abria o cadeado ANTES de writes lentos
+        // completarem → o useEffect de leitura sobrescrevia o input com o valor antigo
+        // da store (flicker/desfaz a edição). 8s cobre debounce (800ms) + rede lenta.
+        const safetyTimer = setTimeout(() => {
             pendingLocalSave.current = false;
-        }, 3000);
+        }, 8000);
 
         const timer = setTimeout(() => {
             setUserData(data => {
-                if (!data?.user) return data;
+                if (!data) return data;
+                const existingUser = data.user || {};
                 // Double check inside to prevent redundant writes
-                if (Math.abs(Number(data.user.targetProbability) - parsed) <= 0.01) return data;
+                if (Math.abs(Number(existingUser.targetProbability) - parsed) <= 0.01) return data;
 
                 return {
                     ...data,
-                    user: { ...data.user, targetProbability: parsed },
+                    user: { ...existingUser, targetProbability: parsed },
                     lastUpdated: new Date().toISOString()
                 };
             }, false); // don't record history for every debounced keystroke
-            
-            // REMOVEMOS o 'pendingLocalSave.current = false' daqui!
-            // A trava agora só abre no useEffect lá de cima, quando o dado voltar.
         }, 800);
 
         return () => {
             clearTimeout(timer);
-            // Deixe o safetyTimeout prosseguir e abrir o cadeado em caso de falha de rede
+            clearTimeout(safetyTimer);
         };
-    }, [targetScore, setUserData, storeTarget]);
+    }, [targetScore, setUserData, storeTarget, normalizeTargetToScale]);
 
-    const stats = useMemo(() => {
+    const baseHistoryStats = useMemo(() => {
         let allHistory = [];
         let totalQuestionsGlobal = 0;
 
@@ -380,11 +538,21 @@ export default function VerifiedStats({ categories = [], user }) {
                 const hArray = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
                 hArray.forEach(h => {
                     const catMaxScore = Number(cat.maxScore) || maxScore;
-                    const safeScore = getSafeScore(h, catMaxScore);
+                    // ✅ LOTE-02 FIX (C3): minScore calculado ANTES e propagado ao getSafeScore
+                    const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+                    const safeScore = getSafeScore(h, catMaxScore, catMinScore);
                     const parsedDate = normalizeDate(h.date);
-                    if (parsedDate && safeScore >= 0) {
-                        // CORREÇÃO: Normaliza para a escala global universal para evitar envenenamento de escalas (Bug 1.1 Fix)
-                        const normalizedToGlobalScale = (safeScore / catMaxScore) * maxScore;
+                    // ✅ LOTE-02 FIX (C2): `>= 0` aceitava o NaN→0 do getSafeScore antigo
+                    // e qualquer zero falso. Number.isFinite é o filtro correto.
+                    if (parsedDate && Number.isFinite(safeScore)) {
+                        // 0s Bug Filter: Proteção contra Corrupção de Dados
+                        const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
+                        if (tTs !== null && tTs <= 0 && safeScore === 0) return;
+                        // Normalização pela proporção no intervalo útil com piso
+                        const catRange = Math.max(1e-9, catMaxScore - catMinScore);
+                        const globalRange = Math.max(1e-9, maxScore - minScore);
+                        const ratio = (safeScore - catMinScore) / catRange;
+                        const normalizedToGlobalScale = minScore + ratio * globalRange;
 
                         allHistory.push({
                             date: parsedDate.getTime(),
@@ -399,11 +567,9 @@ export default function VerifiedStats({ categories = [], user }) {
 
         // 0. Aggregate by Day
         const dailyMap = {};
-        // FIX 1.3: Hoisted Intl.DateTimeFormat fora do loop para evitar centenas de instâncias por render
-        const dayFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' });
         allHistory.forEach(h => {
-            const parts = dayFormatter.format(new Date(h.date)).split('/');
-            const dateStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            const dateStr = getDateKey(new Date(h.date));
+            if (!dateStr) return;
             if (!dailyMap[dateStr]) {
                 dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
             }
@@ -415,32 +581,49 @@ export default function VerifiedStats({ categories = [], user }) {
 
         const dailyHistory = Object.values(dailyMap)
             .map(d => ({ 
-                // BUG-01 FIX: Converte a string YYYY-MM-DD de volta para ms local para o motor (calculateSlope)
-                // FIX 2.3: Usar normalizeDate para evitar shift de dia por ambiguidade UTC/local
-                date: normalizeDate(getDateKey(new Date(d.date)))?.getTime() ?? d.date, 
-                score: d.scoreSum / d.weightSum,
+                // FIX: A data já está em milissegundos corretos em `d.date` (foi extraída do h.date)
+                // Removido o ciclo desnecessário de normalização que podia reintroduzir bugs de offset.
+                date: d.date,
+                score: d.weightSum > 0 ? d.scoreSum / d.weightSum : 0,
                 weight: d.weightSum // BUG-01 FIX: Preservamos o volume para evitar Paradoxo de Simpson em médias posteriores
             }))
             .sort((a, b) => a.date - b.date);
+
+        return { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories: safeCategories };
+        // ✅ LOTE-02 FIX (A4): minScore faltava nas dependências — memo ficava stale
+        // se o piso da escala mudasse sem alterar maxScore.
+    }, [safeCategories, maxScore, minScore]);
+
+    const stats = useMemo(() => {
+        const { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories } = baseHistoryStats;
+        // ✅ LOTE-02 FIX (C3): range real da escala — todas as proporções internas
+        // passam a usar o intervalo útil [minScore, maxScore], não o teto absoluto.
+        const globalRange = Math.max(1e-9, maxScore - minScore);
+        // T-035/T-026 FIX: O ProgressStateEngine espera limites em porcentagem da escala.
+        // statsTarget é absoluto (ex.: 700 numa escala 1000), então convertemos para %.
+        // ✅ LOTE-02 FIX (C3): proporção sobre o RANGE, não sobre maxScore.
+        const targetPct = globalRange > 0
+            ? Math.max(0, Math.min(100, ((statsTarget - minScore) / globalRange) * 100))
+            : 70;
 
         // 1. Progress State Analysis (using ProgressStateEngine)
         // Run on global daily average for consistent trend
         const globalAnalysis = analyzeProgressState(dailyHistory, {
             window_size: Math.min(5, dailyHistory.length),
-            stagnation_threshold: 0.04 * maxScore, // 4% do teto
-            low_level_limit: 0.60 * maxScore,      // 60% do teto
-            high_level_limit: statsTarget,
-            mastery_limit: statsTarget,
+            stagnation_threshold: 4,
+            // T-035 FIX: evitar high < low quando a meta é baixa
+            low_level_limit: Math.min(60, targetPct),
+            high_level_limit: targetPct,
+            mastery_limit: targetPct,
             maxScore: maxScore
         });
 
         // Map to UI-compatible format
         const hasEnoughData = dailyHistory.length >= 3;
-        // D-02 FIX: Unificar unidades. PSE retorna pp/sessão. Multiplicamos por 30 (pp/30d) 
-        // para alinhar com o Coach e threshold de 0.5.
-        const trend30d = globalAnalysis.trend_slope * 30;
+        // FIX BUG 2: globalAnalysis.trend_slope já é escalado para 30 dias pelo ProgressStateEngine (não multiplicar por 30 novamente)
+        const trend30d = globalAnalysis.trend_slope;
         // Threshold relativo: 0.5% do teto por 30 dias, mínimo 0.5 absoluto para maxScore=100
-        const trendThreshold = Math.max(0.5, 0.005 * maxScore);
+        const trendThreshold = Math.max(0.5, 0.005 * globalRange); // ✅ LOTE-02 FIX (C3)
         const trend = !hasEnoughData ? 'insufficient' :
             (trend30d > trendThreshold ? 'up' :
                 trend30d < -trendThreshold ? 'down' : 'stable');
@@ -473,9 +656,10 @@ export default function VerifiedStats({ categories = [], user }) {
 
             // Use the shared Weighted Regression engine function for total consistency with Monte Carlo Dashboard
             // ensure format is valid (dailyHistory already has { date: number(ms), score: number })
-            let slope = calculateSlope(dailyHistory, maxScore);
+            // ✅ LOTE-02 FIX (C3): propagar minScore para o clamp interno do engine
+            let slope = calculateSlope(dailyHistory, maxScore, { minScore });
             // Engine clamps properly internally, but we can do a hard limit just to be absolutely safe for dates.
-            const MAX_SLOPE = 0.004 * maxScore;
+            const MAX_SLOPE = 0.004 * globalRange; // ✅ LOTE-02: range, não teto
             slope = Math.max(-MAX_SLOPE, Math.min(MAX_SLOPE, slope));
 
             // ANTIGRAVITY PREDICTION ENGINE 🚀
@@ -483,43 +667,81 @@ export default function VerifiedStats({ categories = [], user }) {
             const target = calculatedTarget;
             const distance = target - currentScore;
 
-            if (distance <= 0 || currentScore >= target) {
+            if (currentScore >= userTarget) {
+                // FIX Bug 3: O aluno já bateu ou superou a meta configurada
+                if (currentScore >= maxScore) {
+                    prediction = "Pontuação Máxima!";
+                    predictionSubtext = `Desempenho consolidado no topo (${formatValue(currentScore)}${gaugeUnit}).`;
+                    predictionStatus = "excellence";
+                } else {
+                    const distToMax = maxScore - currentScore;
+                    const weeklyBaseSpeed = slope * 7;
+                    const safeGlobalRange = Math.max(1e-9, globalRange);
+                    const speedThreshold = 0.0001 * safeGlobalRange;
+
+                    if (weeklyBaseSpeed > speedThreshold) {
+                        const safeSpeed = Math.max(speedThreshold, weeklyBaseSpeed);
+                        const daysEst = Math.min(365 * 2, (distToMax / safeSpeed) * 7);
+                        const currentTime = Date.now();
+                        const dateEst = new Date(currentTime + daysEst * 86400000);
+                        const fmtD = (d) => isNaN(d.getTime()) ? "--/--" : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
+                        prediction = "Meta Batida!";
+                        predictionSubtext = `Rumo a ${formatValue(maxScore)}${gaugeUnit} (est. ~${fmtD(dateEst)})`;
+                        predictionStatus = "excellence";
+                    } else {
+                        prediction = "Meta Batida!";
+                        predictionSubtext = `Mantenha a consistência rumo a ${formatValue(maxScore)}${gaugeUnit}!`;
+                        predictionStatus = "excellence";
+                    }
+                }
+            } else if (distance <= 0) {
                 prediction = "Meta Atingida!";
-                predictionSubtext = "Rumo aos 100%!";
+                predictionSubtext = `Excelente! Mantenha o ritmo rumo a ${formatValue(maxScore)}${gaugeUnit}!`;
                 predictionStatus = "excellence";
             } else {
+                // ✅ FIX BUG-50: proteger contra globalRange = 0
+                const safeGlobalRange = Math.max(1e-9, globalRange);
+                
                 const weeklyBaseSpeed = slope * 7;
+                const speedThreshold = 0.0001 * safeGlobalRange;
 
-                if (weeklyBaseSpeed <= 0.01) {
+                if (weeklyBaseSpeed <= speedThreshold) {
                     prediction = "Estagnado/Queda";
                     predictionSubtext = "Melhore sua tendência diária para gerar previsão.";
                     predictionStatus = "warning";
                 } else {
-                    // D-04 FIX: Curva contínua de dificuldade em vez de steps arbitrários.
-                    // f(50%)=0.90, f(70%)=0.80, f(80%)=0.74, f(95%)=0.64
-                    // Mais justa: não corta 40% da velocidade abruptamente em 80%.
-                    // B-07 FIX: Fator linear: penalidade proporcional desde o início
-                    // f(0)=1.0, f(50)=0.75, f(80)=0.60, f(100)=0.50
-                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * (currentScore / maxScore));
+                    // ✅ FIX BUG-50: difficultyFactor protegido contra globalRange = 0
+                    const scorePosition = safeGlobalRange > 0 
+                      ? (currentScore - minScore) / safeGlobalRange 
+                      : 0.5;
+                    const difficultyFactor = Math.max(0.40, 1 - 0.5 * scorePosition);
 
                     let quality = 0.8;
                     const totalDailyW = dailyHistory.reduce((acc, h) => acc + (h.weight || 1), 0);
                     const dailyMean = totalDailyW > 0 
                         ? dailyHistory.reduce((acc, h) => acc + h.score * (h.weight || 1), 0) / totalDailyW
-                        : dailyHistory.reduce((a, h) => a + h.score, 0) / (dailyHistory.length || 1);
+                        : currentScore;
                     
-                    const dailyVar = dailyHistory.length > 1 && totalDailyW > 1
-                        ? dailyHistory.reduce((acc, h) => acc + (h.weight || 1) * Math.pow(h.score - dailyMean, 2), 0) / (totalDailyW - 1)
-                        : (dailyHistory.length > 1 ? dailyHistory.reduce((a, h) => a + Math.pow(h.score - dailyMean, 2), 0) / (dailyHistory.length - 1) : 0);
-                    const dailySD = Math.sqrt(dailyVar);
-
-                    quality = Math.max(0.5, 1 - (dailySD / (0.40 * maxScore)));
+                    const dailyVar = totalDailyW > 0
+                        ? dailyHistory.reduce((acc, h) => {
+                            const diff = h.score - dailyMean;
+                            return acc + (diff * diff) * (h.weight || 1);
+                        }, 0) / totalDailyW
+                        : 0;
+                    
+                    const dailySD = Math.sqrt(Math.max(0, dailyVar));
+                    quality = Math.max(0.5, 1 - (dailySD / (0.40 * safeGlobalRange)));
 
                     const safe = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
                     const adjustedSpeed = safe(weeklyBaseSpeed * difficultyFactor * quality);
 
-                    // DIV-01 FIX: Prevenir divisão por zero ou velocidade negativa absurda
-                    const weeksEstimated = adjustedSpeed > 0.001 ? (distance / adjustedSpeed) : 999;
+                    // ✅ FIX BUG-41: minSpeed proporcional ao range + cap em weeksEstimated
+                    const minSpeed = 0.00001 * safeGlobalRange;
+                    let weeksEstimated = adjustedSpeed > minSpeed ? (distance / adjustedSpeed) : 999;
+                    
+                    // ✅ FIX BUG-41: cap máximo para evitar "Infinity semanas"
+                    weeksEstimated = Math.min(weeksEstimated, 520); // máx 10 anos
+                    
                     const daysEstimated = weeksEstimated * 7;
 
                     if (daysEstimated > 365 * 2) {
@@ -529,9 +751,9 @@ export default function VerifiedStats({ categories = [], user }) {
                         const nowTime = new Date().getTime();
 
                         // FIX Bug 2: Margin calculated via error propagation
-                        // σ_days = σ_scores / pointsPerDay
                         const pointsPerDay = adjustedSpeed / 7;
-                        const sdDays = pointsPerDay > 0.001 ? (dailySD / pointsPerDay) : 0;
+                        const minPointsPerDay = 0.00001 * safeGlobalRange;
+                        const sdDays = pointsPerDay > minPointsPerDay ? (dailySD / pointsPerDay) : 0;
 
                         // Limit margin to 50% of total time to avoid explosive intervals
                         const sigmaLimit = daysEstimated * 0.5;
@@ -545,17 +767,20 @@ export default function VerifiedStats({ categories = [], user }) {
 
                         const fmt = (d) => {
                             if (isNaN(d.getTime())) return "--/--";
-                            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'America/Manaus' });
+                            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
                         };
 
                         prediction = `${fmt(dateMin)} — ${fmt(dateMax)}`;
-                        predictionSubtext = `Previsão de alcance (${target}${maxScore === 100 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
+                        predictionSubtext = `Previsão de alcance (${formatValue(target)}${maxScore === 100 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
                         predictionStatus = "good";
                     }
                 }
             }
         } else {
-            predictionSubtext = `Faltam ${3 - distinctDays} dias de simulados para prever.`;
+            const daysRemaining = Math.max(1, 3 - distinctDays);
+            predictionSubtext = daysRemaining === 1
+                ? 'Falta 1 dia de simulados para prever.'
+                : `Faltam ${daysRemaining} dias de simulados para prever.`;
         }
 
         // 3. Confidence Interval (Sample Size)
@@ -567,7 +792,6 @@ export default function VerifiedStats({ categories = [], user }) {
             level: 'BAIXA',
             color: 'text-red-400',
             bgBorder: 'border-red-500',
-            icon: <AlertTriangle size={20} />,
             message: "Amostra muito pequena."
         };
 
@@ -576,7 +800,6 @@ export default function VerifiedStats({ categories = [], user }) {
                 level: 'ALTA',
                 color: 'text-green-400',
                 bgBorder: 'border-green-500',
-                icon: <ShieldCheck size={20} />,
                 message: "Dados estatisticamente relevantes."
             };
         } else if (totalQuestionsGlobal > 50 || nExams > 5) {
@@ -584,7 +807,6 @@ export default function VerifiedStats({ categories = [], user }) {
                 level: 'MÉDIA',
                 color: 'text-blue-400',
                 bgBorder: 'border-blue-500',
-                icon: <HelpCircle size={20} />,
                 message: "Margem de erro diminuindo."
             };
         }
@@ -594,8 +816,7 @@ export default function VerifiedStats({ categories = [], user }) {
             status: 'Dados Insuficientes',
             color: 'text-slate-400',
             bgBorder: 'border-slate-500',
-            icon: <Minus size={20} />,
-            message: "Mínimo 2 simulados em cada matéria.",
+            message: "Mínimo 3 simulados em cada matéria para diagnóstico.",
             delta: 0,
             sd: 0
         };
@@ -603,38 +824,51 @@ export default function VerifiedStats({ categories = [], user }) {
         const categoryBreakdown = [];
         const categoryAnalyses = [];
 
-        // State to UI mapping
+        // State to UI mapping (BUG-06 FIX: removidos elementos JSX desnecessários do useMemo)
         const stateMap = {
-            mastery: { status: 'DOMÍNIO', color: 'text-green-400', bgBorder: 'border-green-500/30', icon: <ShieldCheck size={20} /> },
-            stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <AlertTriangle size={20} /> },
-            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <AlertCircle size={20} /> },
-            stagnation_positive: { status: 'EXCELENTE', color: 'text-violet-400', bgBorder: 'border-violet-500/30', icon: <ShieldCheck size={20} /> },
-            progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30', icon: <TrendingUp size={20} /> },
-            regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30', icon: <TrendingDown size={20} /> },
-            unstable: { status: 'INSTÁVEL', color: 'text-orange-400', bgBorder: 'border-orange-500/30', icon: <Activity size={20} /> },
-            insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30', icon: <Minus size={20} /> }
+            mastery: { status: 'DOMÍNIO', color: 'text-green-400', bgBorder: 'border-green-500/30' },
+            stagnation_negative: { status: 'ESTAGNADO BAIXO', color: 'text-red-400', bgBorder: 'border-red-500/30' },
+            stagnation_neutral: { status: 'ESTAGNADO MÉDIO', color: 'text-blue-400', bgBorder: 'border-blue-500/30' },
+            stagnation_positive: { status: 'EXCELENTE', color: 'text-violet-400', bgBorder: 'border-violet-500/30' },
+            progression: { status: 'EM EVOLUÇÃO', color: 'text-blue-400', bgBorder: 'border-blue-500/30' },
+            regression: { status: 'EM QUEDA', color: 'text-red-400', bgBorder: 'border-red-500/30' },
+            unstable: { status: 'INSTÁVEL', color: 'text-orange-400', bgBorder: 'border-orange-500/30' },
+            insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30' }
         };
 
-        safeCategories.forEach(cat => {
-            const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
-            if (hArray.length >= 2) {
-                // BUG FIX 98: Sort history by date to ensure chronological order for trend analysis
-                const sortedHistory = [...hArray]
-                    .filter(h => h.date && normalizeDate(h.date) !== null)
-                    .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
+        sortedCategories.forEach(cat => {
+            const catMaxScore = Number(cat.maxScore) || maxScore;
+            // ✅ LOTE-02 FIX (C3): normalização por RAZÃO no intervalo útil da matéria,
+            // projetada para o intervalo global. Antes: score/catMaxScore ignorava
+            // ambos os pisos (ex.: escala 200–1000, nota 600 → 60% em vez de 50%).
+            const catMinScore2 = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+            const catRange2 = Math.max(1e-9, catMaxScore - catMinScore2);
 
-                const catMaxScore = Number(cat.maxScore) || maxScore;
-                const analysisHistory = sortedHistory.slice(-5).map(h => ({
-                    score: (getSafeScore(h, catMaxScore) / catMaxScore) * maxScore,
-                    date: normalizeDate(h.date)?.getTime() ?? Date.now()
-                }));
+            const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
+            
+            // BUG FIX 98 & BUG 13 FIX: Filtrar previamente histórico com datas e notas válidas antes de checar length >= 3
+            const validHistory = hArray
+                .filter(h => h && h.date && normalizeDate(h.date) !== null && Number.isFinite(getSafeScore(h, catMaxScore, catMinScore2)))
+                .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
+
+            if (validHistory.length >= 3) {
+                const sortedHistory = validHistory;
+                const analysisHistory = sortedHistory.slice(-5).map(h => {
+                    const s = getSafeScore(h, catMaxScore, catMinScore2);
+                    const ratio = Math.max(0, Math.min(1, (s - catMinScore2) / catRange2));
+                    return {
+                        score: minScore + ratio * globalRange,
+                        date: normalizeDate(h.date)?.getTime() ?? Date.now()
+                    };
+                });
 
                 const analysis = analyzeProgressState(analysisHistory, {
                     window_size: Math.min(5, analysisHistory.length),
-                    stagnation_threshold: 0.04 * maxScore, // 4% do teto
-                    low_level_limit: 0.60 * maxScore,      // 60% do teto
-                    high_level_limit: statsTarget,
-                    mastery_limit: statsTarget,
+                    stagnation_threshold: 4,
+                    // T-035 FIX: evitar high < low quando a meta é baixa
+                    low_level_limit: Math.min(60, targetPct),
+                    high_level_limit: targetPct,
+                    mastery_limit: targetPct,
                     maxScore: maxScore
                 });
 
@@ -643,27 +877,40 @@ export default function VerifiedStats({ categories = [], user }) {
                 const uiState = stateMap[analysis.state] || stateMap.insufficient_data;
                 const sd = Math.sqrt(analysis.variance);
 
+                // BUG 1 FIX: Calcular delta direcional real (última nota - primeira nota da janela analisada)
+                const firstScoreInWindow = analysisHistory[0]?.score ?? 0;
+                const lastScoreInWindow = analysisHistory[analysisHistory.length - 1]?.score ?? 0;
+                const netDelta = analysisHistory.length >= 2 ? (lastScoreInWindow - firstScoreInWindow) : 0;
+
                 // --- TOPIC VARIATION ANALYSIS (Synchronized with recent window) ---
                 const topicMap = {};
-                const recentHistoryForTopics = sortedHistory.slice(-10); // Analyze recent stability
+                const safeSortedHistory = Array.isArray(sortedHistory) ? sortedHistory : Object.values(sortedHistory || {});
+                const recentHistoryForTopics = safeSortedHistory.slice(-10); // Analyze recent stability
                 recentHistoryForTopics.forEach(h => {
-                    if (h.topics) {
-                        h.topics.forEach(t => {
+                    if (h && h.topics) {
+                        const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+                        safeTopics.forEach(t => {
+                            if (!t || !t.name || typeof t.name !== 'string' || !t.name.trim()) return;
+                            const topicName = t.name.trim();
                             let total = Number(t.total) || 0;
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
 
-                            // CORREÇÃO: Usar getSafeScore para tratar percentuais e absolutos corretamente
-                            const safeScore = getSafeScore(t, maxScore);
-
-                            const correct = (safeScore >= 0 && total > 0)
-                                ? Math.round((Math.min(maxScore, safeScore) / maxScore) * total)
-                                : Math.min(total, (Number(t.correct) || 0)); // BUG-03 FIX: Limitar acertos ao total
-
+                            // ✅ LOTE-02 FIX (C3): lê o score com o piso da matéria e
+                            // converte via RAZÃO do intervalo útil (não score/maxScore).
+                            const safeScore = getSafeScore(t, catMaxScore, catMinScore2);
+                            const topicRatio = Math.max(0, Math.min(1, (safeScore - catMinScore2) / catRange2));
+                            
                             if (total > 0) {
-                                const topicScore = (correct / total) * maxScore;
-                                if (!topicMap[t.name]) topicMap[t.name] = [];
-                                topicMap[t.name].push(topicScore);
+                                // BUG FIX (Rounding Noise): Evitar requantizar quando já temos a nota calculada
+                                const finalTopicRatio = (Number.isFinite(safeScore)) 
+                                    ? topicRatio 
+                                    : Math.max(0, Math.min(1, (Number(t.correct) || 0) / total));
+
+                                // Escala global com piso
+                                const topicScore = minScore + finalTopicRatio * globalRange;
+                                if (!topicMap[topicName]) topicMap[topicName] = [];
+                                topicMap[topicName].push(topicScore);
                             }
                         });
                     }
@@ -675,7 +922,7 @@ export default function VerifiedStats({ categories = [], user }) {
                         const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
                         const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
                         const tSD = Math.sqrt(Math.max(0, tVar));
-                        if (tSD > 0.10 * maxScore) {
+                        if (tSD > 0.10 * globalRange) { // ✅ LOTE-02 FIX (C3)
                             unstableTopics.push({ name: tName, sd: tSD });
                         }
                     }
@@ -685,11 +932,13 @@ export default function VerifiedStats({ categories = [], user }) {
                 const villains = unstableTopics.slice(0, 3);
 
                 categoryBreakdown.push({
+                    // T-031 FIX: chave estável para React
+                    id: cat.id || cat.name,
                     name: cat.name,
                     status: uiState.status,
                     color: uiState.color,
                     bgBorder: uiState.bgBorder,
-                    delta: analysis.delta,
+                    delta: netDelta,
                     sd: sd.toFixed(2),
                     rawSd: sd,
                     message: analysis.label,
@@ -703,27 +952,38 @@ export default function VerifiedStats({ categories = [], user }) {
         // FIX 1.4: Usar mapa unificado STATE_PRIORITY (inclui mastery)
         categoryBreakdown.sort((a, b) => (STATE_PRIORITY[a.state] ?? 6) - (STATE_PRIORITY[b.state] ?? 6));
 
+        // T-030 FIX: Excluir estados insufficient_data da consolidação global.
+        // Eles não devem contaminar média, desvio padrão nem mediana de consistência.
+        const validCategoryAnalyses = categoryAnalyses.filter(a => a && a.state !== 'insufficient_data');
+        const eligibleCategories = categoryBreakdown.filter(c => c.state && c.state !== 'insufficient_data');
+
         // Consolidate for Global Card
-        if (categoryAnalyses.length > 0) {
-            const avgDelta = categoryAnalyses.reduce((a, b) => a + b.delta, 0) / categoryAnalyses.length;
-            const avgSD = Math.sqrt(Math.max(0, categoryAnalyses.reduce((a, b) => a + (Number(b.variance) || 0), 0) / categoryAnalyses.length));
+        if (validCategoryAnalyses.length > 0 && eligibleCategories.length > 0) {
+            const avgDelta = eligibleCategories.reduce((a, b) => a + (Number(b.delta) || 0), 0) / eligibleCategories.length;
+            const avgSD = Math.sqrt(
+                Math.max(
+                    0,
+                    validCategoryAnalyses.reduce((a, b) => a + (Number(b.variance) || 0), 0) / validCategoryAnalyses.length
+                )
+            );
 
             // D-03 FIX: Usar MEDIANA dos estados em vez da pior matéria.
-            // Antes, 1 matéria em queda deixava o card global vermelho mesmo com 4/5 indo bem.
-            // FIX 1.4: Usar STATE_PRIORITY unificado (constante extraída no topo do ficheiro)
-            const stateValues = categoryBreakdown.map(c => STATE_PRIORITY[c.state] ?? 3);
+            // FIX 1.4: Usar STATE_PRIORITY unificado.
+            // T-030 FIX: usar apenas categorias elegíveis.
+            const stateValues = eligibleCategories.map(c => STATE_PRIORITY[c.state] ?? 6);
             stateValues.sort((a, b) => a - b);
+
             const medIdx = Math.floor(stateValues.length / 2);
             const medianValue = stateValues[medIdx];
+
             const medianState = Object.entries(STATE_PRIORITY).find(([, v]) => v === medianValue)?.[0] || 'unstable';
             const uiState = stateMap[medianState] || stateMap.insufficient_data;
-            const medianCat = categoryBreakdown.find(c => c.state === medianState) ?? categoryBreakdown[0];
+            const medianCat = eligibleCategories.find(c => c.state === medianState) ?? eligibleCategories[0];
 
             consistency = {
                 status: uiState.status,
                 color: uiState.color,
                 bgBorder: uiState.bgBorder,
-                icon: uiState.icon,
                 message: medianCat.message,
                 delta: avgDelta.toFixed(2),
                 sd: avgSD.toFixed(2)
@@ -731,7 +991,8 @@ export default function VerifiedStats({ categories = [], user }) {
         }
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
-    }, [safeCategories, statsTarget, maxScore]);
+        // ✅ LOTE-02 FIX (A4): minScore agora é usado internamente (targetPct, normalizações)
+    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">
@@ -744,54 +1005,81 @@ export default function VerifiedStats({ categories = [], user }) {
                     targetScore={stats.targetScore}
                     trend={stats.trend}
                     hasEnoughData={stats.hasEnoughData}
+                    maxScore={maxScore}
                 />
                 <ConsistencyCard consistency={stats.consistency} />
             </div>
 
-            {/* Bottom Row: Monte Carlo Side-by-Side */}
-            <div className="mt-4 mb-2">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-6 sm:gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shadow-lg shadow-blue-500/5">
-                            <Activity size={20} className="text-blue-400" />
+            {/* Bottom Row: Monte Carlo Side-by-Side - Enquadramento Premium */}
+            <div className="glass p-5 sm:p-7 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden bg-slate-900/50 mt-2 mb-2">
+                {/* Background Ambient Glow */}
+                <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-500/10 blur-[100px] rounded-full pointer-events-none -z-0" />
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/5 blur-[100px] rounded-full pointer-events-none -z-0" />
+
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 relative z-10">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center border border-blue-500/30 shadow-lg shadow-blue-500/10 shrink-0">
+                            <Activity size={22} className="text-blue-400" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-white tracking-tight leading-none mb-1.5">Simulação de Monte Carlo</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Análise de Probabilidade de Aprovação</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <h2 className="text-lg sm:text-xl font-black text-white tracking-tight leading-none">
+                                    Simulação de Monte Carlo
+                                </h2>
+                                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                    PROJEÇÃO PROBABILÍSTICA
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium">
+                                Comparativo em tempo real entre o desempenho consolidado atual e o cenário simulado na data-alvo.
+                            </p>
                         </div>
                     </div>
                     <button
                         onClick={() => setShowConfig(true)}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-slate-800/50 hover:bg-slate-700/80 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-300 transition-all shadow-lg active:scale-95"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700/90 border border-white/10 hover:border-blue-500/40 rounded-xl text-xs font-bold text-slate-200 transition-all shadow-lg active:scale-95 group shrink-0"
                     >
-                        <Settings2 size={14} />
-                        <span className="flex-1 text-center font-semibold tracking-wide">
-                        Configurar Classificações e Meta
-                    </span></button>
+                        <Settings2 size={15} className="text-slate-400 group-hover:text-blue-400 transition-colors" />
+                        <span>Configurar Classificações e Meta</span>
+                    </button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch relative z-10">
                     <MonteCarloGauge
                         categories={safeCategories}
                         goalDate={user?.goalDate}
-                        targetScore={targetScore}
-                        onTargetScoreChange={handleSetTargetScore}
                         forcedMode="today"
                         forcedTitle="Status Atual"
-                        maxScore={maxScore}
-                        syncShowSubjects={showSubjects}
-                        onSyncShowSubjects={setShowSubjects}
-                    />
-                    <MonteCarloGauge
-                        categories={safeCategories}
-                        goalDate={user?.goalDate}
-                        targetScore={targetScore}
+                        targetScore={statsTarget}
                         onTargetScoreChange={handleSetTargetScore}
-                        forcedMode="future"
-                        forcedTitle="Projeção Futura"
+                        minScore={minScore}
                         maxScore={maxScore}
+                        unit={gaugeUnit}
                         syncShowSubjects={showSubjects}
                         onSyncShowSubjects={setShowSubjects}
                     />
+                    {mountFutureGauge ? (
+                        <MonteCarloGauge
+                            categories={safeCategories}
+                            goalDate={user?.goalDate}
+                            forcedMode="future"
+                            forcedTitle="Projeção Futura"
+                            targetScore={statsTarget}
+                            onTargetScoreChange={handleSetTargetScore}
+                            minScore={minScore}
+                            maxScore={maxScore}
+                            unit={gaugeUnit}
+                            syncShowSubjects={showSubjects}
+                            onSyncShowSubjects={setShowSubjects}
+                        />
+                    ) : (
+                        <div className="glass p-5 sm:p-6 rounded-2xl border-l-4 border-indigo-500 bg-slate-900/80 w-full h-full min-h-[400px] flex flex-col items-center justify-center gap-3">
+                            <div className="w-8 h-8 border-2 border-indigo-500/20 border-t-indigo-400 rounded-full animate-spin" />
+                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 animate-pulse">
+                                Calculando projeção futura...
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -857,7 +1145,7 @@ export default function VerifiedStats({ categories = [], user }) {
                 categories={safeCategories}
                 historicalCutoffs={historicalCutoffs}
                 setHistoricalCutoffs={setHistoricalCutoffs}
-                minScore={0}
+                minScore={minScore}
                 maxScore={maxScore}
                 user={user}
             />
@@ -873,8 +1161,9 @@ export default function VerifiedStats({ categories = [], user }) {
                         </span>
                     )}
                 </div>
-                <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} maxScore={maxScore} />
+                <SubjectBreakdownTable categoryBreakdown={stats.categoryBreakdown} maxScore={maxScore} minScore={minScore} />
             </div>
         </div>
     );
 }
+

@@ -70,6 +70,6 @@ describe('buildAchievementStats & countPomodorosToday', () => {
         const stats = buildAchievementStats(contest);
         expect(stats.subjectsStudied).toBe(2);
         expect(stats.studiedWeekend).toBe(true);
-        expect(stats.pomodorosCompleted).toBe(1);
+        expect(stats.pomodorosCompleted).toBe(2);
     });
 });

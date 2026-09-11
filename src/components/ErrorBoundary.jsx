@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ConfirmModal from './ConfirmModal';
+import { del as idbDel } from 'idb-keyval';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -20,9 +22,16 @@ class ErrorBoundary extends React.Component {
             (error.message.includes('Failed to fetch dynamically imported module') ||
                 error.message.includes('Importing a module script failed'))
         ) {
-            const hasReloaded = sessionStorage.getItem('chunk_force_reload');
-            if (!hasReloaded) {
-                sessionStorage.setItem('chunk_force_reload', 'true');
+            try {
+                const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0', 10);
+                if (reloadCount < 2) {
+                    sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
+                    window.location.reload();
+                    return;
+                }
+                sessionStorage.removeItem('chunk_reload_count');
+            } catch {
+                console.warn('[ErrorBoundary] sessionStorage indisponível, tentando reload simples.');
                 window.location.reload();
                 return;
             }
@@ -60,13 +69,16 @@ class ErrorBoundary extends React.Component {
                     <div className="flex gap-4 mt-8">
                         <button
                             onClick={this.handleReset}
-                            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-bold transition-colors"
+                            className="px-6 py-3 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-purple-500/50"
                         >
                             Tentar Recuperar ↩️
                         </button>
                         <button
-                            onClick={() => window.location.reload()}
-                            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-colors"
+                            onClick={() => {
+                                sessionStorage.removeItem('chunk_reload_count');
+                                window.location.reload();
+                            }}
+                            className="px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500/50"
                         >
                             Recarregar Página
                         </button>
@@ -100,23 +112,7 @@ class ErrorBoundary extends React.Component {
 
                     <div className="mt-8 pt-8 border-t border-white/10 w-full max-w-2xl text-center">
                         <p className="text-xs text-slate-500 mb-4">Se recarregar não funcionar, seus dados locais podem estar corrompidos.</p>
-                        <button
-                            onClick={() => {
-                                if (window.confirm('ATENÇÃO: Isso apagará seus dados locais.\n\nContinuar?')) {
-                                    [
-                                        'ultra-dashboard-storage',
-                                        'ultra-dashboard-data',
-                                        'ultra-dashboard-v8',
-                                        'ultra-dashboard-storage-v8',
-                                        'ultra-dashboard-data-backup-safety'
-                                    ].forEach(key => localStorage.removeItem(key));
-                                    window.location.reload();
-                                }
-                            }}
-                            className="text-red-500/50 hover:text-red-500 text-xs font-mono hover:underline transition-colors"
-                        >
-                            Resetar App de Fábrica (Último Recurso)
-                        </button>
+                        <FactoryResetButton />
                     </div>
                 </div>
             );
@@ -144,13 +140,13 @@ export function PageErrorBoundary({ children, pageName = 'esta página' }) {
                     <div className="flex gap-3 mt-2">
                         <button
                             onClick={reset}
-                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-bold transition-colors"
+                            className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-sm font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-purple-500/50"
                         >
                             Tentar Novamente
                         </button>
                         <button
                             onClick={() => window.location.reload()}
-                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-bold transition-colors"
+                            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-slate-500/50"
                         >
                             Recarregar
                         </button>
@@ -164,3 +160,72 @@ export function PageErrorBoundary({ children, pageName = 'esta página' }) {
 }
 
 export default ErrorBoundary;
+
+/**
+ * FactoryResetButton — Functional component to use ConfirmModal
+ * inside the class-based ErrorBoundary.
+ */
+function FactoryResetButton() {
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    return (
+        <>
+            <button
+                onClick={() => setShowConfirm(true)}
+                className="text-red-500/50 hover:text-red-500 text-xs font-mono hover:underline transition-colors"
+            >
+                Resetar App de Fábrica (Último Recurso)
+            </button>
+            <ConfirmModal
+                isOpen={showConfirm}
+                onClose={() => setShowConfirm(false)}
+                onConfirm={async () => {
+                    [
+                        'ultra-dashboard-storage',
+                        'ultra-dashboard-data',
+                        'ultra-dashboard-v8',
+                        'ultra-dashboard-storage-v8',
+                        'ultra-dashboard-data-backup-safety'
+                    ].forEach(key => localStorage.removeItem(key));
+                    sessionStorage.clear();
+                    try {
+                        await idbDel('ultra-dashboard-storage');
+                    } catch(_e) { console.warn('Clean error', _e); }
+                    window.location.reload();
+                }}
+                title="Resetar App de Fábrica"
+                message="ATENÇÃO: Isso apagará todos os seus dados locais permanentemente. Esta ação não pode ser desfeita."
+                confirmText="Apagar Tudo"
+                type="danger"
+            />
+        </>
+    );
+}
+
+
+export class FeatureErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 rounded-xl bg-slate-900/50 border border-red-500/20 text-center">
+          <p className="text-red-400 text-sm">Falha ao renderizar componente.</p>
+          <button 
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-2 text-xs text-slate-400 hover:text-white"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+

@@ -1,6 +1,6 @@
-import { calculateLevel } from '../../utils/gamification';
-import { buildAchievementStats } from '../../utils/analytics';
-import { ACHIEVEMENTS } from '../../config/gamification';
+import { calculateLevel } from '../../utils/gamification.js';
+import { buildAchievementStats } from '../../utils/analytics.js';
+import { ACHIEVEMENTS } from '../../config/gamification.js';
 
 export const createGamificationSlice = (set, get) => ({
     processGamification: (xpGained) => {
@@ -11,11 +11,10 @@ export const createGamificationSlice = (set, get) => ({
 
             const currentXP = activeData.user.xp || 0;
             const currentMaxLevel = activeData.user.level || 1;
-            
-            // FIX A: Don't reduce XP below the threshold of the current achieved level
-            // Prevents "negative progress" bars and inconsistency with calculatedLevel
-            const minXPForLevel = Math.pow(currentMaxLevel - 1, 2) * 100;
-            let newXP = Math.max(minXPForLevel, currentXP + xpGained);
+
+            // ✅ FIX: Permitir que XP desça abaixo do mínimo do nível atual,
+            // mas nunca abaixo de 0. O nível é recalculado dinamicamente.
+            let newXP = Math.max(0, currentXP + xpGained);
 
             const currentAchievements = activeData.user.achievements || [];
             const stats = buildAchievementStats(activeData) || {};
@@ -70,11 +69,12 @@ export const createGamificationSlice = (set, get) => ({
 
     updateUserName: (name) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
+        if (!activeData) return;
         if (!activeData.user) activeData.user = {};
         activeData.user.name = name;
-        activeData.contestName = name; // Sync high-level name for sidebar
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         localStorage.setItem('ultra-sync-dirty', 'true');
     }),
 });
+
