@@ -31,7 +31,7 @@ import { useAuth } from '../context/useAuth';
 import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore, clearAllDataSecure } from '../store/useAppStore';
-import { getContestDisplayName, isMenuItemActive, handleMenuKeyDown } from './sidebarUtils';
+import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
 
 const SECTIONS = [
     {

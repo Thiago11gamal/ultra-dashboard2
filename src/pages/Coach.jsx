@@ -409,9 +409,10 @@ export default function Coach() {
     // the effect body, so it never needs to be a reactive dependency.
     }, [
         isHydrated,
-        data?.categories, 
-        data?.simuladoRows, 
-        data?.studyLogs, 
+        data?.categories,
+        categories, 
+        history, 
+        studyLogs, 
         data?.user, 
         data?.maxScore, 
         data?.settings?.adaptiveCalibrationEnabled,

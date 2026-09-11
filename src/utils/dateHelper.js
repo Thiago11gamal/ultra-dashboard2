@@ -4,7 +4,24 @@ export const APP_TIMEZONE = 'America/Manaus';
 
 export const safeDateParse = (dateInput, fallback = null) => {
   if (!dateInput) return fallback;
-  if (typeof dateInput === 'boolean' || (typeof dateInput === 'object' && !(dateInput instanceof Date))) return fallback;
+  if (typeof dateInput === 'boolean') return fallback;
+  if (typeof dateInput === 'object') {
+    if (dateInput instanceof Date) return isNaN(dateInput.getTime()) ? fallback : dateInput;
+    if (typeof dateInput.toDate === 'function') {
+      try {
+        const d = dateInput.toDate();
+        return (d instanceof Date && !isNaN(d.getTime())) ? d : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    if (dateInput.seconds != null || dateInput._seconds != null) {
+      const secs = dateInput.seconds != null ? dateInput.seconds : dateInput._seconds;
+      const d = new Date(Number(secs) * 1000);
+      return isNaN(d.getTime()) ? fallback : d;
+    }
+    return fallback;
+  }
   const normalizedString = typeof dateInput === 'string'
     ? dateInput.replace(' ', 'T')
     : dateInput;

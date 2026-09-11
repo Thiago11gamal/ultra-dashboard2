@@ -102,9 +102,7 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
     const rawDate = p.date || p.createdAt;
     if (!rawDate) return;
     
-    // Simplification for groupKey to avoid importing getDateKey if missing
-    const d = rawDate instanceof Date ? rawDate : new Date(rawDate);
-    const dayKey = isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+    const dayKey = getDateKey(rawDate);
     if (!dayKey) return;
   
     const groupKey = [
@@ -302,19 +300,22 @@ export function computeEbbinghausRetention(daysSince, stabilityDays) {
     return fsrsRetrievability(daysSince, stabilityDays);
 }
 
-export function estimateMemoryStability(history, maxScore = 100, baselineScore = null) {
-  const normalized = _normalizeDiagnosticHistory(history, maxScore);
+export function estimateMemoryStability(history, maxScore = 100, baselineScore = null, minScore = 0) {
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const domain = Math.max(1e-9, safeMax - safeMin);
+  const normalized = _normalizeDiagnosticHistory(history, safeMax, safeMin);
   if (normalized.length === 0) return 3;
 
   const sorted = getSortedHistory(normalized);
   let stability = 3.0;
 
-  const safeBaseline = baselineScore !== null ? baselineScore : _mean(sorted.map(h => getSafeScore(h, maxScore)));
-  const dynamicSuccessThreshold = Math.min(0.7, Math.max(0.5, safeBaseline / maxScore));
+  const safeBaseline = baselineScore !== null ? baselineScore : _mean(sorted.map(h => getSafeScore(h, safeMax, safeMin)));
+  const dynamicSuccessThreshold = Math.min(0.7, Math.max(0.5, (safeBaseline - safeMin) / domain));
 
   for (let i = 0; i < sorted.length; i++) {
     const h = sorted[i];
-    const pct = Math.min(1, Math.max(0, getSafeScore(h, maxScore) / maxScore));
+    const pct = Math.min(1, Math.max(0, (getSafeScore(h, safeMax, safeMin) - safeMin) / domain));
 
     let currentRetention = 1.0;
     if (i > 0) {
@@ -374,7 +375,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   const sorted = [...getSortedHistory(normalized)].filter(h => h != null && typeof h === 'object').reverse();
 
   const daysSinceLast = daysSinceOverride !== null ? daysSinceOverride : Math.max(0, (Date.now() - _getEntryDate(sorted[0]).getTime()) / 86400000);
-  const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore);
+  const stability = estimateMemoryStability([...sorted].reverse(), maxScore, baselineScore, minScore);
   // ✅ LOTE-03: usar fsrsRetrievability em vez de computeEbbinghausRetention
   const retention = fsrsRetrievability(daysSinceLast, stability);
   const retentionPct = Number((retention * 100).toFixed(1));

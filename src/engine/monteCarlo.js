@@ -448,7 +448,7 @@ export function simulateNormalDistribution(
                 // Caminho independente (sem correlação)
                 for (let j = 0; j < choleskySize; j++) {
                     const sp = subjectParams[j];
-                    const effSd = Math.max(1e-6, sp.sd * Math.max(0.80, sp.immunityFactor));
+                    const effSd = sp.sd;
                     const sScore = sampleTruncatedNormal(sp.mean, effSd, sp.minScore, sp.maxScore, rng);
                     subjectSum += sScore * sp.weight;
                     weightSum += sp.weight;

@@ -36,8 +36,11 @@ export function useSubscription(user) {
 
     try {
       if (typeof user.getIdTokenResult !== 'function') {
-        setIsPremium(true);
-        setLoading(false);
+        setTimeout(() => {
+          if (!isMounted) return;
+          setIsPremium(true);
+          setLoading(false);
+        }, 0);
         return;
       }
       // Ler claims do token JWT (definidas server-side via Cloud Functions)

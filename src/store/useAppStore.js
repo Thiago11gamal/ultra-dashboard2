@@ -32,7 +32,7 @@ const idbStorage = {
       console.warn('[Storage] Falha ao ler IDB. Tentando fallback localStorage:', e);
       isStorageLocked = true;
       try {
-        const localVal = localStorage.getItem(name);
+        const localVal = typeof localStorage !== 'undefined' ? localStorage.getItem(name) : null;
         return localVal || null;
       } catch (fallbackErr) {
         console.error('[Storage] Falha no fallback getItem:', fallbackErr);
@@ -44,7 +44,7 @@ const idbStorage = {
     return new Promise((resolve, reject) => {
       if (isStorageLocked) {
         try {
-          localStorage.setItem(name, value);
+          if (typeof localStorage !== 'undefined') localStorage.setItem(name, value);
         } catch (fallbackErr) {
           console.error('[Storage] Falha no fallback localStorage com lock ativo:', fallbackErr);
         }
@@ -60,7 +60,7 @@ const idbStorage = {
         } catch (e) {
           console.error('[Storage] Falha ao escrever no IDB:', e);
           try {
-            localStorage.setItem(name, value);
+            if (typeof localStorage !== 'undefined') localStorage.setItem(name, value);
             savePromises[name]?.resolve();
           } catch (fallbackErr) {
             savePromises[name]?.reject?.(fallbackErr);
@@ -76,7 +76,7 @@ const idbStorage = {
     if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
     if (savePromises[name]) savePromises[name].reject(new Error('Removed'));
     try { await idbDel(name); } catch { /* ignore */ }
-    try { localStorage.removeItem(name); } catch { /* ignore */ }
+    try { if (typeof localStorage !== 'undefined') localStorage.removeItem(name); } catch { /* ignore */ }
   },
 };
 
@@ -114,7 +114,9 @@ export const useAppStore = create(
 
         // ✅ FIX: resetStore COMPLETO — limpa TODOS os campos
         resetStore: () => {
-          localStorage.removeItem('pomodoroState');
+          try {
+            if (typeof localStorage !== 'undefined') localStorage.removeItem('pomodoroState');
+          } catch { /* ignore */ }
           clearCoachCaches();
           try {
             sessionStorage.removeItem('hasSeenWelcomeScreen');

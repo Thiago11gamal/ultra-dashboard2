@@ -36,6 +36,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
     }, [categories]);
 
     const { groups, stats } = useMemo(() => {
+        void dayTick;
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
         // Criar formatadores UMA vez, fora do loop

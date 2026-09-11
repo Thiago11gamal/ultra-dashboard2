@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeProgressState } from '../src/utils/ProgressStateEngine.js';
 import { calculateAdaptiveSlope } from '../src/engine/projection.js';
-import { calculateSlopePerDay } from '../src/engine/stats.js';
 
 describe('Stats Menu Audit & Bug Fixes', () => {
   describe('1. ProgressStateEngine Scale Invariance & minScore Support', () => {

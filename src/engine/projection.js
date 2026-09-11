@@ -80,7 +80,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     }
 
     const lambda = options.lambda || 0.08;
-    const now = options.referenceDate || Date.now();
+    const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     const _scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
     const { slope, intercept } = weightedRegression(validSorted, lambda, maxScore, options);
@@ -317,7 +317,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     const sorted = getSortedHistory(history);
     if (sorted.length < 4) return { isLogistic: false };
 
-    const now = options.referenceDate || Date.now();
+    const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     const historicalScores = sorted.map(h => getSafeScore(h, maxScore, minScore)).filter(Number.isFinite);
     if (historicalScores.length < 4) return { isLogistic: false };
     
@@ -407,7 +407,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
 
     const logisticFit = logisticRegression(sortedHistory, maxScore, options);
     let projectedScore;
-    const now = options.referenceDate || Date.now();
+    const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
     let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
@@ -598,7 +598,7 @@ export function monteCarloSimulation(
 
     if (optionsCurrentMean !== undefined) {
         const lastDate = safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt);
-        const referenceNow = options.referenceDate || Date.now();
+        const referenceNow = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
         const lastTs = lastDate && !Number.isNaN(lastDate.getTime()) ? lastDate.getTime() : Date.now();
         const daysToNow = Math.max(1, (referenceNow - lastTs) / 86400000);
         baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);

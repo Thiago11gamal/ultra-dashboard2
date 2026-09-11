@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateSlope } from '../../engine/projection.js';
-import { computeCategoryStats, calculateSlopePerDay } from '../../engine/stats.js';
+import { computeCategoryStats } from '../../engine/stats.js';
 
 describe('Stats Menu Mathematical Audit Suite', () => {
     describe('1. Kish Unbiased Weighted Sample Variance (Daily SD)', () => {
@@ -38,16 +37,11 @@ describe('Stats Menu Mathematical Audit Suite', () => {
         });
 
         it('deve ponderar variância diária por volume de questões de forma amostral não enviesada', () => {
-            const dailyHistory = [
-                { score: 50, weight: 20 },
-                { score: 80, weight: 80 }
-            ];
-
             const totalDailyW = 100;
             const dailyMean = (50 * 20 + 80 * 80) / 100; // 74
 
             let sumW2 = 20 * 20 + 80 * 80; // 400 + 6400 = 6800
-            const dailyWeightedDiffSq = 20 * Math.pow(50 - 74, 2) + 80 * Math.pow(80 - 74, 2); // 20*576 + 80*36 = 11520 + 2880 = 14400
+            const dailyWeightedDiffSq = 20 * Math.pow(50 - dailyMean, 2) + 80 * Math.pow(80 - dailyMean, 2); // 20*576 + 80*36 = 11520 + 2880 = 14400
 
             const kishDenom = totalDailyW - (sumW2 / totalDailyW); // 100 - 68 = 32
             const unbiasedVar = dailyWeightedDiffSq / kishDenom; // 14400 / 32 = 450
@@ -78,7 +72,7 @@ describe('Stats Menu Mathematical Audit Suite', () => {
         it('deve modular a velocidade conforme o aluno se aproxima do teto maxScore', () => {
             const minScore = 0;
             const maxScore = 100;
-            const safeGlobalRange = 100;
+            const safeGlobalRange = maxScore - minScore;
             const weeklyBaseSpeed = 2.0; // 2 pts por semana
             const quality = 0.9;
 

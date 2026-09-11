@@ -710,7 +710,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     if (adjustedSpeed > speedThreshold) {
                         const safeSpeed = Math.max(speedThreshold, adjustedSpeed);
                         const daysEst = Math.min(365 * 2, (distToMax / safeSpeed) * 7);
-                        const currentTime = Date.now();
+                        const currentTime = new Date().getTime();
                         const dateEst = new Date(currentTime + daysEst * 86400000);
                         const fmtD = (d) => isNaN(d.getTime()) ? "--/--" : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: APP_TIMEZONE });
                         prediction = "Meta Batida!";

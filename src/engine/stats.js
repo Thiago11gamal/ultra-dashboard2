@@ -347,15 +347,16 @@ export function standardDeviation(arr, maxScore = 100, customMean = null, minSco
   return Math.max(finalSdFloor, Math.sqrt(Math.max(0, adjustedVar)));
 }
 
-export const calcularDesvioPadrao = (arr) => {
-    if (!arr || arr.length <= 1) return 0;
+export const calcularDesvioPadrao = (arr, isSample = false) => {
+    if (!arr || arr.length === 0) return 0;
 
     const clean = arr.map(Number).filter(Number.isFinite);
     if (clean.length <= 1) return 0;
 
     const m = kahanMean(clean);
     const sumSq = clean.map(x => Math.pow(x - m, 2));
-    const v = clean.length > 1 ? kahanSum(sumSq) / (clean.length - 1) : 0;
+    const denom = isSample ? (clean.length - 1) : clean.length;
+    const v = denom > 0 ? kahanSum(sumSq) / denom : 0;
 
     return Math.sqrt(Math.max(0, v));
 };
