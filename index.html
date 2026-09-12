@@ -74,11 +74,69 @@
     // 3. allowedPrefixes era declarada mas nunca usada — removida e
     //    a lógica de filtro foi corrigida para usar o array corretamente.
     // ─────────────────────────────────────────────────────────────────
+    // Mecanismo de auto-recuperação contra cache desatualizado / chunk 404 após novo deploy
+    function handleChunkOrScriptError(reason) {
+      console.warn('[AutoRecovery] Falha ao carregar script/módulo:', reason);
+      let alreadyAttempted = false;
+      try {
+        alreadyAttempted = sessionStorage.getItem('ultra_auto_reloaded') === 'true';
+      } catch { /* ignore */ }
+
+      if (!alreadyAttempted) {
+        try {
+          sessionStorage.setItem('ultra_auto_reloaded', 'true');
+        } catch { /* ignore */ }
+
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((regs) => {
+            for (const r of regs) r.unregister();
+            window.location.reload();
+          }).catch(() => {
+            window.location.reload();
+          });
+        } else {
+          window.location.reload();
+        }
+        return true;
+      }
+      return false;
+    }
 
     window.addEventListener('error', (event) => {
+      const isScriptElement = event.target && event.target.tagName === 'SCRIPT';
+      const msg = event.message || (isScriptElement ? 'Falha ao carregar script do bundle' : '');
+
+      if (
+        msg.includes('module script') ||
+        msg.includes('MIME type') ||
+        msg.includes('Loading chunk') ||
+        msg.includes('Failed to fetch') ||
+        isScriptElement
+      ) {
+        if (handleChunkOrScriptError(msg)) return;
+      }
+
       const loaderText = document.querySelector('.loader-text');
       if (!loaderText) return;
-      loaderText.textContent = 'Erro de carregamento: ' + event.message;
+      loaderText.textContent = 'Erro de carregamento: ' + (msg || 'Erro desconhecido');
+      loaderText.style.color = '#f87171';
+      loaderText.style.animation = 'none';
+    }, true);
+
+    window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason?.message || String(event.reason || '');
+      if (
+        reason.includes('Loading chunk') ||
+        reason.includes('module script') ||
+        reason.includes('MIME type') ||
+        reason.includes('Failed to fetch dynamically imported module')
+      ) {
+        if (handleChunkOrScriptError(reason)) return;
+      }
+
+      const loaderText = document.querySelector('.loader-text');
+      if (!loaderText) return;
+      loaderText.textContent = 'Erro de inicialização: ' + (reason || 'Rejeição de promessa');
       loaderText.style.color = '#f87171';
       loaderText.style.animation = 'none';
     });

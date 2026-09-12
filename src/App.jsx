@@ -249,6 +249,9 @@ function MainLayout() {
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
+    try {
+      sessionStorage.removeItem('ultra_auto_reloaded');
+    } catch { /* ignore */ }
     return () => { isMountedRef.current = false; };
   }, []);
 
