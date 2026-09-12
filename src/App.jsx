@@ -94,19 +94,20 @@ function MainLayout() {
   }, [location, currentUser]);
   const { isPremium, loading: subLoading } = useSubscription(currentUser);
 
-  const activeContestId = useAppStore(state => state.appState.activeId);
+  const activeContestId = useAppStore(state => state.appState?.activeId);
 
   // Otimização: Seletores estáveis e granulares para evitar re-renderizações massivas
   const contestsMetaSelector = useShallow(state => {
-    return Object.keys(state.appState.contests).reduce((acc, key) => {
-      acc[key] = state.appState.contests[key]?.contestName || 'Sem nome';
+    const contests = state.appState?.contests || {};
+    return Object.keys(contests).reduce((acc, key) => {
+      acc[key] = contests[key]?.contestName || 'Sem nome';
       return acc;
     }, {});
   });
   const contestsMetaList = useAppStore(contestsMetaSelector);
 
   const headerDataSelector = useShallow(state => {
-    const contest = state.appState.contests[activeContestId];
+    const contest = state.appState?.contests?.[activeContestId];
     return {
       exists: !!contest,
       user: contest?.user,
@@ -116,8 +117,8 @@ function MainLayout() {
   const headerData = useAppStore(headerDataSelector);
 
   const syncTriggerSelector = useShallow(state => ({
-    version: state.appState.version,
-    lastUpdated: state.appState.lastUpdated
+    version: state.appState?.version,
+    lastUpdated: state.appState?.lastUpdated
   }));
   const syncTrigger = useAppStore(syncTriggerSelector);
 

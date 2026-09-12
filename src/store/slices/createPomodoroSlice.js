@@ -1,4 +1,5 @@
 import { cleanTaskTitle } from '../../utils/taskTitleHelper.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 const extractCategoryFromTask = (task) => {
     if (!task) return 'Geral';
@@ -38,6 +39,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -54,6 +56,7 @@ export const createPomodoroSlice = (set, get) => ({
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
                 return;
             }
 
@@ -80,6 +83,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -96,6 +100,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -115,6 +120,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -136,6 +142,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -145,6 +152,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -167,12 +175,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
-
-            try {
-                localStorage.setItem('ultra-sync-dirty', 'true');
-            } catch (error) {
-                console.warn('[PomodoroSlice] Failed to set ultra-sync-dirty:', error);
-            }
+            markStorageDirty();
         });
     },
 
@@ -182,6 +185,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -243,6 +247,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
 
         return savedMinutes;
@@ -299,6 +304,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -350,6 +356,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -379,6 +386,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
     },
 
@@ -399,6 +407,7 @@ export const createPomodoroSlice = (set, get) => ({
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
             });
 
             return false;
@@ -426,6 +435,7 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
         });
 
         return true;

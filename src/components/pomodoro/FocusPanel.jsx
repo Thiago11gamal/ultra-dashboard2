@@ -345,12 +345,13 @@ function TodayStudyTime({ studyLogs, categoryId }) {
 function SessionXP({ user }) {
     const xpProgress = useMemo(() => {
         if (!user) return null;
-        const xp = Number(user.xp) || 0;
+        const xp = Math.max(0, Number(user.xp) || 0);
         const level = Math.floor(Math.sqrt(xp / 100)) + 1;
         const currentLevelXP = Math.pow(level - 1, 2) * 100;
         const nextLevelXP = Math.pow(level, 2) * 100;
-        const progress = nextLevelXP > currentLevelXP
-            ? ((xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100
+        const diff = nextLevelXP - currentLevelXP;
+        const progress = diff > 0
+            ? ((xp - currentLevelXP) / diff) * 100
             : 0;
         return { level, progress: Math.min(100, Math.max(0, progress)), xp };
     }, [user]);

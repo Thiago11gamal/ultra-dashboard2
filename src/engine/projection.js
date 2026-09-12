@@ -477,9 +477,12 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         projectedScore = currentScoreEstimate + linearSlope * effectiveDaysForDrift;
     }
 
-    const avgGapDays = sortedHistory.length > 1 
-        ? ((safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt) - safeDateParse(sortedHistory[0].date || sortedHistory[0].createdAt)) / 86400000) / (sortedHistory.length - 1)
-        : 7; // fallback para 7 se só houver 1 teste
+    const tLast = getSafeTime(sortedHistory[sortedHistory.length - 1]?.date || sortedHistory[sortedHistory.length - 1]?.createdAt);
+    const tFirst = getSafeTime(sortedHistory[0]?.date || sortedHistory[0]?.createdAt);
+    const rawGapDays = sortedHistory.length > 1
+        ? ((tLast - tFirst) / 86400000) / Math.max(1, sortedHistory.length - 1)
+        : 7;
+    const avgGapDays = Number.isFinite(rawGapDays) && rawGapDays > 0 ? rawGapDays : 7;
         
     // AGILIDADE AI: Punição de Volatilidade baseada no tempo de resposta lento
     if (options.agilityPenalty) {

@@ -488,8 +488,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }
     const mergedContests = { ...localContests };
     const newTrashItems = [];
-    const cloudFullUpdate = new Date(cloud.lastUpdated || 0).getTime();
-    const localFullUpdate = new Date(local.lastUpdated || 0).getTime();
+    const cloudRawTime = new Date(cloud.lastUpdated || 0).getTime();
+    const localRawTime = new Date(local.lastUpdated || 0).getTime();
+    const cloudFullUpdate = Number.isFinite(cloudRawTime) ? cloudRawTime : 0;
+    const localFullUpdate = Number.isFinite(localRawTime) ? localRawTime : 0;
 
     Object.entries(cloudContests).forEach(([id, cloudContest]) => {
       const localContest = localContests[id];
@@ -570,7 +572,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       })(),
       activeId: activeId || local.activeId || cloud.activeId,
       version: Math.max(local.version ?? 0, cloud.version ?? 0),
-      lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate)).toISOString()
+      lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate, 0) || Date.now()).toISOString()
     };
   }, [deduplicateCategoryNames, mergeContestPayload]);
 

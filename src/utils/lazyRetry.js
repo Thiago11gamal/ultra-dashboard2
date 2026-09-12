@@ -2,24 +2,41 @@ import { lazy } from 'react';
 
 export const lazyWithRetry = (componentImport) =>
   lazy(async () => {
-    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
-      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
-    );
+    let pageHasAlreadyBeenForceRefreshed = false;
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        pageHasAlreadyBeenForceRefreshed = JSON.parse(
+          window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+        );
+      }
+    } catch {
+      // ignore storage errors
+    }
+
     try {
       const component = await componentImport();
-        if (!component) throw new Error("Component is undefined");
       if (!component) {
         throw new Error('Module import returned undefined');
       }
       if (!component.default) {
         throw new Error('Module has no default export');
       }
-      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+      try {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+        }
+      } catch {
+        // ignore storage errors
+      }
       return component;
     } catch (error) {
-      if (!pageHasAlreadyBeenForceRefreshed) {
+      if (!pageHasAlreadyBeenForceRefreshed && typeof window !== 'undefined' && window.location) {
         console.warn('Chunk load failed. Forcing page refresh...', error);
-        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+        try {
+          window.sessionStorage?.setItem('page-has-been-force-refreshed', 'true');
+        } catch {
+          // ignore storage errors
+        }
         window.location.reload();
         return new Promise(() => {});
       }

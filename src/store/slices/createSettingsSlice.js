@@ -15,7 +15,7 @@ const applyDarkModeToggle = (state) => {
 export const createSettingsSlice = (set) => ({
   setHasSeenTour: (value) => set((state) => {
     if (!state.appState) return;
-    if (state.appState) if (state.appState) state.appState.hasSeenTour = value;
+    state.appState.hasSeenTour = Boolean(value);
     if (value) {
       state.appState.lastSeenTourDate = new Date().toDateString();
     }
@@ -74,6 +74,7 @@ export const createSettingsSlice = (set) => ({
     });
     
     state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
+    markStorageDirty();
   }),
   
 });

@@ -13,7 +13,7 @@ export const createTaskSlice = (set, get) => ({
             const category = activeData.categories.find(c => c.id === categoryId);
             if (!category) return;
 
-            const task = category.tasks.find(t => t && (t.id || t.text) === taskId);
+            const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
             if (!task) return;
 
             const completed = !task.completed;
@@ -135,7 +135,7 @@ export const createTaskSlice = (set, get) => ({
             if (!activeData?.categories) return;
             const category = activeData.categories.find(c => c.id === categoryId);
             if (category) {
-                const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId));
+                const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
                 if (task && task.completed) {
                     // BUG-T01 FIX: awardedXP === 0 é um valor válido gravado.
                     // Usar ?? em vez de || para não cair no fallback quando
@@ -148,10 +148,10 @@ export const createTaskSlice = (set, get) => ({
                     }
                 }
                 const activeSubjectTaskId = state.appState.pomodoro?.activeSubject?.taskId;
-                if (activeSubjectTaskId && (activeSubjectTaskId === taskId || (task && (activeSubjectTaskId === task.id || activeSubjectTaskId === task.text)))) {
+                if (activeSubjectTaskId && (activeSubjectTaskId === taskId || (task && (activeSubjectTaskId === task.id || activeSubjectTaskId === task.text || activeSubjectTaskId === task.title)))) {
                     state.appState.pomodoro.activeSubject = null;
                 }
-                category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId);
+                category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
             }
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();

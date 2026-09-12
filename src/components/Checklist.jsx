@@ -724,11 +724,12 @@ function Checklist({
         }
     }, [onPlayContext]);
 
-    const sourceContest = contests?.[importSourceContest];
+    const sourceContest = importSourceContest ? contests?.[importSourceContest] : null;
 
     const sourceCategories = useMemo(() => {
-        return toArray(sourceContest?.categories);
-    }, [sourceContest]);
+        if (!sourceContest) return [];
+        return toArray(sourceContest.categories);
+    }, [contests, importSourceContest]);
 
     const taskStats = useMemo(() => {
         let total = 0;

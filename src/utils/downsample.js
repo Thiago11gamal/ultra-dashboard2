@@ -31,8 +31,13 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
       avgX += getX(data[avgRangeStart]);
       avgY += getY(data[avgRangeStart]);
     }
-    avgX /= avgRangeLength;
-    avgY /= avgRangeLength;
+    if (avgRangeLength > 0) {
+      avgX /= avgRangeLength;
+      avgY /= avgRangeLength;
+    } else if (avgRangeStart < dataLength) {
+      avgX = getX(data[avgRangeStart]);
+      avgY = getY(data[avgRangeStart]);
+    }
     let rangeOffs = Math.floor(i * bucketSize) + 1;
     let rangeTo = Math.floor((i + 1) * bucketSize) + 1;
     const pointAx = getX(data[a]);
