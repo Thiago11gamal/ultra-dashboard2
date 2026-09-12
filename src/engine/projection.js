@@ -809,9 +809,14 @@ export function monteCarloSimulation(
           categoryNames: cutoffSubjects.map(s => s.name) 
       } : null;
       
-      const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
-      const psdCov = ensurePositiveSemiDefinite(cov);
-      subjectCholesky = choleskyDecomposition(psdCov);
+      try {
+        const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
+        const psdCov = ensurePositiveSemiDefinite(cov);
+        subjectCholesky = choleskyDecomposition(psdCov);
+      } catch (err) {
+        console.warn('[Projection] Cholesky falhou, usando disciplinas independentes:', err?.message || err);
+        subjectCholesky = null;
+      }
     }
 
     function calculateSkewness(residuals, mean) {

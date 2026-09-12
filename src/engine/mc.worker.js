@@ -258,7 +258,13 @@ self.onmessage = function(e) {
                 result.probability = Math.max(0, Math.min(100, result.probability));
             }
             if (Number.isFinite(result.mean)) {
-                result.mean = Math.max(0, Math.min(100, result.mean));
+                const effectiveMin = Number.isFinite(result.minScore)
+                    ? result.minScore
+                    : safeNum(payload?.minScore ?? payload?.options?.minScore, 0);
+                const effectiveMax = Number.isFinite(result.maxScore)
+                    ? result.maxScore
+                    : safeNum(payload?.maxScore ?? payload?.options?.maxScore, 100);
+                result.mean = Math.max(effectiveMin, Math.min(effectiveMax, result.mean));
             }
         }
         self.postMessage({ id, type: 'result', result: sanitizePayloadForWorker(result) });

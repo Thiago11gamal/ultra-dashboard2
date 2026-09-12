@@ -2,6 +2,7 @@ import { generateId } from '../../utils/idGenerator.js';
 import { INITIAL_DATA } from '../../data/initialData.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { current } from 'immer';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 // BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
 // causando crash silencioso no timer quando o concurso era trocado/deletado.
@@ -24,7 +25,7 @@ export const createContestSlice = (set) => ({
 
         if (state.appState.pomodoro?.activeSubject) {
             state.appState.pomodoro = { ...RESET_POMODORO };
-            localStorage.removeItem('pomodoroState');
+            try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
         }
 
         const activeData = state.appState.contests[targetId];
@@ -51,7 +52,7 @@ export const createContestSlice = (set) => ({
         state.appState.activeId = newId;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     deleteContest: (contestId) => set((state) => {
@@ -93,7 +94,7 @@ export const createContestSlice = (set) => ({
         
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     setPaineis: (paineis) => set((state) => {
@@ -112,7 +113,7 @@ export const createContestSlice = (set) => ({
         contest.lastUpdated = new Date().toISOString();
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 });
 

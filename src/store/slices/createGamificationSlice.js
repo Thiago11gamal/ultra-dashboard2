@@ -1,6 +1,7 @@
 import { calculateLevel } from '../../utils/gamification.js';
 import { buildAchievementStats } from '../../utils/analytics.js';
 import { ACHIEVEMENTS } from '../../config/gamification.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 export const createGamificationSlice = (set, get) => ({
     processGamification: (xpGained) => {
@@ -62,7 +63,7 @@ export const createGamificationSlice = (set, get) => ({
         set((state) => {
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
+            markStorageDirty();
         });
         if (detail) get().dispatchLevelUp(detail);
     },
@@ -74,7 +75,7 @@ export const createGamificationSlice = (set, get) => ({
         activeData.user.name = name;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 });
 

@@ -120,7 +120,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         ? parsedReferenceDate.getTime()
         : Date.now();
 
-    const t0 = safeDateParse(sorted[0]?.date || sorted[0]?.createdAt)?.getTime() ?? NaN;
+    const firstValid = sorted.find(h => Number.isFinite(safeDateParse(h?.date || h?.createdAt)?.getTime()));
+    const t0 = firstValid ? safeDateParse(firstValid.date || firstValid.createdAt).getTime() : now;
 
     let sumW = 0, cW = 0;
     let sumWX = 0, cWX = 0;
@@ -187,7 +188,8 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
         ? parsedReferenceDate.getTime()
         : Date.now();
 
-    const t0 = safeDateParse(sorted[0]?.date || sorted[0]?.createdAt)?.getTime() ?? NaN;
+    const firstValid = sorted.find(h => Number.isFinite(safeDateParse(h?.date || h?.createdAt)?.getTime()));
+    const t0 = firstValid ? safeDateParse(firstValid.date || firstValid.createdAt).getTime() : now;
 
     let sumW = 0, cW = 0;
     let sumW2 = 0, cW2 = 0;

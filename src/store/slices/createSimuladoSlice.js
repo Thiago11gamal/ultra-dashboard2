@@ -1,5 +1,6 @@
 import { computeCategoryStats } from '../../engine/stats.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 export const createSimuladoSlice = (set) => ({
   resetSimuladoStats: () => set((state) => {
@@ -21,7 +22,7 @@ export const createSimuladoSlice = (set) => ({
 
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
-    localStorage.setItem('ultra-sync-dirty', 'true');
+    markStorageDirty();
   }),
 
   deleteSimulado: (dateInput) => set((state) => {
@@ -122,7 +123,7 @@ export const createSimuladoSlice = (set) => ({
 
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
-    localStorage.setItem('ultra-sync-dirty', 'true');
+    markStorageDirty();
   }),
 });
 

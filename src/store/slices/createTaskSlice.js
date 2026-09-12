@@ -1,6 +1,7 @@
 import { generateId } from '../../utils/idGenerator.js';
 import { XP_CONFIG } from '../../config/gamification.js';
 import { getTaskXP } from '../../utils/gamification.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
@@ -34,7 +35,7 @@ export const createTaskSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
+            markStorageDirty();
         });
         if (pendingXpChange !== 0 && get().awardExperience) {
             get().awardExperience(pendingXpChange);
@@ -90,7 +91,7 @@ export const createTaskSlice = (set, get) => ({
             if (found) {
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
-                localStorage.setItem('ultra-sync-dirty', 'true');
+                markStorageDirty();
             }
         });
 
@@ -124,7 +125,7 @@ export const createTaskSlice = (set, get) => ({
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     deleteTask: (categoryId, taskId) => {
@@ -154,7 +155,7 @@ export const createTaskSlice = (set, get) => ({
             }
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
+            markStorageDirty();
         });
         if (pendingXpDeduction > 0 && get().awardExperience) {
             get().awardExperience(-pendingXpDeduction);
@@ -207,7 +208,7 @@ export const createTaskSlice = (set, get) => ({
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 });
 

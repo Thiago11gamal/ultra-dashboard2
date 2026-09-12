@@ -105,7 +105,9 @@ function SubjectStats({ category, maxScore = 100 }) {
         const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
         const last = scores[scores.length - 1];
         const trend = scores.length >= 2 ? last - scores[scores.length - 2] : 0;
-        const accuracy = Math.min(100, Math.max(0, (avg / maxScore) * 100));
+        const minScore = Number(category?.minScore) || 0;
+        const scoreRange = Math.max(1e-9, maxScore - minScore);
+        const accuracy = Math.min(100, Math.max(0, ((avg - minScore) / scoreRange) * 100));
 
         return { avg, last, trend, accuracy, count: scores.length };
     }, [category, maxScore]);

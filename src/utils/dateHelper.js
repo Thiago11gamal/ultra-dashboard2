@@ -67,10 +67,14 @@ export const getDateKey = (rawDate) => {
     }
   }
 
-  if (typeof rawDate === 'object' && (rawDate.seconds || rawDate._seconds)) {
+  if (typeof rawDate === 'object' && rawDate !== null && (rawDate.seconds || rawDate._seconds)) {
     const secs = rawDate.seconds || rawDate._seconds;
     const d = new Date(secs * 1000);
-    return d.toISOString().split('T')[0];
+    const manausDate = new Date(d.getTime() - (4 * 3600000));
+    const year = manausDate.getUTCFullYear();
+    const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(manausDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   try {

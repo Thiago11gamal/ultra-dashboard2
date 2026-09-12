@@ -142,14 +142,15 @@ export default function Coach() {
 
     // Backfill de simulados agora é gerenciado no hook useMonteCarloStats via rawSimuladoRows (evita duplicação).
 
-    const lastPersistRef = useRef(0);
+    const lastPersistByCategoryRef = useRef({});
     const persistCalibrationMetric = useCallback((metric) => {
         if (!metric?.categoryId || !isMountedRef.current) return;
 
-        // RATE-LIMIT: Evita loops se muitas métricas forem emitidas em sequência rápida
+        // RATE-LIMIT: Evita loops por categoria se métricas forem emitidas em sequência rápida
         const now = Date.now();
-        if (now - lastPersistRef.current < 500) return;
-        lastPersistRef.current = now;
+        const catKey = String(metric.categoryId);
+        if (now - (lastPersistByCategoryRef.current[catKey] || 0) < 500) return;
+        lastPersistByCategoryRef.current[catKey] = now;
 
         const toFinite = (value, fallback = null) => {
             if (value === null || value === undefined || value === '') return fallback;

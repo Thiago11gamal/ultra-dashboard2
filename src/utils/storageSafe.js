@@ -38,3 +38,15 @@ export function safeSetJSON(key, value) {
     return false;
   }
 }
+
+export function markStorageDirty() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('ultra-sync-dirty', 'true');
+    }
+    return true;
+  } catch (err) {
+    console.warn('[Storage] Falha ao marcar ultra-sync-dirty:', err);
+    return false;
+  }
+}

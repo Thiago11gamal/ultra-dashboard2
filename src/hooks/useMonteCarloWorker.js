@@ -35,6 +35,9 @@ function startCleanup() {
             }
         }
     }, 30_000);
+    if (cleanupInterval && typeof cleanupInterval.unref === 'function') {
+        cleanupInterval.unref();
+    }
 }
 
 function initSharedWorker() {

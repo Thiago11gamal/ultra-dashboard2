@@ -88,26 +88,34 @@ export default function Notes() {
                     correct: h.correct,
                     total: h.total,
                     score: h.score,
+                    isPercentage: !!h.isPercentage,
                     topics: Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {})
                 };
             });
 
             // Overlay or add from rowsByDate
+            const catMax = Number(cat.maxScore) || 100;
+            const catMin = Number(cat.minScore) || 0;
+            const catRange = Math.max(1e-9, catMax - catMin);
+
             Object.entries(rowsByDate).forEach(([dateKey, topics]) => {
                 const totalC = topics.reduce((s, t) => s + t.correct, 0);
                 const totalQ = topics.reduce((s, t) => s + t.total, 0);
+                const calcScore = totalQ > 0 ? catMin + (totalC / totalQ) * catRange : catMin;
 
                 if (mergedHistoryMap[dateKey]) {
                     mergedHistoryMap[dateKey].topics = topics;
                     mergedHistoryMap[dateKey].correct = totalC;
                     mergedHistoryMap[dateKey].total = totalQ;
-                    mergedHistoryMap[dateKey].score = totalQ > 0 ? (totalC / totalQ) * (Number(cat.maxScore) || 100) : 0;
+                    mergedHistoryMap[dateKey].score = calcScore;
+                    mergedHistoryMap[dateKey].isPercentage = false;
                 } else {
                     mergedHistoryMap[dateKey] = {
                         date: dateKey,
                         correct: totalC,
                         total: totalQ,
-                        score: totalQ > 0 ? (totalC / totalQ) * (Number(cat.maxScore) || 100) : 0,
+                        score: calcScore,
+                        isPercentage: false,
                         topics: topics
                     };
                 }

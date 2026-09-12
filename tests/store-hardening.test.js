@@ -24,7 +24,7 @@ vi.mock('idb-keyval', () => {
 // Now we can safely import the store and other modules
 import { useAppStore } from '../src/store/useAppStore.js';
 import { INITIAL_DATA } from '../src/data/initialData';
-import { safeClone } from '../src/store/safeClone.js';
+import { safeClone } from '../src/utils/safeClone.js';
 
 describe('Global Store Security and Hardening', () => {
 

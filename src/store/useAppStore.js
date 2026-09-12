@@ -23,6 +23,9 @@ const saveTimeouts = {};
 const savePromises = {};
 let isStorageLocked = false;
 
+let writeOpCounter = 0;
+const currentWriteTokens = {};
+
 const idbStorage = {
   getItem: async (name) => {
     try {
@@ -52,22 +55,36 @@ const idbStorage = {
       }
       if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
       if (savePromises[name]) savePromises[name].resolve();
-      savePromises[name] = { resolve, reject };
+
+      const opToken = ++writeOpCounter;
+      currentWriteTokens[name] = opToken;
+      const currentPromise = { resolve, reject };
+      savePromises[name] = currentPromise;
+
       saveTimeouts[name] = setTimeout(async () => {
         try {
           await idbSet(name, value);
-          savePromises[name]?.resolve();
+          if (currentWriteTokens[name] === opToken) {
+            currentPromise.resolve();
+          }
         } catch (e) {
           console.error('[Storage] Falha ao escrever no IDB:', e);
           try {
             if (typeof localStorage !== 'undefined') localStorage.setItem(name, value);
-            savePromises[name]?.resolve();
+            if (currentWriteTokens[name] === opToken) {
+              currentPromise.resolve();
+            }
           } catch (fallbackErr) {
-            savePromises[name]?.reject?.(fallbackErr);
+            if (currentWriteTokens[name] === opToken) {
+              currentPromise.reject(fallbackErr);
+            }
           }
         } finally {
-          delete savePromises[name];
-          delete saveTimeouts[name];
+          if (currentWriteTokens[name] === opToken) {
+            delete savePromises[name];
+            delete saveTimeouts[name];
+            delete currentWriteTokens[name];
+          }
         }
       }, 250);
     });

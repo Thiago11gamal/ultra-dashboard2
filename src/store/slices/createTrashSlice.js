@@ -1,5 +1,6 @@
 import { generateId } from '../../utils/idGenerator.js';
 import { safeClone } from '../../utils/safeClone.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 export const createTrashSlice = (set) => ({
     restoreFromTrash: (trashId) => set((state) => {
@@ -78,14 +79,14 @@ export const createTrashSlice = (set) => ({
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     emptyTrash: () => set((state) => {
         state.appState.trash = [];
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 });
 

@@ -458,7 +458,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const fallbackTarget = maxScore * 0.8;
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
-    const targetScoreLabel = safeOptions.targetScoreLabel ?? Math.round((targetScore / maxScore) * 100);
+    const targetScoreLabel = safeOptions.targetScoreLabel ?? Math.round(((targetScore - minScore) / Math.max(1e-9, maxScore - minScore)) * 100);
 
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') {
@@ -1321,6 +1321,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         globalProjectedMean,
         agilityPenalty
     } = metrics;
+    const minScore = metrics.minScore ?? 0;
+    const domain = Math.max(1e-6, (maxScore || 100) - minScore);
     const {
         scoreComponent,
         recencyComponent,
@@ -1381,8 +1383,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         recommendation = "Desempenho Oscilante: Foque em preencher lacunas de base";
     } else if (trend < -trendThreshold) {
         recommendation = `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`;
-    } else if (averageScore < targetScore - (0.2 * maxScore)) {
-        recommendation = `Nota Crítica: ${formatPercent((averageScore / maxScore) * 100)} (Meta ${formatPercent((targetScore / maxScore) * 100)})`;
+    } else if (averageScore < targetScore - (0.2 * domain)) {
+        recommendation = `Nota Crítica: ${formatPercent(((averageScore - minScore) / domain) * 100)} (Meta ${formatPercent(((targetScore - minScore) / domain) * 100)})`;
     } else if (averageScore >= targetScore) {
         recommendation = "No caminho certo! Continue consolidando";
     } else {
@@ -1481,7 +1483,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 instabilityWeight: safeFixedNumber(metrics.backtestWeights?.instabilityWeight, 3)
             },
             humanReadable: {
-                "Média": formatPercent((averageScore / maxScore) * 100),
+                "Média": formatPercent(((averageScore - minScore) / domain) * 100),
                 "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
                 "Tendência": trend > 0.5 ? `↑ +${formatValue(trend)}` : trend < -0.5 ? `↓ ${formatValue(trend)}` : "→ Estável",
                 "Instabilidade": `±${formatValue(mssdVolatility)} pts`,

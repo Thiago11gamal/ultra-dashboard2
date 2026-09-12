@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 import { VitePWA } from 'vite-plugin-pwa'
 
+process.env.VITE_APP_VERSION = process.env.VITE_APP_VERSION || '1.0.0';
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || 'dev'),

@@ -363,9 +363,14 @@ export function simulateNormalDistribution(
             }
             : null;
 
-        const cov = buildCovarianceMatrix(subjectStats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
-        const psdCov = ensurePositiveSemiDefinite(cov);
-        subjectCholesky = choleskyDecomposition(psdCov);
+        try {
+            const cov = buildCovarianceMatrix(subjectStats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
+            const psdCov = ensurePositiveSemiDefinite(cov);
+            subjectCholesky = choleskyDecomposition(psdCov);
+        } catch (err) {
+            console.warn('[MonteCarlo] Cholesky falhou, usando disciplinas independentes:', err?.message || err);
+            subjectCholesky = null;
+        }
 
         // ✅ FIX BUG-06: Validar e substituir elementos quase-zero na diagonal da Cholesky
         // Previne singularidades na multiplicação downstream que arruínam as simulações

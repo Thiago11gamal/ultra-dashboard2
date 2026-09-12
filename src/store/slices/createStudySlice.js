@@ -1,6 +1,7 @@
 import { generateId } from '../../utils/idGenerator.js';
 import { XP_CONFIG } from '../../config/gamification.js';
 import { SYNC_LOG_CAP } from '../../config.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
@@ -91,7 +92,7 @@ export const createStudySlice = (set, get) => ({
 
       state.appState.version = (state.appState.version || 0) + 1;
       state.appState.lastUpdated = new Date().toISOString();
-      localStorage.setItem('ultra-sync-dirty', 'true');
+      markStorageDirty();
     });
 
     if (pendingXp > 0 && typeof get().awardExperience === 'function') {
@@ -149,7 +150,7 @@ export const createStudySlice = (set, get) => ({
 
       state.appState.version = (state.appState.version || 0) + 1;
       state.appState.lastUpdated = new Date().toISOString();
-      localStorage.setItem('ultra-sync-dirty', 'true');
+      markStorageDirty();
     });
 
     if (xpToDeduct > 0 && typeof get().awardExperience === 'function') {
@@ -216,7 +217,7 @@ export const createStudySlice = (set, get) => ({
 
       state.appState.version = (state.appState.version || 0) + 1;
       state.appState.lastUpdated = new Date().toISOString();
-      localStorage.setItem('ultra-sync-dirty', 'true');
+      markStorageDirty();
     });
 
     if (typeof get().awardExperience === 'function') {

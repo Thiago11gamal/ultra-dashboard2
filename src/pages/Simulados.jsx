@@ -297,7 +297,7 @@ export default function Simulados() {
 
     // 1. Filtra apenas rows com dados reais
     const answeredRows = simuladoRowsArray.filter(
-      (r) => parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0
+      (r) => r && typeof r === 'object' && (parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0)
     );
     if (answeredRows.length === 0) return { rows: [], source: null, timestamp: null };
 
@@ -310,7 +310,7 @@ export default function Simulados() {
 
     // 3. Estratégia A: batchId (Simulado IA)
     if (lastRef.batchId && lastRef.source !== 'manual') {
-      resultRows = simuladoRowsArray.filter((r) => r.batchId === lastRef.batchId);
+      resultRows = simuladoRowsArray.filter((r) => r && r.batchId === lastRef.batchId);
       // ✅ FIX BUG-49: fallback se batchId não encontrar nada
       if (resultRows.length === 0) {
         console.warn(`[SimuladoFilter] batchId ${lastRef.batchId} não encontrou rows. Fallback para data.`);
@@ -327,6 +327,7 @@ export default function Simulados() {
       // ✅ FIX BUG-36: cache de dateKey por row (evita N chamadas de normalizeDate)
       const dateKeyCache = new WeakMap();
       const getRowDateKey = (r) => {
+        if (!r || typeof r !== 'object') return null;
         if (dateKeyCache.has(r)) return dateKeyCache.get(r);
         const key = getDateKey(normalizeDate(r.date || r.createdAt));
         dateKeyCache.set(r, key);
@@ -334,6 +335,7 @@ export default function Simulados() {
       };
       
       resultRows = simuladoRowsArray.filter((r) => {
+        if (!r || typeof r !== 'object') return false;
         // Para manual, queremos agrupar todos do dia
         const isManual = r.source === 'manual' || r.isAuto === false;
         if (!isManual) return false;

@@ -1,6 +1,7 @@
 import { generateId } from '../../utils/idGenerator.js';
 import { normalize } from '../../utils/normalization.js';
 import { safeClone } from '../../utils/safeClone.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => set((state) => {
@@ -36,7 +37,7 @@ export const createCategorySlice = (set) => ({
         });
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     deleteCategory: (id) => set((state) => {
@@ -123,7 +124,7 @@ export const createCategorySlice = (set) => ({
 
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     updateCategoryFields: (id, fields) => set((state) => {
@@ -135,7 +136,7 @@ export const createCategorySlice = (set) => ({
             Object.assign(category, fields);
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
+            markStorageDirty();
         }
     }),
 
@@ -159,7 +160,7 @@ export const createCategorySlice = (set) => ({
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     updateWeights: (weights) => set((state) => {
@@ -178,7 +179,7 @@ export const createCategorySlice = (set) => ({
         activeData.mcWeights = { ...(activeData.mcWeights || {}), ...weights };
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
-        localStorage.setItem('ultra-sync-dirty', 'true');
+        markStorageDirty();
     }),
 
     safelyMergeDuplicates: () => set((state) => {
@@ -346,7 +347,7 @@ export const createCategorySlice = (set) => ({
 
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
-    localStorage.setItem('ultra-sync-dirty', 'true');
+    markStorageDirty();
   }
 }),
 
@@ -406,7 +407,7 @@ export const createCategorySlice = (set) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
-            localStorage.setItem('ultra-sync-dirty', 'true');
+            markStorageDirty();
             result = true;
         });
         return result;

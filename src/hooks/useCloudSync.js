@@ -184,8 +184,21 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           mergedTasks.map((t) => [t.id || `${t.text || t.title || ''}-${t.priority || ''}`, t])
         ).values());
         if (winner.simuladoStats) {
-          winner.simuladoStats.history = Array.from(new Map(mergedHistory.map(h => [h.date, h])).values())
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+          const getHistoryKey = (h) => {
+            if (!h || typeof h !== 'object') return null;
+            if (h.id) return `id:${String(h.id)}`;
+            const d = h.date || h.createdAt || '';
+            const topic = h.topic || h.name || (Array.isArray(h.topics) ? h.topics.map(t => t.name).join(',') : '');
+            const score = h.score ?? h.correct ?? '';
+            return `sim:${d}:${topic}:${score}`;
+          };
+          winner.simuladoStats.history = Array.from(
+            new Map(mergedHistory.map(h => [getHistoryKey(h) || JSON.stringify(h), h])).values()
+          ).sort((a, b) => {
+            const timeA = new Date(a?.date || a?.createdAt || 0).getTime();
+            const timeB = new Date(b?.date || b?.createdAt || 0).getTime();
+            return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
+          });
         }
         nameMap[key] = winner;
         logger.warn(`[dedup] Fundindo dados do clone "${cat.name}".`);

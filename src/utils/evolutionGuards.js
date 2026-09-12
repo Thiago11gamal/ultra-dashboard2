@@ -41,14 +41,8 @@ export function normalizeTargetScore(targetScore, minScore, maxScore) {
 }
 
 export function normalizeProbability(value, fallback = 0) {
-  let n = Number(value);
-
+  const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
-
-  if (n > 0 && n <= 1) {
-    n = n * 100;
-  }
-
   return Math.max(0, Math.min(100, n));
 }
 

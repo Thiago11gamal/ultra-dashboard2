@@ -1,4 +1,5 @@
 import { validateAppState } from '../schemas.js';
+import { markStorageDirty } from '../../utils/storageSafe.js';
 
 const applyDarkModeToggle = (state) => {
   if (!state.appState) return;
@@ -8,7 +9,7 @@ const applyDarkModeToggle = (state) => {
   activeData.settings.darkMode = !(activeData.settings.darkMode ?? true);
   state.appState.version = (state.appState.version || 0) + 1;
   state.appState.lastUpdated = new Date().toISOString();
-  localStorage.setItem('ultra-sync-dirty', 'true');
+  markStorageDirty();
 };
 
 export const createSettingsSlice = (set) => ({
@@ -20,7 +21,7 @@ export const createSettingsSlice = (set) => ({
     }
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
-    localStorage.setItem('ultra-sync-dirty', 'true');
+    markStorageDirty();
   }),
   
   setDashboardFilter: (filterOrEvent) => set((state) => {
@@ -32,7 +33,7 @@ export const createSettingsSlice = (set) => ({
     state.appState.dashboardFilter = nextFilter || 'all';
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
-    localStorage.setItem('ultra-sync-dirty', 'true');
+    markStorageDirty();
   }),
   
   updateCoachPlanner: (newPlannerData) => set((state) => {
@@ -43,7 +44,7 @@ export const createSettingsSlice = (set) => ({
     activeData.coachPlanner = newPlannerData;
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = new Date().toISOString();
-    localStorage.setItem('ultra-sync-dirty', 'true');
+    markStorageDirty();
   }),
   
   setThemeMode: () => set(applyDarkModeToggle),
