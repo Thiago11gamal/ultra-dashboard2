@@ -47,6 +47,7 @@ if (!isLocalMode) {
         app = initializeApp(firebaseConfig);
 
         db = initializeFirestore(app, {
+            ignoreUndefinedProperties: true,
             localCache: persistentLocalCache({
                 tabManager: persistentMultipleTabManager(),
             }),

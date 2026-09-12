@@ -49,9 +49,10 @@ export function getConfidenceTier({
     maxScore = 100
 }) {
     const scale = Math.max(1, maxScore / 100);
-    // Tolerância adaptativa: volatility is absolute standard deviation, max 100
-    // calibrationPenalty is between 0 and 1. 0.1 means 10% penalty.
-    const instability = (calibrationPenalty * 100) + (volatility * 0.2);
+    // Tolerância adaptativa: normalizar a volatilidade para a escala base de 100
+    // calibrationPenalty está entre 0 e 1 (0.1 = 10% de penalidade).
+    const normalizedVolatility = volatility / scale;
+    const instability = (calibrationPenalty * 100) + (normalizedVolatility * 0.2);
 
     if (sampleSize < 3) {
         return {
@@ -62,7 +63,7 @@ export function getConfidenceTier({
         };
     }
 
-    if (instability < 18 * scale) {
+    if (instability < 18) {
         return {
             tier: 'HIGH',
             label: 'Alta confiabilidade',
@@ -71,7 +72,7 @@ export function getConfidenceTier({
         };
     }
 
-    if (instability < 35 * scale) {
+    if (instability < 35) {
         return {
             tier: 'MEDIUM',
             label: 'Confiabilidade moderada',

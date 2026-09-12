@@ -67,19 +67,10 @@ export function formatValue(value, digits = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '0';
   const safeDigits = Number.isFinite(Number(digits)) ? Math.max(0, Math.min(4, Number(digits))) : 1;
-  if (Math.abs(n) >= 1000) {
-    return n.toLocaleString('pt-BR', { maximumFractionDigits: safeDigits, minimumFractionDigits: 0 });
-  }
-  if (Math.abs(n) >= 10) {
-    return n.toFixed(Math.min(safeDigits, 1)).replace(/\.0$/, '').replace(/(\.\d*?)0+$/, '$1');
-  }
-  if (Math.abs(n) >= 1) {
-    return n.toFixed(Math.max(1, safeDigits)).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-  }
-  if (Math.abs(n) > 0) {
-    return n.toFixed(Math.min(4, Math.max(2, safeDigits + 1))).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-  }
-  return '0';
+  return n.toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: safeDigits
+  });
 }
 
 export function formatPercent(value, digits = 1) {

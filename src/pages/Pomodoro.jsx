@@ -1060,7 +1060,7 @@ export default function Pomodoro() {
                     ...prev,
                     categories: catsArray.map(c => c.id === subjectSnapshot.categoryId ? {
                         ...c,
-                        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === subjectSnapshot.taskId ? { ...t, status: undefined } : t)
+                        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === subjectSnapshot.taskId ? { ...t, status: 'idle' } : t)
                     } : c)
                 };
             });

@@ -615,7 +615,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             low_level_limit: Math.min(60, targetPct),
             high_level_limit: targetPct,
             mastery_limit: targetPct,
-            maxScore: maxScore
+            maxScore: maxScore,
+            minScore: minScore
         });
 
         // Map to UI-compatible format
@@ -877,7 +878,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     low_level_limit: Math.min(60, targetPct),
                     high_level_limit: targetPct,
                     mastery_limit: targetPct,
-                    maxScore: maxScore
+                    maxScore: maxScore,
+                    minScore: minScore
                 });
 
                 categoryAnalyses.push(analysis);

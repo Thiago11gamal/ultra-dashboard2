@@ -102,13 +102,18 @@ export function estimateTopicFsrs(topic, options = {}) {
   const performanceFactor = clamp(mean / scoreScale, 0, 1);
   const reviewFactor = Math.min(1, Math.log1p(scores.length) / Math.log1p(20));
 
-  let difficulty = toFiniteNumber(topic.difficulty, 0.5);
-
-  if (difficulty > 1) {
-    difficulty /= 10;
+  const rawDiff = toFiniteNumber(topic.difficulty, 1.0);
+  let difficulty;
+  if (rawDiff > 2) {
+    // Escala Anki/FSRS tradicional 1..10
+    difficulty = clamp((rawDiff - 1) / 9, 0, 1);
+  } else if (rawDiff >= 0.6 && rawDiff <= 2.0) {
+    // Escala do app: 0.7 (facil), 1.0 (medio), 1.3 (dificil), 1.6 (expert)
+    // Mapeia monotonicamente [0.7, 1.6] para [0.2, 0.9]
+    difficulty = clamp(((rawDiff - 0.7) / (1.6 - 0.7)) * 0.7 + 0.2, 0.1, 0.95);
+  } else {
+    difficulty = clamp(rawDiff, 0, 1);
   }
-
-  difficulty = clamp(difficulty, 0, 1);
 
   const difficultyFactor = 1 - (difficulty * 0.35);
 

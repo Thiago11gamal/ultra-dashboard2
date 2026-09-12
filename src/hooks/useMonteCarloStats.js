@@ -275,9 +275,14 @@ export function useMonteCarloStats({
       currentDate = parseNoonLocal(getDateKey(new Date())) || new Date();
     }
 
-    // Force exact day boundaries in UTC to avoid DST or local timezone drift
-    const utcGoal = Date.UTC(goal.getUTCFullYear(), goal.getUTCMonth(), goal.getUTCDate());
-    const utcCurrent = Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), currentDate.getUTCDate());
+    // Force exact day boundaries in UTC based on YYYY-MM-DD keys to avoid DST or local timezone drift
+    const goalKey = getDateKey(goal);
+    const currKey = getDateKey(currentDate);
+    if (!goalKey || !currKey) return 30;
+    const [gy, gm, gd] = goalKey.split('-').map(Number);
+    const [cy, cm, cd] = currKey.split('-').map(Number);
+    const utcGoal = Date.UTC(gy, gm - 1, gd);
+    const utcCurrent = Date.UTC(cy, cm - 1, cd);
 
     const diffDays = Math.ceil((utcGoal - utcCurrent) / (1000 * 60 * 60 * 24));
     return Math.min(3650, Math.max(0, diffDays));
@@ -1216,15 +1221,17 @@ export function useMonteCarloStats({
     const confidenceObj = getConfidenceTier({
       calibrationPenalty,
       volatility: sd,
-      sampleSize: nHistory
+      sampleSize: nHistory,
+      maxScore: Number(maxScore) || 100
     });
 
     const explanations = buildHumanExplanation({
       calibrationPenalty,
       volatility: sd,
-          trend: (projectedMean - currentMean),
+      trend: (projectedMean - currentMean),
       confidenceTier: confidenceObj.tier,
-      intervalWidth: ci95High - ci95Low
+      intervalWidth: ci95High - ci95Low,
+      maxScore: Number(maxScore) || 100
     });
 
     const driftAlerts = detectPerformanceDrift({

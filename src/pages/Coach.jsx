@@ -298,16 +298,37 @@ export default function Coach() {
     const combinedHistory = useMemo(() => getCombinedHistory(history, simulados), [history, simulados]);
 
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
-    // BUG-16 FIX: Bind maxScore dynamically to support contests scaled > 100
     const currentMaxScore = data?.maxScore ?? 100;
+    const currentMinScore = data?.minScore ?? 0;
+    
+    // Converte targetScore ou targetProbability em pontos na escala da prova
+    const targetScorePoints = useMemo(() => {
+        const safeMax = Math.max(1, Number(currentMaxScore) || 100);
+        const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax) : 0;
+        const clampVal = (value) => Math.min(safeMax, Math.max(safeMin, Number.isFinite(Number(value)) ? Number(value) : safeMin));
+        
+        if (userProfile?.targetScore != null && Number.isFinite(Number(userProfile.targetScore))) {
+            let ts = Number(userProfile.targetScore);
+            if (ts <= 100 && (safeMax - safeMin) > 100) {
+                ts = safeMin + (ts / 100) * (safeMax - safeMin);
+            }
+            return clampVal(ts);
+        }
+        
+        if (userProfile?.targetProbability != null && Number.isFinite(Number(userProfile.targetProbability))) {
+            return clampVal(safeMin + (Number(userProfile.targetProbability) / 100) * (safeMax - safeMin));
+        }
+        
+        return clampVal(safeMin + (safeMax - safeMin) * 0.85);
+    }, [userProfile?.targetScore, userProfile?.targetProbability, currentMinScore, currentMaxScore]);
     
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
-        targetScore: userProfile?.targetProbability ?? 85,
+        targetScore: targetScorePoints,
         timeIndex: -1,
         timelineDates: EMPTY_ARRAY,
-        minScore: data?.minScore ?? 0,
+        minScore: currentMinScore,
         maxScore: currentMaxScore,
         simuladoRows: data?.simuladoRows || EMPTY_ARRAY
     });
@@ -352,7 +373,7 @@ export default function Coach() {
         // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
         // lateral não fica "preso" aguardando cálculo síncrono.
         const analysisTimer = setTimeout(() => {
-            const targetScore = userProfile?.targetProbability ?? 85;
+            const targetScore = targetScorePoints;
             const collectedMetrics = [];
 
             const result = getSuggestedFocus(
@@ -416,7 +437,7 @@ export default function Coach() {
         data?.user, 
         data?.maxScore, 
         data?.settings?.adaptiveCalibrationEnabled,
-        userProfile?.targetProbability,
+        targetScorePoints,
         flashcardDue,
         flashcardDecks,
         persistCalibrationMetric
@@ -453,7 +474,7 @@ export default function Coach() {
         timeoutRef.current = setTimeout(() => {
             if (!isMountedRef.current) return;
 
-            const targetScore = userProfile?.targetProbability ?? 85;
+            const targetScore = targetScorePoints;
             const collectedMetrics = [];
 
             // BUG-1 FIX: Use categories, history, studyLogs directly (now in dep array)
@@ -499,7 +520,7 @@ export default function Coach() {
             timeoutRef.current = null;
         }, 1500);
     // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
-    }, [data, coachLoading, setData, persistCalibrationMetric, userProfile?.targetProbability, categories, history, studyLogs]);
+    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, categories, history, studyLogs]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {

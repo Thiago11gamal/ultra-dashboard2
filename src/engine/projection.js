@@ -328,30 +328,24 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     let L = maxScore;
     if (historicalScores.length >= 4) {
         const validScores = historicalScores;
-        if (validScores.length >= 4) {
-            const sortedScores = [...validScores].sort((a, b) => a - b);
-            const peak1 = sortedScores[sortedScores.length - 1];
-            const peak2 = sortedScores[sortedScores.length - 2];
-            const robustPeak = (peak1 * 0.6) + (peak2 * 0.4);
-            const dynamicHeadroom = Math.min(maxScore * 0.15, Math.max(currentVariance * 1.5, maxScore * 0.05));
-            // BUG-AUDIT-07 FIX: calculateSlope espera objetos {date, score}, não números puros.
-            // Gerar objetos sintéticos com datas espaçadas de 7 dias para manter o contrato.
-            const recentRaw = validScores.slice(-4);
-            const recentAsObjects = recentRaw.map((s, idx) => ({
-                score: s,
-                date: getDateKey(new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000))
-            }));
-            const recentTrend = calculateSlopePerDay(recentAsObjects, maxScore);
-            const recentSlope = calculateSlope(recentTrend, maxScore, options);
-            const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
-            
-            L = robustPeak + (dynamicHeadroom * slopeMultiplier);
-            L = Math.max(validScores[validScores.length - 1] + 1, Math.min(maxScore + 0.1, L));
-        } else {
-            const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
-            const peakScore = getPercentile(sortedForPercentile, 0.90);
-            L = Math.min(maxScore + 0.1, peakScore + (maxScore * 0.10));
-        }
+        const sortedScores = [...validScores].sort((a, b) => a - b);
+        const peak1 = sortedScores[sortedScores.length - 1];
+        const peak2 = sortedScores[sortedScores.length - 2];
+        const robustPeak = (peak1 * 0.6) + (peak2 * 0.4);
+        const dynamicHeadroom = Math.min(maxScore * 0.15, Math.max(currentVariance * 1.5, maxScore * 0.05));
+        // BUG-AUDIT-07 FIX: calculateSlope espera objetos {date, score}, não números puros.
+        // Gerar objetos sintéticos com datas espaçadas de 7 dias para manter o contrato.
+        const recentRaw = validScores.slice(-4);
+        const recentAsObjects = recentRaw.map((s, idx) => ({
+            score: s,
+            date: getDateKey(new Date(Date.now() - (recentRaw.length - 1 - idx) * 7 * 86400000))
+        }));
+        const recentTrend = calculateSlopePerDay(recentAsObjects, maxScore, minScore);
+        const recentSlope = calculateSlope(recentTrend, maxScore, options);
+        const slopeMultiplier = recentSlope > 0 ? Math.min(1, recentSlope / (maxScore * 0.01)) : 0;
+        
+        L = robustPeak + (dynamicHeadroom * slopeMultiplier);
+        L = Math.min(maxScore + 0.1, Math.max(validScores[validScores.length - 1] + 0.1, L));
     } else {
         const sortedForPercentile = [...historicalScores].sort((a, b) => a - b);
         const peakScore = getPercentile(sortedForPercentile, 0.90);
@@ -415,7 +409,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
     let linearSlope = 0;
     if (!(logisticFit.isLogistic && logisticFit.k > 0)) {
-        let trend = calculateSlopePerDay(sortedHistory, maxScore);
+        let trend = calculateSlopePerDay(sortedHistory, maxScore, minScore);
         linearSlope = calculateSlope(trend, maxScore, options);
     }
 

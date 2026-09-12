@@ -494,13 +494,16 @@ export default function Simulados() {
           }));
 
           const maxScore = Number(cat.maxScore) || 100;
+          const minScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+          const scoreRange = Math.max(1e-9, maxScore - minScore);
           if (finalQ > 0) {
             const totalDifficultyWeight = finalTopics.reduce((acc, t) => acc + (Number(t.difficulty) || 1.0) * (Number(t.total) || 0), 0);
             const avgDifficulty = finalTopics.length > 0 && totalDifficultyWeight > 0 ? totalDifficultyWeight / finalQ : 1.0;
+            const computedScore = minScore + (finalC / finalQ) * scoreRange;
             historyWithoutToday.push({
               date: todayKey, correct: finalC, total: finalQ,
               difficulty: Number(avgDifficulty.toFixed(2)),
-              score: Math.min(maxScore, Math.max(0, (finalC / finalQ) * maxScore)),
+              score: Math.min(maxScore, Math.max(minScore, computedScore)),
               timeSpent: finalTimeSpent, timedQuestoes: finalTimedQuestoes, topics: finalTopics,
             });
           }
@@ -510,13 +513,15 @@ export default function Simulados() {
               historyWithCurrent, 
               Number(cat.weight) > 0 ? Number(cat.weight) : 10, 
               60, 
-              maxScore
+              maxScore,
+              minScore
           );
+          const lastScore = finalQ > 0 ? (minScore + (finalC / finalQ) * scoreRange) : (cat.simuladoStats?.lastAttempt ?? 0);
           cat.simuladoStats = {
             ...cat.simuladoStats, history: historyWithCurrent,
             average: Number((statsResult?.mean || 0).toFixed(2)),
             trend: statsResult?.trend || 'stable',
-            lastAttempt: finalQ > 0 ? (finalC / finalQ) * maxScore : cat.simuladoStats.lastAttempt,
+            lastAttempt: Number(Number(lastScore).toFixed(2)),
             level: statsResult?.level || 'BAIXO'
           };
         };

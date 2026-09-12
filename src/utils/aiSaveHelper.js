@@ -101,6 +101,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     
     if (idMatch || nameMatch) {
       const catMaxScore = Number(cat.maxScore) || Number(draft.maxScore) || 100;
+      const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number.isFinite(Number(draft.minScore)) ? Number(draft.minScore) : 0);
+      const catScoreRange = Math.max(1e-9, catMaxScore - catMinScore);
       
       if (!cat.simuladoStats) {
          cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
@@ -139,10 +141,10 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           existing.topics.push(newTopicEntry);
         }
 
-        const dayTotal = existing.topics.reduce((s, t) => s + (t.total || 0), 0);
-        const dayCorrect = existing.topics.reduce((s, t) => s + (t.correct || 0), 0);
-        const dayTimeSpent = existing.topics.reduce((s, t) => s + (Number(t.timeSpent) || 0), 0);
-        const dayTimedQuestoes = existing.topics.reduce((s, t) => s + (Number(t.timeSpent) >= 0 ? (t.total || 0) : 0), 0);
+        const dayTotal = (Number(existing.total) || 0) + total;
+        const dayCorrect = (Number(existing.correct) || 0) + correct;
+        const dayTimeSpent = (Number(existing.timeSpent) || 0) + timeSpentSecs;
+        const dayTimedQuestoes = (Number(existing.timedQuestoes) || 0) + (timeSpentSecs >= 0 ? total : 0);
 
         const prevWeight = (existing.difficulty || 1.0) * (existing.total || 0);
         const newWeight = numericDifficulty * total;
@@ -150,7 +152,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
 
         existing.correct = dayCorrect;
         existing.total = dayTotal;
-        existing.score = dayTotal > 0 ? Math.min(catMaxScore, (dayCorrect / dayTotal) * catMaxScore) : 0;
+        existing.score = dayTotal > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (dayCorrect / dayTotal) * catScoreRange)) : catMinScore;
         existing.difficulty = newDiff;
         existing.timeSpent = dayTimeSpent;
         existing.timedQuestoes = dayTimedQuestoes;
@@ -166,7 +168,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           timedQuestoes: timeSpentSecs >= 0 ? total : 0,
           lastSessionTimeSpent: timeSpentSecs,
           lastSessionTotal: total,
-          score: total > 0 ? Math.min(catMaxScore, (correct / total) * catMaxScore) : 0,
+          score: total > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (correct / total) * catScoreRange)) : catMinScore,
           difficulty: formData.dificuldade === 'facil' ? 0.7 : formData.dificuldade === 'medio' ? 1.0 : formData.dificuldade === 'dificil' ? 1.3 : 1.6,
           topics: [newTopicEntry],
         });
@@ -178,16 +180,15 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
          history = cat.simuladoStats.history;
       }
 
-      const statsResult = computeCategoryStats(history, cat.weight || 1, 60, catMaxScore);
+      const statsResult = computeCategoryStats(history, cat.weight || 1, 60, catMaxScore, catMinScore);
       const todayEntry = history.find(h => h.date === todayKey);
 
       cat.simuladoStats.average = statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0;
       cat.simuladoStats.trend = statsResult?.trend || 'stable';
-      cat.simuladoStats.lastAttempt = todayEntry ? Number(todayEntry.score || 0) : (total > 0 ? (correct / total) * catMaxScore : 0);
+      cat.simuladoStats.lastAttempt = todayEntry ? Number(todayEntry.score || 0) : (total > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (correct / total) * catScoreRange)) : catMinScore);
       cat.simuladoStats.level = statsResult?.level || 'BAIXO';
     }
   }
 
   draft.lastUpdated = new Date().toISOString();
 }
-

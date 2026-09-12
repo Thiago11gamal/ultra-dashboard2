@@ -11,15 +11,18 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    function withinSizeLimit() {
-      return request.resource.data.size() < 950000;
+    // No Firestore Rules, data.size() retorna a quantidade de campos no documento (Map).
+    // Limitamos o número de chaves a 500 para evitar mapas inflados abusivos.
+    // O limite de 1MB por documento é garantido nativamente pela infraestrutura do Firestore.
+    function withinFieldCountLimit() {
+      return request.resource.data.size() < 500;
     }
 
     match /backups/{userId}/{document=**} {
       allow read: if isOwner(userId);
 
       allow create, update: if isOwner(userId)
-        && withinSizeLimit();
+        && withinFieldCountLimit();
 
       allow delete: if isOwner(userId);
     }

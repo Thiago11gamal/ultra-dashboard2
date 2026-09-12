@@ -27,6 +27,7 @@ import { analyzeProgressState } from './ProgressStateEngine.js';
 export function detectRegimeTransition(scores = [], options = {}) {
     const {
         maxScore = 100,
+        minScore = 0,
         windowSize = 10,
         minHistory = 6
     } = options;
@@ -51,7 +52,7 @@ export function detectRegimeTransition(scores = [], options = {}) {
     const stepSize = Math.max(1, Math.floor(actualWindowSize / 2)); // 50% overlap
     for (let end = actualWindowSize; end <= scores.length; end += stepSize) {
         const window = scores.slice(end - actualWindowSize, end);
-        const result = analyzeProgressState(window, { maxScore, window_size: actualWindowSize });
+        const result = analyzeProgressState(window, { maxScore, minScore, window_size: actualWindowSize });
         states.push({
             state: result.state,
             mean: result.mean_score,

@@ -56,7 +56,9 @@ const repairContestHistory = (rawData) => {
     if (myRows.length === 0) return;
 
     const currentHistory = cat.simuladoStats?.history || [];
-    const maxScore = cat.maxScore ?? 100;
+    const maxScore = Number(cat.maxScore) || 100;
+    const minScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+    const scoreRange = Math.max(1e-9, maxScore - minScore);
 
     const uniqueDaysInLogs = new Set(
       myRows
@@ -118,11 +120,11 @@ const repairContestHistory = (rawData) => {
         correct: stats.correct,
         total: stats.total,
         score: (stats.total > 0 && Number.isFinite(stats.correct))
-          ? (stats.correct / stats.total) * maxScore
-          : 0
+          ? minScore + (stats.correct / stats.total) * scoreRange
+          : minScore
       })).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
-      const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore);
+      const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore, minScore);
 
       cat.simuladoStats = {
         history: rebuiltHistory,
@@ -211,6 +213,7 @@ export const sanitizeContest = (data) => {
       })(),
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
       maxScore: Number(cat.maxScore) || 100,
+      minScore: (cat.minScore !== undefined && cat.minScore !== null && Number.isFinite(Number(cat.minScore))) ? Number(cat.minScore) : 0,
       minCutoff: Number(cat.minCutoff) || 0,
       level: Number(cat.level) || 0,
       totalMinutes: Number(cat.totalMinutes) || 0,

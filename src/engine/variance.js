@@ -199,17 +199,31 @@ export function estimateInterSubjectCorrelation(
     }
 
     const pairwise = [];
+    const getRowValue = (row, normName, origName) => {
+        if (!row || typeof row !== 'object') return undefined;
+        if (row[normName] !== undefined) return row[normName];
+        if (origName && row[origName] !== undefined) return row[origName];
+        for (const key of Object.keys(row)) {
+            if (normalize(key) === normName) {
+                return row[key];
+            }
+        }
+        return undefined;
+    };
+
     for (let i = 0; i < subjectNames.length; i++) {
         for (let j = i + 1; j < subjectNames.length; j++) {
             const aName = normalize(subjectNames[i]);
             const bName = normalize(subjectNames[j]);
+            const origAName = subjectNames[i];
+            const origBName = subjectNames[j];
 
             const xs = [];
             const ys = [];
             safeScoreRows.forEach(row => {
-                const rawX = row?.[aName];
+                const rawX = getRowValue(row, aName, origAName);
                 const x = typeof rawX === 'object' && rawX !== null ? Number(rawX?.score) : Number(rawX);
-                const rawY = row?.[bName];
+                const rawY = getRowValue(row, bName, origBName);
                 const y = typeof rawY === 'object' && rawY !== null ? Number(rawY?.score) : Number(rawY);
                 if (Number.isFinite(x) && Number.isFinite(y)) {
                     xs.push(x);

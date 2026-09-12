@@ -24,6 +24,13 @@ function startCleanup() {
         for (const [id, pending] of sharedPendingRequests) {
             if (pending.createdAt && now - pending.createdAt > REQUEST_MAX_AGE_MS) {
                 clearTimeout(pending.timeoutId);
+                try {
+                    if (typeof pending.reject === 'function') {
+                        pending.reject(new Error("A requisição expirou no worker."));
+                    }
+                } catch (err) {
+                    console.warn('[MC Worker] Falha ao rejeitar request expirado:', err);
+                }
                 sharedPendingRequests.delete(id);
             }
         }

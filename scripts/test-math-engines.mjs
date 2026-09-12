@@ -76,7 +76,16 @@ const negativelyCorrelatedRows = [
 ];
 
 const negativeCorr = estimateInterSubjectCorrelation(negativelyCorrelatedRows, ['Direito', 'Penal'], -0.05);
-addCheck('variance.estimateInterSubjectCorrelation preserves negative correlations', negativeCorr < 0, negativeCorr);
+addCheck('variance.estimateInterSubjectCorrelation clamps negative correlations to 0 (PSD-safe)', negativeCorr === 0, negativeCorr);
+
+const positivelyCorrelatedRows = [
+  { Direito: 50, Penal: 50 },
+  { Direito: 60, Penal: 60 },
+  { Direito: 70, Penal: 70 },
+  { Direito: 80, Penal: 80 }
+];
+const positiveCorr = estimateInterSubjectCorrelation(positivelyCorrelatedRows, ['Direito', 'Penal'], 0.15);
+addCheck('variance.estimateInterSubjectCorrelation detects positive correlations', positiveCorr > 0.15, positiveCorr);
 
 const failures = checks.filter(c => !c.pass);
 console.table(checks);
