@@ -97,7 +97,7 @@ export function detectPerformanceDrift({
     margin = 2 // % do domínio
 }) {
     const alerts = [];
-    const scale = maxScore / 100;
+    const scale = Math.max(0.1, (Number(maxScore) || 100) / 100);
     const diff = recentMean - baselineMean;
 
     // ✅ PATCH-12: Se estiver em platô/estagnado, retorna sem gerar alertas falsos de "queda"
@@ -133,16 +133,16 @@ export function buildPredictionMood({
     probability,
     confidenceTier,
 }) {
-    if (probability >= 80 && confidenceTier === 'HIGH') {
-        return 'stable';
+    const prob = Number.isFinite(Number(probability)) ? Number(probability) : null;
+    if (prob === null) return 'unknown';
+
+    if (prob >= 80) {
+        return confidenceTier === 'HIGH' ? 'stable' : 'moderate';
     }
-    if (probability >= 50 && probability < 80) {
+    if (prob >= 50) {
         return 'moderate';
     }
-    if (probability < 50 && probability > 0) {
-        return 'risk';
-    }
-    return 'unknown';
+    return 'risk';
 }
 
 export function normalizeAlertSeverity(severity, confidenceTier) {

@@ -729,7 +729,7 @@ function Checklist({
     const sourceCategories = useMemo(() => {
         if (!sourceContest) return [];
         return toArray(sourceContest.categories);
-    }, [contests, importSourceContest]);
+    }, [sourceContest]);
 
     const taskStats = useMemo(() => {
         let total = 0;

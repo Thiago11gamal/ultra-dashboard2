@@ -1,12 +1,24 @@
 import { validateAppState } from '../schemas.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 
-const applyDarkModeToggle = (state) => {
+const applyDarkModeToggle = (state, mode) => {
   if (!state.appState) return;
   const activeData = state.appState.contests?.[state.appState.activeId];
   if (!activeData) return;
   if (!activeData.settings) activeData.settings = {};
-  activeData.settings.darkMode = !(activeData.settings.darkMode ?? true);
+
+  if (mode === true || mode === false || mode === 'auto') {
+    activeData.settings.darkMode = mode;
+  } else {
+    const current = activeData.settings.darkMode;
+    if (current === 'auto' || current === undefined) {
+      const prefersDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      activeData.settings.darkMode = !prefersDark;
+    } else {
+      activeData.settings.darkMode = !current;
+    }
+  }
+
   state.appState.version = (state.appState.version || 0) + 1;
   state.appState.lastUpdated = new Date().toISOString();
   markStorageDirty();
@@ -47,8 +59,8 @@ export const createSettingsSlice = (set) => ({
     markStorageDirty();
   }),
   
-  setThemeMode: () => set(applyDarkModeToggle),
-  toggleDarkMode: () => set(applyDarkModeToggle),
+  setThemeMode: (mode) => set((state) => applyDarkModeToggle(state, mode)),
+  toggleDarkMode: (mode) => set((state) => applyDarkModeToggle(state, mode)),
   
   setAppState: (newStateObj) => set((state) => {
     if (!state.appState) return;

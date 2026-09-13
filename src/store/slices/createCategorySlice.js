@@ -46,6 +46,27 @@ export const createCategorySlice = (set) => ({
 
         const category = activeData.categories.find(c => c.id === id);
         if (category) {
+            const normName = category ? normalize(category.name) : null;
+            const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
+            const deletedSimuladoRows = safeRows.filter(r => {
+                if (r.categoryId) return r.categoryId === id;
+                if (normName && r.subject) return normalize(r.subject) === normName;
+                return false;
+            });
+
+            const deletedCoachPlan = Array.isArray(activeData.coachPlan)
+                ? activeData.coachPlan.filter(task => task && task.categoryId === id)
+                : [];
+
+            const deletedCoachPlanner = {};
+            if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
+                Object.keys(activeData.coachPlanner).forEach(day => {
+                    if (Array.isArray(activeData.coachPlanner[day])) {
+                        deletedCoachPlanner[day] = activeData.coachPlanner[day].filter(task => task && task.categoryId === id);
+                    }
+                });
+            }
+
             if (!state.appState.trash) state.appState.trash = [];
             state.appState.trash.push({
                 id: generateId('trash'),
@@ -53,11 +74,13 @@ export const createCategorySlice = (set) => ({
                 contestId: state.appState.activeId,
                 data: safeClone({
                     category: category,
-                    studyLogs: (Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {})).filter(l => l.categoryId === id),
-                    studySessions: (Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {})).filter(s => s.categoryId === id),
-                    simuladoRows: (Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {})).filter(r => r.categoryId === id),
-                    simulados: (Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {})).filter(s => s.categoryId === id),
-                    mcWeight: activeData.mcWeights?.[id] || activeData.mcWeights?.[category.name]
+                    studyLogs: (Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {})).filter(l => l && l.categoryId === id),
+                    studySessions: (Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {})).filter(s => s && s.categoryId === id),
+                    simuladoRows: deletedSimuladoRows,
+                    simulados: (Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {})).filter(s => s && s.categoryId === id),
+                    mcWeight: activeData.mcWeights?.[id] || activeData.mcWeights?.[category.name],
+                    coachPlan: deletedCoachPlan,
+                    coachPlanner: deletedCoachPlanner
                 }),
                 deletedAt: new Date().toISOString()
             });

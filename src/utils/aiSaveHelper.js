@@ -113,7 +113,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       let history = cat.simuladoStats.history;
 
       const todayIdx = history.findIndex(h => h.date === todayKey);
-      const newTopicEntry = { name: assunto, correct, total, taskId, timeSpent: timeSpentSecs };
+      const newTopicEntry = { name: assunto, correct, total, taskId, timeSpent: timeSpentSecs, difficulty: numericDifficulty };
 
       if (todayIdx !== -1) {
         const existing = history[todayIdx];

@@ -48,14 +48,14 @@ export const createStudySlice = (set, get) => ({
       };
 
       const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
-      const baseXP = Math.floor(minutes * xpPerMinute);
+      const baseXP = Math.floor(safeMinutes * xpPerMinute);
       const bonusXP = taskId ? (XP_CONFIG.pomodoro.bonusWithTask || 5) : 0;
       pendingXp = baseXP + bonusXP;
 
       const newSession = {
         id: sessionId,
         startTime: now,
-        duration: minutes,
+        duration: safeMinutes,
         categoryId,
         taskId,
         taskTitle,
@@ -75,7 +75,7 @@ export const createStudySlice = (set, get) => ({
       activeData.studySessions = [...safeSessions, newSession].slice(-SESSION_CAP);
 
       if (category) {
-        category.totalMinutes = (category.totalMinutes || 0) + minutes;
+        category.totalMinutes = (category.totalMinutes || 0) + safeMinutes;
         category.lastStudiedAt = now;
 
         if (taskId) {

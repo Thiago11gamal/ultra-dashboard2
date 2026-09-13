@@ -86,8 +86,13 @@ function createGaussianSampler(rng) {
     let u = rng();
     let v = rng();
 
-    while (u === 0) u = rng();
-    while (v === 0) v = rng();
+    let attemptsU = 0;
+    while (u === 0 && attemptsU < 100) { u = rng(); attemptsU++; }
+    if (u <= 0) u = 1e-15;
+
+    let attemptsV = 0;
+    while (v === 0 && attemptsV < 100) { v = rng(); attemptsV++; }
+    if (v <= 0) v = 1e-15;
 
     const magnitude = Math.sqrt(-2.0 * Math.log(u));
     const z0 = magnitude * Math.cos(2.0 * Math.PI * v);

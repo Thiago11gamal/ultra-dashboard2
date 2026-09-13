@@ -53,13 +53,15 @@ export function detectRegimeTransition(scores = [], options = {}) {
     for (let end = actualWindowSize; end <= scores.length; end += stepSize) {
         const window = scores.slice(end - actualWindowSize, end);
         const result = analyzeProgressState(window, { maxScore, minScore, window_size: actualWindowSize });
-        states.push({
-            state: result.state,
-            mean: result.mean_score,
-            slope: result.trend_slope,
-            variance: result.variance,
-            endIdx: end
-        });
+        if (result && result.state !== 'insufficient_data') {
+            states.push({
+                state: result.state,
+                mean: Number.isFinite(result.mean_score) ? result.mean_score : 0,
+                slope: Number.isFinite(result.trend_slope) ? result.trend_slope : 0,
+                variance: Number.isFinite(result.variance) ? result.variance : 0,
+                endIdx: end
+            });
+        }
     }
 
     if (states.length < 2) return noData;
@@ -82,7 +84,7 @@ export function detectRegimeTransition(scores = [], options = {}) {
             transitionRisk = 'deceleration';
             flags.push({
                 type: 'warning',
-                msg: `Desaceleração detectada: ritmo caiu de ${(previous.slope * 30).toFixed(1)} para ${(current.slope * 30).toFixed(1)} pp/mês. Possível platô em formação.`,
+                msg: `Desaceleração detectada: ritmo caiu de ${previous.slope.toFixed(1)} para ${current.slope.toFixed(1)} pp/mês. Possível platô em formação.`,
                 severity: 'medium'
             });
         }
@@ -107,7 +109,7 @@ export function detectRegimeTransition(scores = [], options = {}) {
             transitionRisk = 'acceleration_negative';
             flags.push({
                 type: 'danger',
-                msg: `Queda acelerada: declínio de ${(current.slope * 30).toFixed(1)} pp/mês (era ${(previous.slope * 30).toFixed(1)}). Intervenção urgente necessária.`,
+                msg: `Queda acelerada: declínio de ${current.slope.toFixed(1)} pp/mês (era ${previous.slope.toFixed(1)}). Intervenção urgente necessária.`,
                 severity: 'high'
             });
         }

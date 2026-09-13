@@ -125,8 +125,13 @@ function sampleBeta(alpha, beta, rng) {
     let u = rng();
     let v = rng();
 
-    while (u === 0) u = rng();
-    while (v === 0) v = rng();
+    let attemptsU = 0;
+    while (u === 0 && attemptsU < 100) { u = rng(); attemptsU++; }
+    if (u <= 0) u = 1e-15;
+
+    let attemptsV = 0;
+    while (v === 0 && attemptsV < 100) { v = rng(); attemptsV++; }
+    if (v <= 0) v = 1e-15;
 
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   };

@@ -162,53 +162,57 @@ export const createTaskSlice = (set, get) => ({
         }
     },
 
-    togglePriority: (categoryId, taskId) => set((state) => {
+    togglePriority: (categoryId, taskId) => {
         const priorities = ['low', 'medium', 'high'];
-        const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData?.categories) return;
+        let pendingXpDiff = 0;
 
-        const categories = Array.isArray(activeData.categories)
-            ? activeData.categories
-            : Object.values(activeData.categories || {});
+        set((state) => {
+            const activeData = state.appState.contests[state.appState.activeId];
+            if (!activeData?.categories) return;
 
-        const category = categories.find(c => c && (c.id === categoryId || c.name === categoryId));
-        if (!category) return;
+            const categories = Array.isArray(activeData.categories)
+                ? activeData.categories
+                : Object.values(activeData.categories || {});
 
-        const tasks = Array.isArray(category.tasks)
-            ? category.tasks
-            : Object.values(category.tasks || {});
+            const category = categories.find(c => c && (c.id === categoryId || c.name === categoryId));
+            if (!category) return;
 
-        const task = tasks.find(t => t && ((t.id && t.id === taskId) || (t.text && t.text === taskId) || (t.title && t.title === taskId)));
-        if (task) {
-            const oldPriority = String(task.priority || 'medium').toLowerCase();
-            const currentIndex = priorities.indexOf(oldPriority);
-            const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % 3;
-            const newPriority = priorities[nextIndex];
-            task.priority = newPriority;
+            const tasks = Array.isArray(category.tasks)
+                ? category.tasks
+                : Object.values(category.tasks || {});
 
-            // BUG-T06 FIX: Se a tarefa já está completada, o XP concedido
-            // foi baseado na prioridade antiga. Ajustar o XP do usuário
-            // e o recibo awardedXP para a nova prioridade.
-            if (task.completed && task.awardedXP !== undefined) {
-                const oldXP = XP_CONFIG.task[oldPriority] || XP_CONFIG.task.medium;
-                const newXP = XP_CONFIG.task[newPriority] || XP_CONFIG.task.medium;
-                const diff = newXP - oldXP;
-                if (diff !== 0) {
-                    const contestUser = activeData.user;
-                    if (contestUser) {
-                        contestUser.xp = Math.max(0, (contestUser.xp || 0) + diff);
+            const task = tasks.find(t => t && ((t.id && t.id === taskId) || (t.text && t.text === taskId) || (t.title && t.title === taskId)));
+            if (task) {
+                const oldPriority = String(task.priority || 'medium').toLowerCase();
+                const currentIndex = priorities.indexOf(oldPriority);
+                const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % 3;
+                const newPriority = priorities[nextIndex];
+                task.priority = newPriority;
+
+                // BUG-T06 FIX: Se a tarefa já está completada, o XP concedido
+                // foi baseado na prioridade antiga. Ajustar o XP e recibo via awardExperience.
+                if (task.completed && task.awardedXP !== undefined) {
+                    const oldXP = XP_CONFIG.task[oldPriority] || XP_CONFIG.task.medium;
+                    const newXP = XP_CONFIG.task[newPriority] || XP_CONFIG.task.medium;
+                    const diff = newXP - oldXP;
+                    if (diff !== 0) {
+                        task.awardedXP = newXP;
+                        pendingXpDiff = diff;
                     }
-                    task.awardedXP = newXP;
                 }
-            }
 
-            // Garante novas referências de array para Zustand / React shallow memoization
-            category.tasks = [...tasks];
-            activeData.categories = [...categories];
+                // Garante novas referências de array para Zustand / React shallow memoization
+                category.tasks = [...tasks];
+                activeData.categories = [...categories];
+            }
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
+        });
+
+        if (pendingXpDiff !== 0 && typeof get().awardExperience === 'function') {
+            get().awardExperience(pendingXpDiff);
         }
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        markStorageDirty();
-    }),
+    },
 });
 

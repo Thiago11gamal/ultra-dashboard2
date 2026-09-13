@@ -160,23 +160,22 @@ export const useAppStore = create(
           });
         },
 
-        // ✅ FIX: setData usa Object.assign para preservar Proxy Immer
+        // ✅ FIX: setData suporta tanto retorno de objeto quanto mutação direta (Immer draft)
         setData: (newDataCallback) => set((state) => {
           const contestId = state.appState.activeId;
           const currentData = state.appState.contests[contestId];
           if (!currentData) return;
 
-          // 🔥 BUGFIX 1 (STATE CORRUPTION): Impedir que callbacks mal formados destruam o estado silenciosamente.
+          if (newDataCallback === undefined || newDataCallback === null) {
+            console.warn("[Store] setData recebeu valor nulo/indefinido. Mutação abortada.");
+            return;
+          }
+
           const nextData = typeof newDataCallback === 'function'
             ? newDataCallback(currentData)
             : newDataCallback;
 
-          if (nextData === undefined) {
-            console.warn("[Store] setData callback retornou undefined. Mutação abortada para evitar corrupção de estado.");
-            return;
-          }
-
-          if (nextData !== null && typeof nextData === 'object') {
+          if (nextData !== null && typeof nextData === 'object' && nextData !== currentData) {
             Object.assign(state.appState.contests[contestId], nextData);
           }
 
