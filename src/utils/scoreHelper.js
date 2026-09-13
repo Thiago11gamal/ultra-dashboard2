@@ -44,7 +44,7 @@ export function toFiniteNumber(value, fallback = 0) {
 
 export function toPoints(score, maxScore = 100, minScore = 0, mode = 'raw') {
   const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMin = Number.isFinite(Number(minScore)) && Number(minScore) >= 0 ? Number(minScore) : 0;
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const finalMin = Math.min(safeMin, safeMax);
   const finalMax = Math.max(safeMin, safeMax);
   const rawScore = Number(score);

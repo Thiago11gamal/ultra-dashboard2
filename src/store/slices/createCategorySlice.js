@@ -278,9 +278,18 @@ export const createCategorySlice = (set) => ({
     const mergedTasks = [...(primary.tasks || [])];
     const mergedHistory = [...getHistoryArr(primary)];
     const seenHistory = new Set(mergedHistory.map(historyKey));
+    let mergedTotalMinutes = Number(primary.totalMinutes) || 0;
+    let mergedLastStudiedAt = primary.lastStudiedAt || null;
 
     group.forEach(cat => {
       if (cat.id === primary.id) return;
+
+      mergedTotalMinutes += (Number(cat.totalMinutes) || 0);
+      if (cat.lastStudiedAt) {
+        if (!mergedLastStudiedAt || new Date(cat.lastStudiedAt) > new Date(mergedLastStudiedAt)) {
+          mergedLastStudiedAt = cat.lastStudiedAt;
+        }
+      }
 
       (cat.tasks || []).forEach(t => {
         const taskTitle = (t.title || t.text || '').trim();
@@ -337,10 +346,40 @@ export const createCategorySlice = (set) => ({
 
         activeData.simuladoRows = safeRows;
       }
+
+      if (activeData.simulados) {
+        const safeSimulados = Array.isArray(activeData.simulados)
+          ? activeData.simulados
+          : Object.values(activeData.simulados || {});
+
+        safeSimulados.forEach(s => {
+          if (s && s.categoryId === oldId) s.categoryId = newId;
+        });
+
+        activeData.simulados = safeSimulados;
+      }
+
+      if (activeData.coachPlan && Array.isArray(activeData.coachPlan)) {
+        activeData.coachPlan.forEach(task => {
+          if (task && task.categoryId === oldId) task.categoryId = newId;
+        });
+      }
+
+      if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
+        Object.keys(activeData.coachPlanner).forEach(day => {
+          if (Array.isArray(activeData.coachPlanner[day])) {
+            activeData.coachPlanner[day].forEach(task => {
+              if (task && task.categoryId === oldId) task.categoryId = newId;
+            });
+          }
+        });
+      }
     });
 
     newCategories.push({
       ...primary,
+      totalMinutes: mergedTotalMinutes,
+      lastStudiedAt: mergedLastStudiedAt,
       tasks: mergedTasks,
       simuladoStats: {
         ...primary.simuladoStats,

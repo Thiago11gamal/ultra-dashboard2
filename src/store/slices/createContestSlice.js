@@ -34,6 +34,7 @@ export const createContestSlice = (set) => ({
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
+        markStorageDirty();
     }),
 
     createNewContest: () => set((state) => {
@@ -102,6 +103,7 @@ export const createContestSlice = (set) => ({
         state.appState.contests = paineis;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
+        markStorageDirty();
     }),
 
     renameContest: (contestId, newName) => set((state) => {

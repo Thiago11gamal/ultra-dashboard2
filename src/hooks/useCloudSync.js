@@ -436,6 +436,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
       studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
       simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
+      simulados: mergeArrays(localContest.simulados, cloudContest.simulados),
       monteCarloHistory: mergeMonteCarloHistory(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
       coachPlan: mergeArrays(localContest.coachPlan, cloudContest.coachPlan),
       coachPlanner: mergeCoachPlanner(localContest.coachPlanner, cloudContest.coachPlanner),
@@ -451,7 +452,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           mcWeights: { ...(otherSource.mcWeights || {}), ...(settingsSource.mcWeights || {}) },
         };
       })(),
-      historicalCutoffs: [...new Set([...(localContest.historicalCutoffs || []), ...(cloudContest.historicalCutoffs || [])])],
+      historicalCutoffs: mergeArrays(localContest.historicalCutoffs, cloudContest.historicalCutoffs),
       calibrationEvents: mergeArrays(localContest.calibrationEvents, cloudContest.calibrationEvents),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

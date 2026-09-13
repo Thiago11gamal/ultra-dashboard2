@@ -67,7 +67,9 @@ export function estimateTopicFsrs(topic, options = {}) {
 
   if (scores.length === 0) return null;
 
-  const lastStudiedMs = toDateMs(topic.lastStudiedAt ?? topic.lastReviewedAt);
+  const lastStudiedMs = toDateMs(
+    topic.lastStudiedAt ?? topic.lastReviewedAt ?? topic.lastSeen ?? topic.date
+  );
 
   let daysSince = toFiniteNumber(topic.daysSince, null);
 

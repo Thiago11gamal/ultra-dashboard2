@@ -10,12 +10,13 @@ export const createGamificationSlice = (set, get) => ({
             const activeData = state.appState.contests[state.appState.activeId];
             if (!activeData || !activeData.user) return;
 
-            const currentXP = activeData.user.xp || 0;
-            const currentMaxLevel = activeData.user.level || 1;
+            const currentXP = Number.isFinite(Number(activeData.user.xp)) ? Number(activeData.user.xp) : 0;
+            const currentMaxLevel = Number.isFinite(Number(activeData.user.level)) && Number(activeData.user.level) >= 1 ? Number(activeData.user.level) : 1;
+            const safeXpGained = Number.isFinite(Number(xpGained)) ? Number(xpGained) : 0;
 
             // ✅ FIX: Permitir que XP desça abaixo do mínimo do nível atual,
             // mas nunca abaixo de 0. O nível é recalculado dinamicamente.
-            let newXP = Math.max(0, currentXP + xpGained);
+            let newXP = Math.max(0, currentXP + safeXpGained);
 
             const currentAchievements = activeData.user.achievements || [];
             const stats = buildAchievementStats(activeData) || {};

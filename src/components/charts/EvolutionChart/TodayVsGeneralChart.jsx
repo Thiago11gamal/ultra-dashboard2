@@ -117,7 +117,8 @@ export function TodayVsGeneralChart({
         const dayMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore);
-        const maxAllowedDateKey = new Date(nowMs + 86400000).toISOString().split('T')[0];
+        const validNowMs = Number(nowMs) || 0;
+        const maxAllowedDateKey = getDateKey(new Date(validNowMs + 86400000));
         activeCategories.forEach(cat => {
             const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
@@ -167,8 +168,9 @@ export function TodayVsGeneralChart({
         const ms1Month = 30 * 86400000;
         const ms3Months = 90 * 86400000;
         const ms6Months = 180 * 86400000;
-        const utcTodayKey = new Date(now).toISOString().split('T')[0];
-        const maxAllowedDateKey = new Date(now + 86400000).toISOString().split('T')[0];
+        const validNow = Number(now) || 0;
+        const utcTodayKey = getDateKey(new Date(validNow));
+        const maxAllowedDateKey = getDateKey(new Date(validNow + 86400000));
 
         const buckets = {
             today: { correct: 0, total: 0 },

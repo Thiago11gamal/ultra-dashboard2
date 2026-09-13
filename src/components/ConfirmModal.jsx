@@ -138,7 +138,7 @@ export default function ConfirmModal({
                                         onClick={handleConfirm}
                                         className={`flex-[1.5] px-5 py-3.5 rounded-2xl text-sm font-black text-white bg-gradient-to-r ${config.confirmBtn} transition-all active:scale-95 flex items-center justify-center gap-2 group/btn cursor-pointer`}
                                     >
-                                        <span>{confirmText.toUpperCase()}</span>
+                                        <span>{typeof confirmText === 'string' ? confirmText.toUpperCase() : confirmText}</span>
                                         <Check size={16} className="group-hover/btn:scale-110 transition-transform" />
                                     </button>
                                 </div>
