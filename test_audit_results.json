@@ -1,0 +1,294 @@
+{
+  "passed": [
+    {
+      "file": "tests\\adaptive-math.test.js",
+      "dur": "4.5"
+    },
+    {
+      "file": "tests\\bug-fixes-audit.test.js",
+      "dur": "4.6"
+    },
+    {
+      "file": "tests\\calibration.test.js",
+      "dur": "4.0"
+    },
+    {
+      "file": "tests\\cloud-sync-merge.test.js",
+      "dur": "3.3"
+    },
+    {
+      "file": "tests\\coach-logic.integration.test.js",
+      "dur": "5.7"
+    },
+    {
+      "file": "tests\\coach-math-regressions.test.js",
+      "dur": "5.7"
+    },
+    {
+      "file": "tests\\coach-ui-resilience.test.js",
+      "dur": "3.6"
+    },
+    {
+      "file": "tests\\date.test.js",
+      "dur": "3.8"
+    },
+    {
+      "file": "tests\\diagnostics-forgetting.test.js",
+      "dur": "4.9"
+    },
+    {
+      "file": "tests\\evolutionE2E.test.js",
+      "dur": "4.4"
+    },
+    {
+      "file": "tests\\gamification-stats.test.js",
+      "dur": "6.9"
+    },
+    {
+      "file": "tests\\institution-math-audit.test.js",
+      "dur": "6.9"
+    },
+    {
+      "file": "tests\\lote01-bugs-criticos.test.js",
+      "dur": "5.4"
+    },
+    {
+      "file": "tests\\lote02-bugs-altos.test.js",
+      "dur": "4.1"
+    },
+    {
+      "file": "tests\\lote03-medios-e-hardening.test.js",
+      "dur": "5.1"
+    },
+    {
+      "file": "tests\\lote05-bugs-fix.test.js",
+      "dur": "5.1"
+    },
+    {
+      "file": "tests\\math-bootstrap.test.js",
+      "dur": "3.8"
+    },
+    {
+      "file": "tests\\math-gaussian.test.js",
+      "dur": "3.6"
+    },
+    {
+      "file": "tests\\math-percentile.test.js",
+      "dur": "4.0"
+    },
+    {
+      "file": "tests\\math-precision-round3.test.js",
+      "dur": "5.7"
+    },
+    {
+      "file": "tests\\meu-painel-bugs.test.js",
+      "dur": "5.7"
+    },
+    {
+      "file": "tests\\monte-carlo-bugfixes.test.js",
+      "dur": "5.0"
+    },
+    {
+      "file": "tests\\new-math-validation.test.js",
+      "dur": "5.9"
+    },
+    {
+      "file": "tests\\per-subject-trend-fix.test.js",
+      "dur": "6.8"
+    },
+    {
+      "file": "tests\\pomodoro-menu-bugs.test.js",
+      "dur": "6.3"
+    },
+    {
+      "file": "tests\\safe.test.js",
+      "dur": "4.5"
+    },
+    {
+      "file": "tests\\state-space-export.test.js",
+      "dur": "4.0"
+    },
+    {
+      "file": "tests\\stats-menu-bugs.test.js",
+      "dur": "4.8"
+    },
+    {
+      "file": "tests\\statsMenuAudit.test.js",
+      "dur": "6.3"
+    },
+    {
+      "file": "tests\\stochastic-engine-audit.test.js",
+      "dur": "5.1"
+    },
+    {
+      "file": "tests\\stochastic-hardening.test.js",
+      "dur": "5.2"
+    },
+    {
+      "file": "tests\\store-hardening.test.js",
+      "dur": "5.5"
+    },
+    {
+      "file": "tests\\ultra-patched-verification.test.js",
+      "dur": "6.0"
+    },
+    {
+      "file": "tests\\variance-welford.test.js",
+      "dur": "5.1"
+    },
+    {
+      "file": "src\\components\\charts\\EvolutionChart\\__tests__\\evolution-data-fixes-audit.test.jsx",
+      "dur": "12.6"
+    },
+    {
+      "file": "src\\components\\charts\\EvolutionChart\\__tests__\\evolution-fixes-verification.test.jsx",
+      "dur": "5.3"
+    },
+    {
+      "file": "src\\components\\charts\\EvolutionChart\\__tests__\\evolution-menu-bugs-audit.test.jsx",
+      "dur": "6.2"
+    },
+    {
+      "file": "src\\components\\charts\\EvolutionChart\\__tests__\\evolution-stats-bugs.test.jsx",
+      "dur": "5.9"
+    },
+    {
+      "file": "src\\components\\charts\\EvolutionChart\\__tests__\\evolutionComponents.test.jsx",
+      "dur": "10.8"
+    },
+    {
+      "file": "src\\components\\charts\\EvolutionChart\\__tests__\\TimeSpentChart.test.jsx",
+      "dur": "4.3"
+    },
+    {
+      "file": "src\\components\\__tests__\\PerformanceTable.test.jsx",
+      "dur": "5.2"
+    },
+    {
+      "file": "src\\components\\__tests__\\PersonalRanking.test.jsx",
+      "dur": "3.8"
+    },
+    {
+      "file": "src\\components\\__tests__\\sidebar.extended.test.js",
+      "dur": "3.5"
+    },
+    {
+      "file": "src\\components\\__tests__\\sidebar.logic.test.js",
+      "dur": "3.7"
+    },
+    {
+      "file": "src\\components\\__tests__\\stats-menu-bugs.test.jsx",
+      "dur": "4.8"
+    },
+    {
+      "file": "src\\components\\__tests__\\SubtopicsTable.test.jsx",
+      "dur": "4.9"
+    },
+    {
+      "file": "src\\engine\\bugfix.regression.test.js",
+      "dur": "4.9"
+    },
+    {
+      "file": "src\\engine\\__tests__\\monteCarlo.test.js",
+      "dur": "5.2"
+    },
+    {
+      "file": "src\\engine\\__tests__\\numeric-robustness.test.js",
+      "dur": "3.8"
+    },
+    {
+      "file": "src\\engine\\__tests__\\projection.test.js",
+      "dur": "4.7"
+    },
+    {
+      "file": "src\\engine\\__tests__\\regression.test.js",
+      "dur": "5.9"
+    },
+    {
+      "file": "src\\engine\\__tests__\\stats.test.js",
+      "dur": "4.9"
+    },
+    {
+      "file": "src\\hooks\\__tests__\\useChartData.test.js",
+      "dur": "5.3"
+    },
+    {
+      "file": "src\\services\\__tests__\\firebase.test.js",
+      "dur": "6.9"
+    },
+    {
+      "file": "src\\utils\\__tests__\\architecturalHardening.test.js",
+      "dur": "6.7"
+    },
+    {
+      "file": "src\\utils\\__tests__\\coachBacktest.test.js",
+      "dur": "3.8"
+    },
+    {
+      "file": "src\\utils\\__tests__\\coachLogic.regression.test.js",
+      "dur": "6.2"
+    },
+    {
+      "file": "src\\utils\\__tests__\\coachText.test.js",
+      "dur": "3.7"
+    },
+    {
+      "file": "src\\utils\\__tests__\\dateHelper.test.js",
+      "dur": "4.4"
+    },
+    {
+      "file": "src\\utils\\__tests__\\dueForecast.test.js",
+      "dur": "4.8"
+    },
+    {
+      "file": "src\\utils\\__tests__\\evolutionUtils.test.js",
+      "dur": "5.0"
+    },
+    {
+      "file": "src\\utils\\__tests__\\gamification.test.js",
+      "dur": "3.8"
+    },
+    {
+      "file": "src\\utils\\__tests__\\hardeningAudit.test.js",
+      "dur": "5.5"
+    },
+    {
+      "file": "src\\utils\\__tests__\\learningLoop.sanity.test.js",
+      "dur": "8.0"
+    },
+    {
+      "file": "src\\utils\\__tests__\\mathAudit.test.js",
+      "dur": "10.3"
+    },
+    {
+      "file": "src\\utils\\__tests__\\measurement.test.js",
+      "dur": "5.4"
+    },
+    {
+      "file": "src\\utils\\__tests__\\scoreConversions.test.js",
+      "dur": "6.0"
+    },
+    {
+      "file": "src\\utils\\__tests__\\statsMenuAudit.test.js",
+      "dur": "7.0"
+    },
+    {
+      "file": "src\\utils\\__tests__\\statsMenuFixes.test.js",
+      "dur": "7.5"
+    },
+    {
+      "file": "src\\utils\\__tests__\\statsMenuMathAudit.test.js",
+      "dur": "16.3"
+    },
+    {
+      "file": "src\\utils\\__tests__\\weightSensitivity.test.js",
+      "dur": "7.8"
+    },
+    {
+      "file": "src\\__tests__\\escala.test.js",
+      "dur": "7.5"
+    }
+  ],
+  "failed": [],
+  "hangs": []
+}
