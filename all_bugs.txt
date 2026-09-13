@@ -1,0 +1,219 @@
+================================================================================
+RELATÓRIO COMPLETO DE AUDITORIA DE BUGS — ULTRA DASHBOARD
+================================================================================
+Data da Varredura: 2026-09-13
+Total de Arquivos Analisados: 227 arquivos em src/, tests/, scripts/
+Suíte de Testes Executada: 71/71 arquivos de teste passaram com sucesso.
+Motor Matemático & Estresse: Todos os 16 testes matemáticos e testes de estresse passaram.
+Build de Produção: Compilou perfeitamente via Vite (dist gerado com sucesso).
+
+--------------------------------------------------------------------------------
+SUMÁRIO DE BUGS IDENTIFICADOS
+--------------------------------------------------------------------------------
+
+[BUG-01] [CRÍTICO / PERDA DE DADOS]
+Localização: src/store/schemas.js (linhas 103-125)
+Componente: repairContestHistory / Schemas Validation
+Descrição:
+  Ao reconstruir o histórico de categorias a partir de simuladoRows, a função
+  extrai rawTotal = parseInt(r.total, 10) || 0 e rawCorrect = parseInt(r.correct, 10) || 0.
+  Se o usuário salvou um simulado informando apenas a nota/score diretamente
+  (ex: r.score = 85 sem preencher total/questões), rawTotal e rawCorrect ficam em 0.
+  Na linha 122, a verificação (stats.total > 0 && ...) falha, fazendo a nota
+  cair no fallback minScore (0).
+Impacto:
+  Usuários que cadastram simulados por nota pura têm suas notas apagadas e
+  redefinidas como 0 durante o reparo silencioso de integridade.
+Recomendação de Correção:
+  Se rawTotal === 0, mas r.score for válido e finito, considerar total sintético
+  ou preservar a nota original no histórico diário em vez de zerá-la.
+
+--------------------------------------------------------------------------------
+
+[BUG-02] [ALTO / INTEGRIDADE DE ESTADO]
+Localização: src/utils/aiSaveHelper.js (linhas 51-66)
+Componente: applyAIResultsToDraft / AI Simulado Persistence
+Descrição:
+  A verificação para reaproveitar/agregar linhas no mesmo dia exige:
+  - sameById: categoryId && r.categoryId && r.taskId && r.categoryId === categoryId && r.taskId === taskId
+  - sameByName: !categoryId && normalize(r.subject) === normalize(materia) && normalize(r.topic) === normalize(assunto)
+  Quando um simulado de IA é iniciado a partir de uma Categoria geral (sem taskId vinculado):
+  categoryId está preenchido, mas taskId é null.
+  Portanto, sameById é falso (r.taskId é nulo) e sameByName é falso (!categoryId é falso).
+Impacto:
+  Cada vez que o usuário resolve questões de IA para uma disciplina sem tarefa específica,
+  uma nova linha é inserida em simuladoRows em vez de atualizar a linha existente daquele dia,
+  gerando duplicatas na base de dados.
+Recomendação de Correção:
+  Ajustar sameById para permitir matching quando r.categoryId === categoryId e
+  ((taskId && r.taskId === taskId) || (!taskId && normalize(r.topic) === normalize(assunto))).
+
+--------------------------------------------------------------------------------
+
+[BUG-03] [ALTO / CONSISTÊNCIA DE ESCALA MATEMÁTICA]
+Localização: src/pages/Simulados.jsx (linhas 547-558)
+Componente: Simulados.jsx / Evento Global de Simulado
+Descrição:
+  Ao registrar o evento global de simulado em prev.simulados, a nota é gravada
+  diretamente como percentual globalPct (0 a 100):
+    const globalPct = totalQ > 0 ? Number(((totalC / totalQ) * 100).toFixed(2)) : 0;
+    score: globalPct
+  Porém, no restante da aplicação (Evolution, VerifiedStats, Monte Carlo, aiSaveHelper),
+  a propriedade score em simulados representa a nota em PONTOS dentro da escala [minScore, maxScore],
+  enquanto scorePct representa a porcentagem.
+Impacto:
+  Em concursos com escalas diferentes de 0-100 (ex: ENEM 200-1000 ou concursos de 0-120),
+  um simulado com 80% de acerto é salvo com score: 80. Em uma escala de 200 a 1000,
+  80 pontos é inferior à nota mínima (200), sendo interpretado erroneamente pelos
+  motores estatísticos como nota quase nula (0.08%).
+Recomendação de Correção:
+  Salvar score em pontos: minScore + (totalC / totalQ) * (maxScore - minScore),
+  e salvar scorePoints e scorePct explicitamente.
+
+--------------------------------------------------------------------------------
+
+[BUG-04] [ALTO / PERDA DE SUBCATEGORIAS]
+Localização: src/pages/Notes.jsx (linhas 101-122)
+Componente: Notes.jsx / Reconstrução de Pareto e Tópicos
+Descrição:
+  Ao iterar sobre rowsByDate para enriquecer o histórico com tópicos, a linha 107 faz:
+    mergedHistoryMap[dateKey].topics = topics;
+    mergedHistoryMap[dateKey].correct = totalC;
+    mergedHistoryMap[dateKey].total = totalQ;
+    mergedHistoryMap[dateKey].score = calcScore;
+  Se a categoria já possuía registros de histórico com tópicos naquele mesmo dia
+  (ex: estudo prévio ou simulado com outros assuntos), todos os tópicos prévios
+  são completamente descartados e substituídos apenas pelos que constam em rowsByDate.
+Impacto:
+  Subtópicos e questões resolvidas anteriormente no mesmo dia desaparecem da
+  análise de Pareto e do gráfico de desempenho por assunto.
+Recomendação de Correção:
+  Fazer merge da lista de tópicos (por nome/id) em vez de reatribuir topics = topics.
+
+--------------------------------------------------------------------------------
+
+[BUG-05] [MÉDIO / PRIVACIDADE & LGPD]
+Localização: src/store/useAppStore.js (linhas 298-302)
+Componente: clearAllDataSecure / IndexedDB Cleanup
+Descrição:
+  No bloco catch de clearAllDataSecure, o código tenta excluir o banco de dados
+  chamando: window.indexedDB.deleteDatabase('ultra-dashboard-storage').
+  Entretanto, o pacote idb-keyval armazena os dados sob o banco 'keyval-store',
+  onde 'ultra-dashboard-storage' é apenas a chave (key) interna do object store.
+Impacto:
+  Em navegadores onde window.indexedDB.databases() não é suportado ou retorna vazio
+  (como versões do Firefox ou contextos com restrição de privacidade), a tentativa de
+  limpar o banco falha silenciosamente, mantendo os dados do usuário intactos no IDB.
+Recomendação de Correção:
+  No fallback, chamar explicitamente idbDel('ultra-dashboard-storage') e/ou
+  window.indexedDB.deleteDatabase('keyval-store').
+
+--------------------------------------------------------------------------------
+
+[BUG-06] [MÉDIO / PREFERÊNCIAS DO USUÁRIO]
+Localização: src/store/useAppStore.js (linhas 153-160)
+Componente: resetStore / Zustand State Reset
+Descrição:
+  Na função resetStore():
+    const settings = state.appState.settings;
+    state.appState = {
+      ...getFullInitialState(),
+      isHydrated: true,
+      settings: settings
+    };
+  Na arquitetura do app, as configurações (modo escuro, tempo do pomodoro, metas)
+  ficam dentro de state.appState.contests[activeId].settings. A raiz state.appState.settings
+  é undefined.
+Impacto:
+  Ao resetar a store, a tentativa de preservar as configurações do usuário falha,
+  gravando settings: undefined e resetando todas as preferências e temas para os padrões.
+Recomendação de Correção:
+  Capturar as configurações do concurso ativo:
+  state.appState.contests?.[state.appState.activeId]?.settings e preservá-las no novo estado.
+
+--------------------------------------------------------------------------------
+
+[BUG-07] [MÉDIO / SINCRONIZAÇÃO EM NUVEM]
+Localização: src/hooks/useCloudSync.js (linhas 400-415)
+Componente: useCloudSync / mergeContestCategories
+Descrição:
+  A supressão de categorias fantasmas (que foram deletadas localmente) consulta
+  apenas o array localTrash.
+  Se o usuário esvaziar a lixeira (emptyTrash()), o array localTrash fica vazio.
+Impacto:
+  No próximo ciclo de sincronização com o Firestore, todas as categorias que foram
+  excluídas localmente e removidas da lixeira são ressuscitadas pela nuvem, reaparecendo
+  no painel do aluno.
+Recomendação de Correção:
+  Manter um registro leve de exclusões permanentes (tombstones com timestamp de remoção)
+  para impedir a ressurreição após esvaziamento da lixeira.
+
+--------------------------------------------------------------------------------
+
+[BUG-08] [MÉDIO / GAMIFICAÇÃO & AUDITORIA]
+Localização: src/store/slices/createTaskSlice.js (linhas 45-95)
+Componente: toggleNeuralTask / Gamification XP
+Descrição:
+  toggleNeuralTask busca o taskId sequencialmente em coachPlan, coachPlanner e categories.
+  1. Se uma tarefa estiver no coachPlanner e também no coachPlan ou categories com o mesmo ID,
+     o XP é concedido múltiplas vezes na mesma chamada (pendingXpChange += ...).
+  2. Para coachPlan e coachPlanner, a tarefa recebe completed = true, mas NÃO grava
+     completedAt nem awardedXP, impossibilitando auditoria ou reversão de XP.
+Impacto:
+  Exploit de XP duplicado e falta de carimbo de tempo para tarefas completadas via Coach Planner.
+Recomendação de Correção:
+  Interromper a busca assim que o primeiro item for completado (early exit) e gravar
+  completedAt e awardedXP uniformemente em todas as coleções de tarefas.
+
+--------------------------------------------------------------------------------
+
+[BUG-09] [BAIXO / TRATAMENTO DEFENSIVO DE DATAS]
+Localização: src/utils/dateHelper.js (linha 53)
+Componente: getDateKey / Date Sanitization
+Descrição:
+  Se rawDate for null, undefined ou string vazia, getDateKey retorna a data de HOJE:
+    if (!rawDate) return new Date().toISOString().split('T')[0];
+Impacto:
+  Qualquer registro de simulado, log de estudo ou histórico com data nula/corrompida
+  é silenciosamente contabilizado como tendo ocorrido no dia de HOJE, distorcendo
+  gráficos de hoje vs geral e cálculos de retenção.
+Recomendação de Correção:
+  Retornar null ou string vazia quando a entrada for nula/indefinida, deixando que o
+  chamador decida o fallback apropriado.
+
+--------------------------------------------------------------------------------
+
+[BUG-10] [BAIXO / CÁLCULO NUMÉRICO DE DIAGNÓSTICO]
+Localização: src/engine/diagnostics.js (linha 226)
+Componente: computeHurstExponent / Long-Range Dependence
+Descrição:
+  Na linha 226:
+    logRS.push(Math.log(rsSum / validBlocks));
+  Se todas as notas em um bloco forem rigorosamente idênticas, a amplitude (range) é 0,
+  resultando em rsSum = 0.
+  Math.log(0) retorna -Infinity.
+Impacto:
+  Gera pares (-Infinity) que precisam ser descartados na filtragem subsequente,
+  podendo invalidar a regressão de Hurst em históricos com notas constantes.
+Recomendação de Correção:
+  Aplicar clamp inferior Math.max(1e-9, rsSum / validBlocks).
+
+--------------------------------------------------------------------------------
+
+[BUG-11] [BAIXO / VAZAMENTO DE TIMER EM TESTES]
+Localização: src/hooks/useMonteCarloWorker.js (linhas 22-40)
+Componente: useMonteCarloWorker / Singleton Worker Cleanup
+Descrição:
+  startCleanup instancia um setInterval(..., 30000) no escopo do módulo.
+  Em ambientes jsdom e navegadores, setInterval retorna um número inteiro e não
+  um objeto Timeout do Node.js, logo cleanupInterval.unref() não é executado.
+Impacto:
+  Mantém o event loop do Node.js aberto indefinidamente durante execuções de testes
+  do Vitest a menos que um teardown forçado com process.exit() seja acionado.
+Recomendação de Correção:
+  Verificar typeof process !== 'undefined' && process.env.NODE_ENV !== 'test'
+  antes de disparar o intervalo em módulo, ou fornecer função stopCleanup().
+
+================================================================================
+FIM DO RELATÓRIO
+================================================================================

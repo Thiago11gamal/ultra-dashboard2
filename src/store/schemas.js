@@ -31,7 +31,8 @@ const extractRowDate = (r) => {
   return r.date || r.createdAt || null;
 };
 
-const repairContestHistory = (rawData) => {
+// ✅ FIX 2 & BUG-01: Reconciliação do Histórico das Categorias com base nos Registros Brutos dos Simulados
+export const repairContestHistory = (rawData) => {
   if (!rawData || typeof rawData !== 'object') return rawData;
   const data = safeClone(rawData);
   if (!data.simuladoRows || data.simuladoRows.length === 0 || !data.categories) return data;
@@ -98,7 +99,7 @@ const repairContestHistory = (rawData) => {
         const dk = getDateKey(extractRowDate(r));
         if (!dk) return;
 
-        if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0 };
+        if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0, normalRowCount: 0, directScoreCount: 0, directScoreSum: 0 };
 
         const rawTotal = parseInt(r.total, 10) || 0;
         const rawCorrect = parseInt(r.correct, 10) || 0;
@@ -111,18 +112,35 @@ const repairContestHistory = (rawData) => {
           ? Math.round((Math.min(safeMaxScore, Math.max(0, safeScore)) / safeMaxScore) * rawTotal)
           : rawCorrect;
 
-        dailyStats[dk].correct += corrNorm;
-        dailyStats[dk].total += rawTotal;
+        if (rawTotal === 0 && Number.isFinite(rawScore)) {
+          const synTotal = 100;
+          const ratio = (safeScore - minScore) / scoreRange;
+          const synCorrect = Math.round(Math.max(0, Math.min(1, ratio)) * synTotal);
+          dailyStats[dk].correct += synCorrect;
+          dailyStats[dk].total += synTotal;
+          dailyStats[dk].directScoreSum += safeScore;
+          dailyStats[dk].directScoreCount += 1;
+        } else {
+          dailyStats[dk].correct += corrNorm;
+          dailyStats[dk].total += rawTotal;
+          dailyStats[dk].normalRowCount += 1;
+        }
       });
 
-      const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => ({
-        date,
-        correct: stats.correct,
-        total: stats.total,
-        score: (stats.total > 0 && Number.isFinite(stats.correct))
-          ? minScore + (stats.correct / stats.total) * scoreRange
-          : minScore
-      })).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      const rebuiltHistory = Object.entries(dailyStats).map(([date, stats]) => {
+        let finalScore = minScore;
+        if (stats.directScoreCount > 0 && stats.normalRowCount === 0) {
+          finalScore = stats.directScoreSum / stats.directScoreCount;
+        } else if (stats.total > 0 && Number.isFinite(stats.correct)) {
+          finalScore = minScore + (stats.correct / stats.total) * scoreRange;
+        }
+        return {
+          date,
+          correct: stats.correct,
+          total: stats.total,
+          score: Math.min(maxScore, Math.max(minScore, finalScore))
+        };
+      }).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
       const statsResult = computeCategoryStats(rebuiltHistory, cat.weight || 10, 60, maxScore, minScore);
 

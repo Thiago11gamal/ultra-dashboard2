@@ -48,12 +48,13 @@ export function parseGoalDateUnified(value) {
   return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
-// ✅ FIX: getDateKey com suporte a YY-MM-DD e extração direta de ISO
+// ✅ FIX BUG-09: getDateKey com suporte a YY-MM-DD e extração direta de ISO. Retorna null se data inválida ou nula.
 export const getDateKey = (rawDate) => {
-  if (!rawDate) return new Date().toISOString().split('T')[0];
+  if (!rawDate) return null;
 
   if (typeof rawDate === 'string') {
     const trimmed = rawDate.trim();
+    if (!trimmed) return null;
     // ISO 'YYYY-MM-DD' → extração direta
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
       return trimmed;
@@ -70,6 +71,7 @@ export const getDateKey = (rawDate) => {
   if (typeof rawDate === 'object' && rawDate !== null && (rawDate.seconds || rawDate._seconds)) {
     const secs = rawDate.seconds || rawDate._seconds;
     const d = new Date(secs * 1000);
+    if (Number.isNaN(d.getTime())) return null;
     const manausDate = new Date(d.getTime() - (4 * 3600000));
     const year = manausDate.getUTCFullYear();
     const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
@@ -78,14 +80,15 @@ export const getDateKey = (rawDate) => {
   }
 
   try {
-    const d = normalizeDate(rawDate) || new Date();
+    const d = normalizeDate(rawDate);
+    if (!d || Number.isNaN(d.getTime())) return null;
     const manausDate = new Date(d.getTime() - (4 * 3600000));
     const year = manausDate.getUTCFullYear();
     const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
     const day = String(manausDate.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   } catch {
-    return new Date().toISOString().split('T')[0];
+    return null;
   }
 };
 

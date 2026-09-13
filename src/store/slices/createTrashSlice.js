@@ -1,6 +1,7 @@
 import { generateId } from '../../utils/idGenerator.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
+import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
 
 export const createTrashSlice = (set) => ({
     restoreFromTrash: (trashId) => set((state) => {
@@ -24,6 +25,8 @@ export const createTrashSlice = (set) => ({
                 catData.id = generateId('cat');
             }
             const newId = catData.id;
+            removeCategoryTombstone(oldId, catData.name);
+            removeCategoryTombstone(newId, catData.name);
             contest.categories.push(catData);
 
             const fixRef = (arr) => (arr || []).map(entry =>
@@ -102,6 +105,17 @@ export const createTrashSlice = (set) => ({
     }),
 
     emptyTrash: () => set((state) => {
+        if (Array.isArray(state.appState.trash)) {
+            const catTombstones = state.appState.trash
+                .filter(item => item?.type === 'category')
+                .map(item => {
+                    const catData = item.data?.category || item.data;
+                    return { id: catData?.id, name: catData?.name };
+                });
+            if (catTombstones.length > 0) {
+                addCategoryTombstones(catTombstones);
+            }
+        }
         state.appState.trash = [];
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();

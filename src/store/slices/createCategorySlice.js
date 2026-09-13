@@ -2,6 +2,7 @@ import { generateId } from '../../utils/idGenerator.js';
 import { normalize } from '../../utils/normalization.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
+import { addCategoryTombstones } from '../../utils/tombstones.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => set((state) => {
@@ -46,6 +47,7 @@ export const createCategorySlice = (set) => ({
 
         const category = activeData.categories.find(c => c.id === id);
         if (category) {
+            addCategoryTombstones({ id: category.id, name: category.name });
             const normName = category ? normalize(category.name) : null;
             const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
             const deletedSimuladoRows = safeRows.filter(r => {

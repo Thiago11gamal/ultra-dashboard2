@@ -49,26 +49,35 @@ export const createTaskSlice = (set, get) => ({
             if (!activeData) return;
 
             let found = false;
+            let xpAwarded = false;
+            const nowIso = new Date().toISOString();
+
+            const handleTask = (task) => {
+                if (task && !task.completed) {
+                    task.completed = true;
+                    task.completedAt = nowIso;
+                    task.lastStudiedAt = nowIso;
+                    const xp = getTaskXP(task, true);
+                    task.awardedXP = Math.abs(xp);
+                    if (!xpAwarded) {
+                        pendingXpChange += xp;
+                        xpAwarded = true;
+                    }
+                    found = true;
+                }
+            };
             
             // Search in coachPlan (Backlog)
             if (activeData.coachPlan) {
                 const task = activeData.coachPlan.find(t => t && (t.id === taskId || t.text === taskId));
-                if (task && !task.completed) {
-                    task.completed = true;
-                    pendingXpChange += getTaskXP(task, true);
-                    found = true;
-                }
+                handleTask(task);
             }
 
             // Search in coachPlanner (Days)
             if (activeData.coachPlanner) {
                 Object.values(activeData.coachPlanner).forEach(dayTasks => {
                     const task = (dayTasks || []).find(t => t && (t.id === taskId || t.text === taskId));
-                    if (task && !task.completed) {
-                        task.completed = true;
-                        pendingXpChange += getTaskXP(task, true);
-                        found = true;
-                    }
+                    handleTask(task);
                 });
             }
 
@@ -76,21 +85,13 @@ export const createTaskSlice = (set, get) => ({
             if (activeData.categories) {
                 (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
                     const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => t && (t.id === taskId || t.text === taskId));
-                    if (task && !task.completed) {
-                        task.completed = true;
-                        task.completedAt = new Date().toISOString();
-                        task.lastStudiedAt = new Date().toISOString();
-                        const xp = getTaskXP(task, true);
-                        task.awardedXP = Math.abs(xp);
-                        pendingXpChange += xp;
-                        found = true;
-                    }
+                    handleTask(task);
                 });
             }
 
             if (found) {
                 state.appState.version = (state.appState.version || 0) + 1;
-                state.appState.lastUpdated = new Date().toISOString();
+                state.appState.lastUpdated = nowIso;
                 markStorageDirty();
             }
         });

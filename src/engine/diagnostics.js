@@ -223,7 +223,7 @@ export function computeHurstExponent(scores) {
     }
 
     if (validBlocks > 0) {
-      logRS.push(Math.log(rsSum / validBlocks));
+      logRS.push(Math.log(Math.max(1e-9, rsSum / validBlocks)));
       logN.push(Math.log(tau));
     }
   }

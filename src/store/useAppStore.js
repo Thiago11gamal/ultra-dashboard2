@@ -151,11 +151,15 @@ export const useAppStore = create(
           }
 
           set((state) => {
-            const settings = state.appState.settings;
+            const currentContest = state.appState.contests?.[state.appState.activeId];
+            const savedSettings = currentContest?.settings ? safeClone(currentContest.settings) : null;
+            const initialState = getFullInitialState();
+            if (savedSettings && initialState.contests?.['default']) {
+              initialState.contests['default'].settings = savedSettings;
+            }
             state.appState = {
-              ...getFullInitialState(),
-              isHydrated: true,
-              settings: settings
+              ...initialState,
+              isHydrated: true
             };
           });
         },
@@ -277,34 +281,52 @@ useAppStore.subscribe((state) => {
   }
 });
 
-// ✅ FIX S03: Implementação segura para exclusão total de dados
-// Limpa bancos de dados passados, localStorage e sessionStorage
+// ✅ FIX S03 / BUG-05: Implementação segura para exclusão total de dados
+// Limpa bancos de dados passados, localStorage, sessionStorage e idb-keyval
 export const clearAllDataSecure = async () => {
-  localStorage.clear();
-  sessionStorage.clear();
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.clear();
+    if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+  } catch {
+    // Ignorar erros de storage
+  }
 
   try {
-    const dbs = await window.indexedDB.databases();
-    await Promise.all(dbs.map(db => {
-      return new Promise((resolve) => {
-        const req = window.indexedDB.deleteDatabase(db.name);
-        req.onsuccess = resolve;
-        req.onerror = resolve;
-        req.onblocked = resolve;
-      });
-    }));
-  } catch (err) {
-    console.warn('[Storage] Fallback manual de limpeza IndexedDB', err);
-    // Fallback: Excluir chaves conhecidas
+    await idbDel('ultra-dashboard-storage');
+  } catch {
+    // Ignorar erros de remoção idb-keyval
+  }
+
+  if (typeof window !== 'undefined' && window.indexedDB) {
     try {
-      window.indexedDB.deleteDatabase('ultra-dashboard-storage');
-      window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
-      window.indexedDB.deleteDatabase('keyval-store');
-      // Forçamos resolução silenciosa para não travar a aplicação
-    } catch {
-      // Ignorar erros
+      if (typeof window.indexedDB.databases === 'function') {
+        const dbs = await window.indexedDB.databases();
+        await Promise.all((dbs || []).map(db => {
+          if (!db?.name) return Promise.resolve();
+          return new Promise((resolve) => {
+            const req = window.indexedDB.deleteDatabase(db.name);
+            req.onsuccess = resolve;
+            req.onerror = resolve;
+            req.onblocked = resolve;
+          });
+        }));
+      } else {
+        throw new Error('indexedDB.databases() not supported');
+      }
+    } catch (err) {
+      console.warn('[Storage] Fallback manual de limpeza IndexedDB', err);
+      // Fallback: Excluir chaves conhecidas
+      try {
+        window.indexedDB.deleteDatabase('ultra-dashboard-storage');
+        window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
+        window.indexedDB.deleteDatabase('keyval-store');
+      } catch {
+        // Ignorar erros
+      }
     }
   }
 
-  window.location.href = '/';
+  if (typeof window !== 'undefined' && window.location) {
+    window.location.href = '/';
+  }
 };

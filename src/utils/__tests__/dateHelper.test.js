@@ -38,6 +38,14 @@ describe('dateHelper getDateKey', () => {
     // 02:00 UTC = 22:00 do dia anterior em Manaus (UTC-4)
     expect(getDateKey('2026-05-08T02:00:00.000Z')).toBe('2026-05-07');
   });
+
+  it('retorna null para valores nulos, vazios ou datas inválidas', () => {
+    expect(getDateKey(null)).toBeNull();
+    expect(getDateKey(undefined)).toBeNull();
+    expect(getDateKey('')).toBeNull();
+    expect(getDateKey('   ')).toBeNull();
+    expect(getDateKey('data_invalida')).toBeNull();
+  });
 });
 
 describe('dateHelper toDateMs', () => {

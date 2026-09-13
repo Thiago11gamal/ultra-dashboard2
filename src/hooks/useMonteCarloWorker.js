@@ -17,8 +17,20 @@ const REQUEST_MAX_AGE_MS = 60_000;
 
 // Cleanup periódico para requests órfãos
 let cleanupInterval = null;
+
+export function stopCleanup() {
+    if (cleanupInterval) {
+        clearInterval(cleanupInterval);
+        cleanupInterval = null;
+    }
+}
+
 function startCleanup() {
     if (cleanupInterval) return;
+    // Previne vazamento de timers durante testes automatizados no Vitest / Jest
+    if (typeof process !== 'undefined' && (process.env?.NODE_ENV === 'test' || process.env?.VITEST)) {
+        return;
+    }
     cleanupInterval = setInterval(() => {
         const now = Date.now();
         for (const [id, pending] of sharedPendingRequests) {

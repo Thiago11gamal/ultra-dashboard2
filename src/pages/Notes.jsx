@@ -104,10 +104,29 @@ export default function Notes() {
                 const calcScore = totalQ > 0 ? catMin + (totalC / totalQ) * catRange : catMin;
 
                 if (mergedHistoryMap[dateKey]) {
-                    mergedHistoryMap[dateKey].topics = topics;
-                    mergedHistoryMap[dateKey].correct = totalC;
-                    mergedHistoryMap[dateKey].total = totalQ;
-                    mergedHistoryMap[dateKey].score = calcScore;
+                    const existingTopics = Array.isArray(mergedHistoryMap[dateKey].topics) ? mergedHistoryMap[dateKey].topics : [];
+                    const topicMap = new Map();
+                    existingTopics.forEach(t => {
+                        const key = normalize(t.name || t.topic || 'Geral');
+                        topicMap.set(key, { ...t });
+                    });
+                    topics.forEach(t => {
+                        const key = normalize(t.name || t.topic || 'Geral');
+                        const prev = topicMap.get(key);
+                        if (prev) {
+                            prev.correct = Math.max(0, Number(prev.correct) || 0) + t.correct;
+                            prev.total = Math.max(0, Number(prev.total) || 0) + t.total;
+                        } else {
+                            topicMap.set(key, { ...t });
+                        }
+                    });
+                    const combinedTopics = Array.from(topicMap.values());
+                    const combinedC = combinedTopics.reduce((s, t) => s + (Number(t.correct) || 0), 0);
+                    const combinedQ = combinedTopics.reduce((s, t) => s + (Number(t.total) || 0), 0);
+                    mergedHistoryMap[dateKey].topics = combinedTopics;
+                    mergedHistoryMap[dateKey].correct = combinedQ > 0 ? combinedC : totalC;
+                    mergedHistoryMap[dateKey].total = combinedQ > 0 ? combinedQ : totalQ;
+                    mergedHistoryMap[dateKey].score = combinedQ > 0 ? catMin + (combinedC / combinedQ) * catRange : calcScore;
                     mergedHistoryMap[dateKey].isPercentage = false;
                 } else {
                     mergedHistoryMap[dateKey] = {

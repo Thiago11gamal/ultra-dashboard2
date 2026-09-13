@@ -543,14 +543,20 @@ export default function Simulados() {
           (r) => getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
         );
         const totalQ = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
-        const totalC = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
+        const contestMax = Number(prev.maxScore) > 0 ? Number(prev.maxScore) : 100;
+        const contestMin = Number.isFinite(Number(prev.minScore)) ? Number(prev.minScore) : 0;
+        const contestRange = Math.max(1e-9, contestMax - contestMin);
+        const globalPoints = totalQ > 0 ? Number((contestMin + (totalC / totalQ) * contestRange).toFixed(2)) : contestMin;
         const globalPct = totalQ > 0 ? Number(((totalC / totalQ) * 100).toFixed(2)) : 0;
 
         const existingSimuladosRaw = Array.isArray(prev.simulados) ? prev.simulados : Object.values(prev.simulados || {});
         let updatedSimulados = existingSimuladosRaw.filter(Boolean);
         if (totalQ > 0) {
           const newSimuladoEvent = {
-            id: generateId('sim'), batchId, date: todayKey, score: globalPct,
+            id: generateId('sim'), batchId, date: todayKey,
+            score: globalPoints,
+            scorePoints: globalPoints,
+            scorePct: globalPct,
             total: totalQ, correct: totalC, type: 'auto-analyzer', subject: 'Simulado Geral',
             createdAt: nowIso, lastUpdated: nowIso
           };

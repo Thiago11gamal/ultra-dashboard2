@@ -8,6 +8,7 @@ import { normalize } from '../utils/normalization';
 import { safeClone } from '../utils/safeClone.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { toArray } from '../utils/normalize.js';
+import { isCategoryTombstoned } from '../utils/tombstones.js';
 
 const cleanUndefined = (obj, seen = new WeakSet()) => {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -359,7 +360,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return Array.from(taskMap.values()).filter(Boolean);
   };
 
-  const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false, localTrash = []) => {
+  const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false, localTrash = [], localContestTime = 0) => {
     const mergedCatsMap = {};
     const toDateMs = (value) => {
       if (!value) return 0;
@@ -397,18 +398,22 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           }
         };
       } else {
-        // FIX GHOST-CATEGORY: Evitar que categorias deletadas localmente sejam ressuscitadas pela nuvem
-        const isDeleted = (localTrash || []).some(t => {
+        // FIX GHOST-CATEGORY / BUG-07: Evitar que categorias deletadas localmente sejam ressuscitadas pela nuvem
+        const cloudCatTime = toDateMs(c.lastUpdated || c.updatedAt);
+        const isDeletedInTrash = (localTrash || []).some(t => {
           if (t.type !== 'category') return false;
           const catData = t.data?.category || t.data;
           const matches = (catData?.id && catData.id === c.id) ||
             (catData?.name && c.name && catData.name.trim().toLowerCase() === c.name.trim().toLowerCase());
           if (!matches) return false;
           const trashTime = toDateMs(t.deletedAt);
-          const cloudCatTime = toDateMs(c.lastUpdated || c.updatedAt);
           return trashTime >= cloudCatTime;
         });
-        if (!isDeleted) {
+
+        const isTombstoned = isCategoryTombstoned(c.id, c.name, cloudCatTime);
+        const isLocallyPruned = !preferCloudBase && localContestTime > 0 && cloudCatTime <= localContestTime;
+
+        if (!isDeletedInTrash && !isTombstoned && !isLocallyPruned) {
           mergedCatsMap[c.id] = c;
         }
       }
@@ -430,9 +435,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   const mergeContestPayload = useCallback((localContest, cloudContest, preferCloudBase = false, localTrash = []) => {
     const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
+    const localContestTime = new Date(localContest?.lastUpdated || 0).getTime();
     return {
       ...base,
-      categories: mergeContestCategories(localContest.categories, cloudContest.categories, preferCloudBase, localTrash),
+      categories: mergeContestCategories(localContest.categories, cloudContest.categories, preferCloudBase, localTrash, localContestTime),
       studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
       studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
       simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),

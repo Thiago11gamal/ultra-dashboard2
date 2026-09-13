@@ -48,12 +48,13 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
   for (const r of draft.simuladoRows) {
     if (!r.isAuto && r.source !== 'ai-generated') continue;
     if (getDateKey(normalizeDate(r.date || r.createdAt)) !== todayKey) continue;
-    const sameById = categoryId && r.categoryId && r.taskId &&
-                     r.categoryId === categoryId && r.taskId === taskId;
-    const sameByName = !categoryId &&
-                       normalize(r.subject) === normalize(materia) &&
-                       normalize(r.topic) === normalize(assunto);
-    if (sameById || sameByName) {
+    const isCatMatch = (categoryId && r.categoryId)
+      ? r.categoryId === categoryId
+      : normalize(r.subject) === normalize(materia);
+    const isTaskOrTopicMatch = (taskId && r.taskId)
+      ? r.taskId === taskId
+      : normalize(r.topic) === normalize(assunto);
+    if (isCatMatch && isTaskOrTopicMatch) {
       rowFound = true;
       const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
       const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs }, domain.max, domain.min);
