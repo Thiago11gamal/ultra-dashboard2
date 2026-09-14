@@ -8,10 +8,20 @@ export const createTaskSlice = (set, get) => ({
         let pendingXpChange = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];
-            if (!activeData || !activeData.categories) return;
+            if (!activeData) return;
+            if (!Array.isArray(activeData.categories)) {
+                activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                    ? Object.values(activeData.categories)
+                    : [];
+            }
 
-            const category = activeData.categories.find(c => c.id === categoryId);
+            const category = activeData.categories.find(c => c && (c.id === categoryId || c.name === categoryId));
             if (!category) return;
+            if (!Array.isArray(category.tasks)) {
+                category.tasks = category.tasks && typeof category.tasks === 'object'
+                    ? Object.values(category.tasks)
+                    : [];
+            }
 
             const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
             if (!task) return;
@@ -20,11 +30,12 @@ export const createTaskSlice = (set, get) => ({
             const xpChange = getTaskXP(task, completed);
             pendingXpChange = xpChange;
 
+            const nowIso = new Date().toISOString();
             task.completed = completed;
-            task.completedAt = completed ? new Date().toISOString() : null;
+            task.completedAt = completed ? nowIso : null;
 
             if (completed) {
-                task.lastStudiedAt = new Date().toISOString();
+                task.lastStudiedAt = nowIso;
                 // ✅ FIX N-03: Gravar o XP concedido como "recibo" imutável
                 task.awardedXP = Math.abs(xpChange);
             } else {
@@ -33,8 +44,9 @@ export const createTaskSlice = (set, get) => ({
                 delete task.awardedXP;
             }
 
+            activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
+            state.appState.lastUpdated = nowIso;
             markStorageDirty();
         });
         if (pendingXpChange !== 0 && get().awardExperience) {
@@ -91,6 +103,7 @@ export const createTaskSlice = (set, get) => ({
             }
 
             if (found) {
+                activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = nowIso;
                 markStorageDirty();
@@ -107,12 +120,23 @@ export const createTaskSlice = (set, get) => ({
         if (!trimmedTitle) return;
 
         const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData?.categories) return;
-        const category = activeData.categories.find(c => c.id === categoryId);
+        if (!activeData) return;
+        if (!Array.isArray(activeData.categories)) {
+            activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                ? Object.values(activeData.categories)
+                : [];
+        }
+
+        const category = activeData.categories.find(c => c && (c.id === categoryId || c.name === categoryId));
         if (category) {
+            if (!Array.isArray(category.tasks)) {
+                category.tasks = category.tasks && typeof category.tasks === 'object'
+                    ? Object.values(category.tasks)
+                    : [];
+            }
             // BUG-T04 FIX: Impedir duplicatas por nome normalizado.
             const normNew = trimmedTitle.toLowerCase().replace(/\s+/g, ' ').trim();
-            const alreadyExists = (category.tasks || []).some(t => {
+            const alreadyExists = category.tasks.some(t => {
                 const existing = String(t.text || t.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
                 return existing === normNew;
             });
@@ -124,19 +148,33 @@ export const createTaskSlice = (set, get) => ({
                 completed: false,
                 priority: 'medium'
             });
+
+            const nowIso = new Date().toISOString();
+            activeData.lastUpdated = nowIso;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = nowIso;
+            markStorageDirty();
         }
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
-        markStorageDirty();
     }),
 
     deleteTask: (categoryId, taskId) => {
         let pendingXpDeduction = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];
-            if (!activeData?.categories) return;
-            const category = activeData.categories.find(c => c.id === categoryId);
+            if (!activeData) return;
+            if (!Array.isArray(activeData.categories)) {
+                activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                    ? Object.values(activeData.categories)
+                    : [];
+            }
+
+            const category = activeData.categories.find(c => c && (c.id === categoryId || c.name === categoryId));
             if (category) {
+                if (!Array.isArray(category.tasks)) {
+                    category.tasks = category.tasks && typeof category.tasks === 'object'
+                        ? Object.values(category.tasks)
+                        : [];
+                }
                 const task = category.tasks.find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
                 if (task && task.completed) {
                     // BUG-T01 FIX: awardedXP === 0 é um valor válido gravado.
@@ -154,10 +192,13 @@ export const createTaskSlice = (set, get) => ({
                     state.appState.pomodoro.activeSubject = null;
                 }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
+
+                const nowIso = new Date().toISOString();
+                activeData.lastUpdated = nowIso;
+                state.appState.version = (state.appState.version || 0) + 1;
+                state.appState.lastUpdated = nowIso;
+                markStorageDirty();
             }
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
         if (pendingXpDeduction > 0 && get().awardExperience) {
             get().awardExperience(-pendingXpDeduction);
@@ -206,10 +247,13 @@ export const createTaskSlice = (set, get) => ({
                 // Garante novas referências de array para Zustand / React shallow memoization
                 category.tasks = [...tasks];
                 activeData.categories = [...categories];
+
+                const nowIso = new Date().toISOString();
+                activeData.lastUpdated = nowIso;
+                state.appState.version = (state.appState.version || 0) + 1;
+                state.appState.lastUpdated = nowIso;
+                markStorageDirty();
             }
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
 
         if (pendingXpDiff !== 0 && typeof get().awardExperience === 'function') {

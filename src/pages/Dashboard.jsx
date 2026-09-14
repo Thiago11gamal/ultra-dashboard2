@@ -44,7 +44,8 @@ export default function Dashboard() {
         settings,
         studySessions
     } = useAppStore(useShallow(state => {
-        const contest = state.appState.contests?.[activeId] || {};
+        const currentActiveId = state.appState?.activeId;
+        const contest = state.appState?.contests?.[currentActiveId] || {};
         return {
             categories: contest.categories,
             simulados: contest.simulados,

@@ -144,7 +144,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   useEffect(() => {
     const unsubscribe = useAppStore.subscribe(
-      state => { appStateRef.current = state.appState; }
+      state => {
+        appStateRef.current = state.appState;
+        const now = Date.now();
+        const stateTime = new Date(state.appState?.lastUpdated || 0).getTime();
+        if (now - stateTime < 10000) {
+          lastLocalMutationRef.current = now;
+        }
+      }
     );
     return () => unsubscribe();
   }, []);

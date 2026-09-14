@@ -675,9 +675,7 @@ function Checklist({
                 return true;
             })
         }));
-    // BUG-T08 FIX: Usar fingerprint em vez da referência instável.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categoriesFingerprint, filter]);
+    }, [safeCategories, categoriesFingerprint, filter]);
 
     const handleAddTask = useCallback((catId, title) => {
         if (!onAddTask) return;
@@ -706,6 +704,7 @@ function Checklist({
         }
 
         onAddTask(catId, trimmedTitle);
+        showToast(`Assunto "${trimmedTitle}" adicionado com sucesso! ✨`, 'success');
 
         if (filter === 'completed') {
             if (typeof setFilter === 'function') setFilter('all');
@@ -984,6 +983,7 @@ function Checklist({
                         return;
                     }
                     onAddCategory(trimmedName);
+                    showToast(`Disciplina "${trimmedName}" adicionada com sucesso! ✨`, 'success');
                     setIsCatModalOpen(false);
                     scrollToBottom();
                 }}

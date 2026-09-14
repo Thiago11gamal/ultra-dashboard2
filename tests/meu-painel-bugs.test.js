@@ -289,4 +289,79 @@ describe('Meu Painel - Suíte de Regressão dos 12 Bugs', () => {
         const after3Categories = getCategories();
         expect(after3Categories[1].tasks[0].priority).toBe('high');
     });
+
+    it('Bug 5.1: addCategory e addTask funcionam com resiliência mesmo se categories ou tasks forem objetos', () => {
+        // Simular categorias como objeto
+        useAppStore.setState((state) => {
+            state.appState.contests.contest_1.categories = {
+                0: {
+                    id: 'cat_custom',
+                    name: 'Legislação Especial',
+                    tasks: {
+                        0: { id: 'task_c1', title: 'Lei 8.112', completed: false }
+                    }
+                }
+            };
+        });
+
+        const addCategory = useAppStore.getState().addCategory;
+        addCategory('Direito Penal');
+
+        const contest = useAppStore.getState().appState.contests.contest_1;
+        expect(Array.isArray(contest.categories)).toBe(true);
+        const penal = contest.categories.find(c => c.name === 'Direito Penal');
+        expect(penal).toBeDefined();
+
+        const addTask = useAppStore.getState().addTask;
+        addTask(penal.id, 'Crimes Contra a Administração');
+
+        const updatedContest = useAppStore.getState().appState.contests.contest_1;
+        const updatedPenal = updatedContest.categories.find(c => c.name === 'Direito Penal');
+        expect(Array.isArray(updatedPenal.tasks)).toBe(true);
+        expect(updatedPenal.tasks.some(t => t.title === 'Crimes Contra a Administração')).toBe(true);
+    });
+
+    it('Bug 5.2: addCategory remove tombstone prévio do nome da categoria', () => {
+        // Criar tombstone no localStorage
+        localStorage.setItem('ultra_category_tombstones', JSON.stringify({
+            'direito penal': Date.now()
+        }));
+
+        const addCategory = useAppStore.getState().addCategory;
+        addCategory('Direito Penal Militar');
+
+        const tombstones = JSON.parse(localStorage.getItem('ultra_category_tombstones') || '{}');
+        expect(tombstones['direito penal militar']).toBeUndefined();
+    });
+
+    it('Bug 5.3: addCategory e addTask atualizam activeData.lastUpdated e state.appState.lastUpdated', () => {
+        const initialContest = useAppStore.getState().appState.contests.contest_1;
+        const oldContestTime = initialContest.lastUpdated || '2026-01-01T00:00:00.000Z';
+
+        const addCategory = useAppStore.getState().addCategory;
+        addCategory('Direito Tributário');
+
+        const afterCatContest = useAppStore.getState().appState.contests.contest_1;
+        expect(afterCatContest.lastUpdated).toBeDefined();
+        expect(new Date(afterCatContest.lastUpdated).getTime()).toBeGreaterThanOrEqual(new Date(oldContestTime).getTime());
+
+        const trib = afterCatContest.categories.find(c => c.name === 'Direito Tributário');
+        const addTask = useAppStore.getState().addTask;
+        addTask(trib.id, 'Impostos Federais');
+
+        const afterTaskContest = useAppStore.getState().appState.contests.contest_1;
+        expect(new Date(afterTaskContest.lastUpdated).getTime()).toBeGreaterThanOrEqual(new Date(afterCatContest.lastUpdated).getTime());
+    });
+
+    it('Bug 5.4: addTask suporta correspondência por nome de categoria quando chamado com nome', () => {
+        const contest = useAppStore.getState().appState.contests.contest_1;
+        const portCat = contest.categories.find(c => c.id === 'cat_port');
+        expect(portCat).toBeDefined();
+
+        const addTask = useAppStore.getState().addTask;
+        addTask('Língua Portuguesa', 'Regência Verbal');
+
+        const updatedPort = useAppStore.getState().appState.contests.contest_1.categories.find(c => c.id === 'cat_port');
+        expect(updatedPort.tasks.some(t => (t.title || t.text) === 'Regência Verbal')).toBe(true);
+    });
 });

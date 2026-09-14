@@ -21,16 +21,59 @@ import { clearCoachCaches } from '../utils/coachPipeline.js';
 // --- IndexedDB Adapter ---
 const saveTimeouts = {};
 const savePromises = {};
+const latestValues = {};
 let isStorageLocked = false;
 
 let writeOpCounter = 0;
 const currentWriteTokens = {};
 
+const flushPendingStorage = () => {
+  for (const name of Object.keys(saveTimeouts)) {
+    if (saveTimeouts[name]) {
+      clearTimeout(saveTimeouts[name]);
+      delete saveTimeouts[name];
+    }
+    if (latestValues[name]) {
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(name, latestValues[name]);
+      } catch { /* ignore */ }
+      try {
+        idbSet(name, latestValues[name]).catch(() => {});
+      } catch { /* ignore */ }
+    }
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', flushPendingStorage);
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushPendingStorage();
+    });
+  }
+}
+
 const idbStorage = {
   getItem: async (name) => {
     try {
       const val = await idbGet(name);
-      return val || null;
+      const localVal = typeof localStorage !== 'undefined' ? localStorage.getItem(name) : null;
+      if (!val) return localVal || null;
+      if (!localVal) return val;
+      try {
+        const pIdb = JSON.parse(val);
+        const pLocal = JSON.parse(localVal);
+        const idbTime = new Date(pIdb?.state?.appState?.lastUpdated || 0).getTime();
+        const localTime = new Date(pLocal?.state?.appState?.lastUpdated || 0).getTime();
+        const idbVer = Number(pIdb?.state?.appState?.version || 0);
+        const localVer = Number(pLocal?.state?.appState?.version || 0);
+        if (localTime > idbTime || localVer > idbVer) {
+          return localVal;
+        }
+      } catch {
+        // fallback to val
+      }
+      return val;
     } catch (e) {
       console.warn('[Storage] Falha ao ler IDB. Tentando fallback localStorage:', e);
       isStorageLocked = true;
@@ -44,13 +87,18 @@ const idbStorage = {
     }
   },
   setItem: (name, value) => {
+    latestValues[name] = value;
+    // Salva imediatamente no localStorage como camada síncrona de resiliência rápida
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(name, value);
+      }
+    } catch {
+      // Ignorar possíveis exceções de quota (o IDB salvará no timeout)
+    }
+
     return new Promise((resolve, reject) => {
       if (isStorageLocked) {
-        try {
-          if (typeof localStorage !== 'undefined') localStorage.setItem(name, value);
-        } catch (fallbackErr) {
-          console.error('[Storage] Falha no fallback localStorage com lock ativo:', fallbackErr);
-        }
         return resolve();
       }
       if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
@@ -92,6 +140,7 @@ const idbStorage = {
   removeItem: async (name) => {
     if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
     if (savePromises[name]) savePromises[name].reject(new Error('Removed'));
+    delete latestValues[name];
     try { await idbDel(name); } catch { /* ignore */ }
     try { if (typeof localStorage !== 'undefined') localStorage.removeItem(name); } catch { /* ignore */ }
   },
