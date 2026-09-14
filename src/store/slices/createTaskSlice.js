@@ -43,6 +43,7 @@ export const createTaskSlice = (set, get) => ({
     },
 
     toggleNeuralTask: (taskId) => {
+        if (!taskId) return;
         let pendingXpChange = 0;
         set((state) => {
             const activeData = state.appState.contests[state.appState.activeId];

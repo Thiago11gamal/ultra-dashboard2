@@ -543,6 +543,7 @@ export default function Simulados() {
           (r) => getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
         );
         const totalQ = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
+        const totalC = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
         const contestMax = Number(prev.maxScore) > 0 ? Number(prev.maxScore) : 100;
         const contestMin = Number.isFinite(Number(prev.minScore)) ? Number(prev.minScore) : 0;
         const contestRange = Math.max(1e-9, contestMax - contestMin);

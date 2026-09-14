@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { repairContestHistory, validateAppState } from '../src/store/schemas.js';
+import { repairContestHistory } from '../src/store/schemas.js';
 import { applyAIResultsToDraft } from '../src/utils/aiSaveHelper.js';
 import { useAppStore, clearAllDataSecure } from '../src/store/useAppStore.js';
 import { getDateKey, normalizeDate } from '../src/utils/dateHelper.js';
 import { computeHurstExponent } from '../src/engine/diagnostics.js';
 import { stopCleanup } from '../src/hooks/useMonteCarloWorker.js';
-import { addCategoryTombstones, isCategoryTombstoned, getCategoryTombstones } from '../src/utils/tombstones.js';
+import { addCategoryTombstones, isCategoryTombstoned } from '../src/utils/tombstones.js';
 
 describe('Comprehensive Bug Fixes Verification (BUG-01 to BUG-11)', () => {
   beforeEach(() => {
