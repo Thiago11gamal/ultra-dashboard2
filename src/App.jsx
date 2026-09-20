@@ -106,7 +106,8 @@ function MainLayout() {
   }));
 
   const headerData = useAppStore(useShallow(state => {
-    const contest = state.appState?.contests?.[activeContestId];
+    const activeId = state.appState?.activeId;
+    const contest = state.appState?.contests?.[activeId];
     return {
       exists: !!contest,
       user: contest?.user,

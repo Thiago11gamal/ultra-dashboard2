@@ -31,10 +31,11 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     // P03 PERF FIX: Throttle to avoid hundreds of calls/sec from mousemove
     const THROTTLE_MS = 2000;
 
-    const resetTimer = useCallback(() => {
+    const resetTimer = useCallback((force = false) => {
         const now = Date.now();
-        // Skip if called within throttle window (mousemove fires 60-120x/sec)
-        if (now - lastActivityRef.current < THROTTLE_MS) return;
+        const isForced = force === true;
+        // Skip if called within throttle window (mousemove fires 60-120x/sec), unless forced
+        if (!isForced && now - lastActivityRef.current < THROTTLE_MS) return;
         lastActivityRef.current = now;
         try {
             localStorage.setItem('ultra-last-activity', now.toString());
@@ -82,8 +83,8 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         // FIX: Initialize lastActivity on mount (not during render to preserve purity)
         if (!lastActivityRef.current) lastActivityRef.current = Date.now();
 
-        // Initial set
-        resetTimer();
+        // Initial set - force scheduling the initial timer on mount
+        resetTimer(true);
 
         // Add listeners
         events.forEach(event => {
@@ -113,7 +114,7 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
                     if (typeof logoutRef.current === 'function') logoutRef.current();
                 } else {
                     lastActivityRef.current = lastAct; // Sync ref with storage
-                    resetTimer();
+                    resetTimer(true);
                 }
             }
         };

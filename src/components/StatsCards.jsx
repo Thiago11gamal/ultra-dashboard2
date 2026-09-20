@@ -105,7 +105,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             };
             return buildAchievementStats(safeData) || {};
         },
-        [data.categories, data.simulados, data.pomodorosCompleted, data.flashcardDecks, data.studyLogs, data.studySessions]
+        [data.categories, data.simuladoRows, data.simulados, data.pomodorosCompleted, data.flashcardDecks, data.studyLogs, data.studySessions, data.user, data.settings]
     );
 
     const user = data.user || { xp: 0, level: 1 };

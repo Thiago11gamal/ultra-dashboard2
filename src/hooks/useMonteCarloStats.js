@@ -28,7 +28,6 @@ import {
   computeCalibrationPenalty,
   generateAnalyticsStats
 } from '../engine/analyticsStats.js';
-import { stableHash } from '../utils/stableHash.js';
 
 const EMPTY_ARRAY = Object.freeze([]);
 const BASE_SIMULATIONS = 5000;
@@ -206,10 +205,9 @@ export function useMonteCarloStats({
     return newWeights;
   }, [activeCategories]);
 
-  // P02 PERF FIX: Use stableHash instead of JSON.stringify for lighter cache key computation
   const weightsKey = useMemo(() => {
-    if (equalWeightsMode) return 'eq:' + stableHash(getEqualWeights());
-    return 'w:' + stableHash(weights || {});
+    if (equalWeightsMode) return JSON.stringify(getEqualWeights());
+    return JSON.stringify(weights || {});
   }, [equalWeightsMode, weights, getEqualWeights]);
 
   const effectiveWeights = useMemo(() => {

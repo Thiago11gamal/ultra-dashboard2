@@ -251,12 +251,11 @@ export default function Simulados() {
   );
 
   /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
-  // P05 PERF FIX: Extract todayKey outside useMemo for purity
-  const todayKey = useMemo(() => getDateKey(normalizeDate(new Date())), []);
   const displayRows = useMemo(() => {
     if (!categoriesArray.length || !data?.categories) return [];
+    const todayKey = getDateKey(new Date());
     const rawTodayRows = simuladoRowsArray.filter(
-      r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
+      r => getDateKey(r.date || r.createdAt) === todayKey
     );
     const rows = [];
     const savedManualRows = {};
@@ -291,7 +290,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray, data?.categories, todayKey]);
+  }, [categoriesArray, simuladoRowsArray, data?.categories]);
 
   /* ── FIX: Último simulado — lógica corrigida e robusta ── */
   const lastSimuladoData = useMemo(() => {

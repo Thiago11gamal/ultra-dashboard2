@@ -255,14 +255,12 @@ export const useAppStore = create(
       {
         limit: 20,
         equality: (past, current) => past.appState?.contests === current.appState?.contests,
-        // P14 PERF FIX: Only snapshot fields needed for undo instead of spreading all of appState
+        // FIX: Preserve full appState so undo does not wipe isHydrated, pomodoro, dashboardFilter, etc.
         partialize: (state) => ({
           appState: {
-            contests: state.appState.contests,
-            activeId: state.appState.activeId,
+            ...state.appState,
             trash: (state.appState.trash || []).slice(-10),
-            version: state.appState.version,
-            lastUpdated: state.appState.lastUpdated
+            contests: state.appState.contests
           }
         }),
       }

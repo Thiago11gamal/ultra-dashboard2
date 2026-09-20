@@ -306,10 +306,10 @@ export default function OnboardingTour() {
     const isDashboard = location.pathname === '/' || location.pathname === '/dashboard';
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
-    const activeId = useAppStore(state => state.appState.activeId);
-    // P01 PERF FIX: Narrow selector — only checks if tasks exist instead of subscribing to entire contest
+    // FIX: Read activeId directly from state inside selector to avoid stale closure
     const hasTasks = useAppStore(state => {
-        const cats = state.appState.contests?.[activeId]?.categories;
+        const activeId = state.appState?.activeId;
+        const cats = state.appState?.contests?.[activeId]?.categories;
         const arr = Array.isArray(cats) ? cats : Object.values(cats || {});
         return arr.some(c => {
             const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
