@@ -22,7 +22,6 @@ import { clearCoachCaches } from '../utils/coachPipeline.js';
 const saveTimeouts = {};
 const savePromises = {};
 const latestValues = {};
-let isStorageLocked = false;
 
 let writeOpCounter = 0;
 const currentWriteTokens = {};
@@ -76,7 +75,6 @@ const idbStorage = {
       return val;
     } catch (e) {
       console.warn('[Storage] Falha ao ler IDB. Tentando fallback localStorage:', e);
-      isStorageLocked = true;
       try {
         const localVal = typeof localStorage !== 'undefined' ? localStorage.getItem(name) : null;
         return localVal || null;
@@ -98,9 +96,6 @@ const idbStorage = {
     }
 
     return new Promise((resolve, reject) => {
-      if (isStorageLocked) {
-        return resolve();
-      }
       if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
       if (savePromises[name]) savePromises[name].resolve();
 

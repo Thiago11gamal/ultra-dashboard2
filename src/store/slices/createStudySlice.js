@@ -167,10 +167,10 @@ export const createStudySlice = (set, get) => ({
       const logId = generateId('flashlog');
 
       let categoryId = null;
-      const normSubject = (subject || '').toLowerCase().trim();
+      const normCatName = (name) => (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+      const normSubject = normCatName(subject);
 
       if (activeData.categories && normSubject) {
-        const normCatName = (name) => (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
         const match = activeData.categories.find(c =>
           normCatName(c.name) === normSubject
         ) || activeData.categories.find(c =>

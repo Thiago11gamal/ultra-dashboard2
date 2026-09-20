@@ -98,7 +98,14 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     const fcStats = useMemo(
         () => {
             const safeData = {
-                ...data,
+                categories: data.categories,
+                simuladoRows: data.simuladoRows,
+                simulados: data.simulados,
+                pomodorosCompleted: data.pomodorosCompleted,
+                flashcardDecks: data.flashcardDecks,
+                studySessions: data.studySessions,
+                user: data.user,
+                settings: data.settings,
                 studyLogs: Array.isArray(data.studyLogs)
                     ? data.studyLogs
                     : Object.values(data.studyLogs || {})

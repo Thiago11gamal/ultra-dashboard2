@@ -415,7 +415,8 @@ function PomodoroTimer({
 
         if (current.mode === 'work') {
             const liveState = useAppStore.getState();
-            const liveSettings = liveState?.appState?.settings || liveState?.settings || {};
+            const activeId = liveState?.appState?.activeId;
+            const liveSettings = liveState?.appState?.contests?.[activeId]?.settings || liveState?.settings || {};
             const livePomodoroWork = Math.max(1, Number(liveSettings.pomodoroWork || safeSettings.pomodoroWork || 25));
             const totalWorkSeconds = livePomodoroWork * 60;
             const rawPrev = Number(current.timeLeft);

@@ -101,6 +101,9 @@ export const createContestSlice = (set) => ({
     setPaineis: (paineis) => set((state) => {
         if (!paineis || typeof paineis !== 'object') return;
         state.appState.contests = paineis;
+        if (!paineis[state.appState.activeId]) {
+            state.appState.activeId = Object.keys(paineis)[0] || 'default';
+        }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         markStorageDirty();

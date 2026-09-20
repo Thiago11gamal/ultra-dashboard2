@@ -653,18 +653,6 @@ function Checklist({
         }));
     }, [categories]);
 
-    // BUG-FIX: usar categories (prop original) em vez de safeCategories
-    // safeCategories é recriado a cada render → fingerprint muda a cada render
-    const categoriesFingerprint = useMemo(() => {
-        return toArray(categories).map(c => {
-            const tasks = toArray(c?.tasks);
-            const tasksMeta = tasks.map(t =>
-                `${t?.id || t?.text || ''}:${t?.completed ? 1 : 0}:${t?.priority || 'medium'}:${t?.status || ''}`
-            ).join(';');
-            return `${c?.id || c?.name || ''}:${c?.name || ''}:${tasks.length}:${tasksMeta}`;
-        }).join('|');
-    }, [categories]);
-
     const filteredCategories = useMemo(() => {
         return safeCategories.map(cat => ({
             ...cat,
@@ -675,7 +663,7 @@ function Checklist({
                 return true;
             })
         }));
-    }, [safeCategories, categoriesFingerprint, filter]);
+    }, [safeCategories, filter]);
 
     const handleAddTask = useCallback((catId, title) => {
         if (!onAddTask) return;

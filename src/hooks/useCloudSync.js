@@ -219,7 +219,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return { ...contest, categories: deduped };
   }, []);
 
-  const mergeArrays = (arr1, arr2) => {
+  const mergeArrays = (arr1, arr2, options = {}) => {
+    const { preferCloudBase = false, localContestTime = 0 } = options;
     const map = new Map();
 
     const getStableKey = (item) => {
@@ -276,6 +277,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (key) {
         const existing = map.get(key);
         if (!existing) {
+          // Prevenção de zumbis: se o item não existe localmente e o estado local é mais recente
+          // que a criação/atualização do item na nuvem, o item foi deletado localmente.
+          if (!preferCloudBase && localContestTime > 0) {
+            const itemTime = new Date(item.lastUpdated || item.createdAt || item.date || 0).getTime();
+            if (Number.isFinite(itemTime) && itemTime > 0 && itemTime <= localContestTime) {
+              return;
+            }
+          }
           map.set(key, item);
         } else {
           const timeNew = new Date(item.lastUpdated || item.createdAt || 0).getTime();
@@ -430,14 +439,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return Object.values(mergedCatsMap);
   };
 
-  const mergeCoachPlanner = (localPlanner, cloudPlanner) => {
+  const mergeCoachPlanner = (localPlanner, cloudPlanner, arrayOptions = {}) => {
     if (!localPlanner && !cloudPlanner) return undefined;
     const local = localPlanner || {};
     const cloud = cloudPlanner || {};
     const allDays = new Set([...Object.keys(local), ...Object.keys(cloud)]);
     const merged = {};
     allDays.forEach(day => {
-      merged[day] = mergeArrays(local[day], cloud[day]);
+      merged[day] = mergeArrays(local[day], cloud[day], arrayOptions);
     });
     return merged;
   };
@@ -445,18 +454,19 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const mergeContestPayload = useCallback((localContest, cloudContest, preferCloudBase = false, localTrash = []) => {
     const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
     const localContestTime = new Date(localContest?.lastUpdated || 0).getTime();
+    const arrayOptions = { preferCloudBase, localContestTime };
     return {
       ...base,
       categories: mergeContestCategories(localContest.categories, cloudContest.categories, preferCloudBase, localTrash, localContestTime),
-      studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs),
-      studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions),
-      simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows),
-      simulados: mergeArrays(localContest.simulados, cloudContest.simulados),
+      studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs, arrayOptions),
+      studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions, arrayOptions),
+      simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows, arrayOptions),
+      simulados: mergeArrays(localContest.simulados, cloudContest.simulados, arrayOptions),
       monteCarloHistory: mergeMonteCarloHistory(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
-      coachPlan: mergeArrays(localContest.coachPlan, cloudContest.coachPlan),
-      coachPlanner: mergeCoachPlanner(localContest.coachPlanner, cloudContest.coachPlanner),
-      flashcardDecks: mergeArrays(localContest.flashcardDecks, cloudContest.flashcardDecks),
-      agenda: mergeArrays(localContest.agenda, cloudContest.agenda),
+      coachPlan: mergeArrays(localContest.coachPlan, cloudContest.coachPlan, arrayOptions),
+      coachPlanner: mergeCoachPlanner(localContest.coachPlanner, cloudContest.coachPlanner, arrayOptions),
+      flashcardDecks: mergeArrays(localContest.flashcardDecks, cloudContest.flashcardDecks, arrayOptions),
+      agenda: mergeArrays(localContest.agenda, cloudContest.agenda, arrayOptions),
       ...(() => {
         const localTime = new Date(localContest.lastUpdated || 0).getTime();
         const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
@@ -467,8 +477,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           mcWeights: { ...(otherSource.mcWeights || {}), ...(settingsSource.mcWeights || {}) },
         };
       })(),
-      historicalCutoffs: mergeArrays(localContest.historicalCutoffs, cloudContest.historicalCutoffs),
-      calibrationEvents: mergeArrays(localContest.calibrationEvents, cloudContest.calibrationEvents),
+      historicalCutoffs: mergeArrays(localContest.historicalCutoffs, cloudContest.historicalCutoffs, arrayOptions),
+      calibrationEvents: mergeArrays(localContest.calibrationEvents, cloudContest.calibrationEvents, arrayOptions),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

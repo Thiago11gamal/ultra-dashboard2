@@ -212,10 +212,10 @@ export default function Flashcards() {
       newInterval = Math.max(1, Math.floor(newInterval * 0.8));
       newEase = Math.max(1.3, newEase - 0.15);
     } else if (rating === 2) {
-      newInterval = Math.min(365 * 5, Math.floor(newInterval * newEase));
+      newInterval = Math.max(newInterval + 1, Math.min(365 * 5, Math.round(newInterval * newEase)));
       newEase = Math.min(3.0, newEase + 0.05);
     } else {
-      newInterval = Math.min(365 * 5, Math.floor(newInterval * (newEase + 0.2)));
+      newInterval = Math.max(newInterval + 2, Math.min(365 * 5, Math.round(newInterval * (newEase + 0.2))));
       newEase = Math.min(3.2, newEase + 0.1);
     }
 

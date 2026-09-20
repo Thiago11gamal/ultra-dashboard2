@@ -66,14 +66,21 @@ export const createTaskSlice = (set, get) => ({
             const nowIso = new Date().toISOString();
 
             const handleTask = (task) => {
-                if (task && !task.completed) {
-                    task.completed = true;
-                    task.completedAt = nowIso;
-                    task.lastStudiedAt = nowIso;
-                    const xp = getTaskXP(task, true);
-                    task.awardedXP = Math.abs(xp);
+                if (task) {
+                    const completed = !task.completed;
+                    const xpChange = getTaskXP(task, completed);
+                    task.completed = completed;
+                    task.completedAt = completed ? nowIso : null;
+
+                    if (completed) {
+                        task.lastStudiedAt = nowIso;
+                        task.awardedXP = Math.abs(xpChange);
+                    } else {
+                        delete task.awardedXP;
+                    }
+
                     if (!xpAwarded) {
-                        pendingXpChange += xp;
+                        pendingXpChange += xpChange;
                         xpAwarded = true;
                     }
                     found = true;

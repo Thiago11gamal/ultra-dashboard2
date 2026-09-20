@@ -222,12 +222,11 @@ function DailySummaryCards({ simuladoRows }) {
    PÁGINA PRINCIPAL: Simulados
    ───────────────────────────────────────────── */
 export default function Simulados() {
-  const data = useAppStore(useShallow(state => {
+  const { categories, simuladoRows, studySessions } = useAppStore(useShallow(state => {
     const contest = state.appState?.contests?.[state.appState?.activeId] || {};
     return {
       categories: contest.categories,
       simuladoRows: contest.simuladoRows,
-      simulados: contest.simulados,
       studySessions: contest.studySessions
     };
   }));
@@ -236,23 +235,23 @@ export default function Simulados() {
   const deleteSession = useAppStore((state) => state.deleteSession);
   const deleteSimulado = useAppStore((state) => state.deleteSimulado);
 
-  // P05 PERF FIX: Granular dependencies instead of [data]
+  // P05 PERF FIX: Granular dependencies directly referencing destructured state
   const categoriesArray = useMemo(
-    () => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}),
-    [data?.categories]
+    () => Array.isArray(categories) ? categories : Object.values(categories || {}),
+    [categories]
   );
   const simuladoRowsArray = useMemo(
-    () => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}),
-    [data?.simuladoRows]
+    () => Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {}),
+    [simuladoRows]
   );
   const studySessionsArray = useMemo(
-    () => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}),
-    [data?.studySessions]
+    () => Array.isArray(studySessions) ? studySessions : Object.values(studySessions || {}),
+    [studySessions]
   );
 
   /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
   const displayRows = useMemo(() => {
-    if (!categoriesArray.length || !data?.categories) return [];
+    if (!categoriesArray.length || !categories) return [];
     const todayKey = getDateKey(new Date());
     const rawTodayRows = simuladoRowsArray.filter(
       r => getDateKey(r.date || r.createdAt) === todayKey
@@ -290,7 +289,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray, data?.categories]);
+  }, [categoriesArray, simuladoRowsArray, categories]);
 
   /* ── FIX: Último simulado — lógica corrigida e robusta ── */
   const lastSimuladoData = useMemo(() => {
