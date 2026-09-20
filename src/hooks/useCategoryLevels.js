@@ -12,7 +12,7 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
     if (!Array.isArray(categories)) return {};
     const map = {};
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const lastPoint = timeline.length > 0 ? timeline[timeline.length - 1] : null;
+    const lastPoint = Array.isArray(timeline) && timeline.length > 0 ? timeline[timeline.length - 1] : null;
     categories.forEach(cat => {
       const prefix = activeEngine === 'raw' ? 'raw_' : activeEngine === 'stats' ? 'stats_' : 'bay_';
       const fromTimeline = lastPoint?.[`${prefix}${cat.id}`];

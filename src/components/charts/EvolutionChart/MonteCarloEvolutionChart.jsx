@@ -263,7 +263,7 @@ export const MonteCarloEvolutionChart = ({
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 shadow-sm">
                         <Target size={13} className="text-emerald-400" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            Meta: <strong className="text-white font-mono">{unit === 'horas' ? formatDuration(safeTargetScore) : unit === '%' ? formatValue(safeTargetScore) : safeTargetScore} {unit}</strong>
+                            Meta: <strong className="text-white font-mono">{unit === 'horas' ? formatDuration(safeTargetScore) : `${formatValue(safeTargetScore)}${unit === '%' ? '%' : ` ${unit}`}`}</strong>
                             <small className="text-slate-500 ml-1.5">({scenarioLabels[scenario]})</small>
                         </span>
                     </div>

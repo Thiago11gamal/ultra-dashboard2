@@ -47,10 +47,19 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                 </p>
             </div>
 
-            <div className="flex-1 min-h-[290px] sm:min-h-[340px] w-full relative">
-                <ChartFrame minHeight={290} label="Calibrando radar">
-                    <ResponsiveContainer width="100%" height="100%" minHeight={290} minWidth={1}>
-                        <RadarChart cx="50%" cy="50%" outerRadius="66%" data={radarData} margin={{ top: 20, right: 35, bottom: 20, left: 35 }}>
+            <div className="flex-1 min-h-[290px] sm:min-h-[340px] w-full relative flex flex-col justify-center">
+                {(!Array.isArray(radarData) || radarData.length < 3) ? (
+                    <div className="flex flex-col items-center justify-center p-6 text-center text-slate-400 gap-3">
+                        <span className="text-3xl opacity-50">🕸️</span>
+                        <p className="text-xs font-semibold text-slate-300">Dados insuficientes para o Raio-X</p>
+                        <p className="text-[11px] text-slate-500 max-w-[260px]">
+                            São necessárias pelo menos 3 disciplinas com simulados registrados para compor a teia multidimensional.
+                        </p>
+                    </div>
+                ) : (
+                    <ChartFrame minHeight={290} label="Calibrando radar">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={290} minWidth={1}>
+                            <RadarChart cx="50%" cy="50%" outerRadius="66%" data={radarData} margin={{ top: 20, right: 35, bottom: 20, left: 35 }}>
                         <defs>
                             <radialGradient id={radarGradId} cx="50%" cy="50%" r="50%">
                                 <stop offset="0%" stopColor="#818cf8" stopOpacity={0.45} />
@@ -186,6 +195,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                     </RadarChart>
                     </ResponsiveContainer>
                 </ChartFrame>
+                )}
             </div>
         </div>
     );

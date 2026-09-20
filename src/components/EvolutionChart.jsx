@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
+import { useNavigate } from 'react-router-dom';
 import { useChartData } from "../hooks/useChartData";
 import { useEvolutionMC } from "../hooks/useEvolutionMC";
 import { useCategoryLevels } from "../hooks/useCategoryLevels";
@@ -341,6 +342,7 @@ export default React.memo(function EvolutionChart({
     minScore = 0,
     maxScore = 100
 }) {
+    const navigate = useNavigate();
     const rawCategories = useAppStore(useShallow(state => {
         const contest = state.appState?.contests?.[state.appState?.activeId];
         return contest?.categories ?? EMPTY_ARRAY;
@@ -637,7 +639,7 @@ export default React.memo(function EvolutionChart({
                 <p className="text-slate-400 text-sm max-w-md mx-auto mb-6">Cadastre simulados para desbloquear sua máquina do tempo estatística.</p>
                 <button
                     onClick={() => {
-                        if (typeof window !== 'undefined') window.location.href = '/simulados';
+                        navigate('/simulados');
                     }}
                     className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-colors"
                 >

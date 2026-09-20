@@ -9,7 +9,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
     const safeMax = catMax;
     const safeMin = catMin;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
-    const val = level || 0;
+    const val = Number.isFinite(Number(level)) ? Number(level) : safeMin;
     const effectiveTarget = Number.isFinite(Number(cat?.minCutoff))
         ? Number(cat.minCutoff)
         : (Number.isFinite(Number(target))

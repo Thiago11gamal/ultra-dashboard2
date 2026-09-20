@@ -480,14 +480,16 @@ export function EvolutionLineChart({
                         ];
                     })}
 
-                    <Brush 
-                        dataKey="date" 
-                        height={26} 
-                        stroke="#6366f1" 
-                        fill="rgba(15, 23, 42, 0.85)" 
-                        tickFormatter={formatDisplayDate}
-                        travellerWidth={10}
-                    />
+                    {enhancedChartData.length > 1 && (
+                        <Brush 
+                            dataKey="date" 
+                            height={26} 
+                            stroke="#6366f1" 
+                            fill="rgba(15, 23, 42, 0.85)" 
+                            tickFormatter={formatDisplayDate}
+                            travellerWidth={10}
+                        />
+                    )}
                 </ComposedChart>
                 </ResponsiveContainer>
             </ChartFrame>

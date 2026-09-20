@@ -119,7 +119,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
             <div className="w-full mt-3 pt-2.5 border-t border-slate-800/60 bg-slate-950/40 p-2.5 rounded-xl border flex flex-col gap-1.5">
                 {hasAbsolute && (
                     <div className="flex justify-between items-center text-xs">
-                        Última média
+                        <span className="text-slate-400 font-medium">Última média</span>
                         <span className={`font-bold ${absoluteColor === '#ef4444' ? 'text-rose-400' : (absoluteColor === '#10b981' ? 'text-emerald-400' : (absoluteColor === '#eab308' ? 'text-yellow-400' : 'text-slate-300'))}`}>{formatTime(data.absoluteLatestSeconds)}</span>
                     </div>
                 )}
@@ -130,7 +130,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
                     </div>
                 )}
                 <div className="flex justify-between items-center text-xs">
-                    Média (7 dias)
+                    <span className="text-slate-400 font-medium">Média (7 dias)</span>
                     <span className="text-cyan-400 font-bold">{formatTime(data.displaySeconds)}</span>
                 </div>
             </div>
@@ -442,7 +442,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
                     <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        ÚLTIMO GERAL: <span className="font-bold text-slate-300">{legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}</span>
+                        ÚLTIMO GERAL
                     </span>
                     <span className="text-lg sm:text-2xl font-black text-cyan-400 tracking-tight mt-1">
                         {legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}

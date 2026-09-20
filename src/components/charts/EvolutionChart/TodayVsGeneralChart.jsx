@@ -291,7 +291,7 @@ export function TodayVsGeneralChart({
         );
     }
 
-    const focusAccuracy = lastActiveEntry ? lastActiveEntry.accuracy : 0;
+    const focusAccuracy = lastActiveEntry ? lastActiveEntry.accuracy : safeMin;
     const delta = focusAccuracy - generalAccuracy;
     const deltaAbs = Math.abs(delta);
     const marginDelta = stabilityMargin;   // ✅ AUDIT FIX (antes: 2 fixo)
@@ -352,7 +352,7 @@ export function TodayVsGeneralChart({
                     })}
                 </div>
                 <div className="relative w-[260px] h-[140px] mt-6 flex justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <PieChart>
                             {temporalMetrics.map((metric) => {
                                 const isNull = metric.val == null;
@@ -453,7 +453,7 @@ export function TodayVsGeneralChart({
                     </div>
                 </div>
                 <div className="flex-1 w-full min-h-[220px]">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={220}>
                         <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
                             <defs>
                                 <linearGradient id={`neonGradient_${neonGradInstanceId}`} x1="0" y1="0" x2="1" y2="0">
