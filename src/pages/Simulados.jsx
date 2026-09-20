@@ -236,23 +236,25 @@ export default function Simulados() {
   const deleteSession = useAppStore((state) => state.deleteSession);
   const deleteSimulado = useAppStore((state) => state.deleteSimulado);
 
+  // P05 PERF FIX: Granular dependencies instead of [data]
   const categoriesArray = useMemo(
     () => Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {}),
-    [data]
+    [data?.categories]
   );
   const simuladoRowsArray = useMemo(
     () => Array.isArray(data?.simuladoRows) ? data.simuladoRows : Object.values(data?.simuladoRows || {}),
-    [data]
+    [data?.simuladoRows]
   );
   const studySessionsArray = useMemo(
     () => Array.isArray(data?.studySessions) ? data.studySessions : Object.values(data?.studySessions || {}),
-    [data]
+    [data?.studySessions]
   );
 
   /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
+  // P05 PERF FIX: Extract todayKey outside useMemo for purity
+  const todayKey = useMemo(() => getDateKey(normalizeDate(new Date())), []);
   const displayRows = useMemo(() => {
     if (!categoriesArray.length || !data?.categories) return [];
-    const todayKey = getDateKey(normalizeDate(new Date()));
     const rawTodayRows = simuladoRowsArray.filter(
       r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
     );
@@ -289,7 +291,7 @@ export default function Simulados() {
       }
     });
     return rows;
-  }, [categoriesArray, simuladoRowsArray, data?.categories]);
+  }, [categoriesArray, simuladoRowsArray, data?.categories, todayKey]);
 
   /* ── FIX: Último simulado — lógica corrigida e robusta ── */
   const lastSimuladoData = useMemo(() => {

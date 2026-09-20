@@ -307,10 +307,15 @@ export default function OnboardingTour() {
     const hasSeenTour = useAppStore(state => state.appState.hasSeenTour);
     const setHasSeenTour = useAppStore(state => state.setHasSeenTour);
     const activeId = useAppStore(state => state.appState.activeId);
-    const contest = useAppStore(state => state.appState.contests?.[activeId]);
-    const hasTasks = useMemo(() => {
-        return (contest?.categories || []).some(c => (c?.tasks || []).length > 0);
-    }, [contest?.categories]);
+    // P01 PERF FIX: Narrow selector — only checks if tasks exist instead of subscribing to entire contest
+    const hasTasks = useAppStore(state => {
+        const cats = state.appState.contests?.[activeId]?.categories;
+        const arr = Array.isArray(cats) ? cats : Object.values(cats || {});
+        return arr.some(c => {
+            const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
+            return tasks.length > 0;
+        });
+    });
 
     const filteredSteps = useMemo(() => {
         if (hasTasks) return steps;

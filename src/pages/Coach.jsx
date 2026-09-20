@@ -36,7 +36,8 @@ import { getSafeId } from '../utils/idGenerator';
 
 const CALIBRATION_HISTORY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45; // 45 dias
 const CALIBRATION_ALERT_CACHE_MAX = 200;
-const EMPTY_ARRAY = [];
+// P15 PERF FIX: Freeze for referential stability (matches pattern used elsewhere)
+const EMPTY_ARRAY = Object.freeze([]);
 
 export default function Coach() {
     const calibrationAlertCacheRef = useRef(new Map());

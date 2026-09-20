@@ -12,16 +12,23 @@ import { useToast } from '../hooks/useToast';
 import { toArray } from '../utils/normalize';
 
 export default function Dashboard() {
-    const setData = useAppStore(state => state.setData);
-    const toggleTask = useAppStore(state => state.toggleTask);
-    const deleteTask = useAppStore(state => state.deleteTask);
-    const addCategory = useAppStore(state => state.addCategory);
-    const deleteCategory = useAppStore(state => state.deleteCategory);
-    const addTask = useAppStore(state => state.addTask);
-    const togglePriority = useAppStore(state => state.togglePriority);
-    const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
-    const setDashboardFilter = useAppStore(state => state.setDashboardFilter);
-    const importCategory = useAppStore(state => state.importCategory);
+    // P06 PERF FIX: Group store actions into single selector to reduce subscription overhead
+    const {
+        setData, toggleTask, deleteTask, addCategory,
+        deleteCategory, addTask, togglePriority,
+        startPomodoroSession, setDashboardFilter, importCategory
+    } = useAppStore(state => ({
+        setData: state.setData,
+        toggleTask: state.toggleTask,
+        deleteTask: state.deleteTask,
+        addCategory: state.addCategory,
+        deleteCategory: state.deleteCategory,
+        addTask: state.addTask,
+        togglePriority: state.togglePriority,
+        startPomodoroSession: state.startPomodoroSession,
+        setDashboardFilter: state.setDashboardFilter,
+        importCategory: state.importCategory
+    }));
 
     const showToast = useToast();
     const navigate = useNavigate();

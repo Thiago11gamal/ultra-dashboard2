@@ -46,6 +46,9 @@ const StudyHistory = React.memo(function StudyHistory({
     const [sortOrder, setSortOrder] = useState('critical-first'); // 'critical-first' | 'best-first' | 'name-asc'
     const [collapsedSubjects, setCollapsedSubjects] = useState({});
 
+    // P09 PERF FIX: Cache today's dateString to avoid new Date() in render path
+    const todayDateStr = useMemo(() => new Date(currentTime).toDateString(), [currentTime]);
+
     // Calculate total weeks available (Sunday to Sunday boundaries)
     const availableWeeks = useMemo(() => {
         if (studySessions.length === 0) return 0;
@@ -628,7 +631,7 @@ const StudyHistory = React.memo(function StudyHistory({
                             // Renderizador de um card de simulado
                             const renderSimuladoCard = (group, _isComparison = false, deltaInfo = null) => {
                                 const { totalQuestions, totalCorrect, globalPct, subjects } = processSimulado(group.rows);
-                                const isToday = group.date.toDateString() === new Date().toDateString();
+                                const isToday = group.date.toDateString() === todayDateStr;
                                 const title = isToday ? 'Hoje' : group.date.toLocaleDateString('pt-BR');
                                 const bannerStyle = getGlobalBannerStyle(globalPct);
 
@@ -1064,7 +1067,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                                 <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
                                                     {groupedSimulados.map((g, idx) => {
                                                         const isSelected = g.key === activeFocusKey;
-                                                        const isToday = g.date.toDateString() === new Date().toDateString();
+                                                        const isToday = g.date.toDateString() === todayDateStr;
                                                         const label = isToday ? 'Hoje' : g.date.toLocaleDateString('pt-BR');
                                                         return (
                                                             <button

@@ -10,8 +10,10 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { toArray } from '../utils/normalize.js';
 import { isCategoryTombstoned } from '../utils/tombstones.js';
 
-const cleanUndefined = (obj, seen = new WeakSet()) => {
+// P07 PERF FIX: Added depth limit to prevent runaway recursion on deeply nested data
+const cleanUndefined = (obj, seen = new WeakSet(), depth = 0) => {
   if (obj === null || typeof obj !== 'object') return obj;
+  if (depth > 25) return obj; // Safety cap for deeply nested structures
   if (obj instanceof Date) return obj;
   if (obj === window ||
     (typeof Event !== 'undefined' && obj instanceof Event) ||
@@ -25,13 +27,13 @@ const cleanUndefined = (obj, seen = new WeakSet()) => {
   seen.add(obj);
   let result;
   if (Array.isArray(obj)) {
-    result = obj.map(v => v === undefined ? null : cleanUndefined(v, seen));
+    result = obj.map(v => v === undefined ? null : cleanUndefined(v, seen, depth + 1));
   } else {
     result = {};
     for (const [k, v] of Object.entries(obj)) {
       if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
       if (v !== undefined) {
-        result[k] = cleanUndefined(v, seen);
+        result[k] = cleanUndefined(v, seen, depth + 1);
       }
     }
   }

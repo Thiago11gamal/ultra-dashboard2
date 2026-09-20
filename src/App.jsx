@@ -96,31 +96,28 @@ function MainLayout() {
 
   const activeContestId = useAppStore(state => state.appState?.activeId);
 
-  // Otimização: Seletores estáveis e granulares para evitar re-renderizações massivas
-  const contestsMetaSelector = useShallow(state => {
+  // P11 PERF FIX: Use useShallow inline with useAppStore for stable selectors
+  const contestsMetaList = useAppStore(useShallow(state => {
     const contests = state.appState?.contests || {};
     return Object.keys(contests).reduce((acc, key) => {
       acc[key] = contests[key]?.contestName || 'Sem nome';
       return acc;
     }, {});
-  });
-  const contestsMetaList = useAppStore(contestsMetaSelector);
+  }));
 
-  const headerDataSelector = useShallow(state => {
+  const headerData = useAppStore(useShallow(state => {
     const contest = state.appState?.contests?.[activeContestId];
     return {
       exists: !!contest,
       user: contest?.user,
       settings: contest?.settings
     };
-  });
-  const headerData = useAppStore(headerDataSelector);
+  }));
 
-  const syncTriggerSelector = useShallow(state => ({
+  const syncTrigger = useAppStore(useShallow(state => ({
     version: state.appState?.version,
     lastUpdated: state.appState?.lastUpdated
-  }));
-  const syncTrigger = useAppStore(syncTriggerSelector);
+  })));
 
 
   const setAppState = useAppStore(state => state.setAppState);
@@ -147,6 +144,14 @@ function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [trashOpen, setTrashOpen] = useState(false);
   const rescueAttemptsRef = useRef(0);
+
+  // P12 PERF FIX: Stable callbacks to avoid invalidating React.memo on Sidebar/Header
+  const handleOpenHelp = useCallback(() => setShowHelpGuide(true), []);
+  const handleCloseHelp = useCallback(() => setShowHelpGuide(false), []);
+  const handleToggleSidebar = useCallback(() => setIsSidebarOpen(prev => !prev), []);
+  const handleOpenTrash = useCallback(() => setTrashOpen(true), []);
+  const handleCloseTrash = useCallback(() => setTrashOpen(false), []);
+  const handleCloseMobile = useCallback(() => setIsSidebarOpen(false), []);
   
   // Controle da tela de Boas-Vindas (Premium) - Aparece 1x por sessão (login)
   // ── ESTADO DA TELA DE BOAS-VINDAS ──
@@ -413,9 +418,9 @@ function MainLayout() {
           ) : (
             <div className="flex flex-col lg:grid lg:grid-cols-[auto_1fr] w-full h-dvh overflow-hidden animate-page-entrance">
               <Sidebar
-                onOpenHelp={() => setShowHelpGuide(true)}
+                onOpenHelp={handleOpenHelp}
                 isOpen={isSidebarOpen}
-                onToggle={() => setIsSidebarOpen((prev) => !prev)}
+                onToggle={handleToggleSidebar}
                 collapsed={sidebarCollapsed}
                 setCollapsed={setSidebarCollapsed}
                 contests={contestsMetaList}
@@ -423,8 +428,8 @@ function MainLayout() {
                 onSwitchContest={switchContest}
                 onCreateContest={createNewContest}
                 onDeleteContest={deleteContest}
-                onOpenTrash={() => setTrashOpen(true)}
-                onCloseMobile={() => setIsSidebarOpen(false)}
+                onOpenTrash={handleOpenTrash}
+                onCloseMobile={handleCloseMobile}
               />
 
               <div className="flex flex-col h-dvh w-full min-w-0 relative">
@@ -444,13 +449,13 @@ function MainLayout() {
                   onExport={handleExport}
                   onImport={handleImport}
 
-                  onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+                  onToggleSidebar={handleToggleSidebar}
                   sidebarCollapsed={sidebarCollapsed}
                   setSidebarCollapsed={setSidebarCollapsed}
-                  onOpenTrash={() => setTrashOpen(true)}
+                  onOpenTrash={handleOpenTrash}
                 />
 
-                <TrashModal isOpen={trashOpen} onClose={() => setTrashOpen(false)} />
+                <TrashModal isOpen={trashOpen} onClose={handleCloseTrash} />
 
                 <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 mt-0 pt-[110px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
                   <Motion.div 
@@ -463,7 +468,7 @@ function MainLayout() {
                     {routesContent}
                   </Motion.div>
                 </main>
-                <HelpGuide isOpen={showHelpGuide} onClose={() => setShowHelpGuide(false)} />
+                <HelpGuide isOpen={showHelpGuide} onClose={handleCloseHelp} />
                 <OnboardingTour />
               </div>
             </div>

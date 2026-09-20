@@ -28,8 +28,13 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         };
     }, []);
 
+    // P03 PERF FIX: Throttle to avoid hundreds of calls/sec from mousemove
+    const THROTTLE_MS = 2000;
+
     const resetTimer = useCallback(() => {
         const now = Date.now();
+        // Skip if called within throttle window (mousemove fires 60-120x/sec)
+        if (now - lastActivityRef.current < THROTTLE_MS) return;
         lastActivityRef.current = now;
         try {
             localStorage.setItem('ultra-last-activity', now.toString());

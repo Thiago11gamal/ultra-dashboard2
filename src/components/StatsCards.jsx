@@ -94,9 +94,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         [data.categories, normalizedStudyLogs, data.user]
     );
 
+    // P04 PERF FIX: Granular dependencies instead of [data] which changes every render
     const fcStats = useMemo(
         () => {
-            // BUG-FIX: garantir que studyLogs é array antes de passar
             const safeData = {
                 ...data,
                 studyLogs: Array.isArray(data.studyLogs)
@@ -105,7 +105,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
             };
             return buildAchievementStats(safeData) || {};
         },
-        [data]
+        [data.categories, data.simulados, data.pomodorosCompleted, data.flashcardDecks, data.studyLogs, data.studySessions]
     );
 
     const user = data.user || { xp: 0, level: 1 };
