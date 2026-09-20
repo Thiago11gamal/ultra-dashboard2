@@ -603,6 +603,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             }))
             .sort((a, b) => a.date - b.date);
 
+        void dayTick;
         return { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories: safeCategories };
         // ✅ LOTE-02 FIX (A4): minScore faltava nas dependências — memo ficava stale
         // se o piso da escala mudasse sem alterar maxScore.
@@ -1020,6 +1021,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             };
         }
 
+        void dayTick;
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
         // ✅ LOTE-02 FIX (A4): minScore agora é usado internamente (targetPct, normalizações)
     }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit, dayTick]);
