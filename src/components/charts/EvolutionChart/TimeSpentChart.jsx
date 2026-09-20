@@ -442,7 +442,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
                     <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        ÚLTIMO GERAL
+                        ÚLTIMO GERAL: <span className="font-bold text-slate-300">{legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}</span>
                     </span>
                     <span className="text-lg sm:text-2xl font-black text-cyan-400 tracking-tight mt-1">
                         {legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}
