@@ -218,13 +218,13 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100, minScore =
                 <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? ((scoreRange <= 20 || sdNum < 10) && sdNum > 0 ? sdNum.toFixed(1) : sdNum.toFixed(0)) : '--'}</span>
             </div>
             <div className="hidden md:flex md:col-span-1 justify-center items-center">
-                {deltaNum >= 0.5 ? (
+                {deltaNum >= 1 ? (
                     <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{Math.round(deltaNum)}</span>
-                ) : deltaNum >= 0.1 ? (
+                ) : deltaNum >= 0.05 ? (
                     <span className="text-[10px] font-black text-green-400 flex items-center gap-0.5"><TrendingUp size={10} />+{deltaNum.toFixed(1)}</span>
-                ) : deltaNum <= -0.5 ? (
+                ) : deltaNum <= -1 ? (
                     <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{Math.round(deltaNum)}</span>
-                ) : deltaNum <= -0.1 ? (
+                ) : deltaNum <= -0.05 ? (
                     <span className="text-[10px] font-black text-red-400 flex items-center gap-0.5"><TrendingDown size={10} />{deltaNum.toFixed(1)}</span>
                 ) : (
                     <span className="text-[10px] font-bold text-slate-600">—</span>
@@ -251,11 +251,11 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100, minScore =
 
 const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100, minScore = 0 }) => {
     if (categoryBreakdown.length === 0) return (
-        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 3 simulados em cada matéria para gerar o diagnóstico individual.</div>
+        <div className="text-center text-slate-500 py-4 text-sm">É necessário realizar pelo menos 3 simulados em pelo menos uma matéria para gerar o diagnóstico individual.</div>
     );
 
     const scoreRange = Math.max(1e-9, (Number(maxScore) || 100) - (Number(minScore) || 0));
-    const maxSdVal = Math.max(0.25 * scoreRange, ...categoryBreakdown.map(c => c.rawSd || 0));
+    const maxSdVal = Math.max(0.25 * scoreRange, ...categoryBreakdown.map(c => Number(c.rawSd) || 0));
 
     return (
         <div className="flex flex-col gap-1">
@@ -294,7 +294,7 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100, m
     );
 });
 
-export default function VerifiedStats({ categories = [], user, flashcardDecks: propFlashcardDecks }) {
+export default function VerifiedStats({ categories = [], user, flashcardDecks: propFlashcardDecks, dayTick }) {
     const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
     // ✅ FIX: usar hash estável das categorias como dependência
@@ -308,17 +308,32 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
       );
     }, [safeCategories]);
 
+    const activeId = useAppStore(state => state.appState?.activeId);
+    const contestSettings = useAppStore(
+        useShallow(state => {
+            const contest = state.appState?.contests?.[activeId];
+            return {
+                maxScore: contest?.maxScore ?? contest?.settings?.maxScore,
+                minScore: contest?.minScore ?? contest?.settings?.minScore,
+            };
+        })
+    );
+
     // ✅ LOTE-02 FIX (M5): reduce em vez de spread — evita RangeError com muitas categorias
     const maxScore = useMemo(() => {
         const scores = safeCategories.map(c => Number(c.maxScore)).filter(s => Number.isFinite(s) && s > 0);
-        return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
+        if (scores.length > 0) return scores.reduce((a, b) => Math.max(a, b), -Infinity);
+        const cMax = Number(contestSettings?.maxScore);
+        return Number.isFinite(cMax) && cMax > 0 ? cMax : 100;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categoriesHash]);
+    }, [categoriesHash, contestSettings?.maxScore]);
     const minScore = useMemo(() => {
         const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
-        return scores.length > 0 ? scores.reduce((a, b) => Math.min(a, b), Infinity) : 0;
+        if (scores.length > 0) return scores.reduce((a, b) => Math.min(a, b), Infinity);
+        const cMin = Number(contestSettings?.minScore);
+        return Number.isFinite(cMin) ? cMin : 0;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categoriesHash]);
+    }, [categoriesHash, contestSettings?.minScore]);
 
     // T-039 FIX: estabilizar a prop unit para ajudar na memoização do gauge
     const gaugeUnit = useMemo(() => {
@@ -333,7 +348,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             ? 70
             : Math.round(minScore + (maxScore - minScore) * 0.7);
 
-        if (!Number.isFinite(n) || (minScore >= 0 ? n <= 0 : n < minScore)) return fallback;
+        if (!Number.isFinite(n) || n <= minScore) return fallback;
 
         return Math.max(minScore, Math.min(maxScore, n));
     }, [maxScore, minScore]);
@@ -342,7 +357,6 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     // snapshot da store → o componente re-renderizava em qualquer mudança global
     // (pomodoro, sessão, flashcard...). O useShallow compara os elementos.
     // ✅ CORREÇÃO — seletor que retorna referência estável
-    const activeId = useAppStore(state => state.appState?.activeId);
     // FIX Bug 4: useShallow envolve o seletor conforme API do Zustand/React
     const storeFlashcardDecks = useAppStore(
         useShallow(state => {
@@ -539,7 +553,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 hArray.forEach(h => {
                     const catMaxScore = Number(cat.maxScore) || maxScore;
                     // ✅ LOTE-02 FIX (C3): minScore calculado ANTES e propagado ao getSafeScore
-                    const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+                    const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
                     const safeScore = getSafeScore(h, catMaxScore, catMinScore);
                     const parsedDate = normalizeDate(h.date);
                     // ✅ LOTE-02 FIX (C2): `>= 0` aceitava o NaN→0 do getSafeScore antigo
@@ -551,7 +565,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         // Normalização pela proporção no intervalo útil com piso
                         const catRange = Math.max(1e-9, catMaxScore - catMinScore);
                         const globalRange = Math.max(1e-9, maxScore - minScore);
-                        const ratio = (safeScore - catMinScore) / catRange;
+                        const ratio = Math.max(0, Math.min(1, (safeScore - catMinScore) / catRange));
                         const normalizedToGlobalScale = minScore + ratio * globalRange;
 
                         allHistory.push({
@@ -592,7 +606,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         return { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories: safeCategories };
         // ✅ LOTE-02 FIX (A4): minScore faltava nas dependências — memo ficava stale
         // se o piso da escala mudasse sem alterar maxScore.
-    }, [safeCategories, maxScore, minScore]);
+    }, [safeCategories, maxScore, minScore, dayTick]);
 
     const stats = useMemo(() => {
         const { dailyHistory, allHistory, totalQuestionsGlobal, sortedCategories } = baseHistoryStats;
@@ -611,10 +625,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         const globalAnalysis = analyzeProgressState(dailyHistory, {
             window_size: Math.min(5, dailyHistory.length),
             stagnation_threshold: 4,
-            // T-035 FIX: evitar high < low quando a meta é baixa
-            low_level_limit: Math.min(60, targetPct),
-            high_level_limit: targetPct,
-            mastery_limit: targetPct,
+            low_level_limit: Math.min(60, Math.max(30, targetPct - 15)),
+            high_level_limit: Math.max(40, targetPct - 5),
+            mastery_limit: Math.min(100, targetPct + 5),
             maxScore: maxScore,
             minScore: minScore
         });
@@ -766,11 +779,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const sigmaLimit = daysEstimated * 0.5;
                         const margin = Math.min(safe(sdDays), sigmaLimit);
 
-                        const daysMin = Math.max(1, daysEstimated - margin);
-                        const daysMax = daysEstimated + margin;
+                        const safeDaysMin = Math.max(1, daysEstimated - margin);
+                        const safeDaysMax = Math.max(safeDaysMin, daysEstimated + margin);
 
-                        const dateMin = new Date(nowTime + (daysMin * 24 * 60 * 60 * 1000));
-                        const dateMax = new Date(nowTime + (daysMax * 24 * 60 * 60 * 1000));
+                        const dateMin = new Date(nowTime + (safeDaysMin * 24 * 60 * 60 * 1000));
+                        const dateMax = new Date(nowTime + (safeDaysMax * 24 * 60 * 60 * 1000));
 
                         const fmt = (d) => {
                             if (isNaN(d.getTime())) return "--/--";
@@ -850,14 +863,22 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             // ✅ LOTE-02 FIX (C3): normalização por RAZÃO no intervalo útil da matéria,
             // projetada para o intervalo global. Antes: score/catMaxScore ignorava
             // ambos os pisos (ex.: escala 200–1000, nota 600 → 60% em vez de 50%).
-            const catMinScore2 = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+            const catMinScore2 = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
             const catRange2 = Math.max(1e-9, catMaxScore - catMinScore2);
 
             const hArray = cat.simuladoStats?.history ? (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)) : [];
             
             // BUG FIX 98 & BUG 13 FIX: Filtrar previamente histórico com datas e notas válidas antes de checar length >= 3
+            // 0s Bug Filter: Proteção contra Corrupção de Dados sincronizada com baseHistoryStats
             const validHistory = hArray
-                .filter(h => h && h.date && normalizeDate(h.date) !== null && Number.isFinite(getSafeScore(h, catMaxScore, catMinScore2)))
+                .filter(h => {
+                    if (!h || !h.date || normalizeDate(h.date) === null) return false;
+                    const safeScore = getSafeScore(h, catMaxScore, catMinScore2);
+                    if (!Number.isFinite(safeScore)) return false;
+                    const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
+                    if (tTs !== null && tTs <= 0 && safeScore === 0) return false;
+                    return true;
+                })
                 .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
 
             if (validHistory.length >= 3) {
@@ -874,10 +895,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 const analysis = analyzeProgressState(analysisHistory, {
                     window_size: Math.min(5, analysisHistory.length),
                     stagnation_threshold: 4,
-                    // T-035 FIX: evitar high < low quando a meta é baixa
-                    low_level_limit: Math.min(60, targetPct),
-                    high_level_limit: targetPct,
-                    mastery_limit: targetPct,
+                    low_level_limit: Math.min(60, Math.max(30, targetPct - 15)),
+                    high_level_limit: Math.max(40, targetPct - 5),
+                    mastery_limit: Math.min(100, targetPct + 5),
                     maxScore: maxScore,
                     minScore: minScore
                 });
@@ -1002,7 +1022,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
         // ✅ LOTE-02 FIX (A4): minScore agora é usado internamente (targetPct, normalizações)
-    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit]);
+    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit, dayTick]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">

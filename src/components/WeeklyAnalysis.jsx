@@ -139,7 +139,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                 canonicalCategoryNames.set(lower, rawName);
                 name = rawName;
             }
-            const id = log?.categoryId != null ? String(log.categoryId) : `raw:${lower}`;
+            const id = `raw:${lower}`;
             return {
                 category: undefined,
                 id,

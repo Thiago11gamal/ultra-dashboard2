@@ -63,7 +63,7 @@ export default function Stats() {
         return Array.isArray(rawFlashcards) ? rawFlashcards : Object.values(rawFlashcards || {});
     }, [rawFlashcards]);
 
-    // FIX E-03 & BUG 11: considera apenas linhas validadas e com dado real (incluindo nota 0 válida).
+    // FIX E-03 & BUG 11: considera apenas linhas validadas e com dado real (incluindo nota 0 e negativa em bancas Cebraspe).
     const hasSimuladoHistory = useMemo(() => {
         const rowsArray = Array.isArray(rawSimuladoRows)
             ? rawSimuladoRows
@@ -71,7 +71,7 @@ export default function Stats() {
         const hasValidRows = rowsArray.some(r =>
             r && r.validated !== false && (
                 (Number(r.total) > 0 && Number(r.correct) >= 0) ||
-                (Number.isFinite(Number(r.score)) && Number(r.score) >= 0 && Number(r.total) >= 0)
+                (Number.isFinite(Number(r.score)) && Number(r.total) >= 0)
             )
         );
         if (hasValidRows) return true;
@@ -142,7 +142,7 @@ export default function Stats() {
                                 </p>
                             </div>
                         ) : (
-                            <VerifiedStats categories={categories} user={user} flashcardDecks={flashcardDecks} />
+                            <VerifiedStats categories={categories} user={user} flashcardDecks={flashcardDecks} dayTick={dayTick} />
                         )}
 
                         {!hasStudyLogs ? (

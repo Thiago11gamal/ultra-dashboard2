@@ -22,7 +22,7 @@ export function HorasDisciplinaChart({ data }) {
 
     return (
         <div className="h-full w-full mt-2 pb-2 transition-all duration-300" style={{ minHeight: `${minChartHeight}px` }}>
-            <ResponsiveContainer width="100%" height="100%" minHeight={minChartHeight - 50} minWidth={1}>
+            <ResponsiveContainer width="100%" height={minChartHeight} minWidth={1}>
                 <BarChart
                     layout="vertical"
                     data={sortedData}
@@ -53,7 +53,7 @@ export function HorasDisciplinaChart({ data }) {
                         width={80}
                         tick={(props) => {
                             const { x, y, payload } = props;
-                            let rawText = String(payload.value || '');
+                            let rawText = String(payload?.value ?? '');
                             if (rawText.length > 13) {
                                 rawText = rawText.substring(0, 13).trim() + '...';
                             }
