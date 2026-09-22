@@ -11,7 +11,7 @@ export function buildHumanExplanation({
     intervalWidth,
     maxScore = 100
 }) {
-    const scale = Math.max(1, maxScore / 100);
+    const scale = Math.max(0.01, (Number(maxScore) || 100) / 100);
     const messages = [];
 
     if (confidenceTier === 'HIGH') {
@@ -48,7 +48,7 @@ export function getConfidenceTier({
     sampleSize,
     maxScore = 100
 }) {
-    const scale = Math.max(1, maxScore / 100);
+    const scale = Math.max(0.01, (Number(maxScore) || 100) / 100);
     // Tolerância adaptativa: normalizar a volatilidade para a escala base de 100
     // calibrationPenalty está entre 0 e 1 (0.1 = 10% de penalidade).
     const normalizedVolatility = volatility / scale;

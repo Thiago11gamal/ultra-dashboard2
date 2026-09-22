@@ -22,10 +22,18 @@ export const safeDateParse = (dateInput, fallback = null) => {
     }
     return fallback;
   }
-  const normalizedString = typeof dateInput === 'string'
-    ? dateInput.replace(' ', 'T')
-    : dateInput;
-  const d = new Date(normalizedString);
+  if (typeof dateInput === 'string') {
+    if (dateInput.includes('/') || /^\d{2}-\d{2}-\d{4}/.test(dateInput)) {
+      const norm = normalizeDate(dateInput);
+      if (norm instanceof Date && !isNaN(norm.getTime())) return norm;
+    }
+    const normalizedString = dateInput.replace(' ', 'T');
+    const d = new Date(normalizedString);
+    if (!isNaN(d.getTime())) return d;
+    const norm = normalizeDate(dateInput);
+    return (norm instanceof Date && !isNaN(norm.getTime())) ? norm : fallback;
+  }
+  const d = new Date(dateInput);
   return isNaN(d.getTime()) ? fallback : d;
 };
 
@@ -131,7 +139,7 @@ export const formatDisplayDate = (dateStr) => {
 };
 
 // ✅ FIX: normalizeDate com offset -04:00 para YYYY-MM-DD
-export const normalizeDate = (raw) => {
+export function normalizeDate(raw) {
   if (!raw) return null;
   let d;
   let isDateOnly = false;
@@ -158,10 +166,22 @@ export const normalizeDate = (raw) => {
     const isoBr = `${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`;
     d = new Date(isoBr);
   } else if (typeof raw === "string" && raw.includes("/")) {
-    const parts = raw.split(/[/-]/);
-    if (parts.length >= 3 && parts[0].length <= 2 && parts[2].length === 4) {
-      const isoBr = `${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`;
-      d = new Date(isoBr);
+    const parts = raw.trim().split(/[/-]/);
+    if (parts.length >= 3 && parts[0].length <= 2) {
+      const yearWithTime = parts[2].trim().split(/\s+/);
+      const year = yearWithTime[0];
+      const timePart = yearWithTime.slice(1).join(' ');
+      if (year.length === 4) {
+        const timeFormatted = timePart && timePart.includes(':') ? timePart : '12:00:00-04:00';
+        const hasOffset = timeFormatted.includes('-') || timeFormatted.includes('+') || timeFormatted.endsWith('Z');
+        const isoBr = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${hasOffset ? timeFormatted : timeFormatted + '-04:00'}`;
+        d = new Date(isoBr);
+        if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+          d = new Date(`${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T12:00:00-04:00`);
+        }
+      } else {
+        d = new Date(raw);
+      }
     } else {
       d = new Date(raw);
     }

@@ -57,8 +57,10 @@ export const repairContestHistory = (rawData) => {
     if (myRows.length === 0) return;
 
     const currentHistory = cat.simuladoStats?.history || [];
-    const maxScore = Number(cat.maxScore) || 100;
-    const minScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+    const maxScore = Number(cat.maxScore) || Number(rawData?.maxScore) || 100;
+    const minScore = Number.isFinite(Number(cat.minScore))
+      ? Number(cat.minScore)
+      : (Number.isFinite(Number(rawData?.minScore)) ? Number(rawData.minScore) : 0);
     const scoreRange = Math.max(1e-9, maxScore - minScore);
 
     const uniqueDaysInLogs = new Set(
@@ -230,8 +232,10 @@ export const sanitizeContest = (data) => {
         });
       })(),
       weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
-      maxScore: Number(cat.maxScore) || 100,
-      minScore: (cat.minScore !== undefined && cat.minScore !== null && Number.isFinite(Number(cat.minScore))) ? Number(cat.minScore) : 0,
+      maxScore: Number(cat.maxScore) || Number(source?.maxScore) || 100,
+      minScore: (cat.minScore !== undefined && cat.minScore !== null && Number.isFinite(Number(cat.minScore)))
+        ? Number(cat.minScore)
+        : ((source?.minScore !== undefined && Number.isFinite(Number(source.minScore))) ? Number(source.minScore) : 0),
       minCutoff: Number(cat.minCutoff) || 0,
       level: Number(cat.level) || 0,
       totalMinutes: Number(cat.totalMinutes) || 0,

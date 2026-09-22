@@ -717,6 +717,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           localVersion,
           cloudVersion
         });
+        if (!isParityValidatedRef.current) {
+          confirmParity();
+        }
         return;
       }
 

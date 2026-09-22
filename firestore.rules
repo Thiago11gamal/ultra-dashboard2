@@ -18,13 +18,16 @@ service cloud.firestore {
       return request.resource.data.size() < 500;
     }
 
-    match /backups/{userId}/{document=**} {
+    match /backups/{userId} {
       allow read: if isOwner(userId);
-
-      allow create, update: if isOwner(userId)
-        && withinFieldCountLimit();
-
+      allow create, update: if isOwner(userId) && withinFieldCountLimit();
       allow delete: if isOwner(userId);
+
+      match /{document=**} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && withinFieldCountLimit();
+        allow delete: if isOwner(userId);
+      }
     }
 
     // Regras oficiais da extensão Firebase Stripe Payments (clientes, sessões de checkout, pagamentos, assinaturas e produtos)

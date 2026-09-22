@@ -100,8 +100,11 @@ export function estimateTopicFsrs(topic, options = {}) {
           : 100)
   );
 
-  const consistencyFactor = clamp(1 - (sd / scoreScale), 0.1, 1);
-  const performanceFactor = clamp(mean / scoreScale, 0, 1);
+  const metaMinScore = toFiniteNumber(topic.minScore ?? options.minScore, 0);
+  const domain = Math.max(1e-6, scoreScale - metaMinScore);
+
+  const consistencyFactor = clamp(1 - (sd / domain), 0.1, 1);
+  const performanceFactor = clamp((mean - metaMinScore) / domain, 0, 1);
   const reviewFactor = Math.min(1, Math.log1p(scores.length) / Math.log1p(20));
 
   const rawDiff = toFiniteNumber(topic.difficulty, 1.0);

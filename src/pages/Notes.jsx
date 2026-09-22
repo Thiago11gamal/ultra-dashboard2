@@ -94,8 +94,10 @@ export default function Notes() {
             });
 
             // Overlay or add from rowsByDate
-            const catMax = Number(cat.maxScore) || 100;
-            const catMin = Number(cat.minScore) || 0;
+            const catMax = Number(cat.maxScore) || Number(activeContest?.maxScore) || 100;
+            const catMin = Number.isFinite(Number(cat.minScore))
+                ? Number(cat.minScore)
+                : (Number.isFinite(Number(activeContest?.minScore)) ? Number(activeContest.minScore) : 0);
             const catRange = Math.max(1e-9, catMax - catMin);
 
             Object.entries(rowsByDate).forEach(([dateKey, topics]) => {

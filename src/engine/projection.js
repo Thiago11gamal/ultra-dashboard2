@@ -83,7 +83,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     const _scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
-    const { slope, intercept } = weightedRegression(validSorted, lambda, maxScore, options);
+    const { slope, intercept } = weightedRegression(validSorted, lambda, maxScore, { ...options, minScore });
     // CORREÇÃO: Defesa estrita contra null/undefined que disparam TypeError no getTime()
     const d0 = safeDateParse(validSorted[0].date || validSorted[0].createdAt);
     const t0_vol = (d0 && !Number.isNaN(d0.getTime())) ? d0.getTime() : Date.now();
@@ -403,7 +403,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     let projectedScore;
     const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     
-    const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, options) : { slopeStdError: 0 };
+    const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, { ...options, minScore }) : { slopeStdError: 0 };
     let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
 
     // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
@@ -417,7 +417,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         sampleSize: sortedHistory.length,
         drift: linearSlope,
         driftUncertainty: slopeStdError,
-        scaleFactor: maxScore / 100,
+        scaleFactor: (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100,
         normalizedVol: (eventVolatility / (maxScore - minScore > 0 ? maxScore - minScore : maxScore)) * 100
     });
 
@@ -644,7 +644,7 @@ export function monteCarloSimulation(
     const stableMeanTarget = Math.max(minScore, Math.min(maxScore, (historicalMean * histWeight + baselineScore * (1 - histWeight))));
 
     const regressionResult = sortedHistory.length > 1
-        ? weightedRegression(sortedHistory, 0.08, maxScore, options)
+        ? weightedRegression(sortedHistory, 0.08, maxScore, { ...options, minScore })
         : { slope: 0, slopeStdError: 1.5 * scaleFactorFallback };
 
     let effectiveDriftSlope = regressionResult.slope;
@@ -652,7 +652,7 @@ export function monteCarloSimulation(
     trendType = 'linear';
     if (sortedHistory.length >= 4) {
         try {
-            const nl = computeNonLinearTrend(sortedHistory, maxScore, 0.08);
+            const nl = computeNonLinearTrend(sortedHistory, maxScore, 0.08, minScore);
             if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
                 trendType = 'log_time_available';
                 // NOTE: Do not blend nl.slope directly (different units).

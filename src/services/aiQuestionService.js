@@ -2,8 +2,8 @@
 // Todas as chamadas passam por um backend proxy autenticado.
 // ROTA OBRIGATÓRIA: rotacione a chave Gemini atual imediatamente.
 
-const AI_BACKEND_URL = import.meta.env.VITE_AI_BACKEND_URL || '/api';
-const AI_TIMEOUT_MS = Number(import.meta.env.VITE_AI_TIMEOUT_MS) || 60_000;
+const AI_BACKEND_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_BACKEND_URL) || '/api';
+const AI_TIMEOUT_MS = Number(typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_TIMEOUT_MS) || 60_000;
 
 // ✅ FIX S02: credentials deve ser 'same-origin' por padrão.
 // Se o backend for cross-origin, o backend deve configurar CORS
@@ -32,7 +32,7 @@ export const AI_QUESTION_SCHEMA = {
   id: 'string',
   enunciado: 'string',
   alternativas: 'array de { letra: string, texto: string }',
-  alternativa_correta: 'string (A, B, C ou D)',
+  alternativa_correta: 'string (A, B, C, D ou E)',
   justificativa: 'string',
   materia: 'string',
   assunto: 'string',
@@ -43,7 +43,7 @@ export const AI_QUESTION_SCHEMA = {
  * Valida e sanitiza uma questão individual retornada pela IA.
  */
 export function validateAIQuestion(question) {
-  const VALID_LETTERS = ['A', 'B', 'C', 'D'];
+  const VALID_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
   if (!question || typeof question !== 'object') return null;
 
@@ -214,7 +214,7 @@ export async function generateViaBackend({
  * Tenta geração direta e cai para o backend quando necessário.
  */
 const allowDirectAI =
-  String(import.meta.env.VITE_ALLOW_DIRECT_AI || '').toLowerCase() === 'true';
+  String((typeof import.meta !== 'undefined' && import.meta.env?.VITE_ALLOW_DIRECT_AI) || '').toLowerCase() === 'true';
 
 export async function generateAIQuestions(params = {}) {
   const payload = params || {};

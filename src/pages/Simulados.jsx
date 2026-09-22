@@ -495,8 +495,10 @@ export default function Simulados() {
             timeSpent: td.timeSpent, timedQuestoes: td.timedQuestoes
           }));
 
-          const maxScore = Number(cat.maxScore) || 100;
-          const minScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+          const maxScore = Number(cat.maxScore) || Number(prev?.maxScore) || 100;
+          const minScore = Number.isFinite(Number(cat.minScore))
+            ? Number(cat.minScore)
+            : (Number.isFinite(Number(prev?.minScore)) ? Number(prev.minScore) : 0);
           const scoreRange = Math.max(1e-9, maxScore - minScore);
           if (finalQ > 0) {
             const totalDifficultyWeight = finalTopics.reduce((acc, t) => acc + (Number(t.difficulty) || 1.0) * (Number(t.total) || 0), 0);

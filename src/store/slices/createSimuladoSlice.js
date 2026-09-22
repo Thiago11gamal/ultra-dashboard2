@@ -33,6 +33,9 @@ export const createSimuladoSlice = (set) => ({
 
     const matchesItem = (item) => {
       if (!item) return false;
+      if (item.id && String(item.id).trim() === normalizedInput) {
+        return true;
+      }
       if (item.batchId && String(item.batchId).trim() === normalizedInput) {
         return true;
       }

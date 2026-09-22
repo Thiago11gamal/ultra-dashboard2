@@ -65,6 +65,7 @@ export function useSubscription(user) {
         const paymentsRef = collection(db, 'customers', user.uid, 'payments');
         const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
+        if (!isMounted) return;
         unsub = onSnapshot(q, (snapshot) => {
             if (!isMounted) return;
             if (snapshot.empty) {
@@ -89,6 +90,7 @@ export function useSubscription(user) {
 
             if (error?.code === 'permission-denied') {
                 const userRef = doc(db, 'users', user.uid);
+                if (!isMounted) return;
                 fallbackUnsubRef.current = onSnapshot(userRef, (userDoc) => {
                     if (!isMounted) return;
                     const profile = userDoc.exists() ? userDoc.data() : {};
@@ -104,12 +106,21 @@ export function useSubscription(user) {
                     setIsPremium(false);
                     setLoading(false);
                 });
+                if (!isMounted && fallbackUnsubRef.current) {
+                    fallbackUnsubRef.current();
+                    fallbackUnsubRef.current = null;
+                }
                 return;
             }
 
             setIsPremium(false);
             setLoading(false);
         });
+
+        if (!isMounted && unsub) {
+            unsub();
+            unsub = null;
+        }
 
       }).catch(() => { 
           if (!isMounted) return;

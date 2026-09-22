@@ -9,7 +9,7 @@ import SimuladoPlayer from './SimuladoPlayer';
 import SimuladoResults from './SimuladoResults';
 import ConfirmModal from '../ConfirmModal';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
-import { safeGetJSON } from '../../utils/storageSafe';
+import { safeGetJSON, markStorageDirty } from '../../utils/storageSafe';
 import { safeDomain } from '../../utils/measurement';
 
 const normalizeAlternative = (value) =>
@@ -594,11 +594,19 @@ export default function AIGeneratedSimulado() {
             const draft = nextContests[state.appState.activeId];
             if (!draft) return state;
             applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent);
-            return { appState: { ...state.appState, contests: nextContests, lastUpdated: new Date().toISOString() } };
+            return {
+                appState: {
+                    ...state.appState,
+                    version: (state.appState.version || 0) + 1,
+                    contests: nextContests,
+                    lastUpdated: new Date().toISOString()
+                }
+            };
         },
         false, 
         preventGlobalEvent ? "AI_BACKGROUND_SAVE" : "AI_SIMULADO_SAVE"
     );
+    markStorageDirty();
   }, []);
 
   const handleFinish = useCallback(async () => {
@@ -721,11 +729,19 @@ export default function AIGeneratedSimulado() {
           const existingSims = Array.isArray(draft.simulados) ? draft.simulados : [];
           draft.simulados = [...existingSims, globalMixedEvent].slice(-100);
           draft.lastUpdated = new Date().toISOString();
-          return { appState: { ...state.appState, contests: nextContests, lastUpdated: new Date().toISOString() } };
+          return {
+            appState: {
+              ...state.appState,
+              version: (state.appState.version || 0) + 1,
+              contests: nextContests,
+              lastUpdated: new Date().toISOString()
+            }
+          };
         },
         false,
         "AI_MIXED_SIMULADO_SAVE"
       );
+      markStorageDirty();
     } else {
       await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent);
     }
