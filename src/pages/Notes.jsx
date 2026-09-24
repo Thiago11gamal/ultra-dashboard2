@@ -20,6 +20,8 @@ export default function Notes() {
     // FIX: Evitamos recriar o array `|| []` em cada renderização para não quebrar a memoização do useMemo
     const categoriesRaw = activeContest?.categories;
     const simuladoRowsRaw = activeContest?.simuladoRows;
+    const contestMaxScore = activeContest?.maxScore;
+    const contestMinScore = activeContest?.minScore;
 
     // DATA-INTEGRITY-FIX: Reconstruct categories history by merging 'simuladoRows' (topics) 
     // with existing 'history' (aggregates) to ensure no data is hidden.
@@ -94,10 +96,10 @@ export default function Notes() {
             });
 
             // Overlay or add from rowsByDate
-            const catMax = Number(cat.maxScore) || Number(activeContest?.maxScore) || 100;
+            const catMax = Number(cat.maxScore) || Number(contestMaxScore) || 100;
             const catMin = Number.isFinite(Number(cat.minScore))
                 ? Number(cat.minScore)
-                : (Number.isFinite(Number(activeContest?.minScore)) ? Number(activeContest.minScore) : 0);
+                : (Number.isFinite(Number(contestMinScore)) ? Number(contestMinScore) : 0);
             const catRange = Math.max(1e-9, catMax - catMin);
 
             Object.entries(rowsByDate).forEach(([dateKey, topics]) => {
@@ -166,7 +168,7 @@ export default function Notes() {
         });
 
         return newCats;
-    }, [categoriesRaw, simuladoRowsRaw]);
+    }, [categoriesRaw, simuladoRowsRaw, contestMaxScore, contestMinScore]);
 
     const maxScore = useMemo(() => {
         const scores = enhancedCategories

@@ -57,7 +57,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     if (isCatMatch && isTaskOrTopicMatch) {
       rowFound = true;
       const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
-      const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs }, domain.max, domain.min);
+      const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs, isDelta: true }, domain.max, domain.min);
       Object.assign(r, updatedRow);
       r.lastUpdated = new Date().toISOString();
     }

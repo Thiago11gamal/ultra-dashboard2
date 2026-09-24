@@ -62,11 +62,19 @@ export default function Flashcards() {
 
 
 
-  function persistDecks(nextDecks) {
-    setData(contest => ({
-      ...contest,
-      flashcardDecks: nextDecks
-    }));
+  function persistDecks(nextDecksOrUpdater) {
+    setData(contest => {
+      const currentDecks = Array.isArray(contest.flashcardDecks)
+        ? contest.flashcardDecks
+        : Object.values(contest.flashcardDecks || {});
+      const resolved = typeof nextDecksOrUpdater === 'function'
+        ? nextDecksOrUpdater(currentDecks)
+        : nextDecksOrUpdater;
+      return {
+        ...contest,
+        flashcardDecks: resolved
+      };
+    });
   }
 
   // Create deck
@@ -221,33 +229,33 @@ export default function Flashcards() {
 
     const nextDue = getFlashcardNextDueKey(newInterval);
 
-    const nextDecks = decks.map(deck => {
-      if (deck.id !== studyDeck.id) return deck;
-      const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
-      const updatedCards = safeCards.map(card => {
-        if (card.id === currentCard.id) {
-          return {
-            ...card,
-            interval: newInterval,
-            ease: newEase,
-            due: nextDue,
-            lastReviewed: new Date().toISOString(),
-            reviews: (card.reviews || 0) + 1
-          };
-        }
-        return card;
+    persistDecks(currentDecks => {
+      return currentDecks.map(deck => {
+        if (deck.id !== studyDeck.id) return deck;
+        const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+        const updatedCards = safeCards.map(card => {
+          if (card.id === currentCard.id) {
+            return {
+              ...card,
+              interval: newInterval,
+              ease: newEase,
+              due: nextDue,
+              lastReviewed: new Date().toISOString(),
+              reviews: (card.reviews || 0) + 1
+            };
+          }
+          return card;
+        });
+        return {
+          ...deck,
+          cards: updatedCards,
+          stats: {
+            totalReviews: (deck.stats?.totalReviews || 0) + 1,
+            mastered: updatedCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) > 6).length
+          }
+        };
       });
-      return {
-        ...deck,
-        cards: updatedCards,
-        stats: {
-          totalReviews: (deck.stats?.totalReviews || 0) + 1,
-          mastered: updatedCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) > 6).length
-        }
-      };
     });
-
-    persistDecks(nextDecks);
 
     // Integrate as measure: log review for stats, activity, gamification, coach
     if (typeof logFlashcardReview === 'function' && studyDeck) {

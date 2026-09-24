@@ -151,9 +151,19 @@ export function normalizeDate(raw) {
     } else if (/^\d{2}-\d{2}-\d{2}$/.test(raw)) {
       isDateOnly = true;
       const parts = raw.split('-');
-      const year = parseInt(parts[0], 10);
-      const fullYear = year < 100 ? 2000 + year : year;
-      normalizedRaw = `${fullYear}-${parts[1]}-${parts[2]}`;
+      const p0 = parseInt(parts[0], 10);
+      const p2 = parseInt(parts[2], 10);
+      let year, month, day;
+      if (p0 > 31) {
+        year = 2000 + p0;
+        month = parts[1];
+        day = parts[2];
+      } else {
+        year = 2000 + p2;
+        month = parts[1];
+        day = parts[0];
+      }
+      normalizedRaw = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
   }
 
@@ -177,7 +187,8 @@ export function normalizeDate(raw) {
         const isoBr = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${hasOffset ? timeFormatted : timeFormatted + '-04:00'}`;
         d = new Date(isoBr);
         if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
-          d = new Date(`${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T12:00:00-04:00`);
+          const fallbackIso = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T12:00:00-04:00`;
+          d = new Date(fallbackIso);
         }
       } else {
         d = new Date(raw);

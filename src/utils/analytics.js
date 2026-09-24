@@ -317,13 +317,26 @@ export const buildAchievementStats = (contestData, options = {}) => {
         return histArr?.some(h => getSafeScore(h, maxS, minS) >= maxS || (h.correct === h.total && h.total > 0));
     }) || false;
 
+    const simuladosArray = toArray(contestData?.simulados).filter(filterByReset);
+    const simuladoRowsArray = toArray(contestData?.simuladoRows).filter(filterByReset);
+
+    const hasPerfectScoreFromSimulados = simuladosArray.some(s => {
+        const total = Number(s?.total);
+        const correct = Number(s?.correct);
+        return (total > 0 && correct >= total) || (Number(s?.scorePct) >= 100);
+    }) || simuladoRowsArray.some(r => {
+        const total = Number(r?.total);
+        const correct = Number(r?.correct);
+        return (total > 0 && correct >= total);
+    });
+
     return {
         completedTasks: categoriesArray.reduce(
             (sum, cat) => sum + ((Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t.completed && (!resetAt || new Date(t.completedAt || 0).getTime() >= resetAt))?.length || 0), 0
         ) || 0,
         currentStreak: calculateStudyStreak(studyLogs).current,
         totalQuestions,
-        hasPerfectScore: (totalQuestions > 0 && totalCorrect >= totalQuestions) || hasPerfectScoreFromHistory,
+        hasPerfectScore: hasPerfectScoreFromHistory || hasPerfectScoreFromSimulados || (totalQuestions > 0 && totalCorrect >= totalQuestions),
         accuracy,
         pomodorosCompleted: countPomodorosTotal(studyLogs, studySessions, pomodoroWork),
         pomodorosToday: countPomodorosToday(studyLogs, pomodoroWork, extraCompletedCycles),

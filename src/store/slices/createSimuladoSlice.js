@@ -104,7 +104,7 @@ export const createSimuladoSlice = (set) => ({
                     last?.score ?? (
                       (Number(last?.total) > 0)
                         ? catMinScore + (Number(last?.correct || 0) / Number(last?.total)) * catRange
-                        : 0
+                        : catMinScore
                     )
                   );
 
@@ -113,7 +113,7 @@ export const createSimuladoSlice = (set) => ({
           } else {
             newStatsObj.average = 0;
             newStatsObj.trend = 'stable';
-            newStatsObj.lastAttempt = 0;
+            newStatsObj.lastAttempt = catMinScore;
             newStatsObj.level = 'BAIXO';
           }
 

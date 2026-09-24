@@ -382,8 +382,16 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     }, [flashcardDecks]);
 
     // Lifted State for Target Score (Shared between Prediction Card and Monte Carlo Gauge)
+    const resolveStoreTarget = React.useCallback((u) => {
+        if (u?.targetScore != null && u?.targetScore !== '') return u.targetScore;
+        if (u?.targetProbability != null && u?.targetProbability !== '') {
+            return minScore + (Number(u.targetProbability) / 100) * (maxScore - minScore);
+        }
+        return null;
+    }, [minScore, maxScore]);
+
     const [targetScore, setTargetScore] = React.useState(() =>
-        normalizeTargetToScale(user?.targetProbability)
+        normalizeTargetToScale(resolveStoreTarget(user))
     );
 
     // B-06 FIX: Adicionar trava de round-trip para evitar resets durante sincronização assíncrona
@@ -395,9 +403,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         if (lastActiveId.current !== activeId) {
             lastActiveId.current = activeId;
             pendingLocalSave.current = false;
-            setTimeout(() => setTargetScore(normalizeTargetToScale(user?.targetProbability)), 0);
+            setTimeout(() => setTargetScore(normalizeTargetToScale(resolveStoreTarget(user))), 0);
         }
-    }, [activeId, user?.targetProbability, normalizeTargetToScale]);
+    }, [activeId, user, resolveStoreTarget, normalizeTargetToScale]);
 
     // FIX: Wrapper para setTargetScore que trava a sincronização IMEDIATAMENTE ao interagir,
     // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
@@ -407,7 +415,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     }, [normalizeTargetToScale]);
 
     // B-06 & Bug 7 FIX: Sincronização Robusta com Trava de Round-trip e reset seguro
-    const storeTarget = user?.targetProbability;
+    const storeTarget = resolveStoreTarget(user);
     
     React.useEffect(() => {
         if (storeTarget == null || storeTarget === '') {
@@ -526,11 +534,11 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                 if (!data) return data;
                 const existingUser = data.user || {};
                 // Double check inside to prevent redundant writes
-                if (Math.abs(Number(existingUser.targetProbability) - parsed) <= 0.01) return data;
+                if (Math.abs(Number(existingUser.targetScore) - parsed) <= 0.01) return data;
 
                 return {
                     ...data,
-                    user: { ...existingUser, targetProbability: parsed },
+                    user: { ...existingUser, targetScore: parsed },
                     lastUpdated: new Date().toISOString()
                 };
             }, false); // don't record history for every debounced keystroke

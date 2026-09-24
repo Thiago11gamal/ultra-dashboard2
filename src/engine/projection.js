@@ -397,7 +397,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
 
 export function projectScore(history, projectDays = 60, minScore = 0, maxScore = 100, options = {}) {
     const sortedHistory = getSortedHistory(history);
-    if (!sortedHistory || sortedHistory.length === 0) return { projected: 0, marginOfError: 0 };
+    if (!sortedHistory || sortedHistory.length === 0) return { projected: minScore, marginOfError: 0 };
 
     const logisticFit = logisticRegression(sortedHistory, maxScore, options);
     let projectedScore;
@@ -429,14 +429,14 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const targetTimeX = ((now - t0) / 86400000) + projectDays;
         const exponent = -(k * targetTimeX + intercept);
         const safeExponent = Math.max(-50, Math.min(50, exponent));
-        const safeMin = options.minScore || 0;
+        const safeMin = options.minScore !== undefined ? options.minScore : (minScore || 0);
         projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
         // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`
         // para projetar o futuro no Random Walk.
 
         const rawScore = getSafeScore(sortedHistory[0], maxScore, minScore);
-        let ema = Number.isFinite(rawScore) ? rawScore : 0;
+        let ema = Number.isFinite(rawScore) ? rawScore : minScore;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);
@@ -545,11 +545,11 @@ export function monteCarloSimulation(
 
     if (!sortedHistory || sortedHistory.length < 1) return {
         probability: 0,
-        mean: 0,
+        mean: minScore,
         sd: 0,
-        ci95Low: 0,
-        ci95High: 0,
-        currentMean: 0,
+        ci95Low: minScore,
+        ci95High: minScore,
+        currentMean: minScore,
         drift: 0,
         volatility: 1.5 * scaleFactorFallback
     };
@@ -563,12 +563,12 @@ export function monteCarloSimulation(
             break;
         }
     }
-    const currentScore = Number.isFinite(validCurrentScore) ? validCurrentScore : 0;
+    const currentScore = Number.isFinite(validCurrentScore) ? validCurrentScore : minScore;
     const fallbackScore = optionsCurrentMean !== undefined ? optionsCurrentMean : currentScore;
     let baselineScore = forcedBaseline !== undefined ? forcedBaseline : fallbackScore;
     if (sortedHistory.length > 0) {
         const rawScore = getSafeScore(sortedHistory[0], maxScore, minScore);
-        let ema = Number.isFinite(rawScore) ? rawScore : 0;
+        let ema = Number.isFinite(rawScore) ? rawScore : minScore;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);

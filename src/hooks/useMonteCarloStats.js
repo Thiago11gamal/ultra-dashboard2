@@ -283,9 +283,8 @@ export function useMonteCarloStats({
     const [cy, cm, cd] = currKey.split('-').map(Number);
     const utcGoal = Date.UTC(gy, gm - 1, gd);
     const utcCurrent = Date.UTC(cy, cm - 1, cd);
-
     const diffDays = Math.ceil((utcGoal - utcCurrent) / (1000 * 60 * 60 * 24));
-    return Math.min(3650, Math.max(0, diffDays));
+    return Number.isFinite(diffDays) ? Math.min(3650, Math.max(0, diffDays)) : 30;
   }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
 
   const pureStatsData = useMemo(() => {
@@ -372,9 +371,11 @@ export function useMonteCarloStats({
         maxScore
       );
 
-      if (!Array.isArray(backfilled)) return;
-
-      const changed = JSON.stringify(backfilled.slice(-3)) !== JSON.stringify(calibrationEvents.slice(-3));
+      const changed = backfilled.length !== calibrationEvents.length ||
+        backfilled.some((ev, idx) => {
+          const orig = calibrationEvents[idx];
+          return !orig || ev.observed !== orig.observed || ev.observedScore !== orig.observedScore || ev.observedAt !== orig.observedAt;
+        });
 
       if (changed) {
         const setD = useAppStore.getState().setData;
