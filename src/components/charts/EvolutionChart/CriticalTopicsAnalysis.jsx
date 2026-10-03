@@ -294,7 +294,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     <div className="min-h-[220px] sm:min-h-[260px] w-full flex-1 flex flex-col justify-center">
                         {pointLeakageData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 38)} minWidth={1}>
-                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 65, left: -5, bottom: 5 }}>
+                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 85, left: -5, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
                                     <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />

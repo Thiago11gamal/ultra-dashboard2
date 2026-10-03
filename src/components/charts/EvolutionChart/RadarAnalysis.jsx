@@ -105,7 +105,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             angle={30} 
                             domain={[safeMin, safeMax]} 
                             tick={{ fill: '#64748b', fontSize: 9, fontWeight: 'bold' }} 
-                            tickFormatter={(v) => v === safeMin ? '' : v} 
+                            tickFormatter={(v) => v === safeMin ? '' : formatValue(v)} 
                             axisLine={false} 
                         />
 

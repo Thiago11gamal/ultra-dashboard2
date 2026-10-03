@@ -16,7 +16,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
             <p className="text-slate-300 mb-3 font-bold border-b border-white/10 pb-2 flex items-center justify-between">
                 <span>📅 {label}</span>
             </p>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[65vh] overflow-y-auto custom-scrollbar pointer-events-auto pr-1">
                 {payload
                     .filter(p => !p.name?.startsWith('_') && !['Bay CI High', 'Bay CI Low', 'Cenário Range', 'Banda Bayesiana', 'Ganho Estimado'].includes(p.name))
                     .filter((p, index, self) => self.findIndex(t => t.name === p.name) === index)
@@ -110,7 +110,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                             {trendVal != null && Number.isFinite(Number(trendVal)) ? (
                                                 <>
                                                     {trendVal > 0 ? '↑' : trendVal < 0 ? '↓' : ''}
-                                                    <span>{trendVal > 0 ? `+${formatValue(trendVal)}` : formatValue(trendVal)}</span>
+                                                    <span>{trendVal > 0 ? `+${formatValue(trendVal)}${unit}` : `${formatValue(trendVal)}${unit}`}</span>
                                                 </>
                                             ) : '—'}
                                         </span>

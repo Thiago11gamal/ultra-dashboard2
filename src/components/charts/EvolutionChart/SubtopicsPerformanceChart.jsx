@@ -484,20 +484,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                                         const entry = chartData[index];
                                         if (!entry) return null;
                                         return (
-                                            <g>
-                                                <text x={x + width + 8} y={y + height / 2 + 4} fill="#ffffff" fontSize={12} fontWeight="black">
-                                                    {formatValue(value)}%
-                                                </text>
-                                                <text
-                                                    x={x + width + 8 + (String(formatValue(value)).length * 7) + 16}
-                                                    y={y + height / 2 + 3}
-                                                    fill="#64748b"
-                                                    fontSize={10}
-                                                    fontWeight="bold"
-                                                >
-                                                    ({entry.correct}/{entry.total})
-                                                </text>
-                                            </g>
+                                            <text x={x + width + 8} y={y + height / 2 + 4}>
+                                                <tspan fill="#ffffff" fontSize={11} fontWeight="900">{formatValue(value)}%</tspan>
+                                                <tspan fill="#94a3b8" fontSize={9.5} fontWeight="700" dx={6}>({entry.correct}/{entry.total})</tspan>
+                                            </text>
                                         );
                                     }}
                                 />

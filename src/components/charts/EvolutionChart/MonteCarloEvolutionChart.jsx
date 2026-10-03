@@ -36,7 +36,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Nota projetada</span>
                         <div className="flex items-baseline gap-1">
                             <span className={`text-3xl font-black font-mono tracking-tight leading-none ${isGood ? 'text-emerald-400' : 'text-sky-400'}`}>
-                                {unit === 'horas' ? formatDuration(pointMean) : unit === '%' ? formatValue(pointMean) : pointMean}
+                                {unit === 'horas' ? formatDuration(pointMean) : formatValue(pointMean)}
                             </span>
                             <span className="text-sm font-semibold text-slate-500">{unit}</span>
                         </div>
@@ -325,7 +325,7 @@ export const MonteCarloEvolutionChart = ({
                                 stroke="#10b981" 
                                 strokeDasharray="4 3" 
                                 strokeWidth={1.5}
-                                label={{ value: `Meta (${unit === 'horas' ? formatDuration(safeTargetScore) : safeTargetScore + unit})`, fill: '#10b981', fontSize: 10, fontWeight: 700, position: 'insideTopLeft', dy: 4 }}
+                                label={{ value: `Meta (${unit === 'horas' ? formatDuration(safeTargetScore) : `${formatValue(safeTargetScore)}${unit}`})`, fill: '#10b981', fontSize: 10, fontWeight: 700, position: 'insideTopLeft', dy: 4 }}
                             />
                             <XAxis
                                 dataKey="displayDate"

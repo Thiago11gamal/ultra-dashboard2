@@ -11,7 +11,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
-import { getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper.js';
+import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper.js';
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
 
 const WeeklyPerformanceChart = ({
@@ -129,7 +129,7 @@ const WeeklyPerformanceChart = ({
                             </div>
                             <span className={`text-sm sm:text-base font-black ${entry.name === 'acertos' ? 'text-emerald-400' : 'text-indigo-300'}`}>
                                 {entry.value != null && Number.isFinite(Number(entry.value))
-                                    ? (entry.name === 'acertos' ? `${entry.value}${safeUnit}` : formatDuration(entry.value))
+                                    ? (entry.name === 'acertos' ? `${formatValue(entry.value)}${safeUnit}` : formatDuration(entry.value))
                                     : 'N/A'}
                             </span>
                         </div>
@@ -222,7 +222,7 @@ const WeeklyPerformanceChart = ({
                             axisLine={false}
                             tickLine={false}
                             tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
-                            tickFormatter={(v) => `${v}${safeUnit}`}
+                            tickFormatter={(v) => `${formatValue(v)}${safeUnit}`}
                             domain={[safeMinScore, safeMaxScore]}
                             allowDataOverflow={true}
                         />

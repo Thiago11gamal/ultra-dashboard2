@@ -244,8 +244,8 @@ export function CompareChart({
         const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
         
         // BUG-5 FIX: Clamp label X to prevent overflow past chart right edge
-        const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
-        const labelX = Math.max(0, Math.min(x + xOff - 2, maxX - boxWidth - 4));
+        const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 75;
+        const labelX = Math.max(0, Math.min(x + xOff - 2, maxX - boxWidth));
         
         return (
             <g>

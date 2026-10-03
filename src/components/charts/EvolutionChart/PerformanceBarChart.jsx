@@ -1,7 +1,7 @@
 import React, { useId, useMemo } from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+    BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList
 } from "recharts";
 import { ChartFrame } from "../ChartFrame";
@@ -79,6 +79,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                 data={chartData}
                                 margin={{ top: 20, right: 20, left: 5, bottom: 100 }}
                                 barCategoryGap="28%"
+                                maxBarSize={52}
                             >
                                 <defs>
                                     <linearGradient id={gradQuestoesId} x1="0" y1="0" x2="0" y2="1">
@@ -168,7 +169,14 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                     }}
                                 />
                                 
-                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} radius={[0, 0, 4, 4]} isAnimationActive={true} />
+                                <Bar dataKey="acertos" stackId="a" name="Acertos" fill={`url(#${gradAcertosId})`} radius={[0, 0, 4, 4]} isAnimationActive={true}>
+                                    {chartData.map((entry, index) => (
+                                        <Cell 
+                                            key={`acertos-cell-${index}`} 
+                                            radius={entry.erros === 0 ? [6, 6, 4, 4] : [0, 0, 4, 4]} 
+                                        />
+                                    ))}
+                                </Bar>
                                 
                                 <Bar dataKey="erros" stackId="a" name="Erros" fill={`url(#${gradQuestoesId})`} radius={[6, 6, 0, 0]} isAnimationActive={true}>
                                     <LabelList 

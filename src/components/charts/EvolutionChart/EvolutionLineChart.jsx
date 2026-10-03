@@ -231,8 +231,8 @@ export function EvolutionLineChart({
 
             const formatted = `${formatValue(value)}${unit}`;
             const boxWidth = Math.max(52, formatted.length * 7 + 20);
-            const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0);
-            const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth - 6));
+            const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 130;
+            const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth));
 
             return (
                 <g style={{ zIndex: 100, transition: 'all 0.3s ease' }}>

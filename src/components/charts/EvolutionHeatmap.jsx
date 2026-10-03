@@ -304,19 +304,20 @@ export const EvolutionHeatmap = ({
                             </div>
 
                             {cells.map((cell, ci) => {
-                                const col = cellColor(cell?.pct, cell?.total);
+                                const hasData = Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
+                                const col = cellColor(hasData ? cell.pct : null, hasData ? cell.total : 0);
                                 return (
                                     <div
                                         key={ci}
-                                        className="relative group rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]"
+                                        className={`relative group rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 ${hasData ? 'hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]' : 'opacity-60 cursor-default'}`}
                                         style={{
                                             background: col.bg,
-                                            opacity: cell ? (0.85 + (col.density * 0.15)) : 1,
+                                            opacity: hasData ? (0.85 + (col.density * 0.15)) : 0.6,
                                             border: `1px solid ${col.border}`,
                                             minHeight: '52px',
                                         }}
                                     >
-                                        {cell ? (
+                                        {hasData ? (
                                             <>
                                                 <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
                                                     {formatPct(cell.pct)}
@@ -329,7 +330,7 @@ export const EvolutionHeatmap = ({
                                             <span className="text-slate-500 text-[13px] font-bold">—</span>
                                         )}
 
-                                        {cell && (
+                                        {hasData && (
                                             <div className={`absolute ${ri === 0 ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-slate-950 border border-slate-500 rounded-xl p-4 min-w-[145px] shadow-[0_25px_60px_rgba(0,0,0,1)] whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
                                                 <span className="text-[10px] text-slate-300 font-black uppercase tracking-[0.15em] mb-2.5 pb-2 border-b border-slate-800 w-full">
                                                     {filteredDates[ci] ? `${filteredDates[ci].dayName} • ${filteredDates[ci].label}` : ''}

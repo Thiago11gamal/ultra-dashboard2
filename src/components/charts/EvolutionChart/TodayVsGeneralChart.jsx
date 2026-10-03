@@ -319,37 +319,39 @@ export function TodayVsGeneralChart({
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[400px]">
-            <div className="w-full lg:w-1/3 min-w-[280px] bg-slate-900/60 border border-slate-800/80 rounded-3xl p-6 flex flex-col items-center justify-center relative shadow-xl backdrop-blur-md overflow-hidden group">
-                <div className="absolute top-4 left-4 flex items-center gap-2">
-                    <div className="p-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-                        <Target size={14} />
+            <div className="w-full lg:w-1/3 min-w-[280px] bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 sm:p-6 flex flex-col items-center justify-between relative shadow-xl backdrop-blur-md overflow-hidden group">
+                <div className="w-full flex items-start justify-between gap-3 mb-2 z-10">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 shrink-0">
+                            <Target size={14} />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider truncate">
+                            {todayAcc != null ? 'Sessão de hoje' : `Último dia ativo (${lastActiveEntry?.displayDate || 'sem data'})`}
+                        </span>
                     </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                        {todayAcc != null ? 'Sessão de hoje' : `Último dia ativo (${lastActiveEntry?.displayDate || 'sem data'})`}
-                    </span>
-                </div>
-                <div className="absolute top-4 right-4 flex flex-col items-end gap-1 max-h-[calc(100%-6rem)] overflow-y-auto no-scrollbar">
-                    {temporalMetrics.slice().reverse().map(metric => {
-                        if (metric.val == null) {
+                    <div className="flex flex-col items-end gap-1 shrink-0 max-h-[140px] overflow-y-auto no-scrollbar">
+                        {temporalMetrics.slice().reverse().map(metric => {
+                            if (metric.val == null) {
+                                return (
+                                    <div key={metric.id} className="flex items-center gap-1.5 opacity-30">
+                                        <span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold">{metric.label}</span>
+                                        <span className="text-[10px] font-bold font-mono text-slate-600">--{unit}</span>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+                                    </div>
+                                );
+                            }
+                            const c = getColor(metric.val);
                             return (
-                                <div key={metric.id} className="flex items-center gap-1.5 opacity-30">
-                                    <span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold">{metric.label}</span>
-                                    <span className="text-[10px] font-bold font-mono text-slate-600">--{unit}</span>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+                                <div key={metric.id} className="flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
+                                    <span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">{metric.label}</span>
+                                    <span className="text-[10px] font-black font-mono" style={{ color: c }}>
+                                        {safeFix(metric.val)}{unit}
+                                    </span>
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }}></div>
                                 </div>
                             );
-                        }
-                        const c = getColor(metric.val);
-                        return (
-                            <div key={metric.id} className="flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
-                                <span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">{metric.label}</span>
-                                <span className="text-[10px] font-black font-mono" style={{ color: c }}>
-                                    {safeFix(metric.val)}{unit}
-                                </span>
-                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }}></div>
-                            </div>
-                        );
-                    })}
+                        })}
+                    </div>
                 </div>
                 <div className="relative w-[260px] h-[140px] mt-6 flex justify-center">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
@@ -454,7 +456,7 @@ export function TodayVsGeneralChart({
                 </div>
                 <div className="flex-1 w-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={220}>
-                        <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
+                        <ComposedChart data={chartData} margin={{ top: 25, right: 25, left: 0, bottom: 10 }}>
                             <defs>
                                 <linearGradient id={`neonGradient_${neonGradInstanceId}`} x1="0" y1="0" x2="1" y2="0">
                                     <stop offset="0%" stopColor="#c084fc" stopOpacity={0.4} />
@@ -515,11 +517,11 @@ export function TodayVsGeneralChart({
                                 ))}
                                 <LabelList 
                                     dataKey="lastTestAcc" 
-                                    position="right" 
-                                    offset={10} 
+                                    position="top" 
+                                    offset={6} 
                                     formatter={(v) => Number.isFinite(Number(v)) ? `${formatValue(v)}${unit}` : ''} 
                                     fill="#fff" 
-                                    fontSize={10}
+                                    fontSize={10} 
                                     fontWeight={900}
                                 />
                             </Bar>
