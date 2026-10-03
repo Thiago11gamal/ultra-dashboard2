@@ -171,11 +171,13 @@ export const createStudySlice = (set, get) => ({
       const normSubject = normCatName(subject);
 
       if (activeData.categories && normSubject) {
-        const match = activeData.categories.find(c =>
+        const exactMatch = activeData.categories.find(c =>
           normCatName(c.name) === normSubject
-        ) || activeData.categories.find(c =>
-          normCatName(c.name).startsWith(normSubject) || normSubject.startsWith(normCatName(c.name))
         );
+        const match = exactMatch || activeData.categories.find(c => {
+          const catNorm = normCatName(c.name);
+          return catNorm.startsWith(normSubject);
+        });
 
         if (match) categoryId = match.id;
       }

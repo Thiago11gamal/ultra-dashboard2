@@ -14,6 +14,8 @@ let sharedWorker = null;
 let sharedRequestId = 0;
 const sharedPendingRequests = new Map();
 const REQUEST_MAX_AGE_MS = 60_000;
+let workerCrashCount = 0;
+const MAX_WORKER_CRASHES = 3;
 
 // Cleanup periódico para requests órfãos
 let cleanupInterval = null;
@@ -89,6 +91,11 @@ function initSharedWorker() {
                 console.warn('Worker terminate failed:', e);
             }
             sharedWorker = null;
+            if (workerCrashCount < MAX_WORKER_CRASHES) {
+                setTimeout(() => initSharedWorker(), 100);
+            } else {
+                console.error('[MonteCarloWorker] Limite de crashes excedido. Usando fallback síncrono.');
+            }
         };
     } catch (e) {
         console.warn('[MC Worker Singleton] Not available, using main thread:', e.message);

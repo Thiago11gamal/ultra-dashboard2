@@ -18,7 +18,9 @@ function getAudioContext() {
     }
 
     if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
+        audioCtx.resume().catch((err) => {
+            console.warn('[AudioAlert] Falha ao retomar AudioContext:', err);
+        });
     }
 
     return audioCtx;

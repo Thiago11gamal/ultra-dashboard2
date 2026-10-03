@@ -112,7 +112,9 @@ export function analyzeProgressState(scores, config = {}) {
   }
   const safeDenominator = denominator < 0.25 ? 0.25 : denominator;
   const rawSlope = safeDenominator > 0 ? numerator / safeDenominator : 0;
-  const normalizedSlope = rawSlope * 30;
+  const maxSlopeLimit = 0.05 * scoreRange;
+  const clampedRawSlope = Math.max(-maxSlopeLimit / 30, Math.min(maxSlopeLimit / 30, rawSlope));
+  const normalizedSlope = clampedRawSlope * 30;
 
   const stagnated = delta <= stagnation_threshold && Math.abs(normalizedSlope) <= trend_tolerance;
 
@@ -149,8 +151,7 @@ export function analyzeProgressState(scores, config = {}) {
   // BUG-T13 FIX: Clamp do trend_slope para evitar valores absurdos
   // quando há pouquíssimos pontos ou datas muito próximas.
   // Limitar a ±5% da amplitude (scoreRange) por 30 dias.
-  const maxSlopeLimit = 0.05 * scoreRange;
-  const clampedSlope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, rawSlope * 30));
+  const clampedSlope = normalizedSlope;
 
   return {
     state, label,

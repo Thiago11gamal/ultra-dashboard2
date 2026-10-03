@@ -19,6 +19,7 @@ export function safeGetJSON(key, fallback = null, validator = null) {
     if (typeof validator === 'function' && !validator(parsed)) {
       console.warn(`[Storage] Validação falhou para ${key}, usando fallback`);
       quarantineRaw(key, raw, 'Schema validation failed');
+      try { localStorage.removeItem(key); } catch { /* ignore */ }
       return fallback;
     }
     return parsed;

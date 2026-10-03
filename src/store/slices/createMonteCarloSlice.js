@@ -26,15 +26,18 @@ export const createMonteCarloSlice = (set) => ({
       };
 
       const targetDateStr = snapshot.date;
+      if (!targetDateStr) return;
       const targetCategoryId = snapshot.categoryId || null;
       const existingHistory = Array.isArray(activeData.monteCarloHistory)
         ? activeData.monteCarloHistory
         : [];
 
-      const idx = existingHistory.findIndex(h =>
-        getDateKey(normalizeDate(h.date)) === targetDateStr &&
-        (h.categoryId || null) === targetCategoryId
-      );
+      const idx = existingHistory.findIndex(h => {
+        const hDateKey = getDateKey(normalizeDate(h.date));
+        if (!hDateKey || !targetDateStr) return false;
+        return hDateKey === targetDateStr &&
+          (h.categoryId || null) === targetCategoryId;
+      });
 
       let newHistory;
       if (idx >= 0) {

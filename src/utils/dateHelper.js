@@ -102,30 +102,23 @@ export const getDateKey = (rawDate) => {
 
 export const getLocalMidnight = (date = new Date()) => {
   try {
-    const dateKey = getDateKey(date);
-    if (!dateKey) {
-      const utc = new Date(date);
-      return new Date(
-        Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) +
-        4 * 3600000
-      );
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) {
+      const fallback = new Date();
+      return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
     }
-    // ✅ FIX: Offset fixo de Manaus (-04:00)
-    const isoMidnight = `${dateKey}T00:00:00-04:00`;
-    return new Date(isoMidnight);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   } catch {
-    const utc = new Date(date);
-    return new Date(
-      Date.UTC(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate()) +
-      4 * 3600000
-    );
+    const fallback = new Date();
+    return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
   }
 };
 
 export const formatDisplayDate = (dateStr) => {
   if (!dateStr) return '';
   if (typeof dateStr === 'number' || (typeof dateStr === 'string' && /^\d{10,13}$/.test(dateStr.trim()))) {
-    const d = new Date(Number(dateStr));
+    const numVal = Number(dateStr);
+    const d = (String(dateStr).trim().length === 10) ? new Date(numVal * 1000) : new Date(numVal);
     if (!isNaN(d.getTime())) {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');

@@ -273,7 +273,7 @@ export const createCategorySlice = (set) => ({
     changed = true;
     console.warn(`[Store] Merging ${group.length} duplicates for "${group[0].name}"`);
 
-    const primary = group.sort((a, b) => {
+    const primary = [...group].sort((a, b) => {
       const getHistoryLen = (obj) => {
         const h = obj.simuladoStats?.history;
         if (!h) return 0;

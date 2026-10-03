@@ -109,14 +109,11 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
 
     const getDisplayKey = (dateObj) => {
         try {
-            return new Intl.DateTimeFormat('en-GB', {
-                timeZone: 'America/Manaus',
-                day: '2-digit', month: '2-digit'
-            }).format(dateObj);
-        } catch {
             const day = String(dateObj.getDate()).padStart(2, '0');
             const month = String(dateObj.getMonth() + 1).padStart(2, '0');
             return `${day}/${month}`;
+        } catch {
+            return '00/00';
         }
     };
 
@@ -215,13 +212,16 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
         if (cat) {
             name = cat.name;
         } else {
-            const rawName = String(log.categoryName || log.subject || 'Outros').trim();
-            const lower = rawName.toLowerCase();
+            const catNameSearch = log.categoryName || log.subject;
+            const validName = (catNameSearch && String(catNameSearch).trim() !== 'undefined' && String(catNameSearch).trim() !== 'null')
+                ? String(catNameSearch).trim()
+                : 'Outros';
+            const lower = validName.toLowerCase();
             if (canonicalNames.has(lower)) {
                 name = canonicalNames.get(lower);
             } else {
-                canonicalNames.set(lower, rawName);
-                name = rawName;
+                canonicalNames.set(lower, validName);
+                name = validName;
             }
         }
 

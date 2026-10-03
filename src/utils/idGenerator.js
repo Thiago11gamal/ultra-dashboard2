@@ -22,7 +22,10 @@ export const getSafeId = (task) => {
     }
     
     const text = task.text || task.title || "sem-nome";
-    const newId = `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}-${crypto.randomUUID().substring(0, 8)}`;
+    const hash = text.replace(/\s+/g, '').split('').reduce((acc, c) => {
+        return ((acc << 5) - acc + c.charCodeAt(0)) | 0;
+    }, 0);
+    const newId = `task-fb-${text.replace(/\s+/g, '').substring(0, 15)}-${Math.abs(hash).toString(36).substring(0, 8)}`;
     stableIdMap.set(task, newId);
     return newId;
 };

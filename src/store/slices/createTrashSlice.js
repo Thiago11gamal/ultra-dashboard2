@@ -27,6 +27,15 @@ export const createTrashSlice = (set) => ({
             const newId = catData.id;
             removeCategoryTombstone(oldId, catData.name);
             removeCategoryTombstone(newId, catData.name);
+
+            // Atualizar categoryId nas tasks internas se o ID mudou
+            if (catData.id !== oldId && Array.isArray(catData.tasks)) {
+                catData.tasks = catData.tasks.map(task => ({
+                    ...task,
+                    categoryId: newId
+                }));
+            }
+
             contest.categories.push(catData);
 
             const fixRef = (arr) => (arr || []).map(entry =>

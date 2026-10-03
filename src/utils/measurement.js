@@ -526,12 +526,12 @@ export function deduplicateSimulados(simulados, options = {}) {
 
     const dateKey = getDateKey(s?.date || s?.createdAt) || "sem-data";
 
-    const key = [
-      s?.id || `sim-no-id-${idx}`,
-      subjectKey,
+    const idPart = s?.id || [
+      normalizeSubjectKey(s?.subject || s?.categoryId || s?.categoryName || 'geral'),
       dateKey,
       norm.points.toFixed(2)
-    ].join("|");
+    ].join(':');
+    const key = [idPart, subjectKey, dateKey, norm.points.toFixed(2)].join("|");
 
     map.set(key, {
       ...s,

@@ -23,7 +23,8 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
     const high = Math.max(lowerBound, Math.min(upperBound, mean + (((d?.ciRange?.[1] ?? mean) - mean) * cfg.ciMult)));
     const rawProb = Number(d?.probability);
     const probBase = Number.isFinite(rawProb) ? rawProb : 0;
-    const probAdj = Math.max(0, Math.min(100, probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0)));
+    const probAdjRaw = probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0);
+    const probAdj = Number.isFinite(probAdjRaw) ? Math.max(0, Math.min(100, probAdjRaw)) : 0;
     return {
       ...d,
       mean,

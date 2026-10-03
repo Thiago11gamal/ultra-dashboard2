@@ -1552,7 +1552,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const validVal = Number.isNaN(parsed) ? 0 : parsed;
             return acc + (validVal * (index + 1) * 1.17);
         }, 0).toFixed(2);
-        const optKey = (options && options.daysToExam !== undefined) ? `_dte${options.daysToExam}` : '';
+        const optKey = (options?.daysToExam != null && Number.isFinite(Number(options.daysToExam))) ? `_dte${options.daysToExam}` : '';
         const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${catMax}_min${catMin}`;
         const logsForChecksum = [...safeLogs].sort((a, b) => {
             const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();

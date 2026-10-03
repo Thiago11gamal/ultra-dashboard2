@@ -22,7 +22,7 @@ export const RX_BOLD = /(\*\*.*?\*\*)/g;
 // por casar "Novo"). (?<!\w)/(?!\w) exigem fronteira de palavra.
 // (Requer Safari ≥ 16.4 por causa do lookbehind.)
 export const RX_NOISE_ACTION =
-  /(?<!\w)(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|Novo|Prioridade|\d+\s*%\s*de acerto)(?!\w)/gi;
+  /(?:^|\s)(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|Novo|Prioridade|\d+\s*%\s*de acerto)(?:\s|$)/gi;
 
 export function isSystemAlertTask(value) {
   const text =

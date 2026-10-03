@@ -40,7 +40,8 @@ export const repairContestHistory = (rawData) => {
   const rows = data.simuladoRows;
   let hasRepaired = false;
 
-  data.categories.forEach(cat => {
+  const categoriesArray = Array.isArray(data.categories) ? data.categories : Object.values(data.categories || {});
+  categoriesArray.forEach(cat => {
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
 
@@ -197,7 +198,11 @@ export const sanitizeContest = (data) => {
         ? Number(source.user.targetProbability)
         : 70
     },
-    coachPlan: Array.isArray(source.coachPlan) ? source.coachPlan : Object.values(source.coachPlan || {}),
+    coachPlan: Array.isArray(source.coachPlan)
+      ? source.coachPlan
+      : (typeof source.coachPlan === 'object' && source.coachPlan !== null)
+        ? Object.values(source.coachPlan)
+        : [],
     calibrationMetrics: (source.calibrationMetrics && typeof source.calibrationMetrics === 'object') ? source.calibrationMetrics : {},
     coachScore: (source.coachScore && typeof source.coachScore === 'object') ? source.coachScore : null,
     coachPlanner: (source.coachPlanner && typeof source.coachPlanner === 'object')
@@ -225,7 +230,7 @@ export const sanitizeContest = (data) => {
         // BUG 16 FIX: Deduplicação rigorosa por nome normalizado
         const seenTaskNames = new Set();
         return rawTasks.filter(t => {
-          const normName = t.text.toLowerCase().trim();
+          const normName = t.text.toLowerCase().replace(/\s+/g, ' ').trim();
           if (seenTaskNames.has(normName)) return false;
           seenTaskNames.add(normName);
           return true;

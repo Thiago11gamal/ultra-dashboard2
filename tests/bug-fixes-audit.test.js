@@ -78,9 +78,10 @@ describe('Comprehensive Bug Fixes Verification (BUG-01 to BUG-11)', () => {
 
     applyAIResultsToDraft(draft, formData, 8, 10, 120, true);
 
-    // Must merge into existing row without creating a duplicate
+    // Must merge into existing row without creating a duplicate (accumulating delta)
     expect(draft.simuladoRows.length).toBe(1);
-    expect(draft.simuladoRows[0].correct).toBe(8);
+    expect(draft.simuladoRows[0].correct).toBe(15);
+    expect(draft.simuladoRows[0].total).toBe(20);
   });
 
   it('BUG-05: clearAllDataSecure operates safely even when window.indexedDB.databases is unavailable', async () => {

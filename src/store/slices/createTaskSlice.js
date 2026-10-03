@@ -65,9 +65,14 @@ export const createTaskSlice = (set, get) => ({
             let xpAwarded = false;
             const nowIso = new Date().toISOString();
 
+            let targetCompleted = null;
+
             const handleTask = (task) => {
                 if (task) {
-                    const completed = !task.completed;
+                    if (targetCompleted === null) {
+                        targetCompleted = !task.completed;
+                    }
+                    const completed = targetCompleted;
                     const xpChange = getTaskXP(task, completed);
                     task.completed = completed;
                     task.completedAt = completed ? nowIso : null;
@@ -90,14 +95,14 @@ export const createTaskSlice = (set, get) => ({
             // Search in coachPlan (Backlog)
             if (activeData.coachPlan) {
                 const task = activeData.coachPlan.find(t => t && (t.id === taskId || t.text === taskId));
-                handleTask(task);
+                if (task) handleTask(task);
             }
 
             // Search in coachPlanner (Days)
             if (activeData.coachPlanner) {
                 Object.values(activeData.coachPlanner).forEach(dayTasks => {
                     const task = (dayTasks || []).find(t => t && (t.id === taskId || t.text === taskId));
-                    handleTask(task);
+                    if (task) handleTask(task);
                 });
             }
 
@@ -105,7 +110,7 @@ export const createTaskSlice = (set, get) => ({
             if (activeData.categories) {
                 (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
                     const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => t && (t.id === taskId || t.text === taskId));
-                    handleTask(task);
+                    if (task) handleTask(task);
                 });
             }
 

@@ -60,11 +60,12 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
     }
 
     // NOVAS PROTEÇÕES
-    if (!Number.isFinite(p)) return 0;
-    if (p <= 0) return sorted[0]; // Retorna primeiro elemento se percentil <= 0
-    if (p >= 1) return sorted[sorted.length - 1]; // Retorna último elemento se percentil >= 1
+    if (!Number.isFinite(Number(p))) return 0;
+    const safeP = Number(p);
+    if (safeP <= 0) return sorted[0]; // Retorna primeiro elemento se percentil <= 0
+    if (safeP >= 1) return sorted[sorted.length - 1]; // Retorna último elemento se percentil >= 1
     
-    const idx = (sorted.length - 1) * p;
+    const idx = (sorted.length - 1) * safeP;
     const lower = Math.floor(idx);
     const upper = Math.ceil(idx);
     if (lower === upper) return sorted[lower];

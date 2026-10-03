@@ -272,7 +272,7 @@ export const createPomodoroSlice = (set, get) => ({
                 );
             } else if (p.sessions > 1) {
                 const longBreakAfter = settings.longBreakAfter || 4;
-                const previousCycleIndex = p.completedCycles;
+                const previousCycleIndex = Math.max(0, p.completedCycles - 1);
 
                 p.sessions = Math.max(1, p.sessions - 1);
                 p.mode =

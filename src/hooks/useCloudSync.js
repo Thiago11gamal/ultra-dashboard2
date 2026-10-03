@@ -229,9 +229,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       // Prioridade 1: id explícito
       if (item.id) return `id:${String(item.id)}`;
 
-      // Prioridade 2: task com texto/título
+      // Prioridade 2: task com texto/título (dedup por conteúdo)
       if (item.text || item.title) {
-        return `task:${String(item.text || item.title)}`;
+        return `task:${String(item.text || item.title).toLowerCase().trim()}`;
       }
 
       // Prioridade 3: simulado com subject+date

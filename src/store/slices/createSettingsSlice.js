@@ -82,7 +82,8 @@ export const createSettingsSlice = (set) => ({
     Object.assign(state.appState, {
       ...otherState,
       contests: nextContests,
-      activeId: nextActiveId
+      activeId: nextActiveId,
+      history: _history || state.appState.history || []
     });
     
     state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();

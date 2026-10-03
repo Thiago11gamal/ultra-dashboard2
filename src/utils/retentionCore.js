@@ -52,7 +52,7 @@ export function toDateMs(value) {
     // - valores >= 100_000_000_000 geralmente são milliseconds
     // - valores menores geralmente são seconds
     if (value >= 100_000_000_000) return value;
-
+    if (value > 10_000_000_000) return value;
     return value * 1000;
   }
 

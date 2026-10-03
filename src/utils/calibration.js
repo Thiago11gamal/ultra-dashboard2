@@ -71,14 +71,14 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   const bins = Math.max(2, Number(options.bins) || 5);
   // ✅ FIX (BUG-CAL-6): retornar null para ece/mce quando não há dados,
   // em vez de 0 que sinaliza falsamente "calibração perfeita"
-  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+  if (!Array.isArray(pairs) || pairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
   const cleanPairs = pairs
     .map((p) => ({
       probability: Math.max(0, Math.min(1, Number(p?.probability))),
       observed: Math.max(0, Math.min(1, Number(p?.observed)))
     }))
     .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
-  if (cleanPairs.length === 0) return { ece: 0, mce: 0, reliability: [], brierDecomposition: null };
+  if (cleanPairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
   const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
   let ece = 0;
   let mce = 0;
@@ -121,10 +121,13 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
 }
 
 export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
-  const p = Math.max(0, Math.min(100, probabilityPct ?? 0));
-  const limit = Math.max(0, Math.min(1, maxAppliedPenalty ?? 0.5));
-  const k = Math.max(0, Math.min(limit, penalty ?? 0));
-  const neutral = Math.max(0, Math.min(100, neutralPct ?? 50));
+  const rawP = probabilityPct;
+  const neutral = Number.isFinite(Number(neutralPct)) ? Math.max(0, Math.min(100, Number(neutralPct))) : 50;
+  const p = Number.isFinite(Number(rawP))
+    ? Math.max(0, Math.min(100, Number(rawP)))
+    : neutral;
+  const limit = Math.max(0, Math.min(1, Number.isFinite(Number(maxAppliedPenalty)) ? Number(maxAppliedPenalty) : 0.5));
+  const k = Math.max(0, Math.min(limit, Number.isFinite(Number(penalty)) ? Number(penalty) : 0));
   return p * (1 - k) + neutral * k;
 }
 

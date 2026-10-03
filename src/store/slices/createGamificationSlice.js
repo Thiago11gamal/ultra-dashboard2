@@ -19,12 +19,20 @@ export const createGamificationSlice = (set, get) => ({
             let newXP = Math.max(0, currentXP + safeXpGained);
 
             const currentAchievements = activeData.user.achievements || [];
-            const stats = buildAchievementStats(activeData) || {};
+            let stats = {};
+            try {
+                stats = buildAchievementStats(activeData) || {};
+            } catch (err) {
+                console.warn('[Gamification] buildAchievementStats falhou:', err);
+                stats = {};
+            }
 
             const newlyUnlocked = [];
             ACHIEVEMENTS.forEach(ach => {
-                const isUnlocked = currentAchievements.some(u => (typeof u === 'string' ? u : u.id) === ach.id);
-                if (!isUnlocked && ach.condition(stats)) newlyUnlocked.push(ach.id);
+                try {
+                    const isUnlocked = currentAchievements.some(u => (typeof u === 'string' ? u : u.id) === ach.id);
+                    if (!isUnlocked && ach.condition(stats)) newlyUnlocked.push(ach.id);
+                } catch { /* ignore condition error */ }
             });
 
             if (newlyUnlocked.length > 0) {
