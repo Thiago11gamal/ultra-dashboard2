@@ -9,7 +9,7 @@ export function toArray(value) {
 }
 
 export function toSafeNumber(value, fallback = 0) {
-  if (value === null || value === undefined || value === '') return fallback;
+  if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }

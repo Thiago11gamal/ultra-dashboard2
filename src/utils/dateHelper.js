@@ -127,8 +127,12 @@ export const formatDisplayDate = (dateStr) => {
   }
   const cleanStr = String(dateStr).split('T')[0];
   const parts = cleanStr.split('-');
-  if (parts.length < 3) return cleanStr;
-  return `${parts[2]}/${parts[1]}`;
+  if (parts.length === 3) {
+    if (parts[0].length === 4) return `${parts[2]}/${parts[1]}`;
+    if (parts[2].length === 4) return `${parts[0]}/${parts[1]}`;
+    return `${parts[2]}/${parts[1]}`;
+  }
+  return cleanStr;
 };
 
 // ✅ FIX: normalizeDate com offset -04:00 para YYYY-MM-DD

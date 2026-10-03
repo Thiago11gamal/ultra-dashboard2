@@ -272,11 +272,11 @@ export const createPomodoroSlice = (set, get) => ({
                 );
             } else if (p.sessions > 1) {
                 const longBreakAfter = settings.longBreakAfter || 4;
-                const previousCycleIndex = Math.max(0, p.completedCycles - 1);
+                const completedCycles = p.completedCycles || 0;
 
                 p.sessions = Math.max(1, p.sessions - 1);
                 p.mode =
-                    previousCycleIndex > 0 && previousCycleIndex % longBreakAfter === 0
+                    completedCycles > 0 && completedCycles % longBreakAfter === 0
                         ? 'long_break'
                         : 'break';
             } else if (p.completedCycles > 0) {

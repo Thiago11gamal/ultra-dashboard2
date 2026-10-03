@@ -527,7 +527,7 @@ export function deduplicateSimulados(simulados, options = {}) {
     const dateKey = getDateKey(s?.date || s?.createdAt) || "sem-data";
 
     const idPart = s?.id || [
-      normalizeSubjectKey(s?.subject || s?.categoryId || s?.categoryName || 'geral'),
+      subjectKey,
       dateKey,
       norm.points.toFixed(2)
     ].join(':');

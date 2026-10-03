@@ -1,4 +1,4 @@
-import { getXPProgress } from './gamification.js';
+6y5import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { parseNoonLocal } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
@@ -74,56 +74,56 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
 };
 
 export const calculateStudyStreak = (studyLogs) => {
-  const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-  if (!logsArray || logsArray.length === 0) {
-    return { current: 0, best: 0, longest: 0, isActive: false };
-  }
-  const daySet = new Set(
-    logsArray
-      // BUG-FIX: contar flashcards como atividade (getStudyMinutes retorna 0 para flashcards)
-      .filter(log => log && log.date && (getStudyMinutes(log) > 0 || log.type === 'flashcard'))
-      .map(log => getDateKey(log.date))
-      .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
-  );
-  const sortedDays = Array.from(daySet).sort((a, b) =>
-    parseNoonLocal(b) - parseNoonLocal(a)
-  );
-  if (sortedDays.length === 0) {
-    return { current: 0, best: 0, longest: 0, isActive: false };
-  }
-  const todayStr = getDateKey(new Date());
-  const lastDayStr = sortedDays[0];
-  const t = parseNoonLocal(todayStr);
-  const l = parseNoonLocal(lastDayStr);
-  // BUG-FIX: validar datas antes de calcular diff
-  if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
-    return { current: 0, best: 0, longest: 0, isActive: false };
-  }
-  const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
-  if (diffDays >= 2) {
+    const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    if (!logsArray || logsArray.length === 0) {
+        return { current: 0, best: 0, longest: 0, isActive: false };
+    }
+    const daySet = new Set(
+        logsArray
+            // BUG-FIX: contar flashcards como atividade (getStudyMinutes retorna 0 para flashcards)
+            .filter(log => log && log.date && (getStudyMinutes(log) > 0 || log.type === 'flashcard'))
+            .map(log => getDateKey(log.date))
+            .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
+    );
+    const sortedDays = Array.from(daySet).sort((a, b) =>
+        parseNoonLocal(b) - parseNoonLocal(a)
+    );
+    if (sortedDays.length === 0) {
+        return { current: 0, best: 0, longest: 0, isActive: false };
+    }
+    const todayStr = getDateKey(new Date());
+    const lastDayStr = sortedDays[0];
+    const t = parseNoonLocal(todayStr);
+    const l = parseNoonLocal(lastDayStr);
+    // BUG-FIX: validar datas antes de calcular diff
+    if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
+        return { current: 0, best: 0, longest: 0, isActive: false };
+    }
+    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
+    if (diffDays >= 2) {
+        const longest = calculateLongest(sortedDays);
+        return { current: 0, best: longest, longest, isActive: false };
+    }
+    let streak = 0;
+    let cursorKey = lastDayStr;
+    // BUG-FIX: proteger contra loop quase-infinito com datas inválidas
+    const maxIterations = Math.min(sortedDays.length + 2, 3660);
+    let prevCursorKey = null;
+    for (let i = 0; i < maxIterations; i++) {
+        if (!cursorKey || !daySet.has(cursorKey)) break;
+        // BUG-FIX: detectar cursor travado (mesma chave = bug de timezone)
+        if (cursorKey === prevCursorKey) break;
+        prevCursorKey = cursorKey;
+        streak++;
+        const anchoredIso = `${cursorKey}T12:00:00-04:00`;
+        const anchored = new Date(anchoredIso);
+        anchored.setDate(anchored.getDate() - 1);
+        const nextKey = getDateKey(anchored);
+        if (!nextKey) break;
+        cursorKey = nextKey;
+    }
     const longest = calculateLongest(sortedDays);
-    return { current: 0, best: longest, longest, isActive: false };
-  }
-  let streak = 0;
-  let cursorKey = lastDayStr;
-  // BUG-FIX: proteger contra loop quase-infinito com datas inválidas
-  const maxIterations = Math.min(sortedDays.length + 2, 3660);
-  let prevCursorKey = null;
-  for (let i = 0; i < maxIterations; i++) {
-    if (!cursorKey || !daySet.has(cursorKey)) break;
-    // BUG-FIX: detectar cursor travado (mesma chave = bug de timezone)
-    if (cursorKey === prevCursorKey) break;
-    prevCursorKey = cursorKey;
-    streak++;
-    const anchoredIso = `${cursorKey}T12:00:00-04:00`;
-    const anchored = new Date(anchoredIso);
-    anchored.setDate(anchored.getDate() - 1);
-    const nextKey = getDateKey(anchored);
-    if (!nextKey) break;
-    cursorKey = nextKey;
-  }
-  const longest = calculateLongest(sortedDays);
-  return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
+    return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
 };
 
 
@@ -164,21 +164,21 @@ export const getStudyMinutes = (entry) => {
  * extraCompletedCycles cobre blocos de foco da sessão ativa ainda não persistidos em log.
  */
 export const countPomodorosToday = (studyLogs, pomodoroWork = 25, extraCompletedCycles = 0) => {
-  const logsArray = toArray(studyLogs);
-  const workDuration = Math.max(1, Number(pomodoroWork) || 25);
-  const todayKey = getDateKey(new Date());
+    const logsArray = toArray(studyLogs);
+    const workDuration = Math.max(1, Number(pomodoroWork) || 25);
+    const todayKey = getDateKey(new Date());
 
-  const minutesToday = logsArray.reduce((sum, log) => {
-    const d = safeDate(log?.date);
-    if (!d) return sum;
-    if (getDateKey(d) === todayKey) return sum + getStudyMinutes(log);
-    return sum;
-  }, 0);
+    const minutesToday = logsArray.reduce((sum, log) => {
+        const d = safeDate(log?.date);
+        if (!d) return sum;
+        if (getDateKey(d) === todayKey) return sum + getStudyMinutes(log);
+        return sum;
+    }, 0);
 
-  const pomodorosFromLogs = Number.isFinite(minutesToday)
-    ? Math.floor(minutesToday / workDuration) : 0;
-  const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
-  return pomodorosFromLogs + safeExtra;
+    const pomodorosFromLogs = Number.isFinite(minutesToday)
+        ? Math.floor(minutesToday / workDuration) : 0;
+    const safeExtra = Math.max(0, Number(extraCompletedCycles) || 0);
+    return pomodorosFromLogs + safeExtra;
 };
 
 /** Total de pomodoros (vida útil) baseado em minutos reais, não contagem de sessões. */
@@ -191,7 +191,7 @@ export const countPomodorosTotal = (studyLogs, studySessions, pomodoroWork = 25)
 
     const logsMinutes = logsArray.reduce((sum, log) => sum + getStudyMinutes(log), 0);
     const sessionsMinutes = sessionsArray.reduce((sum, s) => sum + getStudyMinutes(s), 0);
-    
+
     const totalMinutes = Math.max(logsMinutes, sessionsMinutes);
 
     return Math.floor(totalMinutes / workDuration);
@@ -310,11 +310,12 @@ export const buildAchievementStats = (contestData, options = {}) => {
     const categoriesArray = toArray(contestData?.categories);
 
     const hasPerfectScoreFromHistory = categoriesArray.some(cat => {
+        if (!cat) return false;
         const hist = cat.simuladoStats?.history;
         const histArr = (Array.isArray(hist) ? hist : Object.values(hist || {})).filter(filterByReset);
         const maxS = Number.isFinite(Number(cat.maxScore)) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : 100;
         const minS = Number.isFinite(Number(cat.minScore)) ? Math.min(Number(cat.minScore), maxS) : 0;
-        return histArr?.some(h => getSafeScore(h, maxS, minS) >= maxS || (h.correct === h.total && h.total > 0));
+        return histArr?.some(h => h && (getSafeScore(h, maxS, minS) >= maxS || (h.correct === h.total && h.total > 0)));
     }) || false;
 
     const simuladosArray = toArray(contestData?.simulados).filter(filterByReset);
@@ -331,9 +332,12 @@ export const buildAchievementStats = (contestData, options = {}) => {
     });
 
     return {
-        completedTasks: categoriesArray.reduce(
-            (sum, cat) => sum + ((Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t.completed && (!resetAt || new Date(t.completedAt || 0).getTime() >= resetAt))?.length || 0), 0
-        ) || 0,
+        completedTasks: categoriesArray.reduce((sum, cat) => {
+            if (!cat) return sum;
+            const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+            const count = tasks.filter(t => t && t.completed && (!resetAt || new Date(t.completedAt || 0).getTime() >= resetAt)).length;
+            return sum + count;
+        }, 0) || 0,
         currentStreak: calculateStudyStreak(studyLogs).current,
         totalQuestions,
         hasPerfectScore: hasPerfectScoreFromHistory || hasPerfectScoreFromSimulados || (totalQuestions > 0 && totalCorrect >= totalQuestions),
@@ -522,7 +526,7 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
     const userLevel = user?.level || 1;
     const benchmarkTarefasPorHora = 2 + (Math.min(userLevel, 20) * 0.1); // Escala de 2.1 a 4.0
     const currentTasksPerHour = (completedTasks / (totalMinutes / 60));
-    
+
     // Score de Fluxo: Proporção em relação ao benchmark, capado em 100.
     const flowScore = Math.min(100, Math.round((currentTasksPerHour / benchmarkTarefasPorHora) * 100));
 
@@ -615,7 +619,7 @@ export const detectProcrastination = (categories, studyLogs) => {
     const normalizedNowDate = normalizeDate(now);
 
     if (!normalizedNowDate || Number.isNaN(normalizedNowDate.getTime())) {
-      return { warnings: [] };
+        return { warnings: [] };
     }
 
     const normalizedNow = normalizedNowDate.getTime();
@@ -686,7 +690,7 @@ export const detectProcrastination = (categories, studyLogs) => {
             if (categoryLogs.length > 0) {
                 const lastLog = categoryLogs.reduce((latest, log) =>
                     (normalizeDate(log.date)?.getTime() ?? 0) > (normalizeDate(latest.date)?.getTime() ?? 0) ? log : latest
-                , categoryLogs[0]);
+                    , categoryLogs[0]);
                 const lastLogDate = normalizeDate(lastLog.date);
                 const daysSinceLastStudy = lastLogDate ? (normalizedNow - lastLogDate.getTime()) / (1000 * 60 * 60 * 24) : 0;
 
@@ -956,86 +960,86 @@ export const getCompleteReport = (data) => {
  * Standardized mastery threshold: >= 3 reviews AND interval >= 6.
  */
 export function getFlashcardDueTodayCount(decks = []) {
-  const todayKey = getFlashcardTodayKey();
-  let due = 0;
-  const decksArray = toArray(decks);
-  decksArray.forEach(deck => {
-    if (!deck || typeof deck !== 'object') return; // ✅ FIX: validar deck
-    toArray(deck?.cards).forEach(card => {
-      if (!card || typeof card !== 'object') return; // ✅ FIX: validar card
-      if (!card?.due || card.due <= todayKey) due++;
+    const todayKey = getFlashcardTodayKey();
+    let due = 0;
+    const decksArray = toArray(decks);
+    decksArray.forEach(deck => {
+        if (!deck || typeof deck !== 'object') return; // ✅ FIX: validar deck
+        toArray(deck?.cards).forEach(card => {
+            if (!card || typeof card !== 'object') return; // ✅ FIX: validar card
+            if (!card?.due || card.due <= todayKey) due++;
+        });
     });
-  });
-  return due;
+    return due;
 }
 
 export function getFlashcardMasteryPct(decks = []) {
-  let total = 0, mastered = 0;
-  const decksArray = toArray(decks);
-  decksArray.forEach(deck => {
-    if (!deck || typeof deck !== 'object') return;
-    toArray(deck?.cards).forEach(card => {
-      if (!card || typeof card !== 'object') return;
-      total++;
-      if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
+    let total = 0, mastered = 0;
+    const decksArray = toArray(decks);
+    decksArray.forEach(deck => {
+        if (!deck || typeof deck !== 'object') return;
+        toArray(deck?.cards).forEach(card => {
+            if (!card || typeof card !== 'object') return;
+            total++;
+            if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
+        });
     });
-  });
-  return total > 0 ? Math.round((mastered / total) * 100) : 0;
+    return total > 0 ? Math.round((mastered / total) * 100) : 0;
 }
 
 export function getFlashcardImmunity(decks = []) {
-  const immunityMap = {};
-  let globalTotal = 0;
-  let globalMastered = 0;
+    const immunityMap = {};
+    let globalTotal = 0;
+    let globalMastered = 0;
 
-  const decksArray = toArray(decks);
-  decksArray.forEach(deck => {
-    const subject = deck?.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
-    
-    let total = 0, mastered = 0;
-    toArray(deck?.cards).forEach(card => {
-      total++;
-      if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 21) mastered++;
+    const decksArray = toArray(decks);
+    decksArray.forEach(deck => {
+        const subject = deck?.subject ? String(deck.subject).toLowerCase().trim() : 'geral';
+
+        let total = 0, mastered = 0;
+        toArray(deck?.cards).forEach(card => {
+            total++;
+            if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 21) mastered++;
+        });
+
+        globalTotal += total;
+        globalMastered += mastered;
+
+        if (total > 0) {
+            if (!immunityMap[subject]) immunityMap[subject] = { total: 0, mastered: 0 };
+            immunityMap[subject].total += total;
+            immunityMap[subject].mastered += mastered;
+        }
     });
-    
-    globalTotal += total;
-    globalMastered += mastered;
-    
-    if (total > 0) {
-      if (!immunityMap[subject]) immunityMap[subject] = { total: 0, mastered: 0 };
-      immunityMap[subject].total += total;
-      immunityMap[subject].mastered += mastered;
+
+    const finalImmunityMap = {};
+    for (const [subj, data] of Object.entries(immunityMap)) {
+        if (data.total >= 5) {
+            const mastery = data.mastered / data.total;
+            finalImmunityMap[subj] = 1.0 - (mastery * 0.20);
+        } else {
+            finalImmunityMap[subj] = 1.0;
+        }
     }
-  });
 
-  const finalImmunityMap = {};
-  for (const [subj, data] of Object.entries(immunityMap)) {
-    if (data.total >= 5) {
-      const mastery = data.mastered / data.total;
-      finalImmunityMap[subj] = 1.0 - (mastery * 0.20);
-    } else {
-      finalImmunityMap[subj] = 1.0;
-    }
-  }
+    const globalImmunityFactor = globalTotal >= 10
+        ? 1.0 - ((globalMastered / globalTotal) * 0.20)
+        : 1.0;
 
-  const globalImmunityFactor = globalTotal >= 10 
-    ? 1.0 - ((globalMastered / globalTotal) * 0.20) 
-    : 1.0;
-
-  return {
-    globalImmunityFactor,
-    subjectImmunityMap: finalImmunityMap
-  };
+    return {
+        globalImmunityFactor,
+        subjectImmunityMap: finalImmunityMap
+    };
 }
 
 export function getFlashcardTotalCards(decks = []) {
-  const decksArray = toArray(decks);
-  return decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
+    const decksArray = toArray(decks);
+    return decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
 }
 
 export function getFlashcardDeckCount(decks = []) {
-  const decksArray = toArray(decks);
-  return decksArray.length;
+    const decksArray = toArray(decks);
+    return decksArray.length;
 }
 
 export function computeFlashcardDueForecast(decks = [], horizon = 14) {

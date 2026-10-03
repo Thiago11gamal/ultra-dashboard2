@@ -22,25 +22,30 @@ export const createContestSlice = (set) => ({
         const prevId = state.appState.activeId;
         const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
 
-        if (state.appState.pomodoro?.activeSubject) {
-            const accMinutes = state.appState.pomodoro.accumulatedMinutes || 0;
-            if (accMinutes > 0) {
-                const prevData = state.appState.contests[prevId];
-                if (prevData) {
-                    const subject = state.appState.pomodoro.activeSubject;
-                    if (subject?.categoryId) {
-                        const cat = (prevData.categories || []).find(c => c.id === subject.categoryId);
-                        if (cat) {
-                            cat.totalMinutes = (cat.totalMinutes || 0) + accMinutes;
+        if (prevId !== targetId) {
+            if (state.appState.pomodoro?.activeSubject) {
+                const accMinutes = state.appState.pomodoro.accumulatedMinutes || 0;
+                if (accMinutes > 0) {
+                    const prevData = state.appState.contests[prevId];
+                    if (prevData) {
+                        const subject = state.appState.pomodoro.activeSubject;
+                        if (subject?.categoryId) {
+                            const cats = Array.isArray(prevData.categories)
+                                ? prevData.categories
+                                : Object.values(prevData.categories || {});
+                            const cat = cats.find(c => c && c.id === subject.categoryId);
+                            if (cat) {
+                                cat.totalMinutes = (cat.totalMinutes || 0) + accMinutes;
+                            }
                         }
                     }
                 }
+                state.appState.pomodoro = { ...RESET_POMODORO };
+                try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
             }
-            state.appState.pomodoro = { ...RESET_POMODORO };
-            try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
-        }
 
-        state.appState.activeId = targetId;
+            state.appState.activeId = targetId;
+        }
 
         const activeData = state.appState.contests[targetId];
         if (activeData && !activeData.coachPlanner) {

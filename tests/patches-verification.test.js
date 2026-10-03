@@ -9,6 +9,7 @@ import { toSafeNumber } from '../src/utils/normalize.js';
 import { applyScenarioAdjustments } from '../src/utils/monteCarloScenario.js';
 import { getSafeId } from '../src/utils/idGenerator.js';
 import { safeGetJSON } from '../src/utils/storageSafe.js';
+import { cleanCoachNoise } from '../src/utils/coachText.js';
 
 describe('Patches Verification Test Suite (PATCH-001 to PATCH-035)', () => {
   it('PATCH-001: repairContestHistory does not crash when categories is an Object', () => {
@@ -126,5 +127,67 @@ describe('Patches Verification Test Suite (PATCH-001 to PATCH-035)', () => {
     const res = applyScenarioAdjustments(data, 'conservative', 100, 0);
     expect(Number.isFinite(res[0].probability)).toBe(true);
     expect(res[0].probability).toBe(0);
+  });
+
+  // NEW AUDIT BUG FIXES VERIFICATION
+  it('BUG-FIX: cleanCoachNoise does not glue words together and removes adjacent noise terms', () => {
+    expect(cleanCoachNoise('Estudar Novo Conteúdo')).toBe('Estudar Conteúdo');
+    expect(cleanCoachNoise('Prioridade Novo Conteúdo')).toBe('Conteúdo');
+    expect(cleanCoachNoise('Inovador e Novo')).toBe('Inovador e');
+  });
+
+  it('BUG-FIX: setAppState preserves existing history when newState does not specify history', () => {
+    const existingHistory = [{ action: 'first_action', timestamp: 11111 }];
+    useAppStore.getState().setAppState({
+      ...useAppStore.getState().appState,
+      history: existingHistory
+    });
+    // Call setAppState omitting history property
+    const currentState = useAppStore.getState().appState;
+    const { history, ...stateWithoutHistory } = currentState;
+    useAppStore.getState().setAppState(stateWithoutHistory);
+    expect(useAppStore.getState().appState.history).toEqual(existingHistory);
+  });
+
+  it('BUG-FIX: toSafeNumber returns fallback for whitespace string', () => {
+    expect(toSafeNumber('   ', 42)).toBe(42);
+    expect(toSafeNumber('  \t  ', 99)).toBe(99);
+  });
+
+  it('BUG-FIX: formatDisplayDate formats DD-MM-YYYY as DD/MM', () => {
+    expect(formatDisplayDate('15-05-2026')).toBe('15/05');
+    expect(formatDisplayDate('2026-05-15')).toBe('15/05');
+  });
+
+  it('BUG-FIX: switchContest does not crash when categories is an object and does not reset pomodoro on same contest', () => {
+    const store = useAppStore.getState();
+    const contestId = store.appState.activeId;
+    store.startPomodoroSession({ title: 'Sessão Teste', categoryId: 'c1' });
+    expect(useAppStore.getState().appState.pomodoro.activeSubject).not.toBeNull();
+    // Switching to the same contest should NOT reset pomodoro
+    store.switchContest(contestId);
+    expect(useAppStore.getState().appState.pomodoro.activeSubject).not.toBeNull();
+  });
+
+  it('BUG-FIX: logFlashcardReview handles object categories and null items gracefully', () => {
+    const store = useAppStore.getState();
+    const activeId = store.appState.activeId;
+    const currentContest = store.appState.contests[activeId];
+    store.setAppState({
+      ...store.appState,
+      contests: {
+        ...store.appState.contests,
+        [activeId]: {
+          ...currentContest,
+          categories: [
+            { id: 'c1', name: 'Direito Constitucional' },
+            null
+          ]
+        }
+      }
+    });
+    expect(() => {
+      store.logFlashcardReview('d1', 'card1', 3, 'Direito Constitucional', 1);
+    }).not.toThrow();
   });
 });

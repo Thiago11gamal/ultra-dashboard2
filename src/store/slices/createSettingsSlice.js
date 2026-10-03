@@ -68,6 +68,9 @@ export const createSettingsSlice = (set) => ({
     if (!nextState) return;
     if (nextState === state.appState) return;
     
+    const hasExplicitHistory = Array.isArray(nextState.history);
+    const incomingHistory = nextState.history;
+
     nextState = validateAppState(nextState);
     
     const nextContests = (nextState.contests && typeof nextState.contests === 'object')
@@ -78,12 +81,15 @@ export const createSettingsSlice = (set) => ({
       ? nextState.activeId : fallbackActiveId;
     
     const { history: _history, ...otherState } = nextState;
+    const finalHistory = hasExplicitHistory
+      ? incomingHistory
+      : (state.appState.history || []);
     
     Object.assign(state.appState, {
       ...otherState,
       contests: nextContests,
       activeId: nextActiveId,
-      history: _history || state.appState.history || []
+      history: finalHistory
     });
     
     state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();

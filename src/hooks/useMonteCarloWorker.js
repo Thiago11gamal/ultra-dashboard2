@@ -71,12 +71,14 @@ function initSharedWorker() {
             if (type === 'error') {
                 pending.reject(new Error(error));
             } else {
+                workerCrashCount = 0;
                 pending.resolve(result);
             }
         };
 
         sharedWorker.onerror = (err) => {
             console.error('[MonteCarloWorker] erro fatal:', err);
+            workerCrashCount++;
             for (const [id, pending] of sharedPendingRequests.entries()) {
                 try {
                     pending.reject?.(new Error(err?.message || 'Worker Monte Carlo falhou'));

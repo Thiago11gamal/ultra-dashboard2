@@ -29,11 +29,19 @@ export const createTrashSlice = (set) => ({
             removeCategoryTombstone(newId, catData.name);
 
             // Atualizar categoryId nas tasks internas se o ID mudou
-            if (catData.id !== oldId && Array.isArray(catData.tasks)) {
-                catData.tasks = catData.tasks.map(task => ({
-                    ...task,
-                    categoryId: newId
-                }));
+            if (catData.id !== oldId && catData.tasks) {
+                if (Array.isArray(catData.tasks)) {
+                    catData.tasks = catData.tasks.map(task => (task ? {
+                        ...task,
+                        categoryId: newId
+                    } : task));
+                } else if (typeof catData.tasks === 'object') {
+                    Object.keys(catData.tasks).forEach(key => {
+                        if (catData.tasks[key]) {
+                            catData.tasks[key].categoryId = newId;
+                        }
+                    });
+                }
             }
 
             contest.categories.push(catData);

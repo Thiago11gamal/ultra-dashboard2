@@ -170,11 +170,16 @@ export const createStudySlice = (set, get) => ({
       const normCatName = (name) => (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
       const normSubject = normCatName(subject);
 
-      if (activeData.categories && normSubject) {
-        const exactMatch = activeData.categories.find(c =>
-          normCatName(c.name) === normSubject
+      const catsArray = Array.isArray(activeData.categories)
+        ? activeData.categories
+        : Object.values(activeData.categories || {});
+
+      if (catsArray.length > 0 && normSubject) {
+        const exactMatch = catsArray.find(c =>
+          c && normCatName(c.name) === normSubject
         );
-        const match = exactMatch || activeData.categories.find(c => {
+        const match = exactMatch || catsArray.find(c => {
+          if (!c) return false;
           const catNorm = normCatName(c.name);
           return catNorm.startsWith(normSubject);
         });

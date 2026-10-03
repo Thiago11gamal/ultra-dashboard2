@@ -17,12 +17,20 @@ export const RX_BRACKET_TOPIC = /^\[(.+?)\]\s*([\s\S]*)$/i;
 export const RX_REC_MARKUP = /(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g;
 export const RX_BOLD = /(\*\*.*?\*\*)/g;
 
-// FIX (C2): limites de palavra reais. O comentário antigo prometia âncoras,
-// mas a regex não tinha nenhuma — destruía substrings ("Inovador" → "Iador"
-// por casar "Novo"). (?<!\w)/(?!\w) exigem fronteira de palavra.
-// (Requer Safari ≥ 16.4 por causa do lookbehind.)
+// FIX (C2): Limpeza de ruído sem lookbehind e sem comer espaços em palavras adjacentes.
 export const RX_NOISE_ACTION =
-  /(?:^|\s)(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|Novo|Prioridade|\d+\s*%\s*de acerto)(?:\s|$)/gi;
+  /(^|\s)(Revisão Geral Complementar|Revisão Complementar|CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|Novo|Prioridade|\d+\s*%\s*de acerto)(?=\s|$)/gi;
+
+export function cleanCoachNoise(text) {
+  if (!text) return '';
+  let prev;
+  let cur = String(text);
+  do {
+    prev = cur;
+    cur = cur.replace(RX_NOISE_ACTION, ' ');
+  } while (cur !== prev);
+  return cur.replace(/\s{2,}/g, ' ').trim();
+}
 
 export function isSystemAlertTask(value) {
   const text =
@@ -92,8 +100,8 @@ export function parseCoachTask(task, categories = []) {
     if (bracketMatch[2] != null) action = String(bracketMatch[2]).trim();
   }
 
-  // FIX: usa a regex sem âncora para limpar ruído corretamente
-  action = action.replace(RX_NOISE_ACTION, '').trim();
+  // FIX: usa cleanCoachNoise para limpar ruído preservando espaços entre palavras
+  action = cleanCoachNoise(action);
 
   if (!topicRaw) {
     topicRaw = action || subjectRaw || 'Revisão Geral';

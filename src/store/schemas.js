@@ -42,6 +42,7 @@ export const repairContestHistory = (rawData) => {
 
   const categoriesArray = Array.isArray(data.categories) ? data.categories : Object.values(data.categories || {});
   categoriesArray.forEach(cat => {
+    if (!cat || typeof cat !== 'object') return;
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
 
@@ -208,13 +209,13 @@ export const sanitizeContest = (data) => {
     coachPlanner: (source.coachPlanner && typeof source.coachPlanner === 'object')
       ? source.coachPlanner
       : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
-    categories: (Array.isArray(source.categories) ? source.categories : Object.values(source.categories || {})).map(cat => ({
+    categories: (Array.isArray(source.categories) ? source.categories : Object.values(source.categories || {})).filter(cat => cat && typeof cat === 'object').map(cat => ({
       id: cat.id || generateId('cat'),
       name: cat.name || "Sem Nome",
       color: cat.color || "#3b82f6",
       icon: cat.icon || "📚",
       tasks: (() => {
-        const rawTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).map(t => ({
+        const rawTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t && typeof t === 'object').map(t => ({
           id: t.id || generateId('task'),
           text: t.text || t.title || t.topic || "Nova Tarefa",
           title: t.title || t.text || t.topic || "Nova Tarefa",
