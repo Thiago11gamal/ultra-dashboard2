@@ -284,7 +284,9 @@ export default function Coach() {
             }
             const lastAlertAt = Number(calibrationAlertCacheRef.current.get(normalizedCategoryId) || 0);
             if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
-                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')} (Brier ${Number(avgBrier).toFixed(2)}).`, 'warning');
+                // VIS-FIX: avgBrier pode ser null (degradação só por penalty) → antes exibia "Brier 0.00".
+                const brierLabel = avgBrier !== null ? ` (Brier ${avgBrier.toFixed(2)})` : '';
+                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')}${brierLabel}.`, 'warning');
                 calibrationAlertCacheRef.current.set(normalizedCategoryId, now);
                 if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX && calibrationAlertCacheRef.current.size > 0) {
                     const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
@@ -351,6 +353,28 @@ export default function Coach() {
         return ((safeDrift * 30) / denom) * 100;
     }, [drift, currentMaxScore]);
     const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
+
+    // VIS-FIX: projectedMean está na escala da prova (pontos), não em %.
+    // Antes o banner exibia "Global MC: 742%" para provas com maxScore=1000.
+    const globalProjection = useMemo(() => {
+        const mean = Number(suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean);
+        if (!Number.isFinite(mean)) return null;
+        const safeMax = Math.max(1, Number(currentMaxScore) || 100);
+        const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
+        const pct = Math.max(0, Math.min(100, ((mean - safeMin) / (safeMax - safeMin)) * 100));
+        const prob = Number(suggestedFocus?.globalMcContext?.probability);
+        return {
+            points: mean,
+            max: safeMax,
+            pct,
+            probability: Number.isFinite(prob) ? Math.max(0, Math.min(100, prob)) : null
+        };
+    }, [suggestedFocus?.globalProjectedMean, suggestedFocus?.globalMcContext, currentMaxScore, currentMinScore]);
+
+    const degradedCount = useMemo(
+        () => Object.values(data?.calibrationOps || {}).filter(o => o?.degraded).length,
+        [data?.calibrationOps]
+    );
 
     const mcStatsContext = useMemo(() => ({
         projectedMean: mcStats?.projectedMean,
@@ -464,7 +488,11 @@ export default function Coach() {
     }, []);
 
     const handleGenerateGoals = useCallback(() => {
-        if (!data?.categories || coachLoading) return;
+        if (coachLoading) return;
+        if (!categories.length) {
+            showToastRef.current('Cadastre matérias e registre simulados para o Coach gerar sugestões.', 'info');
+            return;
+        }
         setCoachLoading(true);
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         
@@ -551,7 +579,9 @@ export default function Coach() {
         };
     }, []);
 
-    if (isAnalyzing || !data || !data.categories) {
+    // BUG-FIX: antes, se o concurso não tinha `categories` (usuário novo), o efeito de
+    // análise retornava cedo, isAnalyzing nunca virava false e o loader girava para sempre.
+    if (!isHydrated || (isAnalyzing && data?.categories)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
                 <div className="relative">
@@ -577,7 +607,7 @@ export default function Coach() {
                     
                     <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
                         <div className="flex items-center gap-3 sm:gap-4 px-2">
-                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-rose-400" icon={<Zap size={14} />} />
+                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={14} />} />
                             <div className="w-px h-6 bg-white/10" />
                             <QuickStat
                                 label="Tendência"
@@ -593,8 +623,9 @@ export default function Coach() {
                     </div>
                 </div>
 
+                {/* VIS-FIX: a condição fica no pai para o AnimatePresence conseguir animar a saída */}
                 <AnimatePresence>
-                    <GovernanceBanner data={data} />
+                    {degradedCount > 0 && <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />}
                 </AnimatePresence>
 
                 <div className="space-y-10">
@@ -618,26 +649,33 @@ export default function Coach() {
                                 {safeActiveTab === 'insights' && (
                                     <>
                                         {flashcardDue > 0 && (
-                                            <div className="mb-3 flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
-                                                <BookOpen className="text-amber-400" size={18} />
-                                                <div className="flex-1 text-amber-200">
-                                                    <span className="font-semibold">{flashcardDue} flashcards</span> pendentes para hoje. SRS melhora retenção e o modelo.
+                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
+                                                <BookOpen className="text-amber-400 shrink-0" size={18} />
+                                                <div className="flex-1 min-w-[180px] text-amber-200">
+                                                    <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
                                                 </div>
                                                 <button
+                                                    type="button"
                                                     onClick={() => navigate('/flashcards')}
-                                                    className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
+                                                    className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
                                                 >
-                                                    FLASHCARDS
+                                                    Revisar agora
                                                 </button>
                                             </div>
                                         )}
 
                                         {/* Visual global MC context */}
-                                        {(suggestedFocus?.globalProjectedMean != null || suggestedFocus?.globalMcContext?.projectedMean != null) && (
-                                            <div className="mb-3 flex items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 text-xs">
-                                                <span className="font-semibold text-emerald-300">Global MC:</span>
-                                                <span className="font-mono text-base font-bold text-emerald-200">{suggestedFocus.globalProjectedMean ?? suggestedFocus.globalMcContext?.projectedMean}%</span>
-                                                <span className="text-emerald-400/60">contexto global aplicado</span>
+                                        {globalProjection && (
+                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-xs">
+                                                <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
+                                                <span className="font-mono text-base font-bold text-emerald-200 tabular-nums">
+                                                    {globalProjection.points.toFixed(1)}
+                                                    <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
+                                                </span>
+                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums">{Math.round(globalProjection.pct)}%</span>
+                                                {globalProjection.probability !== null && (
+                                                    <span className="text-emerald-400/70">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
+                                                )}
                                             </div>
                                         )}
                                         <AICoachView 
@@ -672,7 +710,7 @@ function QuickStat({ label, value, color, icon }) {
         <div className="flex flex-col min-w-[78px] sm:min-w-[80px] px-1">
             <div className="flex items-center gap-1.5 mb-0.5 opacity-70">
                 <span className={color}>{icon}</span>
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.25em]">{label}</span>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">{label}</span>
             </div>
             <span className={`text-base font-black ${color} tracking-tighter tabular-nums`}>{value}</span>
         </div>
@@ -692,28 +730,23 @@ function StatRow({ label, value, trend, color }) {
     );
 }
 
-const GovernanceBanner = React.memo(function GovernanceBanner({ data }) {
-    const ops = data?.calibrationOps || {};
-    const degradedCount = Object.values(ops).filter(o => o.degraded).length;
-
-    if (degradedCount === 0) return null;
-
+const GovernanceBanner = React.memo(function GovernanceBanner({ degradedCount }) {
     return (
         <Motion.div 
-            layout
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            role="status"
             className="mb-6 p-4 rounded-3xl bg-rose-500/5 border border-rose-500/30 flex items-center justify-between gap-4 shadow-sm"
         >
-            <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 flex items-center justify-center text-rose-400 border border-rose-500/20">
+            <div className="flex items-center gap-4 min-w-0">
+                <div className="shrink-0 w-10 h-10 rounded-2xl bg-rose-500/15 flex items-center justify-center text-rose-400 border border-rose-500/20">
                     <AlertCircle size={20} />
                 </div>
-                <div>
+                <div className="min-w-0">
                     <h4 className="text-sm font-black text-rose-200 uppercase tracking-tight">Alerta de Governança</h4>
                     <p className="text-[10px] text-rose-300/80 font-medium uppercase tracking-widest">
-                        Detectamos <span className="text-rose-400 font-black">{degradedCount}</span> categorias com calibração degradada.
+                        Detectamos <span className="text-rose-400 font-black">{degradedCount}</span> {degradedCount === 1 ? 'categoria com calibração degradada' : 'categorias com calibração degradada'}.
                     </p>
                 </div>
             </div>
@@ -802,8 +835,8 @@ function RaioXDashboard({ data }) {
         if (!acc[cat]) acc[cat] = [];
         acc[cat].push({
             ts: toFiniteNumber(log?.timestamp),
-            brier: toFiniteNumber(log?.avgBrier),
-            ece: toFiniteNumber(log?.ece)
+            brier: toFiniteNumber(log?.avgBrier, null),
+            ece: toFiniteNumber(log?.ece, null)
         });
         return acc;
     }, {});
@@ -916,14 +949,18 @@ function RaioXDashboard({ data }) {
                         <List size={14} className="text-indigo-400/80" />
                         Log de Auditoria
                     </h3>
-                    <div className="flex gap-2 bg-slate-900/50 border border-white/5 rounded-xl p-0.5">
+                    <div className="flex gap-1 bg-slate-900/50 border border-white/5 rounded-xl p-0.5" role="group" aria-label="Filtrar log de auditoria">
                         <button 
+                            type="button"
+                            aria-pressed={filter === 'all'}
                             onClick={() => setFilter('all')}
                             className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'all' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-200'}`}
                         >
                             Tudo
                         </button>
                         <button 
+                            type="button"
+                            aria-pressed={filter === 'degraded'}
                             onClick={() => setFilter('degraded')}
                             className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-200 ${filter === 'degraded' ? 'bg-rose-500/20 text-rose-300' : 'text-slate-400 hover:text-slate-200'}`}
                         >
@@ -935,28 +972,34 @@ function RaioXDashboard({ data }) {
                 <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/10">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-white/5">
-                                <th className="pb-3 pl-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
-                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
-                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
-                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
-                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
-                                <th className="pb-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Prob Final</th>
+                            <tr className="border-b border-white/5 bg-white/[0.015]">
+                                <th className="py-3 pl-4 pr-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
+                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
+                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
+                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
+                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
+                                <th className="py-3 pl-4 pr-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px] text-right">Prob Final</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {filteredLogs.map((log, idx) => (
+                            {filteredLogs.map((log, idx) => {
+                                const brierVal = toFiniteNumber(log?.avgBrier, null);
+                                const eceVal = toFiniteNumber(log?.ece, null);
+                                const brierColor = brierVal === null ? 'text-slate-500' : (brierVal >= 0.25 ? 'text-rose-400' : (brierVal > 0.18 ? 'text-amber-400' : 'text-emerald-400'));
+                                const eceColor = eceVal === null ? 'text-slate-500' : (eceVal > 0.12 ? 'text-amber-400' : 'text-cyan-300');
+                                return (
                                 <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-2 text-[10px] text-slate-500 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
+                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-500 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">{displaySubject(log.categoryName)}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${log.avgBrier > 0.25 ? 'text-rose-400' : 'text-emerald-400'}`}>{toFiniteNumber(log?.avgBrier, null) !== null ? Number(log.avgBrier).toFixed(3) : '-'}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${Number(log?.ece || 0) > 0.12 ? 'text-amber-400' : 'text-cyan-300'}`}>{toFiniteNumber(log?.ece, null) !== null ? Number(log.ece).toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
                                         {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
                                     </td>
-                                    <td className="py-3 px-4 text-[10px] text-white font-black whitespace-nowrap">{toPercentLabel(log?.probability)}</td>
+                                    <td className="py-3 pl-4 pr-4 text-[10px] text-white font-black whitespace-nowrap text-right tabular-nums">{toPercentLabel(log?.probability)}</td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                     {filteredLogs.length === 0 && (
@@ -1004,18 +1047,24 @@ function RaioXDashboard({ data }) {
 
                 {temporalSeries.length > 1 ? (
                     <div className="space-y-2">
+                        {/* VIS-FIX: legenda + escala realista. Antes Brier 0.20 virava uma barra de 20%
+                            e ECE 0.05 uma barra de 5% (quase invisível), sem indicar qual cor era qual. */}
+                        <div className="flex flex-wrap items-center gap-4 pb-2 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-rose-400/80" />Brier (escala 0–0.50)</span>
+                            <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-cyan-400/80" />ECE (escala 0–0.30)</span>
+                        </div>
                         {temporalSeries.map((point, idx) => (
-                            <div key={idx} className="space-y-1">
-                                <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+                            <div key={`${point.ts}-${idx}`} className="space-y-1">
+                                <div className="flex justify-between gap-3 text-[9px] text-slate-500 font-mono">
                                     <span>{point.ts > 0 ? formatDatePtBR(point.ts) : '-'}</span>
-                                    <span>Brier {point.brier.toFixed(3)} · ECE {point.ece.toFixed(3)}</span>
+                                    <span className="tabular-nums">Brier {point.brier !== null ? point.brier.toFixed(3) : '–'} · ECE {point.ece !== null ? point.ece.toFixed(3) : '–'}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                                        <div className="h-full bg-rose-400/80" style={{ width: `${Math.min(100, point.brier * 100)}%` }} />
+                                        <div className="h-full bg-rose-400/80 rounded transition-all duration-500" style={{ width: `${point.brier !== null ? Math.min(100, (point.brier / 0.5) * 100) : 0}%` }} />
                                     </div>
                                     <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                                        <div className="h-full bg-cyan-400/80" style={{ width: `${Math.min(100, point.ece * 100)}%` }} />
+                                        <div className="h-full bg-cyan-400/80 rounded transition-all duration-500" style={{ width: `${point.ece !== null ? Math.min(100, (point.ece / 0.3) * 100) : 0}%` }} />
                                     </div>
                                 </div>
                             </div>

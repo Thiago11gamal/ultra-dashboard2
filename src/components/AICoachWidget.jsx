@@ -64,7 +64,7 @@ function MetricChip({ label, value, index }) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05, duration: 0.3 }}
             whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
-            className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-md p-3 sm:p-4 transition-all cursor-default overflow-hidden"
+            className="group/chip relative flex flex-col gap-1.5 bg-white/[0.03] border border-white/[0.05] rounded-xl p-3 sm:p-4 transition-all cursor-default overflow-hidden"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 via-transparent to-transparent opacity-0 group-hover/chip:opacity-10 transition-opacity" />
             <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 leading-[1.35] truncate min-w-0 block group-hover/chip:text-slate-400 transition-colors pb-px">{label}</span>
@@ -79,7 +79,7 @@ function UrgencyBar({ score, cfg }) {
     return (
         <div className="w-full">
             <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-600 leading-[1.35]">Urgência</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 leading-[1.35]">Urgência</span>
                 <span className={`text-[11px] font-black ${cfg.accent}`}>{Math.round(pct)}</span>
             </div>
             <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/[0.06]">
@@ -144,10 +144,10 @@ function MonteCarloGauge({ mc }) {
                     className="absolute top-0 bottom-0 bg-white/10 rounded-full"
                 />
                 
-                {/* Ponto de Probabilidade Exata */}
+                {/* Ponto de Probabilidade Exata — VIS-FIX: centralizado no valor (antes estourava a barra em 100%) */}
                 <Motion.div 
-                    initial={{ left: 0 }}
-                    animate={{ left: `${prob}%` }}
+                    initial={{ left: 'calc(0% - 0px)' }}
+                    animate={{ left: `calc(${prob}% - ${prob * 0.06}px)` }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
                     className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
                 />
@@ -155,11 +155,11 @@ function MonteCarloGauge({ mc }) {
             
             <div className="flex justify-between mt-3 px-0.5">
                 <div className="flex flex-col">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Pior Cenário</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Pior Cenário</span>
                     <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(low)}%</span>
                 </div>
                 <div className="flex flex-col text-right">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-600 mb-0.5">Teto Probabilístico</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Teto Probabilístico</span>
                     <span className="text-[10px] font-mono font-bold text-slate-400">{Math.round(high)}%</span>
                 </div>
             </div>
@@ -193,16 +193,22 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
     const { tier, Icon: TierIcon } = cfg;
     const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
-    const globalMean = suggestion.globalProjectedMean ?? suggestion.urgency?.details?.globalMcContext?.projectedMean;
+    // VIS-FIX: projectedMean está em pontos da prova; antes era exibido como "GLOBAL 742%".
+    const globalMeanRaw = Number(suggestion.globalProjectedMean ?? suggestion.urgency?.details?.globalMcContext?.projectedMean);
+    const scaleMax = Math.max(1, Number(activeContest?.maxScore) || 100);
+    const scaleMin = Number.isFinite(Number(activeContest?.minScore)) ? Math.min(Number(activeContest.minScore), scaleMax - 1) : 0;
+    const globalPct = Number.isFinite(globalMeanRaw)
+        ? Math.max(0, Math.min(100, ((globalMeanRaw - scaleMin) / (scaleMax - scaleMin)) * 100))
+        : null;
 
     return (
         <Motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative mb-8 w-full border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-visible group/widget`}
+            className={`relative w-full rounded-3xl border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
         >
             {/* Background Atmosphere */}
-            <div className={`absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
+            <div className={`absolute top-0 right-0 w-[500px] max-w-full h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
 
             {/* Top Energy Line */}
             <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-80`} />
@@ -214,8 +220,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                             <span className="text-sm font-bold text-slate-200 truncate">Motor de Produtividade</span>
-                            {globalMean != null && Number.isFinite(Number(globalMean)) && (
-                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider">GLOBAL {Math.round(Number(globalMean))}%</span>
+                            {globalPct !== null && (
+                                <span className="px-2 py-0.5 text-[9px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md tracking-wider" title={`Projeção global: ${globalMeanRaw.toFixed(1)} / ${scaleMax} pts`}>GLOBAL {Math.round(globalPct)}%</span>
                             )}
                         </div>
                     </div>
@@ -235,10 +241,11 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         )}
                         <div className={`flex items-center gap-1.5 px-3 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider ${cfg.badge} shrink-0`}>
                             <TierIcon size={12} className="shrink-0" />
-                            <span className="whitespace-nowrap">{tier === 'Standard' ? 'Padrão' : tier}</span>
+                            <span className="whitespace-nowrap">{tier}</span>
                         </div>
                         {onGenerateGoals && (
                             <button 
+                                type="button"
                                 onClick={onGenerateGoals}
                                 disabled={loading}
                                 className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
@@ -251,7 +258,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                 </div>
 
                 {!urgency.hasData ? (
-                    <div className="flex flex-col md:flex-row items-center gap-8 py-12 px-8 bg-white/[0.02] border border-white/5 shadow-inner">
+                    <div className="flex flex-col md:flex-row items-center gap-8 py-12 px-8 rounded-2xl bg-white/[0.02] border border-white/5 shadow-inner">
                         <div className="w-20 h-20 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shrink-0 shadow-2xl">
                             <Database size={32} className="text-slate-600" />
                         </div>
@@ -264,7 +271,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                     </div>
                 ) : (
                     <div className="space-y-8">
-                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_320px] gap-8 xl:gap-12 items-center">
+                        {/* VIS-FIX: em lg (≈1024px + sidebar) a 3ª coluna fixa de 320px espremia as outras duas. */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1.5fr_300px] gap-8 xl:gap-12 items-center">
                             {/* Left Column: Subject & Topic */}
                             <div className="flex flex-col gap-5">
                                 <div className="flex items-center gap-3">
@@ -296,7 +304,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     <Motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        className="relative p-5 sm:p-6 bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
+                                        className="relative p-5 sm:p-6 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
                                     >
                                         {/* Soft background glow based on theme */}
                                         <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl ${cfg.stripe} to-transparent opacity-20 blur-2xl pointer-events-none rounded-full`} />
@@ -320,14 +328,14 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             </div>
 
                             {/* Right Column: Gauges */}
-                            <div className="space-y-6">
+                            <div className="space-y-6 lg:col-span-2 xl:col-span-1">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.details?.monteCarlo && (
                                     <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
                                 )}
 
                                 {suggestion.urgency?.details?.monteCarlo?.diagnostics && (
-                                    <div className="text-[8px] bg-slate-900/50 border border-white/5 p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-400 font-mono">
+                                    <div className="text-[9px] rounded-lg bg-slate-900/50 border border-white/5 px-2.5 py-2 grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-400 font-mono">
                                         <div className="flex justify-between col-span-2">
                                             <span>MC</span>
                                             <span className="text-emerald-300">{suggestion.urgency.details.monteCarlo.diagnostics.simulationCount} sims</span>
@@ -346,8 +354,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         {/* Neural Matrix Toggle */}
                         <div className="pt-4">
                             <button
+                                type="button"
+                                aria-expanded={showMatrix}
                                 onClick={() => setShowMatrix(!showMatrix)}
-                                className="flex items-center justify-between w-full sm:w-auto gap-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-white transition-all py-3 px-4 sm:px-6 rounded-md bg-white/[0.03] border border-white/[0.05] hover:border-white/20"
+                                className="flex items-center justify-between w-full sm:w-auto gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all py-3 px-4 sm:px-6 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-white/20"
                             >
                                 <div className="flex items-center gap-3 min-w-0">
                                     <BrainCircuit size={14} className={`shrink-0 ${showMatrix ? cfg.accent : 'text-slate-600'} transition-colors`} />
@@ -393,7 +403,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
                                         {/* NEW: Show engine math diagnostics (adaptive rho, convergence, effective N, etc) */}
                                         {urgency?.monteCarlo?.diagnostics && (
-                                            <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded p-2 border border-white/5">
+                                            <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded-lg p-2 border border-white/5">
                                                 <div>Simulações: <span className="font-mono text-slate-200">{urgency.monteCarlo.diagnostics.simulationCount}</span></div>
                                                 {urgency.monteCarlo.diagnostics.convergence && <div>Convergência: {urgency.monteCarlo.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {urgency.monteCarlo.diagnostics.convergence.achievedSE})</div>}
                                                 {urgency.monteCarlo.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(urgency.monteCarlo.diagnostics.effectiveN).toFixed(1)}</span></div>}

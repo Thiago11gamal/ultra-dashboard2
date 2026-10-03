@@ -113,7 +113,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   </div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-col gap-1 pl-3">
+              <div className="mt-2.5 flex flex-col gap-1 pl-0.5">
                 <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
                   {topicLabel}
                 </h4>
@@ -124,7 +124,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 )}
               </div>
               {isSrsCard && (
-                <div className="mt-3 pt-2 border-t border-white/5 flex items-center pl-3">
+                <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center pl-0.5">
                   <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
                     SRS
                   </span>
@@ -536,7 +536,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                                     <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
                                     <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
                                   </div>
-                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${day.text} bg-black/30 border shrink-0 transition-colors duration-75 ${isHighlight ? day.over : day.headerBorder}`}>
+                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border shrink-0 transition-colors duration-75 ${isHighlight ? 'bg-white/20 border-white/40 text-white' : `${day.text} bg-black/30 ${day.headerBorder}`}`}>
                                     {dayCount}
                                   </div>
                                 </div>

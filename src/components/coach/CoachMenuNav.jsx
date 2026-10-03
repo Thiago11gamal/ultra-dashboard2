@@ -13,20 +13,21 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
             aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : -1}
-            className={`group relative min-w-0 rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
+            className={`group relative min-w-0 rounded-2xl px-3 sm:px-6 py-2.5 sm:py-3 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
                 ${active
-                    ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)] ring-1 ring-white/20 scale-[1.02]'
+                    ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)] ring-1 ring-white/20'
                     : 'bg-slate-900/60 border-white/[0.05] text-slate-400 hover:bg-slate-800/80 hover:border-white/10 hover:text-slate-100'}
                 ${active ? 'mobile-menu-tab-active' : 'mobile-menu-tab-idle'}
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-            <div className="flex items-center gap-3 min-w-0 pl-1">
-                <div className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border transition-all duration-200 ${active ? 'bg-white/20 border-white/30' : 'bg-white/5 border-white/10 group-hover:bg-white/10'}`}>
-                    <Icon size={16} strokeWidth={2.5} className={`shrink-0 transition-transform duration-200 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className={`shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border transition-all duration-200 ${active ? 'bg-white/20 border-white/30' : 'bg-white/5 border-white/10 group-hover:bg-white/10'}`}>
+                    <Icon size={15} strokeWidth={2.5} className={`shrink-0 transition-transform duration-200 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
                 </div>
-                <div className="min-w-0">
-                    <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.12em] leading-snug truncate">{label}</p>
-                    <p className={`text-[9px] sm:text-[10px] font-bold leading-tight mt-0.5 uppercase tracking-[0.08em] truncate ${active ? 'text-indigo-100/95' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                <div className="min-w-0 flex-1">
+                    {/* VIS-FIX: no mobile o rótulo era truncado ("PLAN…"); agora quebra em até 2 linhas */}
+                    <p className="text-[10.5px] sm:text-xs font-black uppercase tracking-[0.08em] sm:tracking-[0.12em] leading-tight line-clamp-2 sm:truncate">{label}</p>
+                    <p className={`hidden min-[400px]:block text-[9px] sm:text-[10px] font-bold leading-tight mt-0.5 uppercase tracking-[0.08em] truncate ${active ? 'text-indigo-100/95' : 'text-slate-500 group-hover:text-slate-300'}`}>
                         {subtitle}
                     </p>
                 </div>
@@ -48,7 +49,8 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     const activateTab = (tabKey) => {
         if (!availableTabs.includes(tabKey)) return;
         onChangeTab(tabKey);
-        setTimeout(() => focusTab(tabKey), 50);
+        // rAF em vez de setTimeout(50): foca assim que o DOM atualiza, sem atraso perceptível
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => focusTab(tabKey));
     };
 
     const handleTabKeyDown = (event) => {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle, Trophy, Activity } from 'lucide-react';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
@@ -82,6 +82,8 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                     </div>
                 </div>
                 <button 
+                    type="button"
+                    aria-label={`Iniciar estudo: ${displaySubject(subjectPart)}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onStartPomodoro(task);
@@ -116,31 +118,39 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             </div>
 
             {/* Exposição Visual dos KPIs Matemáticos */}
-            {task.analysis?.monteCarlo && (
+            {task.analysis?.monteCarlo && Number.isFinite(Number(task.analysis.monteCarlo.probability)) && (() => {
+                // VIS-FIX: probability/volatility ausentes geravam "NaN%" no card.
+                const mcProb = Math.max(0, Math.min(100, Number(task.analysis.monteCarlo.probability)));
+                const mcVol = Number.isFinite(Number(task.analysis.monteCarlo.volatility)) ? Number(task.analysis.monteCarlo.volatility) : 0;
+                const highVol = mcVol > 8;
+                return (
                 <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
                         <div className="flex items-center justify-between z-10 relative">
                             <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
-                            <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(task.analysis.monteCarlo.probability)}%</span>
+                            <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(mcProb)}%</span>
                         </div>
                         <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, Math.max(0, task.analysis.monteCarlo.probability))}%` }} />
+                            <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${mcProb}%` }} />
                         </div>
                     </div>
-                    <div className={`bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]`}>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
                         <div className="flex items-center justify-between z-10 relative">
-                            <span className={`text-[9px] font-black tracking-widest uppercase ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                            <span className={`font-mono text-xs font-bold ${task.analysis.monteCarlo.volatility > 8 ? 'text-amber-300' : 'text-slate-300'}`}>±{task.analysis.monteCarlo.volatility > 0 && task.analysis.monteCarlo.volatility < 0.5 ? '<1' : Math.round(task.analysis.monteCarlo.volatility || 0)}</span>
+                            <span className={`text-[9px] font-black tracking-widest uppercase ${highVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
+                            <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)}</span>
                         </div>
                         <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${task.analysis.monteCarlo.volatility > 8 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (Number(task.analysis.monteCarlo.volatility) || 0) / 20 * 100))}%` }} />
+                            <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, mcVol / 20 * 100))}%` }} />
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
             {task.analysis && (
                 <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
                     <button 
+                        type="button"
+                        aria-expanded={isExpanded}
                         onClick={() => setIsExpanded(!isExpanded)} 
                         className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
                     >
@@ -227,6 +237,21 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         showToast('Plano limpo com sucesso.', 'info');
     }, [onClearHistory, showToast]);
 
+    // A11Y/UX-FIX: modal de confirmação agora fecha com Esc e foca "Cancelar" ao abrir.
+    const cancelClearRef = useRef(null);
+    useEffect(() => {
+        if (!showClearConfirm) return;
+        const onKey = (e) => { if (e.key === 'Escape') setShowClearConfirm(false); };
+        window.addEventListener('keydown', onKey);
+        const raf = requestAnimationFrame(() => cancelClearRef.current?.focus());
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            cancelAnimationFrame(raf);
+        };
+    }, [showClearConfirm]);
+
+    const hasAnythingToClear = coachPlanRaw.length > 0 || Object.values(coachPlanner).some(day => (day || []).length > 0);
+
     const handleStartNeural = (task) => {
         const allAssignedIds = new Set();
         Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(ensureCoachTaskId(t)); if (sid) allAssignedIds.add(sid); }));
@@ -286,7 +311,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     const hasPlan = coachPlan && coachPlan.length > 0;
 
     return (
-        <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+        // VIS-FIX: removido font-family inline 'DM Sans' — a fonte não é carregada no index.html,
+        // então o painel caía para system-ui e ficava com tipografia diferente do resto do app (Outfit).
+        <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto">
             <div className="flex flex-col gap-6">
                 <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
@@ -294,28 +321,31 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     
                     <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
+                            <div className="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
                                 <Compass size={24} className="text-indigo-400" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">Painel Coach AI</h2>
                                 <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-bold mt-1">Estratégia inteligente com MC</p>
                             </div>
                         </div>
                         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/5 rounded-2xl p-0.5 shadow-inner">
+                            {/* VIS-FIX: os dois botões tinham estilos/bordas diferentes → alturas diferentes e "pulo" ao alternar */}
+                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/5 rounded-2xl p-0.5 shadow-inner" role="group" aria-label="Modo de visualização">
                                 <button
                                     type="button"
+                                    aria-pressed={viewMode === 'planner'}
                                     onClick={() => setViewMode('planner')}
-                                    className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'planner' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`flex-1 sm:flex-none justify-center px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
                                     <LayoutGrid size={14} className="shrink-0" />
                                     Planner
                                 </button>
                                 <button
                                     type="button"
+                                    aria-pressed={viewMode === 'cards'}
                                     onClick={() => setViewMode('cards')}
-                                    className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`flex-1 sm:flex-none justify-center px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
                                     <Sparkles size={14} className="shrink-0" />
                                     Pendências
@@ -324,16 +354,20 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             
                             <div className="flex items-center gap-1.5">
                                 <button
+                                    type="button"
                                     onClick={handleExport}
                                     disabled={isExporting}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/5 transition disabled:opacity-50"
+                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                                    Export
+                                    Exportar PDF
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleClearWithConfirm}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/5 border border-rose-500/10 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/10 transition"
+                                    disabled={!hasAnythingToClear}
+                                    title={hasAnythingToClear ? 'Limpar sugestões e planejamento' : 'Nada para limpar'}
+                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/5 border border-rose-500/10 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/10 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-rose-500/5"
                                 >
                                     <Trash2 size={12} />
                                     Limpar
@@ -343,13 +377,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     </div>
 
                     <div className="relative z-10 w-full mt-6 pt-6 border-t border-white/[0.05] flex justify-center">
+                        {/* VIS-FIX: removida textura externa (grainy-gradients.vercel.app) — request de rede a cada render,
+                            quebra offline/PWA — e o overlay animate-pulse permanente que deixava o botão "piscando". */}
                         <button
+                            type="button"
                             onClick={onGenerateGoals}
                             disabled={loading}
-                            className="group relative w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-busy={loading}
+                            className="group relative overflow-hidden w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.6)] hover:brightness-110 hover:shadow-[0_14px_36px_-10px_rgba(139,92,246,0.7)] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none animate-pulse" />
+                            <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
                             {loading ? (
                                 <>
                                     <Loader2 size={16} className="animate-spin shrink-0 drop-shadow-md" />
@@ -437,7 +474,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         <div className="space-y-6 mb-8">
                     {suggestedFocus ? (
                         <div className="w-full">
-                            <AICoachWidget suggestion={suggestedFocus} onGenerateGoals={onGenerateGoals} loading={loading} />
+                            {/* UX-FIX: sem onGenerateGoals aqui — havia dois botões de recalcular ("Recalcular Estratégia" e "Recalcular") a poucos px de distância */}
+                            <AICoachWidget suggestion={suggestedFocus} loading={loading} />
                         </div>
                     ) : (
                         <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
@@ -497,7 +535,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md border ${t.badgeBg}`}>
-                                                            {subjectName}
+                                                            {displaySubject(subjectName)}
                                                         </span>
                                                         {t.isCritical && (
                                                             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
@@ -571,6 +609,10 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            role="alertdialog"
+                            aria-modal="true"
+                            aria-labelledby="coach-clear-title"
+                            aria-describedby="coach-clear-desc"
                             className="bg-[#0d1117] border border-rose-500/20 rounded-3xl p-8 max-w-sm mx-4 shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -579,21 +621,24 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     <Trash2 size={28} className="text-rose-400" />
                                 </div>
                                 <div className="text-center">
-                                    <h3 className="text-lg font-black text-white mb-2">Limpar Plano?</h3>
-                                    <p className="text-sm text-slate-400 leading-relaxed">
+                                    <h3 id="coach-clear-title" className="text-lg font-black text-white mb-2">Limpar Plano?</h3>
+                                    <p id="coach-clear-desc" className="text-sm text-slate-400 leading-relaxed">
                                         Isso vai apagar <span className="text-rose-300 font-bold">todas as sugestões</span> e o <span className="text-rose-300 font-bold">planejamento semanal</span>. Essa ação não pode ser desfeita.
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3 w-full">
                                     <button
+                                        ref={cancelClearRef}
+                                        type="button"
                                         onClick={() => setShowClearConfirm(false)}
-                                        className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-sm font-bold text-slate-300 hover:bg-white/5 transition"
+                                        className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-sm font-bold text-slate-300 hover:bg-white/5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                                     >
                                         Cancelar
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={handleConfirmClear}
-                                        className="flex-1 px-4 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-sm font-bold text-rose-300 hover:bg-rose-500/30 transition"
+                                        className="flex-1 px-4 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-sm font-bold text-rose-300 hover:bg-rose-500/30 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
                                     >
                                         Sim, Limpar
                                     </button>
