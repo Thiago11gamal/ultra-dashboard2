@@ -540,6 +540,8 @@ export function useMonteCarloStats({
             examDurationMinutes: examDurationRef.current,
             flashcardImmunity: globalImmunityFactor,
             historicalCutoffs: historicalCutoffsRef.current,
+            simuladoRows: rawSimuladoRowsRef.current,
+            categoryNames: subjectsOpts.map(s => s.name),
             cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${dynamicSimulationsRef.current}-tgt${debouncedTarget}`
           });
         } else {
@@ -579,7 +581,9 @@ export function useMonteCarloStats({
             subjects: subjectsOpts,
             flashcardImmunity: globalImmunityFactor,
             // T-014 FIX: cortes históricos também no modo normal
-            historicalCutoffs: historicalCutoffsRef.current
+            historicalCutoffs: historicalCutoffsRef.current,
+            simuladoRows: rawSimuladoRowsRef.current,
+            categoryNames: subjectsOpts.map(s => s.name)
           };
 
           // Compatibilidade dupla:

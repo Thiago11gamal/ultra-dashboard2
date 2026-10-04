@@ -364,9 +364,14 @@ export function simulateNormalDistribution(
             : null;
 
         try {
-            const cov = buildCovarianceMatrix(subjectStats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
-            const psdCov = ensurePositiveSemiDefinite(cov);
-            subjectCholesky = choleskyDecomposition(psdCov);
+            // Gaussian Copula: decompor a matriz de CORRELAÇÃO R (sd = 1).
+            // Desta forma, Z = L*W possui variância unitária e u = Phi(Z) é genuinamente
+            // uniforme em (0, 1), permitindo que truncatedNormalFromUniform aplique
+            // o desvio padrão real de cada matéria sem inflar a variância ao quadrado.
+            const corrStats = subjectStats.map(s => ({ ...s, sd: 1 }));
+            const corr = buildCovarianceMatrix(corrStats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
+            const psdCorr = ensurePositiveSemiDefinite(corr);
+            subjectCholesky = choleskyDecomposition(psdCorr);
         } catch (err) {
             console.warn('[MonteCarlo] Cholesky falhou, usando disciplinas independentes:', err?.message || err);
             subjectCholesky = null;
@@ -577,8 +582,8 @@ export function simulateNormalDistribution(
     } else if (effectiveTarget <= minScore && !hasCutoffs) {
         analyticalProbability = 100;
     } else {
-        analyticalProbability = (isUnderflowStress || hasCutoffs)
-            ? empiricalProbability
+        analyticalProbability = (isUnderflowStress || hasCutoffs || subjectParams.length > 0)
+            ? bayesEmpiricalProbability
             : ((clampedPhiTarget - phiMax) / truncNormFactor) * 100;
     }
 

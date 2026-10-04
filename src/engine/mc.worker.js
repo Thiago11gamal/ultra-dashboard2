@@ -137,6 +137,8 @@ self.onmessage = function(e) {
                                 : [])
                             : undefined,
                         flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
+                        simuladoRows: input.simuladoRows,
+                        categoryNames: input.categoryNames,
                     });
                 } else {
                     const sanitizedInput = {
@@ -246,6 +248,8 @@ self.onmessage = function(e) {
                         : [])
                     : undefined,
                 flashcardImmunity: payload.flashcardImmunity !== undefined ? safeNum(payload.flashcardImmunity, 1.0) : undefined,
+                simuladoRows: payload.simuladoRows,
+                categoryNames: payload.categoryNames,
             });
         } else {
             self.postMessage({ id, type: 'error', error: `Tipo de mensagem desconhecido: ${type}` });

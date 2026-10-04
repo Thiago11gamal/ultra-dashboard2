@@ -809,7 +809,7 @@ export function monteCarloSimulation(
       // FIX APLICADO: Utilizando cutoffSubjects para resgatar os nomes corretamente
       const adaptiveRhoContext = options?.simuladoRows ? { 
           simuladoRows: options.simuladoRows, 
-          categoryNames: cutoffSubjects.map(s => s.name) 
+          categoryNames: cutoffSubjects.map(s => String(s?.name ?? s?.id ?? 'subject')) 
       } : null;
       
       try {

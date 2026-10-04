@@ -700,7 +700,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     // Se autorizado, substitui a tendência simples pela tendência do Kalman.
     const rawTrend = stateSpace && getCoachFeature(options, 'useStateSpaceTrend', false)
       ? stateSpace.trendPerMonth
-      : calculateSlope(trendHistory, maxScore) * 30;
+      : calculateSlope(trendHistory, maxScore, { minScore }) * 30;
 
     const limiteSuperior = maxScore - averageScore;
     const limiteInferior = minScore - averageScore;
@@ -1630,12 +1630,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             if (!categoryStillExists) {
                 _urgencyCache.delete(cacheKey);
             } else {
-                // ✅ FIX: Verificar se o cache ainda é válido (TTL)
-                if (Date.now() - cachedUrgency.timestamp > CACHE_TTL_MS) {
-                    _urgencyCache.delete(cacheKey);
-                } else {
-                    return deepClone(cachedUrgency);
-                }
+                return deepClone(cachedUrgency);
             }
         }
         const metrics = extractMetrics(safeCat, safeSims, safeLogs, options);
@@ -2798,14 +2793,14 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
 
     Object.entries(rowsByDate).forEach(([dKey, stats]) => {
         if (stats.total > 0) {
-            const score = (stats.correct / stats.total) * maxScore;
+            const score = minScore + (stats.correct / stats.total) * (maxScore - minScore);
             const safeScoreStr = Number.isFinite(score) ? String(Math.round(score * 100)) : '0';
             const key = `legacy-${dKey}|${dKey}|${safeScoreStr}`;
             if (!deduplicatedMap.has(key)) {
                 deduplicatedMap.set(key, {
                     id: `legacy-${dKey}`,
                     date: dKey,
-                    score: Number.isFinite(score) ? score : 0,
+                    score: Number.isFinite(score) ? score : minScore,
                     type: 'simulado'
                 });
             }

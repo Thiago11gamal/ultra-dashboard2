@@ -146,6 +146,8 @@ export function useMonteCarloWorker() {
                     subjects: options.subjects,
                     historicalCutoffs: options.historicalCutoffs,
                     flashcardImmunity: options.flashcardImmunity,
+                    simuladoRows: options.simuladoRows,
+                    categoryNames: options.categoryNames,
                 });
             }
         }

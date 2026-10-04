@@ -1,4 +1,4 @@
-6y5import { getXPProgress } from './gamification.js';
+import { getXPProgress } from './gamification.js';
 import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
 import { parseNoonLocal } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
