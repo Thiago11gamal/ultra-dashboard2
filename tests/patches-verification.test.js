@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { repairContestHistory, sanitizeContest } from '../src/store/schemas.js';
 import { useAppStore } from '../src/store/useAppStore.js';
 import { deduplicateSimulados } from '../src/utils/measurement.js';
@@ -144,7 +144,7 @@ describe('Patches Verification Test Suite (PATCH-001 to PATCH-035)', () => {
     });
     // Call setAppState omitting history property
     const currentState = useAppStore.getState().appState;
-    const { history, ...stateWithoutHistory } = currentState;
+    const { history: _history, ...stateWithoutHistory } = currentState;
     useAppStore.getState().setAppState(stateWithoutHistory);
     expect(useAppStore.getState().appState.history).toEqual(existingHistory);
   });

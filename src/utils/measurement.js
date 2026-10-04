@@ -517,7 +517,7 @@ export function deduplicateSimulados(simulados, options = {}) {
 
   const map = new Map();
 
-  safeArray(simulados).forEach((s, idx) => {
+  safeArray(simulados).forEach((s) => {
     const norm = normalizeScoreValue(s, maxScore, minScore);
 
     const subjectKey = normalizeSubjectKey(
