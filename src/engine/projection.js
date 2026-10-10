@@ -499,7 +499,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     // Usar T-Student adaptativo para amostras pequenas em vez de Z=1.96 fixo
     const tMult = getConfidenceMultiplier(sortedHistory.length);
-    const marginOfError = tMult * predictionSD; 
+    const marginOfError = Math.min((maxScore - minScore), tMult * predictionSD); 
 
     return {
         // FIX #2: Precisão completa
@@ -594,11 +594,7 @@ export function monteCarloSimulation(
     }
 
     if (optionsCurrentMean !== undefined) {
-        const lastDate = safeDateParse(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt);
-        const referenceNow = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
-        const lastTs = lastDate && !Number.isNaN(lastDate.getTime()) ? lastDate.getTime() : Date.now();
-        const daysToNow = Math.max(1, (referenceNow - lastTs) / 86400000);
-        baselineScore = calculateDynamicEMA(optionsCurrentMean, baselineScore, sortedHistory.length + 1, daysToNow);
+        baselineScore = optionsCurrentMean;
     }
     const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;   // ✅ LOTE-03
     // ✅ LOTE-06 FIX (SCENARIO-1): meanBiasFactor é percentual do maxScore, não do range.
@@ -645,7 +641,7 @@ export function monteCarloSimulation(
 
     const regressionResult = sortedHistory.length > 1
         ? weightedRegression(sortedHistory, 0.08, maxScore, { ...options, minScore })
-        : { slope: 0, slopeStdError: 1.5 * scaleFactorFallback };
+        : { slope: 0, slopeStdError: 0.05 * scaleFactorFallback };
 
     let effectiveDriftSlope = regressionResult.slope;
 
@@ -864,6 +860,7 @@ export function monteCarloSimulation(
         );
         let currentSimScore = baselineScore;
         let currentVolSq = unconditionalVar;
+        let accumulatedDrift = 0;
 
         for (let d = 1; d <= simulationDays; d++) {
             // [RIGOR-FIX] Drift Damping Adaptativo: O impacto da tendência diminui com o tempo (Log-decay)
@@ -871,15 +868,16 @@ export function monteCarloSimulation(
             const driftDamping = 1 / (1 + d / dampingBase); 
             const driftEffect = sampledDrift * driftDamping;
 
-            // IMPROVED: Stronger reversion to historical mean, especially on negative drift.
-            // The O-U reversion target should be stable to prevent double counting drift.
-            let meanReversionTarget = stableMeanTarget;
-            meanReversionTarget = Math.min(maxScore, Math.max(minScore, meanReversionTarget));
-            let meanReversion = Math.max(0.005, thetaOU) * (meanReversionTarget - currentSimScore);
+            // Reversão de Ornstein-Uhlenbeck em relação à trajetória estrutural esperada antes do passo diário
+            const prevTarget = Math.max(minScore, Math.min(maxScore, baselineScore + accumulatedDrift));
+            let meanReversion = Math.max(0.005, thetaOU) * (prevTarget - currentSimScore);
             const adaptiveVol = Math.sqrt(Math.max(1e-6, currentVolSq));
             // Prevent extreme reversion pulls that cause artificial boundary piling in long simulations
             const maxReversionPull = adaptiveVol * 3;
             meanReversion = Math.max(-maxReversionPull, Math.min(maxReversionPull, meanReversion));
+
+            // Atualiza a trajetória esperada acumulada com o drift do dia
+            accumulatedDrift += driftEffect;
             
             // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)
             // O choque empírico tem de ser escalado para a volatilidade GARCH atual

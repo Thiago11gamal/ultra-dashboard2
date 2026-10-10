@@ -44,6 +44,12 @@ export function truncatedNormalMean(mean, sd, a, b) {
         const sBeta = normalCDF_complement(beta);
         denominator = sAlpha - sBeta;
         phiAlpha = 1 - sAlpha;
+    } else if (alpha < 0 && beta < 0) {
+        // Evita cancelamento catastrófico na cauda esquerda usando simetria: Φ(z) = S(-z)
+        const sNegBeta = normalCDF_complement(-beta);
+        const sNegAlpha = normalCDF_complement(-alpha);
+        denominator = sNegBeta - sNegAlpha;
+        phiAlpha = sNegAlpha;
     } else {
         phiAlpha = 1 - normalCDF_complement(alpha);
         const phiBeta = 1 - normalCDF_complement(beta);
@@ -292,6 +298,12 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options) {
         const sBeta = normalCDF_complement(beta);
         diff = sAlpha - sBeta;
         cdfMin = 1 - sAlpha;
+    } else if (alpha < 0 && beta < 0) {
+        // Evita cancelamento catastrófico na cauda esquerda usando simetria: Φ(z) = S(-z)
+        const sNegBeta = normalCDF_complement(-beta);
+        const sNegAlpha = normalCDF_complement(-alpha);
+        diff = sNegBeta - sNegAlpha;
+        cdfMin = sNegAlpha;
     } else {
         cdfMin = 1 - normalCDF_complement(alpha);
         const cdfMax = 1 - normalCDF_complement(beta);
@@ -349,6 +361,11 @@ export function truncatedNormalFromUniform(mean, sd, min, max, u) {
         const sBeta = normalCDF_complement(beta);
         diff = sAlpha - sBeta;
         cdfMin = 1 - sAlpha;
+    } else if (alpha < 0 && beta < 0) {
+        const sNegBeta = normalCDF_complement(-beta);
+        const sNegAlpha = normalCDF_complement(-alpha);
+        diff = sNegBeta - sNegAlpha;
+        cdfMin = sNegAlpha;
     } else {
         cdfMin = 1 - normalCDF_complement(alpha);
         const cdfMax = 1 - normalCDF_complement(beta);

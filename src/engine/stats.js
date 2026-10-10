@@ -108,12 +108,14 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     }
 
     const minScore = safeMinScoreValue(effectiveOptions?.minScore, 0);
+    const scaleFactor = Math.max(1e-6, (effectiveMaxScore - minScore) / 100);
+    const defaultSlopeStdError = 0.05 * scaleFactor;
 
     const safeHistory = toHistoryArray(history);
-    if (safeHistory.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
+    if (safeHistory.length < 2) return { slope: 0, intercept: 0, slopeStdError: defaultSlopeStdError };
 
     const sorted = getSortedHistory(safeHistory);
-    if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: 1.5 };
+    if (sorted.length < 2) return { slope: 0, intercept: 0, slopeStdError: defaultSlopeStdError };
 
     const parsedReferenceDate = effectiveOptions.referenceDate != null ? safeDateParse(effectiveOptions.referenceDate) : null;
     const now = parsedReferenceDate && Number.isFinite(parsedReferenceDate.getTime())
@@ -166,7 +168,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
     if (safeSumW < 1e-15 || regularizedDenominator < 1e-15) {
         const fallbackScore = getSafeScore(sorted[sorted.length - 1], effectiveMaxScore, minScore);
-        return { slope: 0, intercept: Number.isFinite(fallbackScore) ? fallbackScore : 0, slopeStdError: 1.5 };
+        return { slope: 0, intercept: Number.isFinite(fallbackScore) ? fallbackScore : 0, slopeStdError: defaultSlopeStdError };
     }
 
     let slope = covXY / regularizedDenominator;
@@ -228,12 +230,14 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
         const yRSS = valRSS - cRSS; const tRSS = rss + yRSS; cRSS = (tRSS - rss) - yRSS; rss = tRSS;
     }
 
-    if (sumW2 <= 1e-15) return 1.5 * (maxScore / 100);
+    const scaleFactorFallback = Math.max(1e-6, (maxScore - minScore) / 100);
+    const defaultSlopeStdError = 0.05 * scaleFactorFallback;
+
+    if (sumW2 <= 1e-15) return defaultSlopeStdError;
 
     const effectiveN = (sumW * sumW) / sumW2;
-    const scaleFactorFallback = maxScore / 100;
 
-    if (effectiveN <= 2.1) return 1.5 * scaleFactorFallback;
+    if (effectiveN <= 2.1) return defaultSlopeStdError;
 
     const variance = (rss / sumW) * (effectiveN / (effectiveN - 2));
     const varX = (sumWXX - (sumWX * sumWX) / sumW) / sumW;
@@ -243,7 +247,9 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     }
 
     const det = sumW * sumWXX - sumWX * sumWX;
-    return Math.sqrt(Math.max(0, (variance * sumW) / det));
+    const calculatedStdError = Math.sqrt(Math.max(0, (variance * sumW) / det));
+    const maxSlopeSe = 0.04 * (maxScore - minScore);
+    return Math.min(maxSlopeSe, calculatedStdError);
 }
 
 function getHistoryDateValue(entry) {
@@ -542,8 +548,7 @@ export function computeBayesianLevel(
                 ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000))
                 : 0;
 
-            const rawLambda = baseAdaptiveLambda * Math.exp(-0.15 * i);
-            const lambda = Math.max(0.005, Number.isFinite(rawLambda) ? rawLambda : baseAdaptiveLambda);
+            const lambda = Math.max(0.01, Math.min(0.08, baseAdaptiveLambda));
 
             const entryDecayRaw = i > 0 ? Math.exp(-lambda * gapDays) : 1.0;
             const entryDecay = Number.isFinite(entryDecayRaw) ? Math.max(0, Math.min(1, entryDecayRaw)) : 1.0;
@@ -568,11 +573,14 @@ export function computeBayesianLevel(
                     const nAfterDecayRaw = Math.max(safeFloor, Math.min(nBeforeDecay, Math.max(minN, nBeforeDecay * entryDecay)));
                     const nAfterDecay = Number.isFinite(nAfterDecayRaw) ? nAfterDecayRaw : safeFloor;
 
-                    const priorP = i > 0 ? runningPriors[i - 1] : runningPriors[0] || 0.5;
-                    const safePriorP = Number.isFinite(priorP) ? priorP : 0.5;
-
-                    const regressedPRaw = (currentP * entryDecay) + (safePriorP * (1 - entryDecay));
-                    const regressedP = Number.isFinite(regressedPRaw) ? Math.max(0, Math.min(1, regressedPRaw)) : currentP;
+                    let regressedP = currentP;
+                    if (gapDays > 21) {
+                        const priorP = i > 0 ? runningPriors[i - 1] : runningPriors[0] || 0.5;
+                        const safePriorP = Number.isFinite(priorP) ? priorP : 0.5;
+                        const forgettingDecay = Math.exp(-lambda * (gapDays - 21));
+                        const regressedPRaw = (currentP * forgettingDecay) + (safePriorP * (1 - forgettingDecay));
+                        regressedP = Number.isFinite(regressedPRaw) ? Math.max(0, Math.min(1, regressedPRaw)) : currentP;
+                    }
 
                     alpha = nAfterDecay * regressedP;
                     beta = nAfterDecay * (1 - regressedP);
@@ -660,8 +668,7 @@ export function computeBayesianLevel(
         const gapToToday = Number.isFinite(lastTime) ? Math.max(0, Math.floor((now - lastTime) / 86400000)) : 0;
 
         if (gapToToday > 0) {
-            const rawFinalLambda = baseAdaptiveLambda * Math.exp(-0.15 * (historySortedForGaps.length || 1));
-            const finalLambda = Math.max(0.005, Number.isFinite(rawFinalLambda) ? rawFinalLambda : baseAdaptiveLambda);
+            const finalLambda = Math.max(0.01, Math.min(0.08, baseAdaptiveLambda));
 
             const finalDecayRaw = Math.exp(-finalLambda * gapToToday);
             const finalDecay = Number.isFinite(finalDecayRaw) ? Math.max(0, Math.min(1, finalDecayRaw)) : 1;
@@ -680,11 +687,14 @@ export function computeBayesianLevel(
                 const nAfterDecayRaw = Math.max(epistemicFloor, Math.min(nBeforeDecay, nBeforeDecay * epistemicDecay));
                 const nAfterDecay = Number.isFinite(nAfterDecayRaw) ? nAfterDecayRaw : Math.max(epistemicFloor, Math.min(nBeforeDecay, epistemicFloor));
 
-                const empiricalPriorFinal = runningPriors.length > 0 ? runningPriors[runningPriors.length - 1] : 0.5;
-                const safeEmpiricalPriorFinal = Number.isFinite(empiricalPriorFinal) ? empiricalPriorFinal : 0.5;
-
-                const regressedPRaw = (currentP * finalDecay) + (safeEmpiricalPriorFinal * (1 - finalDecay));
-                const regressedP = Number.isFinite(regressedPRaw) ? Math.max(0, Math.min(1, regressedPRaw)) : currentP;
+                let regressedP = currentP;
+                if (gapToToday > 14) {
+                    const empiricalPriorFinal = runningPriors.length > 0 ? runningPriors[runningPriors.length - 1] : 0.5;
+                    const safeEmpiricalPriorFinal = Number.isFinite(empiricalPriorFinal) ? empiricalPriorFinal : 0.5;
+                    const forgettingDecay = Math.exp(-finalLambda * (gapToToday - 14));
+                    const regressedPRaw = (currentP * forgettingDecay) + (safeEmpiricalPriorFinal * (1 - forgettingDecay));
+                    regressedP = Number.isFinite(regressedPRaw) ? Math.max(0, Math.min(1, regressedPRaw)) : currentP;
+                }
 
                 alpha = nAfterDecay * regressedP;
                 beta = nAfterDecay * (1 - regressedP);

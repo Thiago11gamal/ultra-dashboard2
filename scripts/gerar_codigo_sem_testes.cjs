@@ -81,8 +81,10 @@ const rootConfigFiles = [
     'vite.config.js',
     'eslint.config.js',
     'tsconfig.json',
+    'tsconfig.node.json',
     'firebase.json',
-    'firestore.rules'
+    'firestore.rules',
+    'vercel.json'
 ];
 
 for (const file of rootConfigFiles) {

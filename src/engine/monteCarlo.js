@@ -241,6 +241,7 @@ export function simulateNormalDistribution(
             prob = 50; // Fronteira exata
         }
 
+        const kdeOffset = Math.max(1e-4, domainWidth * 0.001);
         return {
             simulationCount: safeSimulations,
             probability: prob,
@@ -263,9 +264,9 @@ export function simulateNormalDistribution(
             projectedMean: safeMean,
             projectedSD: 0,
             kdeData: [
-                safeMean > minScore ? { x: safeMean - 0.1, y: 0, density: 0 } : null,
+                safeMean > minScore ? { x: safeMean - kdeOffset, y: 0, density: 0 } : null,
                 { x: safeMean, y: 1, density: 1 },
-                safeMean < maxScore ? { x: safeMean + 0.1, y: 0, density: 0 } : null
+                safeMean < maxScore ? { x: safeMean + kdeOffset, y: 0, density: 0 } : null
             ].filter(Boolean),
             drift: 0,
             volatility: 0,
@@ -296,16 +297,18 @@ export function simulateNormalDistribution(
         const distMax = maxScore - safeMean;
 
         if (distMin < safeSD * 1.5 || distMax < safeSD * 1.5) {
-            const spread = Math.max(safeSD * 30, (maxScore - minScore) * 3);
+            const domainSpan = Math.max(1e-9, maxScore - minScore);
+            const spread = Math.max(safeSD * 30, domainSpan * 3);
             let muLow = minScore - spread;
             let muHigh = maxScore + spread;
+            const tol = Math.max(1e-7, domainSpan * 0.0001);
 
-            for (let iter = 0; iter < 20; iter++) {
+            for (let iter = 0; iter < 35; iter++) {
                 const currentTruncMean = truncatedNormalMean(muParam, safeSD, minScore, maxScore);
                 if (!Number.isFinite(currentTruncMean)) break;
 
                 const error = currentTruncMean - safeMean;
-                if (Math.abs(error) < 0.25) break;
+                if (Math.abs(error) < tol) break;
 
                 if (error > 0) muHigh = muParam;
                 else muLow = muParam;
