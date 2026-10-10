@@ -1,6 +1,6 @@
 # Código Fonte Completo do Projeto (Sem Testes)
 
-> **Data de geração:** 2026-10-10T21:25:43.756Z
+> **Data de geração:** 2026-10-10T21:31:59.315Z
 > **Total de arquivos:** 240
 
 ## Índice de Arquivos
@@ -58440,22 +58440,8 @@ export function monteCarloSimulation(
             timePenaltyApplied = true;
         }
     }
-
-    // IMPROVED mean reversion (from Coach+MC analysis): give stronger weight to historical mean when performance is declining.
-    // This prevents the projection from collapsing too aggressively on negative drift.
     const histScores = sortedHistory.map(h => getSafeScore(h, maxScore, minScore)).filter(Number.isFinite);
-    let historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
-
-    // Aplica o esmagamento da métrica no equilíbrio de longo prazo também
-    if (timePenaltyApplied && overflowRatio > 0) {
-        const guessScore = 0.2 * (maxScore - minScore) + minScore;
-        historicalMean = (historicalMean * (1 - overflowRatio)) + (guessScore * overflowRatio);
-    }
-
-    const belowHistorical = baselineScore < historicalMean;
-    const histWeight = belowHistorical ? 0.95 : 0.80;
-    const stableMeanTarget = Math.max(minScore, Math.min(maxScore, (historicalMean * histWeight + baselineScore * (1 - histWeight))));
-
+    const historicalMean = histScores.length > 0 ? kahanMean(histScores) : baselineScore;
     const regressionResult = sortedHistory.length > 1
         ? weightedRegression(sortedHistory, 0.08, maxScore, { ...options, minScore })
         : { slope: 0, slopeStdError: 0.05 * scaleFactorFallback };
