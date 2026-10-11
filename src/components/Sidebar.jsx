@@ -22,7 +22,8 @@ import {
     Calendar,
     ChevronsLeft,
     ChevronsRight,
-    ChevronDown
+    ChevronDown,
+    Layers
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
@@ -112,14 +113,11 @@ const Sidebar = React.memo(function Sidebar({
         if (!collapsed) {
             setFlyoutMenu(null);
             setSettingsExpanded(false);
-            if (contestEntries.length > 0) {
-                setContestsExpanded(true);
-            }
         } else {
             setContestsExpanded(false);
             setSettingsExpanded(false);
         }
-    }, [collapsed, contestEntries.length]);
+    }, [collapsed]);
 
     // Sincronizar variável CSS para largura do sidebar
     useEffect(() => {
@@ -292,7 +290,7 @@ const Sidebar = React.memo(function Sidebar({
                 {/* Nav Sections Scrollable Container */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
 
-                    {/* MEUS CONCURSOS SECTION */}
+                    {/* MEUS CONCURSOS / PAINÉIS SECTION */}
                     <div className="mb-2 relative sidebar-item-wrapper" ref={contestsFlyoutRef}>
                         <button
                             type="button"
@@ -303,32 +301,43 @@ const Sidebar = React.memo(function Sidebar({
                                     setContestsExpanded(!contestsExpanded);
                                 }
                             }}
-                            className="sidebar-item group justify-between tour-step-1 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
+                            className="sidebar-item sidebar-contest-card group justify-between tour-step-1"
                             aria-expanded={collapsed ? flyoutMenu === 'contests' : contestsExpanded}
                             aria-controls="sidebar-contests-panel"
                             aria-haspopup="true"
+                            title={`Painel Ativo: ${activeContestName}`}
                         >
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className="relative flex items-center justify-center shrink-0">
-                                    <Sparkles size={16} className="text-violet-400" />
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="sidebar-contest-icon-box relative">
+                                    <Layers size={15} className="text-violet-400" />
                                     {activeContestId && collapsed && (
                                         <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50" />
                                     )}
                                 </div>
-                                <div className="sidebar-item-text">
-                                    <span className="font-semibold text-slate-200 text-sm sidebar-item-label">Meus Concursos</span>
-                                    <ChevronDown 
-                                        size={14} 
-                                        className={`transition-transform duration-200 text-slate-400 ${contestsExpanded ? 'rotate-180' : ''}`} 
-                                    />
+                                <div className="sidebar-item-text flex flex-col items-start !justify-center leading-tight truncate">
+                                    <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest leading-none mb-0.5">
+                                        Painel Ativo
+                                    </span>
+                                    <div className="flex items-center gap-1.5 w-full">
+                                        <span className="font-bold text-slate-100 text-xs truncate">
+                                            {activeContestName}
+                                        </span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Ativo" />
+                                    </div>
                                 </div>
                             </div>
+                            {!collapsed && (
+                                <ChevronDown 
+                                    size={14} 
+                                    className={`transition-transform duration-200 text-slate-400 shrink-0 ml-1 ${contestsExpanded ? 'rotate-180' : ''}`} 
+                                />
+                            )}
                         </button>
 
                         {/* Floating Tooltip no modo recolhido */}
                         {collapsed && (
                             <div className="sidebar-floating-tooltip">
-                                <span>Meus Concursos</span>
+                                <span>Painéis de Estudo</span>
                                 <span className="text-[10px] text-violet-300 font-normal">({activeContestName})</span>
                             </div>
                         )}
@@ -338,8 +347,8 @@ const Sidebar = React.memo(function Sidebar({
                             <div className="sidebar-flyout-popover" role="menu">
                                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
                                     <div className="flex items-center gap-2">
-                                        <Sparkles size={14} className="text-violet-400" />
-                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Concursos</span>
+                                        <Layers size={14} className="text-violet-400" />
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Painéis</span>
                                     </div>
                                     <button 
                                         type="button" 
@@ -372,7 +381,7 @@ const Sidebar = React.memo(function Sidebar({
                                                 }}
                                             >
                                                 <div className="flex items-center gap-2 truncate">
-                                                    <LayoutDashboard size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
+                                                    <Layers size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
                                                     <span className="truncate">{name}</span>
                                                 </div>
                                                 {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
@@ -390,7 +399,7 @@ const Sidebar = React.memo(function Sidebar({
                                     }}
                                 >
                                     <Plus size={13} />
-                                    <span>Criar Novo Concurso</span>
+                                    <span>Criar Novo Painel</span>
                                 </button>
                             </div>
                         )}
@@ -403,7 +412,7 @@ const Sidebar = React.memo(function Sidebar({
                                 role="region"
                             >
                                 <div className="sidebar-accordion-inner">
-                                    <div className="nested-container space-y-1">
+                                    <div className="nested-container sidebar-contests-scroll-list space-y-1">
                                         {contestEntries.map(([id, contestData]) => {
                                             const name = (typeof contestData === 'string' && contestData.trim())
                                                 ? contestData
@@ -424,7 +433,7 @@ const Sidebar = React.memo(function Sidebar({
                                                         }}
                                                     >
                                                         <div className="nested-item-marker"></div>
-                                                        <LayoutDashboard size={13} className="text-slate-400 shrink-0" />
+                                                        <Layers size={13} className={isActive ? "text-violet-400 shrink-0" : "text-slate-400 shrink-0"} />
                                                         <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
                                                         {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0"></div>}
                                                     </button>
@@ -435,7 +444,7 @@ const Sidebar = React.memo(function Sidebar({
                                                             if (!isSingleContest) setContestToDelete({ id, name });
                                                         }}
                                                         disabled={isSingleContest}
-                                                        title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
+                                                        title={isSingleContest ? 'Mantenha ao menos um painel' : 'Mover para lixeira'}
                                                         className={`p-1 transition-all shrink-0 ${isSingleContest ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
                                                         aria-label={`Excluir ${name}`}
                                                     >
@@ -456,7 +465,7 @@ const Sidebar = React.memo(function Sidebar({
                                         >
                                             <div className="nested-item-marker !bg-emerald-500/20"></div>
                                             <Plus size={13} className="text-emerald-400 shrink-0" />
-                                            <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo</span>
+                                            <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo Painel</span>
                                         </button>
                                     </div>
                                 </div>
@@ -475,12 +484,13 @@ const Sidebar = React.memo(function Sidebar({
                                     const Icon = item.icon;
                                     const currentPath = location.pathname;
                                     const isActive = isMenuItemActive(currentPath, item.path);
+                                    const isMeuPainel = item.path === '/';
 
                                     return (
                                         <div key={item.path} className="sidebar-item-wrapper">
                                             <Link
                                                 to={item.path}
-                                                className={`sidebar-item focus-visible:outline-none ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
+                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
                                                 aria-current={isActive ? "page" : undefined}
                                                 style={{
                                                     '--item-color': item.color,
@@ -493,9 +503,14 @@ const Sidebar = React.memo(function Sidebar({
                                                     closeMobileSidebar();
                                                 }}
                                             >
-                                                <Icon aria-hidden="true" />
+                                                <div className="sidebar-item-icon-wrapper">
+                                                    <Icon aria-hidden="true" size={16} />
+                                                </div>
                                                 <div className="sidebar-item-text">
                                                     <span className="sidebar-item-label">{item.label}</span>
+                                                    {isMeuPainel && isActive && (
+                                                        <span className="meu-painel-badge">Início</span>
+                                                    )}
                                                 </div>
                                             </Link>
 
@@ -509,6 +524,7 @@ const Sidebar = React.memo(function Sidebar({
                                                     }}
                                                 >
                                                     <span>{item.label}</span>
+                                                    {isMeuPainel && <span className="text-[10px] text-sky-300 font-normal">(Início)</span>}
                                                 </div>
                                             )}
                                         </div>
@@ -539,7 +555,9 @@ const Sidebar = React.memo(function Sidebar({
                                 aria-controls="sidebar-settings-panel"
                                 aria-haspopup="true"
                             >
-                                <Settings size={16} className="text-slate-400 shrink-0" />
+                                <div className="sidebar-item-icon-wrapper">
+                                    <Settings size={15} className="text-slate-400" />
+                                </div>
                                 <div className="sidebar-item-text">
                                     <span className="font-semibold text-sm sidebar-item-label">Configurações</span>
                                     <ChevronDown 
