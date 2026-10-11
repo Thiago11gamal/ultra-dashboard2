@@ -93,6 +93,7 @@ const Sidebar = React.memo(function Sidebar({
     const [contestToDelete, setContestToDelete] = useState(null);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const isPomodoroRunning = useAppStore(state => state.appState?.pomodoro?.isRunning || false);
 
     const sidebarRef = useRef(null);
     const contestsFlyoutRef = useRef(null);
@@ -485,12 +486,13 @@ const Sidebar = React.memo(function Sidebar({
                                     const currentPath = location.pathname;
                                     const isActive = isMenuItemActive(currentPath, item.path);
                                     const isMeuPainel = item.path === '/';
+                                    const isCronometro = item.path === '/pomodoro';
 
                                     return (
                                         <div key={item.path} className="sidebar-item-wrapper">
                                             <Link
                                                 to={item.path}
-                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
+                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${isCronometro ? 'cronometro-item' : ''} ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
                                                 aria-current={isActive ? "page" : undefined}
                                                 style={{
                                                     '--item-color': item.color,
@@ -511,6 +513,16 @@ const Sidebar = React.memo(function Sidebar({
                                                     {isMeuPainel && isActive && (
                                                         <span className="meu-painel-badge">Início</span>
                                                     )}
+                                                    {isCronometro && (
+                                                        <div className="flex items-center gap-1.5 ml-auto">
+                                                            {isPomodoroRunning && (
+                                                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Sessão em andamento" />
+                                                            )}
+                                                            {isActive && (
+                                                                <span className="cronometro-badge">Foco</span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </Link>
 
@@ -525,6 +537,7 @@ const Sidebar = React.memo(function Sidebar({
                                                 >
                                                     <span>{item.label}</span>
                                                     {isMeuPainel && <span className="text-[10px] text-sky-300 font-normal">(Início)</span>}
+                                                    {isCronometro && <span className="text-[10px] text-rose-300 font-normal">{isPomodoroRunning ? '(Em Foco)' : '(Timer)'}</span>}
                                                 </div>
                                             )}
                                         </div>

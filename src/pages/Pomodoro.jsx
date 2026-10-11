@@ -686,7 +686,7 @@ function PomodoroSidePanel({
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.01, zIndex: 100 }}
-            className={`flex flex-col w-full relative group p-4 sm:p-5 bg-[#08090f]/75 border border-white/10 rounded-3xl backdrop-blur-xl shadow-2xl ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col w-full relative group p-3.5 sm:p-4 bg-[#08090f]/75 border border-white/10 rounded-2xl sm:rounded-3xl backdrop-blur-xl shadow-2xl xl:max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {/* Controles de Arrasto e Bloqueio (no Hover superior) */}
             <div className="absolute -top-11 left-0 right-0 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0 z-30">
@@ -802,42 +802,43 @@ function PomodoroSidePanel({
 }
 
 // =====================================================
-// BARRA SUPERIOR DO CRONÔMETRO (AMPLIADA E COM MAIOR DESTAQUE)
+// =====================================================
+// BARRA SUPERIOR DO CRONÔMETRO (COMPACTA, ELEGANTE E PERFEITAMENTE ENQUADRADA)
 // =====================================================
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
     const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
 
     return (
-        <div className="w-full rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#94785a] bg-[#b08e6b] px-5 sm:px-7 py-4 sm:py-5 shadow-2xl relative overflow-hidden group">
+        <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
-            <div className="flex items-center justify-between gap-3 sm:gap-5 relative z-10">
-                <div className="flex items-center gap-3.5 sm:gap-5 min-w-0 flex-1">
-                    <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
-                        {activeSubject ? <Target size={30} className="text-[#2d1a12]" /> : <Zap size={30} className="text-[#2d1a12]" />}
+            <div className="flex items-center justify-between gap-3 relative z-10">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
+                        {activeSubject ? <Target size={20} className="text-[#2d1a12]" /> : <Zap size={20} className="text-[#2d1a12]" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs sm:text-sm font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] text-[#2d1a12]/85 truncate">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#2d1a12]/85 truncate">
                                 {activeSubject?.category || 'SISTEMA'}
                             </span>
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-700 animate-pulse shrink-0 shadow-sm" />
+                            <div className="w-2 h-2 rounded-full bg-emerald-700 animate-pulse shrink-0 shadow-sm" />
                         </div>
-                        <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}>
+                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}>
                             {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}
                         </h1>
                     </div>
                 </div>
-                <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
-                    <span className="px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/10 text-[#2d1a12] shadow-sm">
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2.5 sm:px-3 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/10 text-[#2d1a12] shadow-sm">
                         {neuralMode ? 'NEURAL' : 'MANUAL'}
                     </span>
                     <button
                         type="button"
                         onClick={onToggleLock}
-                        className={`p-2.5 sm:p-3 rounded-xl border transition-all shadow-sm ${isLayoutLocked ? 'bg-[#2d1a12]/10 border-[#2d1a12]/20 text-[#2d1a12]/60 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12]'}`}
+                        className={`p-1.5 sm:p-2 rounded-lg border transition-all shadow-sm ${isLayoutLocked ? 'bg-[#2d1a12]/10 border-[#2d1a12]/20 text-[#2d1a12]/60 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12]'}`}
                         title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
                     >
-                        {isLayoutLocked ? <Lock size={17} /> : <Unlock size={17} />}
+                        {isLayoutLocked ? <Lock size={14} /> : <Unlock size={14} />}
                     </button>
                 </div>
             </div>
@@ -909,10 +910,17 @@ export default function Pomodoro() {
     }, [location.state?.from]);
 
     useEffect(() => {
-        if (activeSubject && topRef.current) {
-            topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Garantir que a tela do cronômetro seja perfeitamente enquadrada a partir do topo
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    }, [activeSubject, activeSubject?.sessionInstanceId]);
+        if (topRef.current) {
+            const mainContainer = topRef.current.closest('main');
+            if (mainContainer) {
+                mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    }, [activeSubject?.taskId, activeSubject?.sessionInstanceId]);
 
     const resolveReturnPath = (source, forceDashboard = false) => {
         if (forceDashboard) return '/';
@@ -1211,10 +1219,10 @@ export default function Pomodoro() {
 
     return (
         <PageErrorBoundary pageName="Pomodoro">
-            <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-1 sm:pt-2 pb-4 px-2 sm:px-4">
-                <div className="flex flex-col xl:flex-row gap-4 sm:gap-5 lg:gap-6 items-start justify-center w-full max-w-[1240px] xl:max-w-[1360px] 2xl:max-w-[1420px] mx-auto">
-                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (TODOS ENCOSTADOS SEM ESPAÇOS VAZIOS) */}
-                    <div className="w-full xl:w-[540px] 2xl:w-[580px] flex-shrink-0 flex flex-col items-center gap-1 min-w-0">
+            <div ref={topRef} className="min-h-0 flex items-start justify-center pt-0.5 sm:pt-1 pb-2 sm:pb-3 px-2 sm:px-4">
+                <div className="flex flex-col xl:flex-row gap-3.5 sm:gap-4 lg:gap-5 items-start justify-center w-full max-w-[1180px] xl:max-w-[1280px] 2xl:max-w-[1360px] mx-auto">
+                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (PERFEITAMENTE ENQUADRADO) */}
+                    <div className="w-full xl:w-[480px] 2xl:w-[510px] flex-shrink-0 flex flex-col items-center gap-1 min-w-0">
                         <PomodoroTopBar
                             activeSubject={activeSubject}
                             neuralMode={neuralMode}
@@ -1238,7 +1246,7 @@ export default function Pomodoro() {
                     </div>
 
                     {/* COLUNA 2: PAINEL LATERAL COM AS DUAS OPÇÕES DE VISUALIZAÇÃO */}
-                    <div className="w-full xl:w-[440px] 2xl:w-[480px] flex-shrink-0 min-w-0">
+                    <div className="w-full xl:w-[400px] 2xl:w-[440px] flex-shrink-0 min-w-0">
                         <PomodoroSidePanel
                             activeTab={activeSideTab}
                             setActiveTab={handleTabChange}

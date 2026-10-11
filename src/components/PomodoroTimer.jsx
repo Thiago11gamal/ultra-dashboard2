@@ -1156,7 +1156,7 @@ function PomodoroTimer({
                     backgroundPosition: 'center',
                     boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
                 }}
-                className="w-full border-4 sm:border-[5px] border-[#3f2e26] p-4 sm:p-5 sm:pt-4 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
+                className="w-full border-3 sm:border-4 border-[#3f2e26] p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
 
                 {/* Mostrador SVG, Toolbar e Indicadores */}
@@ -1187,14 +1187,14 @@ function PomodoroTimer({
 
                 {/* Botão de Abortar Sessão */}
                 {!isProtocolInactive && (
-                    <div className="w-full max-w-xs mt-2 pt-2 mb-2 border-t border-white/10">
+                    <div className="w-full max-w-xs mt-1 pt-1.5 mb-0.5 border-t border-white/10">
                         <button
                             type="button"
                             onClick={() => setShowAbandonConfirm(true)}
-                            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-xl transition-all text-[10px] font-bold text-red-300 group shadow-md"
+                            className="w-full flex items-center justify-center gap-1.5 py-1 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-lg transition-all text-[9px] font-bold text-red-300 group shadow-md"
                         >
                             <RotateCcw
-                                size={12}
+                                size={11}
                                 className="text-red-400 group-hover:rotate-[-90deg] transition-transform"
                             />
                             ABORTAR SESSÃO
