@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
     LayoutDashboard,
     CheckSquare,
@@ -36,37 +37,37 @@ import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
 
 const SECTIONS = [
     {
-        label: 'Navegação',
+        label: 'Foco & Navegação',
         items: [
             { path: '/', label: 'Meu Painel', icon: LayoutDashboard, color: '#38bdf8' },
             { path: '/pomodoro', label: 'Cronômetro', icon: Timer, color: '#fb7185' },
-            { path: '/sessions', label: 'Sessões', icon: Clock, color: '#34d399' },
             { path: '/tasks', label: 'Tarefas', icon: CheckSquare, color: '#fbbf24' },
+            { path: '/sessions', label: 'Sessões', icon: Clock, color: '#34d399' },
         ]
     },
     {
-        label: 'Dados & Análise',
+        label: 'Central IA',
+        items: [
+            { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc', isAi: true },
+            { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa', isAi: true },
+        ]
+    },
+    {
+        label: 'Métricas & Análise',
         items: [
             { path: '/stats', label: 'Estatísticas', icon: BarChart3, color: '#818cf8' },
             { path: '/evolution', label: 'Evolução', icon: TrendingUp, color: '#f472b6' },
             { path: '/heatmap', label: 'Atividade', icon: CalendarDays, color: '#2dd4bf' },
             { path: '/history', label: 'Histórico', icon: History, color: '#94a3b8' },
             { path: '/retention', label: 'Retenção', icon: Brain, color: '#a78bfa' },
-            { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa' },
         ]
     },
     {
-        label: 'Inteligência',
-        items: [
-            { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc' },
-            { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
-        ]
-    },
-    {
-        label: 'Ferramentas',
+        label: 'Ferramentas de Estudo',
         items: [
             { path: '/flashcards', label: 'Flashcards', icon: BookOpen, color: '#f59e0b' },
             { path: '/agenda', label: 'Agenda de Estudos', icon: Calendar, color: '#14b8a6' },
+            { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
         ]
     }
 ];
@@ -90,6 +91,8 @@ const Sidebar = React.memo(function Sidebar({
     const [contestsExpanded, setContestsExpanded] = useState(false);
     const [settingsExpanded, setSettingsExpanded] = useState(false);
     const [flyoutMenu, setFlyoutMenu] = useState(null); // 'contests' | 'settings' | null
+    const [flyoutAnchorRect, setFlyoutAnchorRect] = useState(null);
+    const [hoveredTooltip, setHoveredTooltip] = useState(null);
     const [contestToDelete, setContestToDelete] = useState(null);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -113,12 +116,62 @@ const Sidebar = React.memo(function Sidebar({
     useEffect(() => {
         if (!collapsed) {
             setFlyoutMenu(null);
+            setFlyoutAnchorRect(null);
+            setHoveredTooltip(null);
             setSettingsExpanded(false);
         } else {
             setContestsExpanded(false);
             setSettingsExpanded(false);
         }
     }, [collapsed]);
+
+    // Handlers para abrir/fechar Flyouts com posição de âncora fixa
+    const handleToggleContestsFlyout = useCallback((e) => {
+        if (collapsed) {
+            if (flyoutMenu === 'contests') {
+                setFlyoutMenu(null);
+                setFlyoutAnchorRect(null);
+            } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setFlyoutAnchorRect(rect);
+                setFlyoutMenu('contests');
+                setHoveredTooltip(null);
+            }
+        } else {
+            setContestsExpanded(prev => !prev);
+        }
+    }, [collapsed, flyoutMenu]);
+
+    const handleToggleSettingsFlyout = useCallback((e) => {
+        if (collapsed) {
+            if (flyoutMenu === 'settings') {
+                setFlyoutMenu(null);
+                setFlyoutAnchorRect(null);
+            } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setFlyoutAnchorRect(rect);
+                setFlyoutMenu('settings');
+                setHoveredTooltip(null);
+            }
+        } else {
+            setSettingsExpanded(prev => !prev);
+        }
+    }, [collapsed, flyoutMenu]);
+
+    const handleTooltipEnter = useCallback((e, item, extraBadge = null) => {
+        if (!collapsed) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        setHoveredTooltip({
+            label: item.label,
+            color: item.color || '#818cf8',
+            extraBadge,
+            rect
+        });
+    }, [collapsed]);
+
+    const handleTooltipLeave = useCallback(() => {
+        setHoveredTooltip(null);
+    }, []);
 
     // Sincronizar variável CSS para largura do sidebar
     useEffect(() => {
@@ -250,17 +303,18 @@ const Sidebar = React.memo(function Sidebar({
                 onKeyDown={handleKeyDown}
             >
                 {/* Logo Area & Direct Toggle */}
-                <div className="sidebar-header-area">
+                <div className={`sidebar-header-area ${collapsed ? 'sidebar-header-collapsed' : ''}`}>
                     <Link
                         to="/"
                         className="sidebar-logo"
                         onClick={closeMobileSidebar}
                         title="Método Arraia"
+                        onMouseEnter={(e) => handleTooltipEnter(e, { label: 'Método Arraia', color: '#818cf8' }, '(Início)')}
+                        onMouseLeave={handleTooltipLeave}
                     >
                         <img src={logo} alt="Método Arraia" />
                         <div className="sidebar-logo-text">
                             <span>Método Arraia</span>
-
                         </div>
                     </Link>
 
@@ -270,9 +324,11 @@ const Sidebar = React.memo(function Sidebar({
                         className="sidebar-toggle-btn hidden lg:flex"
                         onClick={() => setCollapsed(!collapsed)}
                         aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-                        title={collapsed ? "Expandir menu" : "Recolher menu"}
+                        title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+                        onMouseEnter={(e) => collapsed && handleTooltipEnter(e, { label: 'Expandir Menu', color: '#818cf8' })}
+                        onMouseLeave={handleTooltipLeave}
                     >
-                        {collapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
+                        {collapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={15} />}
                     </button>
 
                     {/* Botão de Fechar no Mobile */}
@@ -289,30 +345,32 @@ const Sidebar = React.memo(function Sidebar({
                 <div className="sidebar-divider"></div>
 
                 {/* Nav Sections Scrollable Container */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-
+                <div 
+                    className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar"
+                    onScroll={() => {
+                        setHoveredTooltip(null);
+                        setFlyoutMenu(null);
+                        setFlyoutAnchorRect(null);
+                    }}
+                >
                     {/* MEUS CONCURSOS / PAINÉIS SECTION */}
                     <div className="mb-2 relative sidebar-item-wrapper" ref={contestsFlyoutRef}>
                         <button
                             type="button"
-                            onClick={() => {
-                                if (collapsed) {
-                                    setFlyoutMenu(flyoutMenu === 'contests' ? null : 'contests');
-                                } else {
-                                    setContestsExpanded(!contestsExpanded);
-                                }
-                            }}
+                            onClick={handleToggleContestsFlyout}
                             className="sidebar-item sidebar-contest-card group justify-between tour-step-1"
                             aria-expanded={collapsed ? flyoutMenu === 'contests' : contestsExpanded}
                             aria-controls="sidebar-contests-panel"
                             aria-haspopup="true"
-                            title={`Painel Ativo: ${activeContestName}`}
+                            title={collapsed ? `Painel Ativo: ${activeContestName}` : undefined}
+                            onMouseEnter={(e) => handleTooltipEnter(e, { label: 'Painéis de Estudo', color: '#8b5cf6' }, `(${activeContestName})`)}
+                            onMouseLeave={handleTooltipLeave}
                         >
                             <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div className="sidebar-contest-icon-box relative">
                                     <Layers size={15} className="text-violet-400" />
-                                    {activeContestId && collapsed && (
-                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50" />
+                                    {activeContestId && (
+                                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#05070f] animate-pulse" title="Painel Ativo" />
                                     )}
                                 </div>
                                 <div className="sidebar-item-text flex flex-col items-start !justify-center leading-tight truncate">
@@ -334,76 +392,6 @@ const Sidebar = React.memo(function Sidebar({
                                 />
                             )}
                         </button>
-
-                        {/* Floating Tooltip no modo recolhido */}
-                        {collapsed && (
-                            <div className="sidebar-floating-tooltip">
-                                <span>Painéis de Estudo</span>
-                                <span className="text-[10px] text-violet-300 font-normal">({activeContestName})</span>
-                            </div>
-                        )}
-
-                        {/* Floating Flyout Popover para Concursos (Modo Recolhido) */}
-                        {collapsed && flyoutMenu === 'contests' && (
-                            <div className="sidebar-flyout-popover" role="menu">
-                                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-                                    <div className="flex items-center gap-2">
-                                        <Layers size={14} className="text-violet-400" />
-                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Painéis</span>
-                                    </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setFlyoutMenu(null)}
-                                        className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
-                                        aria-label="Fechar painel"
-                                    >
-                                        <X size={12} />
-                                    </button>
-                                </div>
-
-                                <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1 pr-1">
-                                    {contestEntries.map(([id, contestData]) => {
-                                        const name = (typeof contestData === 'string' && contestData.trim())
-                                            ? contestData
-                                            : getContestDisplayName(contestData) || "Meu Painel";
-                                        const isActive = id === activeContestId;
-                                        return (
-                                            <button
-                                                key={id}
-                                                type="button"
-                                                className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
-                                                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                                                }`}
-                                                onClick={() => {
-                                                    if (id !== activeContestId) onSwitchContest(id);
-                                                    setFlyoutMenu(null);
-                                                }}
-                                            >
-                                                <div className="flex items-center gap-2 truncate">
-                                                    <Layers size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
-                                                    <span className="truncate">{name}</span>
-                                                </div>
-                                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
-                                    onClick={() => {
-                                        onCreateContest();
-                                        setFlyoutMenu(null);
-                                    }}
-                                >
-                                    <Plus size={13} />
-                                    <span>Criar Novo Painel</span>
-                                </button>
-                            </div>
-                        )}
 
                         {/* Accordion suave baseado em CSS Grid para modo expandido (Zero stutter) */}
                         {!collapsed && (
@@ -478,9 +466,9 @@ const Sidebar = React.memo(function Sidebar({
 
                     {/* SECTIONS LIST */}
                     {SECTIONS.map((section, sIdx) => (
-                        <div key={sIdx} className={`mb-3 ${section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
+                        <div key={sIdx} className={`mb-2.5 ${section.label === 'Métricas & Análise' || section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
                             <h4 className="sidebar-nav-label" id={`section-${sIdx}`}>{section.label}</h4>
-                            <nav className="space-y-1" aria-labelledby={`section-${sIdx}`}>
+                            <nav className="space-y-0.5" aria-labelledby={`section-${sIdx}`}>
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
                                     const currentPath = location.pathname;
@@ -492,7 +480,7 @@ const Sidebar = React.memo(function Sidebar({
                                         <div key={item.path} className="sidebar-item-wrapper">
                                             <Link
                                                 to={item.path}
-                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${isCronometro ? 'cronometro-item' : ''} ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
+                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${isCronometro ? 'cronometro-item' : ''} ${item.path === '/coach' ? 'coach-ia-item' : ''} ${item.isAi ? 'ai-menu-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
                                                 aria-current={isActive ? "page" : undefined}
                                                 style={{
                                                     '--item-color': item.color,
@@ -504,14 +492,31 @@ const Sidebar = React.memo(function Sidebar({
                                                     }
                                                     closeMobileSidebar();
                                                 }}
+                                                onMouseEnter={(e) => {
+                                                    const extra = isMeuPainel 
+                                                        ? '(Início)' 
+                                                        : isCronometro 
+                                                            ? (isPomodoroRunning ? '(Em Foco ⏱️)' : '(Timer)') 
+                                                            : item.isAi 
+                                                                ? '(IA)' 
+                                                                : null;
+                                                    handleTooltipEnter(e, item, extra);
+                                                }}
+                                                onMouseLeave={handleTooltipLeave}
                                             >
-                                                <div className="sidebar-item-icon-wrapper">
+                                                <div className="sidebar-item-icon-wrapper relative">
                                                     <Icon aria-hidden="true" size={16} />
+                                                    {isCronometro && isPomodoroRunning && (
+                                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#05070f] animate-pulse" title="Sessão em andamento" />
+                                                    )}
                                                 </div>
                                                 <div className="sidebar-item-text">
                                                     <span className="sidebar-item-label">{item.label}</span>
                                                     {isMeuPainel && isActive && (
                                                         <span className="meu-painel-badge">Início</span>
+                                                    )}
+                                                    {item.isAi && (
+                                                        <span className="ai-item-badge">IA</span>
                                                     )}
                                                     {isCronometro && (
                                                         <div className="flex items-center gap-1.5 ml-auto">
@@ -525,21 +530,6 @@ const Sidebar = React.memo(function Sidebar({
                                                     )}
                                                 </div>
                                             </Link>
-
-                                            {/* Instant Floating Tooltip no modo recolhido */}
-                                            {collapsed && (
-                                                <div 
-                                                    className="sidebar-floating-tooltip"
-                                                    style={{
-                                                        '--item-color': item.color,
-                                                        '--item-color-alpha': `${item.color}25`
-                                                    }}
-                                                >
-                                                    <span>{item.label}</span>
-                                                    {isMeuPainel && <span className="text-[10px] text-sky-300 font-normal">(Início)</span>}
-                                                    {isCronometro && <span className="text-[10px] text-rose-300 font-normal">{isPomodoroRunning ? '(Em Foco)' : '(Timer)'}</span>}
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })}
@@ -556,17 +546,13 @@ const Sidebar = React.memo(function Sidebar({
                         <div className="mb-1 relative sidebar-item-wrapper" ref={settingsFlyoutRef}>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    if (collapsed) {
-                                        setFlyoutMenu(flyoutMenu === 'settings' ? null : 'settings');
-                                    } else {
-                                        setSettingsExpanded(!settingsExpanded);
-                                    }
-                                }}
+                                onClick={handleToggleSettingsFlyout}
                                 className="sidebar-item group bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
                                 aria-expanded={collapsed ? flyoutMenu === 'settings' : settingsExpanded}
                                 aria-controls="sidebar-settings-panel"
                                 aria-haspopup="true"
+                                onMouseEnter={(e) => handleTooltipEnter(e, { label: 'Configurações', color: '#94a3b8' })}
+                                onMouseLeave={handleTooltipLeave}
                             >
                                 <div className="sidebar-item-icon-wrapper">
                                     <Settings size={15} className="text-slate-400" />
@@ -579,94 +565,6 @@ const Sidebar = React.memo(function Sidebar({
                                     />
                                 </div>
                             </button>
-
-                            {/* Floating Tooltip no modo recolhido */}
-                            {collapsed && (
-                                <div className="sidebar-floating-tooltip">
-                                    <span>Configurações</span>
-                                </div>
-                            )}
-
-                            {/* Floating Flyout Popover para Configurações (Modo Recolhido) */}
-                            {collapsed && flyoutMenu === 'settings' && (
-                                <div className="sidebar-flyout-popover" role="menu">
-                                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-                                        <div className="flex items-center gap-2">
-                                            <Settings size={14} className="text-slate-400" />
-                                            <span className="text-xs font-bold text-white uppercase tracking-wider">Ajustes</span>
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setFlyoutMenu(null)}
-                                            className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
-                                            aria-label="Fechar painel"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-red-300 hover:bg-red-500/10 transition-colors"
-                                            onClick={() => {
-                                                onOpenTrash();
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <Trash2 size={13} className="text-red-400" />
-                                            <span>Lixeira</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-sky-300 hover:bg-sky-500/10 transition-colors"
-                                            onClick={() => {
-                                                onOpenHelp();
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <HelpCircle size={13} className="text-sky-400" />
-                                            <span>Ajuda & Guia</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-indigo-300 hover:bg-indigo-500/10 transition-colors"
-                                            onClick={() => {
-                                                useAppStore.getState().setHasSeenTour(false);
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <Sparkles size={13} className="text-indigo-400" />
-                                            <span>Reiniciar Tutorial</span>
-                                        </button>
-
-                                        <div className="border-t border-white/5 my-1"></div>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-bold text-red-400 hover:bg-red-500/20 transition-colors"
-                                            onClick={() => {
-                                                setShowResetConfirm(true);
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <Trash2 size={13} className="text-red-400" />
-                                            <span>Zerar Conta (Perigo)</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-rose-300 hover:bg-rose-500/15 transition-colors"
-                                            onClick={handleLogout}
-                                        >
-                                            <LogOut size={13} className="text-rose-400" />
-                                            <span>Sair da Conta</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Accordion suave baseado em CSS Grid para modo expandido */}
                             {!collapsed && (
@@ -748,6 +646,206 @@ const Sidebar = React.memo(function Sidebar({
                     </nav>
                 </div>
             </aside>
+
+            {/* PORTAL FIXED TOOLTIP (Zero clipping garantido) */}
+            {typeof document !== 'undefined' && collapsed && hoveredTooltip && createPortal(
+                <div
+                    className="sidebar-portal-tooltip"
+                    style={{
+                        top: `${hoveredTooltip.rect.top + hoveredTooltip.rect.height / 2}px`,
+                        left: `${hoveredTooltip.rect.right + 12}px`,
+                        '--item-color': hoveredTooltip.color,
+                        '--item-color-alpha': `${hoveredTooltip.color}25`
+                    }}
+                >
+                    <span>{hoveredTooltip.label}</span>
+                    {hoveredTooltip.extraBadge && (
+                        <span className="text-[10px] font-normal text-slate-300">
+                            {hoveredTooltip.extraBadge}
+                        </span>
+                    )}
+                </div>,
+                document.body
+            )}
+
+            {/* PORTAL FIXED FLYOUT POPOVER: CONCURSOS / PAINÉIS (Zero clipping garantido) */}
+            {typeof document !== 'undefined' && collapsed && flyoutMenu === 'contests' && flyoutAnchorRect && createPortal(
+                <>
+                    <div 
+                        className="sidebar-portal-flyout-overlay"
+                        onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                        aria-hidden="true"
+                    />
+                    <div 
+                        className="sidebar-portal-flyout-popover" 
+                        role="menu"
+                        style={{
+                            top: `${Math.max(12, Math.min(window.innerHeight - 320, flyoutAnchorRect.top))}px`,
+                            left: `${flyoutAnchorRect.right + 12}px`
+                        }}
+                    >
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                            <div className="flex items-center gap-2">
+                                <Layers size={14} className="text-violet-400" />
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Painéis de Estudo</span>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
+                                aria-label="Fechar painel"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+
+                        <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+                            {contestEntries.map(([id, contestData]) => {
+                                const name = (typeof contestData === 'string' && contestData.trim())
+                                    ? contestData
+                                    : getContestDisplayName(contestData) || "Meu Painel";
+                                const isActive = id === activeContestId;
+                                return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${
+                                            isActive 
+                                                ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
+                                                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                        }`}
+                                        onClick={() => {
+                                            if (id !== activeContestId) onSwitchContest(id);
+                                            setFlyoutMenu(null);
+                                            setFlyoutAnchorRect(null);
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Layers size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
+                                            <span className="truncate">{name}</span>
+                                        </div>
+                                        {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
+                            onClick={() => {
+                                onCreateContest();
+                                setFlyoutMenu(null);
+                                setFlyoutAnchorRect(null);
+                            }}
+                        >
+                            <Plus size={13} />
+                            <span>Criar Novo Painel</span>
+                        </button>
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {/* PORTAL FIXED FLYOUT POPOVER: CONFIGURAÇÕES (Zero clipping garantido) */}
+            {typeof document !== 'undefined' && collapsed && flyoutMenu === 'settings' && flyoutAnchorRect && createPortal(
+                <>
+                    <div 
+                        className="sidebar-portal-flyout-overlay"
+                        onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                        aria-hidden="true"
+                    />
+                    <div 
+                        className="sidebar-portal-flyout-popover" 
+                        role="menu"
+                        style={{
+                            top: `${Math.max(12, Math.min(window.innerHeight - 280, flyoutAnchorRect.bottom - 220))}px`,
+                            left: `${flyoutAnchorRect.right + 12}px`
+                        }}
+                    >
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                            <div className="flex items-center gap-2">
+                                <Settings size={14} className="text-slate-400" />
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Ajustes & Ações</span>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
+                                aria-label="Fechar painel"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-1">
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-red-300 hover:bg-red-500/10 transition-colors"
+                                onClick={() => {
+                                    onOpenTrash();
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Trash2 size={13} className="text-red-400" />
+                                <span>Lixeira</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-sky-300 hover:bg-sky-500/10 transition-colors"
+                                onClick={() => {
+                                    onOpenHelp();
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <HelpCircle size={13} className="text-sky-400" />
+                                <span>Ajuda & Guia</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                                onClick={() => {
+                                    useAppStore.getState().setHasSeenTour(false);
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Sparkles size={13} className="text-indigo-400" />
+                                <span>Reiniciar Tutorial</span>
+                            </button>
+
+                            <div className="border-t border-white/5 my-1"></div>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-bold text-red-400 hover:bg-red-500/20 transition-colors"
+                                onClick={() => {
+                                    setShowResetConfirm(true);
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Trash2 size={13} className="text-red-400" />
+                                <span>Zerar Conta (Perigo)</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-rose-300 hover:bg-rose-500/15 transition-colors"
+                                onClick={handleLogout}
+                            >
+                                <LogOut size={13} className="text-rose-400" />
+                                <span>Sair da Conta</span>
+                            </button>
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
 
             <ConfirmModal
                 isOpen={!!contestToDelete}

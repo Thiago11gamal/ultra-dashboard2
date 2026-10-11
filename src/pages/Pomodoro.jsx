@@ -688,29 +688,48 @@ function PomodoroSidePanel({
             whileDrag={{ scale: 1.01, zIndex: 100 }}
             className={`flex flex-col w-full relative group p-3.5 sm:p-4 bg-[#08090f]/75 border border-white/10 rounded-2xl sm:rounded-3xl backdrop-blur-xl shadow-2xl xl:max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
-            {/* Controles de Arrasto e Bloqueio (no Hover superior) */}
-            <div className="absolute -top-11 left-0 right-0 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0 z-30">
-                {!isLayoutLocked && (
+            {/* CABEÇALHO DO PAINEL LATERAL (INTEGRADO, FLUIDO E SEMPRE ACESSÍVEL) */}
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-slate-300">
+                        Painel Tático
+                    </span>
+                    {!isLayoutLocked ? (
+                        <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
+                            Móvel
+                        </span>
+                    ) : (
+                        <span className="text-[9px] font-bold text-slate-400 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-md">
+                            Fixo
+                        </span>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                    {!isLayoutLocked && (uiPosition.x !== 0 || uiPosition.y !== 0) && (
+                        <button
+                            type="button"
+                            onClick={resetPosition}
+                            className="px-2 py-1 rounded-lg bg-slate-900/90 text-slate-300 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow"
+                            title="Restaurar posição original"
+                        >
+                            <RotateCcw size={10} />
+                            <span>Resetar</span>
+                        </button>
+                    )}
                     <button
                         type="button"
-                        onClick={resetPosition}
-                        className="px-2.5 py-1 rounded-xl bg-slate-900/80 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-lg backdrop-blur-md"
+                        onClick={onToggleLock}
+                        className={`p-1.5 rounded-xl transition-all border flex items-center justify-center shadow backdrop-blur-md ${isLayoutLocked
+                            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                            }`}
+                        title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel na posição"}
+                        aria-label={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel na posição"}
                     >
-                        <RotateCcw size={11} />
-                        <span>Restaurar Posição</span>
+                        {isLayoutLocked ? <Lock size={12} /> : <Unlock size={12} />}
                     </button>
-                )}
-                <button
-                    type="button"
-                    onClick={onToggleLock}
-                    className={`p-1.5 rounded-xl transition-all border flex items-center justify-center shadow-lg backdrop-blur-md ${isLayoutLocked
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
-                        }`}
-                    title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
-                >
-                    {isLayoutLocked ? <Lock size={13} /> : <Unlock size={13} />}
-                </button>
+                </div>
             </div>
 
             {/* TAB SELECTOR: DUAS OPÇÕES DE VISUALIZAÇÃO */}
