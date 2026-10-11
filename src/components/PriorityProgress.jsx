@@ -100,8 +100,8 @@ export default function PriorityProgress({ categories = [] }) {
                                         className="text-purple-400/50 hover:text-purple-400 transition-colors"
                                     />
 
-                                    <span className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
-                                        <strong>Progresso Global:</strong> Representa o percentual total de tarefas concluídas em relação a todas as tarefas cadastradas, independente da prioridade.
+                                    <span className="absolute top-full left-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 leading-relaxed font-normal tracking-normal normal-case">
+                                        <strong className="text-white">Progresso Global:</strong> Representa o percentual total de tarefas concluídas em relação a todas as tarefas cadastradas, independente da prioridade.
                                     </span>
                                 </span>
                             </span>
@@ -181,8 +181,8 @@ export default function PriorityProgress({ categories = [] }) {
                                                 className={`${conf.text} opacity-50 hover:opacity-100 transition-opacity`}
                                             />
 
-                                            <span className="absolute top-full left-0 mt-2 w-48 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
-                                                <strong>{conf.label}:</strong>{' '}
+                                            <span className="absolute top-full left-0 mt-2 w-60 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 leading-relaxed font-normal tracking-normal normal-case">
+                                                <strong className="text-white">{conf.label}:</strong>{' '}
                                                 {p === 'high'
                                                     ? 'Tarefas mais urgentes e importantes. Priorize-as primeiro.'
                                                     : p === 'medium'

@@ -239,8 +239,8 @@ function ActivityHeatmap({ studyLogs = [] }) {
                     Visão Mensal
                     <div className="relative group/tooltip cursor-help ml-1 inline-flex">
                         <Info size={14} className="text-slate-500/50 hover:text-slate-400 transition-colors" />
-                        <div className="absolute top-full left-0 mt-2 w-56 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
-                            <strong>Mapa de Calor:</strong> Cada quadrado representa um dia. Quanto mais escuro o verde, mais tempo de estudo foi registrado no cronômetro ou adicionado manualmente.
+                        <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 font-normal tracking-normal normal-case leading-relaxed">
+                            <strong className="text-white">Mapa de Calor:</strong> Cada quadrado representa um dia. Quanto mais escuro o verde, mais tempo de estudo foi registrado no cronômetro ou adicionado manualmente.
                         </div>
                     </div>
                 </div>

@@ -180,7 +180,7 @@ function NextGoalCard({
     return (
         <section
             aria-label="Próxima missão sugerida"
-            className={`relative rounded-2xl border ${urgencyStyle.border} bg-[#2d1e12]/80 backdrop-blur-3xl transition-all duration-700 group overflow-visible shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]`}
+            className={`relative rounded-2xl border ${urgencyStyle.border} bg-slate-900/85 backdrop-blur-2xl transition-all duration-700 group overflow-visible shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]`}
         >
             {/* Background Layers */}
             <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
@@ -191,19 +191,19 @@ function NextGoalCard({
                 </div>
             </div>
 
-            <div className="relative z-10 p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
+            <div className="relative z-10 p-4 sm:p-5 md:p-6 flex flex-col md:flex-row items-center gap-4 sm:gap-6">
                 {/* Left: Category Icon */}
                 <div
                     aria-hidden="true"
-                    className={`w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center text-2xl md:text-3xl flex-shrink-0 border ${urgencyStyle.iconBg}`}
+                    className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 border shadow-inner ${urgencyStyle.iconBg}`}
                 >
                     {category.icon || '📚'}
                 </div>
 
                 {/* Center: Task Info */}
                 <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
-                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center">
+                    <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
                             PRÓXIMA MISSÃO
 
                             <span
@@ -215,8 +215,8 @@ function NextGoalCard({
                                     className="text-slate-500 hover:text-slate-400 transition-colors"
                                 />
 
-                                <span className="absolute top-full left-0 mt-2 w-56 p-2 bg-yellow-400 text-[10px] text-slate-900 rounded-lg shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-yellow-500 font-normal tracking-normal normal-case">
-                                    <strong>Por que isso?</strong> O Coach analisou sua frequência, prioridades e tempo sem ver as matérias para sugerir a tarefa de maior impacto.
+                                <span className="absolute top-full left-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 leading-relaxed font-normal tracking-normal normal-case">
+                                    <strong className="text-white">Por que isso?</strong> O Coach analisou sua frequência, prioridades e tempo sem ver as matérias para sugerir a tarefa de maior impacto.
                                 </span>
                             </span>
                         </span>

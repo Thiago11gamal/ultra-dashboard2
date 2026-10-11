@@ -311,7 +311,7 @@ const TaskItem = ({
                         title="Estudar agora"
                         aria-label={`Estudar agora: ${taskTitle}`}
                     >
-                        <Play size={14} className="sm:size-18 fill-purple-500/20" />
+                        <Play size={15} className="fill-purple-500/20" />
                     </button>
                 )}
 
@@ -392,9 +392,16 @@ const CategoryAccordion = React.memo(({
                     aria-controls={panelId}
                     className="flex items-center gap-3 sm:gap-4 flex-1 min-w-[220px] cursor-pointer text-left"
                 >
-                    <span className="text-xl sm:text-2xl flex-shrink-0" aria-hidden="true">
+                    <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl flex-shrink-0 border transition-transform duration-300 group-hover:scale-105 shadow-sm"
+                        style={{
+                            backgroundColor: `${category.color || '#a855f7'}18`,
+                            borderColor: `${category.color || '#a855f7'}35`
+                        }}
+                        aria-hidden="true"
+                    >
                         {category.icon || '📚'}
-                    </span>
+                    </div>
 
                     <div className="text-left flex-1 min-w-0 mr-2">
                         <div className="flex items-center gap-2 flex-wrap">
