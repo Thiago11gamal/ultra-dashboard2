@@ -485,37 +485,37 @@ export const WeeklyEvolutionView = ({
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
                             viewMode === 'performance' 
                                 ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                         }`}
                     >
-                        <Zap size={13} className="shrink-0" /> <span className="hidden sm:inline">Desempenho (7 dias)</span>
+                        <Zap size={13} className="shrink-0" /> <span className="sm:hidden">7 dias</span><span className="hidden sm:inline">Desempenho (7d)</span>
                     </button>
                     <button
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
                             viewMode === 'evolution' 
                                 ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                         }`}
                     >
-                        <TrendingUp size={13} className="shrink-0" /> <span className="hidden sm:inline">Evolução</span>
+                        <TrendingUp size={13} className="shrink-0" /> <span className="sm:hidden">Evol.</span><span className="hidden sm:inline">Evolução</span>
                     </button>
                     <button
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all will-change-transform ${
                             viewMode === 'variation' 
                                 ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
                                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                         }`}
                     >
-                        <BarChart3 size={13} className="shrink-0" /> <span className="hidden sm:inline">Delta</span>
+                        <BarChart3 size={13} className="shrink-0" /> <span className="sm:hidden">Delta</span><span className="hidden sm:inline">Delta</span>
                     </button>
                 </div>
             </div>

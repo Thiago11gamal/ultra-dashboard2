@@ -59,12 +59,12 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
         <button onClick={onClick}
             aria-pressed={isFocused}
             aria-label={`Focar na disciplina ${cat.name}`}
-            className={`relative text-left w-full rounded-3xl border overflow-hidden transition-all duration-300 group min-h-[90px] sm:min-h-[115px] flex flex-col justify-between ${isFocused ? 'z-20 border-white/20 bg-slate-900/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)]' : 'border-white/5 hover:border-white/10 hover:bg-slate-800/60 hover:-translate-y-1 backdrop-blur-sm'}`}
+            className={`relative text-left w-full rounded-2xl border overflow-hidden transition-all duration-300 group min-h-[85px] sm:min-h-[105px] flex flex-col justify-between ${isFocused ? 'z-20 border-white/20 bg-slate-900/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)]' : 'border-white/5 hover:border-white/10 hover:bg-slate-800/60 hover:-translate-y-0.5 backdrop-blur-sm'}`}
             style={{
-                padding: '1.25rem',
+                padding: '0.875rem 1rem',
                 backgroundColor: isFocused ? `${cat.color}15` : 'rgba(15,23,42,0.4)',
                 borderColor: isFocused ? `${cat.color}50` : undefined,
-                boxShadow: isFocused ? `0 0 40px -10px ${cat.color}30` : undefined
+                boxShadow: isFocused ? `0 0 30px -10px ${cat.color}30` : undefined
             }}>
 
             {/* Fundo radiante no estado focado */}
@@ -79,8 +79,8 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                 </div>
             </div>
 
-            <div className="relative z-10 flex items-center justify-between mb-2 w-full">
-                <p className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-colors line-clamp-2 pr-2 drop-shadow-sm pl-1.5 ${isFocused ? 'text-white' : 'text-slate-300 group-hover:text-slate-200'}`} title={cat.name}>
+            <div className="relative z-10 flex items-center justify-between mb-1.5 w-full">
+                <p className={`text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-colors line-clamp-2 pr-2 drop-shadow-sm pl-1 ${isFocused ? 'text-white' : 'text-slate-300 group-hover:text-slate-200'}`} title={cat.name}>
                     {cat.name}
                 </p>
                 <div className={`w-2.5 h-2.5 rounded-full transition-all shadow-sm ${isFocused ? 'scale-125 ring-2 ring-offset-2 ring-offset-slate-900' : 'opacity-80 group-hover:opacity-100'}`} style={{ backgroundColor: statusColor, '--tw-ring-color': statusColor }} />
@@ -88,7 +88,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
             <div className="relative z-10 flex flex-col justify-end w-full">
                 <div className="flex items-baseline gap-1 mt-0.5">
-                    <span className={`text-2xl sm:text-4xl font-black tracking-tighter transition-all drop-shadow-md pl-1.5 ${isFocused ? 'text-white' : 'text-slate-100 group-hover:text-white'}`}>
+                    <span className={`text-xl sm:text-2xl md:text-3xl font-black tracking-tighter transition-all drop-shadow-md pl-1 ${isFocused ? 'text-white' : 'text-slate-100 group-hover:text-white'}`}>
                         {val != null && Number.isFinite(Number(val)) ? formatValue(val) : '—'}
                     </span>
                     {val != null && Number.isFinite(Number(val)) && (
@@ -98,8 +98,8 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
             </div>
 
             {/* Extra Metrics Breakdown */}
-            <div className="relative z-10 w-full mt-4">
-                <div className="flex flex-col gap-2.5 pt-3 border-t border-white/10">
+            <div className="relative z-10 w-full mt-2.5">
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-white/10">
                     <div className="flex flex-col gap-1">
                         <div className="flex justify-between items-center text-[9px] text-slate-300 uppercase tracking-widest font-black">
                             <span className="pl-1.5">Bruta</span>

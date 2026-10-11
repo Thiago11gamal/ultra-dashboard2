@@ -559,25 +559,9 @@ export default React.memo(function EvolutionChart({
         timeWindow,
         showOnlyFocus
     ]);
-        
-        const statusList = useMemo(() => {
-            return computeEvolutionStatuses({
-                timeline,
-                filteredChartData,
-                categories,
-                focusCategory,
-                targetScore,
-                unit,
-                minScore,
-                maxScore,
-                activeMcResult,
-                subjectAggData,
-                heatmapData,
-                projectDays,
-                timeWindow,
-                showOnlyFocus
-            });
-        }, [
+
+    const statusList = useMemo(() => {
+        return computeEvolutionStatuses({
             timeline,
             filteredChartData,
             categories,
@@ -592,23 +576,39 @@ export default React.memo(function EvolutionChart({
             projectDays,
             timeWindow,
             showOnlyFocus
-        ]);
-        
-        const toneHex = {
-            success: '#34d399',
-            warning: '#fbbf24',
-            danger: '#f87171',
-            info: '#818cf8',
-            neutral: '#94a3b8',
-            critical: '#fb7185',
-            progress: '#60a5fa',
-            time: '#06b6d4',
-            focus: '#a855f7'
-        };
-        
-        const extraKpis = ['current', 'trend', 'probability', 'consistency']
-            .map((id) => statusList.find((s) => s.id === id))
-            .filter(Boolean);
+        });
+    }, [
+        timeline,
+        filteredChartData,
+        categories,
+        focusCategory,
+        targetScore,
+        unit,
+        minScore,
+        maxScore,
+        activeMcResult,
+        subjectAggData,
+        heatmapData,
+        projectDays,
+        timeWindow,
+        showOnlyFocus
+    ]);
+
+    const toneHex = {
+        success: '#34d399',
+        warning: '#fbbf24',
+        danger: '#f87171',
+        info: '#818cf8',
+        neutral: '#94a3b8',
+        critical: '#fb7185',
+        progress: '#60a5fa',
+        time: '#06b6d4',
+        focus: '#a855f7'
+    };
+
+    const extraKpis = ['current', 'trend', 'probability', 'consistency']
+        .map((id) => statusList.find((s) => s.id === id))
+        .filter(Boolean);
     const engine = ENGINES_WITH_GUIDE.find((e) => e.id === activeEngine) || ENGINES_WITH_GUIDE[0];
 
     const accountHasData = chartData.length >= 1;
@@ -653,8 +653,8 @@ export default React.memo(function EvolutionChart({
 
 
     return (
-        <motion.div id="evolution-chart-container" className="space-y-10 relative" variants={containerVariants} initial="hidden" animate="visible">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-20 no-print pr-1">
+        <motion.div id="evolution-chart-container" className="space-y-6 sm:space-y-7 relative min-w-0" variants={containerVariants} initial="hidden" animate="visible">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 relative z-20 no-print pr-1">
                 {/* Global Filters */}
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     <div className="flex items-center justify-between gap-1 bg-black/40 border border-white/10 rounded-full p-1.5 shrink-0 overflow-x-auto w-full sm:w-auto shadow-inner backdrop-blur-md">
@@ -705,76 +705,66 @@ export default React.memo(function EvolutionChart({
         .recharts-legend-item-text { font-size: 11px !important; font-weight: 600; }
             `}</style>
 
-            <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 min-w-0">
+            <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3 min-w-0">
                 <KpiCard value={safeGlobalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
                 <KpiCard value={safeGlobalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
-                <div className="col-span-1">
+                <KpiCard
+                    value={`${safeGlobalMetrics.globalAccuracy.toFixed(2)}%`}
+                    label="Precisão Global" color="#fb923c" icon="⚡"
+                />
+                {extraKpis.map((status) => (
                     <KpiCard
-                        value={`${safeGlobalMetrics.globalAccuracy.toFixed(2)}%`}
-                        label="Precisão Global" color="#fb923c" icon="⚡"
+                        key={status.id}
+                        value={status.value}
+                        label={status.label}
+                        color={toneHex[status.tone] || '#94a3b8'}
+                        icon={status.icon}
                     />
+                ))}
+            </motion.div>
+
+            <motion.div
+                variants={itemVariants}
+                className="rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-3.5 sm:p-4 shadow-lg"
+            >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="min-w-0">
+                        <h2 className="text-xs sm:text-sm font-black text-slate-200 uppercase tracking-widest">
+                            Status inteligente do desempenho
+                        </h2>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                            Leitura rápida de metas, tendências, riscos e constância.
+                        </p>
+                    </div>
+
+                    <span className="self-start sm:self-auto shrink-0 text-[9px] font-black uppercase tracking-widest text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                        Atualização automática
+                    </span>
                 </div>
-                    </motion.div>
-            
-                   {extraKpis.length > 0 && (
-                       <motion.div
-                           variants={itemVariants}
-                           className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 min-w-0"
-                       >
-                           {extraKpis.map((status) => (
-                               <KpiCard
-                                   key={status.id}
-                                   value={status.value}
-                                   label={status.label}
-                                   color={toneHex[status.tone] || '#94a3b8'}
-                                   icon={status.icon}
-                               />
-                           ))}
-                       </motion.div>
-                   )}
-            
-                   <motion.div
-                       variants={itemVariants}
-                       className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-4 sm:p-5 shadow-lg"
-                   >
-                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                           <div>
-                               <h2 className="text-sm font-black text-slate-200 uppercase tracking-widest">
-                                   Status inteligente do desempenho
-                               </h2>
-                               <p className="text-[11px] text-slate-400">
-                                   Leitura rápida de metas, tendências, riscos e constância.
-                               </p>
-                           </div>
-            
-                           <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg">
-                               Atualização automática
-                           </span>
-                       </div>
-            
-                       <div className="flex flex-wrap gap-2" role="status" aria-live="polite">
-                           {statusList.map((status) => (
-                               <StatusPill
-                                   key={status.id}
-                                   label={status.label}
-                                   value={status.value}
-                                   tone={status.tone}
-                                   icon={status.icon}
-                                   help={status.help}
-                               />
-                           ))}
-                       </div>
-                   </motion.div>
-            
-                    <motion.div variants={itemVariants} className="relative z-0 mb-8 sm:mb-12">
+
+                <div className="flex flex-wrap gap-2" role="status" aria-live="polite">
+                    {statusList.map((status) => (
+                        <StatusPill
+                            key={status.id}
+                            label={status.label}
+                            value={status.value}
+                            tone={status.tone}
+                            icon={status.icon}
+                            help={status.help}
+                        />
+                    ))}
+                </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="relative z-0">
                 <p className="text-[10px] sm:text-xs text-slate-400 uppercase font-black tracking-[0.25em] leading-loose py-1 sm:py-2 mb-1 pl-1">
                     Nível bayesiano por disciplina • toque para focar
                 </p>
                 {/* Máscara CSS removida: ela estava causando um gradiente que apagava o início do primeiro card e o fim do último. */}
                 <div className="relative">
-                    <div className="flex overflow-x-auto snap-x gap-4 px-2 py-4 no-scrollbar scroll-smooth">
+                    <div className="flex overflow-x-auto snap-x gap-3 px-1 py-3 no-scrollbar scroll-smooth">
                         {activeCategories.map(cat => (
-                            <div key={cat.id} className={`snap-center shrink-0 w-[240px] sm:w-[280px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
+                            <div key={cat.id} className={`snap-center shrink-0 w-[210px] sm:w-[240px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
                                     cat={cat}
                                     level={categoryLevels[cat.id] || 0}
@@ -793,12 +783,14 @@ export default React.memo(function EvolutionChart({
             </motion.div>
 
             {/* HERO CHART: Nível Bayesiano (Fixo) */}
-            <motion.div variants={itemVariants} className="relative z-20 mb-12 rounded-[2.5rem] border border-emerald-500/20 bg-slate-900/80 backdrop-blur-2xl p-6 sm:p-8 shadow-[0_10px_40px_-15px_rgba(52,211,153,0.15)] w-full overflow-visible">
-                <div className="flex items-center gap-3 mb-6">
-                    <span className="text-3xl drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">🧠</span>
+            <motion.div variants={itemVariants} className="relative z-20 rounded-[2rem] border border-emerald-500/20 bg-slate-900/80 backdrop-blur-2xl p-4 sm:p-7 shadow-[0_10px_40px_-15px_rgba(52,211,153,0.15)] w-full overflow-visible">
+                <div className="flex items-center gap-3 mb-5">
+                    <div className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-base sm:text-lg shrink-0 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+                        🧠
+                    </div>
                     <div>
-                        <h3 className="text-xl sm:text-2xl font-bold text-slate-100 mb-1">Evolução do domínio real</h3>
-                        <p className="text-xs sm:text-sm text-emerald-400/80 font-medium tracking-wide uppercase">Histórico bayesiano e intervalo de confiança</p>
+                        <h3 className="text-lg sm:text-xl font-bold text-slate-100 mb-0.5">Evolução do domínio real</h3>
+                        <p className="text-[11px] sm:text-xs text-emerald-400/80 font-medium tracking-wide uppercase">Histórico bayesiano e intervalo de confiança</p>
                     </div>
                 </div>
                 
@@ -806,12 +798,12 @@ export default React.memo(function EvolutionChart({
                     <div className="min-w-[700px] lg:min-w-full relative">
                         {!accountHasData ? (
                             <div className="min-h-[360px] flex flex-col items-center justify-center gap-3">
-                                <span className="text-4xl">📉</span>
+                                <span className="text-3xl">📉</span>
                                 <p className="text-slate-400 text-sm font-medium">Cadastre simulados para ver sua curva de domínio</p>
                             </div>
                         ) : !filterHasData ? (
                             <div className="min-h-[360px] flex flex-col items-center justify-center gap-3">
-                                <span className="text-4xl opacity-50">📅</span>
+                                <span className="text-3xl opacity-50">📅</span>
                                 <p className="text-slate-400 text-sm font-medium">Nenhuma atividade no período selecionado</p>
                             </div>
                         ) : (
@@ -833,21 +825,25 @@ export default React.memo(function EvolutionChart({
 
             {/* TABS E GRÁFICOS SECUNDÁRIOS */}
             <motion.div variants={itemVariants} className="relative z-10">
-                <div className="flex items-center gap-3 mb-6 px-2">
-                    <span className="text-2xl drop-shadow-[0_0_8px_rgba(129,140,248,0.5)]">🔬</span>
-                    <h3 className="text-lg font-black text-slate-200 tracking-tight">Análises Secundárias</h3>
+                <div className="flex items-center gap-2.5 mb-4 px-1">
+                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-sm sm:text-base shrink-0">
+                        🔬
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-slate-200 tracking-tight">Análises Secundárias</h3>
                 </div>
 
             {/* ✅ BUG-10 FIX: z-[50] → z-10 para não cortar tooltips de charts abaixo */}
-            <motion.div className="relative z-10 rounded-[2.5rem] border border-white/10 bg-slate-900/60 backdrop-blur-2xl p-5 sm:p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
+            <motion.div className="relative z-10 rounded-[2rem] border border-white/10 bg-slate-900/60 backdrop-blur-2xl p-4 sm:p-6 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] w-full min-w-0 transition-all duration-700 overflow-visible"
                  style={{ boxShadow: `0 10px 60px -15px ${engine.color}25, inset 0 1px 0 0 rgba(255,255,255,0.05)` }}>
                  
-                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/50">
+                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5 pb-5 border-b border-slate-700/50">
                      
-                     <div className="group relative flex-1">
-                         <div className="flex items-center gap-3">
-                             <span className="text-2xl sm:text-3xl" style={{ filter: `drop-shadow(0 0 8px ${engine.color}80)` }}>{engine.emoji}</span>
-                             <h3 className="font-black text-lg sm:text-xl tracking-tight transition-colors duration-300" style={{ color: engine.color }}>
+                     <div className="group relative flex-1 min-w-0">
+                         <div className="flex items-center gap-3 min-w-0">
+                             <div className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl shrink-0 text-base sm:text-lg" style={{ backgroundColor: `${engine.color}15`, border: `1px solid ${engine.color}35`, color: engine.color }}>
+                                 {engine.emoji}
+                             </div>
+                             <h3 className="font-black text-base sm:text-lg tracking-tight leading-tight transition-colors duration-300 min-w-0" style={{ color: engine.color }}>
                                  {engine.explain.titulo}
                              </h3>
                              <button
@@ -862,7 +858,7 @@ export default React.memo(function EvolutionChart({
                                      }
                                  }}
                                  onBlur={() => setShowEngineTooltip(false)}
-                                 className="relative flex items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-slate-400 text-[10px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                                 className="relative shrink-0 flex items-center justify-center w-5 h-5 rounded-full border border-slate-600 text-slate-400 text-[10px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors"
                                  aria-label="Informações sobre este modo de visualização"
                                  aria-expanded={showEngineTooltip}
                              >
@@ -877,59 +873,58 @@ export default React.memo(function EvolutionChart({
                              </div>
                          </div>
                      </div>
-                               </div>
-                 
-                              <div className="mb-6">
-                                  <ChartGuide guide={engine.guide} />
-                              </div>
-                 
-                              {/* Máscara CSS substituída por gradiente adaptativo para mobile */}
-                <div className="relative mb-8 -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full">
-                    <div className="absolute left-0 top-0 bottom-4 w-6 bg-gradient-to-r from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
-                    <div className="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-slate-900/95 to-transparent z-10 pointer-events-none sm:hidden"></div>
-                    <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex overflow-x-auto pt-2 pb-4 px-4 sm:px-0 gap-3 w-full no-scrollbar scroll-smooth snap-x snap-mandatory">
-                        {ENGINES_WITH_GUIDE.filter(e => e.id !== 'bayesian').map((eng, idx, arr) => {
-                            const active = activeEngine === eng.id;
-                            return (
-                                <button
-                                    type="button"
-                                    role="tab"
-                                    id={`engine-tab-${eng.id}`}
-                                    aria-selected={active}
-                                    aria-controls={`engine-panel-${eng.id}`}
-                                    key={eng.id}
-                                    ref={(el) => engineTabRefs.current.set(eng.id, el)}
-                                    onClick={() => setActiveEngine(eng.id)}
-                                    onKeyDown={(e) => {
-                                      const activate = (id) => {
-                                        setActiveEngine(id);
-                                        focusEngineTab(id);
-                                      };
-                                    
-                                      if (e.key === 'ArrowRight') {
-                                        e.preventDefault();
-                                        activate(arr[(idx + 1) % arr.length].id);
-                                      } else if (e.key === 'ArrowLeft') {
-                                        e.preventDefault();
-                                        activate(arr[(idx - 1 + arr.length) % arr.length].id);
-                                      } else if (e.key === 'Home') {
-                                        e.preventDefault();
-                                        activate(arr[0].id);
-                                      } else if (e.key === 'End') {
-                                        e.preventDefault();
-                                        activate(arr[arr.length - 1].id);
-                                      }
-                                    }}
-                                    tabIndex={active ? 0 : -1}
-                                    aria-pressed={active}
-                                    className={`snap-start shrink-0 group flex flex-col items-center justify-center gap-1.5 w-[100px] sm:w-[118px] h-[70px] sm:h-[78px] rounded-3xl transition-all duration-300 border will-change-transform ${active ? 'shadow-lg scale-[1.05] z-10' : 'bg-white/[0.02] border-white/[0.05] text-slate-500 hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/20 hover:-translate-y-1'}`}
-                                    style={active ? { backgroundColor: `${eng.color}15`, borderColor: `${eng.color}50`, color: eng.color, boxShadow: `0 8px 25px -8px ${eng.color}40, inset 0 0 12px ${eng.color}10` } : {}}
-                                >
-                                    <span className="text-[22px] group-hover:scale-105 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
-                                    <span className="text-[10px] uppercase tracking-[0.05em] font-bold text-center leading-tight px-1 line-clamp-2">{eng.label}</span>
-                                </button>
-                            );
-                        })}
+                 </div>
+
+                 <div className="mb-5">
+                     <ChartGuide guide={engine.guide} />
+                 </div>
+
+                {/* Barra de Seleção de Motores: Segmented Pills Compacta */}
+                <div className="relative mb-6 w-full">
+                    <div className="p-1.5 rounded-2xl bg-slate-950/70 border border-white/[0.07] backdrop-blur-md shadow-inner">
+                        <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex items-center overflow-x-auto gap-1.5 px-0.5 py-0.5 w-full no-scrollbar scroll-smooth">
+                            {ENGINES_WITH_GUIDE.filter(e => e.id !== 'bayesian').map((eng, idx, arr) => {
+                                const active = activeEngine === eng.id;
+                                return (
+                                    <button
+                                        type="button"
+                                        role="tab"
+                                        id={`engine-tab-${eng.id}`}
+                                        aria-selected={active}
+                                        aria-controls={`engine-panel-${eng.id}`}
+                                        key={eng.id}
+                                        ref={(el) => engineTabRefs.current.set(eng.id, el)}
+                                        onClick={() => setActiveEngine(eng.id)}
+                                        onKeyDown={(e) => {
+                                          const activate = (id) => {
+                                            setActiveEngine(id);
+                                            focusEngineTab(id);
+                                          };
+                                        
+                                          if (e.key === 'ArrowRight') {
+                                            e.preventDefault();
+                                            activate(arr[(idx + 1) % arr.length].id);
+                                          } else if (e.key === 'ArrowLeft') {
+                                            e.preventDefault();
+                                            activate(arr[(idx - 1 + arr.length) % arr.length].id);
+                                          } else if (e.key === 'Home') {
+                                            e.preventDefault();
+                                            activate(arr[0].id);
+                                          } else if (e.key === 'End') {
+                                            e.preventDefault();
+                                            activate(arr[arr.length - 1].id);
+                                          }
+                                        }}
+                                        tabIndex={active ? 0 : -1}
+                                        className={`shrink-0 group flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl transition-all duration-200 border text-xs font-bold whitespace-nowrap will-change-transform ${active ? 'shadow-md border-white/10 ring-1' : 'bg-transparent border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+                                        style={active ? { backgroundColor: `${eng.color}20`, borderColor: `${eng.color}55`, color: eng.color, boxShadow: `0 4px 15px -4px ${eng.color}40`, '--tw-ring-color': `${eng.color}40` } : {}}
+                                    >
+                                        <span className="text-sm sm:text-base leading-none group-hover:scale-110 transition-transform duration-150" style={{ filter: active ? `drop-shadow(0 0 4px ${eng.color})` : 'none' }}>{eng.emoji}</span>
+                                        <span className="text-[11px] font-bold tracking-tight uppercase">{eng.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
@@ -1063,15 +1058,16 @@ export default React.memo(function EvolutionChart({
             </motion.div>
 
             {isMcEngine && focusCategory && (
-                <div className="animate-fade-in-up">
-                    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-6 shadow-2xl relative overflow-hidden group">
+                <div className="mt-6 animate-fade-in-up">
+                    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-5 sm:p-6 shadow-2xl relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
                             <TrendingUp size={120} />
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
                             <div className="w-full md:w-1/2 flex flex-col">
-                                <div className="flex items-center gap-2 mb-4 min-w-0">
+                                {/* VIS-FIX: z-20 mantém o seletor de foco clicável acima do overlay "sem dados" */}
+                                <div className="relative z-20 flex items-center gap-2 mb-4 min-w-0">
                                     <Zap size={16} className="text-indigo-400 shrink-0" />
                                     <select
                                         value={focusCategory?.id || ''}
@@ -1199,7 +1195,7 @@ export default React.memo(function EvolutionChart({
                         )}
 
                         {!activeMcResult && !mcLoading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+                            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-6 text-center bg-slate-900/50 backdrop-blur-sm pointer-events-none">
                                 <span className="text-2xl mb-2">📉</span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                     Cadastre pelo menos 2 registros para ver a densidade
@@ -1212,7 +1208,7 @@ export default React.memo(function EvolutionChart({
             
             </motion.div> {/* Fim do bloco Análises Secundárias */}
 
-            <div className="pt-10 relative z-0">
+            <div className="relative z-0">
             {(() => {
                 const typeColors = {
                     success: {
@@ -1307,13 +1303,13 @@ export default React.memo(function EvolutionChart({
                         
                         <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:items-center p-6 sm:p-8 md:p-10 relative z-10">
                             <div className="flex-1 space-y-5">
-                                <div className="flex items-start sm:items-center gap-5">
-                                    <div className={`shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center text-2xl sm:text-3xl shadow-2xl transform group-hover:rotate-6 transition-transform duration-500 ${colors.icon}`}>
+                                <div className="flex items-start sm:items-center gap-4">
+                                    <div className={`shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-lg sm:text-xl shadow-xl transform group-hover:rotate-6 transition-transform duration-500 ${colors.icon}`}>
                                         {insight.icon}
                                     </div>
                                     <div className="space-y-1 min-w-0">
                                         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] ${colors.text} drop-shadow-sm truncate`}>
+                                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] ${colors.text} drop-shadow-sm leading-snug break-words min-w-0`}>
                                                 {renderInsightText(insight.title, colors.text)}
                                             </span>
                                             <div className="h-px w-6 sm:w-10 bg-white/10 hidden sm:block" />
@@ -1378,7 +1374,7 @@ export default React.memo(function EvolutionChart({
             })()}
             </div>
 
-            <div className="pt-10 border-t border-slate-800/80 mt-10 space-y-6">
+            <div className="pt-10 border-t border-slate-800/80 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
                     <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-inner">

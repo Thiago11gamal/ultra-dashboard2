@@ -225,7 +225,7 @@ export const EvolutionHeatmap = ({
     const t80Fmt = `${Math.round(targetScorePct * 0.8)}%`;
 
     return (
-        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-4 pb-8 sm:pb-10 px-1 min-h-[240px] rounded-xl border border-slate-800/80 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
+        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-4 pb-8 sm:pb-10 px-3 sm:px-4 min-h-[240px] rounded-xl border border-slate-800/80 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
             <div className="flex flex-wrap items-center gap-3.5 mb-5 text-[11px] text-slate-300">
                 <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-lg p-1.5 mr-2 shadow-sm">
                     {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (
@@ -267,19 +267,20 @@ export const EvolutionHeatmap = ({
                     </span>
                 ))}
             </div>
-                    {granularity !== 'daily' && (
-                        <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
-                            Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): cada célula representa vários dias.
-                        </p>
-                    )}
-            
-                   <div className="mb-3 rounded-xl border border-white/5 bg-black/20 p-2.5 text-[10px] text-slate-400">
-                       Leitura rápida: verde = acima da meta; amarelo/laranja = atenção; vermelho = risco; vazio = sem simulado cadastrado.
-                   </div>
-            
-                    <div style={{ minWidth: `${filteredDates.length * 72 + 168}px` }}>
+            {granularity !== 'daily' && (
+                <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
+                    Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): cada célula representa vários dias.
+                </p>
+            )}
+
+            <div className="mb-3 rounded-xl border border-white/5 bg-black/20 p-2.5 text-[10px] text-slate-400">
+                Leitura rápida: verde = acima da meta; amarelo/laranja = atenção; vermelho = risco; vazio = sem simulado cadastrado.
+            </div>
+
+            {/* VIS-FIX: largura = coluna de rótulo (220) + n × (68 célula + 4 gap). Antes usava 168 e cortava a última coluna. */}
+            <div style={{ minWidth: `${filteredDates.length * 72 + 220}px` }}>
                 <div style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
-                    <div />
+                    <div className="sticky left-0 z-10 bg-slate-950/95" />
                     {filteredDates.map(d => (
                         <div key={d.key} className="flex flex-col items-center gap-1">
                             <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${d.isWeekend ? 'text-purple-300' : 'text-slate-400'}`}>
@@ -296,7 +297,8 @@ export const EvolutionHeatmap = ({
                 <div className="space-y-2.5">
                     {filteredRows.map(({ cat, cells }, ri) => (
                         <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
-                            <div className="flex items-center gap-2.5 pr-4 min-w-0">
+                            {/* VIS-FIX: coluna da matéria fixa ao rolar horizontalmente */}
+                            <div className="sticky left-0 z-10 self-stretch flex items-center gap-2.5 pr-4 min-w-0 bg-slate-950/95 rounded-r-lg">
                                 <span className="text-lg shrink-0">{cat.icon}</span>
                                 <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight capitalize" style={{ color: cat.color }} title={cat.name}>
                                     {cat.name}

@@ -25,10 +25,15 @@
 
 
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* VIS-FIX: reset dentro de @layer base. Fora de layer, este seletor vencia
+   todas as utilities do Tailwind v4 (que vivem em @layer utilities) e zerava
+   p-*, px-*, m-*, mb-*, mx-auto e space-y-* no app inteiro. */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 body {

@@ -320,7 +320,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
                                 <span className="text-4xl mb-2">{hasData ? '🎉' : '⏳'}</span>
                                 <p className="font-bold text-slate-300 mb-1">{hasData ? 'Sem erros críticos!' : 'Nenhum dado registrado'}</p>
-                                Cadastre simulados para visualizar este gráfico.
+                                <p className="text-xs text-slate-400 mt-0.5">{hasData ? 'Nenhum erro crítico registrado nesta semana.' : 'Sem simulados registrados neste período. Selecione outra semana acima.'}</p>
                             </div>
                         )}
                     </div>
@@ -366,7 +366,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
                                 <span className="text-4xl mb-2">{hasData ? '🎉' : '⏳'}</span>
                                 <p className="font-bold text-slate-300 mb-1">{hasData ? 'Sem assuntos críticos!' : 'Nenhum dado registrado'}</p>
-                                <p className="text-xs text-slate-500">{hasData ? 'Nenhum erro registrado neste período.' : 'Registre simulados para visualizar este gráfico.'}</p>
+                                <p className="text-xs text-slate-400 mt-0.5">{hasData ? 'Nenhum erro registrado neste período.' : 'Sem simulados registrados neste período. Selecione outra semana acima.'}</p>
                             </div>
                         )}
                     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import EvolutionChart from '../components/EvolutionChart';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
@@ -7,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow';
 const EMPTY_ARRAY = Object.freeze([]);
 
 export default function Evolution() {
+  const navigate = useNavigate();
   const { categories, rawStudyLogs, monteCarloHistory, user, unit, minScore, maxScore, simuladoRows } = useAppStore(
     useShallow(state => {
       const contests = state?.appState?.contests || {};
@@ -84,11 +86,17 @@ export default function Evolution() {
                     <span className="text-4xl drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">📈</span>
                   </div>
                   <h3 className="text-lg font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-200 to-slate-400 mb-3">
-                    Evolução Desbloqueada
+                    Desbloqueie sua Evolução
                   </h3>
                   <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
                     Cadastre simulados nas disciplinas para visualizar sua evolução, tendências de desempenho e as previsões estatísticas do motor Monte Carlo.
                   </p>
+                  <button
+                    onClick={() => navigate('/simulados')}
+                    className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs transition-colors shadow-lg shadow-indigo-900/30 active:scale-95"
+                  >
+                    Cadastrar primeiro simulado
+                  </button>
               </div>
             </div>
           </div>

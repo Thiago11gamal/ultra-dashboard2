@@ -392,109 +392,111 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (
-                <div className="w-full relative" style={{ height: Math.max(450, chartData.length * 60) }}>
-                    <ChartFrame minHeight={450} label="Analisando subtópicos">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
-                        <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 120, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
-                                    <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
-                                </linearGradient>
-                                <linearGradient id={`gradWarn_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.7}/>
-                                    <stop offset="100%" stopColor="#fbbf24" stopOpacity={1}/>
-                                </linearGradient>
-                                <linearGradient id={`gradBad_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.7}/>
-                                    <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+                    <div className="min-w-[520px] lg:min-w-full relative" style={{ height: Math.max(450, chartData.length * 60) }}>
+                        <ChartFrame minHeight={450} label="Analisando subtópicos">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
+                            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 120, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
+                                        <stop offset="100%" stopColor="#34d399" stopOpacity={1}/>
+                                    </linearGradient>
+                                    <linearGradient id={`gradWarn_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.7}/>
+                                        <stop offset="100%" stopColor="#fbbf24" stopOpacity={1}/>
+                                    </linearGradient>
+                                    <linearGradient id={`gradBad_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.7}/>
+                                        <stop offset="100%" stopColor="#f87171" stopOpacity={1}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
 
-                            <XAxis
-                                type="number"
-                                domain={[0, 100]}
-                                stroke="#94a3b8"
-                                tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-                                axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                                tickLine={false}
-                                tickFormatter={(v) => `${v}${accuracyUnit}`}
-                                allowDataOverflow={true}
-                            />
-
-                                <YAxis
-                                    type="category"
-                                    dataKey="name"
-                                    stroke="#cbd5e1"
-                                    tick={(props) => {
-                                        const { x, y, payload } = props;
-                                        const text = payload?.value || "";
-                                        const fullText = payload?.payload?.fullName || text;
-                                        const maxLen = 24;
-                                        const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
-                                        return (
-                                            <g transform={`translate(${x},${y})`}>
-                                                <text x={-6} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
-                                                    <title>{fullText}</title>
-                                                    {truncated}
-                                                </text>
-                                            </g>
-                                        );
-                                    }}
-                                    axisLine={false}
+                                <XAxis
+                                    type="number"
+                                    domain={[0, 100]}
+                                    stroke="#94a3b8"
+                                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
+                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                     tickLine={false}
-                                    width={160}
+                                    tickFormatter={(v) => `${v}${accuracyUnit}`}
+                                    allowDataOverflow={true}
                                 />
 
-                            <Tooltip
-                                offset={30}
-                                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                                contentStyle={CustomTooltipStyle}
-                                itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
-                                formatter={(value, name, props) => {
-                                    const entry = props?.payload;
-                                    if (!entry) return [value, name];
-                                    return [`${formatValue(value)}% (${entry.correct || 0}/${entry.total || 0} acertos)`, 'Precisão'];
-                                }}
-                                labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
-                            />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="name"
+                                        stroke="#cbd5e1"
+                                        tick={(props) => {
+                                            const { x, y, payload } = props;
+                                            const text = payload?.value || "";
+                                            const fullText = payload?.payload?.fullName || text;
+                                            const maxLen = 24;
+                                            const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
+                                            return (
+                                                <g transform={`translate(${x},${y})`}>
+                                                    <text x={-6} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
+                                                        <title>{fullText}</title>
+                                                        {truncated}
+                                                    </text>
+                                                </g>
+                                            );
+                                        }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={160}
+                                    />
 
-                            <ReferenceLine 
-                                x={targetScorePct} 
-                                stroke="#10b981" 
-                                strokeDasharray="5 3" 
-                                strokeWidth={2}
-                                strokeOpacity={0.8}
-                                label={{ position: 'top', value: 'META', fill: '#34d399', fontSize: 10, fontWeight: 'bold' }}
-                            />
-
-                            <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
-                                {chartData.map((entry, index) => {
-                                    let barColor = `url(#gradBad_${instanceId})`;
-                                    if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
-                                    else if (entry.accuracy >= 60) barColor = `url(#gradWarn_${instanceId})`;
-                                    return <Cell key={`cell-${index}`} fill={barColor} />;
-                                })}
-                                <LabelList
-                                    dataKey="accuracy"
-                                    position="right"
-                                    content={(props) => {
-                                        const { x, y, width, height, value, index } = props;
-                                        const entry = chartData[index];
-                                        if (!entry) return null;
-                                        return (
-                                            <text x={x + width + 8} y={y + height / 2 + 4}>
-                                                <tspan fill="#ffffff" fontSize={11} fontWeight="900">{formatValue(value)}%</tspan>
-                                                <tspan fill="#94a3b8" fontSize={9.5} fontWeight="700" dx={6}>({entry.correct}/{entry.total})</tspan>
-                                            </text>
-                                        );
+                                <Tooltip
+                                    offset={30}
+                                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                                    contentStyle={CustomTooltipStyle}
+                                    itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
+                                    formatter={(value, name, props) => {
+                                        const entry = props?.payload;
+                                        if (!entry) return [value, name];
+                                        return [`${formatValue(value)}% (${entry.correct || 0}/${entry.total || 0} acertos)`, 'Precisão'];
                                     }}
+                                    labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                                 />
-                            </Bar>
-                        </BarChart>
-                        </ResponsiveContainer>
-                    </ChartFrame>
+
+                                <ReferenceLine 
+                                    x={targetScorePct} 
+                                    stroke="#10b981" 
+                                    strokeDasharray="5 3" 
+                                    strokeWidth={2}
+                                    strokeOpacity={0.8}
+                                    label={{ position: 'top', value: 'META', fill: '#34d399', fontSize: 10, fontWeight: 'bold' }}
+                                />
+
+                                <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
+                                    {chartData.map((entry, index) => {
+                                        let barColor = `url(#gradBad_${instanceId})`;
+                                        if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
+                                        else if (entry.accuracy >= 60) barColor = `url(#gradWarn_${instanceId})`;
+                                        return <Cell key={`cell-${index}`} fill={barColor} />;
+                                    })}
+                                    <LabelList
+                                        dataKey="accuracy"
+                                        position="right"
+                                        content={(props) => {
+                                            const { x, y, width, height, value, index } = props;
+                                            const entry = chartData[index];
+                                            if (!entry) return null;
+                                            return (
+                                                <text x={x + width + 8} y={y + height / 2 + 4}>
+                                                    <tspan fill="#ffffff" fontSize={11} fontWeight="900">{formatValue(value)}%</tspan>
+                                                    <tspan fill="#94a3b8" fontSize={9.5} fontWeight="700" dx={6}>({entry.correct}/{entry.total})</tspan>
+                                                </text>
+                                            );
+                                        }}
+                                    />
+                                </Bar>
+                            </BarChart>
+                            </ResponsiveContainer>
+                        </ChartFrame>
+                    </div>
                 </div>
             ) : (
                 // 🎯 FIX: Altura reduzida de 750px para 500px para caber melhor na tela
