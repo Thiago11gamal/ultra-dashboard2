@@ -1158,6 +1158,7 @@ function PomodoroTimer({
                 }}
                 className="w-full border-4 sm:border-[5px] border-[#3f2e26] p-4 sm:p-5 sm:pt-4 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
+
                 {/* Mostrador SVG, Toolbar e Indicadores */}
                 <PomodoroClock
                     speed={speed}

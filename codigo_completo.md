@@ -1,6 +1,6 @@
 # Código Fonte Completo do Projeto (Sem Testes)
 
-> **Data de geração:** 2026-10-11T16:07:59.805Z
+> **Data de geração:** 2026-10-11T17:15:34.796Z
 > **Total de arquivos:** 240
 
 ## Índice de Arquivos
@@ -31766,9 +31766,9 @@ export function PomodoroClock({
                 </div>
             </div>
 
-            {/* Mostrador SVG Circular com Dígitos Maiores e Destaque */}
-            <div className="relative my-1 sm:my-2 rounded-full flex items-center justify-center">
-                <svg viewBox="0 0 256 256" className="w-[min(68vw,16rem)] h-[min(68vw,16rem)] sm:w-64 sm:h-64 lg:w-[265px] lg:h-[265px] transform -rotate-90 relative z-10">
+            {/* Mostrador SVG Circular com Dígitos de Destaque */}
+            <div className="relative my-0.5 rounded-full flex items-center justify-center">
+                <svg viewBox="0 0 256 256" className="w-[min(56vw,13.5rem)] h-[min(56vw,13.5rem)] sm:w-52 sm:h-52 lg:w-[220px] lg:h-[220px] transform -rotate-90 relative z-10">
                     <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="14" strokeLinecap="round" />
                     <defs>
                         <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -31789,7 +31789,7 @@ export function PomodoroClock({
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                     <span 
                         ref={clockRef} 
-                        className="text-5xl sm:text-6xl lg:text-[4.25rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
+                        className="text-4xl sm:text-5xl lg:text-[3.75rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
                         role="timer"
                         aria-live="polite"
                         aria-label={`Tempo restante: ${formatTime(timeLeft)}`}
@@ -31825,7 +31825,7 @@ export function PomodoroControls({
     onSkip
 }) {
     return (
-        <div className="flex items-center justify-center gap-4 sm:gap-6 z-10 mt-2 sm:mt-2.5 w-full max-w-sm px-4">
+        <div className="flex items-center justify-center gap-4 sm:gap-6 z-10 mt-1.5 sm:mt-2 w-full max-w-sm px-4">
             {/* Botão Voltar/Reiniciar */}
             <div className="flex flex-col items-center gap-1">
                 <button 
@@ -31834,9 +31834,9 @@ export function PomodoroControls({
                     disabled={isProtocolInactive} 
                     aria-label="Reiniciar cronômetro"
                     title="Reiniciar"
-                    className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800 active:scale-95 transition-all"
+                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800 active:scale-95 transition-all"
                 >
-                    <RotateCcw size={19} />
+                    <RotateCcw size={17} />
                 </button>
                 <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">VOLTAR</span>
             </div>
@@ -31850,9 +31850,9 @@ export function PomodoroControls({
                     aria-label={isRunning ? 'Pausar' : 'Iniciar'}
                     aria-pressed={isRunning}
                     title={isRunning ? 'Pausar' : 'Iniciar'}
-                    className={`w-22 h-22 sm:w-26 sm:h-26 rounded-full flex items-center justify-center border-4 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shadow-2xl ${isRunning ? 'bg-stone-100 text-black border-white hover:bg-stone-200' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_28px_rgba(34,197,94,0.35)] hover:bg-emerald-400'}`}
+                    className={`w-18 h-18 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-4 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shadow-2xl ${isRunning ? 'bg-stone-100 text-black border-white hover:bg-stone-200' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_24px_rgba(34,197,94,0.4)] hover:bg-emerald-400'}`}
                 >
-                    {isRunning ? <Pause size={34} className="sm:w-9 sm:h-9" /> : <Play size={34} className="sm:w-9 sm:h-9 ml-1" />}
+                    {isRunning ? <Pause size={28} className="sm:w-8 sm:h-8" /> : <Play size={28} className="sm:w-8 sm:h-8 ml-0.5" />}
                 </button>
                 <span className="text-[9px] font-black text-white/50 uppercase tracking-widest mt-1">
                     {isRunning ? 'PAUSAR' : 'INICIAR'}
@@ -31867,9 +31867,9 @@ export function PomodoroControls({
                     disabled={isProtocolInactive} 
                     aria-label="Pular fase"
                     title="Pular"
-                    className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800"
+                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800"
                 >
-                    <SkipForward size={19} />
+                    <SkipForward size={17} />
                 </button>
                 <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">PULAR</span>
             </div>
@@ -31888,7 +31888,7 @@ export default PomodoroControls;
 ```jsx
 import React from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Zap, AlertCircle } from 'lucide-react';
+import { Zap, AlertCircle, Target } from 'lucide-react';
 
 export function PomodoroHeader({ mode, activeSubject }) {
     if (mode === 'break' || mode === 'long_break') {
@@ -31910,9 +31910,9 @@ export function PomodoroHeader({ mode, activeSubject }) {
 
     if (!activeSubject) {
         return (
-            <div className="w-full bg-red-950/30 border border-dashed border-red-500/40 rounded-2xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
-                <AlertCircle size={16} className="text-red-400 shrink-0" />
-                <span className="text-xs sm:text-sm font-bold text-red-300 truncate">Selecione uma missão no painel para focar</span>
+            <div className="w-full bg-indigo-500/10 border border-indigo-500/20 rounded-xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
+                <Target size={15} className="text-indigo-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-indigo-300 truncate">Selecione uma missão no painel para focar</span>
             </div>
         );
     }
@@ -33257,6 +33257,7 @@ function PomodoroTimer({
                 }}
                 className="w-full border-4 sm:border-[5px] border-[#3f2e26] p-4 sm:p-5 sm:pt-4 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
+
                 {/* Mostrador SVG, Toolbar e Indicadores */}
                 <PomodoroClock
                     speed={speed}

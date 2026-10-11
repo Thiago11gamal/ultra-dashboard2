@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Zap, AlertCircle } from 'lucide-react';
+import { Zap, AlertCircle, Target } from 'lucide-react';
 
 export function PomodoroHeader({ mode, activeSubject }) {
     if (mode === 'break' || mode === 'long_break') {
@@ -22,9 +22,9 @@ export function PomodoroHeader({ mode, activeSubject }) {
 
     if (!activeSubject) {
         return (
-            <div className="w-full bg-red-950/30 border border-dashed border-red-500/40 rounded-2xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
-                <AlertCircle size={16} className="text-red-400 shrink-0" />
-                <span className="text-xs sm:text-sm font-bold text-red-300 truncate">Selecione uma missão no painel para focar</span>
+            <div className="w-full bg-indigo-500/10 border border-indigo-500/20 rounded-xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
+                <Target size={15} className="text-indigo-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-indigo-300 truncate">Selecione uma missão no painel para focar</span>
             </div>
         );
     }

@@ -73,9 +73,9 @@ export function PomodoroClock({
                 </div>
             </div>
 
-            {/* Mostrador SVG Circular com Dígitos Maiores e Destaque */}
-            <div className="relative my-1 sm:my-2 rounded-full flex items-center justify-center">
-                <svg viewBox="0 0 256 256" className="w-[min(68vw,16rem)] h-[min(68vw,16rem)] sm:w-64 sm:h-64 lg:w-[265px] lg:h-[265px] transform -rotate-90 relative z-10">
+            {/* Mostrador SVG Circular com Dígitos de Destaque */}
+            <div className="relative my-0.5 rounded-full flex items-center justify-center">
+                <svg viewBox="0 0 256 256" className="w-[min(56vw,13.5rem)] h-[min(56vw,13.5rem)] sm:w-52 sm:h-52 lg:w-[220px] lg:h-[220px] transform -rotate-90 relative z-10">
                     <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="14" strokeLinecap="round" />
                     <defs>
                         <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -96,7 +96,7 @@ export function PomodoroClock({
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                     <span 
                         ref={clockRef} 
-                        className="text-5xl sm:text-6xl lg:text-[4.25rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
+                        className="text-4xl sm:text-5xl lg:text-[3.75rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
                         role="timer"
                         aria-live="polite"
                         aria-label={`Tempo restante: ${formatTime(timeLeft)}`}
