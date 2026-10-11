@@ -75,7 +75,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                 <span className="relative z-10 text-rose-200">Alvo Prioritário</span>
                             </div>
                         )}
-                        <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full shrink-0`}>
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.15em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full min-w-0`}>
                             <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                             <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
                         </div>
@@ -329,83 +329,78 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-bold mt-1">Estratégia inteligente com MC</p>
                             </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
                             {/* VIS-FIX: os dois botões tinham estilos/bordas diferentes → alturas diferentes e "pulo" ao alternar */}
-                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/5 rounded-2xl p-0.5 shadow-inner" role="group" aria-label="Modo de visualização">
+                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/10 rounded-xl p-1 shadow-inner" role="group" aria-label="Modo de visualização">
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'planner'}
                                     onClick={() => setViewMode('planner')}
-                                    className={`flex-1 sm:flex-none justify-center px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <LayoutGrid size={14} className="shrink-0" />
+                                    <LayoutGrid size={13} className="shrink-0" />
                                     Planner
                                 </button>
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'cards'}
                                     onClick={() => setViewMode('cards')}
-                                    className={`flex-1 sm:flex-none justify-center px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <Sparkles size={14} className="shrink-0" />
+                                    <Sparkles size={13} className="shrink-0" />
                                     Pendências
                                 </button>
                             </div>
+
+                            {/* Recalcular Estratégia - integrado na barra de ações principal */}
+                            <button
+                                type="button"
+                                onClick={onGenerateGoals}
+                                disabled={loading}
+                                aria-busy={loading}
+                                className="group relative overflow-hidden px-4 sm:px-5 py-2 rounded-xl font-black text-[10px] sm:text-[11px] tracking-[0.12em] uppercase transition-all duration-200 flex items-center gap-2 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_20px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                            >
+                                <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
+                                {loading ? (
+                                    <>
+                                        <Loader2 size={14} className="animate-spin shrink-0" />
+                                        <span>Calculando...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <BrainCircuit size={14} className="shrink-0" />
+                                        <span className="hidden sm:inline">Recalcular Estratégia</span>
+                                        <span className="sm:hidden">Recalcular</span>
+                                    </>
+                                )}
+                            </button>
                             
                             <div className="flex items-center gap-1.5">
                                 <button
                                     type="button"
                                     onClick={handleExport}
                                     disabled={isExporting}
-                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Exportar plano para PDF"
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                                    Exportar PDF
+                                    <span className="hidden sm:inline">PDF</span>
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleClearWithConfirm}
                                     disabled={!hasAnythingToClear}
                                     title={hasAnythingToClear ? 'Limpar sugestões e planejamento' : 'Nada para limpar'}
-                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/5 border border-rose-500/10 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/10 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-rose-500/5"
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                     <Trash2 size={12} />
-                                    Limpar
+                                    <span className="hidden sm:inline">Limpar</span>
                                 </button>
                             </div>
                         </div>
                     </div>
-
-                    <div className="relative z-10 w-full mt-6 pt-6 border-t border-white/[0.05] flex justify-center">
-                        {/* VIS-FIX: removida textura externa (grainy-gradients.vercel.app) — request de rede a cada render,
-                            quebra offline/PWA — e o overlay animate-pulse permanente que deixava o botão "piscando". */}
-                        <button
-                            type="button"
-                            onClick={onGenerateGoals}
-                            disabled={loading}
-                            aria-busy={loading}
-                            className="group relative overflow-hidden w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.6)] hover:brightness-110 hover:shadow-[0_14px_36px_-10px_rgba(139,92,246,0.7)] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                            <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
-                            {loading ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin shrink-0 drop-shadow-md" />
-                                    <span>Sincronizando...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <BrainCircuit size={16} className="shrink-0 drop-shadow-md" />
-                                    <span>Recalcular Estratégia</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
                 </div>
-
-
             </div>
-
-
 
 
 
@@ -560,7 +555,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                     </div>
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Activity size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(2)}</span></span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(1)} pts</span></span>
                                                     </div>
                                                     {alertTask.analysis.monteCarlo?.calibrationPenalty > 0.01 && (
                                                         <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>

@@ -1,6 +1,6 @@
 # Código Fonte Completo do Projeto (Sem Testes)
 
-> **Data de geração:** 2026-10-10T21:31:59.315Z
+> **Data de geração:** 2026-10-11T00:19:51.463Z
 > **Total de arquivos:** 240
 
 ## Índice de Arquivos
@@ -6971,28 +6971,30 @@ export default function Coach() {
 
     return (
         <PageErrorBoundary pageName="Coach">
-            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
-                <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-10 pb-32">
+                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
                     <PageHeader 
                         title="Análise do Coach" 
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
                     
-                    <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
-                        <div className="flex items-center gap-3 sm:gap-4 px-2">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/80 border border-white/10 p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
+                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4 px-1 sm:px-2 w-full sm:w-auto">
                             <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={14} />} />
-                            <div className="w-px h-6 bg-white/10" />
+                            <div className="w-px h-6 bg-white/10 shrink-0" />
                             <QuickStat
                                 label="Tendência"
                                 value={`${normalizedDrift.toFixed(1)}pp`}
                                 color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
                                 icon={normalizedDrift >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                             />
-                            <div className="w-px h-6 bg-white/10" />
+                            <div className="w-px h-6 bg-white/10 shrink-0" />
                             <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
                         </div>
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <MonteCarloDebugger stats={mcStats} />
+                        <div className="hidden sm:block w-px h-6 bg-white/10 shrink-0" />
+                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-2 sm:pt-0 sm:border-t-0">
+                            <MonteCarloDebugger stats={mcStats} />
+                        </div>
                     </div>
                 </div>
 
@@ -7309,10 +7311,10 @@ function RaioXDashboard({ data }) {
                     </div>
                 </div>
             ) : (
-                <div className="py-8 text-center space-y-2">
-                    <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[200px] mx-auto leading-tight">
-                        Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar.
+                <div className="py-10 px-4 text-center rounded-2xl border border-white/5 bg-slate-900/40 space-y-2">
+                    <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[280px] mx-auto leading-relaxed">
+                        Requer no mínimo <span className="text-indigo-400 font-bold">3 simulados por matéria</span> para calibrar as projeções.
                     </p>
                 </div>
             )}
@@ -7345,13 +7347,13 @@ function RaioXDashboard({ data }) {
                 <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/10">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-white/5 bg-white/[0.015]">
-                                <th className="py-3 pl-4 pr-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
-                                <th className="py-3 pl-4 pr-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px] text-right">Prob Final</th>
+                            <tr className="border-b border-white/10 bg-white/[0.03]">
+                                <th className="py-3.5 pl-4 pr-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
+                                <th className="py-3.5 pl-4 pr-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px] text-right">Prob Final</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -7360,14 +7362,24 @@ function RaioXDashboard({ data }) {
                                 const eceVal = toFiniteNumber(log?.ece, null);
                                 const brierColor = brierVal === null ? 'text-slate-500' : (brierVal >= 0.25 ? 'text-rose-400' : (brierVal > 0.18 ? 'text-amber-400' : 'text-emerald-400'));
                                 const eceColor = eceVal === null ? 'text-slate-500' : (eceVal > 0.12 ? 'text-amber-400' : 'text-cyan-300');
+                                const isDeg = Boolean(log?.degraded);
                                 return (
-                                <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-500 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
-                                    <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">{displaySubject(log.categoryName)}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
+                                <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.03] transition-colors">
+                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-400 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
+                                    <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
+                                        <div className="flex items-center gap-2">
+                                            <span>{displaySubject(log.categoryName)}</span>
+                                            {isDeg && (
+                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                                    Degradado
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
-                                        {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
+                                        {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (calibração)` : '-'}
                                     </td>
                                     <td className="py-3 pl-4 pr-4 text-[10px] text-white font-black whitespace-nowrap text-right tabular-nums">{toPercentLabel(log?.probability)}</td>
                                 </tr>
@@ -7377,17 +7389,17 @@ function RaioXDashboard({ data }) {
                     </table>
                     {filteredLogs.length === 0 && (
                         <div className="py-12 text-center space-y-2 px-4">
-                            <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">Nenhum evento registrado</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[340px] mx-auto leading-tight">
+                            <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[340px] mx-auto leading-relaxed">
                                 Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
                             </p>
                         </div>
                     )}
                 </div>
             </div>
-            <div className="p-2 border-t border-white/5 pt-8">
+            <div className="p-4 sm:p-6 rounded-2xl border border-white/5 bg-slate-900/40">
                 <div className="flex items-center justify-between mb-5 gap-3">
-                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
+                    <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
                     <span className="text-[10px] font-black text-cyan-300 shrink-0">
                         {avgEce !== null ? `ECE médio: ${avgEce.toFixed(3)}` : 'Sem ECE'}
                     </span>
@@ -7395,12 +7407,12 @@ function RaioXDashboard({ data }) {
                 {latestWithReliability ? (
                     <ReliabilityCurveChart buckets={latestWithReliability.reliability} />
                 ) : (
-                    <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Sem buckets de confiabilidade ainda</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center py-6">Sem buckets de confiabilidade ainda</p>
                 )}
             </div>
-            <div className="p-2 border-t border-white/5 pt-8">
+            <div className="p-4 sm:p-6 rounded-2xl border border-white/5 bg-slate-900/40">
                 <div className="flex items-center justify-between mb-5 gap-3">
-                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
+                    <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
                     {categoryNames.length > 1 ? (
                         <select
                             value={effectiveCategory}
@@ -7444,7 +7456,7 @@ function RaioXDashboard({ data }) {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Dados temporais insuficientes</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center py-6">Dados temporais insuficientes</p>
                 )}
             </div>
         </div>
@@ -13588,11 +13600,11 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 </div>
               </div>
               <div className="mt-2.5 flex flex-col gap-1 pl-0.5">
-                <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words line-clamp-3 tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
                   {topicLabel}
                 </h4>
                 {secondaryText && (
-                  <p className={`text-[9.5px] sm:text-[10px] font-medium leading-relaxed break-words ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
+                  <p className={`text-[9.5px] sm:text-[10px] font-medium leading-relaxed break-words line-clamp-2 ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
                     {secondaryText}
                   </p>
                 )}
@@ -13986,17 +13998,17 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                   <p className="text-[9px] font-semibold text-slate-400 tracking-wider uppercase">Agenda do Aluno</p>
                 </div>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0">
+              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0 whitespace-nowrap">
                 {liveWeekTotal} tarefa{liveWeekTotal === 1 ? '' : 's'} na semana
               </span>
             </div>
             <div className="w-full overflow-x-auto kanban-scrollbar pb-2 pt-1 flex-1 flex flex-col">
-              <div className="flex gap-3 min-w-[900px] xl:min-w-0 w-full flex-1">
+              <div className="flex gap-2.5 sm:gap-3 min-w-[840px] 2xl:min-w-0 w-full flex-1">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
                   const dayCount = liveCount(day.id, dayTasks.length);
                   return (
-                    <div key={day.id} className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col" data-col-id={day.id}>
+                    <div key={day.id} className="flex-1 min-w-[115px] sm:min-w-[120px] 2xl:min-w-0 flex flex-col" data-col-id={day.id}>
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => {
                           const isHighlight = hoveredCol ? (hoveredCol === day.id) : snapshot.isDraggingOver;
@@ -14010,7 +14022,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                                     <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
                                     <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
                                   </div>
-                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border shrink-0 transition-colors duration-75 ${isHighlight ? 'bg-white/20 border-white/40 text-white' : `${day.text} bg-black/30 ${day.headerBorder}`}`}>
+                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border shrink-0 transition-colors duration-75 whitespace-nowrap ${isHighlight ? 'bg-white/20 border-white/40 text-white' : `${day.text} bg-black/30 ${day.headerBorder}`}`}>
                                     {dayCount}
                                   </div>
                                 </div>
@@ -14139,7 +14151,7 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                                 <span className="relative z-10 text-rose-200">Alvo Prioritário</span>
                             </div>
                         )}
-                        <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full shrink-0`}>
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.15em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full min-w-0`}>
                             <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
                             <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
                         </div>
@@ -14393,83 +14405,78 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-bold mt-1">Estratégia inteligente com MC</p>
                             </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
                             {/* VIS-FIX: os dois botões tinham estilos/bordas diferentes → alturas diferentes e "pulo" ao alternar */}
-                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/5 rounded-2xl p-0.5 shadow-inner" role="group" aria-label="Modo de visualização">
+                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/10 rounded-xl p-1 shadow-inner" role="group" aria-label="Modo de visualização">
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'planner'}
                                     onClick={() => setViewMode('planner')}
-                                    className={`flex-1 sm:flex-none justify-center px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'planner' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <LayoutGrid size={14} className="shrink-0" />
+                                    <LayoutGrid size={13} className="shrink-0" />
                                     Planner
                                 </button>
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'cards'}
                                     onClick={() => setViewMode('cards')}
-                                    className={`flex-1 sm:flex-none justify-center px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-2 ${viewMode === 'cards' ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <Sparkles size={14} className="shrink-0" />
+                                    <Sparkles size={13} className="shrink-0" />
                                     Pendências
                                 </button>
                             </div>
+
+                            {/* Recalcular Estratégia - integrado na barra de ações principal */}
+                            <button
+                                type="button"
+                                onClick={onGenerateGoals}
+                                disabled={loading}
+                                aria-busy={loading}
+                                className="group relative overflow-hidden px-4 sm:px-5 py-2 rounded-xl font-black text-[10px] sm:text-[11px] tracking-[0.12em] uppercase transition-all duration-200 flex items-center gap-2 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_20px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                            >
+                                <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
+                                {loading ? (
+                                    <>
+                                        <Loader2 size={14} className="animate-spin shrink-0" />
+                                        <span>Calculando...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <BrainCircuit size={14} className="shrink-0" />
+                                        <span className="hidden sm:inline">Recalcular Estratégia</span>
+                                        <span className="sm:hidden">Recalcular</span>
+                                    </>
+                                )}
+                            </button>
                             
                             <div className="flex items-center gap-1.5">
                                 <button
                                     type="button"
                                     onClick={handleExport}
                                     disabled={isExporting}
-                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/5 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Exportar plano para PDF"
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                                    Exportar PDF
+                                    <span className="hidden sm:inline">PDF</span>
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleClearWithConfirm}
                                     disabled={!hasAnythingToClear}
                                     title={hasAnythingToClear ? 'Limpar sugestões e planejamento' : 'Nada para limpar'}
-                                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/5 border border-rose-500/10 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/10 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-rose-500/5"
+                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
                                     <Trash2 size={12} />
-                                    Limpar
+                                    <span className="hidden sm:inline">Limpar</span>
                                 </button>
                             </div>
                         </div>
                     </div>
-
-                    <div className="relative z-10 w-full mt-6 pt-6 border-t border-white/[0.05] flex justify-center">
-                        {/* VIS-FIX: removida textura externa (grainy-gradients.vercel.app) — request de rede a cada render,
-                            quebra offline/PWA — e o overlay animate-pulse permanente que deixava o botão "piscando". */}
-                        <button
-                            type="button"
-                            onClick={onGenerateGoals}
-                            disabled={loading}
-                            aria-busy={loading}
-                            className="group relative overflow-hidden w-full lg:w-auto px-4 sm:px-8 py-3.5 rounded-2xl font-black text-[11px] sm:text-[12px] tracking-[0.15em] uppercase transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 border border-white/20 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.6)] hover:brightness-110 hover:shadow-[0_14px_36px_-10px_rgba(139,92,246,0.7)] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                            <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
-                            {loading ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin shrink-0 drop-shadow-md" />
-                                    <span>Sincronizando...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <BrainCircuit size={16} className="shrink-0 drop-shadow-md" />
-                                    <span>Recalcular Estratégia</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
                 </div>
-
-
             </div>
-
-
 
 
 
@@ -14624,7 +14631,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                     </div>
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Activity size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(2)}</span></span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(1)} pts</span></span>
                                                     </div>
                                                     {alertTask.analysis.monteCarlo?.calibrationPenalty > 0.01 && (
                                                         <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
@@ -28463,41 +28470,41 @@ export default function MonteCarloDebugger({ stats }) {
                 <div 
                     role="dialog"
                     aria-label="Auditoria Monte Carlo"
-                    className="absolute top-full right-0 mt-3 bg-slate-950/95 backdrop-blur-md text-slate-300 p-4 rounded-2xl border border-white/10 shadow-2xl w-64 space-y-2 z-[9999] animate-fade-in"
+                    className="absolute top-full right-0 mt-3 bg-[#0a0d18] text-slate-200 p-4 rounded-2xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.9)] w-72 max-w-[calc(100vw-2rem)] space-y-2 z-[9999] animate-fade-in ring-1 ring-indigo-500/30"
                 >
                     <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center text-[10px]">
-                        <span className="text-slate-500">Probabilidade Bruta</span>
-                        <span className="text-right font-medium text-emerald-400 tabular-nums">
+                        <span className="text-slate-400 font-medium">Probabilidade Bruta</span>
+                        <span className="text-right font-bold text-emerald-400 tabular-nums">
                             {Number.isFinite(Number(rawProbability)) ? Number(rawProbability).toFixed(2) : '0.00'}%
                         </span>
                         
-                        <span className="text-slate-500">Probabilidade Calibrada</span>
-                        <span className="text-right font-medium text-amber-400 tabular-nums">
+                        <span className="text-slate-400 font-medium">Probabilidade Calibrada</span>
+                        <span className="text-right font-bold text-amber-400 tabular-nums">
                             {Number.isFinite(Number(probability)) ? Number(probability).toFixed(2) : '0.00'}%
                         </span>
                         
-                        <span className="col-span-2 border-t border-white/5 my-1"></span>
+                        <span className="col-span-2 border-t border-white/10 my-1"></span>
 
-                        <span className="text-slate-500">Penalidade Calibração</span>
-                        <span className="text-right font-medium text-rose-400 tabular-nums">
+                        <span className="text-slate-400 font-medium">Penalidade Calibração</span>
+                        <span className="text-right font-bold text-rose-400 tabular-nums">
                             {Number.isFinite(Number(calibrationPenalty)) ? (Number(calibrationPenalty) * 100).toFixed(1) : '0.0'}%
                         </span>
                         
-                        <span className="col-span-2 border-t border-white/5 my-1"></span>
+                        <span className="col-span-2 border-t border-white/10 my-1"></span>
 
-                        <span className="text-slate-500">Desvio Padrão Atual</span>
-                        <span className="text-right font-medium tabular-nums">
+                        <span className="text-slate-400 font-medium">Desvio Padrão Atual</span>
+                        <span className="text-right font-bold text-slate-200 tabular-nums">
                             {Number.isFinite(Number(statsData?.rawPooledSD)) ? Number(statsData.rawPooledSD).toFixed(2) : '0.00'}
                         </span>
                         
-                        <span className="text-slate-500">Desvio Padrão Inflado</span>
-                        <span className="text-right font-medium text-amber-400 tabular-nums">
+                        <span className="text-slate-400 font-medium">Desvio Padrão Inflado</span>
+                        <span className="text-right font-bold text-amber-400 tabular-nums">
                             {Number.isFinite(Number(statsData?.pooledSD)) ? Number(statsData.pooledSD).toFixed(2) : '0.00'}
                         </span>
                         
-                        <span className="col-span-2 border-t border-white/5 my-1"></span>
+                        <span className="col-span-2 border-t border-white/10 my-1"></span>
 
-                        <span className="text-slate-500 font-bold">Estado Confiabilidade</span>
+                        <span className="text-slate-300 font-bold">Estado Confiabilidade</span>
                         <span className={`text-right font-bold ${isOverconfident ? 'text-rose-400' : 'text-emerald-400'}`}>
                             {isOverconfident ? 'Superconfiante' : 'Estável'}
                         </span>

@@ -114,11 +114,11 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 </div>
               </div>
               <div className="mt-2.5 flex flex-col gap-1 pl-0.5">
-                <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words line-clamp-3 tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
                   {topicLabel}
                 </h4>
                 {secondaryText && (
-                  <p className={`text-[9.5px] sm:text-[10px] font-medium leading-relaxed break-words ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
+                  <p className={`text-[9.5px] sm:text-[10px] font-medium leading-relaxed break-words line-clamp-2 ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
                     {secondaryText}
                   </p>
                 )}
@@ -512,17 +512,17 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                   <p className="text-[9px] font-semibold text-slate-400 tracking-wider uppercase">Agenda do Aluno</p>
                 </div>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0">
+              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0 whitespace-nowrap">
                 {liveWeekTotal} tarefa{liveWeekTotal === 1 ? '' : 's'} na semana
               </span>
             </div>
             <div className="w-full overflow-x-auto kanban-scrollbar pb-2 pt-1 flex-1 flex flex-col">
-              <div className="flex gap-3 min-w-[900px] xl:min-w-0 w-full flex-1">
+              <div className="flex gap-2.5 sm:gap-3 min-w-[840px] 2xl:min-w-0 w-full flex-1">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
                   const dayCount = liveCount(day.id, dayTasks.length);
                   return (
-                    <div key={day.id} className="flex-1 min-w-[130px] xl:min-w-0 flex flex-col" data-col-id={day.id}>
+                    <div key={day.id} className="flex-1 min-w-[115px] sm:min-w-[120px] 2xl:min-w-0 flex flex-col" data-col-id={day.id}>
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => {
                           const isHighlight = hoveredCol ? (hoveredCol === day.id) : snapshot.isDraggingOver;
@@ -536,7 +536,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                                     <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
                                     <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
                                   </div>
-                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border shrink-0 transition-colors duration-75 ${isHighlight ? 'bg-white/20 border-white/40 text-white' : `${day.text} bg-black/30 ${day.headerBorder}`}`}>
+                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border shrink-0 transition-colors duration-75 whitespace-nowrap ${isHighlight ? 'bg-white/20 border-white/40 text-white' : `${day.text} bg-black/30 ${day.headerBorder}`}`}>
                                     {dayCount}
                                   </div>
                                 </div>

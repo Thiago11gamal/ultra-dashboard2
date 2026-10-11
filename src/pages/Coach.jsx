@@ -598,28 +598,30 @@ export default function Coach() {
 
     return (
         <PageErrorBoundary pageName="Coach">
-            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32">
-                <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-10 pb-32">
+                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
                     <PageHeader 
                         title="Análise do Coach" 
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
                     
-                    <div className="relative z-[60] flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/50 border border-white/10 p-2 sm:p-3 rounded-3xl backdrop-blur-xl w-full md:w-auto shadow-inner">
-                        <div className="flex items-center gap-3 sm:gap-4 px-2">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/80 border border-white/10 p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
+                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4 px-1 sm:px-2 w-full sm:w-auto">
                             <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={14} />} />
-                            <div className="w-px h-6 bg-white/10" />
+                            <div className="w-px h-6 bg-white/10 shrink-0" />
                             <QuickStat
                                 label="Tendência"
                                 value={`${normalizedDrift.toFixed(1)}pp`}
                                 color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
                                 icon={normalizedDrift >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                             />
-                            <div className="w-px h-6 bg-white/10" />
+                            <div className="w-px h-6 bg-white/10 shrink-0" />
                             <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
                         </div>
-                        <div className="hidden sm:block w-px h-6 bg-white/10" />
-                        <MonteCarloDebugger stats={mcStats} />
+                        <div className="hidden sm:block w-px h-6 bg-white/10 shrink-0" />
+                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-2 sm:pt-0 sm:border-t-0">
+                            <MonteCarloDebugger stats={mcStats} />
+                        </div>
                     </div>
                 </div>
 
@@ -936,10 +938,10 @@ function RaioXDashboard({ data }) {
                     </div>
                 </div>
             ) : (
-                <div className="py-8 text-center space-y-2">
-                    <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight max-w-[200px] mx-auto leading-tight">
-                        Requer <span className="text-indigo-400">3 simulados por matéria</span> para calibrar.
+                <div className="py-10 px-4 text-center rounded-2xl border border-white/5 bg-slate-900/40 space-y-2">
+                    <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[280px] mx-auto leading-relaxed">
+                        Requer no mínimo <span className="text-indigo-400 font-bold">3 simulados por matéria</span> para calibrar as projeções.
                     </p>
                 </div>
             )}
@@ -972,13 +974,13 @@ function RaioXDashboard({ data }) {
                 <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/10">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-white/5 bg-white/[0.015]">
-                                <th className="py-3 pl-4 pr-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
-                                <th className="py-3 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
-                                <th className="py-3 pl-4 pr-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap min-w-[100px] text-right">Prob Final</th>
+                            <tr className="border-b border-white/10 bg-white/[0.03]">
+                                <th className="py-3.5 pl-4 pr-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
+                                <th className="py-3.5 pl-4 pr-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px] text-right">Prob Final</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -987,14 +989,24 @@ function RaioXDashboard({ data }) {
                                 const eceVal = toFiniteNumber(log?.ece, null);
                                 const brierColor = brierVal === null ? 'text-slate-500' : (brierVal >= 0.25 ? 'text-rose-400' : (brierVal > 0.18 ? 'text-amber-400' : 'text-emerald-400'));
                                 const eceColor = eceVal === null ? 'text-slate-500' : (eceVal > 0.12 ? 'text-amber-400' : 'text-cyan-300');
+                                const isDeg = Boolean(log?.degraded);
                                 return (
-                                <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-500 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
-                                    <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">{displaySubject(log.categoryName)}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
+                                <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.03] transition-colors">
+                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-400 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
+                                    <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
+                                        <div className="flex items-center gap-2">
+                                            <span>{displaySubject(log.categoryName)}</span>
+                                            {isDeg && (
+                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                                    Degradado
+                                                </span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
+                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
-                                        {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (shrink)` : '-'}
+                                        {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (calibração)` : '-'}
                                     </td>
                                     <td className="py-3 pl-4 pr-4 text-[10px] text-white font-black whitespace-nowrap text-right tabular-nums">{toPercentLabel(log?.probability)}</td>
                                 </tr>
@@ -1004,17 +1016,17 @@ function RaioXDashboard({ data }) {
                     </table>
                     {filteredLogs.length === 0 && (
                         <div className="py-12 text-center space-y-2 px-4">
-                            <p className="text-[11px] text-slate-500 font-black uppercase tracking-widest">Nenhum evento registrado</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight max-w-[340px] mx-auto leading-tight">
+                            <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[340px] mx-auto leading-relaxed">
                                 Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
                             </p>
                         </div>
                     )}
                 </div>
             </div>
-            <div className="p-2 border-t border-white/5 pt-8">
+            <div className="p-4 sm:p-6 rounded-2xl border border-white/5 bg-slate-900/40">
                 <div className="flex items-center justify-between mb-5 gap-3">
-                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
+                    <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
                     <span className="text-[10px] font-black text-cyan-300 shrink-0">
                         {avgEce !== null ? `ECE médio: ${avgEce.toFixed(3)}` : 'Sem ECE'}
                     </span>
@@ -1022,12 +1034,12 @@ function RaioXDashboard({ data }) {
                 {latestWithReliability ? (
                     <ReliabilityCurveChart buckets={latestWithReliability.reliability} />
                 ) : (
-                    <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Sem buckets de confiabilidade ainda</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center py-6">Sem buckets de confiabilidade ainda</p>
                 )}
             </div>
-            <div className="p-2 border-t border-white/5 pt-8">
+            <div className="p-4 sm:p-6 rounded-2xl border border-white/5 bg-slate-900/40">
                 <div className="flex items-center justify-between mb-5 gap-3">
-                    <h3 className="text-[11px] font-black text-slate-500/80 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
+                    <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
                     {categoryNames.length > 1 ? (
                         <select
                             value={effectiveCategory}
@@ -1071,7 +1083,7 @@ function RaioXDashboard({ data }) {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-[10px] text-slate-600 uppercase font-black tracking-widest">Dados temporais insuficientes</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center py-6">Dados temporais insuficientes</p>
                 )}
             </div>
         </div>
