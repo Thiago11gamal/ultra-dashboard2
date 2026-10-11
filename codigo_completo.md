@@ -1,6 +1,6 @@
 # Código Fonte Completo do Projeto (Sem Testes)
 
-> **Data de geração:** 2026-10-11T06:06:18.774Z
+> **Data de geração:** 2026-10-11T07:18:52.631Z
 > **Total de arquivos:** 240
 
 ## Índice de Arquivos
@@ -21184,6 +21184,7 @@ export default WeeklyPerformanceChart;
 
 ```jsx
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
 // ✅ FIX: Worker singleton compartilhado entre todas as instâncias
@@ -21244,6 +21245,15 @@ export const EvolutionHeatmap = ({
 
     const [windowSize, setWindowSize] = useState('all');
     const [granularity, setGranularity] = useState('daily');
+    const [hoveredCell, setHoveredCell] = useState(null);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setHoveredCell(null);
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     const filtered = useMemo(() => {
         if (!Array.isArray(dates) || !Array.isArray(filteredRowsByFocus)) return { dates: [], rows: [] };
@@ -21410,7 +21420,7 @@ export const EvolutionHeatmap = ({
     const t80Fmt = `${Math.round(targetScorePct * 0.8)}%`;
 
     return (
-        <div className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-4 pb-8 sm:pb-10 px-3 sm:px-4 min-h-[240px] rounded-xl border border-slate-800/80 bg-gradient-to-b from-slate-950/95 to-slate-900/90 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
+        <div className="w-full min-h-[240px] rounded-2xl border border-slate-800/80 bg-slate-950 p-4 sm:p-5 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
             <div className="flex flex-wrap items-center gap-3.5 mb-5 text-[11px] text-slate-300">
                 <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-lg p-1.5 mr-2 shadow-sm">
                     {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (
@@ -21458,98 +21468,143 @@ export const EvolutionHeatmap = ({
                 </p>
             )}
 
-            <div className="mb-3 rounded-xl border border-white/5 bg-black/20 p-2.5 text-[10px] text-slate-400">
+            <div className="mb-4 rounded-xl border border-white/5 bg-black/20 p-2.5 text-[10px] text-slate-400">
                 Leitura rápida: verde = acima da meta; amarelo/laranja = atenção; vermelho = risco; vazio = sem simulado cadastrado.
             </div>
 
-            {/* VIS-FIX: largura = coluna de rótulo (220) + n × (68 célula + 4 gap). Antes usava 168 e cortava a última coluna. */}
-            <div style={{ minWidth: `${filteredDates.length * 72 + 220}px` }}>
-                <div style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
-                    <div className="sticky left-0 z-10 bg-slate-950/95" />
-                    {filteredDates.map(d => (
-                        <div key={d.key} className="flex flex-col items-center gap-1">
-                            <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${d.isWeekend ? 'text-purple-300' : 'text-slate-400'}`}>
-                                {d.dayName}
-                            </span>
-                            <span className="text-[11px] font-mono font-bold text-slate-100">{d.label}</span>
-                            {Number.isFinite(Number(d.count)) && Number(d.count) > 1 && (
-                                <span className="text-[8px] text-slate-500">{d.count}d</span>
-                            )}
+            {/* VIS-FIX: Container com scroll horizontal dedicado, sem padding lateral para o sticky fixar perfeitamente em x=0 */}
+            <div 
+                className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-2 pb-4"
+                onScroll={() => {
+                    if (hoveredCell) setHoveredCell(null);
+                }}
+            >
+                <div style={{ minWidth: `${filteredDates.length * 72 + 260}px` }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: `260px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
+                        <div 
+                            className="sticky left-0 z-30 w-[260px] min-w-[260px] max-w-[260px] self-stretch flex items-center px-3.5 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]" 
+                            style={{ backgroundColor: '#020617' }}
+                        >
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Disciplina</span>
                         </div>
-                    ))}
-                </div>
-
-                <div className="space-y-2.5">
-                    {filteredRows.map(({ cat, cells }, ri) => (
-                        <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `220px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
-                            {/* VIS-FIX: coluna da matéria fixa ao rolar horizontalmente */}
-                            <div className="sticky left-0 z-10 self-stretch flex items-center gap-2.5 pr-4 min-w-0 bg-slate-950/95 rounded-r-lg">
-                                <span className="text-lg shrink-0">{cat.icon}</span>
-                                <span className="text-sm sm:text-[13px] font-extrabold truncate leading-tight capitalize" style={{ color: cat.color }} title={cat.name}>
-                                    {cat.name}
+                        {filteredDates.map(d => (
+                            <div key={d.key} className="flex flex-col items-center gap-1">
+                                <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${d.isWeekend ? 'text-purple-300' : 'text-slate-400'}`}>
+                                    {d.dayName}
                                 </span>
+                                <span className="text-[11px] font-mono font-bold text-slate-100">{d.label}</span>
+                                {Number.isFinite(Number(d.count)) && Number(d.count) > 1 && (
+                                    <span className="text-[8px] text-slate-500">{d.count}d</span>
+                                )}
                             </div>
+                        ))}
+                    </div>
 
-                            {cells.map((cell, ci) => {
-                                const hasData = Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
-                                const col = cellColor(hasData ? cell.pct : null, hasData ? cell.total : 0);
-                                return (
-                                    <div
-                                        key={ci}
-                                        className={`relative group rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 ${hasData ? 'hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]' : 'opacity-60 cursor-default'}`}
-                                        style={{
-                                            background: col.bg,
-                                            opacity: hasData ? (0.85 + (col.density * 0.15)) : 0.6,
-                                            border: `1px solid ${col.border}`,
-                                            minHeight: '52px',
-                                        }}
+                    <div className="space-y-2.5">
+                        {filteredRows.map(({ cat, cells }) => (
+                            <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `260px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
+                                {/* VIS-FIX: Coluna da matéria 100% opaca, largura fixa de 260px, z-30 e shadow para nada de trás transparecer */}
+                                <div 
+                                    className="sticky left-0 z-30 w-[260px] min-w-[260px] max-w-[260px] self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
+                                    style={{ backgroundColor: '#020617' }}
+                                >
+                                    <span className="text-lg shrink-0">{cat.icon}</span>
+                                    <span 
+                                        className="text-[12px] sm:text-[13px] font-extrabold leading-tight capitalize min-w-0 line-clamp-2 select-none" 
+                                        style={{ color: cat.color }} 
+                                        title={cat.name}
                                     >
-                                        {hasData ? (
-                                            <>
-                                                <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
-                                                    {formatPct(cell.pct)}
-                                                </span>
-                                                <span className="text-[9px] text-slate-300/80 font-mono mt-1">
-                                                    {Math.round(cell.correct)}/{Math.round(cell.total)}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <span className="text-slate-500 text-[13px] font-bold">—</span>
-                                        )}
+                                        {cat.name}
+                                    </span>
+                                </div>
 
-                                        {hasData && (
-                                            <div className={`absolute ${ri === 0 ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 hidden group-hover:flex flex-col items-center bg-slate-950 border border-slate-500 rounded-xl p-4 min-w-[145px] shadow-[0_25px_60px_rgba(0,0,0,1)] whitespace-nowrap pointer-events-none text-center border-l-4 ${ci < 3 ? 'left-0' : ci > filteredDates.length - 4 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`} style={{ borderLeftColor: col.text }}>
-                                                <span className="text-[10px] text-slate-300 font-black uppercase tracking-[0.15em] mb-2.5 pb-2 border-b border-slate-800 w-full">
-                                                    {filteredDates[ci] ? `${filteredDates[ci].dayName} • ${filteredDates[ci].label}` : ''}
-                                                </span>
-                                                {Number.isFinite(Number(filteredDates[ci]?.count)) && Number(filteredDates[ci].count) > 1 && (
-                                                    <span className="text-[9px] text-cyan-400 font-bold mb-2">
-                                                        Janela: {filteredDates[ci].count} dias
-                                                    </span>
-                                                )}
-                                                <div className="flex flex-col items-center justify-center py-2.5 px-4 rounded-lg bg-slate-900 border border-slate-800 w-full mb-2.5">
-                                                    <span className="text-[19px] font-black leading-none mb-1.5 drop-shadow-[0_0_8px_rgba(0,0,0,1)]" style={{ color: col.text }}>
+                                {cells.map((cell, ci) => {
+                                    const hasData = Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
+                                    const col = cellColor(hasData ? cell.pct : null, hasData ? cell.total : 0);
+                                    return (
+                                        <div
+                                            key={ci}
+                                            className={`relative rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 ${hasData ? 'hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]' : 'opacity-60 cursor-default'}`}
+                                            style={{
+                                                background: col.bg,
+                                                opacity: hasData ? (0.85 + (col.density * 0.15)) : 0.6,
+                                                border: `1px solid ${col.border}`,
+                                                minHeight: '52px',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!hasData) return;
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                const isAbove = rect.top > 160;
+                                                const centerX = rect.left + rect.width / 2;
+                                                const left = Math.max(85, Math.min(window.innerWidth - 85, centerX));
+                                                setHoveredCell({
+                                                    rect,
+                                                    isAbove,
+                                                    left,
+                                                    cell,
+                                                    col,
+                                                    date: filteredDates[ci],
+                                                });
+                                            }}
+                                            onMouseLeave={() => setHoveredCell(null)}
+                                        >
+                                            {hasData ? (
+                                                <>
+                                                    <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
                                                         {formatPct(cell.pct)}
                                                     </span>
-                                                    <span className="text-[9px] text-slate-100 font-black uppercase tracking-widest">Desempenho</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 text-[11px] text-white font-mono">
-                                                    <span className="font-black px-2 py-0.5 rounded-md bg-black" style={{ color: col.text }}>{Math.round(cell.correct)}</span>
-                                                    <span className="text-slate-500 font-bold">/</span>
-                                                    <span className="font-bold">{Math.round(cell.total)} <small className="text-[9px] text-slate-400">Q</small></span>
-                                                </div>
-                                                <div className="mt-2 text-[8px] text-slate-500 font-black uppercase tracking-tighter">
-                                                    Densidade: {Math.round((col.density || 0) * 100)}%
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ))}
+                                                    <span className="text-[9px] text-slate-300/80 font-mono mt-1">
+                                                        {Math.round(cell.correct)}/{Math.round(cell.total)}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <span className="text-slate-500 text-[13px] font-bold">—</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
+
+            {/* Portal Tooltip: Flutua sobre tudo via body, impossível de cortar no topo, bordas ou coluna fixa */}
+            {typeof document !== 'undefined' && hoveredCell && createPortal(
+                <div 
+                    className="fixed z-[99999] pointer-events-none flex flex-col items-center bg-slate-950/95 backdrop-blur-md border border-slate-600 rounded-xl p-3 min-w-[140px] shadow-[0_20px_50px_rgba(0,0,0,0.95)] whitespace-nowrap text-center border-l-4 transition-transform duration-75 ease-out"
+                    style={{
+                        top: hoveredCell.isAbove ? `${hoveredCell.rect.top - 8}px` : `${hoveredCell.rect.bottom + 8}px`,
+                        left: `${hoveredCell.left}px`,
+                        transform: hoveredCell.isAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+                        borderLeftColor: hoveredCell.col.text,
+                    }}
+                >
+                    <span className="text-[10px] text-slate-200 font-black uppercase tracking-[0.15em] mb-1.5 pb-1.5 border-b border-slate-800 w-full">
+                        {hoveredCell.date ? `${hoveredCell.date.dayName} • ${hoveredCell.date.label}` : ''}
+                    </span>
+                    {Number.isFinite(Number(hoveredCell.date?.count)) && Number(hoveredCell.date.count) > 1 && (
+                        <span className="text-[9px] text-cyan-400 font-bold mb-1.5">
+                            Janela: {hoveredCell.date.count} dias
+                        </span>
+                    )}
+                    <div className="flex flex-col items-center justify-center py-1.5 px-3 rounded-lg bg-slate-900 border border-slate-800 w-full mb-1.5">
+                        <span className="text-[17px] font-black leading-none mb-1 drop-shadow-[0_0_8px_rgba(0,0,0,1)]" style={{ color: hoveredCell.col.text }}>
+                            {formatPct(hoveredCell.cell.pct)}
+                        </span>
+                        <span className="text-[8px] text-slate-300 font-black uppercase tracking-widest">Desempenho</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] text-white font-mono">
+                        <span className="font-black px-1.5 py-0.5 rounded-md bg-black" style={{ color: hoveredCell.col.text }}>{Math.round(hoveredCell.cell.correct)}</span>
+                        <span className="text-slate-500 font-bold">/</span>
+                        <span className="font-bold">{Math.round(hoveredCell.cell.total)} <small className="text-[8px] text-slate-400">Q</small></span>
+                    </div>
+                    <div className="mt-1 text-[8px] text-slate-500 font-black uppercase tracking-tighter">
+                        Densidade: {Math.round((hoveredCell.col.density || 0) * 100)}%
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
