@@ -456,6 +456,89 @@
 }
 
 /* ─────────────────────────────────────────────────────────
+   ENQUADRAMENTO DE DESTAQUE: COACH AI (MENU ITEM)
+───────────────────────────────────────────────────────── */
+.sidebar-item.coach-ia-item {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.06) 0%, rgba(15, 23, 42, 0.5) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  position: relative;
+}
+
+.sidebar-item.coach-ia-item .sidebar-item-icon-wrapper {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.25);
+  color: #c084fc;
+}
+
+.sidebar-item.coach-ia-item:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.14) 0%, rgba(15, 23, 42, 0.75) 100%);
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-item.coach-ia-item:hover .sidebar-item-icon-wrapper {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+  color: #e9d5ff;
+}
+
+.sidebar-item.coach-ia-item.active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.22) 0%, rgba(28, 14, 42, 0.92) 100%) !important;
+  border-color: rgba(192, 132, 252, 0.55) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.sidebar-item.coach-ia-item.active .sidebar-item-icon-wrapper {
+  background: rgba(168, 85, 247, 0.3) !important;
+  border-color: #c084fc !important;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.sidebar-item.coach-ia-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 4px;
+  background: #c084fc;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 12px #c084fc, 0 0 4px #e9d5ff;
+}
+
+.coach-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: rgba(168, 85, 247, 0.22);
+  border: 1px solid rgba(192, 132, 252, 0.45);
+  color: #e9d5ff;
+  margin-left: auto;
+  line-height: 1.3;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+.coach-badge-idle {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  margin-left: auto;
+  line-height: 1.3;
+}
+
+/* ─────────────────────────────────────────────────────────
    ENQUADRAMENTO DO CARD DE PAINEL ATIVO / CONCURSOS
 ───────────────────────────────────────────────────────── */
 .sidebar-contest-card {
@@ -535,6 +618,12 @@
 .sidebar.collapsed .sidebar-item.cronometro-item.active {
   background: linear-gradient(135deg, rgba(251, 113, 133, 0.25) 0%, rgba(28, 16, 26, 0.9) 100%) !important;
   box-shadow: 0 0 0 1.5px #fb7185, 0 0 18px rgba(251, 113, 133, 0.4) !important;
+  border-color: transparent !important;
+}
+
+.sidebar.collapsed .sidebar-item.coach-ia-item.active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(28, 14, 42, 0.9) 100%) !important;
+  box-shadow: 0 0 0 1.5px #c084fc, 0 0 18px rgba(168, 85, 247, 0.4) !important;
   border-color: transparent !important;
 }
 
@@ -713,34 +802,6 @@
   color: #fff;
 }
 
-/* Coach IA Item Especial */
-.coach-ia-item {
-  border-color: rgba(192, 132, 252, 0.28) !important;
-  background: linear-gradient(135deg, rgba(109, 40, 217, 0.12) 0%, rgba(30, 41, 59, 0.4) 100%) !important;
-  position: relative;
-}
-
-.coach-ia-item::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 12px rgba(192, 132, 252, 0.08);
-  pointer-events: none;
-}
-
-.coach-ia-item svg {
-  color: #c084fc;
-}
-
-.coach-ia-item.active {
-  background: linear-gradient(135deg, rgba(147, 51, 234, 0.28) 0%, rgba(30, 41, 59, 0.9) 100%) !important;
-  border-color: rgba(216, 180, 254, 0.5) !important;
-  box-shadow: 0 6px 20px rgba(147, 51, 234, 0.25), inset 0 0 10px rgba(192, 132, 252, 0.15) !important;
-}
 
 /* Custom Ultra-thin Frosted Scrollbar */
 .sidebar .custom-scrollbar {

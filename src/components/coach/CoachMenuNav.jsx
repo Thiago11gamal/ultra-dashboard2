@@ -13,21 +13,21 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
             aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : -1}
-            className={`group relative min-w-0 rounded-2xl px-3 sm:px-6 py-2.5 sm:py-3 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
+            className={`group relative min-w-0 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
                 ${active
-                    ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)] ring-1 ring-white/20'
+                    ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)] ring-1 ring-white/20'
                     : 'bg-slate-900/60 border-white/[0.05] text-slate-400 hover:bg-slate-800/80 hover:border-white/10 hover:text-slate-100'}
                 ${active ? 'mobile-menu-tab-active' : 'mobile-menu-tab-idle'}
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className={`shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border transition-all duration-200 ${active ? 'bg-white/20 border-white/30' : 'bg-white/5 border-white/10 group-hover:bg-white/10'}`}>
-                    <Icon size={15} strokeWidth={2.5} className={`shrink-0 transition-transform duration-200 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                <div className={`shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-all duration-200 ${active ? 'bg-white/20 border-white/30' : 'bg-white/5 border-white/10 group-hover:bg-white/10'}`}>
+                    <Icon size={14} strokeWidth={2.5} className={`shrink-0 transition-transform duration-200 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
                     {/* VIS-FIX: no mobile o rótulo era truncado ("PLAN…"); agora quebra em até 2 linhas */}
-                    <p className="text-[10.5px] sm:text-xs font-black uppercase tracking-[0.08em] sm:tracking-[0.12em] leading-tight line-clamp-2 sm:truncate">{label}</p>
-                    <p className={`hidden min-[400px]:block text-[9px] sm:text-[10px] font-bold leading-tight mt-0.5 uppercase tracking-[0.08em] truncate ${active ? 'text-indigo-100/95' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.08em] sm:tracking-[0.1em] leading-tight line-clamp-2 sm:truncate">{label}</p>
+                    <p className={`hidden min-[400px]:block text-[8.5px] sm:text-[9.5px] font-bold leading-tight mt-0.5 uppercase tracking-[0.06em] truncate ${active ? 'text-indigo-100/95' : 'text-slate-500 group-hover:text-slate-300'}`}>
                         {subtitle}
                     </p>
                 </div>
@@ -89,11 +89,11 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     };
 
     return (
-        <div className="mb-8 p-3 sm:p-4 rounded-3xl border border-violet-500/20 bg-slate-900/90 shadow-[0_18px_40px_rgba(2,6,23,0.5)] backdrop-blur-md">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 px-2 sm:px-4">
-                <div className="min-w-0 py-2 sm:py-3">
-                    <p className="text-[10px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-1.5 px-0.5">Navegação Tática</p>
-                    <h3 className="text-2xl sm:text-[26px] font-black text-white tracking-[-0.02em] leading-none">Central de Estratégia</h3>
+        <div className="mb-4 sm:mb-5 p-2 sm:p-2.5 rounded-2xl border border-violet-500/20 bg-slate-900/90 shadow-[0_12px_32px_rgba(2,6,23,0.45)] backdrop-blur-md">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 px-2 sm:px-3">
+                <div className="min-w-0 py-1">
+                    <p className="text-[9px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-0.5 px-0.5">Navegação Tática</p>
+                    <h3 className="text-lg sm:text-xl font-black text-white tracking-[-0.02em] leading-none">Central de Estratégia</h3>
                 </div>
 
                 <div
@@ -101,7 +101,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     aria-label="Coach AI sections"
                     aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
-                    className="grid grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[560px] coach-mobile-tabs self-center"
+                    className="grid grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[460px] coach-mobile-tabs self-center"
                 >
                     <MenuTab
                         active={activeTab === 'insights'}

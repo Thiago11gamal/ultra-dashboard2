@@ -116,17 +116,17 @@ function MonteCarloGauge({ mc }) {
         <Motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-3 p-4 bg-black/40 border border-white/10 rounded-2xl relative overflow-hidden"
+            className="mt-2 p-3 bg-black/40 border border-white/10 rounded-xl relative overflow-hidden"
         >
-            <div className="absolute top-0 right-0 p-3 text-white/5">
-                <BrainCircuit size={48} />
+            <div className="absolute top-0 right-0 p-2.5 text-white/5">
+                <BrainCircuit size={36} />
             </div>
             
-            <div className="relative z-10 flex justify-between items-end mb-2">
+            <div className="relative z-10 flex justify-between items-end mb-1.5">
                 <div>
                     {/* BUG-11 FIX: Clarify this is per-subject, not global */}
                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">Projeção MC (Matéria)</span>
-                    <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
+                    <span className="text-xl sm:text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
                 </div>
                 <div className="text-right">
                     <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade</span>
@@ -205,7 +205,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
         <Motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative w-full rounded-3xl border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
+            className={`relative w-full rounded-2xl border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-xl ${cfg.glow} overflow-hidden group/widget`}
         >
             {/* Background Atmosphere */}
             <div className={`absolute top-0 right-0 w-[500px] max-w-full h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
@@ -213,9 +213,9 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
             {/* Top Energy Line */}
             <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-80`} />
 
-            <div className="relative z-10 p-5 sm:p-8">
+            <div className="relative z-10 p-3.5 sm:p-5">
                 {/* Header Section */}
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-white/[0.04]">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-white/[0.04]">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -270,28 +270,28 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-8">
+                    <div className="space-y-4 sm:space-y-5">
                         {/* VIS-FIX: em lg (≈1024px + sidebar) a 3ª coluna fixa de 320px espremia as outras duas. */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1.5fr_300px] gap-8 xl:gap-12 items-center">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1.3fr_280px] gap-5 xl:gap-8 items-center">
                             {/* Left Column: Subject & Topic */}
-                            <div className="flex flex-col gap-5">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${cfg.bar}`} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Alvo Prioritário</span>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-2.5">
+                                    <div className={`w-1 h-4 rounded-full bg-gradient-to-b ${cfg.bar}`} />
+                                    <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">Alvo Prioritário</span>
                                     {statusLabel && (
-                                        <span className="text-[10px] font-bold text-slate-400 bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
+                                        <span className="text-[9.5px] font-bold text-slate-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
                                             {statusLabel.replace(/[🔥⚡✓]/gu, '').trim()}
                                         </span>
                                     )}
                                 </div>
 
                                 <div>
-                                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-3">
+                                    <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mb-2">
                                         {displaySubject(suggestion.name)}
                                     </h2>
                                     {topic && (
-                                        <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
-                                            <Target size={16} />
+                                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
+                                            <Target size={14} />
                                             <span>{topic.name}</span>
                                         </div>
                                     )}
@@ -304,21 +304,21 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     <Motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        className="relative p-5 sm:p-6 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
+                                        className="relative p-3.5 sm:p-4 rounded-xl bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_12px_30px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
                                     >
                                         {/* Soft background glow based on theme */}
                                         <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl ${cfg.stripe} to-transparent opacity-20 blur-2xl pointer-events-none rounded-full`} />
 
-                                        <div className="flex items-start gap-4 relative z-10">
-                                            <div className={`p-3 rounded-2xl bg-gradient-to-b from-white/[0.08] to-transparent border ${cfg.border} shadow-inner shrink-0 group-hover/status:scale-110 transition-transform duration-500`}>
-                                                <Sparkles size={20} className={`${cfg.accent} drop-shadow-[0_0_8px_currentColor]`} />
+                                        <div className="flex items-start gap-3 relative z-10">
+                                            <div className={`p-2.5 rounded-xl bg-gradient-to-b from-white/[0.08] to-transparent border ${cfg.border} shadow-inner shrink-0 group-hover/status:scale-110 transition-transform duration-500`}>
+                                                <Sparkles size={16} className={`${cfg.accent} drop-shadow-[0_0_8px_currentColor]`} />
                                             </div>
-                                            <div className="flex flex-col gap-1.5 flex-1 pt-0.5">
+                                            <div className="flex flex-col gap-1 flex-1 pt-0.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`w-1.5 h-1.5 rounded-full ${cfg.pulse} animate-pulse`} />
                                                     <span className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400">Motivo da Recomendação</span>
                                                 </div>
-                                                <p className="text-sm sm:text-[15px] text-slate-100 leading-relaxed font-medium mt-1">
+                                                <p className="text-xs sm:text-sm text-slate-100 leading-relaxed font-medium mt-0.5">
                                                     {renderRecommendation(suggestion.urgency.recommendation)}
                                                 </p>
                                             </div>
@@ -328,7 +328,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             </div>
 
                             {/* Right Column: Gauges */}
-                            <div className="space-y-6 lg:col-span-2 xl:col-span-1">
+                            <div className="space-y-3 lg:col-span-2 xl:col-span-1">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.details?.monteCarlo && (
                                     <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />

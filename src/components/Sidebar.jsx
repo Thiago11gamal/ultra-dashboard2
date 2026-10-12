@@ -475,12 +475,13 @@ const Sidebar = React.memo(function Sidebar({
                                     const isActive = isMenuItemActive(currentPath, item.path);
                                     const isMeuPainel = item.path === '/';
                                     const isCronometro = item.path === '/pomodoro';
+                                    const isCoach = item.path === '/coach';
 
                                     return (
                                         <div key={item.path} className="sidebar-item-wrapper">
                                             <Link
                                                 to={item.path}
-                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${isCronometro ? 'cronometro-item' : ''} ${item.path === '/coach' ? 'coach-ia-item' : ''} ${item.isAi ? 'ai-menu-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
+                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${isCronometro ? 'cronometro-item' : ''} ${isCoach ? 'coach-ia-item' : ''} ${item.isAi ? 'ai-menu-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
                                                 aria-current={isActive ? "page" : undefined}
                                                 style={{
                                                     '--item-color': item.color,
@@ -497,9 +498,11 @@ const Sidebar = React.memo(function Sidebar({
                                                         ? '(Início)' 
                                                         : isCronometro 
                                                             ? (isPomodoroRunning ? '(Em Foco ⏱️)' : '(Timer)') 
-                                                            : item.isAi 
-                                                                ? '(IA)' 
-                                                                : null;
+                                                            : isCoach
+                                                                ? '(Mentor IA 🧠)'
+                                                                : item.isAi 
+                                                                    ? '(IA)' 
+                                                                    : null;
                                                     handleTooltipEnter(e, item, extra);
                                                 }}
                                                 onMouseLeave={handleTooltipLeave}
@@ -515,7 +518,16 @@ const Sidebar = React.memo(function Sidebar({
                                                     {isMeuPainel && isActive && (
                                                         <span className="meu-painel-badge">Início</span>
                                                     )}
-                                                    {item.isAi && (
+                                                    {isCoach && (
+                                                        <div className="flex items-center gap-1.5 ml-auto">
+                                                            {isActive ? (
+                                                                <span className="coach-badge">IA</span>
+                                                            ) : (
+                                                                <span className="coach-badge-idle">IA</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {!isCoach && item.isAi && (
                                                         <span className="ai-item-badge">IA</span>
                                                     )}
                                                     {isCronometro && (

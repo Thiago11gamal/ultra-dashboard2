@@ -40,6 +40,7 @@ const CALIBRATION_ALERT_CACHE_MAX = 200;
 const EMPTY_ARRAY = Object.freeze([]);
 
 export default function Coach() {
+    const topRef = useRef(null);
     const calibrationAlertCacheRef = useRef(new Map());
     const activeId = useAppStore(state => state.appState.activeId);
     // LEAK-MCCACHE FIX: limpar o cache do Monte Carlo ao trocar de concurso.
@@ -50,6 +51,19 @@ export default function Coach() {
         clearUrgencyCache();
         clearTopicsCache();
         // BUG 1 FIX: Removed calibrationAlertCache.clear() to prevent global cache reset on mount
+    }, [activeId]);
+
+    useEffect(() => {
+        // Garantir que a tela do Coach AI seja perfeitamente enquadrada a partir do topo
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        if (topRef.current) {
+            const mainContainer = topRef.current.closest('main');
+            if (mainContainer) {
+                mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
     }, [activeId]);
 
     const data = useAppStore(useShallow(state => {
@@ -598,28 +612,28 @@ export default function Coach() {
 
     return (
         <PageErrorBoundary pageName="Coach">
-            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-10 pb-32">
-                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+            <div ref={topRef} className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6 pt-1 sm:pt-2 pb-10 sm:pb-16">
+                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
                     <PageHeader 
                         title="Análise do Coach" 
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
                     
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/80 border border-white/10 p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
-                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4 px-1 sm:px-2 w-full sm:w-auto">
-                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={14} />} />
-                            <div className="w-px h-6 bg-white/10 shrink-0" />
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 bg-slate-900/80 border border-white/10 p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
+                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-1 w-full sm:w-auto">
+                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={13} />} />
+                            <div className="w-px h-5 bg-white/10 shrink-0" />
                             <QuickStat
                                 label="Tendência"
                                 value={`${normalizedDrift.toFixed(1)}pp`}
                                 color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
-                                icon={normalizedDrift >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                                icon={normalizedDrift >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
                             />
-                            <div className="w-px h-6 bg-white/10 shrink-0" />
-                            <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
+                            <div className="w-px h-5 bg-white/10 shrink-0" />
+                            <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={13} />} />
                         </div>
-                        <div className="hidden sm:block w-px h-6 bg-white/10 shrink-0" />
-                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-2 sm:pt-0 sm:border-t-0">
+                        <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />
+                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-1.5 sm:pt-0 sm:border-t-0">
                             <MonteCarloDebugger stats={mcStats} />
                         </div>
                     </div>
@@ -630,7 +644,7 @@ export default function Coach() {
                     {degradedCount > 0 && <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />}
                 </AnimatePresence>
 
-                <div className="space-y-10">
+                <div className="space-y-4 sm:space-y-5">
                     <div className="w-full">
                         <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
 
@@ -651,15 +665,15 @@ export default function Coach() {
                                 {safeActiveTab === 'insights' && (
                                     <>
                                         {flashcardDue > 0 && (
-                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
-                                                <BookOpen className="text-amber-400 shrink-0" size={18} />
+                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
+                                                <BookOpen className="text-amber-400 shrink-0" size={16} />
                                                 <div className="flex-1 min-w-[180px] text-amber-200">
                                                     <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => navigate('/flashcards')}
-                                                    className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
+                                                    className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
                                                 >
                                                     Revisar agora
                                                 </button>
@@ -668,15 +682,15 @@ export default function Coach() {
 
                                         {/* Visual global MC context */}
                                         {globalProjection && (
-                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-xs">
+                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
                                                 <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
-                                                <span className="font-mono text-base font-bold text-emerald-200 tabular-nums">
+                                                <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
                                                     {globalProjection.points.toFixed(1)}
                                                     <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
                                                 </span>
-                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums">{Math.round(globalProjection.pct)}%</span>
+                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
                                                 {globalProjection.probability !== null && (
-                                                    <span className="text-emerald-400/70">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
+                                                    <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
                                                 )}
                                             </div>
                                         )}

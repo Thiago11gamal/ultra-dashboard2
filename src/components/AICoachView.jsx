@@ -313,41 +313,41 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     return (
         // VIS-FIX: removido font-family inline 'DM Sans' — a fonte não é carregada no index.html,
         // então o painel caía para system-ui e ficava com tipografia diferente do resto do app (Outfit).
-        <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto">
-            <div className="flex flex-col gap-6">
-                <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative overflow-hidden">
+        <div id="ai-coach-container" className="space-y-4 sm:space-y-5 pb-8 w-full mx-auto">
+            <div className="flex flex-col gap-3 sm:gap-4">
+                <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-3 sm:p-4 rounded-2xl shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none"></div>
                     
-                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                            <div className="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
-                                <Compass size={24} className="text-indigo-400" />
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
+                                <Compass size={18} className="text-indigo-400" />
                             </div>
                             <div className="min-w-0">
-                                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">Painel Coach AI</h2>
-                                <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-bold mt-1">Estratégia inteligente com MC</p>
+                                <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">Painel Coach AI</h2>
+                                <p className="text-[9px] text-cyan-400/80 uppercase tracking-[0.2em] font-bold">Estratégia inteligente com MC</p>
                             </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                             {/* VIS-FIX: os dois botões tinham estilos/bordas diferentes → alturas diferentes e "pulo" ao alternar */}
                             <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/10 rounded-xl p-1 shadow-inner" role="group" aria-label="Modo de visualização">
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'planner'}
                                     onClick={() => setViewMode('planner')}
-                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <LayoutGrid size={13} className="shrink-0" />
+                                    <LayoutGrid size={12} className="shrink-0" />
                                     Planner
                                 </button>
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'cards'}
                                     onClick={() => setViewMode('cards')}
-                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <Sparkles size={13} className="shrink-0" />
+                                    <Sparkles size={12} className="shrink-0" />
                                     Pendências
                                 </button>
                             </div>
@@ -358,17 +358,17 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 onClick={onGenerateGoals}
                                 disabled={loading}
                                 aria-busy={loading}
-                                className="group relative overflow-hidden px-4 sm:px-5 py-2 rounded-xl font-black text-[10px] sm:text-[11px] tracking-[0.12em] uppercase transition-all duration-200 flex items-center gap-2 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_20px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                                className="group relative overflow-hidden px-3.5 sm:px-4 py-1.5 rounded-xl font-black text-[9.5px] sm:text-[10.5px] tracking-[0.1em] uppercase transition-all duration-200 flex items-center gap-1.5 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_16px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
                             >
                                 <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
                                 {loading ? (
                                     <>
-                                        <Loader2 size={14} className="animate-spin shrink-0" />
+                                        <Loader2 size={13} className="animate-spin shrink-0" />
                                         <span>Calculando...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <BrainCircuit size={14} className="shrink-0" />
+                                        <BrainCircuit size={13} className="shrink-0" />
                                         <span className="hidden sm:inline">Recalcular Estratégia</span>
                                         <span className="sm:hidden">Recalcular</span>
                                     </>
@@ -381,9 +381,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     onClick={handleExport}
                                     disabled={isExporting}
                                     title="Exportar plano para PDF"
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                                    {isExporting ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
                                     <span className="hidden sm:inline">PDF</span>
                                 </button>
                                 <button
@@ -391,9 +391,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     onClick={handleClearWithConfirm}
                                     disabled={!hasAnythingToClear}
                                     title={hasAnythingToClear ? 'Limpar sugestões e planejamento' : 'Nada para limpar'}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
-                                    <Trash2 size={12} />
+                                    <Trash2 size={11} />
                                     <span className="hidden sm:inline">Limpar</span>
                                 </button>
                             </div>
@@ -466,23 +466,23 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     >
-                        <div className="space-y-6 mb-8">
+                        <div className="space-y-4 mb-4">
                     {suggestedFocus ? (
                         <div className="w-full">
                             {/* UX-FIX: sem onGenerateGoals aqui — havia dois botões de recalcular ("Recalcular Estratégia" e "Recalcular") a poucos px de distância */}
                             <AICoachWidget suggestion={suggestedFocus} loading={loading} />
                         </div>
                     ) : (
-                        <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
-                            <AlertCircle size={20} className="mx-auto mb-3 text-slate-600" />
+                        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-6 text-center">
+                            <AlertCircle size={18} className="mx-auto mb-2 text-slate-600" />
                             <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
-                            <p className="text-[10px] text-slate-500 mt-1">Recalcule a estratégia após novos simulados.</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Recalcule a estratégia após novos simulados.</p>
                         </div>
                     )}
                         </div>
 
                         {systemAlerts.length > 0 && (
-                            <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="mb-4 sm:mb-5 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                                 {systemAlerts.map((alertTask, alertIdx) => {
                                     const rawAlertText = String(alertTask?.text || alertTask?.title || '');
                                     const cleanText = rawAlertText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
@@ -520,12 +520,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     }[type];
 
                                     return (
-                                        <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
+                                        <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-3.5 sm:p-4 rounded-2xl border flex flex-col gap-3 shadow-lg ${t.bg} ${t.border}`}>
                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
                                             
-                                            <div className="flex items-start gap-4">
-                                                <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
-                                                    <t.Icon size={24} className={t.isCritical ? "animate-pulse" : ""} />
+                                            <div className="flex items-start gap-3">
+                                                <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
+                                                    <t.Icon size={18} className={t.isCritical ? "animate-pulse" : ""} />
                                                 </div>
                                                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
