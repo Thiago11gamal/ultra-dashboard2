@@ -218,7 +218,7 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
 
   // ── 1) total/correct ──────────────────────────────────────
   if (total > 0) {
-    const ratio = correct / total;
+    const ratio = Math.max(0, Math.min(1, correct / total));
     return {
       points: domain.min + ratio * domain.range,
       pct: ratio * 100,
@@ -357,6 +357,10 @@ export function getSafeScore(row, maxScore, minScore = 0) {
 
   if (typeof row === "number") {
     score = row;
+  } else if (row.scorePoints != null && Number.isFinite(Number(row.scorePoints))) {
+    score = Number(row.scorePoints);
+  } else if (row.scorePct != null && Number.isFinite(Number(row.scorePct))) {
+    score = safeMin + (Math.max(0, Math.min(100, Number(row.scorePct))) / 100) * range;
   } else if (row.score != null) {
     score = parseNum(row.score);
     if (row.isPercentage && Number.isFinite(score)) {
@@ -497,10 +501,9 @@ export function mergeQuestionResult(row, delta, maxScore, minScore = 0) {
     score: points,
     scoreUnit: "points",
     isPercentage: false,
-    timeSpent: Math.max(
-      0,
-      (Number(r.timeSpent) || 0) + Math.max(0, Number(delta?.timeSpentSecs) || 0)
-    )
+    timeSpent: Number.isFinite(Number(r.timeSpent)) || Number.isFinite(Number(delta?.timeSpentSecs))
+      ? Math.max(0, (Number(r.timeSpent) || 0) + Math.max(0, Number(delta?.timeSpentSecs) || 0))
+      : 0
   };
 }
 

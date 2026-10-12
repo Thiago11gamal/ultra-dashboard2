@@ -49,8 +49,8 @@ const Header = React.memo(function Header({
     setSidebarCollapsed
 }) {
     const displayName = user?.name ?? 'Estudante';
-    const [prevDisplayName, setPrevDisplayName] = useState(displayName);
     const [localName, setLocalName] = useState(displayName);
+    const prevDisplayNameRef = useRef(displayName);
     const debounceRef = useRef(null);
     const isMountedRef = useRef(true); // FIX 5.3a: Proteção contra setState após unmount
     const clockTime = useClock(); // Centraliza o relógio
@@ -72,10 +72,13 @@ const Header = React.memo(function Header({
         };
     }, []);
 
-    if (displayName !== prevDisplayName) {
-        setPrevDisplayName(displayName);
-        setLocalName(displayName);
-    }
+    // FIX BUG-045: Sincronizar displayName via useEffect para evitar double-render e sobrescrita
+    useEffect(() => {
+        if (displayName !== prevDisplayNameRef.current) {
+            prevDisplayNameRef.current = displayName;
+            setLocalName(displayName);
+        }
+    }, [displayName]);
 
     const handleNameChange = (e) => {
         const value = e.target.value.slice(0, 100); // FIX 5.3b: Limite de caracteres
@@ -209,7 +212,8 @@ const Header = React.memo(function Header({
                                 value={localName}
                                 onChange={handleNameChange}
                                 placeholder="Nome do utilizador..."
-                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0.5 leading-[1.35] w-full text-ellipsis overflow-hidden whitespace-nowrap"
+                                className="bg-transparent text-center text-lg lg:text-xl font-black neon-text placeholder:text-slate-800 focus:outline-none transition-all px-4 py-0.5 leading-[1.35] w-full"
+                                style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
                                 aria-label="Nome do usuário" // FIX 5.3e
                                 maxLength={100}
                             />

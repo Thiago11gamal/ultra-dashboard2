@@ -348,7 +348,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             ? 70
             : Math.round(minScore + (maxScore - minScore) * 0.7);
 
-        if (!Number.isFinite(n) || n <= minScore) return fallback;
+        if (!Number.isFinite(n) || n <= minScore || n > maxScore) return fallback;
 
         return Math.max(minScore, Math.min(maxScore, n));
     }, [maxScore, minScore]);
@@ -411,7 +411,13 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
     const handleSetTargetScore = React.useCallback((newScore) => {
         pendingLocalSave.current = true;
-        setTargetScore(normalizeTargetToScale(newScore));
+        try {
+            setTargetScore(normalizeTargetToScale(newScore));
+        } catch (err) {
+            pendingLocalSave.current = false;
+            console.error('[VerifiedStats] Erro ao normalizar targetScore:', err);
+            throw err;
+        }
     }, [normalizeTargetToScale]);
 
     // B-06 & Bug 7 FIX: Sincronização Robusta com Trava de Round-trip e reset seguro

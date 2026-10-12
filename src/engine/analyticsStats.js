@@ -47,22 +47,27 @@ const clampCorrectToTotal = (correct, total) => {
 // FIX: parseInt truncava pesos decimais ("2.5" -> 2).
 // Agora aceita decimais e arredonda de forma previsível.
 export const sanitizeWeightUnit = (value) => {
+    if (typeof value === 'boolean') return value ? 1 : 0;
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed === '') return 0;
+    }
     let numeric = Number(value);
 
     if (!Number.isFinite(numeric)) {
-        numeric = parseInt(value, 10);
+        numeric = parseInt(String(value), 10);
     }
 
     if (Number.isNaN(numeric)) return 0;
 
-    return Math.max(0, Math.min(999, numeric));
+    return Math.max(0, Math.min(999, Math.round(numeric)));
 };
 
 export const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
 export function regularizeVolatility(dailySD, projectionDays, historyLength, domain) {
     const safeSD = Number.isFinite(dailySD) ? Math.max(0, dailySD) : 0;
-    const safeDomain = Number.isFinite(domain) && domain > 0 ? domain : 100;
+    const safeDomain = Number.isFinite(domain) && domain > 1e-9 ? domain : 100;
 
     const informativeSD = VOLATILITY_REGULARIZATION_FACTOR * safeDomain;
 
@@ -158,13 +163,15 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
         // O campo mean era "onde estou", projectedMean era "onde projetei chegar".
         const meanPrediction = Number(snapshot.projectedMean ?? snapshot.mean) || 0;
 
-        if (meanPrediction > 0 && safeMaxScore > 0) {
+        const targetVal = Number(snapshot.target);
+        if (meanPrediction > 0 && safeMaxScore > 0 && Number.isFinite(targetVal) && targetVal > 0) {
             const err = Math.abs(meanPrediction - actualScore) / globalDomain;
             residualSum += err * weight;
             residualWeightSum += weight;
         }
 
-        const p = Math.max(0, Math.min(1, (Number(snapshot.probability) || 0) / 100));
+        const rawProb = Number(snapshot.probability);
+        const p = Number.isFinite(rawProb) ? Math.max(0, Math.min(1, rawProb / 100)) : 0;
         const target = Number(snapshot.target) || 0;
 
         if (target > 0) {
@@ -215,7 +222,8 @@ export function generateAnalyticsStats({
     timelineDates,
     minScore,
     maxScore,
-    simuladoRows = []
+    simuladoRows = [],
+    targetScore = null
 }) {
     // FIX: domínios globais seguros
     const safeMaxScore = Number.isFinite(maxScore) && maxScore > 0 ? maxScore : 100;
@@ -231,8 +239,8 @@ export function generateAnalyticsStats({
     let weightedPropBeta = 0;
 
     const scoresByDate = {};
-    const weightsByKey = {};
-    const maxScoreByKey = {};
+    const weightsByKey = new Map();
+    const maxScoreByKey = new Map();
     const bayesianStats = [];
 
     const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
@@ -301,8 +309,8 @@ export function generateAnalyticsStats({
                 weightedPropAlpha += catProp * cappedStrength * weight;
                 weightedPropBeta += (1 - catProp) * cappedStrength * weight;
 
-                weightsByKey[weightKey] = weight;
-                maxScoreByKey[weightKey] = catMaxScore;
+                weightsByKey.set(weightKey, weight);
+                maxScoreByKey.set(weightKey, catMaxScore);
 
                 history.forEach(h => {
                     const currentScore = getSafeScore(h, catMaxScore, catMinScore);
@@ -423,8 +431,8 @@ export function generateAnalyticsStats({
         let pooledTotal = 0;
 
         Object.keys(scoresByDate[date]).forEach(name => {
-            const w = weightsByKey[name];
-            const catMaxScore = maxScoreByKey[name] || safeMaxScore;
+            const w = weightsByKey.get(name) ?? 0;
+            const catMaxScore = maxScoreByKey.get(name) || safeMaxScore;
             const metrics = scoresByDate[date][name];
 
             if (w > 0 && metrics !== undefined) {
@@ -497,7 +505,8 @@ export function generateAnalyticsStats({
       ? Number(totalWeight.toFixed(2))
       : 0;
 
-    const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${safeMinScore}-${safeMaxScore}-${scoreFingerprint}-tw[${safeTotalWeight}]-w[${weightFingerprint}]-cutoffs[${cutoffs}]`;
+    const safeTargetScore = Number.isFinite(Number(targetScore)) ? Number(targetScore) : 'na';
+    const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${safeMinScore}-${safeMaxScore}-${scoreFingerprint}-tw[${safeTotalWeight}]-w[${weightFingerprint}]-cutoffs[${cutoffs}]-tgt[${safeTargetScore}]`;
 
     return {
         categoryStats,

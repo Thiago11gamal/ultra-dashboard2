@@ -9,6 +9,7 @@ import { logger } from '../utils/logger';
  * @param {number} timeoutMs - Inactivity timeout in milliseconds.
  */
 export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
+    const safeTimeout = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : 60 * 60 * 1000;
     const timerRef = useRef(null);
     const logoutRef = useRef(logout);
     const lastActivityRef = useRef(0);

@@ -521,7 +521,10 @@ const MonteCarloGaugeBase = ({
                         <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 text-center w-auto max-w-full truncate ${m.badgeClass}`}>
                             {m.label}
                         </span>
-                        <span className={`text-xs sm:text-sm font-black ${m.color} w-full text-center truncate leading-tight tracking-tight mt-0.5 font-mono`}>
+                        <span 
+                            className={`text-xs sm:text-sm font-black ${m.color} w-full text-center truncate leading-tight tracking-tight mt-0.5 font-mono`}
+                            title={m.val}
+                        >
                             {m.val}
                         </span>
                     </div>
@@ -777,14 +780,13 @@ function InsufficientHistoryState() {
 }
 
 function AnimatedProbability({ value }) {
-    const [display, setDisplay] = useState(value);
-    // BUG-AUDIT-05 FIX: Ref que rastreia o valor corrente da animação para evitar stale closure.
-    // Sem isso, transições rápidas (60→70 durante animação 50→60) começariam de 50, não de ~58.
-    const displayRef = useRef(value);
+    const safeValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+    const [display, setDisplay] = useState(safeValue);
+    const displayRef = useRef(safeValue);
 
     useEffect(() => {
-        const start = displayRef.current; // Sempre pega o valor visual corrente, não o state stale
-        const end = value;
+        const start = displayRef.current;
+        const end = safeValue;
         if (Math.abs(start - end) < 0.1) {
             setDisplay(end);
             displayRef.current = end;

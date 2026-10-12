@@ -86,6 +86,9 @@ export const parseImportedData = (content, currentAppState) => {
         }
 
         const imported = JSON.parse(content);
+        if (!imported || typeof imported !== 'object') {
+            throw new Error("Conteúdo JSON inválido.");
+        }
 
         // Strategy 1: Valid Full Backup (New Format)
         if (imported.contests && imported.activeId) {

@@ -44,7 +44,7 @@ export function EvolucaoFocoChart({ data }) {
                         stroke="#94a3b8"
                         fontSize={11}
                         domain={[0, dataMax => {
-                            const safeMax = Number.isFinite(dataMax) ? dataMax : 0;
+                            const safeMax = Number.isFinite(dataMax) ? Math.max(0, dataMax) : 0;
                             return Math.max(1, Math.ceil(safeMax * 1.15));
                         }]}
                         axisLine={false}

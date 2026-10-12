@@ -33,7 +33,7 @@ export default function Paywall({ user, onLogout }) {
     }, []);
 
     const handleSubscribe = async () => {
-        if (!user || !user.uid) {
+        if (!user || !user.uid || typeof user.uid !== 'string' || user.uid.length === 0) {
             setError("Faça login para assinar.");
             return;
         }

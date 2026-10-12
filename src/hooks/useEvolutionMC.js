@@ -61,7 +61,7 @@ export function useEvolutionMC({
   const currentFocusLevel = focusCategory ? categoryLevels?.[focusCategory.id] : undefined;
 
   useEffect(() => {
-    if (!focusCategory?.id || !Array.isArray(historyArray) || historyArray.length === 0) {
+    if (!focusCategory || !focusCategory.id || !Array.isArray(historyArray) || historyArray.length === 0) {
       queueMicrotask(() => {
         setMcLoading(false);
         setMcResult(null);

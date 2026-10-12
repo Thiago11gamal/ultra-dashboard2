@@ -12,6 +12,7 @@ export const safeClone = (value, fallback = null) => {
   try {
     const seen = new WeakSet();
     return JSON.parse(JSON.stringify(value, (key, val) => {
+      if (val instanceof Date) return val.toISOString();
       if (typeof val === 'function' || typeof val === 'symbol') return undefined;
       if (typeof window !== 'undefined' && val === window) return undefined;
       if (typeof Event !== 'undefined' && val instanceof Event) return undefined;
@@ -22,7 +23,13 @@ export const safeClone = (value, fallback = null) => {
         seen.add(val);
       }
       return val;
-    }));
+    }), (key, val) => {
+      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) return d;
+      }
+      return val;
+    });
   } catch (jsonError) {
     console.error('[SafeClone] Falha crítica ao clonar. Retornando fallback.', jsonError);
     if (fallback !== null) return fallback;

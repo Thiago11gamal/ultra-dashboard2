@@ -5,6 +5,9 @@ import ConfirmModal from './ConfirmModal';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
 
 const getTrashItemMeta = (item) => {
+    if (!item || typeof item !== 'object') {
+        return { title: 'Item inválido', icon: '❓', subtitle: 'Desconhecido', isContest: false };
+    }
     const isContest = item?.type === 'contest';
     const isCategory = item?.type === 'category';
 

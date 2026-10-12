@@ -244,7 +244,14 @@ export const SubtopicsPerformanceChart = React.memo(({
         const toTopicKey = (name) => {
           const normalized = String(name || '').trim().toLowerCase();
           const slug = normalized.replace(/[^a-z0-9]+/g, '_');
-          return `top_${slug}_${simpleHash(normalized)}`;
+          let h1 = 0x811c9dc5;
+          let h2 = 0x01000193;
+          for (let i = 0; i < normalized.length; i++) {
+            const c = normalized.charCodeAt(i);
+            h1 = Math.imul(h1 ^ c, 0x01000193);
+            h2 = Math.imul(h2 ^ c, 0x85ebca6b);
+          }
+          return `top_${slug}_${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
         };
 
         relevantCategories.forEach(cat => {

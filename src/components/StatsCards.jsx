@@ -199,7 +199,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 auto-rows-fr gap-3 sm:gap-4 animate-fade-in-down">
             {/* ── Sequência ─────────────────────────────────────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between group transition-all duration-500 shadow-2xl min-h-[168px]">
+            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between group transition-all duration-500 shadow-2xl min-h-[140px]">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700 pointer-events-none" />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
 

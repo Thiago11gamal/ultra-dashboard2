@@ -102,6 +102,7 @@ const PerformanceTable = ({ categories = [] }) => {
     };
 
     const handleSort = (column) => {
+        if (!column || typeof column !== 'string') return;
         if (sortColumn === column) {
             setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
         } else {
@@ -139,7 +140,7 @@ const PerformanceTable = ({ categories = [] }) => {
         >
             {/* FIX 5.6d: Linhas com roles e foco gerenciado */}
             <div className="overflow-x-auto max-h-[500px] overflow-y-auto w-full custom-scrollbar">
-                <table className="w-full text-left border-collapse table-fixed min-w-[900px]" role="table">
+                <table className="w-full text-left border-collapse table-fixed min-w-[900px]" role="grid">
                     <thead className="bg-slate-900/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-white/5 sticky top-0 z-10">
                         <tr>
                             <th className="p-5 pl-8 w-16 text-center">#</th>

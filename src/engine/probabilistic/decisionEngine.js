@@ -83,6 +83,7 @@ function sampleBeta(alpha, beta, rng, gaussianSampler) {
   const mean = a / (a + b);
   const variance = (a * b) / ((a + b) ** 2 * (a + b + 1));
   const sd = Math.sqrt(Math.max(0, variance));
+  if (!Number.isFinite(sd) || sd <= 0) return mean;
 
   const gaussian = typeof gaussianSampler === 'function'
     ? gaussianSampler

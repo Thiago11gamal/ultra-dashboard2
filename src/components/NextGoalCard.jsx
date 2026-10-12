@@ -16,11 +16,14 @@ function NextGoalCard({
 
     const [isLoading, setIsLoading] = useState(true);
     const [suggestion, setSuggestion] = useState(null);
+    const rawCategoriesRef = React.useRef(rawCategories);
+    useEffect(() => { rawCategoriesRef.current = rawCategories; }, [rawCategories]);
 
     useEffect(() => {
         // Usa setTimeout para não bloquear o render inicial e evitar setState síncrono no efeito
         const timer = setTimeout(() => {
-            if (rawCategories.length === 0 || !hasAnyTasks) {
+            const currentCats = rawCategoriesRef.current || [];
+            if (currentCats.length === 0 || !hasAnyTasks) {
                 setIsLoading(false);
                 setSuggestion(null);
                 return;
@@ -28,7 +31,7 @@ function NextGoalCard({
 
             setIsLoading(true);
             try {
-                const normalizedCategories = rawCategories.map(category => ({
+                const normalizedCategories = currentCats.map(category => ({
                     ...category,
                     tasks: toArray(category?.tasks)
                 }));
@@ -138,7 +141,8 @@ function NextGoalCard({
         );
     }
 
-    const { category, task, urgency, display } = suggestion;
+    const { category, task, urgency, display } = suggestion || {};
+    if (!category || !task) return null;
 
     const rawUrgencyScore = urgency?.normalizedScore ?? urgency?.score ?? 0;
     const urgencyScore = Number.isFinite(rawUrgencyScore) ? rawUrgencyScore : 0;

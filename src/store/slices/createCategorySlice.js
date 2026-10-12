@@ -5,52 +5,57 @@ import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
 
 export const createCategorySlice = (set) => ({
-    addCategory: (name) => set((state) => {
-        if (!name || typeof name !== 'string') return;
-        const activeData = state.appState.contests[state.appState.activeId];
+    addCategory: (name) => {
+        let added = false;
+        set((state) => {
+            if (!name || typeof name !== 'string') return;
+            const activeData = state.appState.contests[state.appState.activeId];
 
-        if (!activeData) return;
-        if (!Array.isArray(activeData.categories)) {
-            activeData.categories = activeData.categories && typeof activeData.categories === 'object'
-                ? Object.values(activeData.categories)
-                : [];
-        }
+            if (!activeData) return;
+            if (!Array.isArray(activeData.categories)) {
+                activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                    ? Object.values(activeData.categories)
+                    : [];
+            }
 
-        // BUG FIX: Prevent duplicate categories by name
-        const normName = normalize(name);
-        if (activeData.categories.some(c => normalize(c.name) === normName)) {
-            console.warn(`[Store] Category "${name}" already exists.`);
-            return;
-        }
+            // BUG FIX: Prevent duplicate categories by name
+            const normName = normalize(name);
+            if (activeData.categories.some(c => normalize(c.name) === normName)) {
+                console.warn(`[Store] Category "${name}" already exists.`);
+                return;
+            }
 
-        const catMaxScore = Number(activeData.maxScore) > 0 ? Number(activeData.maxScore) : 100;
-        const catMinScore = Number.isFinite(Number(activeData.minScore)) ? Number(activeData.minScore) : 0;
-        const newCatId = generateId('cat');
+            const catMaxScore = Number(activeData.maxScore) > 0 ? Number(activeData.maxScore) : 100;
+            const catMinScore = Number.isFinite(Number(activeData.minScore)) ? Number(activeData.minScore) : 0;
+            const newCatId = generateId('cat');
 
-        activeData.categories.push({
-            id: newCatId,
-            name,
-            color: '#3b82f6',
-            icon: '📚',
-            tasks: [],
-            weight: 10,
-            maxScore: catMaxScore,
-            minScore: catMinScore,
-            minCutoff: catMinScore,
-            simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
-            totalMinutes: 0,
-            lastStudiedAt: null
+            activeData.categories.push({
+                id: newCatId,
+                name,
+                color: '#3b82f6',
+                icon: '📚',
+                tasks: [],
+                weight: 10,
+                maxScore: catMaxScore,
+                minScore: catMinScore,
+                minCutoff: catMinScore,
+                simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
+                totalMinutes: 0,
+                lastStudiedAt: null
+            });
+
+            // ✅ Remove qualquer tombstone prévio para permitir salvar e sincronizar perfeitamente
+            removeCategoryTombstone(newCatId, name);
+
+            const nowIso = new Date().toISOString();
+            activeData.lastUpdated = nowIso;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = nowIso;
+            markStorageDirty();
+            added = true;
         });
-
-        // ✅ Remove qualquer tombstone prévio para permitir salvar e sincronizar perfeitamente
-        removeCategoryTombstone(newCatId, name);
-
-        const nowIso = new Date().toISOString();
-        activeData.lastUpdated = nowIso;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = nowIso;
-        markStorageDirty();
-    }),
+        return added;
+    },
 
     deleteCategory: (id) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];

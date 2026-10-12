@@ -48,9 +48,9 @@ export function toDateMs(value) {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return null;
 
-    // Heurística segura:
-    // - valores >= 100_000_000_000 geralmente são milliseconds
-    // - valores menores geralmente são seconds
+    if (value > 1e14) {
+      return Math.floor(value / 1000);
+    }
     if (value >= 100_000_000_000) return value;
     return value * 1000;
   }

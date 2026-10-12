@@ -90,12 +90,12 @@ const getMondayStr = (dateStr) => {
     const dt = parseNoonLocal(dateStr);
     // ✅ BUG-3 FIX: parseNoonLocal pode retornar null → guard antes de getTime()
     if (!dt || isNaN(dt.getTime())) return null;
-    const day = dt.getDay();
-    const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
-    dt.setDate(diff);
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, '0');
-    const d = String(dt.getDate()).padStart(2, '0');
+    const utcDay = dt.getUTCDay();
+    const diff = dt.getUTCDate() - utcDay + (utcDay === 0 ? -6 : 1);
+    dt.setUTCDate(diff);
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dt.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 };
 

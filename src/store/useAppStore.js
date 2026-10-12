@@ -33,11 +33,13 @@ const flushPendingStorage = () => {
       delete saveTimeouts[name];
     }
     if (latestValues[name]) {
+      const valToFlush = latestValues[name];
+      delete latestValues[name];
       try {
-        if (typeof localStorage !== 'undefined') localStorage.setItem(name, latestValues[name]);
+        if (typeof localStorage !== 'undefined') localStorage.setItem(name, valToFlush);
       } catch { /* ignore */ }
       try {
-        idbSet(name, latestValues[name]).catch(() => {});
+        idbSet(name, valToFlush).catch(() => {});
       } catch { /* ignore */ }
     }
   }
@@ -66,9 +68,13 @@ const idbStorage = {
         const localTime = new Date(pLocal?.state?.appState?.lastUpdated || 0).getTime();
         const idbVer = Number(pIdb?.state?.appState?.version || 0);
         const localVer = Number(pLocal?.state?.appState?.version || 0);
-        if (localTime > idbTime || localVer > idbVer) {
+        if (localVer > idbVer && localTime >= idbTime - 60000) {
           return localVal;
         }
+        if (localTime > idbTime && localVer >= idbVer) {
+          return localVal;
+        }
+        return val;
       } catch {
         // fallback to val
       }

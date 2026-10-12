@@ -20,17 +20,12 @@ const sanitizeInput = (value, maxLength = 200) => {
         ALLOWED_ATTR: [],    // Nenhum atributo permitido
     });
 
-    // Passo 3: Remover padrões perigosos restantes
+    // Passo 3: Remover padrões de script URI perigosos
     return sanitized
         .replace(/javascript\s*:/gi, '')
         .replace(/on\w+\s*=/gi, '')
         .replace(/data\s*:/gi, '')
         .replace(/vbscript\s*:/gi, '')
-        .replace(/expression\s*\(/gi, '')
-        .replace(/url\s*\(/gi, '')
-        .replace(/eval\s*\(/gi, '')
-        .replace(/document\s*\./gi, '')
-        .replace(/window\s*\./gi, '')
         .trim();
 };
 
@@ -114,7 +109,7 @@ export default function Login() {
     const validateForm = () => {
         let hasError = false;
 
-        if (!isValidEmail(email)) {
+        if (!email.trim() || !isValidEmail(email)) {
             setEmailError('Formato de email inválido');
             hasError = true;
         }

@@ -213,6 +213,9 @@ export const createPomodoroSlice = (set, get) => ({
                 } else if (manualMinutes > 0) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + manualMinutes;
                     savedMinutes = p.accumulatedMinutes;
+                } else {
+                    // FIX BUG-043: Não avançar ciclo de estudo se skip manual com 0 minutos
+                    return;
                 }
 
                 const currentCycles = Math.min(

@@ -67,6 +67,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
             const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
             const catRange = Math.max(1e-9, catMax - catMin);
+            if (!Number.isFinite(catRange) || catRange <= 0) return;
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
 

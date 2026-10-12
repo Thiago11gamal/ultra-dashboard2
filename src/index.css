@@ -68,6 +68,12 @@ body::before {
   transform: translateZ(0); /* GPU acceleration sem will-change permanente */
 }
 
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    animation: none;
+  }
+}
+
 
 
 @keyframes meshMove {
@@ -86,10 +92,13 @@ body::before {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border-radius: var(--radius-md, 16px);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-  /* PERFORM-02: GPU pre-warm */
-  will-change: transform, opacity;
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+.glass:hover {
+  will-change: transform;
 }
 
 .glass-hover {
@@ -110,8 +119,11 @@ body::before {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 0;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  /* PERFORM-02: GPU pre-warm */
-  will-change: transform, opacity;
+  transition: transform 0.3s, opacity 0.3s;
+}
+
+.glass-panel:hover {
+  will-change: transform;
 }
 
 /* Elastic Hover Effect - PREMIUM */

@@ -1,0 +1,33 @@
+const stableStringify = (value) => {
+  const seen = new WeakSet();
+  try {
+    return JSON.stringify(value, function replacer(_key, val) {
+      if (typeof val === 'bigint') return val.toString();
+      if (val && typeof val === 'object') {
+        if (seen.has(val)) return '[Circular]';
+        seen.add(val);
+        if (!Array.isArray(val)) {
+          return Object.keys(val)
+            .sort()
+            .reduce((acc, k) => {
+              acc[k] = val[k];
+              return acc;
+            }, {});
+        }
+      }
+      return val;
+    });
+  } catch {
+    return String(value);
+  }
+};
+
+export const stableHash = (value) => {
+  const str = stableStringify(value) || '';
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+};

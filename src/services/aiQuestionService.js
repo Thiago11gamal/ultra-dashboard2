@@ -128,7 +128,7 @@ export async function generateViaGeminiDirect({
     }
 
     const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
+    if (!contentType || (!contentType.includes('application/json') && !contentType.includes('text/json'))) {
       throw new Error(`Resposta do backend AI não é JSON: ${contentType}`);
     }
 

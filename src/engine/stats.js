@@ -559,7 +559,7 @@ export function computeBayesianLevel(
             // ✅ FIX: Piso de retenção proporcional ao decaimento, NÃO ao histórico máximo.
             // Usa um piso fixo pequeno (3-10) que decai com o tempo, permitindo
             // que o aluno realmente "esqueça" após longos períodos sem estudo.
-            const retentionFloor = Math.max(3.0, Math.min(10.0, cappedMaxN * 0.05)) * macroDecay;
+            const retentionFloor = Math.max(5.0, Math.min(20.0, cappedMaxN * 0.10)) * macroDecay;
 
             if (entryDecay < 1.0) {
                 const nBeforeDecay = alpha + beta;
@@ -790,6 +790,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
     const safeMinScore = safeMinScoreValue(minScore, 0);
     const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
+    if (!Number.isFinite(safeRange)) return null;
 
     const rawSynthetic = getSyntheticTotal(safeMaxScore);
     const syntheticTotal = Number.isFinite(rawSynthetic) ? rawSynthetic : 20;

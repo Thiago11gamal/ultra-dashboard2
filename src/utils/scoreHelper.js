@@ -19,8 +19,8 @@ export const SYNTHETIC_PERCENT_ONLY_TRIALS = 5;
  * @returns {number} Número de tentativas sintéticas.
  */
 export function getSyntheticTotal(_maxScore = 100, options = {}) {
-  const trials = options?.syntheticTrials ?? SYNTHETIC_PERCENT_ONLY_TRIALS;
-  return Number.isFinite(Number(trials)) && Number(trials) > 0 ? Number(trials) : SYNTHETIC_PERCENT_ONLY_TRIALS;
+  const trials = Number(options?.syntheticTrials);
+  return Number.isFinite(trials) && trials > 0 && trials <= 10000 ? trials : SYNTHETIC_PERCENT_ONLY_TRIALS;
 }
 
 export function isPercentOnlyRecord(row) {

@@ -311,14 +311,25 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
         }
     };
 
+    const handleResize = () => {
+        cachedRects = null;
+        if (lastClientX >= 0) {
+            const x = lastClientX, y = lastClientY;
+            lastClientX = -1; lastClientY = -1;
+            updateHover(x, y);
+        }
+    };
+
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
     window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
 
     return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('touchmove', handleTouchMove);
         window.removeEventListener('scroll', handleScroll, { capture: true });
+        window.removeEventListener('resize', handleResize);
         cancelAnimationFrame(animationFrameId);
     };
   }, [isDragging]);
@@ -352,8 +363,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     setDragInfo(null);
 
     const { source, destination } = result;
-    // FIX: Validar destination antes de processar
-    if (!destination || !source) return;
+    // FIX: Validar destination e destination.index antes de processar
+    if (!destination || !source || !Number.isFinite(destination.index)) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
     // FIX: Validar draggableId
     if (!result.draggableId) return;

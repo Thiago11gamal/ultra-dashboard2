@@ -6,7 +6,9 @@ import { ChartFrame } from './ChartFrame';
 // FIX: conversão segura para percentual inteiro (nunca NaN)
 const toPercentInt = (value, fallback = 0) => {
     const n = Number(value);
-    return Number.isFinite(n) ? Math.round(n * 100) : fallback;
+    if (!Number.isFinite(n)) return fallback;
+    const result = Math.round(n * 100);
+    return Number.isFinite(result) ? Math.max(0, Math.min(100, result)) : fallback;
 };
 
 /**
@@ -61,10 +63,10 @@ const ReliabilityCurveChart = ({ buckets }) => {
     const chartData = useMemo(() => {
         if (!buckets || !Array.isArray(buckets) || buckets.length === 0) return [];
         return buckets.map(b => ({
-            pred: Number(b?.meanPred || 0),
-            obs: Number(b?.observedRate || 0),
-            gap: Number(b?.gap || 0),
-            count: Number(b?.count || 0)
+            pred: Number.isFinite(Number(b?.meanPred)) ? Number(b.meanPred) : 0,
+            obs: Number.isFinite(Number(b?.observedRate)) ? Number(b.observedRate) : 0,
+            gap: Number.isFinite(Number(b?.gap)) ? Number(b.gap) : 0,
+            count: Number.isFinite(Number(b?.count)) ? Math.max(0, Math.round(Number(b.count))) : 0
         })).sort((a, b) => a.pred - b.pred);
     }, [buckets]);
 

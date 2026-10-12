@@ -79,7 +79,7 @@ return (
 
           {/* Stats strip */}
           {/* BUG-5 FIX: 4 columns to show unanswered separately */}
-          <div className="grid grid-cols-4 border-t border-white/[0.06]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-white/[0.06]">
             <div className="py-4 px-3 text-center border-r border-white/[0.06]">
               <div className="text-[28px] sm:text-[32px] leading-none font-black text-emerald-400">{safeResults.correct}</div>
               <div className="uppercase tracking-[2px] text-[9px] font-bold text-emerald-400/50 mt-1.5">ACERTOS</div>

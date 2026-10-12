@@ -1876,11 +1876,11 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     const topicMap = {};
     const history = safeArray(safeCat.simuladoStats?.history);
     const todayForTopics = new Date();
-    const sortedTopicsHistory = [...history].sort((a, b) => {
-        const timeA = (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime();
-        const timeB = (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime();
-        return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
-    });
+    const historyWithTime = history.map(h => {
+        const time = (normalizeDate(h?.date || h?.createdAt) || new Date(0)).getTime();
+        return { entry: h, time: Number.isFinite(time) ? time : 0 };
+    }).sort((a, b) => a.time - b.time);
+    const sortedTopicsHistory = historyWithTime.map(item => item.entry);
     sortedTopicsHistory.forEach(entry => {
         if (!entry) return;
         let entryTime = todayForTopics.getTime();

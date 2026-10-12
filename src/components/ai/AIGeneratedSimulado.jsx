@@ -146,7 +146,7 @@ export default function AIGeneratedSimulado() {
     return () => {
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
     };
-  }, [step, questions, answers, currentIndex, form, timePerQuestion]);
+  }, [step, questions, answers, currentIndex, form]);
 
   // FIX: Effect de restore com deps vazias (ref já garante execução única)
   useEffect(() => {
@@ -203,7 +203,7 @@ export default function AIGeneratedSimulado() {
           localStorage.removeItem(getAiGenStorageKey());
           showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
         }, 0);
-        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); didMountRestoreRef.current = false; };
+        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); };
       } else if (gen.status === 'error') {
         timeoutId1 = setTimeout(() => {
           if (cancelled) return;
@@ -335,7 +335,6 @@ export default function AIGeneratedSimulado() {
       cancelled = true;
       clearTimeout(timeoutId1);
       clearTimeout(timeoutId2);
-      didMountRestoreRef.current = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // FIX: deps vazias — ref garante execução única
@@ -619,7 +618,7 @@ export default function AIGeneratedSimulado() {
     }
 
     // FIX: Garantir que latestTimePerQuestionRef está sincronizado
-    const timePerQ = latestTimePerQuestionRef.current || {};
+    const timePerQ = latestTimePerQuestionRef.current || timePerQuestion || {};
 
     const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
     const totalAllowedTime = qList.length * 3 * 60;
@@ -848,6 +847,10 @@ export default function AIGeneratedSimulado() {
   useEffect(() => {
     if (step !== 'playing' || !currentQuestion) return;
     const handleKeyDown = (e) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+        return;
+      }
       const key = e.key.toUpperCase();
       const curIdx = latestCurrentIndexRef.current;
       const qLen = latestQuestionsRef.current.length || questions.length;

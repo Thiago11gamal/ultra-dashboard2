@@ -61,8 +61,9 @@ export const isCategoryTombstoned = (catId, catName, cloudTimeMs = 0) => {
     const idTime = catId ? tombstones[catId] : null;
     const nameTime = catName && typeof catName === 'string' ? tombstones[catName.trim().toLowerCase()] : null;
     const tombstoneTime = Math.max(idTime || 0, nameTime || 0);
+    const safeCloudTime = Number.isFinite(Number(cloudTimeMs)) ? Number(cloudTimeMs) : 0;
     if (tombstoneTime > 0) {
-      return tombstoneTime >= cloudTimeMs;
+      return tombstoneTime >= safeCloudTime;
     }
     return false;
   } catch {

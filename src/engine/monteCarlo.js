@@ -143,6 +143,8 @@ export function simulateNormalDistribution(
         flashcardImmunity = meanOrObj.flashcardImmunity ?? 1.0;
     }
 
+    if (!Number.isFinite(mean)) mean = (minScore + maxScore) / 2;
+
     subjects = sanitizeSubjects(subjects);
 
     historicalCutoffs = Array.isArray(historicalCutoffs)
@@ -691,7 +693,12 @@ export function simulateNormalDistribution(
 
 function hashObject(obj) {
     try {
-        return JSON.stringify(obj);
+        return JSON.stringify(obj, (key, value) => {
+            if (typeof value === 'function') return `[fn:${key}]`;
+            if (value === undefined) return `[undefined:${key}]`;
+            if (typeof value === 'bigint') return value.toString();
+            return value;
+        });
     } catch {
         return null;
     }

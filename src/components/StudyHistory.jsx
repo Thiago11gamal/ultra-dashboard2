@@ -35,7 +35,21 @@ const StudyHistory = React.memo(function StudyHistory({
     const simuladoRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {});
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
-    const [currentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
+    const [currentTime, setCurrentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
+
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            if (!document.hidden) setCurrentTime(Date.now());
+        }, 60 * 1000);
+        const handleVisibility = () => {
+            if (!document.hidden) setCurrentTime(Date.now());
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, []);
     const [sessionToDelete, setSessionToDelete] = useState(null);
     const [simuladoToDelete, setSimuladoToDelete] = useState(null);
     const [selectedSimuladoKey, setSelectedSimuladoKey] = useState(null);
@@ -546,7 +560,7 @@ const StudyHistory = React.memo(function StudyHistory({
 
                             // Função de processamento de simulado
                             const processSimulado = (rows) => {
-                                const validRows = rows.filter(r => r.subject && r.topic);
+                                const validRows = (Array.isArray(rows) ? rows : []).filter(r => r && r.subject && r.topic);
                                 const totalQuestions = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
                                 const totalCorrect = validRows.reduce((acc, r) => acc + Math.min(parseInt(r.correct, 10) || 0, parseInt(r.total, 10) || 0), 0);
                                 const globalPct = totalQuestions > 0 ? Math.max(0, Math.min(100, Math.round((totalCorrect / totalQuestions) * 100))) : 0;

@@ -314,7 +314,7 @@ export const GaussianPlot = ({
         const rect = el.getBoundingClientRect();
         const percentage = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
 
-        const hoverRange = Math.max(1e-6, range);
+        const hoverRange = range > 1e-6 ? range : 1;
         const val = Math.max(xMin, Math.min(domainMax, xMin + ((percentage - 2) / 96) * hoverRange));
 
         pendingHoverRef.current = { x: xp(val), val };

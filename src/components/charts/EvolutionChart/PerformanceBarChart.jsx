@@ -13,7 +13,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
 
     const sanitizeCount = (value) => {
         const n = Number(value);
-        if (!Number.isFinite(n) || n < 0) return 0;
+        if (!Number.isFinite(n) || n < 0 || n > 1e9) return 0;
         return Math.round(n);
     };
 

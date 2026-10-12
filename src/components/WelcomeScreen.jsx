@@ -47,6 +47,7 @@ export default function WelcomeScreen({ onDismiss }) {
         const handleKeyDown = (e) => {
             if (e.key === 'Enter' && !isExiting) {
                 e.preventDefault();
+                e.stopPropagation();
                 handleNext();
             }
             

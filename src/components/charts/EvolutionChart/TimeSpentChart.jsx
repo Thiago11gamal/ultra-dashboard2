@@ -5,7 +5,7 @@ import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 import { getSyntheticTotal } from '../../../utils/scoreHelper';
 
 const formatTime = (s) => {
-    if (s == null || !Number.isFinite(Number(s))) return 'N/A';
+    if (s == null || !Number.isFinite(Number(s)) || Number(s) < 0) return 'N/A';
     // ✅ LOTE-02 FIX: arredondar ANTES de separar minutos/segundos
     const total = Math.round(Math.max(0, Number(s)));
     const m = Math.floor(total / 60);

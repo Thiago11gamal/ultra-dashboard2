@@ -11,6 +11,7 @@ export function useGlobalToasts() {
     if (typeof window === 'undefined') return undefined;
 
     const handleToastEvent = (e) => {
+      if (!e || !e.detail || typeof e.detail !== 'object') return;
       const newToast = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
         ...e.detail

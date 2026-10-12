@@ -51,7 +51,7 @@ export default function PromptModal({
         // ✅ FIX S01: Sanitização do input
         const cleanValue = DOMPurify.sanitize(value);
 
-        if (!cleanValue) {
+        if (!cleanValue || cleanValue.trim().length === 0) {
             console.warn('[PromptModal] Entrada rejeitada por conter HTML malicioso.');
             return;
         }

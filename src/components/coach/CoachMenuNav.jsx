@@ -13,6 +13,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
             aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : -1}
+            aria-label={`${label} — ${subtitle}`}
             className={`group relative min-w-0 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
                 ${active
                     ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)] ring-1 ring-white/20'

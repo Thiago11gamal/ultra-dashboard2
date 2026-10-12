@@ -266,8 +266,13 @@ function MainLayout() {
     if (!file) return;
     event.target.value = '';
 
-    if (file.size > 50 * 1024 * 1024) { // 50MB
+    if (!Number.isFinite(file.size) || file.size > 50 * 1024 * 1024) { // 50MB
       showToast('O arquivo de backup é grande demais (máx 50MB).', 'error');
+      return;
+    }
+
+    if (!file.type.includes('json') && !file.name.endsWith('.json')) {
+      showToast('Formato de arquivo não suportado. Use um backup JSON.', 'error');
       return;
     }
 

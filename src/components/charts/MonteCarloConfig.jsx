@@ -227,9 +227,13 @@ export const MonteCarloConfig = ({
                 role="dialog"
                 aria-modal="true"
                 aria-label="Configuração do Monte Carlo"
+                aria-describedby="mc-config-description"
                 onKeyDown={handleModalKeyDown}
                 className="relative w-full max-w-2xl h-full max-h-[90vh] bg-slate-900 border border-white/10 shadow-2xl rounded-3xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             >
+                <p id="mc-config-description" className="sr-only">
+                    Configure a meta de classificação, pesos das matérias e notas de corte históricas para a simulação Monte Carlo.
+                </p>
                 <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-white/5">
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 shadow-inner flex items-center justify-center">

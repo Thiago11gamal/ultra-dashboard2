@@ -424,6 +424,11 @@ export default React.memo(function EvolutionChart({
     const [showEngineTooltip, setShowEngineTooltip] = useState(false);
 
     const engineTabRefs = useRef(new Map());
+    useEffect(() => {
+        return () => {
+            engineTabRefs.current.clear();
+        };
+    }, []);
 
     const focusEngineTab = (id) => {
       requestAnimationFrame(() => {

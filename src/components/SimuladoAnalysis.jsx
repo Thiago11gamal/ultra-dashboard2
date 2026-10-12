@@ -63,6 +63,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const updateRow = (index, field, value) => {
+        if (!field || typeof field !== 'string') return;
         setError(null);
         // 1. Sanitização: Apenas números para campos numéricos
         let finalValue = value;

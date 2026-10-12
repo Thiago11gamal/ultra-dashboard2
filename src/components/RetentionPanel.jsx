@@ -439,6 +439,15 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                 {needsReview.slice(0, 5).map((task, index) => (
                                     <div
                                         key={task.id || `${task.title}-${index}`}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label={`Iniciar revisão: ${task.title || task.text || 'Sem nome'}`}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                if (typeof onSelectCategory === 'function') onSelectCategory({ ...task.catReference, selectedTask: task });
+                                            }
+                                        }}
                                         onClick={() => typeof onSelectCategory === 'function' && onSelectCategory({ ...task.catReference, selectedTask: task })}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black border transition-all duration-300 hover:scale-105 cursor-pointer ${task.retention.border} ${task.retention.color} bg-black/40 backdrop-blur-sm`}
                                     >

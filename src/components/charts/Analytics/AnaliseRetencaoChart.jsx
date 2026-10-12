@@ -71,7 +71,7 @@ export function AnaliseRetencaoChart({ data }) {
                         axisLine={false}
                         tickLine={false}
                         dx={-5} // Afasta os números levemente do gráfico
-                        domain={[0, dataMax => Math.max(1, dataMax)]}
+                        domain={[0, dataMax => Number.isFinite(dataMax) ? Math.max(1, dataMax) : 1]}
                     />
 
                     <YAxis

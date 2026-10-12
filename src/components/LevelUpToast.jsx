@@ -20,7 +20,6 @@ export default function LevelUpToast({ level, title, onClose }) {
         const timer = setTimeout(() => {
             if (isClosedRef.current && typeof onCloseRef.current === 'function') {
                 onCloseRef.current();
-                onCloseRef.current = null;
             }
         }, 300);
         timersRef.current.push(timer);

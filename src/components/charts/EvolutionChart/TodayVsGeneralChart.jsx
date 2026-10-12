@@ -98,19 +98,27 @@ export function TodayVsGeneralChart({
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const scale = Math.max(1e-9, safeMax - safeMin) / 100;
-    const stabilityMargin = Math.max(1, (safeMax - safeMin) * 0.02);
+    const stabilityMargin = Math.max(0.5, (safeMax - safeMin) * 0.02);
 
     const [nowMs, setNowMs] = useState(() => Date.now());
     const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
 
     useEffect(() => {
         const updateTime = () => {
+            if (document.hidden) return;
             const now = Date.now();
             setNowMs(now);
             setTodayKey(getDateKey(new Date(now)));
         };
         const interval = setInterval(updateTime, 60000);
-        return () => clearInterval(interval);
+        const handleVisibility = () => {
+            if (!document.hidden) updateTime();
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
     }, []);
 
     const { dailyData, lastActiveEntry } = useMemo(() => {

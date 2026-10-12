@@ -18,7 +18,7 @@ class ErrorBoundary extends React.Component {
 
         // Auto-recover from Vite chunk loading errors caused by new deployments
         if (
-            error.message &&
+            error && typeof error.message === 'string' &&
             (error.message.includes('Failed to fetch dynamically imported module') ||
                 error.message.includes('Importing a module script failed'))
         ) {

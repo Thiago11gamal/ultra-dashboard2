@@ -1,0 +1,149 @@
+import { generateId } from '../../utils/idGenerator.js';
+import { INITIAL_DATA } from '../../data/initialData.js';
+import { safeClone } from '../../utils/safeClone.js';
+import { current } from 'immer';
+import { markStorageDirty } from '../../utils/storageSafe.js';
+
+// BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
+// causando crash silencioso no timer quando o concurso era trocado/deletado.
+const RESET_POMODORO = {
+    activeSubject: null,
+    sessions: 1,
+    targetCycles: 1,
+    completedCycles: 0,
+    accumulatedMinutes: 0,
+    mode: 'work',
+    neuralQueue: [],
+    neuralMode: false,
+};
+
+export const createContestSlice = (set) => ({
+    switchContest: (contestId) => set((state) => {
+        const prevId = state.appState.activeId;
+        const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
+
+        if (prevId !== targetId) {
+            if (state.appState.pomodoro?.activeSubject) {
+                const accMinutes = state.appState.pomodoro.accumulatedMinutes || 0;
+                if (accMinutes > 0) {
+                    const prevData = state.appState.contests[prevId];
+                    if (prevData) {
+                        const subject = state.appState.pomodoro.activeSubject;
+                        if (subject?.categoryId) {
+                            const cats = Array.isArray(prevData.categories)
+                                ? prevData.categories
+                                : Object.values(prevData.categories || {});
+                            const cat = cats.find(c => c && c.id === subject.categoryId);
+                            if (cat) {
+                                cat.totalMinutes = (cat.totalMinutes || 0) + accMinutes;
+                            }
+                        }
+                    }
+                }
+                state.appState.pomodoro = { ...RESET_POMODORO };
+                try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
+            }
+
+            state.appState.activeId = targetId;
+        }
+
+        const activeData = state.appState.contests[targetId];
+        if (activeData && !activeData.coachPlanner) {
+            activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+        }
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        markStorageDirty();
+    }),
+
+    createNewContest: () => set((state) => {
+        const newId = generateId('contest');
+        const initialClone = safeClone(INITIAL_DATA);
+        const newContestData = {
+            ...initialClone,
+            contestName: "Novo Concurso",
+            simuladoRows: [],
+            simulados: [],
+            categories: [],
+            mcWeights: {},
+            historicalCutoffs: []
+        };
+        state.appState.contests[newId] = newContestData;
+        state.appState.activeId = newId;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        markStorageDirty();
+    }),
+
+    deleteContest: (contestId) => set((state) => {
+        const contestData = state.appState.contests[contestId];
+        if (contestData) {
+            if (!state.appState.trash) state.appState.trash = [];
+            state.appState.trash.push({
+                id: generateId('trash'),
+                type: 'contest',
+                contestId: contestId,
+                data: safeClone(current(contestData)),
+                deletedAt: new Date().toISOString()
+            });
+        }
+
+        const wasActive = contestId === state.appState.activeId;
+        delete state.appState.contests[contestId];
+        const remainingIds = Object.keys(state.appState.contests);
+        if (remainingIds.length === 0) {
+            state.appState.contests['default'] = safeClone(INITIAL_DATA);
+            state.appState.activeId = 'default';
+        } else if (wasActive) {
+            state.appState.activeId = remainingIds[0];
+        }
+        
+        if (wasActive || remainingIds.length === 0) {
+            state.appState.pomodoro = {
+                activeSubject: null,
+                sessions: 1,
+                targetCycles: 1,
+                completedCycles: 0,
+                accumulatedMinutes: 0,
+                mode: 'work',
+                neuralQueue: [],
+                neuralMode: false,
+            };
+            try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
+        }
+        
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        markStorageDirty();
+    }),
+
+    setPaineis: (paineis) => set((state) => {
+        if (!paineis || typeof paineis !== 'object') return;
+        const keys = Object.keys(paineis);
+        if (keys.length === 0) {
+            state.appState.contests = { default: safeClone(INITIAL_DATA) };
+            state.appState.activeId = 'default';
+        } else {
+            state.appState.contests = paineis;
+            if (!paineis[state.appState.activeId]) {
+                state.appState.activeId = keys[0];
+            }
+        }
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        markStorageDirty();
+    }),
+
+    renameContest: (contestId, newName) => set((state) => {
+        const id = contestId || state.appState.activeId;
+        const contest = state.appState.contests[id];
+        const trimmed = typeof newName === 'string' ? newName.trim() : '';
+        if (!contest || !trimmed) return;
+        contest.contestName = trimmed;
+        contest.lastUpdated = new Date().toISOString();
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+        markStorageDirty();
+    }),
+});
+

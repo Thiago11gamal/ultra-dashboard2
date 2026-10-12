@@ -173,7 +173,7 @@ export function EvolutionLineChart({
             : MIN_PCT_DISTANCE;
 
         // Iterative relaxation algorithm to spread out colliding labels
-        const ITERATIONS = 25;
+        const ITERATIONS = 50;
         for (let iter = 0; iter < ITERATIONS; iter++) {
             let overlapFound = false;
             for (let i = 0; i < labels.length - 1; i++) {

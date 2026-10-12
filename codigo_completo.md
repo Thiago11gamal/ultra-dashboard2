@@ -1,250 +1,299 @@
 # Código Fonte Completo do Projeto (Sem Testes)
 
-> **Data de geração:** 2026-10-11T17:15:34.796Z
-> **Total de arquivos:** 240
+> **Data de geração:** 2026-10-12T17:34:37.779Z
+> **Total de arquivos:** 246
+> **Ambiente:** React 19 + Vite + Tailwind/CSS + Zustand + Firebase
+
+### Resumo da Distribuição do Código Fonte:
+
+| Categoria | Arquivos |
+| :--- | :--- |
+| Configurações Raiz | 11 |
+| Entrada Principal | 3 |
+| Gerenciamento de Estado (Zustand) | 14 |
+| Contextos React | 3 |
+| Páginas | 14 |
+| Componentes | 80 |
+| Hooks Customizados | 17 |
+| Motores Estatísticos & Matemáticos | 36 |
+| Utilitários & Helpers | 56 |
+| Serviços & Integrações | 2 |
+| Outros | 8 |
+| Assets & Estilos | 2 |
+| **TOTAL** | **246** |
 
 ## Índice de Arquivos
 
-1. [eslint.config.js](#eslintconfigjs)
-2. [firebase.json](#firebasejson)
-3. [firestore.rules](#firestorerules)
-4. [index.html](#indexhtml)
-5. [package.json](#packagejson)
-6. [tsconfig.json](#tsconfigjson)
-7. [tsconfig.node.json](#tsconfignodejson)
-8. [vercel.json](#verceljson)
-9. [vite.config.js](#viteconfigjs)
-10. [src/App.jsx](#srcappjsx)
-11. [src/index.css](#srcindexcss)
-12. [src/main.jsx](#srcmainjsx)
-13. [src/store/schemas.js](#srcstoreschemasjs)
-14. [src/store/slices/createCategorySlice.js](#srcstoreslicescreatecategoryslicejs)
-15. [src/store/slices/createContestSlice.js](#srcstoreslicescreatecontestslicejs)
-16. [src/store/slices/createGamificationSlice.js](#srcstoreslicescreategamificationslicejs)
-17. [src/store/slices/createMonteCarloSlice.js](#srcstoreslicescreatemontecarloslicejs)
-18. [src/store/slices/createPomodoroSlice.js](#srcstoreslicescreatepomodoroslicejs)
-19. [src/store/slices/createSettingsSlice.js](#srcstoreslicescreatesettingsslicejs)
-20. [src/store/slices/createSimuladoSlice.js](#srcstoreslicescreatesimuladoslicejs)
-21. [src/store/slices/createStudySlice.js](#srcstoreslicescreatestudyslicejs)
-22. [src/store/slices/createTaskSlice.js](#srcstoreslicescreatetaskslicejs)
-23. [src/store/slices/createTrashSlice.js](#srcstoreslicescreatetrashslicejs)
-24. [src/store/useAppStore.js](#srcstoreuseappstorejs)
-25. [src/store/useSelectors.js](#srcstoreuseselectorsjs)
-26. [src/context/AuthContext.jsx](#srccontextauthcontextjsx)
-27. [src/context/AuthContextValue.jsx](#srccontextauthcontextvaluejsx)
-28. [src/context/useAuth.jsx](#srccontextuseauthjsx)
-29. [src/pages/Activity.jsx](#srcpagesactivityjsx)
-30. [src/pages/Agenda.jsx](#srcpagesagendajsx)
-31. [src/pages/Coach.jsx](#srcpagescoachjsx)
-32. [src/pages/Dashboard.jsx](#srcpagesdashboardjsx)
-33. [src/pages/Evolution.jsx](#srcpagesevolutionjsx)
-34. [src/pages/Flashcards.jsx](#srcpagesflashcardsjsx)
-35. [src/pages/History.jsx](#srcpageshistoryjsx)
-36. [src/pages/Notes.jsx](#srcpagesnotesjsx)
-37. [src/pages/Pomodoro.jsx](#srcpagespomodorojsx)
-38. [src/pages/Retention.jsx](#srcpagesretentionjsx)
-39. [src/pages/Sessions.jsx](#srcpagessessionsjsx)
-40. [src/pages/Simulados.jsx](#srcpagessimuladosjsx)
-41. [src/pages/Stats.jsx](#srcpagesstatsjsx)
-42. [src/pages/Tasks.jsx](#srcpagestasksjsx)
-43. [src/components/ActivityHeatmap.jsx](#srccomponentsactivityheatmapjsx)
-44. [src/components/ai/AIGeneratedSimulado.jsx](#srccomponentsaiaigeneratedsimuladojsx)
-45. [src/components/ai/SimuladoPlayer.jsx](#srccomponentsaisimuladoplayerjsx)
-46. [src/components/ai/SimuladoResults.jsx](#srccomponentsaisimuladoresultsjsx)
-47. [src/components/ai/SimuladoSetup.jsx](#srccomponentsaisimuladosetupjsx)
-48. [src/components/AICoachPlanner.jsx](#srccomponentsaicoachplannerjsx)
-49. [src/components/AICoachView.jsx](#srccomponentsaicoachviewjsx)
-50. [src/components/AICoachWidget.jsx](#srccomponentsaicoachwidgetjsx)
-51. [src/components/CategoryEditor.jsx](#srccomponentscategoryeditorjsx)
-52. [src/components/charts/Analytics/AnaliseRetencaoChart.jsx](#srccomponentschartsanalyticsanaliseretencaochartjsx)
-53. [src/components/charts/Analytics/EvolucaoFocoChart.jsx](#srccomponentschartsanalyticsevolucaofocochartjsx)
-54. [src/components/charts/Analytics/HorasDisciplinaChart.jsx](#srccomponentschartsanalyticshorasdisciplinachartjsx)
-55. [src/components/charts/ChartFrame.jsx](#srccomponentschartschartframejsx)
-56. [src/components/charts/ChartTooltip.jsx](#srccomponentschartscharttooltipjsx)
-57. [src/components/charts/DueForecastChart.jsx](#srccomponentschartsdueforecastchartjsx)
-58. [src/components/charts/EvolutionChart/CompareChart.jsx](#srccomponentschartsevolutionchartcomparechartjsx)
-59. [src/components/charts/EvolutionChart/CriticalTopicsAnalysis.jsx](#srccomponentschartsevolutionchartcriticaltopicsanalysisjsx)
-60. [src/components/charts/EvolutionChart/DisciplinaCard.jsx](#srccomponentschartsevolutionchartdisciplinacardjsx)
-61. [src/components/charts/EvolutionChart/EvolutionLineChart.jsx](#srccomponentschartsevolutionchartevolutionlinechartjsx)
-62. [src/components/charts/EvolutionChart/KpiCard.jsx](#srccomponentschartsevolutionchartkpicardjsx)
-63. [src/components/charts/EvolutionChart/MonteCarloEvolutionChart.jsx](#srccomponentschartsevolutionchartmontecarloevolutionchartjsx)
-64. [src/components/charts/EvolutionChart/PerformanceBarChart.jsx](#srccomponentschartsevolutionchartperformancebarchartjsx)
-65. [src/components/charts/EvolutionChart/RadarAnalysis.jsx](#srccomponentschartsevolutionchartradaranalysisjsx)
-66. [src/components/charts/EvolutionChart/SubtopicsPerformanceChart.jsx](#srccomponentschartsevolutionchartsubtopicsperformancechartjsx)
-67. [src/components/charts/EvolutionChart/TimeSpentChart.jsx](#srccomponentschartsevolutioncharttimespentchartjsx)
-68. [src/components/charts/EvolutionChart/TodayVsGeneralChart.jsx](#srccomponentschartsevolutioncharttodayvsgeneralchartjsx)
-69. [src/components/charts/EvolutionChart/WeeklyEvolutionView.jsx](#srccomponentschartsevolutionchartweeklyevolutionviewjsx)
-70. [src/components/charts/EvolutionChart/WeeklyPerformanceChart.jsx](#srccomponentschartsevolutionchartweeklyperformancechartjsx)
-71. [src/components/charts/EvolutionHeatmap.jsx](#srccomponentschartsevolutionheatmapjsx)
-72. [src/components/charts/GaussianPlot.jsx](#srccomponentschartsgaussianplotjsx)
-73. [src/components/charts/MonteCarloConfig.jsx](#srccomponentschartsmontecarloconfigjsx)
-74. [src/components/charts/ReliabilityCurveChart.jsx](#srccomponentschartsreliabilitycurvechartjsx)
-75. [src/components/Checklist.jsx](#srccomponentschecklistjsx)
-76. [src/components/coach/CoachControlCenter.jsx](#srccomponentscoachcoachcontrolcenterjsx)
-77. [src/components/coach/CoachMenuNav.jsx](#srccomponentscoachcoachmenunavjsx)
-78. [src/components/ConfirmModal.jsx](#srccomponentsconfirmmodaljsx)
-79. [src/components/DueForecast.jsx](#srccomponentsdueforecastjsx)
-80. [src/components/ErrorBoundary.jsx](#srccomponentserrorboundaryjsx)
-81. [src/components/EvolutionChart.jsx](#srccomponentsevolutionchartjsx)
-82. [src/components/GamificationComponents.jsx](#srccomponentsgamificationcomponentsjsx)
-83. [src/components/Header.jsx](#srccomponentsheaderjsx)
-84. [src/components/header/PageHeader.jsx](#srccomponentsheaderpageheaderjsx)
-85. [src/components/HelpGuide.jsx](#srccomponentshelpguidejsx)
-86. [src/components/LevelUpToast.jsx](#srccomponentsleveluptoastjsx)
-87. [src/components/Loading.css](#srccomponentsloadingcss)
-88. [src/components/Login.css](#srccomponentslogincss)
-89. [src/components/Login.jsx](#srccomponentsloginjsx)
-90. [src/components/MonteCarloDebugger.jsx](#srccomponentsmontecarlodebuggerjsx)
-91. [src/components/MonteCarloGauge.jsx](#srccomponentsmontecarlogaugejsx)
-92. [src/components/NextGoalCard.jsx](#srccomponentsnextgoalcardjsx)
-93. [src/components/OnboardingTour.jsx](#srccomponentsonboardingtourjsx)
-94. [src/components/ParetoAnalysis.jsx](#srccomponentsparetoanalysisjsx)
-95. [src/components/Paywall.jsx](#srccomponentspaywalljsx)
-96. [src/components/PerformanceTable.jsx](#srccomponentsperformancetablejsx)
-97. [src/components/PersonalRanking.jsx](#srccomponentspersonalrankingjsx)
-98. [src/components/pomodoro/FocusPanel.jsx](#srccomponentspomodorofocuspaneljsx)
-99. [src/components/pomodoro/PomodoroClock.jsx](#srccomponentspomodoropomodoroclockjsx)
-100. [src/components/pomodoro/PomodoroControls.jsx](#srccomponentspomodoropomodorocontrolsjsx)
-101. [src/components/pomodoro/PomodoroHeader.jsx](#srccomponentspomodoropomodoroheaderjsx)
-102. [src/components/pomodoro/PomodoroProgress.jsx](#srccomponentspomodoropomodoroprogressjsx)
-103. [src/components/PomodoroTimer.jsx](#srccomponentspomodorotimerjsx)
-104. [src/components/PriorityProgress.jsx](#srccomponentspriorityprogressjsx)
-105. [src/components/PromptModal.jsx](#srccomponentspromptmodaljsx)
-106. [src/components/RetentionPanel.jsx](#srccomponentsretentionpaneljsx)
-107. [src/components/Sidebar.css](#srccomponentssidebarcss)
-108. [src/components/Sidebar.jsx](#srccomponentssidebarjsx)
-109. [src/components/sidebarUtils.js](#srccomponentssidebarutilsjs)
-110. [src/components/SimuladoAnalysis.jsx](#srccomponentssimuladoanalysisjsx)
-111. [src/components/StatsCards.jsx](#srccomponentsstatscardsjsx)
-112. [src/components/StudyHistory.jsx](#srccomponentsstudyhistoryjsx)
-113. [src/components/SubtopicsTable.jsx](#srccomponentssubtopicstablejsx)
-114. [src/components/Toast.jsx](#srccomponentstoastjsx)
-115. [src/components/TopicPerformance.jsx](#srccomponentstopicperformancejsx)
-116. [src/components/TrashModal.jsx](#srccomponentstrashmodaljsx)
-117. [src/components/ui/ChartGuide.jsx](#srccomponentsuichartguidejsx)
-118. [src/components/ui/StatusPill.jsx](#srccomponentsuistatuspilljsx)
-119. [src/components/VerifiedStats.jsx](#srccomponentsverifiedstatsjsx)
-120. [src/components/VolumeRanking.jsx](#srccomponentsvolumerankingjsx)
-121. [src/components/WeeklyAnalysis.jsx](#srccomponentsweeklyanalysisjsx)
-122. [src/components/WelcomeScreen.jsx](#srccomponentswelcomescreenjsx)
-123. [src/hooks/useCategoryLevels.js](#srchooksusecategorylevelsjs)
-124. [src/hooks/useChartData.js](#srchooksusechartdatajs)
-125. [src/hooks/useClock.js](#srchooksuseclockjs)
-126. [src/hooks/useCloudSync.js](#srchooksusecloudsyncjs)
-127. [src/hooks/useCoachControlCenter.js](#srchooksusecoachcontrolcenterjs)
-128. [src/hooks/useEvolutionMC.js](#srchooksuseevolutionmcjs)
-129. [src/hooks/useGlobalToasts.js](#srchooksuseglobaltoastsjs)
-130. [src/hooks/useIdleLogout.js](#srchooksuseidlelogoutjs)
-131. [src/hooks/useLevelUp.js](#srchooksuselevelupjs)
-132. [src/hooks/useModalAccessibility.js](#srchooksusemodalaccessibilityjs)
-133. [src/hooks/useMonteCarloStats.js](#srchooksusemontecarlostatsjs)
-134. [src/hooks/useMonteCarloWorker.js](#srchooksusemontecarloworkerjs)
-135. [src/hooks/usePomodoroSync.js](#srchooksusepomodorosyncjs)
-136. [src/hooks/useSubjectAggData.js](#srchooksusesubjectaggdatajs)
-137. [src/hooks/useSubscription.js](#srchooksusesubscriptionjs)
-138. [src/hooks/useThemeSync.js](#srchooksusethemesyncjs)
-139. [src/hooks/useToast.js](#srchooksusetoastjs)
-140. [src/engine/analyticsStats.js](#srcengineanalyticsstatsjs)
-141. [src/engine/causal/policyEngine.js](#srcenginecausalpolicyenginejs)
-142. [src/engine/causal/upliftModel.js](#srcenginecausalupliftmodeljs)
-143. [src/engine/diagnostics.js](#srcenginediagnosticsjs)
-144. [src/engine/evaluation/coachEvaluator.js](#srcengineevaluationcoachevaluatorjs)
-145. [src/engine/evaluation/strategyBacktester.js](#srcengineevaluationstrategybacktesterjs)
-146. [src/engine/heatmap.worker.js](#srcengineheatmapworkerjs)
-147. [src/engine/index.js](#srcengineindexjs)
-148. [src/engine/insightGenerator.js](#srcengineinsightgeneratorjs)
-149. [src/engine/math/bootstrap.js](#srcenginemathbootstrapjs)
-150. [src/engine/math/constants.js](#srcenginemathconstantsjs)
-151. [src/engine/math/date.js](#srcenginemathdatejs)
-152. [src/engine/math/gaussian.js](#srcenginemathgaussianjs)
-153. [src/engine/math/kahan.js](#srcenginemathkahanjs)
-154. [src/engine/math/percentile.js](#srcenginemathpercentilejs)
-155. [src/engine/math/safe.js](#srcenginemathsafejs)
-156. [src/engine/mc.worker.js](#srcenginemcworkerjs)
-157. [src/engine/monteCarlo.js](#srcenginemontecarlojs)
-158. [src/engine/observability/driftMonitor.js](#srcengineobservabilitydriftmonitorjs)
-159. [src/engine/observability/modelHealth.js](#srcengineobservabilitymodelhealthjs)
-160. [src/engine/optimization/autoTuner.js](#srcengineoptimizationautotunerjs)
-161. [src/engine/optimization/flagOptimizer.js](#srcengineoptimizationflagoptimizerjs)
-162. [src/engine/orchestrator/coachOrchestrator.js](#srcengineorchestratorcoachorchestratorjs)
-163. [src/engine/probabilistic/bayesianTopics.js](#srcengineprobabilisticbayesiantopicsjs)
-164. [src/engine/probabilistic/decisionEngine.js](#srcengineprobabilisticdecisionenginejs)
-165. [src/engine/probabilistic/fsrs.js](#srcengineprobabilisticfsrsjs)
-166. [src/engine/probabilistic/knowledgeGraph.js](#srcengineprobabilisticknowledgegraphjs)
-167. [src/engine/probabilistic/posteriorPredictive.js](#srcengineprobabilisticposteriorpredictivejs)
-168. [src/engine/probabilistic/stateSpace.js](#srcengineprobabilisticstatespacejs)
-169. [src/engine/probabilistic/volatility.js](#srcengineprobabilisticvolatilityjs)
-170. [src/engine/projection.js](#srcengineprojectionjs)
-171. [src/engine/random.js](#srcenginerandomjs)
-172. [src/engine/simulationCache.js](#srcenginesimulationcachejs)
-173. [src/engine/stats.js](#srcenginestatsjs)
-174. [src/engine/variance.js](#srcenginevariancejs)
-175. [src/utils/adaptiveEngine.js](#srcutilsadaptiveenginejs)
-176. [src/utils/adaptiveMath.js](#srcutilsadaptivemathjs)
-177. [src/utils/aiSaveHelper.js](#srcutilsaisavehelperjs)
-178. [src/utils/analytics.js](#srcutilsanalyticsjs)
-179. [src/utils/audioAlert.js](#srcutilsaudioalertjs)
-180. [src/utils/autoTunerGate.js](#srcutilsautotunergatejs)
-181. [src/utils/backupManager.js](#srcutilsbackupmanagerjs)
-182. [src/utils/calibration.js](#srcutilscalibrationjs)
-183. [src/utils/calibrationTelemetry.js](#srcutilscalibrationtelemetryjs)
-184. [src/utils/chartConfig.js](#srcutilschartconfigjs)
-185. [src/utils/chartDataMappers.js](#srcutilschartdatamappersjs)
-186. [src/utils/coachAdaptive.js](#srcutilscoachadaptivejs)
-187. [src/utils/coachBacktest.js](#srcutilscoachbacktestjs)
-188. [src/utils/coachCausal.js](#srcutilscoachcausaljs)
-189. [src/utils/coachEvaluation.js](#srcutilscoachevaluationjs)
-190. [src/utils/coachFeatures.js](#srcutilscoachfeaturesjs)
-191. [src/utils/coachFeatureStore.js](#srcutilscoachfeaturestorejs)
-192. [src/utils/coachLogic.js](#srcutilscoachlogicjs)
-193. [src/utils/coachObservability.js](#srcutilscoachobservabilityjs)
-194. [src/utils/coachOptimizer.js](#srcutilscoachoptimizerjs)
-195. [src/utils/coachPipeline.js](#srcutilscoachpipelinejs)
-196. [src/utils/coachSafe.js](#srcutilscoachsafejs)
-197. [src/utils/coachStorage.js](#srcutilscoachstoragejs)
-198. [src/utils/coachTaskId.js](#srcutilscoachtaskidjs)
-199. [src/utils/coachText.js](#srcutilscoachtextjs)
-200. [src/utils/dateHelper.js](#srcutilsdatehelperjs)
-201. [src/utils/displaySubject.js](#srcutilsdisplaysubjectjs)
-202. [src/utils/downsample.js](#srcutilsdownsamplejs)
-203. [src/utils/evolutionGuards.js](#srcutilsevolutionguardsjs)
-204. [src/utils/evolutionStatus.js](#srcutilsevolutionstatusjs)
-205. [src/utils/explanationEngine.js](#srcutilsexplanationenginejs)
-206. [src/utils/format.js](#srcutilsformatjs)
-207. [src/utils/gamification.js](#srcutilsgamificationjs)
-208. [src/utils/heatmapAggregation.js](#srcutilsheatmapaggregationjs)
-209. [src/utils/idGenerator.js](#srcutilsidgeneratorjs)
-210. [src/utils/lazyRetry.js](#srcutilslazyretryjs)
-211. [src/utils/logger.js](#srcutilsloggerjs)
-212. [src/utils/measurement.js](#srcutilsmeasurementjs)
-213. [src/utils/monteCarloScenario.js](#srcutilsmontecarloscenariojs)
-214. [src/utils/normalization.js](#srcutilsnormalizationjs)
-215. [src/utils/normalize.js](#srcutilsnormalizejs)
-216. [src/utils/number.js](#srcutilsnumberjs)
-217. [src/utils/parseNoonLocal.js](#srcutilsparsenoonlocaljs)
-218. [src/utils/pdfExport.js](#srcutilspdfexportjs)
-219. [src/utils/pomodoroHelpers.js](#srcutilspomodorohelpersjs)
-220. [src/utils/ProgressStateEngine.js](#srcutilsprogressstateenginejs)
-221. [src/utils/retentionCore.js](#srcutilsretentioncorejs)
-222. [src/utils/safeClone.js](#srcutilssafeclonejs)
-223. [src/utils/scoreDomain.js](#srcutilsscoredomainjs)
-224. [src/utils/scoreHelper.conversions.js](#srcutilsscorehelperconversionsjs)
-225. [src/utils/scoreHelper.js](#srcutilsscorehelperjs)
-226. [src/utils/stableHash.js](#srcutilsstablehashjs)
-227. [src/utils/storageSafe.js](#srcutilsstoragesafejs)
-228. [src/utils/taskTitleHelper.js](#srcutilstasktitlehelperjs)
-229. [src/utils/tombstones.js](#srcutilstombstonesjs)
-230. [src/utils/weeklyEvolutionInsights.js](#srcutilsweeklyevolutioninsightsjs)
-231. [src/services/aiQuestionService.js](#srcservicesaiquestionservicejs)
-232. [src/services/firebase.js](#srcservicesfirebasejs)
-233. [src/llm/coachLLMIntegration.js](#srcllmcoachllmintegrationjs)
-234. [src/llm/explanationAgent.js](#srcllmexplanationagentjs)
-235. [src/llm/llmClient.js](#srcllmllmclientjs)
-236. [src/llm/llmPrompts.js](#srcllmllmpromptsjs)
-237. [src/llm/llmSchema.js](#srcllmllmschemajs)
-238. [src/config.js](#srcconfigjs)
-239. [src/config/gamification.js](#srcconfiggamificationjs)
-240. [src/data/initialData.js](#srcdatainitialdatajs)
+1. [.env.example](#envexample)
+2. [eslint.config.js](#eslintconfigjs)
+3. [firebase.json](#firebasejson)
+4. [firestore.rules](#firestorerules)
+5. [index.html](#indexhtml)
+6. [package.json](#packagejson)
+7. [README.md](#readmemd)
+8. [tsconfig.json](#tsconfigjson)
+9. [tsconfig.node.json](#tsconfignodejson)
+10. [vercel.json](#verceljson)
+11. [vite.config.js](#viteconfigjs)
+12. [src/App.jsx](#srcappjsx)
+13. [src/index.css](#srcindexcss)
+14. [src/main.jsx](#srcmainjsx)
+15. [src/store/CONTRATO.md](#srcstorecontratomd)
+16. [src/store/schemas.js](#srcstoreschemasjs)
+17. [src/store/slices/createCategorySlice.js](#srcstoreslicescreatecategoryslicejs)
+18. [src/store/slices/createContestSlice.js](#srcstoreslicescreatecontestslicejs)
+19. [src/store/slices/createGamificationSlice.js](#srcstoreslicescreategamificationslicejs)
+20. [src/store/slices/createMonteCarloSlice.js](#srcstoreslicescreatemontecarloslicejs)
+21. [src/store/slices/createPomodoroSlice.js](#srcstoreslicescreatepomodoroslicejs)
+22. [src/store/slices/createSettingsSlice.js](#srcstoreslicescreatesettingsslicejs)
+23. [src/store/slices/createSimuladoSlice.js](#srcstoreslicescreatesimuladoslicejs)
+24. [src/store/slices/createStudySlice.js](#srcstoreslicescreatestudyslicejs)
+25. [src/store/slices/createTaskSlice.js](#srcstoreslicescreatetaskslicejs)
+26. [src/store/slices/createTrashSlice.js](#srcstoreslicescreatetrashslicejs)
+27. [src/store/useAppStore.js](#srcstoreuseappstorejs)
+28. [src/store/useSelectors.js](#srcstoreuseselectorsjs)
+29. [src/context/AuthContext.jsx](#srccontextauthcontextjsx)
+30. [src/context/AuthContextValue.jsx](#srccontextauthcontextvaluejsx)
+31. [src/context/useAuth.jsx](#srccontextuseauthjsx)
+32. [src/pages/Activity.jsx](#srcpagesactivityjsx)
+33. [src/pages/Agenda.jsx](#srcpagesagendajsx)
+34. [src/pages/Coach.jsx](#srcpagescoachjsx)
+35. [src/pages/Dashboard.jsx](#srcpagesdashboardjsx)
+36. [src/pages/Evolution.jsx](#srcpagesevolutionjsx)
+37. [src/pages/Flashcards.jsx](#srcpagesflashcardsjsx)
+38. [src/pages/History.jsx](#srcpageshistoryjsx)
+39. [src/pages/Notes.jsx](#srcpagesnotesjsx)
+40. [src/pages/Pomodoro.jsx](#srcpagespomodorojsx)
+41. [src/pages/Retention.jsx](#srcpagesretentionjsx)
+42. [src/pages/Sessions.jsx](#srcpagessessionsjsx)
+43. [src/pages/Simulados.jsx](#srcpagessimuladosjsx)
+44. [src/pages/Stats.jsx](#srcpagesstatsjsx)
+45. [src/pages/Tasks.jsx](#srcpagestasksjsx)
+46. [src/components/ActivityHeatmap.jsx](#srccomponentsactivityheatmapjsx)
+47. [src/components/ai/AIGeneratedSimulado.jsx](#srccomponentsaiaigeneratedsimuladojsx)
+48. [src/components/ai/SimuladoPlayer.jsx](#srccomponentsaisimuladoplayerjsx)
+49. [src/components/ai/SimuladoResults.jsx](#srccomponentsaisimuladoresultsjsx)
+50. [src/components/ai/SimuladoSetup.jsx](#srccomponentsaisimuladosetupjsx)
+51. [src/components/AICoachPlanner.jsx](#srccomponentsaicoachplannerjsx)
+52. [src/components/AICoachView.jsx](#srccomponentsaicoachviewjsx)
+53. [src/components/AICoachWidget.jsx](#srccomponentsaicoachwidgetjsx)
+54. [src/components/CategoryEditor.jsx](#srccomponentscategoryeditorjsx)
+55. [src/components/charts/Analytics/AnaliseRetencaoChart.jsx](#srccomponentschartsanalyticsanaliseretencaochartjsx)
+56. [src/components/charts/Analytics/EvolucaoFocoChart.jsx](#srccomponentschartsanalyticsevolucaofocochartjsx)
+57. [src/components/charts/Analytics/HorasDisciplinaChart.jsx](#srccomponentschartsanalyticshorasdisciplinachartjsx)
+58. [src/components/charts/ChartFrame.jsx](#srccomponentschartschartframejsx)
+59. [src/components/charts/ChartTooltip.jsx](#srccomponentschartscharttooltipjsx)
+60. [src/components/charts/DueForecastChart.jsx](#srccomponentschartsdueforecastchartjsx)
+61. [src/components/charts/EvolutionChart/CompareChart.jsx](#srccomponentschartsevolutionchartcomparechartjsx)
+62. [src/components/charts/EvolutionChart/CriticalTopicsAnalysis.jsx](#srccomponentschartsevolutionchartcriticaltopicsanalysisjsx)
+63. [src/components/charts/EvolutionChart/DisciplinaCard.jsx](#srccomponentschartsevolutionchartdisciplinacardjsx)
+64. [src/components/charts/EvolutionChart/EvolutionLineChart.jsx](#srccomponentschartsevolutionchartevolutionlinechartjsx)
+65. [src/components/charts/EvolutionChart/KpiCard.jsx](#srccomponentschartsevolutionchartkpicardjsx)
+66. [src/components/charts/EvolutionChart/MonteCarloEvolutionChart.jsx](#srccomponentschartsevolutionchartmontecarloevolutionchartjsx)
+67. [src/components/charts/EvolutionChart/PerformanceBarChart.jsx](#srccomponentschartsevolutionchartperformancebarchartjsx)
+68. [src/components/charts/EvolutionChart/RadarAnalysis.jsx](#srccomponentschartsevolutionchartradaranalysisjsx)
+69. [src/components/charts/EvolutionChart/SubtopicsPerformanceChart.jsx](#srccomponentschartsevolutionchartsubtopicsperformancechartjsx)
+70. [src/components/charts/EvolutionChart/TimeSpentChart.jsx](#srccomponentschartsevolutioncharttimespentchartjsx)
+71. [src/components/charts/EvolutionChart/TodayVsGeneralChart.jsx](#srccomponentschartsevolutioncharttodayvsgeneralchartjsx)
+72. [src/components/charts/EvolutionChart/WeeklyEvolutionView.jsx](#srccomponentschartsevolutionchartweeklyevolutionviewjsx)
+73. [src/components/charts/EvolutionChart/WeeklyPerformanceChart.jsx](#srccomponentschartsevolutionchartweeklyperformancechartjsx)
+74. [src/components/charts/EvolutionHeatmap.jsx](#srccomponentschartsevolutionheatmapjsx)
+75. [src/components/charts/GaussianPlot.jsx](#srccomponentschartsgaussianplotjsx)
+76. [src/components/charts/MonteCarloConfig.jsx](#srccomponentschartsmontecarloconfigjsx)
+77. [src/components/charts/ReliabilityCurveChart.jsx](#srccomponentschartsreliabilitycurvechartjsx)
+78. [src/components/Checklist.jsx](#srccomponentschecklistjsx)
+79. [src/components/coach/CoachControlCenter.jsx](#srccomponentscoachcoachcontrolcenterjsx)
+80. [src/components/coach/CoachMenuNav.jsx](#srccomponentscoachcoachmenunavjsx)
+81. [src/components/ConfirmModal.jsx](#srccomponentsconfirmmodaljsx)
+82. [src/components/DueForecast.jsx](#srccomponentsdueforecastjsx)
+83. [src/components/ErrorBoundary.jsx](#srccomponentserrorboundaryjsx)
+84. [src/components/EvolutionChart.jsx](#srccomponentsevolutionchartjsx)
+85. [src/components/GamificationComponents.jsx](#srccomponentsgamificationcomponentsjsx)
+86. [src/components/Header.jsx](#srccomponentsheaderjsx)
+87. [src/components/header/PageHeader.jsx](#srccomponentsheaderpageheaderjsx)
+88. [src/components/HelpGuide.jsx](#srccomponentshelpguidejsx)
+89. [src/components/LevelUpToast.jsx](#srccomponentsleveluptoastjsx)
+90. [src/components/Loading.css](#srccomponentsloadingcss)
+91. [src/components/Login.css](#srccomponentslogincss)
+92. [src/components/Login.jsx](#srccomponentsloginjsx)
+93. [src/components/MonteCarloDebugger.jsx](#srccomponentsmontecarlodebuggerjsx)
+94. [src/components/MonteCarloGauge.jsx](#srccomponentsmontecarlogaugejsx)
+95. [src/components/NextGoalCard.jsx](#srccomponentsnextgoalcardjsx)
+96. [src/components/OnboardingTour.jsx](#srccomponentsonboardingtourjsx)
+97. [src/components/ParetoAnalysis.jsx](#srccomponentsparetoanalysisjsx)
+98. [src/components/Paywall.jsx](#srccomponentspaywalljsx)
+99. [src/components/PerformanceTable.jsx](#srccomponentsperformancetablejsx)
+100. [src/components/PersonalRanking.jsx](#srccomponentspersonalrankingjsx)
+101. [src/components/pomodoro/FocusPanel.jsx](#srccomponentspomodorofocuspaneljsx)
+102. [src/components/pomodoro/PomodoroClock.jsx](#srccomponentspomodoropomodoroclockjsx)
+103. [src/components/pomodoro/PomodoroControls.jsx](#srccomponentspomodoropomodorocontrolsjsx)
+104. [src/components/pomodoro/PomodoroHeader.jsx](#srccomponentspomodoropomodoroheaderjsx)
+105. [src/components/pomodoro/PomodoroProgress.jsx](#srccomponentspomodoropomodoroprogressjsx)
+106. [src/components/PomodoroTimer.jsx](#srccomponentspomodorotimerjsx)
+107. [src/components/PriorityProgress.jsx](#srccomponentspriorityprogressjsx)
+108. [src/components/PromptModal.jsx](#srccomponentspromptmodaljsx)
+109. [src/components/RetentionPanel.jsx](#srccomponentsretentionpaneljsx)
+110. [src/components/Sidebar.css](#srccomponentssidebarcss)
+111. [src/components/Sidebar.jsx](#srccomponentssidebarjsx)
+112. [src/components/sidebarUtils.js](#srccomponentssidebarutilsjs)
+113. [src/components/SimuladoAnalysis.jsx](#srccomponentssimuladoanalysisjsx)
+114. [src/components/StatsCards.jsx](#srccomponentsstatscardsjsx)
+115. [src/components/StudyHistory.jsx](#srccomponentsstudyhistoryjsx)
+116. [src/components/SubtopicsTable.jsx](#srccomponentssubtopicstablejsx)
+117. [src/components/Toast.jsx](#srccomponentstoastjsx)
+118. [src/components/TopicPerformance.jsx](#srccomponentstopicperformancejsx)
+119. [src/components/TrashModal.jsx](#srccomponentstrashmodaljsx)
+120. [src/components/ui/ChartGuide.jsx](#srccomponentsuichartguidejsx)
+121. [src/components/ui/StatusPill.jsx](#srccomponentsuistatuspilljsx)
+122. [src/components/VerifiedStats.jsx](#srccomponentsverifiedstatsjsx)
+123. [src/components/VolumeRanking.jsx](#srccomponentsvolumerankingjsx)
+124. [src/components/WeeklyAnalysis.jsx](#srccomponentsweeklyanalysisjsx)
+125. [src/components/WelcomeScreen.jsx](#srccomponentswelcomescreenjsx)
+126. [src/hooks/useCategoryLevels.js](#srchooksusecategorylevelsjs)
+127. [src/hooks/useChartData.js](#srchooksusechartdatajs)
+128. [src/hooks/useClock.js](#srchooksuseclockjs)
+129. [src/hooks/useCloudSync.js](#srchooksusecloudsyncjs)
+130. [src/hooks/useCoachControlCenter.js](#srchooksusecoachcontrolcenterjs)
+131. [src/hooks/useEvolutionMC.js](#srchooksuseevolutionmcjs)
+132. [src/hooks/useGlobalToasts.js](#srchooksuseglobaltoastsjs)
+133. [src/hooks/useIdleLogout.js](#srchooksuseidlelogoutjs)
+134. [src/hooks/useLevelUp.js](#srchooksuselevelupjs)
+135. [src/hooks/useModalAccessibility.js](#srchooksusemodalaccessibilityjs)
+136. [src/hooks/useMonteCarloStats.js](#srchooksusemontecarlostatsjs)
+137. [src/hooks/useMonteCarloWorker.js](#srchooksusemontecarloworkerjs)
+138. [src/hooks/usePomodoroSync.js](#srchooksusepomodorosyncjs)
+139. [src/hooks/useSubjectAggData.js](#srchooksusesubjectaggdatajs)
+140. [src/hooks/useSubscription.js](#srchooksusesubscriptionjs)
+141. [src/hooks/useThemeSync.js](#srchooksusethemesyncjs)
+142. [src/hooks/useToast.js](#srchooksusetoastjs)
+143. [src/engine/analyticsStats.js](#srcengineanalyticsstatsjs)
+144. [src/engine/causal/policyEngine.js](#srcenginecausalpolicyenginejs)
+145. [src/engine/causal/upliftModel.js](#srcenginecausalupliftmodeljs)
+146. [src/engine/diagnostics.js](#srcenginediagnosticsjs)
+147. [src/engine/evaluation/coachEvaluator.js](#srcengineevaluationcoachevaluatorjs)
+148. [src/engine/evaluation/strategyBacktester.js](#srcengineevaluationstrategybacktesterjs)
+149. [src/engine/heatmap.worker.js](#srcengineheatmapworkerjs)
+150. [src/engine/index.js](#srcengineindexjs)
+151. [src/engine/insightGenerator.js](#srcengineinsightgeneratorjs)
+152. [src/engine/math/bootstrap.js](#srcenginemathbootstrapjs)
+153. [src/engine/math/constants.js](#srcenginemathconstantsjs)
+154. [src/engine/math/date.js](#srcenginemathdatejs)
+155. [src/engine/math/gaussian.js](#srcenginemathgaussianjs)
+156. [src/engine/math/kahan.js](#srcenginemathkahanjs)
+157. [src/engine/math/percentile.js](#srcenginemathpercentilejs)
+158. [src/engine/math/safe.js](#srcenginemathsafejs)
+159. [src/engine/mc.worker.js](#srcenginemcworkerjs)
+160. [src/engine/monteCarlo.js](#srcenginemontecarlojs)
+161. [src/engine/observability/driftMonitor.js](#srcengineobservabilitydriftmonitorjs)
+162. [src/engine/observability/modelHealth.js](#srcengineobservabilitymodelhealthjs)
+163. [src/engine/optimization/autoTuner.js](#srcengineoptimizationautotunerjs)
+164. [src/engine/optimization/flagOptimizer.js](#srcengineoptimizationflagoptimizerjs)
+165. [src/engine/orchestrator/coachOrchestrator.js](#srcengineorchestratorcoachorchestratorjs)
+166. [src/engine/probabilistic/bayesianTopics.js](#srcengineprobabilisticbayesiantopicsjs)
+167. [src/engine/probabilistic/decisionEngine.js](#srcengineprobabilisticdecisionenginejs)
+168. [src/engine/probabilistic/fsrs.js](#srcengineprobabilisticfsrsjs)
+169. [src/engine/probabilistic/knowledgeGraph.js](#srcengineprobabilisticknowledgegraphjs)
+170. [src/engine/probabilistic/posteriorPredictive.js](#srcengineprobabilisticposteriorpredictivejs)
+171. [src/engine/probabilistic/stateSpace.js](#srcengineprobabilisticstatespacejs)
+172. [src/engine/probabilistic/volatility.js](#srcengineprobabilisticvolatilityjs)
+173. [src/engine/projection.js](#srcengineprojectionjs)
+174. [src/engine/random.js](#srcenginerandomjs)
+175. [src/engine/simulationCache.js](#srcenginesimulationcachejs)
+176. [src/engine/stats.js](#srcenginestatsjs)
+177. [src/engine/UNITS.md](#srcengineunitsmd)
+178. [src/engine/variance.js](#srcenginevariancejs)
+179. [src/utils/adaptiveEngine.js](#srcutilsadaptiveenginejs)
+180. [src/utils/adaptiveMath.js](#srcutilsadaptivemathjs)
+181. [src/utils/aiSaveHelper.js](#srcutilsaisavehelperjs)
+182. [src/utils/analytics.js](#srcutilsanalyticsjs)
+183. [src/utils/audioAlert.js](#srcutilsaudioalertjs)
+184. [src/utils/autoTunerGate.js](#srcutilsautotunergatejs)
+185. [src/utils/backupManager.js](#srcutilsbackupmanagerjs)
+186. [src/utils/calibration.js](#srcutilscalibrationjs)
+187. [src/utils/calibrationTelemetry.js](#srcutilscalibrationtelemetryjs)
+188. [src/utils/chartConfig.js](#srcutilschartconfigjs)
+189. [src/utils/chartDataMappers.js](#srcutilschartdatamappersjs)
+190. [src/utils/coachAdaptive.js](#srcutilscoachadaptivejs)
+191. [src/utils/coachBacktest.js](#srcutilscoachbacktestjs)
+192. [src/utils/coachCausal.js](#srcutilscoachcausaljs)
+193. [src/utils/coachEvaluation.js](#srcutilscoachevaluationjs)
+194. [src/utils/coachFeatures.js](#srcutilscoachfeaturesjs)
+195. [src/utils/coachFeatureStore.js](#srcutilscoachfeaturestorejs)
+196. [src/utils/coachLogic.js](#srcutilscoachlogicjs)
+197. [src/utils/coachObservability.js](#srcutilscoachobservabilityjs)
+198. [src/utils/coachOptimizer.js](#srcutilscoachoptimizerjs)
+199. [src/utils/coachPipeline.js](#srcutilscoachpipelinejs)
+200. [src/utils/coachSafe.js](#srcutilscoachsafejs)
+201. [src/utils/coachStorage.js](#srcutilscoachstoragejs)
+202. [src/utils/coachTaskId.js](#srcutilscoachtaskidjs)
+203. [src/utils/coachText.js](#srcutilscoachtextjs)
+204. [src/utils/dateHelper.js](#srcutilsdatehelperjs)
+205. [src/utils/displaySubject.js](#srcutilsdisplaysubjectjs)
+206. [src/utils/downsample.js](#srcutilsdownsamplejs)
+207. [src/utils/evolutionGuards.js](#srcutilsevolutionguardsjs)
+208. [src/utils/evolutionStatus.js](#srcutilsevolutionstatusjs)
+209. [src/utils/explanationEngine.js](#srcutilsexplanationenginejs)
+210. [src/utils/format.js](#srcutilsformatjs)
+211. [src/utils/gamification.js](#srcutilsgamificationjs)
+212. [src/utils/heatmapAggregation.js](#srcutilsheatmapaggregationjs)
+213. [src/utils/idGenerator.js](#srcutilsidgeneratorjs)
+214. [src/utils/lazyRetry.js](#srcutilslazyretryjs)
+215. [src/utils/logger.js](#srcutilsloggerjs)
+216. [src/utils/measurement.js](#srcutilsmeasurementjs)
+217. [src/utils/monteCarloScenario.js](#srcutilsmontecarloscenariojs)
+218. [src/utils/normalization.js](#srcutilsnormalizationjs)
+219. [src/utils/normalize.js](#srcutilsnormalizejs)
+220. [src/utils/number.js](#srcutilsnumberjs)
+221. [src/utils/parseNoonLocal.js](#srcutilsparsenoonlocaljs)
+222. [src/utils/pdfExport.js](#srcutilspdfexportjs)
+223. [src/utils/pomodoroHelpers.js](#srcutilspomodorohelpersjs)
+224. [src/utils/ProgressStateEngine.js](#srcutilsprogressstateenginejs)
+225. [src/utils/retentionCore.js](#srcutilsretentioncorejs)
+226. [src/utils/safeClone.js](#srcutilssafeclonejs)
+227. [src/utils/scoreDomain.js](#srcutilsscoredomainjs)
+228. [src/utils/scoreHelper.conversions.js](#srcutilsscorehelperconversionsjs)
+229. [src/utils/scoreHelper.js](#srcutilsscorehelperjs)
+230. [src/utils/stableHash.js](#srcutilsstablehashjs)
+231. [src/utils/storageSafe.js](#srcutilsstoragesafejs)
+232. [src/utils/taskTitleHelper.js](#srcutilstasktitlehelperjs)
+233. [src/utils/tombstones.js](#srcutilstombstonesjs)
+234. [src/utils/weeklyEvolutionInsights.js](#srcutilsweeklyevolutioninsightsjs)
+235. [src/services/aiQuestionService.js](#srcservicesaiquestionservicejs)
+236. [src/services/firebase.js](#srcservicesfirebasejs)
+237. [src/llm/coachLLMIntegration.js](#srcllmcoachllmintegrationjs)
+238. [src/llm/explanationAgent.js](#srcllmexplanationagentjs)
+239. [src/llm/llmClient.js](#srcllmllmclientjs)
+240. [src/llm/llmPrompts.js](#srcllmllmpromptsjs)
+241. [src/llm/llmSchema.js](#srcllmllmschemajs)
+242. [src/assets/logo.png](#srcassetslogopng)
+243. [src/assets/react.svg](#srcassetsreactsvg)
+244. [src/config.js](#srcconfigjs)
+245. [src/config/gamification.js](#srcconfiggamificationjs)
+246. [src/data/initialData.js](#srcdatainitialdatajs)
+
+---
+
+<a id="envexample"></a>
+## `.env.example`
+
+```example
+VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN=YOUR_PROJECT_ID.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
+VITE_FIREBASE_STORAGE_BUCKET=YOUR_PROJECT_ID.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=YOUR_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID=YOUR_APP_ID
+VITE_FIREBASE_MEASUREMENT_ID=YOUR_MEASUREMENT_ID
+
+# Stripe Payments Configuration
+VITE_STRIPE_PUBLIC_KEY=pk_test_YOUR_STRIPE_PUBLIC_KEY
+
+# Local Mode (set to true to bypass Firebase/Stripe in offline/dev mode)
+VITE_LOCAL_MODE=false
+
+# Google Gemini AI Configuration
+VITE_GEMINI_API_KEY=AQ_YOUR_GEMINI_API_KEY
+```
 
 ---
 
@@ -311,7 +360,7 @@ export default defineConfig([
 <a id="firestorerules"></a>
 ## `firestore.rules`
 
-```rules
+```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -759,6 +808,43 @@ service cloud.firestore {
     "fsevents": true
   }
 }
+```
+
+---
+
+<a id="readmemd"></a>
+## `README.md`
+
+```markdown
+# React + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Configuração de Nuvem e Pagamentos
+
+O projeto está configurado para conectar em produção aos serviços na nuvem:
+- **Firebase**: Projeto `liquita-67764` (Firestore, Auth, Analytics)
+- **Stripe**: Cobranças e assinaturas via extensão no Firestore e `@stripe/stripe-js`
+
+Para rodar em modo produção/nuvem, certifique-se de que o arquivo `.env` contenha:
+```env
+VITE_LOCAL_MODE=false
+```
+
+---
+**Status de Produção:** Conectado à Nuvem (`VITE_LOCAL_MODE=false`) - Sincronizado em 2026-07-30.
 ```
 
 ---
@@ -2476,6 +2562,34 @@ if (rootElement) {
 } else {
   console.error("Root element not found.");
 }
+```
+
+---
+
+<a id="srcstorecontratomd"></a>
+## `src/store/CONTRATO.md`
+
+```markdown
+# Contrato do `useAppStore`
+
+## `setData(updater)`
+
+`updater` recebe o contest ativo e **DEVE retornar um novo objeto**.
+
+```js
+// ✅ CORRETO — funciona em Zustand puro E com middleware immer
+setData(contest => ({
+  ...contest,
+  calibrationEvents: [...(contest.calibrationEvents || []), ev].slice(-200)
+}));
+
+// ❌ ERRADO — mutação sem retorno só funciona com immer; quebra em Zustand puro
+setData(c => { c.calibrationEvents = backfilled; return; });
+```
+
+Regra adotada em toda a base (LOTE-02/05): **sempre retorno imutável**.
+Nenhum `setState` mutacional sem retorno, mesmo que o store atual use immer —
+isso preserva a portabilidade e evita o bug silencioso de "estado não atualiza".
 ```
 
 ---
@@ -6418,6 +6532,7 @@ const CALIBRATION_ALERT_CACHE_MAX = 200;
 const EMPTY_ARRAY = Object.freeze([]);
 
 export default function Coach() {
+    const topRef = useRef(null);
     const calibrationAlertCacheRef = useRef(new Map());
     const activeId = useAppStore(state => state.appState.activeId);
     // LEAK-MCCACHE FIX: limpar o cache do Monte Carlo ao trocar de concurso.
@@ -6428,6 +6543,19 @@ export default function Coach() {
         clearUrgencyCache();
         clearTopicsCache();
         // BUG 1 FIX: Removed calibrationAlertCache.clear() to prevent global cache reset on mount
+    }, [activeId]);
+
+    useEffect(() => {
+        // Garantir que a tela do Coach AI seja perfeitamente enquadrada a partir do topo
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        if (topRef.current) {
+            const mainContainer = topRef.current.closest('main');
+            if (mainContainer) {
+                mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
     }, [activeId]);
 
     const data = useAppStore(useShallow(state => {
@@ -6976,28 +7104,28 @@ export default function Coach() {
 
     return (
         <PageErrorBoundary pageName="Coach">
-            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-10 pb-32">
-                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+            <div ref={topRef} className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6 pt-1 sm:pt-2 pb-10 sm:pb-16">
+                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
                     <PageHeader 
                         title="Análise do Coach" 
                         description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
                     />
                     
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 bg-slate-900/80 border border-white/10 p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
-                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4 px-1 sm:px-2 w-full sm:w-auto">
-                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={14} />} />
-                            <div className="w-px h-6 bg-white/10 shrink-0" />
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 bg-slate-900/80 border border-white/10 p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
+                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-1 w-full sm:w-auto">
+                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={13} />} />
+                            <div className="w-px h-5 bg-white/10 shrink-0" />
                             <QuickStat
                                 label="Tendência"
                                 value={`${normalizedDrift.toFixed(1)}pp`}
                                 color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
-                                icon={normalizedDrift >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                                icon={normalizedDrift >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
                             />
-                            <div className="w-px h-6 bg-white/10 shrink-0" />
-                            <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={14} />} />
+                            <div className="w-px h-5 bg-white/10 shrink-0" />
+                            <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={13} />} />
                         </div>
-                        <div className="hidden sm:block w-px h-6 bg-white/10 shrink-0" />
-                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-2 sm:pt-0 sm:border-t-0">
+                        <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />
+                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-1.5 sm:pt-0 sm:border-t-0">
                             <MonteCarloDebugger stats={mcStats} />
                         </div>
                     </div>
@@ -7008,7 +7136,7 @@ export default function Coach() {
                     {degradedCount > 0 && <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />}
                 </AnimatePresence>
 
-                <div className="space-y-10">
+                <div className="space-y-4 sm:space-y-5">
                     <div className="w-full">
                         <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
 
@@ -7029,15 +7157,15 @@ export default function Coach() {
                                 {safeActiveTab === 'insights' && (
                                     <>
                                         {flashcardDue > 0 && (
-                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
-                                                <BookOpen className="text-amber-400 shrink-0" size={18} />
+                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
+                                                <BookOpen className="text-amber-400 shrink-0" size={16} />
                                                 <div className="flex-1 min-w-[180px] text-amber-200">
                                                     <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
                                                 </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => navigate('/flashcards')}
-                                                    className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
+                                                    className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
                                                 >
                                                     Revisar agora
                                                 </button>
@@ -7046,15 +7174,15 @@ export default function Coach() {
 
                                         {/* Visual global MC context */}
                                         {globalProjection && (
-                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 text-xs">
+                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
                                                 <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
-                                                <span className="font-mono text-base font-bold text-emerald-200 tabular-nums">
+                                                <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
                                                     {globalProjection.points.toFixed(1)}
                                                     <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
                                                 </span>
-                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums">{Math.round(globalProjection.pct)}%</span>
+                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
                                                 {globalProjection.probability !== null && (
-                                                    <span className="text-emerald-400/70">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
+                                                    <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
                                                 )}
                                             </div>
                                         )}
@@ -9433,31 +9561,50 @@ function PomodoroSidePanel({
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.01, zIndex: 100 }}
-            className={`flex flex-col w-full relative group p-4 sm:p-5 bg-[#08090f]/75 border border-white/10 rounded-3xl backdrop-blur-xl shadow-2xl ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col w-full relative group p-3.5 sm:p-4 bg-[#08090f]/75 border border-white/10 rounded-2xl sm:rounded-3xl backdrop-blur-xl shadow-2xl xl:max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
-            {/* Controles de Arrasto e Bloqueio (no Hover superior) */}
-            <div className="absolute -top-11 left-0 right-0 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-y-1 group-hover:-translate-y-0 z-30">
-                {!isLayoutLocked && (
+            {/* CABEÇALHO DO PAINEL LATERAL (INTEGRADO, FLUIDO E SEMPRE ACESSÍVEL) */}
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-slate-300">
+                        Painel Tático
+                    </span>
+                    {!isLayoutLocked ? (
+                        <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
+                            Móvel
+                        </span>
+                    ) : (
+                        <span className="text-[9px] font-bold text-slate-400 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-md">
+                            Fixo
+                        </span>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                    {!isLayoutLocked && (uiPosition.x !== 0 || uiPosition.y !== 0) && (
+                        <button
+                            type="button"
+                            onClick={resetPosition}
+                            className="px-2 py-1 rounded-lg bg-slate-900/90 text-slate-300 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shadow"
+                            title="Restaurar posição original"
+                        >
+                            <RotateCcw size={10} />
+                            <span>Resetar</span>
+                        </button>
+                    )}
                     <button
                         type="button"
-                        onClick={resetPosition}
-                        className="px-2.5 py-1 rounded-xl bg-slate-900/80 text-slate-400 border border-white/10 hover:text-white hover:bg-slate-800 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-lg backdrop-blur-md"
+                        onClick={onToggleLock}
+                        className={`p-1.5 rounded-xl transition-all border flex items-center justify-center shadow backdrop-blur-md ${isLayoutLocked
+                            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
+                            }`}
+                        title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel na posição"}
+                        aria-label={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel na posição"}
                     >
-                        <RotateCcw size={11} />
-                        <span>Restaurar Posição</span>
+                        {isLayoutLocked ? <Lock size={12} /> : <Unlock size={12} />}
                     </button>
-                )}
-                <button
-                    type="button"
-                    onClick={onToggleLock}
-                    className={`p-1.5 rounded-xl transition-all border flex items-center justify-center shadow-lg backdrop-blur-md ${isLayoutLocked
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
-                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-white'
-                        }`}
-                    title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
-                >
-                    {isLayoutLocked ? <Lock size={13} /> : <Unlock size={13} />}
-                </button>
+                </div>
             </div>
 
             {/* TAB SELECTOR: DUAS OPÇÕES DE VISUALIZAÇÃO */}
@@ -9549,42 +9696,43 @@ function PomodoroSidePanel({
 }
 
 // =====================================================
-// BARRA SUPERIOR DO CRONÔMETRO (AMPLIADA E COM MAIOR DESTAQUE)
+// =====================================================
+// BARRA SUPERIOR DO CRONÔMETRO (COMPACTA, ELEGANTE E PERFEITAMENTE ENQUADRADA)
 // =====================================================
 function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
     const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
 
     return (
-        <div className="w-full rounded-2xl sm:rounded-3xl border-2 sm:border-3 border-[#94785a] bg-[#b08e6b] px-5 sm:px-7 py-4 sm:py-5 shadow-2xl relative overflow-hidden group">
+        <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
-            <div className="flex items-center justify-between gap-3 sm:gap-5 relative z-10">
-                <div className="flex items-center gap-3.5 sm:gap-5 min-w-0 flex-1">
-                    <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
-                        {activeSubject ? <Target size={30} className="text-[#2d1a12]" /> : <Zap size={30} className="text-[#2d1a12]" />}
+            <div className="flex items-center justify-between gap-3 relative z-10">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
+                        {activeSubject ? <Target size={20} className="text-[#2d1a12]" /> : <Zap size={20} className="text-[#2d1a12]" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs sm:text-sm font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] text-[#2d1a12]/85 truncate">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#2d1a12]/85 truncate">
                                 {activeSubject?.category || 'SISTEMA'}
                             </span>
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-700 animate-pulse shrink-0 shadow-sm" />
+                            <div className="w-2 h-2 rounded-full bg-emerald-700 animate-pulse shrink-0 shadow-sm" />
                         </div>
-                        <h1 className="text-lg sm:text-xl lg:text-2xl font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}>
+                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}>
                             {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}
                         </h1>
                     </div>
                 </div>
-                <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
-                    <span className="px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-black uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/10 text-[#2d1a12] shadow-sm">
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-2.5 sm:px-3 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/10 text-[#2d1a12] shadow-sm">
                         {neuralMode ? 'NEURAL' : 'MANUAL'}
                     </span>
                     <button
                         type="button"
                         onClick={onToggleLock}
-                        className={`p-2.5 sm:p-3 rounded-xl border transition-all shadow-sm ${isLayoutLocked ? 'bg-[#2d1a12]/10 border-[#2d1a12]/20 text-[#2d1a12]/60 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12]'}`}
+                        className={`p-1.5 sm:p-2 rounded-lg border transition-all shadow-sm ${isLayoutLocked ? 'bg-[#2d1a12]/10 border-[#2d1a12]/20 text-[#2d1a12]/60 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12]'}`}
                         title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
                     >
-                        {isLayoutLocked ? <Lock size={17} /> : <Unlock size={17} />}
+                        {isLayoutLocked ? <Lock size={14} /> : <Unlock size={14} />}
                     </button>
                 </div>
             </div>
@@ -9656,10 +9804,17 @@ export default function Pomodoro() {
     }, [location.state?.from]);
 
     useEffect(() => {
-        if (activeSubject && topRef.current) {
-            topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Garantir que a tela do cronômetro seja perfeitamente enquadrada a partir do topo
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    }, [activeSubject, activeSubject?.sessionInstanceId]);
+        if (topRef.current) {
+            const mainContainer = topRef.current.closest('main');
+            if (mainContainer) {
+                mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    }, [activeSubject?.taskId, activeSubject?.sessionInstanceId]);
 
     const resolveReturnPath = (source, forceDashboard = false) => {
         if (forceDashboard) return '/';
@@ -9958,10 +10113,10 @@ export default function Pomodoro() {
 
     return (
         <PageErrorBoundary pageName="Pomodoro">
-            <div ref={topRef} className="min-h-[calc(100vh-88px)] flex items-start justify-center pt-1 sm:pt-2 pb-4 px-2 sm:px-4">
-                <div className="flex flex-col xl:flex-row gap-4 sm:gap-5 lg:gap-6 items-start justify-center w-full max-w-[1240px] xl:max-w-[1360px] 2xl:max-w-[1420px] mx-auto">
-                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (TODOS ENCOSTADOS SEM ESPAÇOS VAZIOS) */}
-                    <div className="w-full xl:w-[540px] 2xl:w-[580px] flex-shrink-0 flex flex-col items-center gap-1 min-w-0">
+            <div ref={topRef} className="min-h-0 flex items-start justify-center pt-0.5 sm:pt-1 pb-2 sm:pb-3 px-2 sm:px-4">
+                <div className="flex flex-col xl:flex-row gap-3.5 sm:gap-4 lg:gap-5 items-start justify-center w-full max-w-[1180px] xl:max-w-[1280px] 2xl:max-w-[1360px] mx-auto">
+                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (PERFEITAMENTE ENQUADRADO) */}
+                    <div className="w-full xl:w-[480px] 2xl:w-[510px] flex-shrink-0 flex flex-col items-center gap-1 min-w-0">
                         <PomodoroTopBar
                             activeSubject={activeSubject}
                             neuralMode={neuralMode}
@@ -9985,7 +10140,7 @@ export default function Pomodoro() {
                     </div>
 
                     {/* COLUNA 2: PAINEL LATERAL COM AS DUAS OPÇÕES DE VISUALIZAÇÃO */}
-                    <div className="w-full xl:w-[440px] 2xl:w-[480px] flex-shrink-0 min-w-0">
+                    <div className="w-full xl:w-[400px] 2xl:w-[440px] flex-shrink-0 min-w-0">
                         <PomodoroSidePanel
                             activeTab={activeSideTab}
                             setActiveTab={handleTabChange}
@@ -13561,12 +13716,12 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
             style={{
-              paddingLeft: '1.25rem',
+              paddingLeft: isBacklog ? '0.85rem' : '0.65rem',
               boxShadow: snapshot.isDragging
                 ? '0 20px 40px -10px rgba(0,0,0,0.85), 0 0 25px rgba(139,92,246,0.5)'
                 : undefined,
             }}
-            className={`group relative mb-2 rounded-lg border py-2.5 pr-2.5 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${snapshot.isDragging
+            className={`group relative mb-1.5 rounded-lg border py-2 pr-2 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${snapshot.isDragging
                 ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
                 : isCompleted
                   ? 'border-emerald-500/20 bg-emerald-950/10 opacity-75'
@@ -13584,14 +13739,14 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 }`}
             />
             <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
-              <div className="flex items-start justify-between gap-3 min-w-0 mt-1">
-                <div className="flex items-start gap-1.5 flex-1 min-w-0 mt-0.5">
-                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-[5px] ${isCompleted ? 'bg-emerald-400' : isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
-                  <span className={`text-[9.5px] font-black uppercase tracking-[0.1em] leading-snug break-words ${isCompleted ? 'text-emerald-400/90 line-through' : isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : dayTheme.text}`} title={displaySubject(subject, categories)}>
+              <div className="flex items-start justify-between gap-1.5 min-w-0 mt-0.5">
+                <div className="flex items-start gap-1 flex-1 min-w-0">
+                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-1 ${isCompleted ? 'bg-emerald-400' : isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
+                  <span className={`text-[8.5px] sm:text-[9px] font-black uppercase tracking-[0.06em] leading-tight break-words line-clamp-1 ${isCompleted ? 'text-emerald-400/90 line-through' : isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : dayTheme.text}`} title={displaySubject(subject, categories)}>
                     {displaySubject(subject, categories)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 shrink-0 bg-black/20 rounded-md border border-white/5 p-0.5">
+                <div className="flex items-center gap-0.5 shrink-0 bg-black/20 rounded border border-white/5 p-0.5">
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); if (typeof onStartPomodoro === 'function') onStartPomodoro(task, isBacklog ? 'backlog' : dayTheme?.id); }}
@@ -13600,31 +13755,31 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                     onTouchStart={(e) => e.stopPropagation()}
                     aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
                     title="Estudar agora no Pomodoro"
-                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${!isBacklog && dayTheme
+                    className={`w-4 h-4 rounded flex items-center justify-center transition-all ${!isBacklog && dayTheme
                         ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
                         : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
                       }`}
                   >
-                    <Play size={8} className="fill-current ml-0.5" />
+                    <Play size={7} className="fill-current ml-0.5" />
                   </button>
-                  <div className="w-4 h-5 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors pointer-events-none">
-                    <GripVertical size={11} className="pointer-events-none" />
+                  <div className="w-3.5 h-4 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors pointer-events-none">
+                    <GripVertical size={10} className="pointer-events-none" />
                   </div>
                 </div>
               </div>
-              <div className="mt-2.5 flex flex-col gap-1 pl-0.5">
-                <h4 className={`text-[11px] sm:text-[12px] font-bold leading-normal break-words line-clamp-3 tracking-normal ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+              <div className="mt-1.5 flex flex-col gap-0.5 pl-0.5">
+                <h4 className={`text-[10px] sm:text-[10.5px] font-bold leading-tight break-words line-clamp-2 tracking-tight ${isCompleted ? 'line-through text-slate-400' : 'text-slate-100'}`}>
                   {topicLabel}
                 </h4>
                 {secondaryText && (
-                  <p className={`text-[9.5px] sm:text-[10px] font-medium leading-relaxed break-words line-clamp-2 ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
+                  <p className={`text-[8.5px] sm:text-[9px] font-medium leading-tight break-words line-clamp-1 ${isCompleted ? 'line-through text-slate-500' : 'text-slate-400'}`}>
                     {secondaryText}
                   </p>
                 )}
               </div>
               {isSrsCard && (
-                <div className="mt-2.5 pt-2 border-t border-white/5 flex items-center pl-0.5">
-                  <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                <div className="mt-1.5 pt-1 border-t border-white/5 flex items-center pl-0.5">
+                  <span className="text-[7.5px] font-black uppercase tracking-widest px-1 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
                     SRS
                   </span>
                 </div>
@@ -13942,10 +14097,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
   return (
     <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-      <div className="flex flex-col xl:flex-row gap-4 items-stretch mt-6 w-full">
+      <div className="flex flex-col xl:flex-row gap-3 sm:gap-4 items-stretch mt-3 sm:mt-4 w-full">
         {/* ================= BACKLOG ================= */}
-        <div className="w-full xl:w-72 2xl:w-80 shrink-0 flex flex-col" data-col-id="backlog">
-          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 min-h-[380px] relative overflow-hidden shadow-2xl">
+        <div className="w-full xl:w-64 2xl:w-72 shrink-0 flex flex-col" data-col-id="backlog">
+          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-3 sm:p-4 flex flex-col flex-1 min-h-[340px] relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
             <Droppable droppableId="backlog">
               {(provided, snapshot) => {
@@ -13953,15 +14108,15 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                 const backlogCount = liveCount('backlog', (columns.backlog || []).length);
                 return (
                   <div className={`flex-1 flex flex-col transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl rounded-lg p-1' : ''}`}>
-                    <div className={`flex items-center gap-2 mb-3 pb-2.5 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
-                      <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
-                        <BrainCircuit size={15} className={`transition-colors ${isHighlight ? 'text-violet-200' : 'text-violet-400'}`} />
+                    <div className={`flex items-center gap-2 mb-2.5 pb-2 border-b transition-colors duration-75 ${isHighlight ? 'border-violet-400/50' : 'border-white/[0.08]'}`}>
+                      <div className={`w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg flex items-center justify-center transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 border-violet-400/60 shadow-[0_0_15px_rgba(139,92,246,0.3)]' : 'bg-violet-500/15 border border-violet-500/30'}`}>
+                        <BrainCircuit size={14} className={`transition-colors ${isHighlight ? 'text-violet-200' : 'text-violet-400'}`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className={`text-xs font-black uppercase tracking-[0.16em] transition-colors ${isHighlight ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
-                        <p className={`text-[9px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
+                        <h3 className={`text-xs font-black uppercase tracking-[0.14em] transition-colors ${isHighlight ? 'text-white' : 'text-slate-200'}`}>Sugestões</h3>
+                        <p className={`text-[8.5px] font-semibold tracking-wider transition-colors ${isHighlight ? 'text-violet-300' : 'text-slate-400'}`}>IA Coach</p>
                       </div>
-                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
+                      <span className={`text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded-md border transition-all duration-75 shrink-0 ${isHighlight ? 'bg-violet-500/30 text-white border-violet-400/60' : 'bg-violet-500/15 text-violet-300 border-violet-500/30'}`}>
                         {backlogCount}
                       </span>
                     </div>
@@ -13970,7 +14125,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                       {...provided.droppableProps}
                       role="list"
                       aria-label="Sugestões de tarefas não alocadas"
-                      className={`flex-1 flex flex-col p-2 rounded-lg border border-dashed transition-all duration-75 overflow-y-auto max-h-[580px] custom-scrollbar ${isHighlight
+                      className={`flex-1 flex flex-col p-1.5 rounded-lg border border-dashed transition-all duration-75 overflow-y-auto max-h-[500px] custom-scrollbar ${isHighlight
                           ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
                           : 'bg-black/20 border-white/[0.08]'
                         }`}
@@ -13984,9 +14139,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                       {provided.placeholder}
                       {(columns.backlog || []).length === 0 && (
                         <div className="flex flex-col items-center justify-center p-6 text-center text-slate-500 my-auto">
-                          <Sparkles size={20} className="mb-2 text-violet-400/50" />
+                          <Sparkles size={18} className="mb-2 text-violet-400/50" />
                           <p className="text-xs font-medium text-slate-400">Tudo distribuído!</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Arraste itens de volta se quiser reorganizar.</p>
+                          <p className="text-[9.5px] text-slate-500 mt-0.5">Arraste itens de volta se quiser reorganizar.</p>
                         </div>
                       )}
                     </div>
@@ -13999,43 +14154,43 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
         {/* ================= SEMANA ================= */}
         <div className="w-full flex-1 min-w-0 flex flex-col">
-          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-4 sm:p-5 flex flex-col flex-1 relative shadow-2xl overflow-hidden">
+          <div className="bg-[#0d111b]/95 border border-white/[0.08] rounded-2xl p-3 sm:p-4 flex flex-col flex-1 relative shadow-2xl overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/[0.08] shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                  <CalendarDays size={15} className="text-indigo-400" />
+            <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-white/[0.08] shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                  <CalendarDays size={14} className="text-indigo-400" />
                 </div>
                 <div className="flex flex-col">
-                  <h3 className="text-xs font-black uppercase tracking-[0.16em] text-slate-200">Planejamento Semanal</h3>
-                  <p className="text-[9px] font-semibold text-slate-400 tracking-wider uppercase">Agenda do Aluno</p>
+                  <h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-200">Planejamento Semanal</h3>
+                  <p className="text-[8.5px] font-semibold text-slate-400 tracking-wider uppercase">Agenda do Aluno</p>
                 </div>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0 whitespace-nowrap">
+              <span className="text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0 whitespace-nowrap">
                 {liveWeekTotal} tarefa{liveWeekTotal === 1 ? '' : 's'} na semana
               </span>
             </div>
-            <div className="w-full overflow-x-auto kanban-scrollbar pb-2 pt-1 flex-1 flex flex-col">
-              <div className="flex gap-2.5 sm:gap-3 min-w-[840px] 2xl:min-w-0 w-full flex-1">
+            <div className="w-full overflow-x-auto kanban-scrollbar pb-1.5 pt-0.5 flex-1 flex flex-col">
+              <div className="flex gap-2 sm:gap-2.5 min-w-[700px] 2xl:min-w-0 w-full flex-1">
                 {DAYS.map((day) => {
                   const dayTasks = columns[day.id] || [];
                   const dayCount = liveCount(day.id, dayTasks.length);
                   return (
-                    <div key={day.id} className="flex-1 min-w-[115px] sm:min-w-[120px] 2xl:min-w-0 flex flex-col" data-col-id={day.id}>
+                    <div key={day.id} className="flex-1 min-w-[96px] sm:min-w-[105px] 2xl:min-w-0 flex flex-col" data-col-id={day.id}>
                       <Droppable droppableId={day.id}>
                         {(provided, snapshot) => {
                           const isHighlight = hoveredCol ? (hoveredCol === day.id) : snapshot.isDraggingOver;
                           return (
-                            <div className={`flex-1 flex flex-col p-1 rounded-lg transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
-                              <div className={`mb-2 rounded-lg border transition-all duration-75 ${isHighlight ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
-                                } p-2 relative overflow-hidden`}>
+                            <div className={`flex-1 flex flex-col p-0.5 rounded-lg transition-colors duration-75 ${isHighlight ? 'bg-white/5 shadow-xl' : ''}`}>
+                              <div className={`mb-1.5 rounded-lg border transition-all duration-75 ${isHighlight ? `${day.over} shadow-[0_0_15px_rgba(255,255,255,0.05)]` : `${day.headerBorder} ${day.headerBg}`
+                                } p-1.5 relative overflow-hidden`}>
                                 <div className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${day.gradient} opacity-70`} />
                                 <div className="flex items-center justify-between gap-1">
                                   <div className="flex flex-col min-w-0">
-                                    <span className={`text-xs sm:text-[13px] font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
-                                    <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
+                                    <span className={`text-[11px] sm:text-xs font-black tracking-wider ${day.text} uppercase pb-[1px] transition-transform duration-75 truncate ${isHighlight ? 'scale-105 origin-left' : ''}`}>{day.label}</span>
+                                    <span className="text-[8.5px] sm:text-[9.5px] font-semibold text-slate-400 capitalize mt-0.5 leading-none truncate">{day.full}</span>
                                   </div>
-                                  <div className={`text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md border shrink-0 transition-colors duration-75 whitespace-nowrap ${isHighlight ? 'bg-white/20 border-white/40 text-white' : `${day.text} bg-black/30 ${day.headerBorder}`}`}>
+                                  <div className={`text-[8.5px] sm:text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded-md border shrink-0 transition-colors duration-75 whitespace-nowrap ${isHighlight ? 'bg-white/20 border-white/40 text-white' : `${day.text} bg-black/30 ${day.headerBorder}`}`}>
                                     {dayCount}
                                   </div>
                                 </div>
@@ -14045,7 +14200,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                                 {...provided.droppableProps}
                                 role="list"
                                 aria-label={`Tarefas de ${day.full}`}
-                                className={`flex-1 p-1.5 rounded-lg border border-dashed transition-all duration-75 flex flex-col min-h-[160px] max-h-[580px] overflow-y-auto kanban-scrollbar ${isHighlight
+                                className={`flex-1 p-1 rounded-lg border border-dashed transition-all duration-75 flex flex-col min-h-[160px] max-h-[500px] overflow-y-auto kanban-scrollbar ${isHighlight
                                     ? `${day.over} ring-1 ring-white/20`
                                     : 'bg-black/20 border-white/[0.08] hover:border-white/15'
                                   }`}
@@ -14402,41 +14557,41 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     return (
         // VIS-FIX: removido font-family inline 'DM Sans' — a fonte não é carregada no index.html,
         // então o painel caía para system-ui e ficava com tipografia diferente do resto do app (Outfit).
-        <div id="ai-coach-container" className="space-y-10 pb-12 w-full mx-auto">
-            <div className="flex flex-col gap-6">
-                <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-6 sm:p-8 rounded-3xl shadow-inner relative overflow-hidden">
+        <div id="ai-coach-container" className="space-y-4 sm:space-y-5 pb-8 w-full mx-auto">
+            <div className="flex flex-col gap-3 sm:gap-4">
+                <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-3 sm:p-4 rounded-2xl shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none"></div>
                     
-                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                            <div className="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
-                                <Compass size={24} className="text-indigo-400" />
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
+                                <Compass size={18} className="text-indigo-400" />
                             </div>
                             <div className="min-w-0">
-                                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">Painel Coach AI</h2>
-                                <p className="text-[10px] text-cyan-400/80 uppercase tracking-[0.25em] font-bold mt-1">Estratégia inteligente com MC</p>
+                                <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">Painel Coach AI</h2>
+                                <p className="text-[9px] text-cyan-400/80 uppercase tracking-[0.2em] font-bold">Estratégia inteligente com MC</p>
                             </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                             {/* VIS-FIX: os dois botões tinham estilos/bordas diferentes → alturas diferentes e "pulo" ao alternar */}
                             <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/10 rounded-xl p-1 shadow-inner" role="group" aria-label="Modo de visualização">
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'planner'}
                                     onClick={() => setViewMode('planner')}
-                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <LayoutGrid size={13} className="shrink-0" />
+                                    <LayoutGrid size={12} className="shrink-0" />
                                     Planner
                                 </button>
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'cards'}
                                     onClick={() => setViewMode('cards')}
-                                    className={`px-3 sm:px-4 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
-                                    <Sparkles size={13} className="shrink-0" />
+                                    <Sparkles size={12} className="shrink-0" />
                                     Pendências
                                 </button>
                             </div>
@@ -14447,17 +14602,17 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 onClick={onGenerateGoals}
                                 disabled={loading}
                                 aria-busy={loading}
-                                className="group relative overflow-hidden px-4 sm:px-5 py-2 rounded-xl font-black text-[10px] sm:text-[11px] tracking-[0.12em] uppercase transition-all duration-200 flex items-center gap-2 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_20px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                                className="group relative overflow-hidden px-3.5 sm:px-4 py-1.5 rounded-xl font-black text-[9.5px] sm:text-[10.5px] tracking-[0.1em] uppercase transition-all duration-200 flex items-center gap-1.5 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_16px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
                             >
                                 <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
                                 {loading ? (
                                     <>
-                                        <Loader2 size={14} className="animate-spin shrink-0" />
+                                        <Loader2 size={13} className="animate-spin shrink-0" />
                                         <span>Calculando...</span>
                                     </>
                                 ) : (
                                     <>
-                                        <BrainCircuit size={14} className="shrink-0" />
+                                        <BrainCircuit size={13} className="shrink-0" />
                                         <span className="hidden sm:inline">Recalcular Estratégia</span>
                                         <span className="sm:hidden">Recalcular</span>
                                     </>
@@ -14470,9 +14625,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     onClick={handleExport}
                                     disabled={isExporting}
                                     title="Exportar plano para PDF"
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                                    {isExporting ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
                                     <span className="hidden sm:inline">PDF</span>
                                 </button>
                                 <button
@@ -14480,9 +14635,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     onClick={handleClearWithConfirm}
                                     disabled={!hasAnythingToClear}
                                     title={hasAnythingToClear ? 'Limpar sugestões e planejamento' : 'Nada para limpar'}
-                                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
-                                    <Trash2 size={12} />
+                                    <Trash2 size={11} />
                                     <span className="hidden sm:inline">Limpar</span>
                                 </button>
                             </div>
@@ -14555,23 +14710,23 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     >
-                        <div className="space-y-6 mb-8">
+                        <div className="space-y-4 mb-4">
                     {suggestedFocus ? (
                         <div className="w-full">
                             {/* UX-FIX: sem onGenerateGoals aqui — havia dois botões de recalcular ("Recalcular Estratégia" e "Recalcular") a poucos px de distância */}
                             <AICoachWidget suggestion={suggestedFocus} loading={loading} />
                         </div>
                     ) : (
-                        <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
-                            <AlertCircle size={20} className="mx-auto mb-3 text-slate-600" />
+                        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-6 text-center">
+                            <AlertCircle size={18} className="mx-auto mb-2 text-slate-600" />
                             <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
-                            <p className="text-[10px] text-slate-500 mt-1">Recalcule a estratégia após novos simulados.</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Recalcule a estratégia após novos simulados.</p>
                         </div>
                     )}
                         </div>
 
                         {systemAlerts.length > 0 && (
-                            <div className="mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="mb-4 sm:mb-5 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                                 {systemAlerts.map((alertTask, alertIdx) => {
                                     const rawAlertText = String(alertTask?.text || alertTask?.title || '');
                                     const cleanText = rawAlertText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
@@ -14609,12 +14764,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     }[type];
 
                                     return (
-                                        <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-5 rounded-3xl border flex flex-col gap-4 shadow-xl ${t.bg} ${t.border}`}>
+                                        <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-3.5 sm:p-4 rounded-2xl border flex flex-col gap-3 shadow-lg ${t.bg} ${t.border}`}>
                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
                                             
-                                            <div className="flex items-start gap-4">
-                                                <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
-                                                    <t.Icon size={24} className={t.isCritical ? "animate-pulse" : ""} />
+                                            <div className="flex items-start gap-3">
+                                                <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
+                                                    <t.Icon size={18} className={t.isCritical ? "animate-pulse" : ""} />
                                                 </div>
                                                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
@@ -14861,17 +15016,17 @@ function MonteCarloGauge({ mc }) {
         <Motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mt-3 p-4 bg-black/40 border border-white/10 rounded-2xl relative overflow-hidden"
+            className="mt-2 p-3 bg-black/40 border border-white/10 rounded-xl relative overflow-hidden"
         >
-            <div className="absolute top-0 right-0 p-3 text-white/5">
-                <BrainCircuit size={48} />
+            <div className="absolute top-0 right-0 p-2.5 text-white/5">
+                <BrainCircuit size={36} />
             </div>
             
-            <div className="relative z-10 flex justify-between items-end mb-2">
+            <div className="relative z-10 flex justify-between items-end mb-1.5">
                 <div>
                     {/* BUG-11 FIX: Clarify this is per-subject, not global */}
                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 block mb-0.5">Projeção MC (Matéria)</span>
-                    <span className="text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
+                    <span className="text-xl sm:text-2xl font-black text-white tracking-tighter">{Math.round(prob)}%</span>
                 </div>
                 <div className="text-right">
                     <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block mb-0.5">Volatilidade</span>
@@ -14950,7 +15105,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
         <Motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`relative w-full rounded-3xl border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-2xl ${cfg.glow} overflow-hidden group/widget`}
+            className={`relative w-full rounded-2xl border ${cfg.border} bg-[#08090f]/80 backdrop-blur-2xl shadow-xl ${cfg.glow} overflow-hidden group/widget`}
         >
             {/* Background Atmosphere */}
             <div className={`absolute top-0 right-0 w-[500px] max-w-full h-[500px] bg-gradient-to-bl ${cfg.stripe} to-transparent pointer-events-none rounded-full blur-[120px] opacity-50`} />
@@ -14958,9 +15113,9 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
             {/* Top Energy Line */}
             <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${cfg.line} to-transparent opacity-80`} />
 
-            <div className="relative z-10 p-5 sm:p-8">
+            <div className="relative z-10 p-3.5 sm:p-5">
                 {/* Header Section */}
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-white/[0.04]">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-white/[0.04]">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className={`w-2 h-2 rounded-full ${cfg.pulse} animate-pulse shrink-0 shadow-[0_0_8px_currentColor]`} />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -15015,28 +15170,28 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-8">
+                    <div className="space-y-4 sm:space-y-5">
                         {/* VIS-FIX: em lg (≈1024px + sidebar) a 3ª coluna fixa de 320px espremia as outras duas. */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1.5fr_300px] gap-8 xl:gap-12 items-center">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1.3fr_280px] gap-5 xl:gap-8 items-center">
                             {/* Left Column: Subject & Topic */}
-                            <div className="flex flex-col gap-5">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-1 h-5 rounded-full bg-gradient-to-b ${cfg.bar}`} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Alvo Prioritário</span>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-2.5">
+                                    <div className={`w-1 h-4 rounded-full bg-gradient-to-b ${cfg.bar}`} />
+                                    <span className="text-[9.5px] font-black uppercase tracking-widest text-slate-500">Alvo Prioritário</span>
                                     {statusLabel && (
-                                        <span className="text-[10px] font-bold text-slate-400 bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
+                                        <span className="text-[9.5px] font-bold text-slate-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
                                             {statusLabel.replace(/[🔥⚡✓]/gu, '').trim()}
                                         </span>
                                     )}
                                 </div>
 
                                 <div>
-                                    <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-3">
+                                    <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mb-2">
                                         {displaySubject(suggestion.name)}
                                     </h2>
                                     {topic && (
-                                        <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-xl border text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
-                                            <Target size={16} />
+                                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>
+                                            <Target size={14} />
                                             <span>{topic.name}</span>
                                         </div>
                                     )}
@@ -15049,21 +15204,21 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                     <Motion.div
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        className="relative p-5 sm:p-6 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
+                                        className="relative p-3.5 sm:p-4 rounded-xl bg-black/40 backdrop-blur-xl border border-white/[0.05] shadow-[0_12px_30px_-10px_rgba(0,0,0,0.5)] group/status hover:border-white/10 transition-all duration-500 overflow-hidden"
                                     >
                                         {/* Soft background glow based on theme */}
                                         <div className={`absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl ${cfg.stripe} to-transparent opacity-20 blur-2xl pointer-events-none rounded-full`} />
 
-                                        <div className="flex items-start gap-4 relative z-10">
-                                            <div className={`p-3 rounded-2xl bg-gradient-to-b from-white/[0.08] to-transparent border ${cfg.border} shadow-inner shrink-0 group-hover/status:scale-110 transition-transform duration-500`}>
-                                                <Sparkles size={20} className={`${cfg.accent} drop-shadow-[0_0_8px_currentColor]`} />
+                                        <div className="flex items-start gap-3 relative z-10">
+                                            <div className={`p-2.5 rounded-xl bg-gradient-to-b from-white/[0.08] to-transparent border ${cfg.border} shadow-inner shrink-0 group-hover/status:scale-110 transition-transform duration-500`}>
+                                                <Sparkles size={16} className={`${cfg.accent} drop-shadow-[0_0_8px_currentColor]`} />
                                             </div>
-                                            <div className="flex flex-col gap-1.5 flex-1 pt-0.5">
+                                            <div className="flex flex-col gap-1 flex-1 pt-0.5">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`w-1.5 h-1.5 rounded-full ${cfg.pulse} animate-pulse`} />
                                                     <span className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400">Motivo da Recomendação</span>
                                                 </div>
-                                                <p className="text-sm sm:text-[15px] text-slate-100 leading-relaxed font-medium mt-1">
+                                                <p className="text-xs sm:text-sm text-slate-100 leading-relaxed font-medium mt-0.5">
                                                     {renderRecommendation(suggestion.urgency.recommendation)}
                                                 </p>
                                             </div>
@@ -15073,7 +15228,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             </div>
 
                             {/* Right Column: Gauges */}
-                            <div className="space-y-6 lg:col-span-2 xl:col-span-1">
+                            <div className="space-y-3 lg:col-span-2 xl:col-span-1">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.details?.monteCarlo && (
                                     <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
@@ -24813,21 +24968,21 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
             aria-disabled={disabled}
             id={tabId}
             tabIndex={active ? 0 : -1}
-            className={`group relative min-w-0 rounded-2xl px-3 sm:px-6 py-2.5 sm:py-3 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
+            className={`group relative min-w-0 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 border transition-all duration-200 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0f1e] focus-visible:ring-indigo-400/80
                 ${active
-                    ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_10px_30px_rgba(79,70,229,0.35)] ring-1 ring-white/20'
+                    ? 'bg-gradient-to-br from-indigo-500 via-violet-600 to-indigo-600 border-white/20 text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)] ring-1 ring-white/20'
                     : 'bg-slate-900/60 border-white/[0.05] text-slate-400 hover:bg-slate-800/80 hover:border-white/10 hover:text-slate-100'}
                 ${active ? 'mobile-menu-tab-active' : 'mobile-menu-tab-idle'}
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className={`shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center border transition-all duration-200 ${active ? 'bg-white/20 border-white/30' : 'bg-white/5 border-white/10 group-hover:bg-white/10'}`}>
-                    <Icon size={15} strokeWidth={2.5} className={`shrink-0 transition-transform duration-200 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                <div className={`shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center border transition-all duration-200 ${active ? 'bg-white/20 border-white/30' : 'bg-white/5 border-white/10 group-hover:bg-white/10'}`}>
+                    <Icon size={14} strokeWidth={2.5} className={`shrink-0 transition-transform duration-200 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
                 </div>
                 <div className="min-w-0 flex-1">
                     {/* VIS-FIX: no mobile o rótulo era truncado ("PLAN…"); agora quebra em até 2 linhas */}
-                    <p className="text-[10.5px] sm:text-xs font-black uppercase tracking-[0.08em] sm:tracking-[0.12em] leading-tight line-clamp-2 sm:truncate">{label}</p>
-                    <p className={`hidden min-[400px]:block text-[9px] sm:text-[10px] font-bold leading-tight mt-0.5 uppercase tracking-[0.08em] truncate ${active ? 'text-indigo-100/95' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.08em] sm:tracking-[0.1em] leading-tight line-clamp-2 sm:truncate">{label}</p>
+                    <p className={`hidden min-[400px]:block text-[8.5px] sm:text-[9.5px] font-bold leading-tight mt-0.5 uppercase tracking-[0.06em] truncate ${active ? 'text-indigo-100/95' : 'text-slate-500 group-hover:text-slate-300'}`}>
                         {subtitle}
                     </p>
                 </div>
@@ -24889,11 +25044,11 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     };
 
     return (
-        <div className="mb-8 p-3 sm:p-4 rounded-3xl border border-violet-500/20 bg-slate-900/90 shadow-[0_18px_40px_rgba(2,6,23,0.5)] backdrop-blur-md">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 px-2 sm:px-4">
-                <div className="min-w-0 py-2 sm:py-3">
-                    <p className="text-[10px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-1.5 px-0.5">Navegação Tática</p>
-                    <h3 className="text-2xl sm:text-[26px] font-black text-white tracking-[-0.02em] leading-none">Central de Estratégia</h3>
+        <div className="mb-4 sm:mb-5 p-2 sm:p-2.5 rounded-2xl border border-violet-500/20 bg-slate-900/90 shadow-[0_12px_32px_rgba(2,6,23,0.45)] backdrop-blur-md">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 px-2 sm:px-3">
+                <div className="min-w-0 py-1">
+                    <p className="text-[9px] text-cyan-400/80 font-black uppercase tracking-[0.25em] mb-0.5 px-0.5">Navegação Tática</p>
+                    <h3 className="text-lg sm:text-xl font-black text-white tracking-[-0.02em] leading-none">Central de Estratégia</h3>
                 </div>
 
                 <div
@@ -24901,7 +25056,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     aria-label="Coach AI sections"
                     aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
-                    className="grid grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[560px] coach-mobile-tabs self-center"
+                    className="grid grid-cols-2 gap-2 w-full xl:w-auto xl:min-w-[460px] coach-mobile-tabs self-center"
                 >
                     <MenuTab
                         active={activeTab === 'insights'}
@@ -31712,20 +31867,20 @@ export function PomodoroClock({
     return (
         <div className="w-full flex flex-col items-center">
             {/* Barra superior de controles do relógio */}
-            <div className="w-full flex items-center justify-between gap-2 mb-2 relative z-30">
-                <div className="flex items-center gap-2">
-                    <span className={`text-xs sm:text-sm font-black uppercase tracking-[0.25em] transition-colors ${mode === 'work' ? 'text-blue-300 font-extrabold drop-shadow' : 'text-white/40'}`}>
+            <div className="w-full flex items-center justify-between gap-2 mb-1 sm:mb-1.5 relative z-30">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className={`text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] transition-colors ${mode === 'work' ? 'text-blue-300 font-extrabold drop-shadow' : 'text-white/40'}`}>
                         FOCO
                     </span>
                     <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                    <span className={`text-xs sm:text-sm font-black uppercase tracking-[0.25em] transition-colors ${mode !== 'work' ? (mode === 'long_break' ? 'text-violet-300 font-extrabold drop-shadow' : 'text-emerald-300 font-extrabold drop-shadow') : 'text-white/40'}`}>
+                    <span className={`text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] transition-colors ${mode !== 'work' ? (mode === 'long_break' ? 'text-violet-300 font-extrabold drop-shadow' : 'text-emerald-300 font-extrabold drop-shadow') : 'text-white/40'}`}>
                         PAUSA
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                     {/* Seletor de Velocidade */}
-                    <div className="flex gap-1 bg-black/60 p-1 rounded-xl border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
+                    <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
                         {[1, 10, 100].map(s => (
                             <button
                                 key={s}
@@ -31733,7 +31888,7 @@ export function PomodoroClock({
                                 onClick={() => setSpeed(s)}
                                 disabled={isProtocolInactive}
                                 aria-label={`Velocidade ${s}x`}
-                                className={`px-2.5 sm:px-3 h-7 sm:h-8 rounded-lg text-xs font-black transition-all disabled:opacity-30 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+                                className={`px-2 sm:px-2.5 h-6 sm:h-7 rounded-md text-[11px] font-black transition-all disabled:opacity-30 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
                             >
                                 {s}X
                             </button>
@@ -31745,10 +31900,10 @@ export function PomodoroClock({
                         <button
                             type="button"
                             onClick={toggleFullscreen}
-                            className="p-1.5 h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center bg-black/40 border border-white/10 hover:border-white/20 rounded-xl text-slate-300 hover:text-white transition-all shadow-sm backdrop-blur-md"
+                            className="p-1 h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center bg-black/40 border border-white/10 hover:border-white/20 rounded-lg text-slate-300 hover:text-white transition-all shadow-sm backdrop-blur-md"
                             title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
                         >
-                            {isFullscreen ? <Minimize2 size={15} className="text-indigo-300" /> : <Maximize2 size={15} />}
+                            {isFullscreen ? <Minimize2 size={13} className="text-indigo-300" /> : <Maximize2 size={13} />}
                         </button>
                     )}
 
@@ -31757,18 +31912,18 @@ export function PomodoroClock({
                         <button
                             type="button"
                             onClick={toggleMute}
-                            className="p-1.5 h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center bg-black/40 border border-white/10 hover:border-white/20 rounded-xl text-slate-300 hover:text-white transition-all shadow-sm backdrop-blur-md"
+                            className="p-1 h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center bg-black/40 border border-white/10 hover:border-white/20 rounded-lg text-slate-300 hover:text-white transition-all shadow-sm backdrop-blur-md"
                             title={isMuted ? "Ativar som" : "Silenciar alarme"}
                         >
-                            {isMuted ? <VolumeX size={15} className="text-red-400" /> : <Volume2 size={15} className="text-emerald-400" />}
+                            {isMuted ? <VolumeX size={13} className="text-red-400" /> : <Volume2 size={13} className="text-emerald-400" />}
                         </button>
                     )}
                 </div>
             </div>
 
             {/* Mostrador SVG Circular com Dígitos de Destaque */}
-            <div className="relative my-0.5 rounded-full flex items-center justify-center">
-                <svg viewBox="0 0 256 256" className="w-[min(56vw,13.5rem)] h-[min(56vw,13.5rem)] sm:w-52 sm:h-52 lg:w-[220px] lg:h-[220px] transform -rotate-90 relative z-10">
+            <div className="relative my-0 rounded-full flex items-center justify-center">
+                <svg viewBox="0 0 256 256" className="w-[min(50vw,12rem)] h-[min(50vw,12rem)] sm:w-44 sm:h-44 lg:w-[190px] lg:h-[190px] transform -rotate-90 relative z-10">
                     <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="14" strokeLinecap="round" />
                     <defs>
                         <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -31789,14 +31944,14 @@ export function PomodoroClock({
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                     <span 
                         ref={clockRef} 
-                        className="text-4xl sm:text-5xl lg:text-[3.75rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
+                        className="text-3xl sm:text-4xl lg:text-[3.25rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
                         role="timer"
                         aria-live="polite"
                         aria-label={`Tempo restante: ${formatTime(timeLeft)}`}
                     >
                         {formatTime(timeLeft)}
                     </span>
-                    <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.25em] sm:tracking-[0.3em] text-white/90 drop-shadow mt-1.5 text-center px-2">
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.25em] text-white/90 drop-shadow mt-1 text-center px-2">
                         {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação')) : 'SESSÃO PAUSADA'}
                     </span>
                 </div>
@@ -31825,20 +31980,20 @@ export function PomodoroControls({
     onSkip
 }) {
     return (
-        <div className="flex items-center justify-center gap-4 sm:gap-6 z-10 mt-1.5 sm:mt-2 w-full max-w-sm px-4">
+        <div className="flex items-center justify-center gap-3.5 sm:gap-5 z-10 mt-1 sm:mt-1.5 w-full max-w-sm px-4">
             {/* Botão Voltar/Reiniciar */}
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-0.5">
                 <button 
                     type="button" 
                     onClick={onReset} 
                     disabled={isProtocolInactive} 
                     aria-label="Reiniciar cronômetro"
                     title="Reiniciar"
-                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800 active:scale-95 transition-all"
+                    className="w-10 h-10 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800 active:scale-95 transition-all"
                 >
-                    <RotateCcw size={17} />
+                    <RotateCcw size={15} />
                 </button>
-                <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">VOLTAR</span>
+                <span className="text-[8px] font-black text-white/50 uppercase tracking-widest">VOLTAR</span>
             </div>
 
             {/* Botão Play / Pause */}
@@ -31850,28 +32005,28 @@ export function PomodoroControls({
                     aria-label={isRunning ? 'Pausar' : 'Iniciar'}
                     aria-pressed={isRunning}
                     title={isRunning ? 'Pausar' : 'Iniciar'}
-                    className={`w-18 h-18 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-4 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shadow-2xl ${isRunning ? 'bg-stone-100 text-black border-white hover:bg-stone-200' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_24px_rgba(34,197,94,0.4)] hover:bg-emerald-400'}`}
+                    className={`w-15 h-15 sm:w-16 sm:h-16 rounded-full flex items-center justify-center border-[3px] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shadow-2xl ${isRunning ? 'bg-stone-100 text-black border-white hover:bg-stone-200' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:bg-emerald-400'}`}
                 >
-                    {isRunning ? <Pause size={28} className="sm:w-8 sm:h-8" /> : <Play size={28} className="sm:w-8 sm:h-8 ml-0.5" />}
+                    {isRunning ? <Pause size={24} className="sm:w-6 sm:h-6" /> : <Play size={24} className="sm:w-6 sm:h-6 ml-0.5" />}
                 </button>
-                <span className="text-[9px] font-black text-white/50 uppercase tracking-widest mt-1">
+                <span className="text-[8px] font-black text-white/50 uppercase tracking-widest mt-0.5">
                     {isRunning ? 'PAUSAR' : 'INICIAR'}
                 </span>
             </div>
 
             {/* Botão Pular */}
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex flex-col items-center gap-0.5">
                 <button 
                     type="button" 
                     onClick={onSkip} 
                     disabled={isProtocolInactive} 
                     aria-label="Pular fase"
                     title="Pular"
-                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800"
+                    className="w-10 h-10 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800"
                 >
-                    <SkipForward size={17} />
+                    <SkipForward size={15} />
                 </button>
-                <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">PULAR</span>
+                <span className="text-[8px] font-black text-white/50 uppercase tracking-widest">PULAR</span>
             </div>
         </div>
     );
@@ -31956,20 +32111,20 @@ export function PomodoroProgress({
     totalTime = 25 * 60
 }) {
     return (
-        <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">
+        <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col gap-2">
+            <div className="relative z-10 flex flex-col gap-1.5">
                 {/* Header: Title & Cycle Stepper */}
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                        <Layers size={15} className="text-[#2d1a12]/80" />
-                        <h3 className="text-xs sm:text-sm font-black text-[#2d1a12]/90 uppercase tracking-[0.25em]">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5">
+                        <Layers size={14} className="text-[#2d1a12]/80" />
+                        <h3 className="text-xs sm:text-[13px] font-black text-[#2d1a12]/90 uppercase tracking-[0.2em]">
                             Progresso dos Ciclos
                         </h3>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[#2d1a12]">
+                    <div className="flex items-center gap-1.5 text-[#2d1a12]">
                         <button
                             type="button"
                             onClick={() => {
@@ -31992,16 +32147,16 @@ export function PomodoroProgress({
                                 }
                             }}
                             disabled={!activeSubject || !Number.isFinite(targetCycles) || !Number.isFinite(completedCycles) || targetCycles <= Math.max(1, Number(completedCycles) || 0)}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
+                            className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Reduzir meta de ciclos"
                         >
-                            <Minus size={14} className="stroke-[3]" />
+                            <Minus size={13} className="stroke-[3]" />
                         </button>
 
-                        <div className="flex items-baseline gap-1 px-2.5 py-0.5 rounded-xl bg-[#2d1a12]/10 border border-[#2d1a12]/15 text-sm sm:text-base font-black tabular-nums shadow-inner">
+                        <div className="flex items-baseline gap-1 px-2 py-0.5 rounded-lg bg-[#2d1a12]/10 border border-[#2d1a12]/15 text-xs sm:text-sm font-black tabular-nums shadow-inner">
                             <span className="text-[#2d1a12] font-black">{completedCycles}</span>
-                            <span className="text-[#2d1a12]/40 text-xs font-bold">/</span>
-                            <span className="text-[#2d1a12]/80 text-xs font-bold">{targetCycles}</span>
+                            <span className="text-[#2d1a12]/40 text-[10px] font-bold">/</span>
+                            <span className="text-[#2d1a12]/80 text-[10px] font-bold">{targetCycles}</span>
                         </div>
 
                         <button
@@ -32024,16 +32179,16 @@ export function PomodoroProgress({
                                 }
                             }}
                             disabled={!activeSubject || targetCycles >= 20}
-                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
+                            className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Aumentar meta de ciclos"
                         >
-                            <Plus size={14} className="stroke-[3]" />
+                            <Plus size={13} className="stroke-[3]" />
                         </button>
                     </div>
                 </div>
 
                 {/* Progress Indicators Track - Barras e Bolinhas Maiores */}
-                <div className="flex items-center gap-2 sm:gap-2.5 pt-0.5">
+                <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5">
                     {Array.from({ length: targetCycles || 1 }).map((_, i) => {
                         let workWidth = '0%';
                         let breakHeight = '0%';
@@ -33255,7 +33410,7 @@ function PomodoroTimer({
                     backgroundPosition: 'center',
                     boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
                 }}
-                className="w-full border-4 sm:border-[5px] border-[#3f2e26] p-4 sm:p-5 sm:pt-4 rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
+                className="w-full border-3 sm:border-4 border-[#3f2e26] p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
 
                 {/* Mostrador SVG, Toolbar e Indicadores */}
@@ -33286,14 +33441,14 @@ function PomodoroTimer({
 
                 {/* Botão de Abortar Sessão */}
                 {!isProtocolInactive && (
-                    <div className="w-full max-w-xs mt-2 pt-2 mb-2 border-t border-white/10">
+                    <div className="w-full max-w-xs mt-1 pt-1.5 mb-0.5 border-t border-white/10">
                         <button
                             type="button"
                             onClick={() => setShowAbandonConfirm(true)}
-                            className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-xl transition-all text-[10px] font-bold text-red-300 group shadow-md"
+                            className="w-full flex items-center justify-center gap-1.5 py-1 px-3 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 rounded-lg transition-all text-[9px] font-bold text-red-300 group shadow-md"
                         >
                             <RotateCcw
-                                size={12}
+                                size={11}
                                 className="text-red-400 group-hover:rotate-[-90deg] transition-transform"
                             />
                             ABORTAR SESSÃO
@@ -34555,20 +34710,34 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
   color: #94a3b8;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   flex-shrink: 0;
 }
 
 .sidebar-toggle-btn:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
   transform: scale(1.06);
 }
 
+.sidebar.collapsed .sidebar-header-area {
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  margin-bottom: 8px;
+}
+
 .sidebar.collapsed .sidebar-toggle-btn {
-  display: none;
+  display: flex !important;
+  width: 26px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Divisor */
@@ -34627,8 +34796,8 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
+  gap: 10px;
+  padding: 8px 10px;
   border-radius: 12px;
   color: #cbd5e1;
   text-decoration: none;
@@ -34648,12 +34817,28 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
   position: relative;
   overflow: hidden;
   outline: none;
+  min-height: 42px;
+}
+
+/* Icon Box Framer */
+.sidebar-item-icon-wrapper {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #94a3b8;
 }
 
 .sidebar-item svg {
-  width: 18px;
-  height: 18px;
-  opacity: 0.82;
+  width: 16px;
+  height: 16px;
+  opacity: 0.85;
   transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   flex-shrink: 0;
 }
@@ -34681,7 +34866,6 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 }
 
 .sidebar-item-label {
-  truncate: true;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -34692,17 +34876,23 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
   background: linear-gradient(90deg, var(--item-color-alpha, rgba(255, 255, 255, 0.08)) 0%, rgba(15, 23, 42, 0.65) 100%);
   color: #ffffff;
   transform: translateX(3px);
-  border-color: var(--item-color-alpha, rgba(255, 255, 255, 0.12));
+  border-color: var(--item-color-alpha, rgba(255, 255, 255, 0.16));
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), 0 0 12px var(--item-color-alpha, rgba(129, 140, 248, 0.1));
+}
+
+.sidebar-item:hover .sidebar-item-icon-wrapper {
+  background: var(--item-color-alpha, rgba(255, 255, 255, 0.08));
+  border-color: var(--item-color-alpha, rgba(255, 255, 255, 0.2));
+  color: var(--item-color, #818cf8);
+  transform: scale(1.05);
 }
 
 .sidebar-item:hover svg {
   opacity: 1;
   color: var(--item-color, #818cf8);
-  transform: scale(1.08);
 }
 
-/* Active State */
+/* Active State Generic */
 .sidebar-item.active {
   background: linear-gradient(90deg, var(--item-color-alpha, rgba(129, 140, 248, 0.2)) 0%, rgba(15, 23, 42, 0.85) 100%);
   border-color: var(--item-color-alpha, rgba(129, 140, 248, 0.4));
@@ -34715,18 +34905,277 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
   content: '';
   position: absolute;
   left: 0;
-  top: 18%;
-  bottom: 18%;
+  top: 15%;
+  bottom: 15%;
   width: 3.5px;
   background: var(--item-color, #818cf8);
   border-radius: 0 4px 4px 0;
   box-shadow: 0 0 10px var(--item-color, #818cf8);
 }
 
+.sidebar-item.active .sidebar-item-icon-wrapper {
+  background: var(--item-color-alpha, rgba(129, 140, 248, 0.22));
+  border-color: var(--item-color, #818cf8);
+  color: #ffffff;
+  box-shadow: 0 0 12px var(--item-color-alpha, rgba(129, 140, 248, 0.4));
+}
+
 .sidebar-item.active svg {
   color: var(--item-color, #818cf8);
   opacity: 1;
-  transform: scale(1.08);
+}
+
+/* ─────────────────────────────────────────────────────────
+   ENQUADRAMENTO DE DESTAQUE: MEU PAINEL (ITEM PRINCIPAL)
+───────────────────────────────────────────────────────── */
+.sidebar-item.meu-painel-item {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(15, 23, 42, 0.45) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  position: relative;
+}
+
+.sidebar-item.meu-painel-item .sidebar-item-icon-wrapper {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.22);
+  color: #38bdf8;
+}
+
+.sidebar-item.meu-painel-item:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(15, 23, 42, 0.7) 100%);
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 18px rgba(56, 189, 248, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-item.meu-painel-item:hover .sidebar-item-icon-wrapper {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  color: #7dd3fc;
+}
+
+.sidebar-item.meu-painel-item.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(14, 27, 54, 0.9) 100%) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 24px rgba(56, 189, 248, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.sidebar-item.meu-painel-item.active .sidebar-item-icon-wrapper {
+  background: rgba(56, 189, 248, 0.28) !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.sidebar-item.meu-painel-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 4px;
+  background: #38bdf8;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 12px #38bdf8, 0 0 4px #7dd3fc;
+}
+
+.meu-painel-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #7dd3fc;
+  margin-left: auto;
+  line-height: 1.3;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ENQUADRAMENTO DE DESTAQUE: CRONÔMETRO (MENU ITEM)
+───────────────────────────────────────────────────────── */
+.sidebar-item.cronometro-item {
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.05) 0%, rgba(15, 23, 42, 0.45) 100%);
+  border: 1px solid rgba(251, 113, 133, 0.14);
+  position: relative;
+}
+
+.sidebar-item.cronometro-item .sidebar-item-icon-wrapper {
+  background: rgba(251, 113, 133, 0.08);
+  border-color: rgba(251, 113, 133, 0.22);
+  color: #fb7185;
+}
+
+.sidebar-item.cronometro-item:hover {
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.12) 0%, rgba(15, 23, 42, 0.7) 100%);
+  border-color: rgba(251, 113, 133, 0.35);
+  box-shadow: 0 4px 18px rgba(251, 113, 133, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-item.cronometro-item:hover .sidebar-item-icon-wrapper {
+  background: rgba(251, 113, 133, 0.18);
+  border-color: rgba(251, 113, 133, 0.45);
+  box-shadow: 0 0 10px rgba(251, 113, 133, 0.3);
+  color: #fda4af;
+}
+
+.sidebar-item.cronometro-item.active {
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.18) 0%, rgba(28, 16, 26, 0.9) 100%) !important;
+  border-color: rgba(251, 113, 133, 0.5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 24px rgba(251, 113, 133, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.sidebar-item.cronometro-item.active .sidebar-item-icon-wrapper {
+  background: rgba(251, 113, 133, 0.28) !important;
+  border-color: #fb7185 !important;
+  box-shadow: 0 0 14px rgba(251, 113, 133, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.sidebar-item.cronometro-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 4px;
+  background: #fb7185;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 12px #fb7185, 0 0 4px #fda4af;
+}
+
+.cronometro-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: rgba(251, 113, 133, 0.16);
+  border: 1px solid rgba(251, 113, 133, 0.3);
+  color: #fda4af;
+  line-height: 1.3;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ENQUADRAMENTO DE DESTAQUE: COACH AI (MENU ITEM)
+───────────────────────────────────────────────────────── */
+.sidebar-item.coach-ia-item {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.06) 0%, rgba(15, 23, 42, 0.5) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  position: relative;
+}
+
+.sidebar-item.coach-ia-item .sidebar-item-icon-wrapper {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.25);
+  color: #c084fc;
+}
+
+.sidebar-item.coach-ia-item:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.14) 0%, rgba(15, 23, 42, 0.75) 100%);
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-item.coach-ia-item:hover .sidebar-item-icon-wrapper {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+  color: #e9d5ff;
+}
+
+.sidebar-item.coach-ia-item.active {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.22) 0%, rgba(28, 14, 42, 0.92) 100%) !important;
+  border-color: rgba(192, 132, 252, 0.55) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 24px rgba(168, 85, 247, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.sidebar-item.coach-ia-item.active .sidebar-item-icon-wrapper {
+  background: rgba(168, 85, 247, 0.3) !important;
+  border-color: #c084fc !important;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.sidebar-item.coach-ia-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 14%;
+  width: 4px;
+  background: #c084fc;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 12px #c084fc, 0 0 4px #e9d5ff;
+}
+
+.coach-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: rgba(168, 85, 247, 0.22);
+  border: 1px solid rgba(192, 132, 252, 0.45);
+  color: #e9d5ff;
+  margin-left: auto;
+  line-height: 1.3;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+.coach-badge-idle {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  margin-left: auto;
+  line-height: 1.3;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ENQUADRAMENTO DO CARD DE PAINEL ATIVO / CONCURSOS
+───────────────────────────────────────────────────────── */
+.sidebar-contest-card {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, rgba(15, 23, 42, 0.55) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.18) !important;
+  border-radius: 12px;
+  padding: 8px 10px !important;
+  transition: all 0.22s ease;
+}
+
+.sidebar-contest-card:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(15, 23, 42, 0.75) 100%) !important;
+  border-color: rgba(139, 92, 246, 0.35) !important;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.12);
+}
+
+.sidebar-contest-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-contests-scroll-list {
+  max-height: 190px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 /* Focus Visible */
@@ -34739,10 +35188,20 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 /* Collapsed Mode Adjustments */
 .sidebar.collapsed .sidebar-item {
   justify-content: center;
-  padding: 10px 0;
+  padding: 0;
+  height: 40px;
   width: 44px;
   margin: 3px auto;
   border-radius: 12px;
+}
+
+.sidebar.collapsed .sidebar-item .sidebar-item-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 9px;
+  box-shadow: none;
 }
 
 .sidebar.collapsed .sidebar-item::before {
@@ -34750,83 +35209,148 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 }
 
 .sidebar.collapsed .sidebar-item.active {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.22) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+  background: linear-gradient(135deg, var(--item-color-alpha, rgba(129, 140, 248, 0.22)) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
   box-shadow: 0 0 0 1.5px var(--item-color, #818cf8), 0 0 16px var(--item-color-alpha, rgba(129, 140, 248, 0.35)) !important;
+  border-color: transparent !important;
+}
+
+.sidebar.collapsed .sidebar-item.meu-painel-item.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(14, 27, 54, 0.9) 100%) !important;
+  box-shadow: 0 0 0 1.5px #38bdf8, 0 0 18px rgba(56, 189, 248, 0.4) !important;
+  border-color: transparent !important;
+}
+
+.sidebar.collapsed .sidebar-item.cronometro-item.active {
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.25) 0%, rgba(28, 16, 26, 0.9) 100%) !important;
+  box-shadow: 0 0 0 1.5px #fb7185, 0 0 18px rgba(251, 113, 133, 0.4) !important;
+  border-color: transparent !important;
+}
+
+.sidebar.collapsed .sidebar-item.coach-ia-item.active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(28, 14, 42, 0.9) 100%) !important;
+  box-shadow: 0 0 0 1.5px #c084fc, 0 0 18px rgba(168, 85, 247, 0.4) !important;
   border-color: transparent !important;
 }
 
 .sidebar.collapsed .sidebar-item:hover {
   transform: scale(1.06);
-  background: rgba(129, 140, 248, 0.12);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--item-color-alpha, rgba(129, 140, 248, 0.15));
+  border-color: var(--item-color, rgba(255, 255, 255, 0.25));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 12px var(--item-color-alpha, rgba(129, 140, 248, 0.2));
+}
+
+.sidebar.collapsed .sidebar-item:hover .sidebar-item-icon-wrapper {
+  color: var(--item-color, #ffffff);
+  background: var(--item-color-alpha, rgba(255, 255, 255, 0.08));
+  border-color: var(--item-color, rgba(255, 255, 255, 0.2));
+  transform: scale(1.05);
 }
 
 .sidebar.collapsed .sidebar-item svg {
-  opacity: 0.95;
-}
-
-/* Floating Instant Tooltip for Collapsed Mode */
-.sidebar-floating-tooltip {
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-4px);
-  background: rgba(8, 12, 26, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.65), 0 0 16px var(--item-color-alpha, rgba(129, 140, 248, 0.2));
-  color: #ffffff;
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1), 
-              transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), 
-              visibility 0.16s;
-  z-index: 220;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sidebar.collapsed .sidebar-item-wrapper:hover .sidebar-floating-tooltip,
-.sidebar.collapsed .sidebar-item-wrapper:focus-within .sidebar-floating-tooltip {
   opacity: 1;
-  visibility: visible;
-  transform: translateY(-50%) translateX(0);
 }
 
-/* Floating Popover for Concursos & Configurações in Collapsed Mode */
-.sidebar-flyout-popover {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: -6px;
-  width: 250px;
-  background: rgba(8, 13, 28, 0.97);
+/* ─────────────────────────────────────────────────────────
+   PORTAL FIXED TOOLTIP (Zero Clipping, Fluid, Glassmorphic)
+───────────────────────────────────────────────────────── */
+.sidebar-portal-tooltip {
+  position: fixed;
+  z-index: 99999;
+  transform: translateY(-50%);
+  background: rgba(8, 13, 28, 0.96);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 10px;
-  box-shadow: 0 18px 40px -4px rgba(0, 0, 0, 0.75), 0 0 24px rgba(129, 140, 248, 0.15);
-  z-index: 210;
-  animation: flyoutSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.8), 0 0 18px var(--item-color-alpha, rgba(129, 140, 248, 0.25));
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+  animation: portalTooltipIn 0.16s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes flyoutSlideIn {
+@keyframes portalTooltipIn {
   from {
     opacity: 0;
-    transform: translateX(-8px) scale(0.96);
+    transform: translateY(-50%) translateX(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   PORTAL FIXED FLYOUT POPOVER (Concursos & Configurações)
+───────────────────────────────────────────────────────── */
+.sidebar-portal-flyout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99980;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: overlayQuickFade 0.15s ease forwards;
+}
+
+@keyframes overlayQuickFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sidebar-portal-flyout-popover {
+  position: fixed;
+  z-index: 99990;
+  width: 260px;
+  background: rgba(8, 13, 28, 0.98);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 20px 48px -4px rgba(0, 0, 0, 0.85), 0 0 28px rgba(129, 140, 248, 0.2);
+  animation: portalFlyoutIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes portalFlyoutIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.95);
   }
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
   }
+}
+
+/* AI Item Badge */
+.ai-item-badge {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(192, 132, 252, 0.16);
+  border: 1px solid rgba(192, 132, 252, 0.3);
+  color: #e9d5ff;
+  margin-left: auto;
+  line-height: 1.3;
+}
+
+.ai-menu-item {
+  border-color: rgba(192, 132, 252, 0.12);
+}
+
+.ai-menu-item:hover {
+  border-color: rgba(192, 132, 252, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 14px rgba(192, 132, 252, 0.18);
 }
 
 /* Hierarquia de Itens (Concursos) */
@@ -34863,12 +35387,13 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
 .nested-container .sidebar-item {
   font-size: 0.78rem;
-  padding: 7px 10px;
+  padding: 6px 10px;
   background: rgba(15, 23, 42, 0.18) !important;
   border-color: transparent !important;
   box-shadow: none !important;
   margin-bottom: 2px;
   border-radius: 10px;
+  min-height: 34px;
 }
 
 .nested-container .sidebar-item:hover {
@@ -34882,34 +35407,6 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
   color: #fff;
 }
 
-/* Coach IA Item Especial */
-.coach-ia-item {
-  border-color: rgba(192, 132, 252, 0.28) !important;
-  background: linear-gradient(135deg, rgba(109, 40, 217, 0.12) 0%, rgba(30, 41, 59, 0.4) 100%) !important;
-  position: relative;
-}
-
-.coach-ia-item::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 12px rgba(192, 132, 252, 0.08);
-  pointer-events: none;
-}
-
-.coach-ia-item svg {
-  color: #c084fc;
-}
-
-.coach-ia-item.active {
-  background: linear-gradient(135deg, rgba(147, 51, 234, 0.28) 0%, rgba(30, 41, 59, 0.9) 100%) !important;
-  border-color: rgba(216, 180, 254, 0.5) !important;
-  box-shadow: 0 6px 20px rgba(147, 51, 234, 0.25), inset 0 0 10px rgba(192, 132, 252, 0.15) !important;
-}
 
 /* Custom Ultra-thin Frosted Scrollbar */
 .sidebar .custom-scrollbar {
@@ -35005,6 +35502,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
 ```jsx
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
     LayoutDashboard,
     CheckSquare,
@@ -35028,7 +35526,8 @@ import {
     Calendar,
     ChevronsLeft,
     ChevronsRight,
-    ChevronDown
+    ChevronDown,
+    Layers
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
@@ -35041,37 +35540,37 @@ import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
 
 const SECTIONS = [
     {
-        label: 'Navegação',
+        label: 'Foco & Navegação',
         items: [
             { path: '/', label: 'Meu Painel', icon: LayoutDashboard, color: '#38bdf8' },
             { path: '/pomodoro', label: 'Cronômetro', icon: Timer, color: '#fb7185' },
-            { path: '/sessions', label: 'Sessões', icon: Clock, color: '#34d399' },
             { path: '/tasks', label: 'Tarefas', icon: CheckSquare, color: '#fbbf24' },
+            { path: '/sessions', label: 'Sessões', icon: Clock, color: '#34d399' },
         ]
     },
     {
-        label: 'Dados & Análise',
+        label: 'Central IA',
+        items: [
+            { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc', isAi: true },
+            { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa', isAi: true },
+        ]
+    },
+    {
+        label: 'Métricas & Análise',
         items: [
             { path: '/stats', label: 'Estatísticas', icon: BarChart3, color: '#818cf8' },
             { path: '/evolution', label: 'Evolução', icon: TrendingUp, color: '#f472b6' },
             { path: '/heatmap', label: 'Atividade', icon: CalendarDays, color: '#2dd4bf' },
             { path: '/history', label: 'Histórico', icon: History, color: '#94a3b8' },
             { path: '/retention', label: 'Retenção', icon: Brain, color: '#a78bfa' },
-            { path: '/simulados', label: 'Simulados IA', icon: BrainCircuit, color: '#60a5fa' },
         ]
     },
     {
-        label: 'Inteligência',
-        items: [
-            { path: '/coach', label: 'Coach IA', icon: Sparkles, color: '#c084fc' },
-            { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
-        ]
-    },
-    {
-        label: 'Ferramentas',
+        label: 'Ferramentas de Estudo',
         items: [
             { path: '/flashcards', label: 'Flashcards', icon: BookOpen, color: '#f59e0b' },
             { path: '/agenda', label: 'Agenda de Estudos', icon: Calendar, color: '#14b8a6' },
+            { path: '/notes', label: 'Notas', icon: FileText, color: '#fca5a5' },
         ]
     }
 ];
@@ -35095,9 +35594,12 @@ const Sidebar = React.memo(function Sidebar({
     const [contestsExpanded, setContestsExpanded] = useState(false);
     const [settingsExpanded, setSettingsExpanded] = useState(false);
     const [flyoutMenu, setFlyoutMenu] = useState(null); // 'contests' | 'settings' | null
+    const [flyoutAnchorRect, setFlyoutAnchorRect] = useState(null);
+    const [hoveredTooltip, setHoveredTooltip] = useState(null);
     const [contestToDelete, setContestToDelete] = useState(null);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const isPomodoroRunning = useAppStore(state => state.appState?.pomodoro?.isRunning || false);
 
     const sidebarRef = useRef(null);
     const contestsFlyoutRef = useRef(null);
@@ -35117,15 +35619,62 @@ const Sidebar = React.memo(function Sidebar({
     useEffect(() => {
         if (!collapsed) {
             setFlyoutMenu(null);
+            setFlyoutAnchorRect(null);
+            setHoveredTooltip(null);
             setSettingsExpanded(false);
-            if (contestEntries.length > 0) {
-                setContestsExpanded(true);
-            }
         } else {
             setContestsExpanded(false);
             setSettingsExpanded(false);
         }
-    }, [collapsed, contestEntries.length]);
+    }, [collapsed]);
+
+    // Handlers para abrir/fechar Flyouts com posição de âncora fixa
+    const handleToggleContestsFlyout = useCallback((e) => {
+        if (collapsed) {
+            if (flyoutMenu === 'contests') {
+                setFlyoutMenu(null);
+                setFlyoutAnchorRect(null);
+            } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setFlyoutAnchorRect(rect);
+                setFlyoutMenu('contests');
+                setHoveredTooltip(null);
+            }
+        } else {
+            setContestsExpanded(prev => !prev);
+        }
+    }, [collapsed, flyoutMenu]);
+
+    const handleToggleSettingsFlyout = useCallback((e) => {
+        if (collapsed) {
+            if (flyoutMenu === 'settings') {
+                setFlyoutMenu(null);
+                setFlyoutAnchorRect(null);
+            } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setFlyoutAnchorRect(rect);
+                setFlyoutMenu('settings');
+                setHoveredTooltip(null);
+            }
+        } else {
+            setSettingsExpanded(prev => !prev);
+        }
+    }, [collapsed, flyoutMenu]);
+
+    const handleTooltipEnter = useCallback((e, item, extraBadge = null) => {
+        if (!collapsed) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        setHoveredTooltip({
+            label: item.label,
+            color: item.color || '#818cf8',
+            extraBadge,
+            rect
+        });
+    }, [collapsed]);
+
+    const handleTooltipLeave = useCallback(() => {
+        setHoveredTooltip(null);
+    }, []);
 
     // Sincronizar variável CSS para largura do sidebar
     useEffect(() => {
@@ -35257,17 +35806,18 @@ const Sidebar = React.memo(function Sidebar({
                 onKeyDown={handleKeyDown}
             >
                 {/* Logo Area & Direct Toggle */}
-                <div className="sidebar-header-area">
+                <div className={`sidebar-header-area ${collapsed ? 'sidebar-header-collapsed' : ''}`}>
                     <Link
                         to="/"
                         className="sidebar-logo"
                         onClick={closeMobileSidebar}
                         title="Método Arraia"
+                        onMouseEnter={(e) => handleTooltipEnter(e, { label: 'Método Arraia', color: '#818cf8' }, '(Início)')}
+                        onMouseLeave={handleTooltipLeave}
                     >
                         <img src={logo} alt="Método Arraia" />
                         <div className="sidebar-logo-text">
                             <span>Método Arraia</span>
-
                         </div>
                     </Link>
 
@@ -35277,9 +35827,11 @@ const Sidebar = React.memo(function Sidebar({
                         className="sidebar-toggle-btn hidden lg:flex"
                         onClick={() => setCollapsed(!collapsed)}
                         aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-                        title={collapsed ? "Expandir menu" : "Recolher menu"}
+                        title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+                        onMouseEnter={(e) => collapsed && handleTooltipEnter(e, { label: 'Expandir Menu', color: '#818cf8' })}
+                        onMouseLeave={handleTooltipLeave}
                     >
-                        {collapsed ? <ChevronsRight size={15} /> : <ChevronsLeft size={15} />}
+                        {collapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={15} />}
                     </button>
 
                     {/* Botão de Fechar no Mobile */}
@@ -35296,110 +35848,53 @@ const Sidebar = React.memo(function Sidebar({
                 <div className="sidebar-divider"></div>
 
                 {/* Nav Sections Scrollable Container */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-
-                    {/* MEUS CONCURSOS SECTION */}
+                <div 
+                    className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar"
+                    onScroll={() => {
+                        setHoveredTooltip(null);
+                        setFlyoutMenu(null);
+                        setFlyoutAnchorRect(null);
+                    }}
+                >
+                    {/* MEUS CONCURSOS / PAINÉIS SECTION */}
                     <div className="mb-2 relative sidebar-item-wrapper" ref={contestsFlyoutRef}>
                         <button
                             type="button"
-                            onClick={() => {
-                                if (collapsed) {
-                                    setFlyoutMenu(flyoutMenu === 'contests' ? null : 'contests');
-                                } else {
-                                    setContestsExpanded(!contestsExpanded);
-                                }
-                            }}
-                            className="sidebar-item group justify-between tour-step-1 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
+                            onClick={handleToggleContestsFlyout}
+                            className="sidebar-item sidebar-contest-card group justify-between tour-step-1"
                             aria-expanded={collapsed ? flyoutMenu === 'contests' : contestsExpanded}
                             aria-controls="sidebar-contests-panel"
                             aria-haspopup="true"
+                            title={collapsed ? `Painel Ativo: ${activeContestName}` : undefined}
+                            onMouseEnter={(e) => handleTooltipEnter(e, { label: 'Painéis de Estudo', color: '#8b5cf6' }, `(${activeContestName})`)}
+                            onMouseLeave={handleTooltipLeave}
                         >
-                            <div className="flex items-center gap-3 min-w-0">
-                                <div className="relative flex items-center justify-center shrink-0">
-                                    <Sparkles size={16} className="text-violet-400" />
-                                    {activeContestId && collapsed && (
-                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50" />
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="sidebar-contest-icon-box relative">
+                                    <Layers size={15} className="text-violet-400" />
+                                    {activeContestId && (
+                                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#05070f] animate-pulse" title="Painel Ativo" />
                                     )}
                                 </div>
-                                <div className="sidebar-item-text">
-                                    <span className="font-semibold text-slate-200 text-sm sidebar-item-label">Meus Concursos</span>
-                                    <ChevronDown 
-                                        size={14} 
-                                        className={`transition-transform duration-200 text-slate-400 ${contestsExpanded ? 'rotate-180' : ''}`} 
-                                    />
-                                </div>
-                            </div>
-                        </button>
-
-                        {/* Floating Tooltip no modo recolhido */}
-                        {collapsed && (
-                            <div className="sidebar-floating-tooltip">
-                                <span>Meus Concursos</span>
-                                <span className="text-[10px] text-violet-300 font-normal">({activeContestName})</span>
-                            </div>
-                        )}
-
-                        {/* Floating Flyout Popover para Concursos (Modo Recolhido) */}
-                        {collapsed && flyoutMenu === 'contests' && (
-                            <div className="sidebar-flyout-popover" role="menu">
-                                <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles size={14} className="text-violet-400" />
-                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Concursos</span>
+                                <div className="sidebar-item-text flex flex-col items-start !justify-center leading-tight truncate">
+                                    <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest leading-none mb-0.5">
+                                        Painel Ativo
+                                    </span>
+                                    <div className="flex items-center gap-1.5 w-full">
+                                        <span className="font-bold text-slate-100 text-xs truncate">
+                                            {activeContestName}
+                                        </span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Ativo" />
                                     </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setFlyoutMenu(null)}
-                                        className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
-                                        aria-label="Fechar painel"
-                                    >
-                                        <X size={12} />
-                                    </button>
                                 </div>
-
-                                <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1 pr-1">
-                                    {contestEntries.map(([id, contestData]) => {
-                                        const name = (typeof contestData === 'string' && contestData.trim())
-                                            ? contestData
-                                            : getContestDisplayName(contestData) || "Meu Painel";
-                                        const isActive = id === activeContestId;
-                                        return (
-                                            <button
-                                                key={id}
-                                                type="button"
-                                                className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${
-                                                    isActive 
-                                                        ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
-                                                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                                                }`}
-                                                onClick={() => {
-                                                    if (id !== activeContestId) onSwitchContest(id);
-                                                    setFlyoutMenu(null);
-                                                }}
-                                            >
-                                                <div className="flex items-center gap-2 truncate">
-                                                    <LayoutDashboard size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
-                                                    <span className="truncate">{name}</span>
-                                                </div>
-                                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
-                                    onClick={() => {
-                                        onCreateContest();
-                                        setFlyoutMenu(null);
-                                    }}
-                                >
-                                    <Plus size={13} />
-                                    <span>Criar Novo Concurso</span>
-                                </button>
                             </div>
-                        )}
+                            {!collapsed && (
+                                <ChevronDown 
+                                    size={14} 
+                                    className={`transition-transform duration-200 text-slate-400 shrink-0 ml-1 ${contestsExpanded ? 'rotate-180' : ''}`} 
+                                />
+                            )}
+                        </button>
 
                         {/* Accordion suave baseado em CSS Grid para modo expandido (Zero stutter) */}
                         {!collapsed && (
@@ -35409,7 +35904,7 @@ const Sidebar = React.memo(function Sidebar({
                                 role="region"
                             >
                                 <div className="sidebar-accordion-inner">
-                                    <div className="nested-container space-y-1">
+                                    <div className="nested-container sidebar-contests-scroll-list space-y-1">
                                         {contestEntries.map(([id, contestData]) => {
                                             const name = (typeof contestData === 'string' && contestData.trim())
                                                 ? contestData
@@ -35430,7 +35925,7 @@ const Sidebar = React.memo(function Sidebar({
                                                         }}
                                                     >
                                                         <div className="nested-item-marker"></div>
-                                                        <LayoutDashboard size={13} className="text-slate-400 shrink-0" />
+                                                        <Layers size={13} className={isActive ? "text-violet-400 shrink-0" : "text-slate-400 shrink-0"} />
                                                         <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
                                                         {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0"></div>}
                                                     </button>
@@ -35441,7 +35936,7 @@ const Sidebar = React.memo(function Sidebar({
                                                             if (!isSingleContest) setContestToDelete({ id, name });
                                                         }}
                                                         disabled={isSingleContest}
-                                                        title={isSingleContest ? 'Mantenha ao menos um concurso' : 'Mover para lixeira'}
+                                                        title={isSingleContest ? 'Mantenha ao menos um painel' : 'Mover para lixeira'}
                                                         className={`p-1 transition-all shrink-0 ${isSingleContest ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
                                                         aria-label={`Excluir ${name}`}
                                                     >
@@ -35462,7 +35957,7 @@ const Sidebar = React.memo(function Sidebar({
                                         >
                                             <div className="nested-item-marker !bg-emerald-500/20"></div>
                                             <Plus size={13} className="text-emerald-400 shrink-0" />
-                                            <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo</span>
+                                            <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo Painel</span>
                                         </button>
                                     </div>
                                 </div>
@@ -35474,19 +35969,22 @@ const Sidebar = React.memo(function Sidebar({
 
                     {/* SECTIONS LIST */}
                     {SECTIONS.map((section, sIdx) => (
-                        <div key={sIdx} className={`mb-3 ${section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
+                        <div key={sIdx} className={`mb-2.5 ${section.label === 'Métricas & Análise' || section.label === 'Dados & Análise' ? 'tour-step-2' : ''}`}>
                             <h4 className="sidebar-nav-label" id={`section-${sIdx}`}>{section.label}</h4>
-                            <nav className="space-y-1" aria-labelledby={`section-${sIdx}`}>
+                            <nav className="space-y-0.5" aria-labelledby={`section-${sIdx}`}>
                                 {section.items.map((item) => {
                                     const Icon = item.icon;
                                     const currentPath = location.pathname;
                                     const isActive = isMenuItemActive(currentPath, item.path);
+                                    const isMeuPainel = item.path === '/';
+                                    const isCronometro = item.path === '/pomodoro';
+                                    const isCoach = item.path === '/coach';
 
                                     return (
                                         <div key={item.path} className="sidebar-item-wrapper">
                                             <Link
                                                 to={item.path}
-                                                className={`sidebar-item focus-visible:outline-none ${item.path === '/coach' ? 'coach-ia-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
+                                                className={`sidebar-item focus-visible:outline-none ${isMeuPainel ? 'meu-painel-item' : ''} ${isCronometro ? 'cronometro-item' : ''} ${isCoach ? 'coach-ia-item' : ''} ${item.isAi ? 'ai-menu-item' : ''} ${isActive ? 'active' : ''} ${item.path === '/pomodoro' ? 'tour-step-3' : ''}`}
                                                 aria-current={isActive ? "page" : undefined}
                                                 style={{
                                                     '--item-color': item.color,
@@ -35498,25 +35996,55 @@ const Sidebar = React.memo(function Sidebar({
                                                     }
                                                     closeMobileSidebar();
                                                 }}
+                                                onMouseEnter={(e) => {
+                                                    const extra = isMeuPainel 
+                                                        ? '(Início)' 
+                                                        : isCronometro 
+                                                            ? (isPomodoroRunning ? '(Em Foco ⏱️)' : '(Timer)') 
+                                                            : isCoach
+                                                                ? '(Mentor IA 🧠)'
+                                                                : item.isAi 
+                                                                    ? '(IA)' 
+                                                                    : null;
+                                                    handleTooltipEnter(e, item, extra);
+                                                }}
+                                                onMouseLeave={handleTooltipLeave}
                                             >
-                                                <Icon aria-hidden="true" />
+                                                <div className="sidebar-item-icon-wrapper relative">
+                                                    <Icon aria-hidden="true" size={16} />
+                                                    {isCronometro && isPomodoroRunning && (
+                                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#05070f] animate-pulse" title="Sessão em andamento" />
+                                                    )}
+                                                </div>
                                                 <div className="sidebar-item-text">
                                                     <span className="sidebar-item-label">{item.label}</span>
+                                                    {isMeuPainel && isActive && (
+                                                        <span className="meu-painel-badge">Início</span>
+                                                    )}
+                                                    {isCoach && (
+                                                        <div className="flex items-center gap-1.5 ml-auto">
+                                                            {isActive ? (
+                                                                <span className="coach-badge">IA</span>
+                                                            ) : (
+                                                                <span className="coach-badge-idle">IA</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {!isCoach && item.isAi && (
+                                                        <span className="ai-item-badge">IA</span>
+                                                    )}
+                                                    {isCronometro && (
+                                                        <div className="flex items-center gap-1.5 ml-auto">
+                                                            {isPomodoroRunning && (
+                                                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Sessão em andamento" />
+                                                            )}
+                                                            {isActive && (
+                                                                <span className="cronometro-badge">Foco</span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </Link>
-
-                                            {/* Instant Floating Tooltip no modo recolhido */}
-                                            {collapsed && (
-                                                <div 
-                                                    className="sidebar-floating-tooltip"
-                                                    style={{
-                                                        '--item-color': item.color,
-                                                        '--item-color-alpha': `${item.color}25`
-                                                    }}
-                                                >
-                                                    <span>{item.label}</span>
-                                                </div>
-                                            )}
                                         </div>
                                     );
                                 })}
@@ -35533,19 +36061,17 @@ const Sidebar = React.memo(function Sidebar({
                         <div className="mb-1 relative sidebar-item-wrapper" ref={settingsFlyoutRef}>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    if (collapsed) {
-                                        setFlyoutMenu(flyoutMenu === 'settings' ? null : 'settings');
-                                    } else {
-                                        setSettingsExpanded(!settingsExpanded);
-                                    }
-                                }}
+                                onClick={handleToggleSettingsFlyout}
                                 className="sidebar-item group bg-white/[0.02] hover:bg-white/[0.04] border border-white/5"
                                 aria-expanded={collapsed ? flyoutMenu === 'settings' : settingsExpanded}
                                 aria-controls="sidebar-settings-panel"
                                 aria-haspopup="true"
+                                onMouseEnter={(e) => handleTooltipEnter(e, { label: 'Configurações', color: '#94a3b8' })}
+                                onMouseLeave={handleTooltipLeave}
                             >
-                                <Settings size={16} className="text-slate-400 shrink-0" />
+                                <div className="sidebar-item-icon-wrapper">
+                                    <Settings size={15} className="text-slate-400" />
+                                </div>
                                 <div className="sidebar-item-text">
                                     <span className="font-semibold text-sm sidebar-item-label">Configurações</span>
                                     <ChevronDown 
@@ -35554,94 +36080,6 @@ const Sidebar = React.memo(function Sidebar({
                                     />
                                 </div>
                             </button>
-
-                            {/* Floating Tooltip no modo recolhido */}
-                            {collapsed && (
-                                <div className="sidebar-floating-tooltip">
-                                    <span>Configurações</span>
-                                </div>
-                            )}
-
-                            {/* Floating Flyout Popover para Configurações (Modo Recolhido) */}
-                            {collapsed && flyoutMenu === 'settings' && (
-                                <div className="sidebar-flyout-popover" role="menu">
-                                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-                                        <div className="flex items-center gap-2">
-                                            <Settings size={14} className="text-slate-400" />
-                                            <span className="text-xs font-bold text-white uppercase tracking-wider">Ajustes</span>
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setFlyoutMenu(null)}
-                                            className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
-                                            aria-label="Fechar painel"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-1">
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-red-300 hover:bg-red-500/10 transition-colors"
-                                            onClick={() => {
-                                                onOpenTrash();
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <Trash2 size={13} className="text-red-400" />
-                                            <span>Lixeira</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-sky-300 hover:bg-sky-500/10 transition-colors"
-                                            onClick={() => {
-                                                onOpenHelp();
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <HelpCircle size={13} className="text-sky-400" />
-                                            <span>Ajuda & Guia</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-indigo-300 hover:bg-indigo-500/10 transition-colors"
-                                            onClick={() => {
-                                                useAppStore.getState().setHasSeenTour(false);
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <Sparkles size={13} className="text-indigo-400" />
-                                            <span>Reiniciar Tutorial</span>
-                                        </button>
-
-                                        <div className="border-t border-white/5 my-1"></div>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-bold text-red-400 hover:bg-red-500/20 transition-colors"
-                                            onClick={() => {
-                                                setShowResetConfirm(true);
-                                                setFlyoutMenu(null);
-                                            }}
-                                        >
-                                            <Trash2 size={13} className="text-red-400" />
-                                            <span>Zerar Conta (Perigo)</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-rose-300 hover:bg-rose-500/15 transition-colors"
-                                            onClick={handleLogout}
-                                        >
-                                            <LogOut size={13} className="text-rose-400" />
-                                            <span>Sair da Conta</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Accordion suave baseado em CSS Grid para modo expandido */}
                             {!collapsed && (
@@ -35723,6 +36161,206 @@ const Sidebar = React.memo(function Sidebar({
                     </nav>
                 </div>
             </aside>
+
+            {/* PORTAL FIXED TOOLTIP (Zero clipping garantido) */}
+            {typeof document !== 'undefined' && collapsed && hoveredTooltip && createPortal(
+                <div
+                    className="sidebar-portal-tooltip"
+                    style={{
+                        top: `${hoveredTooltip.rect.top + hoveredTooltip.rect.height / 2}px`,
+                        left: `${hoveredTooltip.rect.right + 12}px`,
+                        '--item-color': hoveredTooltip.color,
+                        '--item-color-alpha': `${hoveredTooltip.color}25`
+                    }}
+                >
+                    <span>{hoveredTooltip.label}</span>
+                    {hoveredTooltip.extraBadge && (
+                        <span className="text-[10px] font-normal text-slate-300">
+                            {hoveredTooltip.extraBadge}
+                        </span>
+                    )}
+                </div>,
+                document.body
+            )}
+
+            {/* PORTAL FIXED FLYOUT POPOVER: CONCURSOS / PAINÉIS (Zero clipping garantido) */}
+            {typeof document !== 'undefined' && collapsed && flyoutMenu === 'contests' && flyoutAnchorRect && createPortal(
+                <>
+                    <div 
+                        className="sidebar-portal-flyout-overlay"
+                        onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                        aria-hidden="true"
+                    />
+                    <div 
+                        className="sidebar-portal-flyout-popover" 
+                        role="menu"
+                        style={{
+                            top: `${Math.max(12, Math.min(window.innerHeight - 320, flyoutAnchorRect.top))}px`,
+                            left: `${flyoutAnchorRect.right + 12}px`
+                        }}
+                    >
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                            <div className="flex items-center gap-2">
+                                <Layers size={14} className="text-violet-400" />
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Painéis de Estudo</span>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
+                                aria-label="Fechar painel"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+
+                        <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+                            {contestEntries.map(([id, contestData]) => {
+                                const name = (typeof contestData === 'string' && contestData.trim())
+                                    ? contestData
+                                    : getContestDisplayName(contestData) || "Meu Painel";
+                                const isActive = id === activeContestId;
+                                return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${
+                                            isActive 
+                                                ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
+                                                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                        }`}
+                                        onClick={() => {
+                                            if (id !== activeContestId) onSwitchContest(id);
+                                            setFlyoutMenu(null);
+                                            setFlyoutAnchorRect(null);
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Layers size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
+                                            <span className="truncate">{name}</span>
+                                        </div>
+                                        {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            type="button"
+                            className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
+                            onClick={() => {
+                                onCreateContest();
+                                setFlyoutMenu(null);
+                                setFlyoutAnchorRect(null);
+                            }}
+                        >
+                            <Plus size={13} />
+                            <span>Criar Novo Painel</span>
+                        </button>
+                    </div>
+                </>,
+                document.body
+            )}
+
+            {/* PORTAL FIXED FLYOUT POPOVER: CONFIGURAÇÕES (Zero clipping garantido) */}
+            {typeof document !== 'undefined' && collapsed && flyoutMenu === 'settings' && flyoutAnchorRect && createPortal(
+                <>
+                    <div 
+                        className="sidebar-portal-flyout-overlay"
+                        onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                        aria-hidden="true"
+                    />
+                    <div 
+                        className="sidebar-portal-flyout-popover" 
+                        role="menu"
+                        style={{
+                            top: `${Math.max(12, Math.min(window.innerHeight - 280, flyoutAnchorRect.bottom - 220))}px`,
+                            left: `${flyoutAnchorRect.right + 12}px`
+                        }}
+                    >
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+                            <div className="flex items-center gap-2">
+                                <Settings size={14} className="text-slate-400" />
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Ajustes & Ações</span>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
+                                className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
+                                aria-label="Fechar painel"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-1">
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-red-300 hover:bg-red-500/10 transition-colors"
+                                onClick={() => {
+                                    onOpenTrash();
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Trash2 size={13} className="text-red-400" />
+                                <span>Lixeira</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-sky-300 hover:bg-sky-500/10 transition-colors"
+                                onClick={() => {
+                                    onOpenHelp();
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <HelpCircle size={13} className="text-sky-400" />
+                                <span>Ajuda & Guia</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-indigo-300 hover:bg-indigo-500/10 transition-colors"
+                                onClick={() => {
+                                    useAppStore.getState().setHasSeenTour(false);
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Sparkles size={13} className="text-indigo-400" />
+                                <span>Reiniciar Tutorial</span>
+                            </button>
+
+                            <div className="border-t border-white/5 my-1"></div>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs font-bold text-red-400 hover:bg-red-500/20 transition-colors"
+                                onClick={() => {
+                                    setShowResetConfirm(true);
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Trash2 size={13} className="text-red-400" />
+                                <span>Zerar Conta (Perigo)</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-rose-300 hover:bg-rose-500/15 transition-colors"
+                                onClick={handleLogout}
+                            >
+                                <LogOut size={13} className="text-rose-400" />
+                                <span>Sair da Conta</span>
+                            </button>
+                        </div>
+                    </div>
+                </>,
+                document.body
+            )}
 
             <ConfirmModal
                 isOpen={!!contestToDelete}
@@ -60208,6 +60846,42 @@ export const calculateTrend = calculateSlopePerDay;
 
 ---
 
+<a id="srcengineunitsmd"></a>
+## `src/engine/UNITS.md`
+
+```markdown
+# Sistema de Unidades do Motor
+
+Todo valor do sistema é exatamente um destes três tipos:
+
+| Tipo | Faixa | Significado | Exemplo |
+|------|-------|-------------|---------|
+| `ScorePoints` | `[minScore, maxScore]` | nota na escala da prova | `700` (em 400–1000) |
+| `ScorePct` | `[0, 100]` | percentual do intervalo útil | `50`% |
+| `ScoreRatio` | `[0, 1]` | razão do intervalo útil | `0.5` |
+
+## Regra de ouro
+Conversões acontecem **uma única vez, na fronteira** (entrada do hook ou do
+componente), usando exclusivamente `src/utils/scoreHelper.conversions.js`:
+
+- `ratioToPoints` / `pctToPoints` → para `ScorePoints`
+- `pointsToRatio` / `pointsToPct` → para `ScoreRatio` / `ScorePct`
+- `toAccuracyRatio` + `ratioToCorrect` → acertos derivados
+
+## Proibido
+- Auto-detectar unidade (`if (v <= 1) ...`) — raiz dos bugs `toPoints`/`toPct`.
+- Comparar/misturar unidades sem converter (raiz do bug `TodayVsGeneral`).
+- `score / maxScore` para "precisão" quando `minScore ≠ 0` — use `toAccuracyRatio`.
+
+## Exceção documentada
+O motor Bayesiano (`stats.js`) usa `p = score / maxScore` como probabilidade de
+Bernoulli interna e devolve `mean = p * maxScore` — uma **posição absoluta em
+`[0, maxScore]`**, não um percentual. Não some/compare `bay_*` com accuracy
+derivada sem converter.
+```
+
+---
+
 <a id="srcenginevariancejs"></a>
 ## `src/engine/variance.js`
 
@@ -73643,6 +74317,22 @@ export default {
   validateCoachExplanation,
   CoachExplanationSchema,
 };
+```
+
+---
+
+<a id="srcassetslogopng"></a>
+## `src/assets/logo.png`
+
+*(Arquivo binário de imagem / mídia)*
+
+---
+
+<a id="srcassetsreactsvg"></a>
+## `src/assets/react.svg`
+
+```xml
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="35.93" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 228"><path fill="#00D8FF" d="M210.483 73.824a171.49 171.49 0 0 0-8.24-2.597c.465-1.9.893-3.777 1.273-5.621c6.238-30.281 2.16-54.676-11.769-62.708c-13.355-7.7-35.196.329-57.254 19.526a171.23 171.23 0 0 0-6.375 5.848a155.866 155.866 0 0 0-4.241-3.917C100.759 3.829 77.587-4.822 63.673 3.233C50.33 10.957 46.379 33.89 51.995 62.588a170.974 170.974 0 0 0 1.892 8.48c-3.28.932-6.445 1.924-9.474 2.98C17.309 83.498 0 98.307 0 113.668c0 15.865 18.582 31.778 46.812 41.427a145.52 145.52 0 0 0 6.921 2.165a167.467 167.467 0 0 0-2.01 9.138c-5.354 28.2-1.173 50.591 12.134 58.266c13.744 7.926 36.812-.22 59.273-19.855a145.567 145.567 0 0 0 5.342-4.923a168.064 168.064 0 0 0 6.92 6.314c21.758 18.722 43.246 26.282 56.54 18.586c13.731-7.949 18.194-32.003 12.4-61.268a145.016 145.016 0 0 0-1.535-6.842c1.62-.48 3.21-.974 4.76-1.488c29.348-9.723 48.443-25.443 48.443-41.52c0-15.417-17.868-30.326-45.517-39.844Zm-6.365 70.984c-1.4.463-2.836.91-4.3 1.345c-3.24-10.257-7.612-21.163-12.963-32.432c5.106-11 9.31-21.767 12.459-31.957c2.619.758 5.16 1.557 7.61 2.4c23.69 8.156 38.14 20.213 38.14 29.504c0 9.896-15.606 22.743-40.946 31.14Zm-10.514 20.834c2.562 12.94 2.927 24.64 1.23 33.787c-1.524 8.219-4.59 13.698-8.382 15.893c-8.067 4.67-25.32-1.4-43.927-17.412a156.726 156.726 0 0 1-6.437-5.87c7.214-7.889 14.423-17.06 21.459-27.246c12.376-1.098 24.068-2.894 34.671-5.345a134.17 134.17 0 0 1 1.386 6.193ZM87.276 214.515c-7.882 2.783-14.16 2.863-17.955.675c-8.075-4.657-11.432-22.636-6.853-46.752a156.923 156.923 0 0 1 1.869-8.499c10.486 2.32 22.093 3.988 34.498 4.994c7.084 9.967 14.501 19.128 21.976 27.15a134.668 134.668 0 0 1-4.877 4.492c-9.933 8.682-19.886 14.842-28.658 17.94ZM50.35 144.747c-12.483-4.267-22.792-9.812-29.858-15.863c-6.35-5.437-9.555-10.836-9.555-15.216c0-9.322 13.897-21.212 37.076-29.293c2.813-.98 5.757-1.905 8.812-2.773c3.204 10.42 7.406 21.315 12.477 32.332c-5.137 11.18-9.399 22.249-12.634 32.792a134.718 134.718 0 0 1-6.318-1.979Zm12.378-84.26c-4.811-24.587-1.616-43.134 6.425-47.789c8.564-4.958 27.502 2.111 47.463 19.835a144.318 144.318 0 0 1 3.841 3.545c-7.438 7.987-14.787 17.08-21.808 26.988c-12.04 1.116-23.565 2.908-34.161 5.309a160.342 160.342 0 0 1-1.76-7.887Zm110.427 27.268a347.8 347.8 0 0 0-7.785-12.803c8.168 1.033 15.994 2.404 23.343 4.08c-2.206 7.072-4.956 14.465-8.193 22.045a381.151 381.151 0 0 0-7.365-13.322Zm-45.032-43.861c5.044 5.465 10.096 11.566 15.065 18.186a322.04 322.04 0 0 0-30.257-.006c4.974-6.559 10.069-12.652 15.192-18.18ZM82.802 87.83a323.167 323.167 0 0 0-7.227 13.238c-3.184-7.553-5.909-14.98-8.134-22.152c7.304-1.634 15.093-2.97 23.209-3.984a321.524 321.524 0 0 0-7.848 12.897Zm8.081 65.352c-8.385-.936-16.291-2.203-23.593-3.793c2.26-7.3 5.045-14.885 8.298-22.6a321.187 321.187 0 0 0 7.257 13.246c2.594 4.48 5.28 8.868 8.038 13.147Zm37.542 31.03c-5.184-5.592-10.354-11.779-15.403-18.433c4.902.192 9.899.29 14.978.29c5.218 0 10.376-.117 15.453-.343c-4.985 6.774-10.018 12.97-15.028 18.486Zm52.198-57.817c3.422 7.8 6.306 15.345 8.596 22.52c-7.422 1.694-15.436 3.058-23.88 4.071a382.417 382.417 0 0 0 7.859-13.026a347.403 347.403 0 0 0 7.425-13.565Zm-16.898 8.101a358.557 358.557 0 0 1-12.281 19.815a329.4 329.4 0 0 1-23.444.823c-7.967 0-15.716-.248-23.178-.732a310.202 310.202 0 0 1-12.513-19.846h.001a307.41 307.41 0 0 1-10.923-20.627a310.278 310.278 0 0 1 10.89-20.637l-.001.001a307.318 307.318 0 0 1 12.413-19.761c7.613-.576 15.42-.876 23.31-.876H128c7.926 0 15.743.303 23.354.883a329.357 329.357 0 0 1 12.335 19.695a358.489 358.489 0 0 1 11.036 20.54a329.472 329.472 0 0 1-11 20.722Zm22.56-122.124c8.572 4.944 11.906 24.881 6.52 51.026c-.344 1.668-.73 3.367-1.15 5.09c-10.622-2.452-22.155-4.275-34.23-5.408c-7.034-10.017-14.323-19.124-21.64-27.008a160.789 160.789 0 0 1 5.888-5.4c18.9-16.447 36.564-22.941 44.612-18.3ZM128 90.808c12.625 0 22.86 10.235 22.86 22.86s-10.235 22.86-22.86 22.86s-22.86-10.235-22.86-22.86s10.235-22.86 22.86-22.86Z"></path></svg>
 ```
 
 ---

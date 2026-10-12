@@ -110,6 +110,10 @@ export async function secureLogout() {
             'hasSeenWelcomeScreen',
             'page-has-been-force-refreshed',
             'ultra-last-activity',
+            'ultra_category_tombstones',
+            'pomodoroSideTab',
+            'focusPanelPosition',
+            'coach_active_flags_v1',
         ];
         keysToRemove.forEach(key => {
             try {
@@ -117,6 +121,20 @@ export async function secureLogout() {
                 sessionStorage.removeItem(key);
             } catch { /* ignore */ }
         });
+
+        // Limpar chaves de rascunho e geração de simulado IA
+        try {
+            Object.keys(localStorage).forEach(k => {
+                if (k.startsWith('ai_simulado_draft:') || k.startsWith('ai_simulado_generating:')) {
+                    localStorage.removeItem(k);
+                }
+            });
+            Object.keys(sessionStorage).forEach(k => {
+                if (k.startsWith('ai_simulado_')) {
+                    sessionStorage.removeItem(k);
+                }
+            });
+        } catch { /* ignore */ }
 
         // ✅ FIX N-01: Limpar IndexedDB do app (idb-keyval)
         try {

@@ -8,7 +8,7 @@ export const parseNumericString = (value) => {
 
   const trimmed = value.trim();
 
-  if (!trimmed) return NaN;
+  if (!trimmed || /^[+-]?$/.test(trimmed) || /^\.$/.test(trimmed)) return NaN;
 
   // Formato pt-BR: 1.234,56
   if (trimmed.includes(',')) {

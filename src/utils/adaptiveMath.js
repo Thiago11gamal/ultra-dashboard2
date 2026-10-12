@@ -60,7 +60,7 @@ export function getConfidenceMultiplier(sampleSize, options = {}) {
         const lowDf = Math.max(1, Math.floor(df)); 
         const highDf = Math.ceil(df);
         const lowT = SMALL_SAMPLE_T_CRITICAL[lowDf] ?? SMALL_SAMPLE_T_CRITICAL[1];
-        const highT = SMALL_SAMPLE_T_CRITICAL[highDf] ?? SMALL_SAMPLE_T_CRITICAL[30];
+        const highT = SMALL_SAMPLE_T_CRITICAL[highDf] ?? (highDf > 30 ? 1.96 : SMALL_SAMPLE_T_CRITICAL[30]);
         
         if (lowDf === highDf) return lowT;
         
@@ -256,7 +256,8 @@ export function computeAdaptiveSignal(historyOrScores = []) {
       // ✅ FIX: Marcar explicitamente que NÃO houve ponderação
       // para que consumidores downstream saibam que é fallback
     } else {
-      effectiveN = Math.max(1, (sumW * sumW) / Math.max(1e-9, sumW2));
+      const rawEffN = (sumW * sumW) / Math.max(1e-9, sumW2);
+      effectiveN = Number.isFinite(rawEffN) ? Math.max(1, rawEffN) : 1;
       weightedMean = kahanSum(finiteScores.map((s, i) => s * weighted[i])) / sumW;
     }
     

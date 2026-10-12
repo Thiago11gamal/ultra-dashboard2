@@ -41,20 +41,25 @@ export function CompareChart({
         if (!containerRef.current) return;
         const el = containerRef.current;
         let debounceTimer = null;
-        const obs = new ResizeObserver((entries) => {
-            // FIX 4B: debounce de 100ms para evitar re-renders excessivos
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                for (const entry of entries) {
-                    const h = entry.contentRect.height;
-                    if (h > 50) setContainerHeight(h);
-                }
-            }, 100);
-        });
-        obs.observe(el);
+        let obs = null;
+        try {
+            obs = new ResizeObserver((entries) => {
+                // FIX 4B: debounce de 100ms para evitar re-renders excessivos
+                if (debounceTimer) clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    for (const entry of entries) {
+                        const h = entry.contentRect.height;
+                        if (h > 50) setContainerHeight(h);
+                    }
+                }, 100);
+            });
+            obs.observe(el);
+        } catch (e) {
+            console.warn('[CompareChart] ResizeObserver indisponível:', e);
+        }
         return () => {
             if (debounceTimer) clearTimeout(debounceTimer);
-            obs.disconnect();
+            if (obs) obs.disconnect();
         };
     }, []);
 
@@ -131,7 +136,7 @@ export function CompareChart({
 
         // ✅ LOTE-02 FIX: os 3 passes sequenciais podiam estourar o teto logo após
         // corrigir o chão. Relaxamento iterativo com re-cheque de limites.
-        for (let iter = 0; iter < 15; iter++) {
+        for (let iter = 0; iter < 30; iter++) {
             let moved = false;
             for (let i = 1; i < yPos.length; i++) {
                 if (yPos[i - 1].yPos - yPos[i].yPos < effectiveDistance) {

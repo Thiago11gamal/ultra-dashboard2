@@ -864,6 +864,8 @@ export function monteCarloSimulation(
 
             // Atualiza a trajetória esperada acumulada com o drift do dia
             accumulatedDrift += driftEffect;
+            const maxDrift = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) * 0.5;
+            accumulatedDrift = Math.max(-maxDrift, Math.min(maxDrift, accumulatedDrift));
             
             // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)
             // O choque empírico tem de ser escalado para a volatilidade GARCH atual

@@ -247,7 +247,9 @@ export const createTaskSlice = (set, get) => ({
                 // BUG-T06 FIX: Se a tarefa já está completada, o XP concedido
                 // foi baseado na prioridade antiga. Ajustar o XP e recibo via awardExperience.
                 if (task.completed && task.awardedXP !== undefined) {
-                    const oldXP = XP_CONFIG.task[oldPriority] || XP_CONFIG.task.medium;
+                    const oldXP = Number.isFinite(Number(task.awardedXP))
+                        ? Number(task.awardedXP)
+                        : (XP_CONFIG.task[oldPriority] || XP_CONFIG.task.medium);
                     const newXP = XP_CONFIG.task[newPriority] || XP_CONFIG.task.medium;
                     const diff = newXP - oldXP;
                     if (diff !== 0) {

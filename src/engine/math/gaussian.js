@@ -30,7 +30,7 @@ export function normalPDF(z) {
  * Média Exata da Normal Truncada em [a, b] com parâmetros (μ, σ).
  */
 export function truncatedNormalMean(mean, sd, a, b) {
-    if (!Number.isFinite(sd) || sd <= 0) return Math.max(a, Math.min(b, mean));
+    if (!Number.isFinite(sd) || sd <= 1e-10) return Math.max(a, Math.min(b, mean));
     
     const alpha = (a - mean) / sd;
     const beta = (b - mean) / sd;
@@ -68,6 +68,7 @@ export function truncatedNormalMean(mean, sd, a, b) {
 let rngCache = new WeakMap();
 
 export const generateGaussian = (rng = Math.random) => {
+    if (typeof rng !== 'function') rng = Math.random;
     if (rngCache.has(rng)) {
         const result = rngCache.get(rng);
         rngCache.delete(rng);

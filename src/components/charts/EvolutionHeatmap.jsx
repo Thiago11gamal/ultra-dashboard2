@@ -26,8 +26,12 @@ function releaseSharedWorker() {
   sharedWorkerRefCount--;
   if (sharedWorkerRefCount < 0) sharedWorkerRefCount = 0;
   if (sharedWorkerRefCount === 0 && sharedWorker) {
-    sharedWorker.terminate();
-    sharedWorker = null;
+    setTimeout(() => {
+      if (sharedWorkerRefCount === 0 && sharedWorker) {
+        sharedWorker.terminate();
+        sharedWorker = null;
+      }
+    }, 100);
   }
 }
 
@@ -176,7 +180,8 @@ export const EvolutionHeatmap = ({
       }
     
       const safePct = Number(pct);
-      const density = Math.min(1, (Number(total) || 0) / maxCellTotal);
+      const safeTotal = Number.isFinite(Number(total)) ? Math.max(0, Number(total)) : 0;
+      const density = maxCellTotal > 0 ? Math.min(1, safeTotal / maxCellTotal) : 0;
     
       if (safePct >= targetScorePct) {
         return {
@@ -291,7 +296,10 @@ export const EvolutionHeatmap = ({
             <div 
                 className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-2 pb-4"
                 onScroll={() => {
-                    if (hoveredCell) setHoveredCell(null);
+                    if (hoveredCell) {
+                        if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+                        scrollDebounceRef.current = setTimeout(() => setHoveredCell(null), 100);
+                    }
                 }}
             >
                 <div style={{ minWidth: `${filteredDates.length * 72 + 260}px` }}>

@@ -11,10 +11,18 @@ const getTasksArray = (category) => {
         : Object.values(category.tasks || {});
 };
 
-// Formatação estática de mês para evitar recriação no loop de dias
+// Formatação estática para evitar recriação no loop de dias
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', {
     timeZone: APP_TIMEZONE,
     month: 'long'
+});
+const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TIMEZONE,
+    weekday: 'long'
+});
+const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: APP_TIMEZONE,
+    day: 'numeric'
 });
 
 // ✅ FIX: movido para escopo do módulo — era recriado a cada render
@@ -39,15 +47,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         void dayTick;
         if (!logsArray || logsArray.length === 0) return { groups: [], stats: null };
 
-        // Criar formatadores UMA vez, fora do loop
-        const weekdayFormatter = new Intl.DateTimeFormat('pt-BR', {
-            timeZone: APP_TIMEZONE,
-            weekday: 'long'
-        });
-        const dayFormatter = new Intl.DateTimeFormat('pt-BR', {
-            timeZone: APP_TIMEZONE,
-            day: 'numeric'
-        });
+        // Usar formatadores estáticos do escopo do módulo
         const now = new Date();
         const todayKey = getDateKey(now);
         const y = new Date(now);

@@ -28,7 +28,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
                 const fallback = (Number(item?.correct) || 0) + (Number(item?.wrong) || 0);
                 return acc + Math.max(0, fallback);
             }, 0);
-            return `${c.id || c.name}:${c.name || ''}:${c.color || ''}:${(c.tasks || []).length}:${history.length}:${totalQ}`;
+            return `${c.id || c.name}:${c.name || ''}:${(c.tasks || []).length}:${history.length}:${totalQ}`;
         }).join('|');
     }, [stableCategories]);
 

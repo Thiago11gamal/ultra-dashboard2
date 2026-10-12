@@ -140,6 +140,7 @@ function PomodoroTimer({
         if (typeof window === 'undefined') return null;
         try {
             const saved = JSON.parse(localStorage.getItem('pomodoroState'));
+            if (!saved || typeof saved !== 'object') return null;
             const matchesTask =
                 activeSubject?.taskId &&
                 saved?.activeTaskId === activeSubject.taskId;
@@ -405,6 +406,7 @@ function PomodoroTimer({
         time: initialTime,
         mode
     });
+    const transitionLockRef = useRef(0);
 
     const flushPendingStudyTime = useCallback((subjectOverride = null) => {
         const subjectSnapshot = subjectOverride || activeSubjectRef.current;
@@ -419,7 +421,7 @@ function PomodoroTimer({
             const liveSettings = liveState?.appState?.contests?.[activeId]?.settings || liveState?.settings || {};
             const livePomodoroWork = Math.max(1, Number(liveSettings.pomodoroWork || safeSettings.pomodoroWork || 25));
             const totalWorkSeconds = livePomodoroWork * 60;
-            const rawPrev = Number(current.timeLeft);
+            const rawPrev = Number(timeRef.current ?? current.timeLeft);
             const safePrevTime = Number.isFinite(rawPrev) && rawPrev >= 0
                 ? rawPrev
                 : totalWorkSeconds;
@@ -717,8 +719,12 @@ function PomodoroTimer({
         if (isTransitioningRef.current) return;
 
         if (source === 'natural') {
-            const lockKey = `pomodoro_transition_lock_${activeSubjectRef.current?.taskId || 'global'}`;
             const now = Date.now();
+            if (transitionLockRef.current && now - transitionLockRef.current < 2000) {
+                return;
+            }
+            transitionLockRef.current = now;
+            const lockKey = `pomodoro_transition_lock_${activeSubjectRef.current?.taskId || 'global'}`;
             const lastTransition = Number(localStorage.getItem(lockKey) || 0);
             if (now - lastTransition < 2000) {
                 return;
@@ -1151,6 +1157,7 @@ function PomodoroTimer({
             {/* Container Principal do Relógio de Madeira (Perfeitamente Enquadrado) */}
             <div
                 style={{
+                    backgroundColor: '#b08e6b',
                     backgroundImage: 'url(/wood-texture.png)',
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',

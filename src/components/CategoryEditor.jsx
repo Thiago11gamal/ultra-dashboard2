@@ -72,8 +72,10 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             return;
         }
 
-        const parsedMax = Math.max(0.1, Number(maxScore) || 100);
-        const parsedMin = Math.max(0, Number(minCutoff) || 0);
+        const rawMax = Number(maxScore);
+        const parsedMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
+        const rawMin = Number(minCutoff);
+        const parsedMin = Number.isFinite(rawMin) && rawMin >= 0 ? rawMin : 0;
 
         const safeMin = Math.min(parsedMin, parsedMax);
 

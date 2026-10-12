@@ -379,7 +379,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   };
 
   const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false, localTrash = [], localContestTime = 0) => {
-    const mergedCatsMap = {};
+    const mergedCatsMap = new Map();
     const toDateMs = (value) => {
       if (!value) return 0;
       const ms = new Date(value).getTime();
@@ -387,11 +387,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     };
     const safeLocalCats = Array.isArray(localCats) ? localCats : Object.values(localCats || {});
     const safeCloudCats = Array.isArray(cloudCats) ? cloudCats : Object.values(cloudCats || {});
-    safeLocalCats.forEach(c => { if (c?.id) mergedCatsMap[c.id] = c; });
+    safeLocalCats.forEach(c => { if (c?.id) mergedCatsMap.set(c.id, c); });
     safeCloudCats.forEach(c => {
       if (!c?.id) return;
-      if (mergedCatsMap[c.id]) {
-        const localCat = mergedCatsMap[c.id];
+      if (mergedCatsMap.has(c.id)) {
+        const localCat = mergedCatsMap.get(c.id);
         const baseCat = preferCloudBase ? { ...localCat, ...c } : { ...c, ...localCat };
         const catMaxScore = Number(c.maxScore ?? localCat.maxScore ?? 100) || 100;
         const catMinScore = Number(c.minScore ?? localCat.minScore ?? 0) || 0;
@@ -404,7 +404,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           ? c.simuladoStats.history : Object.values(c.simuladoStats?.history || {});
         safeLocalHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
         safeCloudHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
-        mergedCatsMap[c.id] = {
+        mergedCatsMap.set(c.id, {
           ...baseCat,
           tasks: mergeCategoryTasks(localCat.tasks, c.tasks),
           simuladoStats: {
@@ -414,7 +414,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
               .map(h => ({ ...h, score: getSafeScore(h, catMaxScore, catMinScore) }))
               .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
           }
-        };
+        });
       } else {
         // FIX GHOST-CATEGORY / BUG-07: Evitar que categorias deletadas localmente sejam ressuscitadas pela nuvem
         const cloudCatTime = toDateMs(c.lastUpdated || c.updatedAt);
@@ -432,15 +432,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const isLocallyPruned = !preferCloudBase && localContestTime > 0 && cloudCatTime <= localContestTime;
 
         if (!isDeletedInTrash && !isTombstoned && !isLocallyPruned) {
-          mergedCatsMap[c.id] = c;
+          mergedCatsMap.set(c.id, c);
         }
       }
     });
-    return Object.values(mergedCatsMap);
+    return Array.from(mergedCatsMap.values());
   };
 
   const mergeCoachPlanner = (localPlanner, cloudPlanner, arrayOptions = {}) => {
-    if (!localPlanner && !cloudPlanner) return undefined;
+    if (!localPlanner && !cloudPlanner) return { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
     const local = localPlanner || {};
     const cloud = cloudPlanner || {};
     const allDays = new Set([...Object.keys(local), ...Object.keys(cloud)]);
@@ -617,7 +617,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         contentFingerprint += (c?.simuladoRows?.length || 0);
       });
     }
-    return `${lastUpdated}|v${version}|active:${state.activeId}|fp:${contentFingerprint}`;
+    const hashStr = (s) => {
+      let h = 0x811c9dc5;
+      for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+      return (h >>> 0).toString(36);
+    };
+    return `${lastUpdated}|v${version}|active:${state.activeId}|fp:${hashStr(String(contentFingerprint))}`;
   };
 
   useEffect(() => {
@@ -807,7 +815,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             console.error('[Sync] Erro ao aplicar dados remotos:', pullErr);
           } finally {
             applyingRemoteRef.current = false;
-            isCloudPullRef.current = false;
+            requestAnimationFrame(() => { isCloudPullRef.current = false; });
           }
         } else {
           isCloudPullRef.current = false;
@@ -980,8 +988,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   }, [currentUser?.uid, performEmergencySync]);
 
   useEffect(() => {
-    if (applyingRemoteRef.current || syncMutexRef.current) {
+    if (applyingRemoteRef.current) {
       applyingRemoteRef.current = false;
+      return;
+    }
+    if (syncMutexRef.current) {
       return;
     }
 
