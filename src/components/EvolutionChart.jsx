@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import { useChartData } from "../hooks/useChartData";
 import { useEvolutionMC } from "../hooks/useEvolutionMC";
@@ -425,8 +425,9 @@ export default React.memo(function EvolutionChart({
 
     const engineTabRefs = useRef(new Map());
     useEffect(() => {
+        const refs = engineTabRefs.current;
         return () => {
-            engineTabRefs.current.clear();
+            refs.clear();
         };
     }, []);
 

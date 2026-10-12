@@ -43,10 +43,10 @@ export default function Evolution() {
     return Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {});
   }, [monteCarloHistory]);
 
-  const hasEvolutionData = Array.isArray(safeCategories) && safeCategories.some(category => {
+  const hasEvolutionData = (Array.isArray(safeCategories) && safeCategories.some(category => {
     const h = category?.simuladoStats?.history;
     return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-  });
+  })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.length > 0);
 
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova
   const targetScorePoints = React.useMemo(() => {

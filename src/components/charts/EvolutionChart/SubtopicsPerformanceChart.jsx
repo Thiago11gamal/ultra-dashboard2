@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
-import { simpleHash, toArray } from "../../../utils/evolutionGuards";
+import { toArray } from "../../../utils/evolutionGuards";
 import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {

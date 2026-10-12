@@ -62,8 +62,8 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             if (!isMounted.current) return;
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
             if (typeof logoutRef.current === 'function') logoutRef.current();
-        }, timeoutMs);
-    }, [timeoutMs]);
+        }, safeTimeout);
+    }, [safeTimeout]);
 
     useEffect(() => {
         resetTimerRef.current = resetTimer;
