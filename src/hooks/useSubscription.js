@@ -3,14 +3,22 @@ import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
 export function useSubscription(user) {
-  const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || isLocalMode || user?.uid === 'local-user';
+  const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || 'antunest040@gmail.com')
+    .split(',')
+    .map(e => e.trim().toLowerCase());
+  const userEmail = (user?.email || '').trim().toLowerCase();
+  const isAdminEmail = Boolean(userEmail && (userEmail === 'antunest040@gmail.com' || adminEmails.includes(userEmail)));
+
+  const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || isLocalMode || user?.uid === 'local-user' || isAdminEmail;
 
   const [isPremium, setIsPremium] = useState(isDevBypass);
   const [loading, setLoading] = useState(!isDevBypass);
   const fallbackUnsubRef = useRef(null);
 
   useEffect(() => {
-    if (isDevBypass) {
+    if (isDevBypass || isAdminEmail) {
+        setIsPremium(true);
+        setLoading(false);
         return;
     }
     
@@ -23,13 +31,10 @@ export function useSubscription(user) {
     }
 
     // Explicit bypass for admin email
-    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(e => e.trim());
-    if (adminEmails.includes(user?.email)) {
-        const t = setTimeout(() => {
-            setIsPremium(true);
-            setLoading(false);
-        }, 0);
-        return () => clearTimeout(t);
+    if (isAdminEmail) {
+        setIsPremium(true);
+        setLoading(false);
+        return;
     }
     
     let unsub = null;
