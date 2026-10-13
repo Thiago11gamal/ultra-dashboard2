@@ -161,6 +161,7 @@ const getFullInitialState = () => ({
   lastReviewTime: null,
   activeWorkspace: 'default',
   pomodoro: {
+    isRunning: false,
     activeSubject: null,
     sessions: 1,
     targetCycles: 1,

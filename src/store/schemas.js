@@ -372,6 +372,7 @@ export const validateAppState = (data) => {
       dashboardFilter: d.dashboardFilter || 'all',
       pomodoro: {
         ...(d.pomodoro && typeof d.pomodoro === 'object' ? d.pomodoro : {}),
+        isRunning: Boolean(d.pomodoro?.isRunning),
         activeSubject: d.pomodoro?.activeSubject || null,
         targetCycles: Math.max(1, Number(d.pomodoro?.targetCycles) || 1),
         mode: ['work', 'break', 'long_break'].includes(d.pomodoro?.mode) ? d.pomodoro.mode : 'work',

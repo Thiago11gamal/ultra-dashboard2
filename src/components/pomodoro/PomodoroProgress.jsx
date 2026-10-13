@@ -50,7 +50,7 @@ export function PomodoroProgress({
                                     console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
                                 }
                             }}
-                            disabled={!activeSubject || !Number.isFinite(targetCycles) || !Number.isFinite(completedCycles) || targetCycles <= Math.max(1, Number(completedCycles) || 0)}
+                            disabled={!Number.isFinite(targetCycles) || !Number.isFinite(completedCycles) || targetCycles <= Math.max(1, Number(completedCycles) || 0)}
                             className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Reduzir meta de ciclos"
                         >
@@ -82,7 +82,7 @@ export function PomodoroProgress({
                                     console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
                                 }
                             }}
-                            disabled={!activeSubject || targetCycles >= 20}
+                            disabled={targetCycles >= 20}
                             className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Aumentar meta de ciclos"
                         >
@@ -97,19 +97,31 @@ export function PomodoroProgress({
                         let workWidth = '0%';
                         let breakHeight = '0%';
 
-                        if (i < completedCycles) {
-                            workWidth = '100%';
-                            breakHeight = '100%';
-                        } else if (i === completedCycles) {
-                            const progressPct = (Number.isFinite(totalTime) && totalTime > 0)
-                                ? Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100))
-                                : 0;
-                            if (mode === 'work') {
+                        const progressPct = (Number.isFinite(totalTime) && totalTime > 0)
+                            ? Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100))
+                            : 0;
+
+                        if (mode === 'work') {
+                            if (i < completedCycles) {
+                                workWidth = '100%';
+                                breakHeight = '100%';
+                            } else if (i === completedCycles) {
                                 workWidth = `${progressPct}%`;
                                 breakHeight = '0%';
                             } else {
+                                workWidth = '0%';
+                                breakHeight = '0%';
+                            }
+                        } else {
+                            if (i < completedCycles - 1) {
+                                workWidth = '100%';
+                                breakHeight = '100%';
+                            } else if (i === completedCycles - 1) {
                                 workWidth = '100%';
                                 breakHeight = `${progressPct}%`;
+                            } else {
+                                workWidth = '0%';
+                                breakHeight = '0%';
                             }
                         }
 

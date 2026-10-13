@@ -104,6 +104,7 @@ class PomodoroErrorBoundary extends React.Component {
 function PomodoroTimer({
     settings = {},
     activeSubject,
+    categories = [],
     onFullCycleComplete,
     onUpdateStudyTime,
     onExit,
@@ -133,6 +134,7 @@ function PomodoroTimer({
     const setTargetCycles = useAppStore(state => state.setPomodoroTargetCycles);
     const completePomodoroPhase = useAppStore(state => state.completePomodoroPhase);
     const rewindPomodoroPhase = useAppStore(state => state.rewindPomodoroPhase);
+    const setPomodoroRunning = useAppStore(state => state.setPomodoroRunning);
 
     const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -441,25 +443,33 @@ function PomodoroTimer({
                 onSessionComplete();
             }
         }
-            prevTaskStateRef.current.accum = 0;
-            try {
-                const resetProgress = useAppStore.getState().resetPomodoroProgress;
-                if (typeof resetProgress === 'function') {
-                    resetProgress();
-                } else {
-                    useAppStore.setState((state) => ({
-                        appState: {
-                            ...state.appState,
-                            pomodoro: {
-                                ...state.appState?.pomodoro,
-                                accumulatedMinutes: 0
-                            }
+
+        const totalWorkSeconds = (Number(safeSettings.pomodoroWork) || 25) * 60;
+        prevTaskStateRef.current = {
+            subject: null,
+            accum: 0,
+            time: totalWorkSeconds,
+            mode: 'work'
+        };
+
+        try {
+            const resetProgress = useAppStore.getState().resetPomodoroProgress;
+            if (typeof resetProgress === 'function') {
+                resetProgress();
+            } else {
+                useAppStore.setState((state) => ({
+                    appState: {
+                        ...state.appState,
+                        pomodoro: {
+                            ...state.appState?.pomodoro,
+                            accumulatedMinutes: 0
                         }
-                    }));
-                }
-            } catch (error) {
-                console.error('[PomodoroTimer] Failed to reset accumulatedMinutes:', error);
+                    }
+                }));
             }
+        } catch (error) {
+            console.error('[PomodoroTimer] Failed to reset accumulatedMinutes:', error);
+        }
     }, [safeSettings, safeOnUpdateStudyTime, onSessionComplete]);
 
     useEffect(() => {
@@ -698,23 +708,34 @@ function PomodoroTimer({
 
     useEffect(() => {
         return () => {
-            if (stateRefs.current.isRunning) {
-                savePomodoroState({ isRunning: false });
+            const currentSub = activeSubjectRef.current;
+            if (currentSub && stateRefs.current.mode === 'work') {
+                const totalWorkSeconds = (safeSettings.pomodoroWork || 25) * 60;
+                const currentTime = Number(timeRef.current ?? stateRefs.current.timeLeft);
+                const elapsedSec = Math.max(0, totalWorkSeconds - currentTime);
+                const elapsedMins = Number((elapsedSec / 60).toFixed(2));
+                if (elapsedMins >= 0.25) {
+                    safeOnUpdateStudyTime(currentSub.categoryId, elapsedMins, currentSub.taskId);
+                    if (typeof onSessionComplete === 'function') {
+                        onSessionComplete();
+                    }
+                }
             }
+            savePomodoroState({ isRunning: false, timeLeft: stateRefs.current.timeLeft });
+            setPomodoroRunning(false);
         };
-    }, [savePomodoroState]);
+    }, [savePomodoroState, safeSettings, safeOnUpdateStudyTime, onSessionComplete, setPomodoroRunning]);
 
     useEffect(() => {
         const handleBeforeUnload = () => {
-            if (stateRefs.current.isRunning) {
-                savePomodoroState({ isRunning: false });
-            }
+            savePomodoroState({ isRunning: false, timeLeft: stateRefs.current.timeLeft });
+            setPomodoroRunning(false);
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [savePomodoroState]);
+    }, [savePomodoroState, setPomodoroRunning]);
 
     const transitionSession = useCallback((completedMode, source = 'natural') => {
         if (isTransitioningRef.current) return;
@@ -737,6 +758,7 @@ function PomodoroTimer({
         setIsTransitioning(true);
         setIsRunning(false);
         stateRefs.current.isRunning = false;
+        setPomodoroRunning(false);
 
         const isManual = source !== 'natural';
 
@@ -874,7 +896,8 @@ function PomodoroTimer({
         safeOnUpdateStudyTime,
         safeOnFullCycleComplete,
         onSessionComplete,
-        postSync
+        postSync,
+        setPomodoroRunning
     ]);
 
     useEffect(() => {
@@ -1012,6 +1035,7 @@ function PomodoroTimer({
             stateRefs.current.accumulatedMinutes = newState.accumulatedMinutes;
             stateRefs.current.isRunning = false;
             setIsRunning(false);
+            setPomodoroRunning(false);
             setTimeLeft(resetTime);
 
             workFillsRef.current.forEach((el, i) => {
@@ -1071,6 +1095,7 @@ function PomodoroTimer({
             stateRefs.current.timeLeft = currentTotalTime;
             stateRefs.current.isRunning = false;
             setIsRunning(false);
+            setPomodoroRunning(false);
             setTimeLeft(currentTotalTime);
 
             if (clockRef.current) {
@@ -1109,21 +1134,40 @@ function PomodoroTimer({
     };
 
     const togglePlay = useCallback(() => {
-        if (!activeSubject) {
-            showToast('Selecione uma tarefa no painel ao lado para iniciar.', 'warning');
-            return;
+        let currentSubject = activeSubject;
+        if (!currentSubject) {
+            const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+            const firstCat = safeCats[0];
+            const defaultSubject = {
+                categoryId: firstCat?.id || 'geral',
+                category: firstCat?.name || 'Geral',
+                taskId: 'estudo_livre',
+                task: 'Estudo Livre',
+                priority: 'medium',
+                source: 'pomodoro',
+                sessionInstanceId: Date.now().toString()
+            };
+            useAppStore.getState().setPomodoroActiveSubject(defaultSubject);
+            currentSubject = defaultSubject;
+            showToast('Iniciando sessão de Foco Livre ⏱️', 'info');
         }
         const next = !isRunning;
         stateRefs.current.isRunning = next;
         setIsRunning(next);
+        setPomodoroRunning(next);
+
         if (!next) {
             setTimeLeft(stateRefs.current.timeLeft);
+            savePomodoroState({ isRunning: false, timeLeft: stateRefs.current.timeLeft });
+        } else {
+            savePomodoroState({ isRunning: true, timeLeft: stateRefs.current.timeLeft });
         }
+
         postSync({
             type: next ? 'START_SESSION' : 'PAUSE_SESSION',
             timeLeft: stateRefs.current.timeLeft
         });
-    }, [activeSubject, isRunning, postSync, showToast]);
+    }, [activeSubject, categories, isRunning, postSync, savePomodoroState, setPomodoroRunning, showToast]);
 
     const handleManualExit = useCallback((options = {}) => {
         if (transitionTimeoutRef.current) {

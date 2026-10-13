@@ -30,11 +30,10 @@ export function PomodoroControls({
                 <button
                     type="button"
                     onClick={onTogglePlay}
-                    disabled={isProtocolInactive}
                     aria-label={isRunning ? 'Pausar' : 'Iniciar'}
                     aria-pressed={isRunning}
-                    title={isRunning ? 'Pausar' : 'Iniciar'}
-                    className={`w-15 h-15 sm:w-16 sm:h-16 rounded-full flex items-center justify-center border-[3px] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 shadow-2xl ${isRunning ? 'bg-stone-100 text-black border-white hover:bg-stone-200' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:bg-emerald-400'}`}
+                    title={isRunning ? 'Pausar' : (isProtocolInactive ? 'Iniciar Estudo Livre' : 'Iniciar')}
+                    className={`w-15 h-15 sm:w-16 sm:h-16 rounded-full flex items-center justify-center border-[3px] transition-all duration-200 active:scale-95 shadow-2xl ${isRunning ? 'bg-stone-100 text-black border-white hover:bg-stone-200' : 'bg-emerald-500 text-white border-emerald-300 shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:bg-emerald-400'}`}
                 >
                     {isRunning ? <Pause size={24} className="sm:w-6 sm:h-6" /> : <Play size={24} className="sm:w-6 sm:h-6 ml-0.5" />}
                 </button>

@@ -36,7 +36,19 @@ export const createPomodoroSlice = (set, get) => ({
             p.accumulatedMinutes = 0;
             p.completedCycles = 0;
             p.mode = 'work';
+            p.isRunning = false;
 
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
+            markStorageDirty();
+        });
+    },
+
+    setPomodoroRunning: (isRunning) => {
+        set((state) => {
+            const p = state.appState?.pomodoro;
+            if (!p) return;
+            p.isRunning = Boolean(isRunning);
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
             markStorageDirty();
@@ -53,6 +65,7 @@ export const createPomodoroSlice = (set, get) => ({
                 state.appState.pomodoro.activeSubject = null;
                 state.appState.pomodoro.neuralMode = false;
                 state.appState.pomodoro.neuralQueue = [];
+                state.appState.pomodoro.isRunning = false;
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
@@ -213,9 +226,6 @@ export const createPomodoroSlice = (set, get) => ({
                 } else if (manualMinutes > 0) {
                     p.accumulatedMinutes = (p.accumulatedMinutes || 0) + manualMinutes;
                     savedMinutes = p.accumulatedMinutes;
-                } else {
-                    // FIX BUG-043: Não avançar ciclo de estudo se skip manual com 0 minutos
-                    return;
                 }
 
                 const currentCycles = Math.min(
@@ -355,6 +365,10 @@ export const createPomodoroSlice = (set, get) => ({
 
             if (payload.neuralMode !== undefined) {
                 p.neuralMode = payload.neuralMode;
+            }
+
+            if (payload.isRunning !== undefined) {
+                p.isRunning = Boolean(payload.isRunning);
             }
 
             state.appState.version = (state.appState.version || 0) + 1;

@@ -20,6 +20,8 @@ import {
     Minus, Zap, Brain, BookOpen, CheckCircle2,
     Flame, Award, ChevronDown, ChevronUp, Activity, Coffee
 } from 'lucide-react';
+import { calculateStudyStreak } from '../../utils/analytics';
+import { getDateKey } from '../../utils/dateHelper';
 
 // ============================================================================
 // SUBCOMPONENTE: Status da Sessão Atual
@@ -156,47 +158,12 @@ function SubjectStats({ category, maxScore = 100 }) {
 // ============================================================================
 function StreakDisplay({ studyLogs }) {
     const streak = useMemo(() => {
-        if (!studyLogs || !Array.isArray(studyLogs)) return { current: 0, best: 0, isActive: false };
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const studyDays = new Set();
-        (studyLogs || []).forEach(log => {
-            if (log && log.date) {
-                const logDate = new Date(log.date);
-                if (!Number.isNaN(logDate.getTime())) {
-                    logDate.setHours(0, 0, 0, 0);
-                    studyDays.add(logDate.getTime());
-                }
-            }
-        });
-
-        const sortedDays = Array.from(studyDays).sort((a, b) => b - a);
-
-        let current = 0;
-        let checkDate = new Date(today);
-
-        while (studyDays.has(checkDate.getTime())) {
-            current++;
-            checkDate.setDate(checkDate.getDate() - 1);
-        }
-
-        let best = 0;
-        let tempStreak = 1;
-
-        for (let i = 1; i < sortedDays.length; i++) {
-            const diff = (sortedDays[i - 1] - sortedDays[i]) / (1000 * 60 * 60 * 24);
-            if (diff === 1) {
-                tempStreak++;
-            } else {
-                best = Math.max(best, tempStreak);
-                tempStreak = 1;
-            }
-        }
-        best = Math.max(best, tempStreak, current);
-
-        return { current, best, isActive: current > 0 };
+        const res = calculateStudyStreak(studyLogs || []);
+        return {
+            current: res.current || 0,
+            best: res.best || res.longest || 0,
+            isActive: Boolean(res.isActive)
+        };
     }, [studyLogs]);
 
     return (
@@ -278,16 +245,12 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
 // ============================================================================
 function TodayStudyTime({ studyLogs, categoryId }) {
     const todayData = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const todayKey = getDateKey(new Date());
 
         const safeLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
         const todayLogs = safeLogs.filter(log => {
             if (!log || !log.date) return false;
-            const logDate = new Date(log.date);
-            if (Number.isNaN(logDate.getTime())) return false;
-            logDate.setHours(0, 0, 0, 0);
-            return logDate.getTime() === today.getTime();
+            return getDateKey(log.date) === todayKey;
         });
 
         const totalMinutes = todayLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);

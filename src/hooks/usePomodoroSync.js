@@ -89,6 +89,7 @@ export function usePomodoroSync({
                 case 'START_SESSION': {
                     setIsRunning(true);
                     stateRefs.current.isRunning = true;
+                    syncPomodoroState({ isRunning: true });
 
                     if (Number.isFinite(incomingTime) && incomingTime >= 0) {
                         stateRefs.current.timeLeft = incomingTime;
@@ -102,6 +103,7 @@ export function usePomodoroSync({
                 case 'PAUSE_SESSION': {
                     setIsRunning(false);
                     stateRefs.current.isRunning = false;
+                    syncPomodoroState({ isRunning: false });
 
                     if (Number.isFinite(incomingTime) && incomingTime >= 0) {
                         setTimeLeft(incomingTime);
@@ -177,7 +179,8 @@ export function usePomodoroSync({
                                 sessions: newSessions,
                                 completedCycles: newCompleted,
                                 accumulatedMinutes: newAccum,
-                                targetCycles: newTarget
+                                targetCycles: newTarget,
+                                isRunning: false
                             });
 
                             if (Number.isFinite(targetTime) && targetTime >= 0) {

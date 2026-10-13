@@ -1167,8 +1167,17 @@ export default function Pomodoro() {
             const activeData = store.appState.contests[store.appState.activeId];
 
             if (neuralMode || currentSubject.source === 'neural_core') {
-                store.toggleNeuralTask(currentSubject.taskId);
-                showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
+                const rawCats = activeData?.categories || [];
+                const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
+                const cat = safeCats.find(c => c && c.id === currentSubject.categoryId);
+                const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+                const task = catTasks.find(t => t && (t.id || t.text) === currentSubject.taskId);
+                if (!task || !task.completed) {
+                    store.toggleNeuralTask(currentSubject.taskId);
+                    showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
+                } else {
+                    showToast(`Sessão finalizada: "${currentSubject.task}"! ✅`, 'info');
+                }
             } else {
                 const rawCats = activeData?.categories || [];
                 const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
