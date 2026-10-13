@@ -999,7 +999,7 @@ export function getFlashcardImmunity(decks = []) {
         let total = 0, mastered = 0;
         toArray(deck?.cards).forEach(card => {
             total++;
-            if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 21) mastered++;
+            if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
         });
 
         globalTotal += total;

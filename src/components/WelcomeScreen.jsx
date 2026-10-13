@@ -5,6 +5,7 @@ import logo from '../assets/logo.png';
 
 export default function WelcomeScreen({ onDismiss }) {
     const [isExiting, setIsExiting] = useState(false);
+    const isExitingRef = useRef(false);
     const containerRef = useRef(null);
     const buttonRef = useRef(null);
     const previousFocusRef = useRef(null); // FIX 5.4a: Guardar elemento com foco anterior
@@ -31,7 +32,8 @@ export default function WelcomeScreen({ onDismiss }) {
 
     // FIX 5.4b: Fechar com tecla Enter
     const handleNext = useCallback(() => {
-        if (isExiting) return; // FIX 5.4d: Prevenir dupla chamada
+        if (isExitingRef.current) return;
+        isExitingRef.current = true;
         setIsExiting(true);
         setTimeout(() => {
             try {
@@ -41,11 +43,11 @@ export default function WelcomeScreen({ onDismiss }) {
             }
             onDismiss();
         }, 800); 
-    }, [isExiting, onDismiss]);
+    }, [onDismiss]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if (e.key === 'Enter' && !isExiting) {
+            if (e.key === 'Enter' && !isExitingRef.current) {
                 e.preventDefault();
                 e.stopPropagation();
                 handleNext();

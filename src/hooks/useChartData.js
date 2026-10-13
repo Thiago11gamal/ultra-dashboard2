@@ -6,7 +6,7 @@ import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 const EMPTY_OBJECT = Object.freeze({});
 const EMPTY_ARRAY = Object.freeze([]);
 
-const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean);
+const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean).filter(r => r.valid !== false);
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
 function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0) {

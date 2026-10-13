@@ -305,6 +305,7 @@ function PomodoroTimer({
     const completionTimeoutRef = useRef(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const isTransitioningRef = useRef(false);
+    const transitionRetriesRef = useRef(0);
 
     const clockRef = useRef(null);
     const svgCircleRef = useRef(null);
@@ -934,8 +935,15 @@ function PomodoroTimer({
 
             if (newTime <= 0) {
                 if (!isTransitioningRef.current) {
+                    transitionRetriesRef.current = 0;
                     transitionSession(stateRefs.current.mode, 'natural');
                 } else {
+                    transitionRetriesRef.current++;
+                    if (transitionRetriesRef.current > 15) {
+                        console.warn('[Pomodoro] Transição travada — forçando reset.');
+                        isTransitioningRef.current = false;
+                        transitionRetriesRef.current = 0;
+                    }
                     timeoutId = setTimeout(tick, 200);
                 }
             } else {

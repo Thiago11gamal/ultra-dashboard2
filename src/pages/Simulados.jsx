@@ -538,7 +538,14 @@ export default function Simulados() {
           Object.keys(dataToProcess).forEach((rawSubject) => { if (rawSubject) subjectsToProcess.add(rawSubject); });
         }
         manualSubmittedRows.forEach((r) => { if (r && r.subject) subjectsToProcess.add(r.subject); });
-        subjectsToProcess.forEach((subName) => processStats(subName));
+        const dedupedSubjects = new Set();
+        subjectsToProcess.forEach((subName) => {
+          const norm = normalize(subName);
+          if (!dedupedSubjects.has(norm)) {
+            dedupedSubjects.add(norm);
+            processStats(subName);
+          }
+        });
 
         // Evento global de simulado
         const todayValidatedRows = validatedRows.filter(

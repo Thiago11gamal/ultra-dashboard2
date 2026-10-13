@@ -194,7 +194,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       // FIX C-05: usa id explícito se existir; senão usa id estável por índice,
       // evitando fundir duas tarefas distintas com o mesmo texto.
       const sid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
-      if (seen.has(sid)) return null;
+      if (seen.has(sid)) {
+        console.warn('[AICoachPlanner] Duplicata detectada, descartando:', sid);
+        return null;
+      }
       seen.add(sid);
       return { ...withId, id: sid };
     };

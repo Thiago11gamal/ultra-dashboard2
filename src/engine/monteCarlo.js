@@ -348,7 +348,10 @@ export function simulateNormalDistribution(
     // era sobrescrito pela média SÓ delas — as demais eram descartadas da
     // probabilidade silenciosamente. minCutoff agora só afeta a restrição de
     // aprovação (passedMins), nunca a composição do score.
-    const allSubjects = sanitizeSubjects(subjects);
+    const allSubjects = sanitizeSubjects(subjects).filter(s => {
+        const w = Number(s?.weight);
+        return Number.isFinite(w) && w > 0.01;
+    });
     const subjectStats = allSubjects.map(s => {
         const safeSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
         const safeImmunity = toFiniteNumber(s.immunityFactor, 1.0);

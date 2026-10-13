@@ -5,8 +5,10 @@ import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 // ✅ FIX: Worker singleton compartilhado entre todas as instâncias
 let sharedWorker = null;
 let sharedWorkerRefCount = 0;
+let terminateTimer = null;
 
 function getSharedWorker() {
+  if (terminateTimer) { clearTimeout(terminateTimer); terminateTimer = null; }
   if (!sharedWorker) {
     try {
       sharedWorker = new Worker(
@@ -26,7 +28,7 @@ function releaseSharedWorker() {
   sharedWorkerRefCount--;
   if (sharedWorkerRefCount < 0) sharedWorkerRefCount = 0;
   if (sharedWorkerRefCount === 0 && sharedWorker) {
-    setTimeout(() => {
+    terminateTimer = setTimeout(() => {
       if (sharedWorkerRefCount === 0 && sharedWorker) {
         sharedWorker.terminate();
         sharedWorker = null;

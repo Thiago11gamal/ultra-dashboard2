@@ -223,7 +223,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const { preferCloudBase = false, localContestTime = 0 } = options;
     const map = new Map();
 
-    const getStableKey = (item) => {
+    const getStableKey = (item, index) => {
       if (!item || typeof item !== 'object') return null;
 
       // Prioridade 1: id explícito
@@ -260,20 +260,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         return `unknown:${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
       } catch {
         // Se JSON.stringify falhar (circular, etc.), gerar chave baseada em posição
-        return `unknown:unserializable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        return `unknown:unserializable-${index ?? 'x'}`;
       }
     };
 
     const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
     const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
 
-    safeArr1.forEach(item => {
-      const key = getStableKey(item);
+    safeArr1.forEach((item, index) => {
+      const key = getStableKey(item, index);
       if (key && !map.has(key)) map.set(key, item);
     });
 
-    safeArr2.forEach(item => {
-      const key = getStableKey(item);
+    safeArr2.forEach((item, index) => {
+      const key = getStableKey(item, index);
       if (key) {
         const existing = map.get(key);
         if (!existing) {

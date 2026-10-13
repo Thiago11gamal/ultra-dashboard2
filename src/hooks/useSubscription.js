@@ -23,7 +23,8 @@ export function useSubscription(user) {
     }
 
     // Explicit bypass for admin email
-    if (user?.email === 'antunest040@gmail.com') {
+    const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').map(e => e.trim());
+    if (adminEmails.includes(user?.email)) {
         const t = setTimeout(() => {
             setIsPremium(true);
             setLoading(false);

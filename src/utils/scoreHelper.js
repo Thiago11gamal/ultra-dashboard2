@@ -4,7 +4,7 @@
  */
 import { pointsToPct } from './measurement.js';
 
-export const SYNTHETIC_PERCENT_ONLY_TRIALS = 5;
+export const SYNTHETIC_PERCENT_ONLY_TRIALS = 20;
 
 /**
  * Retorna o total sintético para registros que têm apenas percentual.

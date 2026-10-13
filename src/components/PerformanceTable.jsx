@@ -137,6 +137,9 @@ const PerformanceTable = ({ categories = [] }) => {
             className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8"
             ref={tableRef}
             onKeyDown={handleKeyDown}
+            tabIndex={0}
+            role="grid"
+            aria-label="Quadro de performance por disciplina"
         >
             {/* FIX 5.6d: Linhas com roles e foco gerenciado */}
             <div className="overflow-x-auto max-h-[500px] overflow-y-auto w-full custom-scrollbar">

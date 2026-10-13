@@ -320,9 +320,9 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   }
 
   return {
-    points: domain.min, pct: 0, ratio: 0,
+    points: NaN, pct: NaN, ratio: 0,
     total, correct, totalValid: false, domain,
-    ambiguous: false, source: "missing",
+    ambiguous: false, source: "missing", invalid: true,
   };
 }
 
@@ -451,6 +451,7 @@ export function sanitizeSimuladoRow(row, maxScore = 100, minScore = 0) {
     ...r,
     date: hasValidDate ? rawDate : null,
     createdAt: hasValidDate ? (r.createdAt || rawDate) : null,
+    valid: hasValidDate,
     total: norm.total,
     correct: norm.correct,
     scorePoints: norm.points,
@@ -522,6 +523,7 @@ export function deduplicateSimulados(simulados, options = {}) {
 
   safeArray(simulados).forEach((s) => {
     const norm = normalizeScoreValue(s, maxScore, minScore);
+    if (norm.invalid) return;
 
     const subjectKey = normalizeSubjectKey(
       s?.subject || s?.categoryId || s?.categoryName || s?.materia || "geral"

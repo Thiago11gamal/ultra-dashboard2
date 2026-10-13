@@ -692,9 +692,9 @@ function Checklist({
 
         const category = safeCategories.find(c => c.id === catId);
         if (category) {
-            const normNew = trimmedTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+            const normNew = normalize(trimmedTitle);
             const alreadyExists = (category.tasks || []).some(t => {
-                const existing = String(t.text || t.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                const existing = normalize(String(t.text || t.title || ''));
                 return existing === normNew;
             });
             if (alreadyExists) {

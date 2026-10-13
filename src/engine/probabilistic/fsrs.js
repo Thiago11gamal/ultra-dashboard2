@@ -117,7 +117,7 @@ export function estimateTopicFsrs(topic, options = {}) {
     // Mapeia monotonicamente [0.7, 1.6] para [0.2, 0.9]
     difficulty = clamp(((rawDiff - 0.7) / (1.6 - 0.7)) * 0.7 + 0.2, 0.1, 0.95);
   } else {
-    difficulty = clamp(rawDiff, 0, 1);
+    difficulty = clamp(rawDiff / 2, 0, 1);
   }
 
   const difficultyFactor = 1 - (difficulty * 0.35);

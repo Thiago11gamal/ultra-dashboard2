@@ -285,7 +285,7 @@ export function computeAdaptiveSignal(historyOrScores = []) {
             const d = s - weightedMean;
             const clipped = Math.max(-huberK, Math.min(huberK, d));
             return clipped * clipped;
-          })) / Math.max(1, finiteScores.length)
+          })) / Math.max(1, finiteScores.length - 1)
         : kahanSum(finiteScores.map((s, i) => {
             const d = s - weightedMean;
             const clipped = Math.max(-huberK, Math.min(huberK, d));

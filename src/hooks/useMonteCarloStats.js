@@ -341,7 +341,7 @@ export function useMonteCarloStats({
   }, [pureStatsData, calibrationPenalty, maxScore]);
 
   // ✅ PATCH-04: Hash deve incluir o timeIndex e target para forçar re-cálculo quando muda a meta ou range de datas
-  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}`;
+  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}-pd${projectDays}-st${effectiveSimulateToday ? 1 : 0}`;
 
   const pureStatsDataRef = useRef(pureStatsData);
   useEffect(() => {
@@ -1106,7 +1106,6 @@ export function useMonteCarloStats({
     statsData,
     debouncedTarget,
     simulationData?.status,
-    simulationData?.data,
     maxScore,
     effectiveSimulateToday,
     projectDays,

@@ -137,7 +137,7 @@ function buildPredictiveCompareData(
     };
 
     // Parse a data base UMA VEZ antes do loop
-    const baseParsed = normalizeDate(pts[lastIdx].date) || new Date();
+    const baseParsed = normalizeDate(pts[lastIdx]?.date) || new Date();
     const baseMs = new Date(baseParsed.getFullYear(), baseParsed.getMonth(), baseParsed.getDate(), 12, 0, 0, 0).getTime();
 
     const futurePoints = [];

@@ -49,6 +49,7 @@ import { useThemeSync } from './hooks/useThemeSync';
 import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
 import useIdleLogout from './hooks/useIdleLogout';
+import { stopCleanup } from './hooks/useMonteCarloWorker';
 
 
 
@@ -258,7 +259,10 @@ function MainLayout() {
     try {
       sessionStorage.removeItem('ultra_auto_reloaded');
     } catch { /* ignore */ }
-    return () => { isMountedRef.current = false; };
+    return () => { 
+      isMountedRef.current = false; 
+      stopCleanup();
+    };
   }, []);
 
   const handleImport = useCallback((event) => {

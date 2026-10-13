@@ -3,6 +3,7 @@ import { normalize } from '../../utils/normalization.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
+import { clearUrgencyCache, clearTopicsCache, clearMcCache } from '../../utils/coachLogic.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => {
@@ -58,6 +59,9 @@ export const createCategorySlice = (set) => ({
     },
 
     deleteCategory: (id) => set((state) => {
+        clearUrgencyCache();
+        clearTopicsCache();
+        clearMcCache();
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData || !Array.isArray(activeData.categories)) return;
 

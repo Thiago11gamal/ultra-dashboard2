@@ -1038,7 +1038,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         void dayTick;
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
         // ✅ LOTE-02 FIX (A4): minScore agora é usado internamente (targetPct, normalizações)
-    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit, dayTick]);
+    }, [baseHistoryStats, statsTarget, maxScore, minScore, dayTick]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">

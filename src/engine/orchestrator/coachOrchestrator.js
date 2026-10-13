@@ -153,7 +153,6 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       meta.errors.push({ step: stepName, message: 'Timeout exceeded' });
       throw new Error(`Orchestrator aborted at step: ${stepName}`);
     }
-    return false;
   };
 
   try {
@@ -306,6 +305,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       targetScore,
       features,
       allCategories: categories,
+      signal: controller.signal,
     };
 
     let focus = null;
@@ -313,8 +313,10 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     let bestTask = null;
 
     try {
+      checkAbort('getSuggestedFocus');
       focus = getSuggestedFocus(categories, simulados, studyLogs, coachOptions);
     } catch (err) {
+      if (controller.signal.aborted) throw err;
       meta.errors.push({
         step: 'getSuggestedFocus',
         message: err?.message || String(err),
@@ -322,8 +324,10 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     }
 
     try {
+      checkAbort('generateDailyGoals');
       tasks = generateDailyGoals(categories, simulados, studyLogs, coachOptions);
     } catch (err) {
+      if (controller.signal.aborted) throw err;
       meta.errors.push({
         step: 'generateDailyGoals',
         message: err?.message || String(err),
@@ -331,8 +335,10 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     }
 
     try {
+      checkAbort('getBestTask');
       bestTask = getBestTask(categories, options.excludeTaskId ?? null);
     } catch (err) {
+      if (controller.signal.aborted) throw err;
       meta.errors.push({
         step: 'getBestTask',
         message: err?.message || String(err),

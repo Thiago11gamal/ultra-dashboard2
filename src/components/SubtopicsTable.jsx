@@ -22,13 +22,10 @@ const SubtopicsTable = ({ categories = [], maxScore = 100 }) => {
         return stableCategories.map(c => {
             const h = c.simuladoStats?.history || [];
             const history = Array.isArray(h) ? h : Object.values(h || {});
-            const totalQ = history.reduce((acc, item) => {
-                const p = parseInt(item?.total, 10);
-                if (Number.isFinite(p) && p > 0) return acc + p;
-                const fallback = (Number(item?.correct) || 0) + (Number(item?.wrong) || 0);
-                return acc + Math.max(0, fallback);
-            }, 0);
-            return `${c.id || c.name}:${c.name || ''}:${(c.tasks || []).length}:${history.length}:${totalQ}`;
+            const scoresHash = history.map(item =>
+                `${item?.score ?? ''}:${item?.correct ?? ''}:${item?.total ?? ''}`
+            ).join('|');
+            return `${c.id || c.name}:${c.name || ''}:${(c.tasks || []).length}:${history.length}:${scoresHash}`;
         }).join('|');
     }, [stableCategories]);
 

@@ -118,8 +118,6 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
             return undefined;
         };
 
-        // Mapeador canônico para disciplinas sem cadastro (evita duplicar cards por diferenças de maiúsculas/espaços)
-        const canonicalCategoryNames = new Map();
         const resolveCategoryInfo = (log) => {
             const category = findCategoryForLog(log);
             if (category) {
@@ -131,19 +129,11 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                 };
             }
             const rawName = String(log?.categoryName || log?.subject || 'Outros').trim();
-            const lower = rawName.toLowerCase();
-            let name;
-            if (canonicalCategoryNames.has(lower)) {
-                name = canonicalCategoryNames.get(lower);
-            } else {
-                canonicalCategoryNames.set(lower, rawName);
-                name = rawName;
-            }
-            const id = `raw:${lower}`;
+            const id = `raw:${rawName}`;
             return {
                 category: undefined,
                 id,
-                name,
+                name: rawName,
                 color: '#a855f7'
             };
         };

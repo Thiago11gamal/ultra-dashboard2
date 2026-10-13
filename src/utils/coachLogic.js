@@ -187,7 +187,7 @@ const getDaysDiff = (newer, older) => {
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
     if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
     if (daysToExam < 0) return 1.0;
-    if (daysToExam === 0) return 2.0;
+    if (daysToExam === 0) return 1.3;
 
     let criticalHorizon = 21;
     let timeDivisor = 7;
@@ -769,7 +769,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     if (targetScore - averageScore > DISTANCE_THRESHOLD) {
         effectiveMCTarget = averageScore + Math.max(mssdVolatility, domain * 0.05) + (domain * 0.02);
-        effectiveMCTarget = Math.min(effectiveMCTarget, targetScore);
+        effectiveMCTarget = Math.max(averageScore, Math.min(effectiveMCTarget, targetScore));
         if (Number.isFinite(daysToExam)) {
             const totalGap = Math.max(1, targetScore - averageScore);
             const proximalGap = effectiveMCTarget - averageScore;
@@ -1855,7 +1855,8 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100) {
         fsrst: getCoachFeature(null, 'useFsrsTopicScheduling', false),
     }));
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${catMax}-${catMin}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
-    const cacheKey = `isolate_${catId}_${hash}`;
+    const activeId = useAppStore.getState()?.appState?.activeId || 'default';
+    const cacheKey = `isolate_${activeId}_${catId}_${hash}`;
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
     if (cachedTopics) return deepClone(cachedTopics);
     const result = _buildSortedTopicsImpl(safeCat, safeSims, catMax, catMin);
@@ -2348,10 +2349,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         return { isTrap: false };
     };
     let allGeneratedTasks = [];
-    // ✅ PATCH-10: Contador explícito e global para o label prioritário
-    let globalPriorityCounter = 0;
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
     topCategories.forEach((cat) => {
+        let localPriorityCounter = 0;
         const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
         const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : 0;
         const catRange = Math.max(1e-9, catMax - catMin);
@@ -2359,8 +2359,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const mc = cat.urgency?.details?.monteCarlo;
         const iterations = tasksPerCategory;
         const getPriorityLabel = () => {
-            if (globalPriorityCounter < 3) {
-                globalPriorityCounter++;
+            if (localPriorityCounter < 3) {
+                localPriorityCounter++;
                 return '[PROTOCOLO PRIORITÁRIO] ';
             }
             return '';
@@ -2770,8 +2770,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         const safeScoreStr = Number.isFinite(safeScore) ? String(Math.round(safeScore * 100)) : '0';
         // FIX: sem `id`, a chave usava `idx` (sempre único) e nunca deduplicava.
         // Agora usa subject + data + score para deduplicar simulados sem id.
-        const idPart = s.id || `${s.subject || s.categoryId || 'geral'}`;
-        const key = `${idPart}|${s.date || s.createdAt}|${safeScoreStr}`;
+        const idPart = s.id || `${s.subject || s.categoryId || 'geral'}|${s.date || s.createdAt}|${safeScoreStr}|${s.total || ''}|${s.correct || ''}`;
+        const key = idPart;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 
