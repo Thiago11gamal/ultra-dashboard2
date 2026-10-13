@@ -134,8 +134,8 @@ export default function Dashboard() {
         const safeCategoriesList = Array.isArray(currentCategories)
             ? currentCategories
             : Object.values(currentCategories || {});
-        const cat = safeCategoriesList.find(c => c.id === categoryId);
-        const tsk = toArray(cat?.tasks).find(t => t.id === taskId || t.text === taskId);
+        const cat = safeCategoriesList.find(c => c && (c.id === categoryId || c.name === categoryId));
+        const tsk = toArray(cat?.tasks).find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
 
         if (!cat || !tsk) return;
 
@@ -160,7 +160,7 @@ export default function Dashboard() {
                     return {
                         ...c,
                         tasks: toArray(c.tasks).map(t => {
-                            if (c.id === cat.id && (t.id === tsk.id || t.id === taskId)) {
+                            if (c.id === cat.id && (t.id === tsk.id || t.id === taskId || (tsk.text && t.text === tsk.text) || (tsk.title && t.title === tsk.title))) {
                                 return { ...t, status: 'studying' };
                             }
 
@@ -177,7 +177,7 @@ export default function Dashboard() {
 
         startPomodoroSession({
             categoryId: cat.id,
-            taskId: tsk.id,
+            taskId: tsk.id || taskId,
             category: cat.name,
             task: tsk.title || tsk.text || 'Estudo',
             priority: tsk.priority,

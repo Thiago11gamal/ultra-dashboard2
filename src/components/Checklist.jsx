@@ -26,6 +26,8 @@ import { formatMinutes } from '../utils/format';
 import { toArray } from '../utils/normalize';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
 import { getContestDisplayName } from './sidebarUtils';
+import { normalize } from '../utils/normalization';
+import { useToast } from '../hooks/useToast';
 
 const priorityColors = {
     high: {
@@ -63,10 +65,6 @@ const getHistoryDateLabel = (h) => {
     }
 };
 
-
-
-import { normalize } from '../utils/normalization';
-import { useToast } from '../hooks/useToast';
 const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
     if (!stats) return null;
 
@@ -111,23 +109,28 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
     if (level === 'MÉDIO') levelColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
     if (level === 'BAIXO') levelColor = 'text-red-400 bg-red-500/10 border-red-500/20';
 
+    const avgNum = Number(average);
+    const formattedAvg = Number.isFinite(avgNum)
+        ? (Number.isInteger(avgNum) ? avgNum : avgNum.toFixed(1))
+        : average;
+
     const avgDisplay = safeMax === 100
-        ? `${average}%`
-        : `${average} / ${safeMax} pts`;
-    const avgPctSub = safeMax !== 100
-        ? `${Math.round((average / safeMax) * 100)}%`
+        ? `${formattedAvg}%`
+        : `${formattedAvg} / ${safeMax} pts`;
+    const avgPctSub = safeMax !== 100 && Number.isFinite(avgNum)
+        ? `${Math.round((avgNum / safeMax) * 100)}%`
         : null;
 
     const lastNum = Number(lastAttempt);
     const formattedLast = Number.isFinite(lastNum)
-        ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(2))
+        ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(1))
         : lastAttempt;
 
     const lastDisplay = safeMax === 100
         ? `${formattedLast}%`
         : `${formattedLast} / ${safeMax} pts`;
-    const lastPctSub = safeMax !== 100
-        ? `${Math.round((lastAttempt / safeMax) * 100)}%`
+    const lastPctSub = safeMax !== 100 && Number.isFinite(lastNum)
+        ? `${Math.round((lastNum / safeMax) * 100)}%`
         : null;
 
     return (
@@ -536,7 +539,7 @@ const CategoryAccordion = React.memo(({
                                             onOpenDeleteTaskModal(category.id, task);
                                         }}
                                         onTogglePriority={(id) => onTogglePriority(category.id || category.name, id)}
-                                        onTriggerPlay={() => onPlayContext(category.id, task.id)}
+                                        onTriggerPlay={() => onPlayContext(category.id, task.id || task.text || task.title)}
                                     />
                                 ))
                             )}
@@ -628,7 +631,9 @@ function Checklist({
             showToast(`"${catToImport.name}" já existe neste concurso.`, 'warning');
             return;
         }
-        onImportCategory(sourceContestId, categoryId);
+        if (typeof onImportCategory === 'function') {
+            onImportCategory(sourceContestId, categoryId);
+        }
         showToast(`"${catToImport.name}" importado com sucesso!`, 'success');
     }, [contests, categories, onImportCategory, showToast]);
 

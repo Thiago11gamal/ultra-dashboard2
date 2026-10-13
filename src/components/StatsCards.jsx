@@ -159,7 +159,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
     const displayDate = useMemo(() => {
         const d = parseGoalDateUnified(user.goalDate);
-        if (!d || Number.isNaN(d.getTime())) return 'INVÁLIDA';
+        if (!d || Number.isNaN(d.getTime())) return 'Definir data';
 
         const dd = String(d.getDate()).padStart(2, '0');
         const mm = String(d.getMonth() + 1).padStart(2, '0');
