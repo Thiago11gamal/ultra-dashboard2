@@ -96,21 +96,22 @@ function UrgencyBar({ score, cfg }) {
 
 // Adicione este componente dentro de AICoachWidget.jsx
 function MonteCarloGauge({ mc }) {
-    if (!mc || mc.probability == null) return null;
+    const rawProbValue = mc?.probability ?? mc?.probabilityRaw;
+    if (!mc || rawProbValue == null || !Number.isFinite(Number(rawProbValue))) return null;
     
-    const rawProb = Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : 0;
+    const rawProb = Number(rawProbValue);
     const prob = Math.min(100, Math.max(0, rawProb));
     const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
     const low = Math.min(100, Math.max(0, rawLow));
     const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
-    const high = Math.min(100, Math.max(0, rawHigh));
+    const high = Math.min(100, Math.max(low, rawHigh));
 
     // Define a cor baseada na zona de risco (lógica exata do seu motor)
     const isCritical = prob < (mc.thresholds?.danger || 30);
     const color = isCritical ? 'bg-red-400' : (prob >= (mc.thresholds?.safe || 90) ? 'bg-emerald-400' : 'bg-indigo-400');
 
     const safeVolatility = Number.isFinite(Number(mc.volatility)) ? Math.round(Number(mc.volatility)) : 0;
-    const safeBarWidth = Math.max(0, high - low);
+    const safeBarWidth = Math.max(0, Math.min(100 - low, high - low));
 
     return (
         <Motion.div 
@@ -184,10 +185,14 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
     // Check if category is degraded from calibrationOps
     const calibrationOps = activeContest?.calibrationOps || {};
+    const safeCatId = suggestion.id || suggestion.categoryId || suggestion.name || suggestion.subject;
     const isDegraded = Boolean(
         (suggestion.id && calibrationOps[suggestion.id]?.degraded) ||
+        (suggestion.categoryId && calibrationOps[suggestion.categoryId]?.degraded) ||
         (suggestion.name && calibrationOps[suggestion.name]?.degraded) ||
-        (suggestion.category && calibrationOps[suggestion.category]?.degraded)
+        (suggestion.category && calibrationOps[suggestion.category]?.degraded) ||
+        (suggestion.subject && calibrationOps[suggestion.subject]?.degraded) ||
+        (safeCatId && Object.entries(calibrationOps).some(([k, v]) => v?.degraded && (k === safeCatId || k.toLowerCase() === String(safeCatId).toLowerCase())))
     );
 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);
@@ -287,7 +292,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
 
                                 <div>
                                     <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mb-2">
-                                        {displaySubject(suggestion.name)}
+                                        {displaySubject(suggestion.name || suggestion.subject || suggestion.category || 'Disciplina')}
                                     </h2>
                                     {topic && (
                                         <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-bold tracking-tight ${cfg.badge} hover:bg-white/[0.05] transition-colors cursor-default`}>

@@ -310,14 +310,15 @@ export default function Coach() {
         }
     }, [setData]);
 
-    // BUG-26 FIX: Deduplicating history entries safely and preventing double-counting.
-    // 'history' represents topic-level rows, 'simulados' represents global test events.
-    // We group legacy topic rows into global events if no 'simulados' exist for that date.
-    const combinedHistory = useMemo(() => getCombinedHistory(history, simulados), [history, simulados]);
-
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
     const currentMaxScore = data?.maxScore ?? 100;
     const currentMinScore = data?.minScore ?? 0;
+
+    // BUG-26 FIX: Deduplicating history entries safely with correct scale
+    const combinedHistory = useMemo(
+        () => getCombinedHistory(history, simulados, currentMaxScore, currentMinScore),
+        [history, simulados, currentMaxScore, currentMinScore]
+    );
     
     // Converte targetScore ou targetProbability em pontos na escala da prova
     const targetScorePoints = useMemo(() => {
@@ -364,8 +365,13 @@ export default function Coach() {
     const normalizedDrift = useMemo(() => {
         const safeDrift = Number.isFinite(Number(drift)) ? Number(drift) : 0;
         const denom = Math.max(1, Number(currentMaxScore) || 1);
-        return ((safeDrift * 30) / denom) * 100;
+        const val = ((safeDrift * 30) / denom) * 100;
+        return Number.isFinite(val) ? val : 0;
     }, [drift, currentMaxScore]);
+    const formattedDrift = useMemo(() => {
+        if (Math.abs(normalizedDrift) < 0.05) return "0.0pp";
+        return `${normalizedDrift > 0 ? '+' : ''}${normalizedDrift.toFixed(1)}pp`;
+    }, [normalizedDrift]);
     const totalSimulados = useMemo(() => combinedHistory.length, [combinedHistory]);
 
     // VIS-FIX: projectedMean está na escala da prova (pontos), não em %.
@@ -385,9 +391,14 @@ export default function Coach() {
         };
     }, [suggestedFocus?.globalProjectedMean, suggestedFocus?.globalMcContext, currentMaxScore, currentMinScore]);
 
+    const activeCategoryIds = useMemo(() => {
+        const cats = Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {});
+        return new Set(cats.map(c => getSafeId(c.id || c.name)));
+    }, [data?.categories]);
+
     const degradedCount = useMemo(
-        () => Object.values(data?.calibrationOps || {}).filter(o => o?.degraded).length,
-        [data?.calibrationOps]
+        () => Object.entries(data?.calibrationOps || {}).filter(([catId, o]) => o?.degraded && activeCategoryIds.has(catId)).length,
+        [data?.calibrationOps, activeCategoryIds]
     );
 
     const mcStatsContext = useMemo(() => ({
@@ -413,51 +424,56 @@ export default function Coach() {
         // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
         // lateral não fica "preso" aguardando cálculo síncrono.
         const analysisTimer = setTimeout(() => {
-            const targetScore = targetScorePoints;
-            const collectedMetrics = [];
+            try {
+                const targetScore = targetScorePoints;
+                const collectedMetrics = [];
 
-            const result = getSuggestedFocus(
-                categories,
-                history,
-                studyLogs,
-                {
-                    user: data.user,
-                    targetScore,
-                    maxScore: data.maxScore ?? 100,
-                    calibrationHistoryByCategory: calibrationHistoryRef.current,
-                    flashcardDecks: flashcardDecks,
-                    flashcardDue,
-                    onCalibrationMetric: (metric) => collectedMetrics.push(metric),
-                    // Pass global MC stats for richer integration (see analysis of Coach + MC)
-                    // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
-                    globalMcStats: mcStatsContextRef.current,
-                    config: {
-                        MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                const result = getSuggestedFocus(
+                    categories,
+                    history,
+                    studyLogs,
+                    {
+                        user: data.user,
+                        targetScore,
+                        maxScore: data.maxScore ?? 100,
+                        calibrationHistoryByCategory: calibrationHistoryRef.current,
+                        flashcardDecks: flashcardDecks,
+                        flashcardDue,
+                        onCalibrationMetric: (metric) => collectedMetrics.push(metric),
+                        // Pass global MC stats for richer integration (see analysis of Coach + MC)
+                        // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
+                        globalMcStats: mcStatsContextRef.current,
+                        config: {
+                            MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                        }
                     }
+                );
+
+                // BEST: enrich the suggestion with global MC context for the UI
+                const _mcCtx = mcStatsContextRef.current;
+                if (result && _mcCtx && _mcCtx.projectedMean != null) {
+                    const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
+                    result.globalProjectedMean = projectedVal;
+                    result.globalMcContext = {
+                        projectedMean: projectedVal,
+                        probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
+                        source: 'useMonteCarloStats'
+                    };
                 }
-            );
+                setSuggestedFocus(result);
 
-            // BEST: enrich the suggestion with global MC context for the UI
-            const _mcCtx = mcStatsContextRef.current;
-            if (result && _mcCtx && _mcCtx.projectedMean != null) {
-                const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
-                result.globalProjectedMean = projectedVal;
-                result.globalMcContext = {
-                    projectedMean: projectedVal,
-                    probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
-                    source: 'useMonteCarloStats'
-                };
-            }
-            setSuggestedFocus(result);
-            setIsAnalyzing(false);
-
-            if (collectedMetrics.length > 0) {
-                metricsTimer = setTimeout(() => {
-                    collectedMetrics.forEach((metric, i) => {
-                        const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
-                        nestedTimeouts.push(t);
-                    });
-                }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
+                if (collectedMetrics.length > 0) {
+                    metricsTimer = setTimeout(() => {
+                        collectedMetrics.forEach((metric, i) => {
+                            const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                            nestedTimeouts.push(t);
+                        });
+                    }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
+                }
+            } catch (err) {
+                console.error('[Coach] Falha ao processar redes e análise do Coach:', err);
+            } finally {
+                setIsAnalyzing(false);
             }
         }, 0);
 
@@ -518,56 +534,97 @@ export default function Coach() {
         timeoutRef.current = setTimeout(() => {
             if (!isMountedRef.current) return;
 
-            const targetScore = targetScorePoints;
-            const collectedMetrics = [];
+            try {
+                const targetScore = targetScorePoints;
+                const collectedMetrics = [];
 
-            // BUG-1 FIX: Use categories, history, studyLogs directly (now in dep array)
-            const newTasks = generateDailyGoals(
-                categories,
-                history,
-                studyLogs,
-                {
-                    user: data.user,
-                    targetScore,
-                    maxScore: data.maxScore ?? 100,
-                    calibrationHistoryByCategory: calibrationHistoryRef.current,
-                    onCalibrationMetric: (metric) => collectedMetrics.push(metric),
-                    config: {
-                        MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                // BUG-1 FIX: Use categories, history, studyLogs directly (now in dep array)
+                const newTasks = generateDailyGoals(
+                    categories,
+                    history,
+                    studyLogs,
+                    {
+                        user: data.user,
+                        targetScore,
+                        maxScore: data.maxScore ?? 100,
+                        calibrationHistoryByCategory: calibrationHistoryRef.current,
+                        onCalibrationMetric: (metric) => collectedMetrics.push(metric),
+                        config: {
+                            MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                        }
                     }
+                );
+
+                // REFRESH-FOCUS: Atualizar também a recomendação principal do topo
+                try {
+                    const freshFocus = getSuggestedFocus(
+                        categories,
+                        history,
+                        studyLogs,
+                        {
+                            user: data.user,
+                            targetScore,
+                            maxScore: data.maxScore ?? 100,
+                            calibrationHistoryByCategory: calibrationHistoryRef.current,
+                            flashcardDecks,
+                            flashcardDue,
+                            globalMcStats: mcStatsContextRef.current,
+                            config: {
+                                MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                            }
+                        }
+                    );
+                    const _mcCtx = mcStatsContextRef.current;
+                    if (freshFocus && _mcCtx && _mcCtx.projectedMean != null) {
+                        const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
+                        freshFocus.globalProjectedMean = projectedVal;
+                        freshFocus.globalMcContext = {
+                            projectedMean: projectedVal,
+                            probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
+                            source: 'useMonteCarloStats'
+                        };
+                    }
+                    if (freshFocus) setSuggestedFocus(freshFocus);
+                } catch (errFocus) {
+                    console.warn('[Coach] Erro ao sincronizar suggestedFocus:', errFocus);
                 }
-            );
-            
-            if (newTasks.length) {
-                setData(prev => { 
-                    if(prev) {
-                        prev.coachPlan = newTasks; 
-                        prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-                    }
-                    return {
-                        coachPlan: newTasks,
-                        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-                    };
-                });
-                showToastRef.current('Sugestões geradas!', 'success');
-            } else {
-                showToastRef.current('Nenhuma sugestão necessária.', 'info');
-            }
+                
+                if (newTasks.length) {
+                    setData(prev => { 
+                        if(prev) {
+                            prev.coachPlan = newTasks; 
+                            prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+                        }
+                        return {
+                            coachPlan: newTasks,
+                            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+                        };
+                    });
+                    showToastRef.current('Sugestões geradas!', 'success');
+                } else {
+                    showToastRef.current('Nenhuma sugestão necessária.', 'info');
+                }
 
-            collectedMetrics.forEach((metric, i) => {
-                const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
-                generationTimeoutsRef.current.push(t);
-            });
-            setCoachLoading(false);
-            // LOGIC-TIMEOUT-NULL FIX: zerar a ref após a execução para não manter
-            // um ID de timeout expirado que mascararia novos agendamentos.
-            timeoutRef.current = null;
+                collectedMetrics.forEach((metric, i) => {
+                    const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                    generationTimeoutsRef.current.push(t);
+                });
+            } catch (err) {
+                console.error('[Coach] Erro ao gerar metas do Coach:', err);
+                showToastRef.current('Erro ao calcular recomendações do Coach.', 'error');
+            } finally {
+                setCoachLoading(false);
+                timeoutRef.current = null;
+            }
         }, 1500);
     // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
-    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, categories, history, studyLogs]);
+    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, categories, history, studyLogs, flashcardDecks, flashcardDue]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {
+        clearMcCache();
+        clearUrgencyCache();
+        clearTopicsCache();
         setData(prev => {
             if (prev) {
                 prev.coachPlan = [];
@@ -625,7 +682,7 @@ export default function Coach() {
                             <div className="w-px h-5 bg-white/10 shrink-0" />
                             <QuickStat
                                 label="Tendência"
-                                value={`${normalizedDrift.toFixed(1)}pp`}
+                                value={formattedDrift}
                                 color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
                                 icon={normalizedDrift >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
                             />
@@ -847,7 +904,7 @@ function RaioXDashboard({ data }) {
     const eceValues = sortedLogs.map(log => toFiniteNumber(log?.ece, null)).filter(val => val !== null);
     const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
     const categorySeriesMap = sortedLogs.reduce((acc, log) => {
-        const cat = log?.categoryName || 'Categoria';
+        const cat = log?.categoryName ? String(log.categoryName).trim() : 'Categoria';
         if (!acc[cat]) acc[cat] = [];
         acc[cat].push({
             ts: toFiniteNumber(log?.timestamp),
@@ -885,7 +942,7 @@ function RaioXDashboard({ data }) {
                         {calibrationSummary.map(row => {
                             const op = ops[row.categoryId] || {};
                             const avgBrier = toFiniteNumber(row.avgBrier);
-                            const brierPct = Math.min(100, (avgBrier / 0.35) * 100);
+                            const brierPct = Math.max(0, Math.min(100, (avgBrier / 0.35) * 100));
                             const radius = 14;
                             const circ = 2 * Math.PI * radius;
                             const offset = circ - (brierPct / 100) * circ;
@@ -1087,10 +1144,10 @@ function RaioXDashboard({ data }) {
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                                        <div className="h-full bg-rose-400/80 rounded transition-all duration-500" style={{ width: `${point.brier !== null ? Math.min(100, (point.brier / 0.5) * 100) : 0}%` }} />
+                                        <div className="h-full bg-rose-400/80 rounded transition-all duration-500" style={{ width: `${point.brier !== null ? Math.max(0, Math.min(100, (point.brier / 0.5) * 100)) : 0}%` }} />
                                     </div>
                                     <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                                        <div className="h-full bg-cyan-400/80 rounded transition-all duration-500" style={{ width: `${point.ece !== null ? Math.min(100, (point.ece / 0.3) * 100) : 0}%` }} />
+                                        <div className="h-full bg-cyan-400/80 rounded transition-all duration-500" style={{ width: `${point.ece !== null ? Math.max(0, Math.min(100, (point.ece / 0.3) * 100)) : 0}%` }} />
                                     </div>
                                 </div>
                             </div>

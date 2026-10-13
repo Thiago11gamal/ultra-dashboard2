@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle, Trophy, Activity } from 'lucide-react';
+import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle, Trophy, Activity, CheckCircle2 } from 'lucide-react';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
@@ -33,8 +33,9 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
     const parsed = parseCoachTask({ ...task, text: rawText });
 
+    const isCompleted = parsed.isCompleted || Boolean(task?.completed) || task?.status === 'completed';
     const subjectPart = parsed.subjectRaw;
-    const isPriority = parsed.priority === 'high' || parsed.isSystemAlert;
+    const isPriority = (parsed.priority === 'high' || parsed.isSystemAlert) && !isCompleted;
     const displayAssunto = parsed.topic || rawText || 'Revisão Recomendada';
     const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
     const systemAlertMessage = parsed.isSystemAlert ? parsed.action : null;
@@ -50,9 +51,11 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
     return (
         <div
             className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
-                isPriority 
-                    ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]' 
-                    : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
+                isCompleted
+                    ? 'border-emerald-500/30 border-l-4 sm:border-l-8 border-l-emerald-500 opacity-80 hover:opacity-100'
+                    : isPriority 
+                        ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]' 
+                        : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
             }`}
         >
             {/* Efeitos Visuais de Fundo (Glassmorphism & Cinematic Glow) */}
@@ -68,6 +71,12 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-5 gap-4">
                 <div className="flex flex-col items-start gap-2 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
+                        {isCompleted && (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                <CheckCircle2 size={12} className="shrink-0 text-emerald-400" />
+                                <span>Concluído</span>
+                            </div>
+                        )}
                         {isPriority && (
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 shadow-[0_0_20px_-2px_rgba(225,29,72,0.5)] border border-rose-500/40 shrink-0 relative group/badge">
                                 <div className="absolute inset-0 bg-rose-400/20 blur-md animate-pulse" />
@@ -83,23 +92,25 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                 </div>
                 <button 
                     type="button"
-                    aria-label={`Iniciar estudo: ${displaySubject(subjectPart)}`}
+                    aria-label={`${isCompleted ? 'Revisar' : 'Iniciar'} estudo: ${displaySubject(subjectPart)}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onStartPomodoro(task);
                     }}
                     className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
-                        isPriority 
-                            ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
-                            : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
+                        isCompleted
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-500'
+                            : isPriority 
+                                ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
+                                : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
                     }`}
                 >
-                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Iniciar</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{isCompleted ? 'Revisar' : 'Iniciar'}</span>
                     <Play size={13} fill="currentColor" className="transition-colors" />
                 </button>
             </div>
             <div className="relative z-10 flex-1 mb-5">
-                <h3 className="text-[17px] sm:text-xl font-black text-white leading-[1.2] mb-1.5 tracking-tighter line-clamp-4">
+                <h3 className={`text-[17px] sm:text-xl font-black leading-[1.2] mb-1.5 tracking-tighter line-clamp-4 ${isCompleted ? 'text-slate-400 line-through' : 'text-white'}`}>
                     {displayAssunto}
                 </h3>
                 {systemAlertMessage && (
@@ -118,9 +129,10 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
             </div>
 
             {/* Exposição Visual dos KPIs Matemáticos */}
-            {task.analysis?.monteCarlo && Number.isFinite(Number(task.analysis.monteCarlo.probability)) && (() => {
+            {task.analysis?.monteCarlo && Number.isFinite(Number(task.analysis.monteCarlo.probability ?? task.analysis.monteCarlo.probabilityRaw)) && (() => {
                 // VIS-FIX: probability/volatility ausentes geravam "NaN%" no card.
-                const mcProb = Math.max(0, Math.min(100, Number(task.analysis.monteCarlo.probability)));
+                const rawVal = task.analysis.monteCarlo.probability ?? task.analysis.monteCarlo.probabilityRaw;
+                const mcProb = Math.max(0, Math.min(100, Number(rawVal)));
                 const mcVol = Number.isFinite(Number(task.analysis.monteCarlo.volatility)) ? Number(task.analysis.monteCarlo.volatility) : 0;
                 const highVol = mcVol > 8;
                 return (
@@ -510,6 +522,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                         titlePart = "Cruzeiro Seguro";
                                         descPart = message.replace(/🏆 CRUZEIRO SEGURO:?\s*/i, '');
                                         actionDesc = "Mantenha a constância atual. Resolva apenas as manutenções leves sugeridas para não perder o ritmo.";
+                                    } else {
+                                        type = 'info';
+                                        titlePart = "Revisão Recomendada";
+                                        descPart = message;
+                                        actionDesc = "Acompanhe as metas recomendadas para otimizar sua evolução nesta disciplina.";
                                     }
 
                                     const t = {
@@ -521,7 +538,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
                                     return (
                                         <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-3.5 sm:p-4 rounded-2xl border flex flex-col gap-3 shadow-lg ${t.bg} ${t.border}`}>
-                                            <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
+                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
                                             
                                             <div className="flex items-start gap-3">
                                                 <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
@@ -541,9 +558,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                     <span className={`text-sm sm:text-base font-black tracking-tight leading-snug uppercase ${t.titleColor}`}>
                                                         {titlePart}
                                                     </span>
-                                                    <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
-                                                        {descPart}
-                                                    </span>
+                                                    {descPart && (
+                                                        <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
+                                                            {descPart}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -551,7 +570,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Target size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Number.isFinite(Number(alertTask.analysis.monteCarlo.probabilityRaw)) ? Number(alertTask.analysis.monteCarlo.probabilityRaw) : (alertTask.analysis.monteCarlo.probability || 0))}%</span></span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Number.isFinite(Number(alertTask.analysis.monteCarlo.probabilityRaw)) ? Number(alertTask.analysis.monteCarlo.probabilityRaw) : (Number.isFinite(Number(alertTask.analysis.monteCarlo.probability)) ? Number(alertTask.analysis.monteCarlo.probability) : 0))}%</span></span>
                                                     </div>
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Activity size={12} className={t.iconColor} />
@@ -572,10 +591,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                         <BrainCircuit size={14} className="shrink-0 mt-0.5" />
                                                         <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
                                                     </div>
-                                                    <div className="pt-3 border-t border-white/5 mt-1">
-                                                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
-                                                        <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
-                                                    </div>
+                                                    {actionDesc && (
+                                                        <div className="pt-3 border-t border-white/5 mt-1">
+                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
+                                                            <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

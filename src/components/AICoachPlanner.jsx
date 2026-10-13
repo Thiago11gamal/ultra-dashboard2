@@ -193,10 +193,12 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       const withId = ensureCoachTaskId(t);
       // FIX C-05: usa id explícito se existir; senão usa id estável por índice,
       // evitando fundir duas tarefas distintas com o mesmo texto.
-      const sid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
+      let sid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
       if (seen.has(sid)) {
-        console.warn('[AICoachPlanner] Duplicata detectada, descartando:', sid);
-        return null;
+        sid = `${sid}-dup-${fallbackIndex}`;
+        if (seen.has(sid)) {
+          sid = `${sid}-${Math.random().toString(36).slice(2, 7)}`;
+        }
       }
       seen.add(sid);
       return { ...withId, id: sid };
