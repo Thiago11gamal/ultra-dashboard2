@@ -57,9 +57,9 @@ export default function Evolution() {
     // 1) Se existir targetScore explícito, ele é a meta em pontos
     if (user?.targetScore != null && Number.isFinite(Number(user.targetScore))) {
       let ts = Number(user.targetScore);
-      // Compatibilidade: se o valor está na faixa 0-100 E a escala tem amplitude > 100
-      // provavelmente é um percentual que precisa ser convertido para pontos.
-      if (ts <= 100 && (safeMax - safeMin) > 100) {
+      // Compatibilidade legada: se o valor está estritamente abaixo do piso da escala (ex: default 75 no ENEM com piso 200)
+      // e está na faixa percentual [0, 100], converte para a escala em pontos.
+      if (ts < safeMin && ts >= 0 && ts <= 100 && (safeMax - safeMin) > 0) {
         ts = safeMin + (ts / 100) * (safeMax - safeMin);
       }
       return clamp(ts);

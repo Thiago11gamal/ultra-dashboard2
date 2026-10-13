@@ -157,11 +157,12 @@ function buildPredictiveCompareData(
       const dt = new Date(baseMs + forwardDays * 24 * 60 * 60 * 1000);
       const iso = getDateKey(dt);
 
-      if (!seenDates.has(iso)) {
+      if (iso && !seenDates.has(iso)) {
         seenDates.add(iso);
+        const parts = iso.split('-');
         futurePoints.push({
           date: iso,
-          displayDate: i === steps ? `${iso.split('-')[2]}/${iso.split('-')[1]} ✦` : "",
+          displayDate: (i === steps && parts.length === 3) ? `${parts[2]}/${parts[1]} ✦` : "",
           "Futuro Provável": val,
           "Cenário Range": [bandLow, bandHigh],
           __future: true

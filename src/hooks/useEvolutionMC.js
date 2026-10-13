@@ -94,7 +94,11 @@ export function useEvolutionMC({
 
     // FIX 3B: verificar antes de prosseguir
     if (hist.length < 1) {
-        queueMicrotask(() => setMcLoading(false));
+        queueMicrotask(() => {
+          setMcLoading(false);
+          setMcResult(null);
+          setMcProjectionSeries(null);
+        });
         return;
     }
 

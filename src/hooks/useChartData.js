@@ -321,12 +321,15 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         const datesToUse = sortedDates;
         const dates = datesToUse.map(dateStr => {
             const d = normalizeDate(dateStr);
-            const [, m, day] = dateStr.split('-');
+            const parts = typeof dateStr === 'string' ? dateStr.split('-') : [];
+            const day = parts[2] || '01';
+            const m = parts[1] || '01';
+            const dayOfWeek = (d instanceof Date && !isNaN(d.getTime())) ? d.getDay() : 0;
             return {
                 key: dateStr,
-                dayName: DAY_NAMES[d.getDay()],
+                dayName: DAY_NAMES[dayOfWeek] || '',
                 label: `${day}/${m}`,
-                isWeekend: d.getDay() === 0 || d.getDay() === 6,
+                isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
             };
         });
 

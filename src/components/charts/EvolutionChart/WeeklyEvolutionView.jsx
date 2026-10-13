@@ -11,18 +11,28 @@ import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
 import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
 import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
-const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, stableThreshold = 2 }) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[320px] break-words whitespace-normal">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
-                    Semana de {label}
-                </p>
-                <div className="space-y-3">
-                    {payload.map((entry, idx) => {
-                        const dataKey = String(entry.dataKey || '');
-                        const isDelta = dataKey.startsWith('delta_');
-                        const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
+const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, unit, stableThreshold = 2 }) => {
+    if (!active || !payload || !payload.length) return null;
+
+    const visibleEntries = payload.filter((entry) => {
+        const dataKey = String(entry.dataKey || '');
+        const isDelta = dataKey.startsWith('delta_');
+        const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
+        return !hiddenKeys[baseKey] && entry.value != null;
+    });
+
+    if (visibleEntries.length === 0) return null;
+
+    return (
+        <div className="bg-slate-950/80 border border-white/10 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl min-w-[220px] max-w-[320px] break-words whitespace-normal">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2">
+                Semana de {label}
+            </p>
+            <div className="space-y-3">
+                {visibleEntries.map((entry, idx) => {
+                    const dataKey = String(entry.dataKey || '');
+                    const isDelta = dataKey.startsWith('delta_');
+                    const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
 
                         if (hiddenKeys[baseKey]) return null;
 
@@ -82,8 +92,6 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys, unit, st
                 </div>
             </div>
         );
-    }
-    return null;
 });
 
 const getMondayStr = (dateStr) => {

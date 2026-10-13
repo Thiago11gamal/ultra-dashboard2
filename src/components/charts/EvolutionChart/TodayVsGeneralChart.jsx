@@ -257,7 +257,7 @@ export function TodayVsGeneralChart({
                 latestAcc = Number.isFinite(rawLatest) ? ratioToPoints(pointsToRatio(rawLatest, lMax, lMin), safeMaxScore, safeMinScore) : null;
             }
         }
-        const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, maxScore, minScore) : null;
+        const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, safeMaxScore, safeMinScore) : null;
         return [
             { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 70, rOut: 80 },
             { id: 'month3', label: 'Últimos 90 dias', val: getAcc(buckets.month3), rIn: 82, rOut: 92 },
@@ -366,14 +366,14 @@ export function TodayVsGeneralChart({
                         <PieChart>
                             {temporalMetrics.map((metric) => {
                                 const isNull = metric.val == null;
-                                const safeMin = Number(minScore) || 0;
-                                const val = isNull ? 0 : Math.max(safeMin, Math.min(metric.val, safeMax));
+                                const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+                                const val = isNull ? safeMin : Math.max(safeMin, Math.min(metric.val, safeMax));
                                 const arcColor = isNull ? 'transparent' : getColor(metric.val);
                                 const scaleRange = Math.max(1e-9, safeMax - safeMin);
-                                const arcVal = Math.max(0, val - safeMin);
+                                const arcVal = isNull ? 0 : Math.max(0, val - safeMin);
                                 const arcData = [
                                     { name: metric.label, value: arcVal, trueValue: metric.val, baseColor: arcColor },
-                                    { name: `${metric.label} (Restante)`, value: scaleRange - arcVal, trueValue: null, baseColor: arcColor }
+                                    { name: `${metric.label} (Restante)`, value: Math.max(0, scaleRange - arcVal), trueValue: null, baseColor: arcColor }
                                 ];
                                 return (
                                     <Pie

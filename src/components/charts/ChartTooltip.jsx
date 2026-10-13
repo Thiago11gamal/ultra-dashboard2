@@ -2,6 +2,7 @@ import React from 'react';
 // ✅ LOTE-04 FIX: CHART_COLORS removido — nunca era usado e o módulo
 // utils/chartConfig não existe no pacote (risco de quebra de build).
 import { formatValue } from '../../utils/scoreHelper';
+import { formatDatePtBR } from '../../utils/dateHelper';
 
 export const ChartTooltip = ({ active, payload, label, isCompare = false, chartData = [], unit = '%', maxScore = 100, minScore = 0 }) => {
     const safeMax = Math.max(1, Number(maxScore) || 100);
@@ -11,10 +12,19 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
 
     const currentData = payload?.[0]?.payload || (Array.isArray(chartData) ? chartData.find(d => d.displayDate === label || d.date === label) : null);
 
+    const displayHeaderDate = React.useMemo(() => {
+        if (!label) return '';
+        if (typeof label === 'string' && /^\d{4}-\d{2}-\d{2}/.test(label)) {
+            const formatted = formatDatePtBR(label);
+            return formatted !== '--/--/----' ? formatted : label;
+        }
+        return String(label);
+    }, [label]);
+
     return (
         <div className="bg-slate-900/90 border border-white/10 p-4 rounded-xl shadow-2xl text-sm w-[90vw] sm:w-[380px] max-w-[calc(100vw-2rem)] sm:max-w-sm z-50 backdrop-blur-xl pointer-events-none transition-transform duration-200 overflow-hidden">
             <p className="text-slate-300 mb-3 font-bold border-b border-white/10 pb-2 flex items-center justify-between">
-                <span>📅 {label}</span>
+                <span>📅 {displayHeaderDate}</span>
             </p>
             <div className="space-y-3 max-h-[65vh] overflow-y-auto custom-scrollbar pointer-events-auto pr-1">
                 {payload

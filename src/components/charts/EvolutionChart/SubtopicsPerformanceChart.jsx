@@ -30,7 +30,11 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
     const safeFix = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v).toFixed(d) : "0");
     
     if (active && payload && payload.length) {
-        const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
+        const sortedPayload = [...payload].sort((a, b) => {
+            const valA = Number.isFinite(Number(a?.value)) ? Number(a.value) : -Infinity;
+            const valB = Number.isFinite(Number(b?.value)) ? Number(b.value) : -Infinity;
+            return valB - valA;
+        });
 
         return (
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
@@ -44,7 +48,7 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                   return (
                     <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 border-b border-white/10 pb-2 flex justify-between items-center">
                       <span>📅 {formattedLabel}</span>
-                      <span>Meta: {targetScorePct.toFixed(1)}%</span>
+                      <span>Meta: {safeFix(targetScorePct, 1)}%</span>
                     </p>
                   );
                 })()}
