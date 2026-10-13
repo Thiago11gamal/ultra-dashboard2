@@ -11,10 +11,10 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
     }, [categories]);
 
     // Calculate Pareto Data
-    const { topEnemies, totalLostPoints } = useMemo(() => {
+    const { topEnemies, totalLostPoints, recoveryPercent } = useMemo(() => {
         let allTopics = [];
 
-        if (safeCategories.length === 0) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0 };
+        if (safeCategories.length === 0) return { topEnemies: [], totalLostPoints: 0, hiddenOpportunities: 0, recoveryPercent: 0 };
 
         safeCategories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
@@ -114,10 +114,15 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
             }
         });
 
+        const calculatedRecoveryPercent = totalMissedGlobal > 0
+            ? Math.round((cumulative / totalMissedGlobal) * 100)
+            : 0;
+
         return {
             topEnemies: enemies,
             totalLostPoints: totalMissedGlobal,
-            hiddenOpportunities: others.length 
+            hiddenOpportunities: others.length,
+            recoveryPercent: calculatedRecoveryPercent
         };
 
     }, [safeCategories, globalMaxScore]);
@@ -142,7 +147,7 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
                             const impactPercent = Math.min(100, Math.max(2, Math.round((item.weightedMissed / maxImpact) * 100)));
 
                             return (
-                                <div key={idx} className="bg-slate-950/40 backdrop-blur-sm p-2.5 pb-3.5 rounded-xl border border-white/5 flex flex-col group hover:border-red-500/30 hover:bg-slate-900/60 transition-all duration-300 relative overflow-hidden mb-2 shadow-xl">
+                                <div key={`${item.category}-${item.topic}`} className="bg-slate-950/40 backdrop-blur-sm p-2.5 pb-3.5 rounded-xl border border-white/5 flex flex-col group hover:border-red-500/30 hover:bg-slate-900/60 transition-all duration-300 relative overflow-hidden mb-2 shadow-xl">
                                     {/* Glass Impact Bar */}
                                     <div className="absolute left-0 right-[140px] bottom-0 h-1.5 bg-white/5 overflow-hidden">
                                         <div
@@ -207,7 +212,7 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
                             </div>
 
                             <h4 className="text-sm font-black text-white leading-snug mb-1">
-                                Recupere <span className="text-rose-500 text-lg">{Math.round((topEnemies.reduce((a, b) => a + (b.weightedMissed || 0), 0) / (totalLostPoints || 1)) * 100)}%</span> dos seus pontos perdidos.
+                                Recupere <span className="text-rose-500 text-lg">{recoveryPercent}%</span> dos seus pontos perdidos.
                             </h4>
                             
                             <p className="text-slate-400 text-[10px] leading-relaxed">

@@ -72,6 +72,14 @@ const SECTIONS = [
     }
 ];
 
+const getSidebarExtra = ({ isMeuPainel, isCronometro, isCoach, isAi, isPomodoroRunning }) => {
+    if (isMeuPainel) return '(Início)';
+    if (isCronometro) return isPomodoroRunning ? '(Em Foco ⏱️)' : '(Timer)';
+    if (isCoach) return '(Mentor IA 🧠)';
+    if (isAi) return '(IA)';
+    return null;
+};
+
 const Sidebar = React.memo(function Sidebar({
     onOpenHelp,
     isOpen,
@@ -494,16 +502,8 @@ const Sidebar = React.memo(function Sidebar({
                                                     closeMobileSidebar();
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                    const extra = isMeuPainel 
-                                                        ? '(Início)' 
-                                                        : isCronometro 
-                                                            ? (isPomodoroRunning ? '(Em Foco ⏱️)' : '(Timer)') 
-                                                            : isCoach
-                                                                ? '(Mentor IA 🧠)'
-                                                                : item.isAi 
-                                                                    ? '(IA)' 
-                                                                    : null;
-                                                    handleTooltipEnter(e, item, extra);
+                                                    const extra = getSidebarExtra({ isMeuPainel, isCronometro, isCoach, isAi: item.isAi, isPomodoroRunning });
+                                                    handleTooltipEnter(e, item, extra); // ✅ Chamada única
                                                 }}
                                                 onMouseLeave={handleTooltipLeave}
                                             >
@@ -514,7 +514,8 @@ const Sidebar = React.memo(function Sidebar({
                                                     )}
                                                 </div>
                                                 <div className="sidebar-item-text">
-                                                    <span className="sidebar-item-label">{item.label}</span>
+                                                    <span className="sidebar-item-label">{item.label}</span> {/* ✅ Label único */}
+                                                    {isCronometro && isPomodoroRunning && <span className="cronometro-badge">Em foco</span>}
                                                     {isMeuPainel && isActive && (
                                                         <span className="meu-painel-badge">Início</span>
                                                     )}
@@ -530,14 +531,9 @@ const Sidebar = React.memo(function Sidebar({
                                                     {!isCoach && item.isAi && (
                                                         <span className="ai-item-badge">IA</span>
                                                     )}
-                                                    {isCronometro && (
+                                                    {isCronometro && !isPomodoroRunning && isActive && (
                                                         <div className="flex items-center gap-1.5 ml-auto">
-                                                            {isPomodoroRunning && (
-                                                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Sessão em andamento" />
-                                                            )}
-                                                            {isActive && (
-                                                                <span className="cronometro-badge">Foco</span>
-                                                            )}
+                                                            <span className="cronometro-badge">Foco</span>
                                                         </div>
                                                     )}
                                                 </div>

@@ -1,11 +1,11 @@
-canvas {
+.login-screen canvas {
     position: absolute;
     top: 0;
     left: 0;
     z-index: 0;
 }
 
-.container {
+.login-container {
     width: 1100px;
     height: 650px;
     display: flex;
@@ -226,7 +226,7 @@ canvas {
 }
 
 @media(max-width:1000px) {
-    .container {
+    .login-container {
         flex-direction: column;
         height: auto;
         width: 95%;

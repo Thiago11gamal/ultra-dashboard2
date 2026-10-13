@@ -114,7 +114,7 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
                 <div className="relative group w-full sm:w-auto p-1">
                     <div className="absolute inset-1 bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-none" />
                     <select
-                        value={selectedCategoryId}
+                        value={effectiveCategoryId || ''}
                         onChange={(e) => setSelectedCategoryId(e.target.value)}
                         className="relative w-full appearance-none bg-slate-900/90 border-2 border-slate-700/50 rounded-none px-5 py-2.5 pr-12 text-sm font-semibold text-white focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all cursor-pointer min-w-[220px] shadow-lg shadow-black/20 hover:border-slate-500/50 hover:bg-slate-800/90 leading-relaxed"
                         style={{

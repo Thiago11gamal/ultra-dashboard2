@@ -172,7 +172,7 @@ export default function Login() {
     const passwordStrength = getPasswordStrength(password);
 
     return (
-        <div style={{
+        <div className="login-screen" style={{
             fontFamily: "'Segoe UI', sans-serif",
             backgroundColor: "#0b1120",
             background: "radial-gradient(circle at 20% 20%,#1e3a8a,#0b1120 60%)",
@@ -184,7 +184,7 @@ export default function Login() {
             justifyContent: "center",
             position: "relative"
         }}>
-            <div className="container" role="main" aria-label="Autenticação Método Arraia">
+            <div className="login-container" role="main" aria-label="Autenticação Método Arraia">
                 <div className="left">
                     <img src={logo} alt="Método Arraia" className="manta-logo-img" style={{
                         width: '320px',
