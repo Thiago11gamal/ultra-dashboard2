@@ -24,24 +24,9 @@ export const createContestSlice = (set) => ({
 
         if (prevId !== targetId) {
             if (state.appState.pomodoro?.activeSubject) {
-                const accMinutes = state.appState.pomodoro.accumulatedMinutes || 0;
-                if (accMinutes > 0) {
-                    const prevData = state.appState.contests[prevId];
-                    if (prevData) {
-                        const subject = state.appState.pomodoro.activeSubject;
-                        if (subject?.categoryId) {
-                            const cats = Array.isArray(prevData.categories)
-                                ? prevData.categories
-                                : Object.values(prevData.categories || {});
-                            const cat = cats.find(c => c && c.id === subject.categoryId);
-                            if (cat) {
-                                cat.totalMinutes = (cat.totalMinutes || 0) + accMinutes;
-                            }
-                        }
-                    }
-                }
                 state.appState.pomodoro = { ...RESET_POMODORO };
                 try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
             }
 
             state.appState.activeId = targetId;

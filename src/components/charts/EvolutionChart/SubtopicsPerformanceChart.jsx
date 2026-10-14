@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
-import { toArray } from "../../../utils/evolutionGuards";
+import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
@@ -39,7 +39,8 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
         return (
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
                 {(() => {
-                  const parsedLabel = parseNoonLocal(label) || new Date(label);
+                  const candidate = typeof label === 'number' ? new Date(label) : parseNoonLocal(label);
+                  const parsedLabel = Number.isFinite(candidate?.getTime?.()) ? candidate : new Date(label);
                 
                   const formattedLabel = Number.isFinite(parsedLabel?.getTime?.())
                     ? `${String(parsedLabel.getDate()).padStart(2, '0')}/${String(parsedLabel.getMonth() + 1).padStart(2, '0')}`
@@ -56,8 +57,8 @@ const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }
                     {sortedPayload.map((entry, index) => {
                         const pct = Math.max(0, Math.min(100, entry.value));
                         const topicKey = entry.dataKey;
-                        const total = entry.payload[`${topicKey}_total`];
-                        const correct = entry.payload[`${topicKey}_correct`];
+                        const total = Math.round(Number(entry.payload[`${topicKey}_total`]) || 0);
+                        const correct = Math.round(Number(entry.payload[`${topicKey}_correct`]) || 0);
                         const delta = entry.payload[`${topicKey}_delta`];
                         
                         const isTargetMet = pct >= targetScorePct;
@@ -180,7 +181,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
-                const d = normalizeDate(h?.date || h?.createdAt);
+                const d = normalizeDate(getHistoryDate(h));
                 return d && d.getTime() >= limitMs;
             });
 
@@ -205,8 +206,8 @@ export const SubtopicsPerformanceChart = React.memo(({
                     }
                     if (total === 0) return;
                     
-                    const rawC = Number(t.correct);
-                    let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
+                    const hasValidC = !t.isPercentage && t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '';
+                    let correctCount = hasValidC && Number.isFinite(Number(t.correct)) ? Number(t.correct) : NaN;
 
                     if (!Number.isFinite(correctCount)) {
                         const rawScore = getSafeScore(t, catMax, catMin);
@@ -268,19 +269,20 @@ export const SubtopicsPerformanceChart = React.memo(({
 
             const recentHistory = history.filter(h => {
                 if (!limitMs) return true;
-                const d = normalizeDate(h?.date || h?.createdAt);
+                const d = normalizeDate(getHistoryDate(h));
                 return d && d.getTime() >= limitMs;
             });
 
             for (const h of recentHistory) {
-                const d = normalizeDate(h?.date || h?.createdAt);
+                const d = normalizeDate(getHistoryDate(h));
                 if (!d) continue;
                 const dateKey = getDateKey(d);
                 if (!dateKey) continue;
                 const dateLabel = formatDisplayDate(dateKey);
+                const dayNoonMs = parseNoonLocal(dateKey)?.getTime() ?? d.getTime();
 
                 if (!dateMap[dateKey]) {
-                    dateMap[dateKey] = { dateLabel, originalDate: d.getTime() };
+                    dateMap[dateKey] = { dateLabel, originalDate: dayNoonMs };
                 }
 
                 toArray(h.topics).forEach(t => {
@@ -298,8 +300,8 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
 
-                    const rawC = Number(t.correct);
-                    let correct = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
+                    const hasValidC = !t.isPercentage && t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '';
+                    let correct = hasValidC && Number.isFinite(Number(t.correct)) ? Number(t.correct) : NaN;
 
                     if (!Number.isFinite(correct)) {
                         const rawScore = getSafeScore(t, catMax, catMin);
@@ -437,7 +439,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                                     <YAxis
                                         type="category"
-                                        dataKey="name"
+                                        dataKey="fullName"
                                         stroke="#cbd5e1"
                                         tick={(props) => {
                                             const { x, y, payload } = props;
@@ -531,7 +533,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                                             axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                             tickLine={false}
                                             tickFormatter={(val) => {
-                                                const d = parseNoonLocal(val) || new Date(val);
+                                                const candidate = typeof val === 'number' ? new Date(val) : parseNoonLocal(val);
+                                                const d = Number.isFinite(candidate?.getTime?.()) ? candidate : new Date(val);
+                                                if (!Number.isFinite(d?.getTime?.())) return String(val ?? '');
                                                 return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
                                             }}
                                         />

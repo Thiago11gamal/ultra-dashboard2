@@ -398,7 +398,8 @@ export function SessionFocusPanel({
     timeLeft,
     totalTime,
     targetCycles,
-    completedCycles
+    completedCycles,
+    settings
 }) {
     const [showMoreStats, setShowMoreStats] = useState(false);
 
@@ -509,7 +510,7 @@ export function SessionFocusPanel({
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="text-center">
                                         <div className="text-lg font-black text-white">
-                                            {completedCycles * 25}min
+                                            {completedCycles * (Math.max(1, Number(settings?.pomodoroWork) || 25))}min
                                         </div>
                                         <div className="text-[9px] text-slate-500 uppercase font-medium">Foco total</div>
                                     </div>

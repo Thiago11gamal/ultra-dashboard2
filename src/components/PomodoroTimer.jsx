@@ -261,21 +261,33 @@ function PomodoroTimer({
     }, [isRunning, timeLeft, mode, sessions, targetCycles, completedCycles, safeSettings, onTimerStateChange]);
 
     const timeRef = useRef(timeLeft);
+    const handlePhaseEndRef = useRef(null);
 
     // ✅ RESTORE DE SESSÃO APÓS RELOAD
     useEffect(() => {
         try {
             const endsAt = Number(localStorage.getItem('pomodoro-endsAt'));
-            if (endsAt && endsAt > Date.now()) {
+            if (!endsAt) return;
+            const currentSpeed = speedRef.current || 1;
+            const now = Date.now();
+            if (endsAt > now) {
                 endsAtRef.current = endsAt;
-                const remaining = Math.round((endsAt - Date.now()) / 1000);
+                const remaining = Math.max(0, Math.round(((endsAt - now) * currentSpeed) / 1000));
                 setTimeLeft(remaining);
                 stateRefs.current.timeLeft = remaining;
                 stateRefs.current.isRunning = true;
                 setIsRunning(true);
                 setPomodoroRunning(true);
+            } else {
+                endsAtRef.current = null;
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                setTimeLeft(0);
+                stateRefs.current.timeLeft = 0;
+                handlePhaseEndRef.current?.();
             }
-        } catch {}
+        } catch (err) {
+            console.warn('[PomodoroTimer] Falha ao restaurar endsAt:', err);
+        }
     }, [setPomodoroRunning]);
 
     const [syncChannel] = useState(() => {
@@ -431,8 +443,10 @@ function PomodoroTimer({
         mode
     });
     const transitionLockRef = useRef(0);
+    const hasFlushedRef = useRef(false);
 
     const flushPendingStudyTime = useCallback((subjectOverride = null) => {
+        if (hasFlushedRef.current) return;
         const subjectSnapshot = subjectOverride || activeSubjectRef.current;
         if (!subjectSnapshot) return;
 
@@ -454,7 +468,8 @@ function PomodoroTimer({
 
         minutes = Number.isFinite(minutes) ? Number(minutes.toFixed(2)) : 0;
 
-        if (minutes > 0 && Number.isFinite(minutes)) {
+        if (minutes >= 0.25 && Number.isFinite(minutes)) {
+            hasFlushedRef.current = true;
             safeOnUpdateStudyTime(
                 subjectSnapshot.categoryId,
                 minutes,
@@ -466,6 +481,8 @@ function PomodoroTimer({
         }
 
         const totalWorkSeconds = (Number(safeSettings.pomodoroWork) || 25) * 60;
+        timeRef.current = totalWorkSeconds;
+        stateRefs.current.timeLeft = totalWorkSeconds;
         prevTaskStateRef.current = {
             subject: null,
             accum: 0,
@@ -496,7 +513,7 @@ function PomodoroTimer({
     useEffect(() => {
         const prev = prevTaskStateRef.current;
         if (prev.subject && activeSubject?.taskId !== prev.subject.taskId) {
-            let lostMinutes = prev.accum;
+            let lostMinutes = 0;
             if (prev.mode === 'work') {
                 const totalWorkSeconds = safeSettings.pomodoroWork * 60;
                 const safePrevTime = Number.isFinite(Number(prev.time))
@@ -506,7 +523,7 @@ function PomodoroTimer({
                     (Math.max(0, totalWorkSeconds - safePrevTime) / 60).toFixed(2)
                 );
             }
-            if (lostMinutes > 0 && !Number.isNaN(lostMinutes)) {
+            if (lostMinutes >= 0.25 && !Number.isNaN(lostMinutes)) {
                 safeOnUpdateStudyTime(
                     prev.subject.categoryId,
                     lostMinutes,
@@ -618,24 +635,38 @@ function PomodoroTimer({
                 } catch (error) {
                     console.error('[PomodoroTimer] Failed to reset progress:', error);
                 }
-            }
 
-            setTimeLeft(newTotalTime);
-            stateRefs.current.timeLeft = newTotalTime;
-            stateRefs.current.lastTaskId = activeSubject?.taskId;
+                setTimeLeft(newTotalTime);
+                stateRefs.current.timeLeft = newTotalTime;
+                stateRefs.current.lastTaskId = activeSubject?.taskId;
 
-            if (clockRef.current) {
-                const mins = Math.floor(newTotalTime / 60);
-                const secs = newTotalTime % 60;
-                clockRef.current.textContent =
-                    `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-            }
+                if (clockRef.current) {
+                    const mins = Math.floor(newTotalTime / 60);
+                    const secs = newTotalTime % 60;
+                    clockRef.current.textContent =
+                        `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }
 
-            if (svgCircleRef.current) {
-                svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE;
+                if (svgCircleRef.current) {
+                    svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE;
+                }
+            } else if (!stateRefs.current.isRunning && !isRunning) {
+                stateRefs.current.lastTaskId = activeSubject?.taskId;
+                const prevTotal = stateRefs.current.lastTotalTime || newTotalTime;
+                if (stateRefs.current.timeLeft === prevTotal || stateRefs.current.timeLeft === undefined) {
+                    setTimeLeft(newTotalTime);
+                    stateRefs.current.timeLeft = newTotalTime;
+                    if (clockRef.current) {
+                        const mins = Math.floor(newTotalTime / 60);
+                        const secs = newTotalTime % 60;
+                        clockRef.current.textContent =
+                            `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    }
+                }
+                stateRefs.current.lastTotalTime = newTotalTime;
             }
         }
-    }, [activeSubject?.taskId, mode, safeSettings, isTransitioning, savedState]);
+    }, [activeSubject?.taskId, mode, safeSettings, isTransitioning, savedState, isRunning]);
 
     React.useLayoutEffect(() => {
         if (!isMountedRef.current) return;
@@ -700,7 +731,8 @@ function PomodoroTimer({
         activeSubjectRef,
         clockRef,
         setIsMuted,
-        isMutedRef
+        isMutedRef,
+        endsAtRef
     });
 
     const savePomodoroState = useCallback((overrides = {}) => {
@@ -729,6 +761,7 @@ function PomodoroTimer({
 
     useEffect(() => {
         return () => {
+            if (hasFlushedRef.current) return;
             const currentSub = activeSubjectRef.current;
             if (currentSub && stateRefs.current.mode === 'work') {
                 const totalWorkSeconds = (safeSettings.pomodoroWork || 25) * 60;
@@ -736,6 +769,7 @@ function PomodoroTimer({
                 const elapsedSec = Math.max(0, totalWorkSeconds - currentTime);
                 const elapsedMins = Number((elapsedSec / 60).toFixed(2));
                 if (elapsedMins >= 0.25) {
+                    hasFlushedRef.current = true;
                     safeOnUpdateStudyTime(currentSub.categoryId, elapsedMins, currentSub.taskId);
                     if (typeof onSessionComplete === 'function') {
                         onSessionComplete();
@@ -776,6 +810,7 @@ function PomodoroTimer({
         }
 
         isTransitioningRef.current = true;
+        hasFlushedRef.current = false;
         setIsTransitioning(true);
         setIsRunning(false);
         stateRefs.current.isRunning = false;
@@ -906,8 +941,11 @@ function PomodoroTimer({
             transitionTimeoutRef.current = null;
 
             if (isEndingCycle) {
+                const liveSettings = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.settings || safeSettings;
+                const workMins = Number(liveSettings?.pomodoroWork) || 25;
+                const seriesTotalMinutes = currentTarget * workMins;
                 safeOnFullCycleComplete(
-                    Number.isFinite(savedMinutes) ? savedMinutes : 0,
+                    seriesTotalMinutes,
                     source === 'natural'
                 );
             }
@@ -939,6 +977,7 @@ function PomodoroTimer({
             }
         }
     }, [transitionSession]);
+    handlePhaseEndRef.current = handlePhaseEnd;
 
     // ✅ TIMER SEM DRIFT (Sobrevive a abas em background e reload)
     useEffect(() => {
@@ -1093,6 +1132,7 @@ function PomodoroTimer({
 
     // ✅ FUNÇÕES DE CONTROLE ATUALIZADAS
     const startTimer = useCallback(() => {
+        hasFlushedRef.current = false;
         const currentLeft = stateRefs.current.timeLeft > 0 ? stateRefs.current.timeLeft : timeLeft;
         const currentSpeed = speedRef.current || 1;
         endsAtRef.current = Date.now() + (currentLeft * 1000) / currentSpeed;
@@ -1103,7 +1143,9 @@ function PomodoroTimer({
         savePomodoroState({ isRunning: true, timeLeft: currentLeft });
         postSync({
             type: 'START_SESSION',
-            timeLeft: currentLeft
+            timeLeft: currentLeft,
+            endsAt: endsAtRef.current,
+            speed: currentSpeed
         });
     }, [timeLeft, postSync, savePomodoroState, setPomodoroRunning]);
 

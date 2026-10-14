@@ -2,7 +2,8 @@ import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
 export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, sub }) {
-    const rawSub = sub != null ? Number(sub) : Number.NaN;
+    const hasSub = sub !== null && sub !== undefined && typeof sub !== 'boolean' && String(sub).trim() !== '';
+    const rawSub = hasSub ? Number(sub) : Number.NaN;
     const safeSub = Number.isFinite(rawSub) ? Number(rawSub.toFixed(2)) : Number.NaN;
     return (
         <div 

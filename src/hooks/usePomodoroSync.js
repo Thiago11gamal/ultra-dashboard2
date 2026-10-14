@@ -33,7 +33,8 @@ export function usePomodoroSync({
     activeSubjectRef,
     clockRef,
     setIsMuted,
-    isMutedRef
+    isMutedRef,
+    endsAtRef
 }) {
     const syncPomodoroState = useAppStore(state => state.syncPomodoroState);
 
@@ -96,11 +97,28 @@ export function usePomodoroSync({
                         setTimeLeft(incomingTime);
                     }
 
+                    const incomingEndsAt = Number(data.endsAt);
+                    if (endsAtRef) {
+                        if (Number.isFinite(incomingEndsAt) && incomingEndsAt > Date.now()) {
+                            endsAtRef.current = incomingEndsAt;
+                        } else if (Number.isFinite(incomingTime) && incomingTime > 0) {
+                            const currentSpeed = speedRef?.current || 1;
+                            endsAtRef.current = Date.now() + (incomingTime * 1000) / currentSpeed;
+                        }
+                        try {
+                            if (endsAtRef.current) {
+                                localStorage.setItem('pomodoro-endsAt', String(endsAtRef.current));
+                            }
+                        } catch {}
+                    }
+
                     showToast('Protocolo ativo em outra aba 🖥️', 'info');
                     break;
                 }
 
                 case 'PAUSE_SESSION': {
+                    if (endsAtRef) endsAtRef.current = null;
+                    try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
                     setIsRunning(false);
                     stateRefs.current.isRunning = false;
                     syncPomodoroState({ isRunning: false });
@@ -144,6 +162,8 @@ export function usePomodoroSync({
                 case 'PHASE_SKIP':
                 case 'PHASE_COMPLETE':
                 case 'PHASE_REWIND': {
+                    if (endsAtRef) endsAtRef.current = null;
+                    try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
                     setIsRunning(false);
                     stateRefs.current.isRunning = false;
 
@@ -248,7 +268,8 @@ export function usePomodoroSync({
         activeSubjectRef,
         clockRef,
         setIsMuted,
-        isMutedRef
+        isMutedRef,
+        endsAtRef
     ]);
 }
 

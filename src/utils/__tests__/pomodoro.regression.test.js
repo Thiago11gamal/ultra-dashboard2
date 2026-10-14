@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createPomodoroSlice } from '../../store/slices/createPomodoroSlice';
 import { formatTime } from '../pomodoroHelpers';
-import { calculateStudyStreak } from '../analytics';
+import { calculateStudyStreak, countPomodorosToday } from '../analytics';
 
 describe('Pomodoro Slice - Skip and Phase Progression Regressions', () => {
   const createMockStore = () => {
@@ -107,5 +107,41 @@ describe('Pomodoro Analytics - Streak Persistence', () => {
 
     expect(streak.current).toBeGreaterThanOrEqual(1);
     expect(streak.isActive).toBe(true);
+  });
+});
+
+describe('Pomodoro Slice - Unhydrated State Safety & Contest Switching', () => {
+  it('setPomodoroActiveSubject não quebra quando pomodoro está undefined no store', () => {
+    let state = {
+      appState: {
+        activeId: 'contest-1',
+        pomodoro: undefined
+      }
+    };
+    const set = (updater) => {
+      if (typeof updater === 'function') updater(state);
+      else Object.assign(state, updater);
+    };
+    const get = () => state;
+    const slice = createPomodoroSlice(set, get);
+
+    expect(() => slice.setPomodoroActiveSubject(null)).not.toThrow();
+  });
+
+  it('countPomodorosToday não duplica a contagem de ciclos já salvos em studyLogs', () => {
+    const now = new Date().toISOString();
+    // 2 ciclos de 25 min concluídos e já registrados nos logs
+    const studyLogs = [
+      { date: now, minutes: 25 },
+      { date: now, minutes: 25 }
+    ];
+
+    // Com extraCompletedCycles = 0 (correção do bug)
+    const count = countPomodorosToday(studyLogs, 25, 0);
+    expect(count).toBe(2);
+
+    // Se extraCompletedCycles fosse erroneamente passado como 2, o resultado seria 4 (bug corrigido)
+    const countWithBug = countPomodorosToday(studyLogs, 25, 2);
+    expect(countWithBug).toBe(4);
   });
 });

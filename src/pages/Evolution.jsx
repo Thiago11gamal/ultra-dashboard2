@@ -4,6 +4,7 @@ import EvolutionChart from '../components/EvolutionChart';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
+import { normalizeProbability } from '../utils/evolutionGuards';
 
 const EMPTY_ARRAY = Object.freeze([]);
 
@@ -45,17 +46,19 @@ export default function Evolution() {
 
   const hasEvolutionData = (Array.isArray(safeCategories) && safeCategories.some(category => {
     const h = category?.simuladoStats?.history;
-    return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
+    const list = Array.isArray(h) ? h : Object.values(h || {});
+    return list.some(entry => entry && (Number(entry.total) > 0 || entry.score != null));
   })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.length > 0);
 
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova
   const targetScorePoints = React.useMemo(() => {
-    const safeMax = Math.max(1, Number(maxScore) || 100);
-    const safeMin = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMax) : 0;
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 100);
     const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number.isFinite(Number(value)) ? Number(value) : safeMin));
+    const hasValidNumber = (v) => v !== null && v !== undefined && String(v).trim() !== '' && Number.isFinite(Number(v));
     
     // 1) Se existir targetScore explícito, ele é a meta em pontos
-    if (user?.targetScore != null && Number.isFinite(Number(user.targetScore))) {
+    if (hasValidNumber(user?.targetScore)) {
       let ts = Number(user.targetScore);
       // Compatibilidade legada: se o valor está estritamente abaixo do piso da escala (ex: default 75 no ENEM com piso 200)
       // e está na faixa percentual [0, 100], converte para a escala em pontos.
@@ -66,8 +69,9 @@ export default function Evolution() {
     }
     
     // 2) Fallback: targetProbability é percentual (0-100) e deve virar pontos
-    if (user?.targetProbability != null && Number.isFinite(Number(user.targetProbability))) {
-      return clamp(safeMin + (Number(user.targetProbability) / 100) * (safeMax - safeMin));
+    if (hasValidNumber(user?.targetProbability)) {
+      const pct = normalizeProbability(user.targetProbability);
+      return clamp(safeMin + (pct / 100) * (safeMax - safeMin));
     }
     
     // 3) Default seguro: 80% da escala

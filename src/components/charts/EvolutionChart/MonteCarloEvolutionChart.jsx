@@ -5,9 +5,10 @@ import {
 import { Target, TrendingUp, AlertCircle, Sparkles, Compass } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatDuration, normalizeDate } from '../../../utils/dateHelper';
+import { formatDuration, normalizeDate, getDateKey } from '../../../utils/dateHelper';
 import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
+import { normalizeProbability } from '../../../utils/evolutionGuards';
 
 const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxScore, minScore }) => {
     if (active && payload && payload.length) {
@@ -22,7 +23,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
         const pointLow = dataPoint.ciRange?.[0] ?? pointMean;
         const pointHigh = dataPoint.ciRange?.[1] ?? pointMean;
 
-        const isGood = pointMean >= pointTarget;
+        const isGood = projMean >= pointTarget;
 
         return (
             <div className="bg-slate-950/90 border border-white/15 p-4 rounded-2xl shadow-[0_12px_36px_rgba(0,0,0,0.6)] backdrop-blur-xl min-w-[220px]">
@@ -36,7 +37,7 @@ const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxS
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Nota projetada</span>
                         <div className="flex items-baseline gap-1">
                             <span className={`text-3xl font-black font-mono tracking-tight leading-none ${isGood ? 'text-emerald-400' : 'text-sky-400'}`}>
-                                {unit === 'horas' ? formatDuration(pointMean) : formatValue(pointMean)}
+                                {unit === 'horas' ? formatDuration(projMean) : formatValue(projMean)}
                             </span>
                             <span className="text-sm font-semibold text-slate-500">{unit}</span>
                         </div>
@@ -122,11 +123,19 @@ export const MonteCarloEvolutionChart = ({
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
-        return data
+        const validSorted = data
             .filter(d => d?.date)
             .map(d => ({ ...d, parsedDate: normalizeDate(d.date) }))
             .filter(d => isValid(d.parsedDate))
-            .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
+            .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+        const byDay = new Map();
+        validSorted.forEach(item => {
+            const dayKey = getDateKey(item.parsedDate) || String(item.parsedDate.getTime());
+            byDay.set(dayKey, item);
+        });
+
+        return Array.from(byDay.values())
             .map(d => {
                 let displayDate = d.date;
                 let fullDate = d.date;
@@ -135,45 +144,40 @@ export const MonteCarloEvolutionChart = ({
                 fullDate = format(d.parsedDate, 'dd MMM yyyy', { locale: ptBR });
 
                 // Sanitização: manter intervalo de confiança dentro do domínio e com ordem válida
-                const meanRaw = (d.mean === null || d.mean === undefined || d.mean === '') ? minScore : (Number.isFinite(Number(d.mean)) ? Number(d.mean) : minScore);
-                const mean = Math.max(minScore, Math.min(maxScore, meanRaw));
+                const meanRaw = (d.mean === null || d.mean === undefined || d.mean === '') ? safeMin : (Number.isFinite(Number(d.mean)) ? Number(d.mean) : safeMin);
+                const mean = Math.max(safeMin, Math.min(safeMax, meanRaw));
                 const rawLow = (d.ci95Low === null || d.ci95Low === undefined || d.ci95Low === '') ? mean : (Number.isFinite(Number(d.ci95Low)) ? Number(d.ci95Low) : mean);
                 const rawHigh = (d.ci95High === null || d.ci95High === undefined || d.ci95High === '') ? mean : (Number.isFinite(Number(d.ci95High)) ? Number(d.ci95High) : mean);
-                const boundedLow = Math.max(minScore, Math.min(maxScore, rawLow));
-                const boundedHigh = Math.max(minScore, Math.min(maxScore, rawHigh));
+                const boundedLow = Math.max(safeMin, Math.min(safeMax, rawLow));
+                const boundedHigh = Math.max(safeMin, Math.min(safeMax, rawHigh));
                 const low = Math.min(boundedLow, boundedHigh);
                 const high = Math.max(boundedLow, boundedHigh);
 
-                let probRaw = Number(d.probability);
-                let probability = 0;
-                if (Number.isFinite(probRaw)) {
-                    if (probRaw > 0 && probRaw <= 1) probRaw = probRaw * 100;
-                    probability = Math.max(0, Math.min(100, probRaw));
-                }
+                const probability = normalizeProbability(d.probability);
 
                 return {
                     ...d,
                     displayDate,
                     fullDate,
                     mean,
-                    projectedMean: (d.projectedMean === null || d.projectedMean === undefined || d.projectedMean === '') ? mean : (Number.isFinite(Number(d.projectedMean)) ? Math.max(minScore, Math.min(maxScore, Number(d.projectedMean))) : mean),
+                    projectedMean: (d.projectedMean === null || d.projectedMean === undefined || d.projectedMean === '') ? mean : (Number.isFinite(Number(d.projectedMean)) ? Math.max(safeMin, Math.min(safeMax, Number(d.projectedMean))) : mean),
                     probability,
                     ciRange: [low, high]
                 };
             });
-    }, [data, minScore, maxScore]);
+    }, [data, safeMin, safeMax]);
 
 
     const scenarioAdjustedData = useMemo(
-        () => applyScenarioAdjustments(formattedData, scenario, maxScore, minScore),
-        [formattedData, scenario, maxScore, minScore]
+        () => applyScenarioAdjustments(formattedData, scenario, safeMax, safeMin),
+        [formattedData, scenario, safeMax, safeMin]
     );
 
     const displayData = useMemo(() => {
         return scenarioAdjustedData;
     }, [scenarioAdjustedData]);
 
-    const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, maxScore, minScore), [scenarioAdjustedData, maxScore, minScore]);
+    const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, safeMax, safeMin), [scenarioAdjustedData, safeMax, safeMin]);
 
     const mcAssumptions = useMemo(() => {
         if (!scenarioAdjustedData.length) return null;
@@ -228,7 +232,7 @@ export const MonteCarloEvolutionChart = ({
     }
 
     return (
-        <div className="w-full min-h-[400px] flex flex-col py-4 mt-2">
+        <div className="relative w-full min-h-[400px] flex flex-col py-4 mt-2">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-2 relative z-10">
                 <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center border border-indigo-500/30 text-indigo-400 shadow-sm">

@@ -1,4 +1,4 @@
-import React, { useId, useState, useRef, useMemo } from 'react';
+import React, { useId, useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -57,6 +57,13 @@ export function EvolutionLineChart({
 
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
     const isLineClicked = useRef(false);
+    const clickTimerRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+        };
+    }, []);
     
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number(maxScore) > safeMinScore ? Number(maxScore) : safeMinScore + 1;
@@ -225,7 +232,8 @@ export function EvolutionLineChart({
 
             if (adjustedY !== undefined && adjustedY !== value) {
                 const { range } = normalizeScoreDomain(minScore, maxScore);
-                const pxPerPct = (viewBox?.height > 0) ? viewBox.height / (range || 1) : 2.5;
+                const chartH = viewBox?.height > 0 ? viewBox.height : 320;
+                const pxPerPct = chartH / (range || 1);
                 offsetPx = (value - adjustedY) * pxPerPct;
             }
 
@@ -233,12 +241,14 @@ export function EvolutionLineChart({
             const boxWidth = Math.max(52, formatted.length * 7 + 20);
             const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 130;
             const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth));
+            const maxY = (viewBox?.y ?? 20) + (viewBox?.height ?? 320) - 12;
+            const safeCenterY = Math.max(12, Math.min(maxY, y + offsetPx));
 
             return (
                 <g style={{ zIndex: 100, transition: 'all 0.3s ease' }}>
                     <rect
                         x={labelX}
-                        y={y - 11 + offsetPx}
+                        y={safeCenterY - 11}
                         width={boxWidth}
                         height={22}
                         rx={8}
@@ -248,10 +258,10 @@ export function EvolutionLineChart({
                         strokeOpacity={0.9}
                         strokeWidth={1.8}
                     />
-                    <circle cx={labelX + 8} cy={y + offsetPx} r={3} fill={displayColor} />
+                    <circle cx={labelX + 8} cy={safeCenterY} r={3} fill={displayColor} />
                     <text 
                         x={labelX + 8 + (boxWidth - 8) / 2} 
-                        y={y + 4 + offsetPx}
+                        y={safeCenterY + 4}
                         fill="#ffffff" 
                         fontSize={10.5} 
                         fontWeight="900" 
@@ -271,8 +281,21 @@ export function EvolutionLineChart({
     const visibleCategories = safeActiveCategories.filter(
       cat => !showOnlyFocus || cat.id === focusSubjectId
     );
+
+    const effectiveHighlightedKey = useMemo(() => {
+        if (!highlightedDataKey) return null;
+        const existsAndHasData = visibleCategories.some(
+            c => c.id === highlightedDataKey && lastValidIndexByCat[c.id] !== undefined
+        );
+        return existsAndHasData ? highlightedDataKey : null;
+    }, [highlightedDataKey, visibleCategories, lastValidIndexByCat]);
+
+    const renderTooltipContent = useCallback(
+        (props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />,
+        [enhancedChartData, unit, maxScore, minScore]
+    );
     
-    if (!enhancedChartData.length || visibleCategories.length === 0) {
+    if (!enhancedChartData.length || visibleCategories.length === 0 || finalPoints.length === 0) {
       return (
         <div className="h-[360px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
           <span className="text-3xl">🔍</span>
@@ -283,7 +306,7 @@ export function EvolutionLineChart({
 
     return (
         <div className="relative h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
-            {highlightedDataKey && (
+            {effectiveHighlightedKey && (
                 <button 
                     type="button" 
                     onClick={() => setHighlightedDataKey(null)}
@@ -298,10 +321,10 @@ export function EvolutionLineChart({
                     data={enhancedChartData} 
                     syncId="evolutionSync"
                     margin={{ top: 20, right: 140, left: 0, bottom: 20 }} 
-                    style={{ outline: 'none', cursor: highlightedDataKey ? 'pointer' : 'default' }} 
+                    style={{ outline: 'none', cursor: effectiveHighlightedKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
                     onClick={() => {
-                        if (highlightedDataKey && !isLineClicked.current) {
+                        if (effectiveHighlightedKey && !isLineClicked.current) {
                             setHighlightedDataKey(null);
                         }
                     }}
@@ -384,7 +407,7 @@ export function EvolutionLineChart({
                     <Tooltip 
                         offset={20}
                         cursor={{ stroke: 'rgba(255, 255, 255, 0.18)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
-                        content={(props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />} 
+                        content={renderTooltipContent} 
                     />
 
                     <Legend 
@@ -401,8 +424,8 @@ export function EvolutionLineChart({
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
                         const lineType = engine?.style || 'linear';
                         // Determine focus state based on category ID rather than dataKey to survive engine changes
-                        const isLegendHighlighted = highlightedDataKey === cat.id;
-                        const isAnyHighlighted = !!highlightedDataKey;
+                        const isLegendHighlighted = effectiveHighlightedKey === cat.id;
+                        const isAnyHighlighted = !!effectiveHighlightedKey;
 
                         const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
                         const hasFocus = showOnlyFocus ? !!focusSubjectId : isAnyHighlighted;
@@ -462,8 +485,9 @@ export function EvolutionLineChart({
                                 activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" isDimmed={hasFocus && !isFocused} onClick={(e) => {
                                     if (e && e.stopPropagation) e.stopPropagation();
                                     isLineClicked.current = true;
-                                    setHighlightedDataKey(cat.id);
-                                    setTimeout(() => { isLineClicked.current = false; }, 50);
+                                    setHighlightedDataKey(prev => prev === cat.id ? null : cat.id);
+                                    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                                    clickTimerRef.current = setTimeout(() => { isLineClicked.current = false; }, 50);
                                 }} />}
                                 style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
                                 isAnimationActive={false}
@@ -471,8 +495,9 @@ export function EvolutionLineChart({
                                     if (e && e.stopPropagation) e.stopPropagation();
                                     if (props && props.nativeEvent && props.nativeEvent.stopPropagation) props.nativeEvent.stopPropagation();
                                     isLineClicked.current = true;
-                                    setHighlightedDataKey(cat.id);
-                                    setTimeout(() => { isLineClicked.current = false; }, 50);
+                                    setHighlightedDataKey(prev => prev === cat.id ? null : cat.id);
+                                    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+                                    clickTimerRef.current = setTimeout(() => { isLineClicked.current = false; }, 50);
                                 }}
                             >
                                 <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />

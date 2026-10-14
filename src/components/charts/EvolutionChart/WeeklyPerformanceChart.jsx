@@ -13,6 +13,7 @@ import {
 import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
 import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper.js';
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
+import { getHistoryDate } from '../../../utils/evolutionGuards.js';
 
 const WeeklyPerformanceChart = ({
     categories = [],
@@ -42,12 +43,12 @@ const WeeklyPerformanceChart = ({
             const dow = formatWeekdayShortPtBR(d);
 
             const dailyLogs = studyLogs.filter(log => {
-                const rawDate = log?.date || log?.createdAt;
+                const rawDate = getHistoryDate(log);
                 if (!rawDate) return false;
                 const logDate = getDateKey(rawDate);
                 if (logDate !== dateKey) return false;
                 if (showOnlyFocus && focusSubjectId) {
-                    return log.categoryId === focusSubjectId;
+                    return String(log.categoryId ?? log.subjectId ?? '') === String(focusSubjectId);
                 }
                 return true;
             });
@@ -64,12 +65,12 @@ const WeeklyPerformanceChart = ({
                 const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
-                    const hDate = getDateKey(h.date || h.createdAt);
+                    const hDate = getDateKey(getHistoryDate(h));
                     if (hDate === dateKey) {
                         let q = Number(h.total) || 0;
                         let corr = 0;
-                        if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
-                            const rawC = Number(h.correct);
+                        if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
+                            const rawC = Math.max(0, Number(h.correct) || 0);
                             corr = Math.min(q > 0 ? q : rawC, Number.isFinite(rawC) ? rawC : 0);
                             if (q === 0) q = corr > 0 ? corr : getSyntheticTotal(catMax);
                         } else {

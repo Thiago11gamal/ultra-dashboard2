@@ -72,8 +72,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 const h = recentHistory[i];
 
                 toArray(h.topics).forEach(t => {
-                    const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
-                    if (!n) return;
+                    const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
+                    if (!n || n.toLowerCase() === 'nenhum') return;
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, total: 0, correct: 0, criticidade: 0 };
 
@@ -84,14 +84,17 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                         return;
                     }
                     
-                    const score = getSafeScore(t, catMax, catMin);
-                    if (!Number.isFinite(score)) return;
                     if (total <= 0) return;
-                    const normalizedScore = Math.max(catMin, Math.min(catMax, score));
-                    
-                    const correctCount = t.isPercentage
-                        ? ((normalizedScore - catMin) / catRange) * total
-                        : (t.correct != null ? Number(t.correct) : ((normalizedScore - catMin) / catRange) * total);
+                    const hasExplicitCorrect = !t.isPercentage && t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '' && Number.isFinite(Number(t.correct));
+                    let correctCount;
+                    if (hasExplicitCorrect) {
+                        correctCount = Number(t.correct);
+                    } else {
+                        const score = getSafeScore(t, catMax, catMin);
+                        if (!Number.isFinite(score)) return;
+                        const normalizedScore = Math.max(catMin, Math.min(catMax, score));
+                        correctCount = ((normalizedScore - catMin) / catRange) * total;
+                    }
 
                     if (!Number.isFinite(correctCount)) return;
                     const safeCorrect = Math.max(0, Math.min(total, correctCount));
@@ -113,7 +116,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
 
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
         const result = Object.values(topicMap)
-            .filter(d => d.criticidade > 0)
+            .filter(d => Math.round(d.criticidade * 10) > 0)
             .sort((a, b) => b.criticidade - a.criticidade);
 
         return result.slice(0, 15).map((item, i, arr) => {
@@ -151,16 +154,38 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 if (t === 0 && h.score != null) {
                     t = getSyntheticTotal(catMax);
                 } else if (t === 0) {
+                    // Fallback: agrega a partir de h.topics se o cabeçalho h não tiver total/score
+                    toArray(h.topics).forEach(tp => {
+                        let tpTot = parseInt(tp.total, 10) || 0;
+                        if (tpTot === 0 && tp.score != null) tpTot = getSyntheticTotal(catMax);
+                        if (tpTot <= 0) return;
+                        const hasTpCorr = !tp.isPercentage && tp.correct !== null && tp.correct !== undefined && String(tp.correct).trim() !== '' && Number.isFinite(Number(tp.correct));
+                        let tpCorr;
+                        if (hasTpCorr) {
+                            tpCorr = Number(tp.correct);
+                        } else {
+                            const tpScore = getSafeScore(tp, catMax, catMin);
+                            if (!Number.isFinite(tpScore)) return;
+                            tpCorr = ((Math.max(catMin, Math.min(catMax, tpScore)) - catMin) / catRange) * tpTot;
+                        }
+                        if (Number.isFinite(tpCorr)) {
+                            total += tpTot;
+                            correct += Math.max(0, Math.min(tpTot, tpCorr));
+                        }
+                    });
                     continue;
                 }
                 
-                const score = getSafeScore(h, catMax, catMin);
-                if (!Number.isFinite(score)) continue;
-                const normalizedScore = Math.max(catMin, Math.min(catMax, score));
-                
-                const correctCount = h.isPercentage
-                    ? ((normalizedScore - catMin) / catRange) * t
-                    : (h.correct != null ? Number(h.correct) : ((normalizedScore - catMin) / catRange) * t);
+                const hasExplicitCorrect = !h.isPercentage && h.correct !== null && h.correct !== undefined && String(h.correct).trim() !== '' && Number.isFinite(Number(h.correct));
+                let correctCount;
+                if (hasExplicitCorrect) {
+                    correctCount = Number(h.correct);
+                } else {
+                    const score = getSafeScore(h, catMax, catMin);
+                    if (!Number.isFinite(score)) continue;
+                    const normalizedScore = Math.max(catMin, Math.min(catMax, score));
+                    correctCount = ((normalizedScore - catMin) / catRange) * t;
+                }
                 
                 if (!Number.isFinite(correctCount)) continue;
                 const safeCorrect = Math.max(0, Math.min(t, correctCount));
@@ -175,7 +200,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             return { name: cat.name, value: criticidade, errors: erroAbsoluto };
         });
 
-        const data = rawData.filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+        const data = rawData.filter(d => Math.round(d.value * 10) > 0).sort((a, b) => b.value - a.value);
         data.forEach(d => { totalCriticidade += d.value; });
 
         return data.slice(0, 10).map((item, i, arr) => {
@@ -298,7 +323,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                 <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 85, left: -5, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 24 ? `${String(v).slice(0, 22)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Bar dataKey="displayValue" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -350,10 +375,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                 <BarChart data={subtopicsData} layout="vertical" margin={{ top: 5, right: 65, left: -5, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="name" stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 34 ? `${String(v).slice(0, 32)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
-                                        const correct = Number(props?.payload?.correct) || 0;
+                                        const correct = Math.round(Number(props?.payload?.correct) || 0);
                                         const errors = Math.max(0, total - correct);
                                         return [`${v} (Índice)`, `${props?.payload?.fullName || 'Assunto'} (${errors} erros)`];
                                     }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />

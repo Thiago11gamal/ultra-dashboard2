@@ -98,12 +98,12 @@ const getMondayStr = (dateStr) => {
     const dt = parseNoonLocal(dateStr);
     // ✅ BUG-3 FIX: parseNoonLocal pode retornar null → guard antes de getTime()
     if (!dt || isNaN(dt.getTime())) return null;
-    const utcDay = dt.getUTCDay();
-    const diff = dt.getUTCDate() - utcDay + (utcDay === 0 ? -6 : 1);
-    dt.setUTCDate(diff);
-    const y = dt.getUTCFullYear();
-    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(dt.getUTCDate()).padStart(2, '0');
+    const dayOfWeek = dt.getDay();
+    const diff = dt.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    dt.setDate(diff);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 };
 
@@ -150,7 +150,15 @@ export const WeeklyEvolutionView = ({
 
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
-        const toSafeKey = (name) => `top_${String(name || '').replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const toSafeKey = (name) => {
+            const clean = String(name || '')
+                .trim()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9_]/g, '_');
+            return `top_${clean}`;
+        };
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
@@ -184,7 +192,8 @@ export const WeeklyEvolutionView = ({
                             }
                         });
                     } else if (h.taskId) {
-                        const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const rawTaskText = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const tName = String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
                         const key = toSafeKey(tName);
                         if (!itemsMap[key]) {
                             itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
@@ -222,8 +231,9 @@ export const WeeklyEvolutionView = ({
 
                 let totalQ = Math.max(0, Number(h.total) || 0);
                 let corr = 0;
-                if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
-                    const rawC = Number(h.correct);
+                if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
+                    const rawC = Math.max(0, Number(h.correct) || 0);
+                    if (totalQ === 0) totalQ = rawC > 0 ? rawC : getSyntheticTotal(cMax);
                     corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
                 } else {
                     const score = getSafeScore(h, cMax, cMin);
@@ -270,8 +280,9 @@ export const WeeklyEvolutionView = ({
 
                             let totalQ = Math.max(0, Number(t.total) || 0);
                             let corr = 0;
-                            if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
-                                const rawC = Number(t.correct);
+                            if (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== '' && !t.isPercentage) {
+                                const rawC = Math.max(0, Number(t.correct) || 0);
+                                if (totalQ === 0) totalQ = rawC > 0 ? rawC : getSyntheticTotal(cMax);
                                 corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
                             } else {
                                 const topicScore = getSafeScore(t, cMax, cMin);
@@ -287,7 +298,8 @@ export const WeeklyEvolutionView = ({
                             weeksTemp[weekStr][tId].correct += corr;
                         });
                     } else if (h.taskId) {
-                        const tName = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const rawTaskText = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const tName = String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
                         const tId = toSafeKey(tName);
                         processHistory([h], tId, cMax, cMin);
                     } else {
@@ -539,6 +551,12 @@ export const WeeklyEvolutionView = ({
                         minScore={minScore}
                         unit={unit}
                     />
+                ) : viewMode === 'variation' && chartData.length < 2 ? (
+                    <div className="h-full flex flex-col items-center justify-center bg-slate-950/40 rounded-3xl border border-slate-800/60 p-6 text-center">
+                        <BarChart3 size={36} className="text-slate-600 mb-2" />
+                        <p className="text-sm font-bold text-slate-300">Semanas consecutivas necessárias</p>
+                        <p className="text-xs text-slate-500 mt-1 max-w-xs">Registre simulados em pelo menos 2 semanas seguidas para calcular o acelerômetro de variação (Delta).</p>
+                    </div>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%" minHeight={320} minWidth={1}>
                         {viewMode === 'evolution' ? (

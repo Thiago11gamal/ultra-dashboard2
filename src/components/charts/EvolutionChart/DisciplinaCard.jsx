@@ -1,7 +1,7 @@
 import React from 'react';
-import { formatValue, getSafeScore } from '../../../utils/scoreHelper';
-import { pointsToPct } from '../../../utils/scoreHelper.conversions';
-import { toDateMs } from '../../../utils/dateHelper';
+import { formatValue, getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
+import { pointsToPct, pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
+import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 
 export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100, minScore = 0 }) {
     const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : (Math.max(1, Number(maxScore) || 100));
@@ -9,38 +9,54 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
     const safeMax = catMax;
     const safeMin = catMin;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
-    const val = Number.isFinite(Number(level)) ? Number(level) : safeMin;
+    const globalMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const globalMax = Math.max(globalMin + 1, Number(maxScore) || 100);
+    const hasLevel = level != null && Number.isFinite(Number(level));
+    const val = hasLevel ? Number(level) : null;
     const effectiveTarget = Number.isFinite(Number(cat?.minCutoff))
         ? Number(cat.minCutoff)
         : (Number.isFinite(Number(target))
             ? (target <= safeMax && target >= safeMin
                 ? Number(target)
-                : safeMin + (target / (Number(maxScore) || 100)) * safeRange)
+                : safeMin + ((Number(target) - globalMin) / (globalMax - globalMin)) * safeRange)
             : safeMin + safeRange * 0.8);
-    const ok = val >= effectiveTarget;
+    const ok = (val ?? safeMin) >= effectiveTarget;
     const midThreshold = safeMin + (effectiveTarget - safeMin) * 0.75;
-    const mid = val >= midThreshold;
+    const mid = (val ?? safeMin) >= midThreshold;
     const statusColor = ok ? '#22c55e' : mid ? '#f59e0b' : '#ef4444';
-    const progressWidth = Math.max(0, Math.min(100, pointsToPct(val, safeMax, safeMin)));
+    const progressWidth = val != null ? Math.max(0, Math.min(100, pointsToPct(val, safeMax, safeMin))) : 0;
 
     let rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
     if (rawVal == null || !Number.isFinite(Number(rawVal))) {
         const historyRaw = cat?.simuladoStats?.history;
         const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
         if (history.length > 0) {
-            let latestEntry = null;
+            let latestDayKey = null;
             let latestMs = -Infinity;
             for (let i = 0; i < history.length; i++) {
                 const h = history[i];
-                const ms = toDateMs(h?.date || h?.createdAt) || 0;
-                if (ms >= latestMs) {
+                const rawDate = h?.date || h?.createdAt || h?.timestamp;
+                const ms = toDateMs(rawDate);
+                if (Number.isFinite(ms) && ms >= latestMs) {
                     latestMs = ms;
-                    latestEntry = h;
+                    latestDayKey = getDateKey(rawDate);
                 }
             }
-            if (latestEntry) {
-                const s = getSafeScore(latestEntry, safeMax, safeMin);
-                if (Number.isFinite(s)) rawVal = s;
+            if (latestDayKey) {
+                let dayTotal = 0;
+                let dayCorrect = 0;
+                for (let i = 0; i < history.length; i++) {
+                    const h = history[i];
+                    if (getDateKey(h?.date || h?.createdAt || h?.timestamp) !== latestDayKey) continue;
+                    const s = getSafeScore(h, safeMax, safeMin);
+                    if (!Number.isFinite(s)) continue;
+                    const q = Number(h?.total) > 0 ? Number(h.total) : getSyntheticTotal(safeMax);
+                    dayTotal += q;
+                    dayCorrect += pointsToRatio(s, safeMax, safeMin) * q;
+                }
+                if (dayTotal > 0) {
+                    rawVal = ratioToPoints(dayCorrect / dayTotal, safeMax, safeMin);
+                }
             }
         }
     }

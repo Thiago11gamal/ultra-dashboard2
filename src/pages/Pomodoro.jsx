@@ -42,13 +42,16 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         const daysStudied = new Set();
 
         (studyLogs || []).forEach(log => {
-            if (!log || !log.date) return;
-            const t = new Date(log.date).getTime();
+            if (!log) return;
+            const logDate = log.date || log.createdAt || log.timestamp;
+            if (!logDate) return;
+            const parsed = parseNoonLocal(logDate) || normalizeDate(logDate);
+            const t = parsed ? parsed.getTime() : new Date(logDate).getTime();
             if (Number.isNaN(t)) return;
             const mins = Number(log.minutes) || 0;
             if (t >= startOfWeek) weekMins += mins;
             if (t >= startOfMonth) monthMins += mins;
-            daysStudied.add(getDateKey(log.date) || new Date(t).toISOString().split('T')[0]);
+            daysStudied.add(getDateKey(logDate) || (parsed ? getDateKey(parsed) : new Date(t).toISOString().split('T')[0]));
         });
 
         (simulados || []).forEach(s => {
@@ -616,12 +619,26 @@ function PomodoroSidePanel({
     targetCycles,
     completedCycles,
     isLayoutLocked,
-    onToggleLock
+    onToggleLock,
+    settings
 }) {
     const [uiPosition, setUiPosition] = useState(() => {
         try {
             const saved = localStorage.getItem('focusPanelPosition');
-            return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : { x: 0, y: 0 };
+            if (saved !== null && saved !== 'undefined') {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+                    if (typeof window !== 'undefined') {
+                        const limitX = Math.max(100, window.innerWidth - 100);
+                        const limitY = Math.max(100, window.innerHeight - 100);
+                        if (Math.abs(parsed.x) > limitX || Math.abs(parsed.y) > limitY) {
+                            return { x: 0, y: 0 };
+                        }
+                    }
+                    return parsed;
+                }
+            }
+            return { x: 0, y: 0 };
         } catch { return { x: 0, y: 0 }; }
     });
     const uiPosRef = useRef(uiPosition);
@@ -812,6 +829,7 @@ function PomodoroSidePanel({
                             totalTime={totalTime}
                             targetCycles={targetCycles}
                             completedCycles={completedCycles}
+                            settings={settings}
                         />
                     </Motion.div>
                 )}
@@ -896,7 +914,6 @@ export default function Pomodoro() {
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
     const completedCycles = pomodoroState.completedCycles ?? 0;
     const accumulatedMinutes = pomodoroState.accumulatedMinutes ?? 0;
-    const unloggedCycles = accumulatedMinutes > 0 ? completedCycles : 0;
     const neuralMode = pomodoroState.neuralMode;
     const neuralQueue = pomodoroState.neuralQueue || EMPTY_ARRAY;
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
@@ -999,7 +1016,7 @@ export default function Pomodoro() {
     const userStats = useMemo(() => {
         if (!contest || contest === EMPTY_OBJECT) {
             return {
-                pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, unloggedCycles),
+                pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, 0),
                 consecutiveMinutes: 0,
                 settings: null
             };
@@ -1010,34 +1027,48 @@ export default function Pomodoro() {
         let consecutiveStudyMinutes = 0;
 
         const recentLogs = [...(studyLogs || [])]
-            .filter(log => log && log.date && new Date(log.date).getTime() >= startOfToday)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            .filter(log => {
+                if (!log) return false;
+                const rawDate = log.date || log.createdAt || log.timestamp;
+                if (!rawDate) return false;
+                const parsed = parseNoonLocal(rawDate) || normalizeDate(rawDate);
+                const t = parsed ? parsed.getTime() : new Date(rawDate).getTime();
+                return Number.isFinite(t) && t >= startOfToday;
+            })
+            .sort((a, b) => {
+                const dateA = a.date || a.createdAt || a.timestamp;
+                const dateB = b.date || b.createdAt || b.timestamp;
+                return new Date(dateB).getTime() - new Date(dateA).getTime();
+            });
 
         let lastTimeBoundary = now.getTime();
 
         for (const log of recentLogs) {
-            const logDate = new Date(log.date).getTime();
+            const rawDate = log.date || log.createdAt || log.timestamp;
+            const parsedDate = parseNoonLocal(rawDate) || normalizeDate(rawDate);
+            const logDate = parsedDate ? parsedDate.getTime() : new Date(rawDate).getTime();
             const minutes = Number(log.minutes) || 0;
-            if (!logDate || minutes <= 0) continue;
+            if (!logDate || Number.isNaN(logDate) || minutes <= 0) continue;
 
-            const boundary = log.endDate ? new Date(log.endDate).getTime() : logDate;
+            const sessionEndTime = log.endDate ? new Date(log.endDate).getTime() : logDate;
+            const sessionStartTime = log.endDate ? logDate : (logDate - (minutes * 60 * 1000));
+            const boundary = Number.isFinite(sessionEndTime) ? sessionEndTime : logDate;
             const gapInMinutes = Math.max(0, (lastTimeBoundary - boundary) / (1000 * 60));
             if (gapInMinutes > 90) {
                 break;
             }
 
             consecutiveStudyMinutes += minutes;
-            const sessionStartTime = log.endDate ? logDate : (logDate - (minutes * 60 * 1000));
-            lastTimeBoundary = sessionStartTime;
+            lastTimeBoundary = Number.isFinite(sessionStartTime) ? sessionStartTime : (boundary - (minutes * 60 * 1000));
         }
 
         return {
-            pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, unloggedCycles),
+            pomodorosCompleted: countPomodorosToday(studyLogs, settings?.pomodoroWork, 0),
             consecutiveMinutes: consecutiveStudyMinutes,
             settings: settings,
             user: user
         };
-    }, [unloggedCycles, contest, studyLogs, settings, user]);
+    }, [contest, studyLogs, settings, user]);
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
@@ -1295,6 +1326,7 @@ export default function Pomodoro() {
                             completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
+                            settings={settings}
                         />
                     </div>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useId, useCallback } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -221,7 +221,7 @@ export function CompareChart({
 
         let ptPos = Number.isFinite(Number(value)) ? Number(value) : safeMinScore;
         const isFuture = isFuturePoint && index === futureIdx;
-        const pts = isFuture ? lastY : todayY;
+        const pts = isFuture ? lastY : (index === todayIdx ? todayY : null);
         if (pts && pts.length) {
             const pt = pts.find(p => p.name === type);
             if (pt && pt.yPos != null && Number.isFinite(Number(pt.yPos))) ptPos = Number(pt.yPos);
@@ -264,7 +264,10 @@ export function CompareChart({
             </g>
         );    };
 
-
+    const renderCompareTooltip = useCallback(
+        (props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} />,
+        [chartData, unit, safeMaxScore, safeMinScore]
+    );
 
     const animateSeries = false;
 
@@ -295,7 +298,10 @@ export function CompareChart({
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis 
                         dataKey="date" 
-                        tickFormatter={formatDisplayDate}
+                        tickFormatter={(val, idx) => {
+                            const item = chartData[idx];
+                            return item?.__future && item?.displayDate ? item.displayDate : formatDisplayDate(val);
+                        }}
                         tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
                         dy={12} 
                         axisLine={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} 
@@ -365,7 +371,7 @@ export function CompareChart({
                     <Tooltip 
                         offset={30}
                         cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }}
-                        content={(props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} />} />
+                        content={renderCompareTooltip} />
                     
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }} />
                     
@@ -398,7 +404,7 @@ export function CompareChart({
                         strokeLinecap="round" strokeDasharray="6 4"
                         dot={(props) => {
                             const { cx, cy, index } = props;
-                            if (index !== chartData.length - 1) return null;
+                            if (index !== lastValidIdx.mc || cx == null || cy == null) return null;
                             return (
                                 <g>
                                     <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2}>

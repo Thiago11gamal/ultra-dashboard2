@@ -37,12 +37,20 @@ function releaseSharedWorker() {
   }
 }
 
+function invalidateSharedWorker(badWorker) {
+  if (sharedWorker && sharedWorker === badWorker) {
+    try { sharedWorker.terminate(); } catch { /* ignore */ }
+    sharedWorker = null;
+    sharedWorkerRefCount = 0;
+  }
+}
+
 export const EvolutionHeatmap = ({ 
     heatmapData, 
     targetScore = 70, 
     showOnlyFocus, 
-    focusSubjectId,
-    maxScore = 100,
+    focusSubjectId, 
+    maxScore = 100, 
     minScore = 0 
 }) => {
     const { dates = [], rows = [] } = heatmapData || {};
@@ -67,7 +75,6 @@ export const EvolutionHeatmap = ({
     const [windowSize, setWindowSize] = useState('all');
     const [granularity, setGranularity] = useState('daily');
     const [hoveredCell, setHoveredCell] = useState(null);
-    const scrollDebounceRef = useRef(null);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -76,7 +83,6 @@ export const EvolutionHeatmap = ({
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => {
             window.removeEventListener('scroll', handleScroll);
-            if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
         };
     }, []);
 
@@ -96,7 +102,7 @@ export const EvolutionHeatmap = ({
     }, [dates, filteredRowsByFocus, windowSize]);
 
     const [aggregated, setAggregated] = useState(() => {
-        return aggregateHeatmap(filtered, 'daily', safeMax);
+        return aggregateHeatmap(filtered, granularity, safeMax, safeMin);
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
@@ -117,7 +123,8 @@ export const EvolutionHeatmap = ({
     useEffect(() => {
         const worker = workerRef.current;
         if (!worker) {
-            setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
+            setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));
+            setIsAggregating(false);
             return;
         }
 
@@ -133,7 +140,7 @@ export const EvolutionHeatmap = ({
             if (e.data.type === 'success') {
                 setAggregated(e.data.result);
             } else {
-                setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
+                setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));
             }
             setIsAggregating(false);
         };
@@ -141,8 +148,10 @@ export const EvolutionHeatmap = ({
         const handleError = (err) => {
             worker.removeEventListener('message', handleMessage);
             worker.removeEventListener('error', handleError);
+            invalidateSharedWorker(worker);
+            workerRef.current = null;
             console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
-            setAggregated(aggregateHeatmap(filtered, granularity, safeMax));
+            setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));
             setIsAggregating(false);
         };
 
@@ -164,16 +173,19 @@ export const EvolutionHeatmap = ({
         return () => {
             worker.removeEventListener('message', handleMessage);
             worker.removeEventListener('error', handleError);
+            setIsAggregating(false);
         };
-    }, [filtered, granularity, targetScore, safeTarget, targetScorePct, safeMin, safeMax]);
+    }, [filtered, granularity, safeTarget, targetScorePct, safeMin, safeMax]);
 
     const filteredDates = aggregated.dates || [];
     const filteredRows = aggregated.rows || [];
 
-    const totals = filteredRows
-        .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
-        .map((cell) => Number(cell?.total) || 0);
-    const maxCellTotal = totals.length > 0 ? totals.reduce((m, v) => Math.max(m, v), 1) : 1;
+    const maxCellTotal = useMemo(() => {
+        const totals = filteredRows
+            .flatMap((row) => (Array.isArray(row?.cells) ? row.cells : []))
+            .map((cell) => Number(cell?.total) || 0);
+        return totals.length > 0 ? totals.reduce((m, v) => Math.max(m, v), 1) : 1;
+    }, [filteredRows]);
 
     const cellColor = (pct, total = 0) => {
       if (pct == null || !Number.isFinite(Number(pct))) {

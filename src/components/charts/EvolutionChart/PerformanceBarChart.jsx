@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { ChartFrame } from "../ChartFrame";
 
-export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, unit: _unit = '%', minScore: _minScore = 0 }) {
+export const PerformanceBarChart = React.memo(function PerformanceBarChart({ subjectAggData, showOnlyFocus = false, focusCategory = null, unit: _unit = '%', minScore: _minScore = 0 }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
     const gradAcertosId = `pb_gradAcertos_${instanceId}`;
@@ -18,13 +18,16 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
     };
 
     const safeSubjectAggData = Array.isArray(subjectAggData) ? subjectAggData : [];
+    const filteredAggData = showOnlyFocus && focusCategory?.id
+        ? safeSubjectAggData.filter(d => d.id === focusCategory.id)
+        : safeSubjectAggData;
 
-    const chartData = safeSubjectAggData.map((d) => {
+    const chartData = filteredAggData.map((d) => {
         const questoes = sanitizeCount(d.questoes);
         const acertosBrutos = sanitizeCount(d.acertos);
         const acertos = Math.min(questoes, acertosBrutos);
         const erros = Math.max(0, questoes - acertos);
-        return { ...d, questoes, acertos, erros, errosRaw: erros };
+        return { ...d, fullName: d.fullName || d.name || d.id, questoes, acertos, erros, errosRaw: erros };
     });
     
     const totals = useMemo(() => {
@@ -94,11 +97,11 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                 <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                                 
                                 <XAxis
-                                    dataKey="name"
+                                    dataKey="fullName"
                                     axisLine={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
                                     tickLine={false}
                                     tick={{ fill: '#cbd5e1', fontSize: 10, fontWeight: 500, width: 85 }}
-                                    tickFormatter={(val) => val.length > 24 ? val.substring(0, 22) + '..' : val}
+                                    tickFormatter={(val) => String(val || '').length > 24 ? String(val).substring(0, 22) + '..' : String(val || '')}
                                     dy={8}
                                     angle={-32}
                                     textAnchor="end"
@@ -184,7 +187,7 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
                                         content={(props) => {
                                             const { x, width, value } = props;
                                             if (width < 15 || !value) return null;
-                                            const labelY = props.y - 6;
+                                            const labelY = Math.max(12, (props.y ?? 18) - 6);
                                             return (
                                                 <text x={x + width / 2} y={labelY} fill="#e2e8f0" fontSize={10} fontWeight="bold" textAnchor="middle">
                                                     {value}

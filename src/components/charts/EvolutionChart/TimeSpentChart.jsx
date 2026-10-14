@@ -138,7 +138,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     );
 });
 
-export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100, _minScore = 0 }) {
+export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore: _minScore = 0 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const chartData = useMemo(() => {
@@ -160,13 +160,14 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             if (cat) {
                 const nowMs = new Date().getTime();
                 const todayKey = getDateKey(new Date());
+                const todayNoonMs = toDateMs(todayKey) || nowMs;
                 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
                 const history = Object.values(cat.simuladoStats?.history || {});
 
                 const recentStats = history.reduce((acc, h) => {
-                    const hDateMs = toDateMs(h.date || h.createdAt);
                     const hKey = getDateKey(h.date || h.createdAt);
-                    if (Number.isNaN(hDateMs) || (nowMs - hDateMs) > sevenDaysMs || hKey > todayKey) {
+                    const hDateMs = toDateMs(hKey) || toDateMs(h.date || h.createdAt);
+                    if (!hDateMs || !Number.isFinite(hDateMs) || (todayNoonMs - hDateMs) > sevenDaysMs || !hKey || hKey > todayKey) {
                         return acc;
                     }
 
@@ -214,9 +215,31 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             let absoluteTotalTime = null;
 
             if (cat) {
-                // BUG FIX: Garante que o histórico é ordenado cronologicamente antes de buscar o "último"
+                const extractEntryTiming = (entry) => {
+                    let rootTs = typeof entry?.timeSpent === 'number' ? entry.timeSpent : null;
+                    let topicsTs = 0;
+                    let topicsTimedQ = 0;
+                    let hasTopicWithTime = false;
+                    const safeTopics = Array.isArray(entry?.topics) ? entry.topics : Object.values(entry?.topics || {});
+                    for (const t of safeTopics) {
+                        const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
+                        const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
+                        if (tTs !== null && tTs > 0 && tTot > 0) {
+                            topicsTs += tTs;
+                            topicsTimedQ += tTot;
+                            hasTopicWithTime = true;
+                        }
+                    }
+                    if (hasTopicWithTime && topicsTimedQ > 0) return { ts: topicsTs, tq: topicsTimedQ };
+                    let tot = Number(entry?.total) || 0;
+                    if (tot === 0 && entry?.score != null) tot = getSyntheticTotal(maxScore);
+                    if (tot > 0 && rootTs !== null && rootTs > 0) return { ts: rootTs, tq: tot };
+                    return null;
+                };
+
+                // BUG FIX: Garante que o histórico é ordenado cronologicamente e possui tempo válido
                 const sortedHistory = Object.values(cat.simuladoStats?.history || {})
-                    .filter(h => h && toDateMs(h.date || h.createdAt) != null)
+                    .filter(h => h && toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h) !== null)
                     .sort((a, b) => {
                         const da = toDateMs(a.date || a.createdAt) || 0;
                         const db = toDateMs(b.date || b.createdAt) || 0;
@@ -225,37 +248,26 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
                 const latestEntry = sortedHistory[sortedHistory.length - 1];
                 if (latestEntry) {
-                    let rootTs = typeof latestEntry.timeSpent === 'number' ? latestEntry.timeSpent : null;
-                    let topicsTs = 0;
-                    let topicsTimedQ = 0;
-                    let hasTopicWithTime = false;
+                    const latestDayKey = getDateKey(latestEntry.date || latestEntry.createdAt);
+                    const sameDayEntries = sortedHistory.filter(h => getDateKey(h.date || h.createdAt) === latestDayKey);
+                    const dayTotals = sameDayEntries.reduce((acc, h) => {
+                        const timing = extractEntryTiming(h);
+                        return timing ? { ts: acc.ts + timing.ts, tq: acc.tq + timing.tq } : acc;
+                    }, { ts: 0, tq: 0 });
 
-                    const safeLatestTopics = Array.isArray(latestEntry.topics) ? latestEntry.topics : Object.values(latestEntry.topics || {});
-                    if (safeLatestTopics.length > 0) {
-                        for (const t of safeLatestTopics) {
-                            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
-                            if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
-                                topicsTs += tTs;
-                                topicsTimedQ += tTot;
-                                hasTopicWithTime = true;
-                            }
-                        }
-                    }
-
-                    if (hasTopicWithTime && topicsTimedQ > 0) {
-                        latestSeconds = Math.round(topicsTs / topicsTimedQ);
-                    } else {
-                        let tot = Number(latestEntry.total) || 0;
-                        if (tot === 0 && latestEntry.score != null) tot = getSyntheticTotal(maxScore);
-                        if (tot > 0 && rootTs !== null && rootTs > 0) {
-                            latestSeconds = Math.round(rootTs / tot);
-                        }
+                    if (dayTotals.tq > 0) {
+                        latestSeconds = Math.round(dayTotals.ts / dayTotals.tq);
                     }
 
                     if (latestEntry.lastSessionTimeSpent != null && latestEntry.lastSessionTotal > 0) {
                         absoluteLatestSeconds = Math.round(latestEntry.lastSessionTimeSpent / latestEntry.lastSessionTotal);
                         absoluteTotalTime = latestEntry.lastSessionTimeSpent;
+                    } else {
+                        const lastTiming = extractEntryTiming(latestEntry);
+                        if (lastTiming && lastTiming.tq > 0) {
+                            absoluteLatestSeconds = Math.round(lastTiming.ts / lastTiming.tq);
+                            absoluteTotalTime = lastTiming.ts;
+                        }
                     }
                 }
             }
@@ -317,12 +329,13 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             acc.avgCount += 1;
         }
 
-        if (item.latestSeconds !== null && Number.isFinite(Number(item.latestSeconds))) {
+        if (item.latestSeconds !== null && Number.isFinite(Number(item.latestSeconds)) && Number(item.latestSeconds) > 0) {
             acc.latest += Number(item.latestSeconds);
             acc.latestCount += 1;
 
-            if (Number(item.latestSeconds) > Number(item.displaySeconds)) acc.above += 1;
-            if (Number(item.latestSeconds) < Number(item.displaySeconds)) acc.below += 1;
+            const margin = Math.max(1, Math.round((Number(item.displaySeconds) || 0) * 0.05));
+            if (Number(item.latestSeconds) > Number(item.displaySeconds) + margin) acc.above += 1;
+            if (Number(item.latestSeconds) < Number(item.displaySeconds) - margin) acc.below += 1;
         }
         return acc;
     }, { avg: 0, latest: 0, above: 0, below: 0, avgCount: 0, latestCount: 0 });

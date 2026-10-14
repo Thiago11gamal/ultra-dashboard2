@@ -88,12 +88,38 @@ export function TodayVsGeneralChart({
         return [];
     }, [rawCategories, focusCategory]);
     const generalAccuracy = useMemo(() => {
-        const pct = Number(globalMetrics?.globalAccuracy);
-        const safePct = Number.isFinite(pct) ? pct : 0;
         const safeMax = Math.max(1, Number(maxScore) || 100);
         const safeMin = Math.min(Number(minScore) || 0, safeMax);
+        if (focusCategory) {
+            const catMax = Number.isFinite(Number(focusCategory?.maxScore)) && Number(focusCategory?.maxScore) > 0 ? Number(focusCategory.maxScore) : safeMax;
+            const catMin = Number.isFinite(Number(focusCategory?.minScore)) ? Math.min(Number(focusCategory.minScore), catMax) : safeMin;
+            const history = Object.values(focusCategory.simuladoStats?.history || {});
+            let totalQ = 0;
+            let totalC = 0;
+            history.forEach(h => {
+                let tot = Number(h.total) || 0;
+                let corr = 0;
+                if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
+                    const rawC = Math.max(0, Number(h.correct) || 0);
+                    if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
+                    corr = Math.min(tot, rawC);
+                } else {
+                    const rawScore = getSafeScore(h, catMax, catMin);
+                    const score = Number.isFinite(rawScore) ? rawScore : catMin;
+                    if (tot === 0 && (h.isPercentage || h.score != null)) tot = getSyntheticTotal(catMax);
+                    corr = Math.round(pointsToRatio(score, catMax, catMin) * tot);
+                }
+                totalQ += tot;
+                totalC += Math.max(0, Math.min(tot, corr));
+            });
+            if (totalQ > 0) {
+                return Math.max(safeMin, Math.min(safeMax, ratioToPoints(totalC / totalQ, safeMax, safeMin)));
+            }
+        }
+        const pct = Number(globalMetrics?.globalAccuracy);
+        const safePct = Number.isFinite(pct) ? pct : 0;
         return Math.max(safeMin, Math.min(safeMax, ratioToPoints(safePct / 100, safeMax, safeMin)));
-    }, [globalMetrics?.globalAccuracy, maxScore, minScore]);
+    }, [focusCategory, globalMetrics?.globalAccuracy, maxScore, minScore]);
 
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
@@ -139,8 +165,9 @@ export function TodayVsGeneralChart({
                 if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
                 let tot = Number(h.total) || 0;
                 let corr = 0;
-                if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
-                    const rawC = Number(h.correct);
+                if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
+                    const rawC = Math.max(0, Number(h.correct) || 0);
+                    if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
                     corr = Math.min(tot, Number.isFinite(rawC) ? rawC : 0);
                 } else {
                     const rawScore = getSafeScore(h, catMax, catMin);
@@ -179,6 +206,7 @@ export function TodayVsGeneralChart({
         const ms3Months = 90 * 86400000;
         const ms6Months = 180 * 86400000;
         const validNow = Number(now) || 0;
+        const todayNoonMs = toDateMs(todayKey) || validNow;
         const utcTodayKey = new Date(validNow).toISOString().split('T')[0];
         const localNext = getDateKey(new Date(validNow + 86400000));
         const utcNext = new Date(validNow + 86400000).toISOString().split('T')[0];
@@ -206,8 +234,9 @@ export function TodayVsGeneralChart({
                 if (!time) return;
                 let tot = Number(h.total) || 0;
                 let corr = 0;
-                if (h.correct !== undefined && h.correct !== null && !h.isPercentage) {
-                    const rawC = Number(h.correct);
+                if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
+                    const rawC = Math.max(0, Number(h.correct) || 0);
+                    if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
                     corr = Math.min(tot, Number.isFinite(rawC) ? rawC : 0);
                 } else {
                     const rawScore = getSafeScore(h, catMax, catMin);
@@ -222,7 +251,8 @@ export function TodayVsGeneralChart({
 
                 const isTodayDate = hDateKey === todayKey || hDateKey === utcTodayKey;
                 if (isTodayDate) { buckets.today.correct += corr; buckets.today.total += tot; }
-                const ageMs = Math.max(0, now - time);
+                const dayMs = toDateMs(hDateKey) || time;
+                const ageMs = Math.max(0, todayNoonMs - dayMs);
                 if (isTodayDate || ageMs <= ms1Week) { buckets.week.correct += corr; buckets.week.total += tot; }
                 if (isTodayDate || ageMs <= ms1Month) { buckets.month.correct += corr; buckets.month.total += tot; }
                 if (isTodayDate || ageMs <= ms3Months) { buckets.month3.correct += corr; buckets.month3.total += tot; }
@@ -231,6 +261,8 @@ export function TodayVsGeneralChart({
         });
 
         let latestAcc = null;
+        let latestTimestamp = -Infinity;
+        let hasRowMatch = false;
         if (Array.isArray(simuladoRows) && simuladoRows.length > 0) {
             const activeCategoryMap = new Set(activeCategories.map(c => normalize(c.name)));
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
@@ -255,8 +287,31 @@ export function TodayVsGeneralChart({
                 const lMin = Number.isFinite(Number(matchedCat?.minScore)) ? Math.min(Number(matchedCat.minScore), lMax) : safeMinScore;
                 const rawLatest = getSafeScore(latestRow, lMax, lMin);
                 latestAcc = Number.isFinite(rawLatest) ? ratioToPoints(pointsToRatio(rawLatest, lMax, lMin), safeMaxScore, safeMinScore) : null;
+                latestTimestamp = toDateMs(latestRow.createdAt || latestRow.date) || -Infinity;
+                hasRowMatch = true;
             }
         }
+
+        // Fallback/Sincronização com cat.simuladoStats.history caso simuladoRows esteja vazio ou desatualizado
+        activeCategories.forEach(cat => {
+            const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const history = Object.values(cat.simuladoStats?.history || {});
+            history.forEach(h => {
+                const hDateKey = getDateKey(h?.date || h?.createdAt);
+                if (!hDateKey || hDateKey > maxAllowedDateKey) return;
+                const ms = toDateMs(h?.createdAt || h?.date);
+                const isNewer = hasRowMatch ? (Number.isFinite(ms) && ms > latestTimestamp) : (Number.isFinite(ms) && ms >= latestTimestamp);
+                if (isNewer) {
+                    const rawScore = getSafeScore(h, catMax, catMin);
+                    if (Number.isFinite(rawScore)) {
+                        latestTimestamp = ms;
+                        latestAcc = ratioToPoints(pointsToRatio(rawScore, catMax, catMin), safeMaxScore, safeMinScore);
+                    }
+                }
+            });
+        });
+
         const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, safeMaxScore, safeMinScore) : null;
         return [
             { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 70, rOut: 80 },
@@ -511,12 +566,18 @@ export function TodayVsGeneralChart({
                             >
                                 <LabelList 
                                     dataKey="accuracy" 
-                                    position="top" 
-                                    offset={10} 
-                                    formatter={(v) => `${formatValue(v)}${unit}`} 
-                                    fill="#94a3b8" 
-                                    fontSize={10}
-                                    fontWeight={700}
+                                    content={(props) => {
+                                        const { x, y, value, index } = props;
+                                        if (value == null || !Number.isFinite(Number(value))) return null;
+                                        const entry = chartData[index];
+                                        const hasCloseBar = entry?.lastTestAcc != null && Math.abs(Number(entry.lastTestAcc) - Number(value)) <= stabilityMargin * 2;
+                                        if (hasCloseBar) return null;
+                                        return (
+                                            <text x={x} y={Math.max(12, (y ?? 20) - 10)} fill="#94a3b8" fontSize={10} fontWeight={700} textAnchor="middle">
+                                                {`${formatValue(value)}${unit}`}
+                                            </text>
+                                        );
+                                    }}
                                 />
                             </Line>
                             <Bar dataKey="lastTestAcc" barSize={18} radius={[6,6,0,0]} isAnimationActive={true} animationDuration={1000} fill={COLORS.gaugeFillValid}>

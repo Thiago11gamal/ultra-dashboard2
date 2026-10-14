@@ -110,12 +110,19 @@ function buildPredictiveCompareData(
   // 2. Acopla os pontos futuros do Monte Carlo com validação robusta
   if (activeMcProjectionSeries && pts.length > 0) {
     const lastIdx = pts.length - 1;
+    const pickFinite = (...vals) => {
+      for (const v of vals) {
+        if (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v))) return Number(v);
+      }
+      return safeMin;
+    };
 
-    const rawLevel =
-      pts[lastIdx]["Nível Bayesiano"] ??
-      categoryLevels?.[focusCategory?.id] ??
-      activeMcProjectionSeries?.mc_p50 ??
-      safeMin;
+    const rawLevel = pickFinite(
+      pts[lastIdx]["Nível Bayesiano"],
+      categoryLevels?.[focusCategory?.id],
+      activeMcProjectionSeries?.mc_p50,
+      safeMin
+    );
 
     const currentLevel = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(rawLevel, safeMin)));
     const p50 = Math.max(safeMin, Math.min(safeMax, safeFiniteNumber(activeMcProjectionSeries.mc_p50, currentLevel)));
@@ -146,14 +153,14 @@ function buildPredictiveCompareData(
     const seenDates = new Set([pts[lastIdx].date]);
 
     for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
+      const forwardDays = Math.max(1, Math.round((i / steps) * totalDays));
+      const t = Math.min(1, forwardDays / totalDays);
       const weight = Math.sqrt(t);
 
       const val = bounded(currentLevel + (p50 - currentLevel) * t);
       const bandLow = bounded(currentLevel + (bandMin - currentLevel) * weight);
       const bandHigh = bounded(currentLevel + (bandMax - currentLevel) * weight);
 
-      const forwardDays = Math.max(1, Math.round((i / steps) * totalDays));
       const dt = new Date(baseMs + forwardDays * 24 * 60 * 60 * 1000);
       const iso = getDateKey(dt);
 
@@ -162,7 +169,9 @@ function buildPredictiveCompareData(
         const parts = iso.split('-');
         futurePoints.push({
           date: iso,
-          displayDate: (i === steps && parts.length === 3) ? `${parts[2]}/${parts[1]} ✦` : "",
+          displayDate: parts.length === 3
+            ? (i === steps ? `${parts[2]}/${parts[1]} ✦` : `${parts[2]}/${parts[1]}`)
+            : iso,
           "Futuro Provável": val,
           "Cenário Range": [bandLow, bandHigh],
           __future: true
@@ -373,19 +382,21 @@ export default React.memo(function EvolutionChart({
     const [activeEngine, setActiveEngine] = useState("raw_weekly");
     const [selectedSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
     
-    // Ensure focusSubjectId is valid when categories update (avoid stale/undefined focus)
-    const focusSubjectId = useMemo(() => {
-        if (categories && categories.some(c => c.id === selectedSubjectId)) {
-            return selectedSubjectId;
-        }
-        return categories?.[0]?.id;
-    }, [categories, selectedSubjectId]);
-
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
     const mcWeights = useAppStore(
         (state) => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || EMPTY_OBJECT
     );
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore, minScore);
+
+    // Prioriza activeCategories para evitar foco em disciplina sem simulados
+    const focusSubjectId = useMemo(() => {
+        const pool = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
+        if (pool && pool.some(c => c.id === selectedSubjectId)) {
+            return selectedSubjectId;
+        }
+        return pool?.[0]?.id ?? categories?.[0]?.id;
+    }, [activeCategories, categories, selectedSubjectId]);
+
     const monteCarloHistoryArray = useMemo(
         () => (Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {})),
         [monteCarloHistory]
@@ -423,12 +434,14 @@ export default React.memo(function EvolutionChart({
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState(false);
     const [showEngineTooltip, setShowEngineTooltip] = useState(false);
+    const exportErrorTimerRef = useRef(null);
 
     const engineTabRefs = useRef(new Map());
     useEffect(() => {
         const refs = engineTabRefs.current;
         return () => {
             refs.clear();
+            if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
         };
     }, []);
 
@@ -440,9 +453,10 @@ export default React.memo(function EvolutionChart({
 
     const focusCategory = useMemo(() => {
         if (!categories || categories.length === 0) return null;
-        const found = categories.find(c => c.id === focusSubjectId);
-        return found || categories[0];
-    }, [categories, focusSubjectId]);
+        const pool = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
+        const found = pool.find(c => c.id === focusSubjectId) || categories.find(c => c.id === focusSubjectId);
+        return found || pool[0] || categories[0];
+    }, [activeCategories, categories, focusSubjectId]);
 
     const categoryLevels = useCategoryLevels(categories, timeline, 'bayesian', maxScore, minScore);
 
@@ -481,8 +495,10 @@ export default React.memo(function EvolutionChart({
                     const ms = toDateMs(item.date);
                     return Number.isNaN(ms) ? Number.NaN : ms;
                 };
-                const referenceMs = toDateMs(getDateKey(new Date()));
-                const limit = referenceMs - days * 24 * 60 * 60 * 1000;
+                const cutoffDate = new Date();
+                cutoffDate.setHours(12, 0, 0, 0);
+                cutoffDate.setDate(cutoffDate.getDate() - days);
+                const limit = toDateMs(getDateKey(cutoffDate));
                 result = historical.filter((d) => {
                     const ms = getDateMs(d);
                     return Number.isFinite(ms) && ms >= limit;
@@ -519,32 +535,53 @@ export default React.memo(function EvolutionChart({
         return downsampleLTTB(historicalData.result, 150, "date", primaryKey || "date");
     }, [historicalData.result, primaryKey]);
 
-    // 4. Combinar com dados futuros
+    // 4. Dados exclusivos do histórico (para Hero Chart, Status e Insights) vs Dados com Projeção (para CompareChart)
+    const filteredHistoricalData = sampledHistorical;
     const filteredChartData = useMemo(() => {
-        return historicalData.future.length > 0
+        return (activeEngine === "compare" && sampledHistorical.length > 0 && historicalData.future.length > 0)
             ? [...sampledHistorical, ...historicalData.future]
             : sampledHistorical;
-    }, [sampledHistorical, historicalData.future]);
+    }, [activeEngine, sampledHistorical, historicalData.future]);
+
+    const latestMetricsByCat = useMemo(() => {
+        const map = {};
+        if (!Array.isArray(timeline) || timeline.length === 0) return map;
+        activeCategories.forEach(cat => {
+            const id = cat.id;
+            let raw = null, stats = null, bay = null;
+            for (let i = timeline.length - 1; i >= 0; i--) {
+                const pt = timeline[i];
+                if (raw == null && pt[`raw_${id}`] != null) raw = pt[`raw_${id}`];
+                if (stats == null && pt[`stats_${id}`] != null) stats = pt[`stats_${id}`];
+                if (bay == null && pt[`bay_${id}`] != null) bay = pt[`bay_${id}`];
+                if (raw != null && stats != null && bay != null) break;
+            }
+            map[id] = { [`raw_${id}`]: raw, [`stats_${id}`]: stats, [`bay_${id}`]: bay };
+        });
+        return map;
+    }, [timeline, activeCategories]);
 
     const radarData = useMemo(() => {
-        if (!categories || !categories.length) return [];
-        return categories.map(cat => {
+        const sourceCats = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
+        if (!sourceCats || !sourceCats.length) return [];
+        return sourceCats.map(cat => {
             const lvl = categoryLevels?.[cat.id];
-            const val = Number.isFinite(Number(lvl)) ? Number(Number(lvl).toFixed(2)) : minScore;
+            const hasLvl = lvl !== null && lvl !== undefined && lvl !== '' && Number.isFinite(Number(lvl));
+            const val = hasLvl ? Number(Number(lvl).toFixed(2)) : minScore;
             const fullName = String(cat.name || 'Sem nome');
             return {
                 subject: fullName.replace(/Direito /gi, 'D. '),
                 fullSubject: fullName,
                 nivel: val,
-                meta: targetScore
+                meta: Number.isFinite(Number(cat?.minCutoff)) ? Number(cat.minCutoff) : targetScore
             };
         });
-    }, [categories, targetScore, categoryLevels, minScore]);
+    }, [activeCategories, categories, targetScore, categoryLevels, minScore]);
 
     const insight = useMemo(() => {
         return generateEvolutionInsights({
             timeline,
-            filteredChartData,
+            filteredChartData: filteredHistoricalData,
             focusCategory,
             activeEngine,
             categories,
@@ -556,7 +593,7 @@ export default React.memo(function EvolutionChart({
         });
     }, [
         timeline,
-        filteredChartData,
+        filteredHistoricalData,
         focusCategory,
         activeEngine,
         categories,
@@ -570,7 +607,7 @@ export default React.memo(function EvolutionChart({
     const statusList = useMemo(() => {
         return computeEvolutionStatuses({
             timeline,
-            filteredChartData,
+            filteredChartData: filteredHistoricalData,
             categories,
             focusCategory,
             targetScore,
@@ -586,7 +623,7 @@ export default React.memo(function EvolutionChart({
         });
     }, [
         timeline,
-        filteredChartData,
+        filteredHistoricalData,
         categories,
         focusCategory,
         targetScore,
@@ -618,8 +655,8 @@ export default React.memo(function EvolutionChart({
         .filter(Boolean);
     const engine = ENGINES_WITH_GUIDE.find((e) => e.id === activeEngine) || ENGINES_WITH_GUIDE[0];
 
-    const accountHasData = chartData.length >= 1;
-    const filterHasData = filteredChartData.length >= 1;
+    const accountHasData = timeline.length >= 1;
+    const filterHasData = filteredHistoricalData.length >= 1;
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -630,7 +667,8 @@ export default React.memo(function EvolutionChart({
         } catch (err) {
             console.error('[EvolutionChart] Falha ao exportar PDF:', err);
             setExportError(true);
-            setTimeout(() => setExportError(false), 5000);
+            if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
+            exportErrorTimerRef.current = setTimeout(() => setExportError(false), 5000);
         } finally {
             setIsExporting(false);
         }
@@ -774,8 +812,8 @@ export default React.memo(function EvolutionChart({
                             <div key={cat.id} className={`snap-center shrink-0 w-[210px] sm:w-[240px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
                                     cat={cat}
-                                    level={categoryLevels[cat.id] || 0}
-                                    metrics={timeline.length > 0 ? timeline[timeline.length - 1] : null}
+                                    level={categoryLevels[cat.id]}
+                                    metrics={latestMetricsByCat[cat.id] || null}
                                     target={targetScore}
                                     isFocused={focusCategory?.id === cat.id}
                                     onClick={() => setFocusSubjectId(cat.id)}
@@ -815,7 +853,7 @@ export default React.memo(function EvolutionChart({
                             </div>
                         ) : (
                             <EvolutionLineChart
-                                filteredChartData={filteredChartData}
+                                filteredChartData={filteredHistoricalData}
                                 activeCategories={activeCategories}
                                 engine={ENGINES_WITH_GUIDE.find(e => e.id === 'bayesian')}
                                 targetScore={targetScore}
@@ -900,7 +938,10 @@ export default React.memo(function EvolutionChart({
                                         aria-selected={active}
                                         aria-controls={`engine-panel-${eng.id}`}
                                         key={eng.id}
-                                        ref={(el) => engineTabRefs.current.set(eng.id, el)}
+                                        ref={(el) => {
+                                            if (el) engineTabRefs.current.set(eng.id, el);
+                                            else engineTabRefs.current.delete(eng.id);
+                                        }}
                                         onClick={() => setActiveEngine(eng.id)}
                                         onKeyDown={(e) => {
                                           const activate = (id) => {
@@ -1071,7 +1112,7 @@ export default React.memo(function EvolutionChart({
                             <TrendingUp size={120} />
                         </div>
 
-                        <div className="flex flex-col md:flex-row gap-6 items-start relative z-10">
+                        <div className="flex flex-col md:flex-row gap-6 items-start relative">
                             <div className="w-full md:w-1/2 flex flex-col">
                                 {/* VIS-FIX: z-20 mantém o seletor de foco clicável acima do overlay "sem dados" */}
                                 <div className="relative z-20 flex items-center gap-2 mb-4 min-w-0">
@@ -1410,6 +1451,7 @@ export default React.memo(function EvolutionChart({
                         focusCategory={focusCategory}
                         unit={unit}
                         maxScore={maxScore}
+                        minScore={minScore}
                     />
                 </div>
 

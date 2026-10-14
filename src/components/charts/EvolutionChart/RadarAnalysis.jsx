@@ -33,14 +33,14 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                     <h4 className="text-sm sm:text-base font-black text-slate-200 flex items-center gap-1.5 tracking-tight">
                         🕸️ Raio-X das Disciplinas
                     </h4>
-                    <div className="relative flex items-center justify-center w-4 h-4 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors" tabIndex={0} role="button" aria-label="Informação sobre o gráfico radar">
+                    <button type="button" className="relative flex items-center justify-center w-4 h-4 rounded-full border border-slate-600 text-slate-400 text-[9px] font-bold cursor-help hover:border-slate-300 hover:text-slate-200 hover:bg-slate-800 transition-colors" aria-label="Informação sobre o gráfico radar">
                         ?
                         <div className="absolute top-6 left-1/2 -translate-x-1/2 sm:-translate-x-0 sm:left-0 w-[260px] p-3.5 bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible focus-within:opacity-100 focus-within:visible transition-all duration-300 z-50 pointer-events-none group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible text-left">
                             <p className="text-[11px] text-slate-200 font-normal leading-relaxed normal-case tracking-normal">
                                 Este gráfico avalia seu <strong className="text-indigo-400">nível de acertos</strong> em cada matéria, mostrando o equilíbrio do aprendizado. Quanto mais expandida for a teia, mais próximo da meta você está.
                             </p>
                         </div>
-                    </div>
+                    </button>
                 </div>
                 <p className="text-[10px] sm:text-xs text-slate-400 mt-1 leading-relaxed">
                     Comparativo da proficiência real contra a meta estabelecida para a prova.
@@ -74,6 +74,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                                 const { x, y, cx, cy, payload } = props;
                                 const text = payload?.value || "";
                                 const maxLen = 28;
+                                const maxLineLen = 16;
                                 const anchor = x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle';
                                 const dy = y > cy ? 6 : -6;
                                 
@@ -82,7 +83,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                                     const splitIdx = mid > 2 ? mid : Math.ceil(text.length / 2);
                                     const line1 = text.substring(0, splitIdx).trim();
                                     const line2raw = text.substring(splitIdx).trim();
-                                    const line2 = line2raw.length > maxLen - splitIdx ? line2raw.substring(0, maxLen - splitIdx - 1) + '..' : line2raw;
+                                    const line2 = line2raw.length > maxLineLen ? line2raw.substring(0, maxLineLen - 1) + '..' : line2raw;
                                     return (
                                         <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={600}>
                                             <title>{text}</title>
@@ -149,8 +150,8 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                             content={({ active, payload }) => {
                                 if (active && payload && payload.length) {
                                     const d = payload[0].payload;
-                                    const nivel = Number(d.nivel) || 0;
-                                    const meta = Number(d.meta) || 0;
+                                    const nivel = Number.isFinite(Number(d.nivel)) ? Number(d.nivel) : safeMin;
+                                    const meta = Number.isFinite(Number(d.meta)) ? Number(d.meta) : safeMin;
                                     const diff = nivel - meta;
                                     const isAbove = diff >= 0;
 

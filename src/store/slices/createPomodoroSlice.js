@@ -57,23 +57,26 @@ export const createPomodoroSlice = (set, get) => ({
 
     setPomodoroActiveSubject: (subject) => {
         set((state) => {
+            const p = state.appState?.pomodoro;
+            if (!p) return;
+
             if (!subject) {
-                state.appState.pomodoro.sessions = 1;
-                state.appState.pomodoro.completedCycles = 0;
-                state.appState.pomodoro.mode = 'work';
-                state.appState.pomodoro.accumulatedMinutes = 0;
-                state.appState.pomodoro.activeSubject = null;
-                state.appState.pomodoro.neuralMode = false;
-                state.appState.pomodoro.neuralQueue = [];
-                state.appState.pomodoro.isRunning = false;
+                p.sessions = 1;
+                p.completedCycles = 0;
+                p.mode = 'work';
+                p.accumulatedMinutes = 0;
+                p.activeSubject = null;
+                p.neuralMode = false;
+                p.neuralQueue = [];
+                p.isRunning = false;
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
+                markStorageDirty();
                 return;
             }
 
-            const current = state.appState.pomodoro.activeSubject;
+            const current = p.activeSubject;
 
             const isNewSession =
                 !current ||
@@ -81,18 +84,18 @@ export const createPomodoroSlice = (set, get) => ({
                 current.sessionInstanceId !== subject.sessionInstanceId;
 
             if (isNewSession) {
-                state.appState.pomodoro.sessions = 1;
-                state.appState.pomodoro.completedCycles = 0;
-                state.appState.pomodoro.mode = 'work';
-                state.appState.pomodoro.accumulatedMinutes = 0;
+                p.sessions = 1;
+                p.completedCycles = 0;
+                p.mode = 'work';
+                p.accumulatedMinutes = 0;
             }
 
             if (subject.source !== 'neural_core') {
-                state.appState.pomodoro.neuralMode = false;
-                state.appState.pomodoro.neuralQueue = [];
+                p.neuralMode = false;
+                p.neuralQueue = [];
             }
 
-            state.appState.pomodoro.activeSubject = subject;
+            p.activeSubject = subject;
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -109,7 +112,9 @@ export const createPomodoroSlice = (set, get) => ({
 
     setPomodoroSessions: (count) => {
         set((state) => {
-            state.appState.pomodoro.sessions = count;
+            const p = state.appState?.pomodoro;
+            if (!p) return;
+            p.sessions = count;
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -119,8 +124,9 @@ export const createPomodoroSlice = (set, get) => ({
 
     setPomodoroTargetCycles: (target) => {
         set((state) => {
+            const p = state.appState?.pomodoro;
+            if (!p) return;
             const normalizedTarget = Math.max(1, Number(target) || 1);
-            const p = state.appState.pomodoro;
 
             p.targetCycles = normalizedTarget;
             p.completedCycles = Math.min(normalizedTarget, Math.max(0, p.completedCycles || 0));
@@ -157,11 +163,11 @@ export const createPomodoroSlice = (set, get) => ({
             state.appState.lastUpdated = new Date().toISOString();
             markStorageDirty();
         });
-    },
-
-    setPomodoroMode: (mode) => {
+    },    setPomodoroMode: (mode) => {
         set((state) => {
-            state.appState.pomodoro.mode = mode;
+            const p = state.appState?.pomodoro;
+            if (!p) return;
+            p.mode = mode;
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -188,13 +194,15 @@ export const createPomodoroSlice = (set, get) => ({
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
+            markStorageDirty();
         });
     },
 
     setPomodoroAccumulatedMinutes: (minutes) => {
         set((state) => {
-            state.appState.pomodoro.accumulatedMinutes = Math.max(0, Number(minutes) || 0);
+            const p = state.appState?.pomodoro;
+            if (!p) return;
+            p.accumulatedMinutes = Math.max(0, Number(minutes) || 0);
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -393,13 +401,15 @@ export const createPomodoroSlice = (set, get) => ({
         };
 
         set((state) => {
-            state.appState.pomodoro.activeSubject = subject;
-            state.appState.pomodoro.neuralQueue = tasks;
-            state.appState.pomodoro.neuralMode = true;
-            state.appState.pomodoro.targetCycles = 1;
-            state.appState.pomodoro.sessions = 1;
-            state.appState.pomodoro.completedCycles = 0;
-            state.appState.pomodoro.accumulatedMinutes = 0;
+            const p = state.appState?.pomodoro;
+            if (!p) return;
+            p.activeSubject = subject;
+            p.neuralQueue = tasks;
+            p.neuralMode = true;
+            p.targetCycles = 1;
+            p.sessions = 1;
+            p.completedCycles = 0;
+            p.accumulatedMinutes = 0;
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -408,7 +418,9 @@ export const createPomodoroSlice = (set, get) => ({
     },
 
     advanceNeuralQueue: () => {
-        const { neuralQueue, activeSubject } = get().appState.pomodoro;
+        const pState = get().appState?.pomodoro;
+        if (!pState) return false;
+        const { neuralQueue, activeSubject } = pState;
 
         if (!neuralQueue || neuralQueue.length === 0) return false;
         if (!activeSubject) return false;
@@ -419,12 +431,14 @@ export const createPomodoroSlice = (set, get) => ({
 
         if (currentIndex === -1 || currentIndex >= neuralQueue.length - 1) {
             set((state) => {
-                state.appState.pomodoro.neuralMode = false;
-                state.appState.pomodoro.neuralQueue = [];
+                const p = state.appState?.pomodoro;
+                if (!p) return;
+                p.neuralMode = false;
+                p.neuralQueue = [];
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
+                markStorageDirty();
             });
 
             return false;
@@ -443,12 +457,14 @@ export const createPomodoroSlice = (set, get) => ({
         };
 
         set((state) => {
-            state.appState.pomodoro.activeSubject = nextSubject;
-            state.appState.pomodoro.mode = 'work';
-            state.appState.pomodoro.targetCycles = 1;
-            state.appState.pomodoro.sessions = 1;
-            state.appState.pomodoro.completedCycles = 0;
-            state.appState.pomodoro.accumulatedMinutes = 0;
+            const p = state.appState?.pomodoro;
+            if (!p) return;
+            p.activeSubject = nextSubject;
+            p.mode = 'work';
+            p.targetCycles = 1;
+            p.sessions = 1;
+            p.completedCycles = 0;
+            p.accumulatedMinutes = 0;
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
