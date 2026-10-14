@@ -14,6 +14,9 @@ export function PomodoroProgress({
     timeLeft = 0,
     totalTime = 25 * 60
 }) {
+    const safeTargetCycles = Math.min(20, Math.max(1, Math.round(Number(targetCycles) || 1)));
+    const safeCompletedCycles = Math.min(safeTargetCycles, Math.max(0, Math.round(Number(completedCycles) || 0)));
+
     return (
         <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
@@ -32,10 +35,11 @@ export function PomodoroProgress({
                         <button
                             type="button"
                             onClick={() => {
-                                const safeCompleted = Math.max(0, Math.min(targetCycles, completedCycles));
-                                const minAllowed = Math.max(1, safeCompleted);
-                                const newTarget = Math.max(minAllowed, targetCycles - 1);
-                                setTargetCycles(newTarget);
+                                const minAllowed = Math.max(1, safeCompletedCycles);
+                                const newTarget = Math.max(minAllowed, safeTargetCycles - 1);
+                                if (typeof setTargetCycles === 'function') {
+                                    setTargetCycles(newTarget);
+                                }
                                 try {
                                     if (syncChannel && typeof syncChannel.postMessage === 'function') {
                                         syncChannel.postMessage({
@@ -50,7 +54,7 @@ export function PomodoroProgress({
                                     console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
                                 }
                             }}
-                            disabled={!Number.isFinite(targetCycles) || !Number.isFinite(completedCycles) || targetCycles <= Math.max(1, Number(completedCycles) || 0)}
+                            disabled={safeTargetCycles <= Math.max(1, safeCompletedCycles)}
                             className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Reduzir meta de ciclos"
                         >
@@ -58,16 +62,18 @@ export function PomodoroProgress({
                         </button>
 
                         <div className="flex items-baseline gap-1 px-2 py-0.5 rounded-lg bg-[#2d1a12]/10 border border-[#2d1a12]/15 text-xs sm:text-sm font-black tabular-nums shadow-inner">
-                            <span className="text-[#2d1a12] font-black">{completedCycles}</span>
+                            <span className="text-[#2d1a12] font-black">{safeCompletedCycles}</span>
                             <span className="text-[#2d1a12]/40 text-[10px] font-bold">/</span>
-                            <span className="text-[#2d1a12]/80 text-[10px] font-bold">{targetCycles}</span>
+                            <span className="text-[#2d1a12]/80 text-[10px] font-bold">{safeTargetCycles}</span>
                         </div>
 
                         <button
                             type="button"
                             onClick={() => {
-                                const newTarget = Math.min(20, targetCycles + 1);
-                                setTargetCycles(newTarget);
+                                const newTarget = Math.min(20, safeTargetCycles + 1);
+                                if (typeof setTargetCycles === 'function') {
+                                    setTargetCycles(newTarget);
+                                }
                                 try {
                                     if (syncChannel && typeof syncChannel.postMessage === 'function') {
                                         syncChannel.postMessage({
@@ -82,7 +88,7 @@ export function PomodoroProgress({
                                     console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
                                 }
                             }}
-                            disabled={targetCycles >= 20}
+                            disabled={safeTargetCycles >= 20}
                             className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Aumentar meta de ciclos"
                         >
@@ -93,7 +99,7 @@ export function PomodoroProgress({
 
                 {/* Progress Indicators Track - Barras e Bolinhas Maiores */}
                 <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5">
-                    {Array.from({ length: targetCycles || 1 }).map((_, i) => {
+                    {Array.from({ length: safeTargetCycles }).map((_, i) => {
                         let workWidth = '0%';
                         let breakHeight = '0%';
 
@@ -102,10 +108,10 @@ export function PomodoroProgress({
                             : 0;
 
                         if (mode === 'work') {
-                            if (i < completedCycles) {
+                            if (i < safeCompletedCycles) {
                                 workWidth = '100%';
                                 breakHeight = '100%';
-                            } else if (i === completedCycles) {
+                            } else if (i === safeCompletedCycles) {
                                 workWidth = `${progressPct}%`;
                                 breakHeight = '0%';
                             } else {
@@ -113,10 +119,10 @@ export function PomodoroProgress({
                                 breakHeight = '0%';
                             }
                         } else {
-                            if (i < completedCycles - 1) {
+                            if (i < safeCompletedCycles - 1) {
                                 workWidth = '100%';
                                 breakHeight = '100%';
-                            } else if (i === completedCycles - 1) {
+                            } else if (i === safeCompletedCycles - 1) {
                                 workWidth = '100%';
                                 breakHeight = `${progressPct}%`;
                             } else {
@@ -131,7 +137,9 @@ export function PomodoroProgress({
                                 <div className="flex-1 h-3.5 sm:h-4 bg-[#2d1a12]/20 rounded-full overflow-hidden border-2 border-[#2d1a12]/25 shadow-inner">
                                     <div
                                         ref={el => {
-                                            workFillsRef.current[i] = el || undefined;
+                                            if (workFillsRef?.current && Array.isArray(workFillsRef.current)) {
+                                                workFillsRef.current[i] = el || undefined;
+                                            }
                                         }}
                                         style={{ width: workWidth }}
                                         className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full shadow-sm"
@@ -139,11 +147,13 @@ export function PomodoroProgress({
                                 </div>
 
                                 {/* Bolinha Verde de Pausa (Maior e com Glow) */}
-                                {i < (targetCycles || 1) - 1 && (
+                                {i < safeTargetCycles - 1 && (
                                     <div className="relative w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#2d1a12]/20 border-2 border-[#2d1a12]/35 overflow-hidden shrink-0 shadow-md">
                                         <div
                                             ref={el => {
-                                                breakBallsRef.current[i] = el || undefined;
+                                                if (breakBallsRef?.current && Array.isArray(breakBallsRef.current)) {
+                                                    breakBallsRef.current[i] = el || undefined;
+                                                }
                                             }}
                                             style={{ height: breakHeight }}
                                             className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]"

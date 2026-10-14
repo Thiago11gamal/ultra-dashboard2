@@ -153,7 +153,7 @@ export default function ConfirmModal({
         </AnimatePresence>
     );
 
-    if (typeof document === 'undefined') return modalContent;
+    if (typeof document === 'undefined' || !document?.body) return modalContent;
     return createPortal(modalContent, document.body);
 }
 

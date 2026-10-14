@@ -39,7 +39,7 @@ export function usePomodoroSync({
     const syncPomodoroState = useAppStore(state => state.syncPomodoroState);
 
     useEffect(() => {
-        if (!syncChannel) return;
+        if (!syncChannel || typeof syncChannel.addEventListener !== 'function') return;
 
         let isMounted = true;
 
@@ -253,7 +253,9 @@ export function usePomodoroSync({
 
         return () => {
             isMounted = false;
-            syncChannel.removeEventListener('message', handleMessage);
+            try {
+                syncChannel?.removeEventListener?.('message', handleMessage);
+            } catch { /* ignore */ }
         };
     }, [
         syncChannel,

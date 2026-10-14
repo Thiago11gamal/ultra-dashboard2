@@ -1127,6 +1127,7 @@ export default function Pomodoro() {
         setPomodoroActiveSubject(null);
         try {
             localStorage.removeItem('pomodoroState');
+            localStorage.removeItem('pomodoro-endsAt');
         } catch {
             // ignore
         }
@@ -1182,7 +1183,26 @@ export default function Pomodoro() {
         }
     };
 
-    const handleFullCycleComplete = (totalMinutes = 0, wasNatural = true) => {
+    const handleTimerStateChange = useCallback((newState) => {
+        setLiveTimerState(prev => {
+            if (!prev) return newState;
+            if (!newState) return null;
+            if (
+                prev.isRunning === newState.isRunning &&
+                prev.timeLeft === newState.timeLeft &&
+                prev.totalTime === newState.totalTime &&
+                prev.mode === newState.mode &&
+                prev.sessions === newState.sessions &&
+                prev.targetCycles === newState.targetCycles &&
+                prev.completedCycles === newState.completedCycles
+            ) {
+                return prev;
+            }
+            return newState;
+        });
+    }, []);
+
+    const handleFullCycleComplete = useCallback((totalMinutes = 0, wasNatural = true) => {
         const currentSubject = activeSubject || useAppStore.getState().appState?.pomodoro?.activeSubject;
         const { neuralMode } = useAppStore.getState().appState?.pomodoro || {};
         const store = useAppStore.getState();
@@ -1253,14 +1273,14 @@ export default function Pomodoro() {
             store.setPomodoroAccumulatedMinutes(0);
             handleExit();
         }
-    };
+    }, [activeSubject, handleExit, showToast, setPomodoroActiveSubject]);
 
-    const handleSessionComplete = () => {
+    const handleSessionComplete = useCallback(() => {
         setData(prev => ({
             ...prev,
             lastPomodoroDate: new Date().toISOString()
         }));
-    };
+    }, [setData]);
 
     if (!isHydrated) {
         return (
@@ -1296,7 +1316,7 @@ export default function Pomodoro() {
                             onExit={handleExit}
                             onSessionComplete={handleSessionComplete}
                             onFullCycleComplete={handleFullCycleComplete}
-                            onTimerStateChange={setLiveTimerState}
+                            onTimerStateChange={handleTimerStateChange}
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
                             defaultTargetCycles={1}

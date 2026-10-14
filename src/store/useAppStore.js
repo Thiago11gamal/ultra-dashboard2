@@ -183,7 +183,10 @@ export const useAppStore = create(
         // ✅ FIX: resetStore COMPLETO — limpa TODOS os campos
         resetStore: () => {
           try {
-            if (typeof localStorage !== 'undefined') localStorage.removeItem('pomodoroState');
+            if (typeof localStorage !== 'undefined') {
+              localStorage.removeItem('pomodoroState');
+              localStorage.removeItem('pomodoro-endsAt');
+            }
           } catch { /* ignore */ }
           clearCoachCaches();
           try {
@@ -192,9 +195,11 @@ export const useAppStore = create(
             sessionStorage.removeItem('page-has-been-force-refreshed');
           } catch { /* ignore */ }
           try {
-            const channel = new BroadcastChannel('pomodoro_sync');
-            channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
-            channel.close();
+            if (typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function') {
+              const channel = new window.BroadcastChannel('pomodoro_sync');
+              channel.postMessage({ type: 'TIMER_RESET', tabId: 'reset-all' });
+              channel.close();
+            }
           } catch { /* ignore */ }
 
           if (useAppStore.temporal) {
