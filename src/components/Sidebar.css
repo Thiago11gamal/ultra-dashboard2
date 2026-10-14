@@ -276,7 +276,7 @@
 
 .sidebar-item:hover .sidebar-item-icon-wrapper {
   background: var(--item-color-alpha, rgba(255, 255, 255, 0.08));
-  border-color: var(--item-color-alpha, rgba(255, 255, 255, 0.2));
+  border-color: transparent;
   color: var(--item-color, #818cf8);
   transform: scale(1.05);
 }
@@ -309,9 +309,9 @@
 
 .sidebar-item.active .sidebar-item-icon-wrapper {
   background: var(--item-color-alpha, rgba(129, 140, 248, 0.22));
-  border-color: var(--item-color, #818cf8);
+  border-color: transparent;
   color: #ffffff;
-  box-shadow: 0 0 12px var(--item-color-alpha, rgba(129, 140, 248, 0.4));
+  box-shadow: none;
 }
 
 .sidebar-item.active svg {
@@ -342,8 +342,8 @@
 
 .sidebar-item.meu-painel-item:hover .sidebar-item-icon-wrapper {
   background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.45);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  border-color: transparent;
+  box-shadow: none;
   color: #7dd3fc;
 }
 
@@ -355,9 +355,9 @@
 }
 
 .sidebar-item.meu-painel-item.active .sidebar-item-icon-wrapper {
-  background: rgba(56, 189, 248, 0.28) !important;
-  border-color: #38bdf8 !important;
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.5) !important;
+  background: rgba(56, 189, 248, 0.25) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   color: #ffffff !important;
 }
 
@@ -410,8 +410,8 @@
 
 .sidebar-item.cronometro-item:hover .sidebar-item-icon-wrapper {
   background: rgba(251, 113, 133, 0.18);
-  border-color: rgba(251, 113, 133, 0.45);
-  box-shadow: 0 0 10px rgba(251, 113, 133, 0.3);
+  border-color: transparent;
+  box-shadow: none;
   color: #fda4af;
 }
 
@@ -423,9 +423,9 @@
 }
 
 .sidebar-item.cronometro-item.active .sidebar-item-icon-wrapper {
-  background: rgba(251, 113, 133, 0.28) !important;
-  border-color: #fb7185 !important;
-  box-shadow: 0 0 14px rgba(251, 113, 133, 0.5) !important;
+  background: rgba(251, 113, 133, 0.25) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   color: #ffffff !important;
 }
 
@@ -477,8 +477,8 @@
 
 .sidebar-item.coach-ia-item:hover .sidebar-item-icon-wrapper {
   background: rgba(168, 85, 247, 0.22);
-  border-color: rgba(168, 85, 247, 0.5);
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+  border-color: transparent;
+  box-shadow: none;
   color: #e9d5ff;
 }
 
@@ -490,9 +490,9 @@
 }
 
 .sidebar-item.coach-ia-item.active .sidebar-item-icon-wrapper {
-  background: rgba(168, 85, 247, 0.3) !important;
-  border-color: #c084fc !important;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.5) !important;
+  background: rgba(168, 85, 247, 0.25) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
   color: #ffffff !important;
 }
 
@@ -581,21 +581,48 @@
 
 /* Collapsed Mode Adjustments */
 .sidebar.collapsed .sidebar-item {
-  justify-content: center;
-  padding: 0;
-  height: 40px;
-  width: 44px;
-  margin: 3px auto;
-  border-radius: 12px;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  height: 42px !important;
+  width: 42px !important;
+  min-height: 42px !important;
+  margin: 4px auto !important;
+  border-radius: 12px !important;
+  position: relative !important;
 }
 
+.sidebar.collapsed .sidebar-item .sidebar-item-text,
+.sidebar.collapsed .sidebar-item-text {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  max-width: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Zero interior borders / boxes in collapsed mode: single button container only */
 .sidebar.collapsed .sidebar-item .sidebar-item-icon-wrapper {
-  width: 32px;
-  height: 32px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 9px;
-  box-shadow: none;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: inherit !important;
+  transform: none !important;
 }
 
 .sidebar.collapsed .sidebar-item::before {
@@ -603,7 +630,7 @@
 }
 
 .sidebar.collapsed .sidebar-item.active {
-  background: linear-gradient(135deg, var(--item-color-alpha, rgba(129, 140, 248, 0.22)) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+  background: linear-gradient(135deg, var(--item-color-alpha, rgba(129, 140, 248, 0.25)) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
   box-shadow: 0 0 0 1.5px var(--item-color, #818cf8), 0 0 16px var(--item-color-alpha, rgba(129, 140, 248, 0.35)) !important;
   border-color: transparent !important;
 }
@@ -626,22 +653,87 @@
   border-color: transparent !important;
 }
 
-.sidebar.collapsed .sidebar-item:hover {
-  transform: scale(1.06);
-  background: var(--item-color-alpha, rgba(129, 140, 248, 0.15));
-  border-color: var(--item-color, rgba(255, 255, 255, 0.25));
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 12px var(--item-color-alpha, rgba(129, 140, 248, 0.2));
+/* Ensure ALL active icon wrappers in collapsed mode remain completely borderless and backgroundless */
+.sidebar.collapsed .sidebar-item.active .sidebar-item-icon-wrapper,
+.sidebar.collapsed .sidebar-item.meu-painel-item.active .sidebar-item-icon-wrapper,
+.sidebar.collapsed .sidebar-item.cronometro-item.active .sidebar-item-icon-wrapper,
+.sidebar.collapsed .sidebar-item.coach-ia-item.active .sidebar-item-icon-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
-.sidebar.collapsed .sidebar-item:hover .sidebar-item-icon-wrapper {
-  color: var(--item-color, #ffffff);
-  background: var(--item-color-alpha, rgba(255, 255, 255, 0.08));
-  border-color: var(--item-color, rgba(255, 255, 255, 0.2));
-  transform: scale(1.05);
+.sidebar.collapsed .sidebar-item:hover {
+  transform: translateY(-1px) scale(1.04);
+  background: var(--item-color-alpha, rgba(129, 140, 248, 0.16)) !important;
+  border-color: var(--item-color, rgba(255, 255, 255, 0.28)) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 12px var(--item-color-alpha, rgba(129, 140, 248, 0.25)) !important;
+}
+
+.sidebar.collapsed .sidebar-item:hover .sidebar-item-icon-wrapper,
+.sidebar.collapsed .sidebar-item.meu-painel-item:hover .sidebar-item-icon-wrapper,
+.sidebar.collapsed .sidebar-item.cronometro-item:hover .sidebar-item-icon-wrapper,
+.sidebar.collapsed .sidebar-item.coach-ia-item:hover .sidebar-item-icon-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  transform: none !important;
 }
 
 .sidebar.collapsed .sidebar-item svg {
-  opacity: 1;
+  width: 19px !important;
+  height: 19px !important;
+  opacity: 0.9 !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, color 0.2s ease;
+}
+
+.sidebar.collapsed .sidebar-item:hover svg {
+  opacity: 1 !important;
+  transform: scale(1.1);
+  color: var(--item-color, #ffffff) !important;
+}
+
+.sidebar.collapsed .sidebar-item.active svg {
+  opacity: 1 !important;
+  transform: scale(1.05);
+  color: var(--item-color, #ffffff) !important;
+}
+
+/* Painel Ativo & Configurações in collapsed mode */
+.sidebar.collapsed .sidebar-contest-card,
+.sidebar.collapsed .sidebar-footer .sidebar-item {
+  width: 42px !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 !important;
+  margin: 4px auto !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 0 !important;
+  border-radius: 12px !important;
+}
+
+.sidebar.collapsed .sidebar-contest-card .sidebar-contest-icon-box,
+.sidebar.collapsed .sidebar-footer .sidebar-item .sidebar-item-icon-wrapper {
+  width: auto !important;
+  height: auto !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.sidebar.collapsed .sidebar-contest-card:hover .sidebar-contest-icon-box,
+.sidebar.collapsed .sidebar-footer .sidebar-item:hover .sidebar-item-icon-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 /* ─────────────────────────────────────────────────────────
