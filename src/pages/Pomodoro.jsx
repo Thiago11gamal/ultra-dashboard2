@@ -842,7 +842,7 @@ function PomodoroSidePanel({
 // =====================================================
 // BARRA SUPERIOR DO CRONÔMETRO (COMPACTA, ELEGANTE E PERFEITAMENTE ENQUADRADA)
 // =====================================================
-function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLock }) {
+function PomodoroTopBar({ activeSubject }) {
     const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
 
     return (
@@ -864,19 +864,6 @@ function PomodoroTopBar({ activeSubject, neuralMode, isLayoutLocked, onToggleLoc
                             {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}
                         </h1>
                     </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    <span className="px-2.5 sm:px-3 py-1 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest border border-[#2d1a12]/30 bg-[#2d1a12]/10 text-[#2d1a12] shadow-sm">
-                        {neuralMode ? 'NEURAL' : 'MANUAL'}
-                    </span>
-                    <button
-                        type="button"
-                        onClick={onToggleLock}
-                        className={`p-1.5 sm:p-2 rounded-lg border transition-all shadow-sm ${isLayoutLocked ? 'bg-[#2d1a12]/10 border-[#2d1a12]/20 text-[#2d1a12]/60 hover:text-[#2d1a12]' : 'bg-[#2d1a12]/20 border-[#2d1a12]/40 text-[#2d1a12]'}`}
-                        title={isLayoutLocked ? "Desbloquear arrasto do painel" : "Bloquear painel"}
-                    >
-                        {isLayoutLocked ? <Lock size={14} /> : <Unlock size={14} />}
-                    </button>
                 </div>
             </div>
         </div>
@@ -1304,9 +1291,6 @@ export default function Pomodoro() {
                     <div className="w-full xl:w-[480px] 2xl:w-[510px] flex-shrink-0 flex flex-col items-center gap-1 min-w-0">
                         <PomodoroTopBar
                             activeSubject={activeSubject}
-                            neuralMode={neuralMode}
-                            isLayoutLocked={isLayoutLocked}
-                            onToggleLock={toggleLayoutLock}
                         />
                         <PomodoroTimer
                             settings={settings}
