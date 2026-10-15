@@ -22,6 +22,7 @@
  */
 
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
@@ -30,6 +31,8 @@ function clampFinite(value, min, max, fallback = min) {
 export function normalizeGraphName(name) {
   return String(name ?? '')
     .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -176,7 +179,7 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
 
   const outgoing = new Map(nodes.map((node) => [node, []]));
   const incoming = new Map(nodes.map((node) => [node, []]));
-  const outWeight = new Map(nodes.map((node) => [node, 0]));
+  const inWeight = new Map(nodes.map((node) => [node, 0]));
 
   rawEdges.forEach((edge) => {
     if (!nodeSet.has(edge.from) || !nodeSet.has(edge.to)) return;
@@ -184,9 +187,9 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
     outgoing.get(edge.from).push(edge);
     incoming.get(edge.to).push(edge);
 
-    outWeight.set(
-      edge.from,
-      (outWeight.get(edge.from) || 0) + edge.weight
+    inWeight.set(
+      edge.to,
+      (inWeight.get(edge.to) || 0) + edge.weight
     );
   });
 
@@ -201,14 +204,15 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
     );
 
     nodes.forEach((node) => {
-      const inbound = incoming.get(node) || [];
+      // Dependentes (outgoing) transferem importância estrutural para o pré-requisito (node)
+      const dependents = outgoing.get(node) || [];
 
-      inbound.forEach((edge) => {
-        const weightFrom = outWeight.get(edge.from) || 0;
-        if (weightFrom <= 0) return;
+      dependents.forEach((edge) => {
+        const weightTo = inWeight.get(edge.to) || 0;
+        if (weightTo <= 0) return;
 
         const contribution =
-          (pageRank.get(edge.from) || 0) * (edge.weight / weightFrom);
+          (pageRank.get(edge.to) || 0) * (edge.weight / weightTo);
 
         next.set(node, (next.get(node) || 0) + damping * contribution);
       });

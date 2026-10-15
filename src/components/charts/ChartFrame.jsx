@@ -38,7 +38,7 @@ export default function ChartFrame({
           const r = entry.contentRect || el.getBoundingClientRect();
           const w = Math.floor(r.width);
           const h = Math.floor(r.height);
-          setSize({ w, h });
+          setSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
           setReady(w > 0 && h > 0);
         }
       });

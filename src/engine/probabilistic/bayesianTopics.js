@@ -19,13 +19,14 @@
  */
 
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
 }
 
 function toFiniteNumber(value, fallback = 0) {
-  if (value === null || value === undefined || value === '') return fallback;
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : fallback;
   }
@@ -199,8 +200,9 @@ export function estimateTopicProficiencies(topics = [], options = {}) {
     const name = String(topic?.name ?? topic?.topic ?? topic?.id ?? `topic-${index}`);
     const total = Math.max(0, toFiniteNumber(topic?.total, 0));
     let correct = toFiniteNumber(topic?.correct ?? topic?.acertos, NaN);
-    if (!Number.isFinite(correct) && Number.isFinite(topic?.percentage) && total > 0) {
-      correct = (Number(topic.percentage) / 100) * total;
+    const pct = toFiniteNumber(topic?.percentage, NaN);
+    if (!Number.isFinite(correct) && Number.isFinite(pct) && total > 0) {
+      correct = (pct / 100) * total;
     }
     correct = Number.isFinite(correct) ? correct : 0;
     correct = Math.max(0, Math.min(total, correct));
@@ -210,9 +212,10 @@ export function estimateTopicProficiencies(topics = [], options = {}) {
   const topicsWithData = parsedTopics.filter((t) => t.total > 0);
   const globalTotal = sumValues(topicsWithData.map((t) => t.total));
   const globalCorrect = sumValues(topicsWithData.map((t) => t.correct));
+  // Amortecimento de Laplace com untestedPriorMean evita globalMean = 0 ou 1 em amostras pequenas
   const globalMean =
     globalTotal > 0
-      ? clampFinite(globalCorrect / globalTotal, 0, 1, untestedPriorMean)
+      ? clampFinite((globalCorrect + 2 * untestedPriorMean) / (globalTotal + 2), 0.02, 0.98, untestedPriorMean)
       : untestedPriorMean;
 
   let priorStrength =

@@ -10,8 +10,9 @@ const fmt = (v, d = 4) => {
 
 // FIX (BUG-09): semântica clara (lowerIsBetter) em vez de goodWhenNegative
 const deltaColor = (v, lowerIsBetter = true) => {
+  if (v === null || v === undefined || v === '') return 'text-slate-500';
   const n = Number(v);
-  if (!Number.isFinite(n)) return 'text-slate-500';
+  if (!Number.isFinite(n) || n === 0) return 'text-slate-400';
   const isGood = lowerIsBetter ? n < 0 : n > 0;
   return isGood ? 'text-emerald-400' : 'text-red-400';
 };
@@ -722,7 +723,13 @@ function CausalPanel({ causalModel }) {
                 {actionEntries.map(([actionType, estimate]) => (
                   <tr key={actionType} className="border-b border-slate-700/30 last:border-0">
                     <td className="py-2 pr-4 font-mono text-slate-200">{actionType}</td>
-                    <td className={`py-2 pr-4 font-mono ${Number(estimate.uplift) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <td className={`py-2 pr-4 font-mono ${
+                      Number(estimate.uplift) > 0
+                        ? 'text-emerald-400'
+                        : Number(estimate.uplift) < 0
+                          ? 'text-red-400'
+                          : 'text-slate-400'
+                    }`}>
                       {fmt(estimate.uplift, 3)}
                     </td>
                     <td className="py-2 pr-4 text-slate-300">{estimate.method}</td>

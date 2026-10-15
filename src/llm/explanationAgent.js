@@ -56,12 +56,14 @@ function hashString(str) {
 }
 
 function clamp(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
 }
 
 function toFinite(value, fallback = null) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }

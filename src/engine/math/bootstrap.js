@@ -1,5 +1,17 @@
 import { kahanSum } from './kahan.js';
 
+function extractFiniteNumbers(arr) {
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const raw = arr[i];
+    if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean' || (typeof raw === 'string' && raw.trim() === '')) continue;
+    const n = Number(raw);
+    if (Number.isFinite(n)) out.push(n);
+  }
+  return out;
+}
+
 /**
  * Percentile bootstrap CI for robust uncertainty estimation.
  * Útil quando suposições de normalidade são fracas.
@@ -13,7 +25,7 @@ export function bootstrapCI(samples, statFn, {
   alpha = 0.05,
   seed = 42,
 } = {}) {
-  const clean = (samples || []).map(Number).filter(Number.isFinite);
+  const clean = extractFiniteNumbers(samples);
   if (clean.length === 0) return { estimate: 0, low: 0, high: 0, n: 0 };
 
   const fn = typeof statFn === 'function'
@@ -21,7 +33,7 @@ export function bootstrapCI(samples, statFn, {
     : (values) => kahanSum(values) / values.length;
 
   const estimateRaw = Number(fn(clean));
-  const estimate = estimateRaw;
+  const estimate = Number.isFinite(estimateRaw) ? estimateRaw : 0;
   const n = clean.length;
   const iters = Math.max(500, Math.floor(Number(iterations) || 1000));
   const safeAlpha = Math.max(0.001, Math.min(0.5, Number(alpha) || 0.05));
@@ -80,7 +92,7 @@ export function bootstrapCI(samples, statFn, {
  * O quantil conformal é o ceil((n+1)(1-α))-ésimo menor resíduo absoluto.
  */
 export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointEstimate = 0) {
-  const clean = residuals.map(Number).filter(Number.isFinite);
+  const clean = extractFiniteNumbers(residuals);
   const p = Number.isFinite(Number(pointEstimate)) ? Number(pointEstimate) : 0;
   const a = Math.max(0.001, Math.min(0.5, Number(alpha) || 0.05));
 

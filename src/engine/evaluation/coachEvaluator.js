@@ -24,12 +24,14 @@ const EVAL_STORAGE_KEY = 'coach_evaluation_results_v1';
 const EVAL_STORAGE_MAX = 500;
 
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
 }
 
 function toFinite(value, fallback = null) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -98,8 +100,8 @@ export function evaluateScorePrediction(
   options = {}
 ) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-  const predicted = clampFinite(Number(predictedScore), 0, maxScore, null);
-  const observed = clampFinite(Number(observedScore), 0, maxScore, null);
+  const predicted = clampFinite(predictedScore, 0, maxScore, null);
+  const observed = clampFinite(observedScore, 0, maxScore, null);
 
   if (predicted === null || observed === null) {
     return null;

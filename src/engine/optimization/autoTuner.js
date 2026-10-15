@@ -164,7 +164,7 @@ export function summarizeEvaluationsByStrategy(evaluations = []) {
       group.mae.length,
       group.ndcg.length,
       group.uplift.length,
-      1
+      0
     );
 
     summaries[strategyId] = {
@@ -213,7 +213,7 @@ export function loadTunerHistory() {
  * Executa um ciclo completo de auto-tuning.
  */
 export function runAutoTunerCycle(options = {}) {
-  loadPersistedCoachFlags();
+  const persistedFlags = loadPersistedCoachFlags();
 
   const evaluations = Array.isArray(options.evaluations)
     ? options.evaluations
@@ -254,7 +254,7 @@ export function runAutoTunerCycle(options = {}) {
   const recommendation = recommendFlagConfig({
     ranked,
     latestHealth,
-    currentFeatures: globalThis.__COACH_FEATURES__ || {},
+    currentFeatures: options.currentFeatures || globalThis.__COACH_FEATURES__ || persistedFlags || {},
     minImprovement: options.minImprovement ?? 0.02,
     allowRollback: options.allowRollback !== false,
     exploration: options.exploration === true,
