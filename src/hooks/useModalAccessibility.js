@@ -14,7 +14,8 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
             );
 
             return Array.from(elements).filter(el => {
-                return !el.disabled && el.offsetParent !== null;
+                if (el.disabled || el.getAttribute('aria-hidden') === 'true') return false;
+                return el.offsetParent !== null || el.getClientRects().length > 0;
             });
         };
 

@@ -189,6 +189,9 @@ return (
                           className="w-full bg-slate-950/80 border border-white/10 focus:border-indigo-400/70 focus:bg-slate-900 hover:border-white/25 transition-all rounded-2xl px-4 py-[15px] text-[15px] font-medium text-white outline-none appearance-none cursor-pointer pr-10"
                         >
                           <option value="">Selecione a matéria...</option>
+                          {form.categoryId === 'mixed' && (
+                            <option value="mixed">🎯 Múltiplas Matérias (Personalizado)</option>
+                          )}
                           {[...categories].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map((cat) => (
                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                           ))}
@@ -215,6 +218,9 @@ return (
                           className="w-full bg-slate-950/80 border border-white/10 focus:border-indigo-400/70 focus:bg-slate-900 hover:border-white/25 transition-all rounded-2xl px-4 py-[15px] text-[15px] font-medium text-white outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer pr-10"
                         >
                           <option value="">Selecione o assunto...</option>
+                          {form.categoryId === 'mixed' && form.taskId && (
+                            <option value={form.taskId}>Foco em Múltiplas Fraquezas</option>
+                          )}
                           {[...safeAvailableTasks].sort((a,b) => (a.title||a.text||'').localeCompare(b.title||b.text||'')).map((tsk) => {
                             const label = tsk.title || tsk.text || 'Sem título';
                             return <option key={tsk.id} value={tsk.id}>{label}</option>;

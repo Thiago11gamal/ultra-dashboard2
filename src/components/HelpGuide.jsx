@@ -9,13 +9,13 @@ const helpSections = [
         icon: <Gauge size={20} className="text-blue-400" />,
         title: 'Monte Carlo',
         subtitle: 'Previsão de Aprovação',
-        description: `O Monte Carlo é uma simulação estatística que calcula sua chance de atingir 90% de acertos na prova.`,
+        description: `O Monte Carlo é uma simulação estatística que calcula sua chance de atingir a sua meta de pontuação na prova.`,
         howItWorks: [
             'Coleta suas notas de simulados por matéria',
             'Calcula a média e variação (SD) de cada matéria',
             'Aplica classificações configuráveis (ex: Português 20%, Matemática 25%)',
             'Roda 10.000 simulações de "provas virtuais"',
-            'Conta quantas vezes você passou de 90%'
+            'Conta quantas vezes você superou a nota de corte/meta configurada'
         ],
         example: `Se você tem média 75% com SD de 10:
 • As simulações geram notas entre 55% e 95%
@@ -37,7 +37,7 @@ IC 95% (Intervalo de Confiança): mostra o range onde 95% das suas notas cairiam
         howItWorks: [
             'Coleta todos os registros de simulados',
             'Calcula tendência de crescimento (slope)',
-            'Projeta data de quando você atingirá 90%',
+            'Projeta a data de quando você atingirá a sua meta',
             'Mostra nível de confiança da previsão'
         ],
         example: `Suas notas: Jan (60%) → Fev (68%) → Mar (75%)
@@ -148,7 +148,7 @@ Português:   (100-80) × 0.4 + 2 × 0.4 + 5 × 0.2  = 9.8  🟢
         icon: <Zap size={20} className="text-yellow-400" />,
         title: 'Sistema de XP',
         subtitle: 'Gamificação',
-        description: `Você ganha XP ao completar tarefas e Pomodoros. O XP abaixa seu nível (Level 10 → Level 1 = Master).`,
+        description: `Você ganha XP ao completar tarefas e Pomodoros, subindo de nível conforme acumula experiência (Nível 1 → Mestre).`,
         howItWorks: [
             'Completar tarefa = +50 XP',
             'Completar ciclo Pomodoro = +300 XP',
@@ -157,10 +157,10 @@ Português:   (100-80) × 0.4 + 2 × 0.4 + 5 × 0.2  = 9.8  🟢
             'Chance de 10% de XP dobrado (Random Bonus)'
         ],
         example: `Níveis:
-Level 10: Iniciante (0 XP)
-Level 9: Novato (1000 XP)
+Nível 1: Iniciante (0 XP)
+Nível 2: Novato (1000 XP)
 ...
-Level 1: Mestre Aprovado (9000+ XP)`,
+Nível 10: Mestre Aprovado (9000+ XP)`,
         tips: [
             'Mantenha o streak diário para bônus',
             'Complete conquistas para XP extra'

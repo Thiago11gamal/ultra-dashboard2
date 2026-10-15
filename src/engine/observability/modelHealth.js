@@ -181,28 +181,31 @@ export function evaluateModelHealth(input = {}, options = {}) {
     const diagnostics = computeCalibrationDiagnostics(probabilityPairs, {
       bins: options.bins ?? 6,
     });
+    const currentEce = Number.isFinite(diagnostics.ece)
+      ? Number(diagnostics.ece.toFixed(6))
+      : 0;
 
     metrics.currentCalibration = {
       count: probabilityPairs.length,
-      ece: Number.isFinite(diagnostics.ece) ? Number(diagnostics.ece.toFixed(6)) : 0,
+      ece: currentEce,
       mce: Number.isFinite(diagnostics.mce) ? Number(diagnostics.mce.toFixed(6)) : 0,
       reliability: diagnostics.reliability || [],
       brierDecomposition: diagnostics.brierDecomposition || null,
     };
 
-    if (diagnostics.ece !== null && diagnostics.ece > 0.15) {
+    if (currentEce > 0.15) {
       healthScore -= 15;
 
       alerts.push(
         createAlert({
-          id: 'current_calibration Poor',
+          id: 'current_calibration_poor',
           type: 'current_calibration',
           severity: 'high',
           message: 'O erro de calibração atual está alto.',
           metric: 'ece',
         })
       );
-    } else if (diagnostics.ece > 0.10) {
+    } else if (currentEce > 0.10) {
       healthScore -= 8;
 
       alerts.push(

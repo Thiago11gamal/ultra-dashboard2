@@ -168,7 +168,7 @@ function solveLinearSystem(A, b) {
 
   return M.map((row, i) => {
     const diag = row[i];
-    return Math.abs(diag) < 1e-12 ? 0 : row[n];
+    return Math.abs(diag) < 1e-12 ? 0 : row[n] / diag;
   });
 }
 
@@ -200,10 +200,8 @@ function fitLinearRegression(X, y, ridge = 1e-3) {
   }
 
   for (let j = 0; j < p; j++) {
-    // Não regularizar o intercepto.
-    if (j > 0) {
-      XtX[j][j] += ridge;
-    }
+    // Regularização mínima no intercepto (1e-9) evita matriz singular se houver colinearidade
+    XtX[j][j] += j > 0 ? ridge : 1e-9;
   }
 
   return solveLinearSystem(XtX, Xty);

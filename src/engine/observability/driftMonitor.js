@@ -333,19 +333,20 @@ export function detectCalibrationDrift(events = [], options = {}) {
   const eceDrift = detectDriftInSeries(eceSeries, options);
   const penaltyDrift = detectDriftInSeries(penaltySeries, options);
 
-  const enrichBadDirection = (drift) => {
+  const enrichBadDirection = (drift, metricName) => {
     if (!drift) return null;
 
     return {
       ...drift,
+      metric: metricName,
       badDirection: 'up',
       isBadDrift: drift.direction === 'up' && drift.severity !== 'none',
     };
   };
 
-  const enrichedBrier = enrichBadDirection(brierDrift);
-  const enrichedEce = enrichBadDirection(eceDrift);
-  const enrichedPenalty = enrichBadDirection(penaltyDrift);
+  const enrichedBrier = enrichBadDirection(brierDrift, 'avgBrier');
+  const enrichedEce = enrichBadDirection(eceDrift, 'ece');
+  const enrichedPenalty = enrichBadDirection(penaltyDrift, 'calibrationPenalty');
 
   const candidates = [enrichedBrier, enrichedEce, enrichedPenalty].filter(
     Boolean

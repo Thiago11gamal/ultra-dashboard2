@@ -7,6 +7,7 @@ export function useToast() {
     // or return a simple alert fallback if the container isn't ready.
 
     const showToast = useCallback((message, type = 'info') => {
+        if (typeof window === 'undefined') return;
         // Dispatch a custom event so the App can render it globally
         const event = new CustomEvent('show-toast', {
             detail: { message, type }

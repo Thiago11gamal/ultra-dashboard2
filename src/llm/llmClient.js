@@ -112,14 +112,17 @@ export async function generateStructuredLLM({
     }
   })();
 
+  let timeoutId;
   const timeout = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('LLM_TIMEOUT')), safeTimeout);
+    timeoutId = setTimeout(() => reject(new Error('LLM_TIMEOUT')), safeTimeout);
   });
 
   try {
     return await Promise.race([execution, timeout]);
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

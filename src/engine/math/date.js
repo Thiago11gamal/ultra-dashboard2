@@ -5,6 +5,12 @@ export const safeDate = (value) => {
     return Number.isNaN(value.getTime()) ? null : value;
   }
 
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    const [y, m, d] = value.trim().split('-').map(Number);
+    const localDate = new Date(y, m - 1, d, 12, 0, 0, 0);
+    return Number.isNaN(localDate.getTime()) ? null : localDate;
+  }
+
   if (typeof value === 'number' || typeof value === 'string') {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;

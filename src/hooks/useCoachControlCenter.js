@@ -67,18 +67,24 @@ export function useCoachControlCenter({
   maxScore = 100,
   targetScore = 80,
 } = {}) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => loadControlCenterState()?.activeTab || 'overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [orchestratorResult, setOrchestratorResult] = useState(null);
   const [dashboard, setDashboard] = useState(null);
-  const [backtestReport, setBacktestReport] = useState(null);
-  const [tunerHistory, setTunerHistory] = useState([]);
+  const [backtestReport, setBacktestReport] = useState(() => loadLastBacktestReport());
+  const [tunerHistory, setTunerHistory] = useState(() => {
+    const h = loadTunerHistory();
+    return Array.isArray(h) ? h : [];
+  });
   const [tunerResult, setTunerResult] = useState(null);
-  const [causalModel, setCausalModel] = useState(null);
-  const [healthSnapshots, setHealthSnapshots] = useState([]);
-  const [currentFlags, setCurrentFlags] = useState({});
-  const [flagOverrides, setFlagOverrides] = useState({});
+  const [causalModel, setCausalModel] = useState(() => loadCausalModel());
+  const [healthSnapshots, setHealthSnapshots] = useState(() => {
+    const s = loadModelHealthSnapshots();
+    return Array.isArray(s) ? s : [];
+  });
+  const [currentFlags, setCurrentFlags] = useState(() => loadPersistedCoachFlags() || {});
+  const [flagOverrides, setFlagOverrides] = useState(() => loadControlCenterState()?.flagOverrides || {});
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
   const isMounted = useRef(true);
@@ -89,7 +95,7 @@ export function useCoachControlCenter({
   // FIX (A5): snapshot das flags no início da sessão — "Reset Overrides"
   // restaura este estado. Antes relia o storage (que já contém os toggles
   // persistidos por toggleFlag), tornando o reset um no-op.
-  const initialFlagsRef = useRef(null);
+  const initialFlagsRef = useRef(currentFlags);
 
   useEffect(() => {
     isMounted.current = true;
@@ -99,21 +105,6 @@ export function useCoachControlCenter({
   // FIX (M15): aborta AutoTuner pendente no unmount
   useEffect(() => () => {
     if (tunerAbortControllerRef.current) tunerAbortControllerRef.current.abort();
-  }, []);
-
-  // ==========================================================
-  // Carregar estado persistido
-  // ==========================================================
-  useEffect(() => {
-    const persisted = loadControlCenterState();
-    if (persisted) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (persisted.activeTab) setActiveTab(persisted.activeTab);
-      if (persisted.flagOverrides) setFlagOverrides(persisted.flagOverrides);
-    }
-    const flags = loadPersistedCoachFlags();
-    initialFlagsRef.current = flags || {};
-    setCurrentFlags(flags || {});
   }, []);
 
   // ==========================================================
@@ -192,10 +183,6 @@ export function useCoachControlCenter({
     }
   }, []);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadAuxiliaryData();
-  }, [loadAuxiliaryData]);
 
   // ==========================================================
   // Executar AutoTuner

@@ -3,11 +3,11 @@ import { mapFocusEvolutionData, mapSubjectHoursData } from '../../utils/chartDat
 import { detectPerformanceDrift } from '../../utils/explanationEngine';
 import { generateAnalyticsStats } from '../../engine/analyticsStats';
 import { getSafeScore } from '../../utils/scoreHelper';
+import { getDateKey } from '../../utils/dateHelper';
 
 describe('Stats Menu - Bugs & Logic Regression Suite', () => {
     describe('Bug 1: Chart Data Mappers fallback with minutes: 0 and duration > 0', () => {
         it('mapFocusEvolutionData correctly maps study log when minutes is 0 but duration is present', () => {
-            const { getDateKey } = require('../../utils/dateHelper');
             const today = getDateKey(new Date());
             const logs = [
                 { id: '1', date: today, minutes: 0, duration: 60, subject: 'Matemática' }
