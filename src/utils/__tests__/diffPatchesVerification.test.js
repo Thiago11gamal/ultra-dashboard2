@@ -4,7 +4,7 @@ import { calculateMSSD } from '../../engine/projection.js';
 import { distributeRoundingRemainder, calculateStudyStreak } from '../analytics.js';
 import { daysUntilGoal, formatTimeAgo } from '../dateHelper.js';
 import { computeTrendStatus } from '../trendStatus.js';
-import { generateDataHealthReport } from '../../engine/diagnostics.js';
+import { detectDataAnomalies } from '../../engine/diagnostics.js';
 
 describe('Diffs 01-12 Verification Suite', () => {
   afterEach(() => {
@@ -78,8 +78,8 @@ describe('Diffs 01-12 Verification Suite', () => {
         { id: 'sim-a', subject: 'Constitucional', date: '2026-05-10', score: 60 },
         { id: 'sim-b', subject: 'Constitucional', date: '2026-05-10', score: 85 }
       ];
-      const report = generateDataHealthReport(records);
-      const conflict = report.issues.find(i => i.msg && i.msg.includes('Conflito no mesmo dia/matéria'));
+      const issues = detectDataAnomalies(records);
+      const conflict = issues.find(i => i.msg && i.msg.includes('Conflito no mesmo dia/matéria'));
       expect(conflict).toBeDefined();
       expect(conflict.msg).toContain('sim-a');
       expect(conflict.msg).toContain('sim-b');
