@@ -108,21 +108,25 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
     const groupKey = [
       dayKey,
       p.categoryId || p.subject || 'geral',
-      p.id || p.simuladoId || 'sem-id',
     ].join('|');
   
+    // FIX-CONFLICT-01: incluir o id no grupo impedia o detector de disparar
+    // exatamente no cenário alvo (mesmo dia + mesma matéria, ids distintos).
+    // O id vai no payload do aviso, não na chave de agrupamento.
     if (!dateMap.has(groupKey)) dateMap.set(groupKey, []);
-    dateMap.get(groupKey).push(p.score);
+    dateMap.get(groupKey).push({ score: p.score, id: p.id || p.simuladoId || 'sem-id' });
   });
   
-  for (const [key, scores] of dateMap) {
-    const uniq = new Set(scores);
-  
+  for (const [key, items] of dateMap) {
+    // FIX-CONFLICT-02: ignorar scores não-finitos, senão undefined conta
+    // como valor distinto e gera falso positivo.
+    const finite = items.filter(s => Number.isFinite(s.score));
+    const uniq = new Set(finite.map(s => s.score));
     if (uniq.size > 1) {
       issues.push({
         type: 'data',
         severity: 'warning',
-        msg: `Registro duplicado/conflitante detectado (${key}): ${[...uniq].join(', ')}.`,
+        msg: `Conflito no mesmo dia/matéria (${key}): ${[...uniq].join(', ')} — ids: ${finite.map(s => s.id).join(', ')}.`,
       });
     }
   }

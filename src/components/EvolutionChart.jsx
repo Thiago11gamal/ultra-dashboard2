@@ -423,8 +423,12 @@ export default React.memo(function EvolutionChart({
         now.setHours(12, 0, 0, 0);
         const goal = parseGoalDateLocal(goalDate);
         if (!goal) return 30;
+        // FIX-GOAL-01: Invalid Date sobrevivia ao guard e produzia NaN -> safeDays=1,
+        // exibindo "1 dia para a prova" para data corrompida.
+        if (Number.isNaN(goal.getTime())) return 30;
         goal.setHours(12, 0, 0, 0);
         const diffDays = Math.ceil((goal - now) / (1000 * 60 * 60 * 24));
+        if (!Number.isFinite(diffDays)) return 30;
         const safeDays = diffDays > 0 ? diffDays : 1;
         return Math.min(3650, safeDays);
     }, [goalDate]);
@@ -437,12 +441,14 @@ export default React.memo(function EvolutionChart({
     const exportErrorTimerRef = useRef(null);
 
     const engineTabRefs = useRef(new Map());
-    useEffect(() => {
-        const refs = engineTabRefs.current;
-        return () => {
-            refs.clear();
-            if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
-        };
+
+    // FIX-CLEANUP-01: limpar timer de erro e refs de tab ao desmontar.
+    useEffect(() => () => {
+        if (exportErrorTimerRef.current) {
+            clearTimeout(exportErrorTimerRef.current);
+            exportErrorTimerRef.current = null;
+        }
+        engineTabRefs.current.clear();
     }, []);
 
     const focusEngineTab = (id) => {
@@ -668,7 +674,7 @@ export default React.memo(function EvolutionChart({
             console.error('[EvolutionChart] Falha ao exportar PDF:', err);
             setExportError(true);
             if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
-            exportErrorTimerRef.current = setTimeout(() => setExportError(false), 5000);
+            exportErrorTimerRef.current = setTimeout(() => setExportError(false), 4000);
         } finally {
             setIsExporting(false);
         }

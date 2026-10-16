@@ -223,7 +223,9 @@ export const formatTimeAgo = (date) => {
   if (timeMs == null || Number.isNaN(timeMs)) return 'Data inválida';
   const rawDiff = Date.now() - timeMs;
   if (rawDiff < 0) {
-    if (Math.abs(rawDiff) <= 60_000) return 'Agora há pouco';
+    // FIX-AGO-01: tolerar skew de relógio do dispositivo (até 10 min), senão
+    // registros recém-criados apareciam como "No futuro".
+    if (Math.abs(rawDiff) <= 600_000) return 'Agora há pouco';
     return 'No futuro';
   }
   const diff = rawDiff;
@@ -234,9 +236,12 @@ export const formatTimeAgo = (date) => {
   if (hours < 1) return 'Agora há pouco';
   if (hours < 24) return `${hours}h atrás`;
   if (days === 1) return 'Ontem';
-  if (days < 7) return `${days} dias atrás`;
-  if (days < 30) return `${weeks} ${weeks === 1 ? 'semana' : 'semanas'} atrás`;
-  return `${months} ${months === 1 ? 'mês' : 'meses'} atrás`;
+  if (days < 7) return `${days}d atrás`;
+  // FIX-AGO-02: weeks/months eram calculados e nunca usados (mostrava "45d atrás").
+  if (weeks < 5) return weeks === 1 ? 'Semana passada' : `${weeks} sem atrás`;
+  if (months < 12) return months === 1 ? '1 mês atrás' : `${months} meses atrás`;
+  const years = Math.floor(months / 12);
+  return years === 1 ? '1 ano atrás' : `${years} anos atrás`;
 };
 
 export const formatDuration = (decimalHours) => {
@@ -309,3 +314,4 @@ export const isFlashcardDue = (cardDue, referenceKey = null) => {
 
 
 export { parseNoonLocal } from './parseNoonLocal.js';
+export { daysUntilGoal } from '../engine/math/date.js';

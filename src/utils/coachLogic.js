@@ -2768,10 +2768,13 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     allSimulados.forEach((s) => {
         const safeScore = getSafeScore(s, maxScore, minScore);
         const safeScoreStr = Number.isFinite(safeScore) ? String(Math.round(safeScore * 100)) : '0';
-        // FIX: sem `id`, a chave usava `idx` (sempre único) e nunca deduplicava.
-        // Agora usa subject + data + score para deduplicar simulados sem id.
-        const idPart = s.id || `${s.subject || s.categoryId || 'geral'}|${s.date || s.createdAt}|${safeScoreStr}|${s.total || ''}|${s.correct || ''}`;
-        const key = idPart;
+        // FIX-DEDUPE-01: `|| ''` transforma correct:0 / total:0 em '' (0 é falsy),
+        // fundindo simulado zerado com simulado sem dado. Usar normalização explícita.
+        const norm = (v) => (v === undefined || v === null || v === '' ? '_' : String(v));
+        const sig = `${s.subject || s.categoryId || 'geral'}|${s.date || s.createdAt}|${safeScoreStr}|${norm(s.total)}|${norm(s.correct)}`;
+        // FIX-DEDUPE-02: com `id`, incluir o score — senão id repetido com nota
+        // diferente sobrescreve o registro anterior em vez de coexistir/ser reportado.
+        const key = s.id ? `sim:${s.id}:${safeScoreStr}` : `sig:${sig}`;
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 

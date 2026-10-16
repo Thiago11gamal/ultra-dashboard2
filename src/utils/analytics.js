@@ -35,15 +35,15 @@ const getManausDayRange = (dateInput) => {
  * Distributes a rounding remainder across items based on their decimal parts.
  * Uses the "Largest Remainder Method" to ensure percentages sum to exactly 100%.
  */
-// ✅ FIX L01: Adicionado limite máximo de iterações para prevenir loop
-// infinito caso diff seja maior que items.length * N.
-const distributeRoundingRemainder = (items, targetSum = 100) => {
+export const distributeRoundingRemainder = (items, targetSum = 100) => {
     if (!items.length) return items;
 
-    const withRemainders = items.map(item => {
+    // FIX-ROUND-01: preservar índice original — o sort abaixo reordena o array
+    // e o retorno ia na ordem de "remainder", trocando % de lugar entre itens.
+    const withRemainders = items.map((item, __idx) => {
         const value = Number(item.rawPercentage) || 0;
         const floor = Math.floor(value);
-        return { ...item, percentage: floor, remainder: value - floor };
+        return { ...item, __idx, percentage: floor, remainder: value - floor };
     });
 
     const currentSum = withRemainders.reduce((sum, item) => sum + item.percentage, 0);
@@ -70,7 +70,10 @@ const distributeRoundingRemainder = (items, targetSum = 100) => {
         }
     }
 
-    return withRemainders;
+    return withRemainders
+        .slice()
+        .sort((a, b) => a.__idx - b.__idx)
+        .map(({ __idx, ...rest }) => rest);
 };
 
 export const calculateStudyStreak = (studyLogs) => {
@@ -95,12 +98,14 @@ export const calculateStudyStreak = (studyLogs) => {
     const lastDayStr = sortedDays[0];
     const t = parseNoonLocal(todayStr);
     const l = parseNoonLocal(lastDayStr);
-    // BUG-FIX: validar datas antes de calcular diff
+    // FIX-STREAK-01: validar datas antes de calcular diff
     if (!t || !l || Number.isNaN(t.getTime()) || Number.isNaN(l.getTime())) {
         return { current: 0, best: 0, longest: 0, isActive: false };
     }
-    const diffDays = Math.round((t - l) / (1000 * 60 * 60 * 24));
-    if (diffDays >= 2) {
+    // FIX-STREAK-02: a sequência só está viva se o último registro for hoje ou ontem.
+    // Sem isso, current/isActive permaneciam positivos semanas após a última sessão.
+    const gapDays = Math.round((t.getTime() - l.getTime()) / 86_400_000);
+    if (gapDays > 1) {
         const longest = calculateLongest(sortedDays);
         return { current: 0, best: longest, longest, isActive: false };
     }

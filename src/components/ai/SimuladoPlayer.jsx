@@ -16,6 +16,7 @@ export default function SimuladoPlayer({
   resetAll
 }) {
   const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
   if (!questions || questions.length === 0) {
     return (
@@ -32,24 +33,34 @@ export default function SimuladoPlayer({
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (e) => {
-    if (!touchStartX.current) return;
+    // FIX-SWIPE-01: `!touchStartX.current` era falso-negativo em x=0 (borda
+    // esquerda). Comparar com null/undefined, não com falsy.
+    if (touchStartX.current == null) return;
     const touch = e.changedTouches?.[0];
-    if (!touch || !touchStartX.current) return;
+    if (!touch || touchStartX.current == null) return;
 
     const touchEndX = touch.clientX;
+    const touchEndY = touch.clientY ?? touchStartY.current;
     const diff = touchStartX.current - touchEndX;
+    const diffY = Math.abs((touchStartY.current ?? 0) - touchEndY);
 
-    if (Math.abs(diff) > 50) { // Threshold de 50px
+    // FIX-SWIPE-02: exigir dominância horizontal — senão scroll vertical
+    // avançava/voltava questão acidentalmente.
+    if (Math.abs(diff) > 50 && Math.abs(diff) > diffY * 1.5) {
       if (diff > 0 && currentIndex < questions.length - 1) {
         goTo(currentIndex + 1); // Swipe left -> next
       } else if (diff < 0 && currentIndex > 0) {
         goTo(currentIndex - 1); // Swipe right -> prev
       }
     }
+
+    // FIX-SWIPE-03: limpar estado para não contaminar o próximo gesto.
     touchStartX.current = null;
+    touchStartY.current = null;
   };
 
 return (

@@ -217,23 +217,33 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
   const det = fn * sumXX - sumX * sumX;
   const slope = det === 0 ? 0 : (fn * sumXY - sumX * sumY) / det;
   
-  const detrendedScores = scores.slice(0, fn).map((y, i) => y - (slope * timeX[i])).filter(Number.isFinite);
-  const dn = detrendedScores.length;
+  // FIX-RMSSD-02: parear valor + flag na origem, para o índice de fatigueFlag
+  // nunca desalinhar quando detrendedScores é filtrado/reindexado.
+  const pairs = validPairs.map((p) => ({
+    v: p.score - (slope * p.timeX),
+    fatigue: !!p.fatigueFlag
+  })).filter(item => Number.isFinite(item.v));
   
   let sumSqDiff = 0;
   let validTransitions = 0;
   
-  for (let i = 1; i < dn; i++) {
-    const diff = detrendedScores[i] - detrendedScores[i - 1];
+  for (let i = 1; i < pairs.length; i++) {
+    const diff = pairs[i].v - pairs[i - 1].v;
     if (Number.isFinite(diff)) {
-      const isFatigueDrop = diff < 0 && validPairs[i]?.fatigueFlag;
+      const isFatigueDrop = diff < 0 && pairs[i].fatigue;
       const effectiveDiff = isFatigueDrop ? diff * 0.5 : diff;
       sumSqDiff += Math.pow(effectiveDiff, 2);
       validTransitions++;
     }
   }
   
-  const rmssd = (sumSqDiff) / (2 * Math.max(1, validTransitions));
+  // FIX-RMSSD-01: RMSSD = sqrt(mean(d²)). O fator 2 artificial subestimava
+  // a variabilidade em √2 (~29%), mascarando instabilidade do desempenho.
+  if (validTransitions < 1) {
+    const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+    return 0.05 * range;
+  }
+  const rmssd = sumSqDiff / validTransitions;
   return Math.sqrt(Math.max(1e-6, rmssd));
 }
 

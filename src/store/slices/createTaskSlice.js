@@ -241,13 +241,14 @@ export const createTaskSlice = (set, get) => ({
                 ? category.tasks
                 : Object.values(category.tasks || {});
 
-            const task = tasks.find(t => t && ((t.id && t.id === taskId) || (t.text && t.text === taskId) || (t.title && t.title === taskId)));
-            if (task) {
+            const taskIndex = tasks.findIndex(t => t && ((t.id && t.id === taskId) || (t.text && t.text === taskId) || (t.title && t.title === taskId)));
+            if (taskIndex !== -1) {
+                let task = tasks[taskIndex];
                 const oldPriority = String(task.priority || 'medium').toLowerCase();
                 const currentIndex = priorities.indexOf(oldPriority);
                 const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % 3;
                 const newPriority = priorities[nextIndex];
-                task.priority = newPriority;
+                task = { ...task, priority: newPriority };
 
                 // BUG-T06 FIX: Se a tarefa já está completada, o XP concedido
                 // foi baseado na prioridade antiga. Ajustar o XP e recibo via awardExperience.
@@ -258,12 +259,17 @@ export const createTaskSlice = (set, get) => ({
                     const newXP = XP_CONFIG.task[newPriority] || XP_CONFIG.task.medium;
                     const diff = newXP - oldXP;
                     if (diff !== 0) {
-                        task.awardedXP = newXP;
-                        pendingXpDiff = diff;
+                        // FIX-XP-01: acumular — múltiplas tarefas mudando de prioridade no mesmo
+                        // tick sobrescreviam o delta e só a última era creditada.
+                        pendingXpDiff += diff;
+                        // FIX-XP-02: nova referência do objeto para shallow memo
+                        task = { ...task, awardedXP: newXP };
                     }
                 }
 
-                // Garante novas referências de array para Zustand / React shallow memoization
+                tasks[taskIndex] = task;
+
+                // Garante novas referências de array e de objeto para Zustand / React shallow memoization
                 category.tasks = [...tasks];
                 activeData.categories = [...categories];
 

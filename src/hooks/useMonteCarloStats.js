@@ -4,9 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
-import { computeNonLinearTrend } from '../engine/projection';
-import { getDateKey, normalizeDate, parseNoonLocal } from '../utils/dateHelper';
-import { normalCDF_complement } from '../engine/math/gaussian.js';
+import { getDateKey, normalizeDate, parseNoonLocal, daysUntilGoal } from '../utils/dateHelper';
 import {
   shrinkProbabilityToNeutral,
   recordPredictionEvent,
@@ -275,16 +273,8 @@ export function useMonteCarloStats({
       currentDate = parseNoonLocal(getDateKey(new Date())) || new Date();
     }
 
-    // Force exact day boundaries in UTC based on YYYY-MM-DD keys to avoid DST or local timezone drift
-    const goalKey = getDateKey(goal);
-    const currKey = getDateKey(currentDate);
-    if (!goalKey || !currKey) return 30;
-    const [gy, gm, gd] = goalKey.split('-').map(Number);
-    const [cy, cm, cd] = currKey.split('-').map(Number);
-    const utcGoal = Date.UTC(gy, gm - 1, gd);
-    const utcCurrent = Date.UTC(cy, cm - 1, cd);
-    const diffDays = Math.ceil((utcGoal - utcCurrent) / (1000 * 60 * 60 * 24));
-    return Number.isFinite(diffDays) ? Math.min(3650, Math.max(0, diffDays)) : 30;
+    // FIX-GOAL-02: delegar ao helper único (mesmo clamp/mesmo fuso que o useMemo).
+    return daysUntilGoal(goal, { fallback: 30, min: 1, referenceDate: currentDate });
   }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
 
   const pureStatsData = useMemo(() => {

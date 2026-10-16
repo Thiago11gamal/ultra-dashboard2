@@ -197,11 +197,12 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       if (seen.has(sid)) {
         sid = `${sid}-dup-${fallbackIndex}`;
         if (seen.has(sid)) {
-          sid = `${sid}-${Math.random().toString(36).slice(2, 7)}`;
+          sid = `${sid}-dup2-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
         }
       }
+      // FIX-COACH-01: dedupe entre colunas com garantia de visto
       seen.add(sid);
-      return { ...withId, id: sid };
+      return { ...withId, id: sid, draggableId: sid };
     };
     const backlog = [];
     let i = 0;

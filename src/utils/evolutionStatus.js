@@ -1,5 +1,8 @@
 import { formatValue } from './scoreHelper';
 import { getDateKey } from './dateHelper';
+import { computeTrendStatus } from './trendStatus';
+
+export { computeTrendStatus };
 
 const safeNum = (value, fallback = null) => {
   const n = Number(value);
@@ -98,37 +101,8 @@ export function computeEvolutionStatuses({
     });
   }
 
-  // Tendência recente
-  if (levelSeries.length >= 6) {
-    const recent = average(levelSeries.slice(-3));
-    const prev = average(levelSeries.slice(-6, -3));
-
-    if (Number.isFinite(recent) && Number.isFinite(prev)) {
-      const diff = recent - prev;
-
-      statuses.push({
-        id: 'trend',
-        label: 'Tendência',
-        value: `${diff >= 0 ? '+' : ''}${formatValue(diff)}${unit}`,
-        tone: diff > 1 * scale ? 'progress' : diff < -1 * scale ? 'danger' : 'neutral',
-        icon: diff > 1 * scale ? '📈' : diff < -1 * scale ? '📉' : '➡️',
-        help: 'Comparação média dos últimos 3 registros contra os 3 anteriores.'
-      });
-    }
-  } else if (levelSeries.length >= 2) {
-    const first = levelSeries[0];
-    const lastValue = levelSeries[levelSeries.length - 1];
-    const diff = lastValue - first;
-
-    statuses.push({
-      id: 'trend',
-      label: 'Tendência',
-      value: `${diff >= 0 ? '+' : ''}${formatValue(diff)}${unit}`,
-      tone: diff > 1 * scale ? 'progress' : diff < -1 * scale ? 'danger' : 'neutral',
-      icon: diff > 1 * scale ? '📈' : diff < -1 * scale ? '📉' : '➡️',
-      help: 'Comparação entre o primeiro e o último ponto disponível.'
-    });
-  }
+  // REFACTOR-TREND-01: usar computeTrendStatus centralizado
+  statuses.push(computeTrendStatus(levelSeries, { formatValue, unit, scale }));
 
   // Probabilidade Monte Carlo
   const probability = safeNum(activeMcResult?.probability, null);

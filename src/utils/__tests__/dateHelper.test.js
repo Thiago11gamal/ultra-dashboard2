@@ -59,15 +59,24 @@ describe('dateHelper formatTimeAgo', () => {
     vi.useRealTimers();
   });
 
-  it('retorna Agora há pouco para skew futuro de até 60s', () => {
+  it('retorna Agora há pouco para skew futuro de até 10min', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
-    expect(formatTimeAgo('2026-05-08T12:00:30.000Z')).toBe('Agora há pouco');
+    expect(formatTimeAgo('2026-05-08T12:05:00.000Z')).toBe('Agora há pouco');
   });
 
-  it('não mascara data futura real acima de 60s', () => {
+  it('não mascara data futura real acima de 10min', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
-    expect(formatTimeAgo('2026-05-08T12:02:00.000Z')).toBe('No futuro');
+    expect(formatTimeAgo('2026-05-08T12:15:00.000Z')).toBe('No futuro');
+  });
+
+  it('formata semanas, meses e anos corretamente', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-08T12:00:00.000Z'));
+    // 2 semanas (14 dias) atrás
+    expect(formatTimeAgo('2026-04-24T12:00:00.000Z')).toBe('2 sem atrás');
+    // 2 meses (60 dias) atrás
+    expect(formatTimeAgo('2026-03-09T12:00:00.000Z')).toBe('2 meses atrás');
   });
 });

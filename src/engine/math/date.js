@@ -93,3 +93,25 @@ export const ageInHours = (date, reference = new Date()) => {
   return Number.isFinite(hours) && hours > 0 ? hours : 0;
 };
 
+export const daysUntilGoal = (goalDate, { fallback = 30, min = 1, referenceDate = new Date() } = {}) => {
+  if (!goalDate) return fallback;
+  const now = safeDate(referenceDate) || new Date();
+  now.setHours(12, 0, 0, 0);
+
+  let goal = null;
+  if (typeof goalDate === 'object' && goalDate !== null && Number.isFinite(goalDate.seconds)) {
+    goal = new Date(goalDate.seconds * 1000);
+  } else {
+    goal = safeDate(goalDate);
+  }
+
+  if (!goal || Number.isNaN(goal.getTime())) return fallback;
+  goal.setHours(12, 0, 0, 0);
+
+  const diffDays = Math.ceil((goal.getTime() - now.getTime()) / 86400000);
+  if (!Number.isFinite(diffDays)) return fallback;
+
+  const safeDays = diffDays >= min ? diffDays : min;
+  return Math.min(3650, safeDays);
+};
+
