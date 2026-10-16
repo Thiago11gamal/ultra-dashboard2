@@ -173,26 +173,26 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
  * @returns {Array} [{ disciplina, horas }]
  */
 export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
-    const hoursMap = {};
+    const hoursMap = new Map();
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
     const safeCategories = Array.isArray(categories) ? categories : [];
     
-    // ✅ FIX: Pré-indexar categorias por ID para lookup O(1)
+    const normalizeKey = (str) => String(str ?? '').trim().toLowerCase().normalize('NFC');
+
+    // Pré-indexar categorias por ID e por Nome normalizado
     const categoriesById = new Map();
-    // ✅ Bug 12 FIX: Criar categoriesByName para lookup O(1) insensível a maiúsculas e espaços
     const categoriesByName = new Map();
     safeCategories.forEach(c => {
         if (c) {
             if (c.id != null) categoriesById.set(String(c.id), c);
             if (c.name != null) {
-                categoriesByName.set(c.name, c);
-                categoriesByName.set(String(c.name).trim().toLowerCase(), c);
+                const norm = normalizeKey(c.name);
+                if (!categoriesByName.has(norm)) {
+                    categoriesByName.set(norm, c);
+                }
             }
         }
     });
-
-    // Mapeador dinâmico de nomes canônicos para agrupar matérias sem cadastro
-    const canonicalNames = new Map();
 
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
@@ -204,41 +204,36 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
         if (!cat) {
             const catNameSearch = log.subject || log.categoryName;
             if (catNameSearch) {
-                cat = categoriesByName.get(catNameSearch) || categoriesByName.get(String(catNameSearch).trim().toLowerCase());
+                cat = categoriesByName.get(normalizeKey(catNameSearch));
             }
         }
         
-        let name;
-        if (cat) {
-            name = cat.name;
+        let displayName = 'Outros';
+        if (cat && cat.name) {
+            displayName = String(cat.name).trim();
         } else {
             const catNameSearch = log.categoryName || log.subject;
-            const validName = (catNameSearch && String(catNameSearch).trim() !== 'undefined' && String(catNameSearch).trim() !== 'null')
-                ? String(catNameSearch).trim()
-                : 'Outros';
-            const lower = validName.toLowerCase();
-            if (canonicalNames.has(lower)) {
-                name = canonicalNames.get(lower);
-            } else {
-                canonicalNames.set(lower, validName);
-                name = validName;
+            if (catNameSearch && String(catNameSearch).trim() !== 'undefined' && String(catNameSearch).trim() !== 'null') {
+                displayName = String(catNameSearch).trim();
             }
         }
 
+        const normKey = normalizeKey(displayName);
         const actualMinutes = getStudyLogMinutes(log);
         
-        // ✅ FIX: Validar minutes antes de acumular
         if (Number.isFinite(actualMinutes) && actualMinutes > 0) {
-            hoursMap[name] = (hoursMap[name] || 0) + actualMinutes;
+            if (!hoursMap.has(normKey)) {
+                hoursMap.set(normKey, { disciplina: displayName, minutes: 0 });
+            }
+            hoursMap.get(normKey).minutes += actualMinutes;
         }
     });
 
-    // FIX: Blindagem contra minutos NaN/Infinity no hoursMap
-    return Object.entries(hoursMap)
-        .filter(([, minutes]) => Number.isFinite(minutes) && minutes >= 0)
-        .map(([name, minutes]) => ({
-            disciplina: name,
-            horas: parseFloat((minutes / 60).toFixed(2))
+    return Array.from(hoursMap.values())
+        .filter(item => Number.isFinite(item.minutes) && item.minutes >= 0)
+        .map(item => ({
+            disciplina: item.disciplina,
+            horas: parseFloat((item.minutes / 60).toFixed(2))
         }))
         .filter(item => Number.isFinite(item.horas))
         .sort((a, b) => Number(b.horas) - Number(a.horas));

@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { filterHistoryByTimeWindow } from '../../../../hooks/useSubjectAggData';
 import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
+import { getDateKey } from '../../../../utils/dateHelper';
 import { GaussianPlot } from '../../GaussianPlot';
 import { TimeSpentChart } from '../TimeSpentChart';
 import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
@@ -24,7 +25,7 @@ describe('Verificação das Correções dos 12 Bugs do Menu Evolução', () => {
       const ancientDate = '2022-01-01';
       const history = [
         { id: '1', createdAt: ancientDate, total: 10, correct: 8 },
-        { id: '2', date: new Date().toISOString().split('T')[0], total: 10, correct: 9 }
+        { id: '2', date: getDateKey(new Date()), total: 10, correct: 9 }
       ];
 
       const filtered30Days = filterHistoryByTimeWindow(history, '30');
@@ -36,7 +37,7 @@ describe('Verificação das Correções dos 12 Bugs do Menu Evolução', () => {
     it('ignora registros sem data válida sem quebrar', () => {
       const history = [
         { id: '1', total: 10, correct: 5 }, // sem data nem createdAt
-        { id: '2', date: new Date().toISOString().split('T')[0], total: 10, correct: 9 }
+        { id: '2', date: getDateKey(new Date()), total: 10, correct: 9 }
       ];
 
       const filtered = filterHistoryByTimeWindow(history, '30');

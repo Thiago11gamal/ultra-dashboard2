@@ -106,18 +106,19 @@ export const repairContestHistory = (rawData) => {
 
         if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0, normalRowCount: 0, directScoreCount: 0, directScoreSum: 0 };
 
-        const rawTotal = parseInt(r.total, 10) || 0;
-        const rawCorrect = parseInt(r.correct, 10) || 0;
+        const rawTotal = Number.isFinite(Number(r.total)) ? Number(r.total) : 0;
+        const rawCorrect = Number.isFinite(Number(r.correct)) ? Number(r.correct) : 0;
 
         const safeMaxScore = Math.max(1, maxScore);
-        const rawScore = Number(r.score);
-        const safeScore = Number.isFinite(rawScore) ? rawScore : 0;
+        const scoreCandidate = r.score != null ? r.score : r.scorePoints;
+        const rawScore = Number.isFinite(Number(scoreCandidate)) ? Number(scoreCandidate) : null;
+        const safeScore = rawScore !== null ? Math.min(maxScore, Math.max(minScore, rawScore)) : null;
 
-        const corrNorm = (r.isPercentage && r.score != null && rawTotal > 0)
-          ? Math.round((Math.min(safeMaxScore, Math.max(0, safeScore)) / safeMaxScore) * rawTotal)
+        const corrNorm = (r.isPercentage && safeScore !== null && rawTotal > 0)
+          ? Math.round((Math.max(0, Math.min(1, (safeScore - minScore) / scoreRange))) * rawTotal)
           : rawCorrect;
 
-        if (rawTotal === 0 && Number.isFinite(rawScore)) {
+        if (rawTotal === 0 && safeScore !== null) {
           const synTotal = 100;
           const ratio = (safeScore - minScore) / scoreRange;
           const synCorrect = Math.round(Math.max(0, Math.min(1, ratio)) * synTotal);
@@ -138,6 +139,8 @@ export const repairContestHistory = (rawData) => {
           finalScore = stats.directScoreSum / stats.directScoreCount;
         } else if (stats.total > 0 && Number.isFinite(stats.correct)) {
           finalScore = minScore + (stats.correct / stats.total) * scoreRange;
+        } else if (stats.directScoreCount > 0) {
+          finalScore = stats.directScoreSum / stats.directScoreCount;
         }
         return {
           date,

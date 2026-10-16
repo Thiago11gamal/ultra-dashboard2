@@ -9,7 +9,7 @@ const EMPTY_ARRAY = Object.freeze([]);
 const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean).filter(r => r.valid !== false);
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
-function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0) {
+function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0, weight = 1) {
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
@@ -143,7 +143,8 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
 
         if (accumulated.length > 0) {
             if (accumulated.length !== lastAccumulatedLen || !cachedStats) {
-                cachedStats = computeCategoryStats(accumulated, 100, 60, safeMax, safeMin);
+                const safeWeight = Number.isFinite(Number(weight)) ? Number(weight) : 1;
+                cachedStats = computeCategoryStats(accumulated, safeWeight, 60, safeMax, safeMin);
                 lastAccumulatedLen = accumulated.length;
             }
             const lastEntry = accumulated[accumulated.length - 1];
@@ -190,8 +191,12 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
 
     const activeCategories = useMemo(() => {
         let valid = categories.filter(c => {
-            const hist = c.simuladoStats?.history;
-            return hist && Object.values(hist).length > 0;
+            const hist = c?.simuladoStats?.history;
+            if (Array.isArray(hist)) return hist.length > 0;
+            if (hist && typeof hist === 'object') {
+                return Object.values(hist).some(h => h && typeof h === 'object');
+            }
+            return false;
         });
         const getVol = (h) => {
             const t = Math.max(0, Number(h?.total) || 0);
@@ -243,7 +248,10 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 return Math.max(0, Math.min(1, (n - catMin) / catRange));
             };
 
-            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, catMax, catMin);
+            const catWeight = Number.isFinite(Number(weights?.[cat.id]))
+                ? Number(weights[cat.id])
+                : (Number.isFinite(Number(cat?.weight)) ? Number(cat.weight) : 1);
+            const cumulativeByDate = buildCumulativeStatsPerDate(history, dates, catMax, catMin, catWeight);
             const exactByDate = {};
             history.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
@@ -404,14 +412,20 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     const raw = Math.max(0, Number(h.correct) || 0);
                     corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
                 }
-                // FIX 2B: blindagem extra contra NaN em corrNorm
+                // FIX 2B: blindagem extra contra NaN em corrNorm e tot
                 if (!Number.isFinite(corrNorm)) return;
-                totalQuestions += tot;
-                totalCorrect += corrNorm;
+                const safeTot = Number(tot);
+                if (!Number.isFinite(safeTot) || safeTot <= 0) return;
+                totalQuestions += safeTot;
+                totalCorrect += Math.max(0, Math.min(safeTot, corrNorm));
             });
         });
         const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
-        return { totalQuestions, totalCorrect, globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0 };
+        return {
+            totalQuestions: Number.isFinite(totalQuestions) ? totalQuestions : 0,
+            totalCorrect: Number.isFinite(totalCorrect) ? totalCorrect : 0,
+            globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0
+        };
     }, [activeCategories, safeMax, safeMin]);
 
     return { activeCategories, timeline, heatmapData, globalMetrics };

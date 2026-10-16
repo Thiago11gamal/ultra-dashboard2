@@ -73,6 +73,14 @@ export function formatValue(value, digits = 1) {
   });
 }
 
+export function safeDisplayNumber(value, fallback = '—') {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return fallback;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function formatPercent(value, digits = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '0%';

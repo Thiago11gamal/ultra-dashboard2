@@ -11,6 +11,7 @@ import { EvolutionLineChart } from '../EvolutionLineChart';
 import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
 import { WeeklyEvolutionView } from '../WeeklyEvolutionView';
 import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
+import { getDateKey } from '../../../../utils/dateHelper';
 
 vi.mock('recharts', async () => {
   const actual = await vi.importActual('recharts');
@@ -51,7 +52,7 @@ describe('evolution components render contracts', () => {
   });
 
   it('renders CriticalTopicsAnalysis', () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getDateKey(new Date());
     const categories = [{
       id: 'cat1', name: 'Física', icon: '⚛️', color: '#fff',
       simuladoStats: {
@@ -86,7 +87,7 @@ describe('evolution components render contracts', () => {
   });
 
   it('renders CriticalTopicsAnalysis com suporte a synthetic total (nova matematica)', () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getDateKey(new Date());
     const categories = [{
       id: 'cat1', name: 'Física', icon: '⚛️', color: '#fff',
       simuladoStats: {
@@ -137,7 +138,7 @@ describe('evolution components render contracts', () => {
   });
 
   it('renders TodayVsGeneralChart with negative delta formatting correctly', () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getDateKey(new Date());
     const categories = [{
       id: 'cat1', name: 'Português',
       simuladoStats: {
@@ -166,7 +167,7 @@ describe('evolution components render contracts', () => {
   });
 
   it('generates burnout and dynamic engine insights in insightGenerator', () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getDateKey(new Date());
     const cat = {
       id: 'cat1', name: 'Biologia',
       simuladoStats: {

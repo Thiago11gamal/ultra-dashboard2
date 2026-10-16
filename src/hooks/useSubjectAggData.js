@@ -9,21 +9,29 @@ import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 export function filterHistoryByTimeWindow(history, timeWindow) {
   const days = Number.parseInt(timeWindow, 10);
   const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
+  const todayKey = getDateKey(new Date());
+
+  const validEntries = safeHistory.filter(Boolean).filter((h) => {
+    const rawDate = h?.date || h?.createdAt;
+    if (!rawDate) return false;
+    const key = getDateKey(rawDate);
+    if (!key) return false;
+    return key <= todayKey;
+  });
+
   if (timeWindow === 'all' || !Number.isFinite(days) || days <= 0) {
-    return safeHistory.filter(Boolean);
+    return validEntries;
   }
-  const withMs = safeHistory
-    .filter(Boolean)
+  const withMs = validEntries
     .map((h) => {
       const rawDate = h?.date || h?.createdAt;
-      if (!rawDate) return null;
       const key = getDateKey(rawDate);
       const ms = toDateMs(key);
       return Number.isFinite(ms) ? { h, ms } : null;
     })
     .filter(Boolean);
-  if (!withMs.length) return safeHistory.filter(Boolean);
-  const referenceMs = toDateMs(getDateKey(new Date()));
+  if (!withMs.length) return validEntries;
+  const referenceMs = toDateMs(todayKey);
   const limit = referenceMs - days * 24 * 60 * 60 * 1000;
   return withMs.filter((x) => x.ms >= limit).map((x) => x.h);
 }
