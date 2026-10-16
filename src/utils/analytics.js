@@ -128,7 +128,7 @@ export const calculateStudyStreak = (studyLogs) => {
         cursorKey = nextKey;
     }
     const longest = calculateLongest(sortedDays);
-    return { current: streak, best: longest, longest, isActive: diffDays <= 1 };
+    return { current: streak, best: longest, longest, isActive: gapDays <= 1 };
 };
 
 
