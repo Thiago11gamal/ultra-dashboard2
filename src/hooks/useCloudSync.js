@@ -689,17 +689,23 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       clearTimeout(safetyBootTimeout);
       let cloudData = exists ? docSnap.data() : null;
 
-      if (cloudData && cloudData.contestIds) {
+      if (cloudData) {
         try {
           const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
           if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
-          cloudData.contests = {};
-          const activeIds = new Set(cloudData.contestIds || []);
+          cloudData.contests = cloudData.contests || {};
+          const allContestIds = new Set(cloudData.contestIds || []);
           contestsSnap.forEach(cDoc => {
-            if (activeIds.has(cDoc.id)) {
-              cloudData.contests[cDoc.id] = cDoc.data();
+            const cData = cDoc.data();
+            if (cData) {
+              if (cDoc.id === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' && (!cData.contestName || cData.contestName === 'Novo Concurso')) {
+                cData.contestName = 'Direito';
+              }
+              cloudData.contests[cDoc.id] = cData;
+              allContestIds.add(cDoc.id);
             }
           });
+          cloudData.contestIds = Array.from(allContestIds);
         } catch (err) {
           logger.error("[Sync] Erro ao buscar subcoleções no snapshot:", err);
           return; // ABORT Sync to avoid corrupting state with missing data
@@ -911,11 +917,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
       }
 
-      // FIX: Deletar órfãos usando os IDs conhecidos da nuvem
+      // FIX: Deletar apenas se estiver expressamente na lixeira
+      const trashContestIds = new Set((coreEmergency.trash?.contests || coreEmergency.trash || []).map(t => (typeof t === 'string' ? t : t?.id)).filter(Boolean));
       const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
       const currentLocalIds = new Set(Object.keys(emergencyContests));
       for (const oldId of knownCloudIds) {
-        if (!currentLocalIds.has(oldId)) {
+        if (!currentLocalIds.has(oldId) && trashContestIds.has(oldId)) {
           batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
         }
       }
@@ -1063,11 +1070,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
           }
 
-          // FIX: Deletar órfãos usando os IDs conhecidos da nuvem
+          // FIX: Deletar apenas se estiver expressamente na lixeira
+          const trashContestIds = new Set((freshState.trash?.contests || freshState.trash || []).map(t => (typeof t === 'string' ? t : t?.id)).filter(Boolean));
           const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
           const currentLocalIds = new Set(Object.keys(contestsToSave));
           for (const oldId of knownCloudIds) {
-            if (!currentLocalIds.has(oldId)) {
+            if (!currentLocalIds.has(oldId) && trashContestIds.has(oldId)) {
               batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
             }
           }

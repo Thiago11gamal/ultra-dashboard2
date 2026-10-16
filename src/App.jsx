@@ -101,7 +101,7 @@ function MainLayout() {
   const contestsMetaList = useAppStore(useShallow(state => {
     const contests = state.appState?.contests || {};
     return Object.keys(contests).reduce((acc, key) => {
-      acc[key] = contests[key]?.contestName || 'Sem nome';
+      acc[key] = contests[key]?.contestName || contests[key]?.name || contests[key]?.user?.name || (key === 'default' ? 'Estudante' : 'Novo Concurso');
       return acc;
     }, {});
   }));
@@ -440,6 +440,8 @@ function MainLayout() {
                 onDeleteContest={deleteContest}
                 onOpenTrash={handleOpenTrash}
                 onCloseMobile={handleCloseMobile}
+                onExport={handleExport}
+                onImport={handleImport}
               />
 
               <div className="flex flex-col h-dvh w-full min-w-0 relative">

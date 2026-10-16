@@ -24,7 +24,9 @@ import {
     ChevronsLeft,
     ChevronsRight,
     ChevronDown,
-    Layers
+    Layers,
+    Upload,
+    Download
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
@@ -92,7 +94,9 @@ const Sidebar = React.memo(function Sidebar({
     onCreateContest,
     onDeleteContest,
     onOpenTrash,
-    onCloseMobile
+    onCloseMobile,
+    onExport,
+    onImport
 }) {
     const location = useLocation();
     const { logout } = useAuth();
@@ -109,6 +113,7 @@ const Sidebar = React.memo(function Sidebar({
     const sidebarRef = useRef(null);
     const contestsFlyoutRef = useRef(null);
     const settingsFlyoutRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const contestEntries = useMemo(() => Object.entries(contests || {}), [contests]);
     const isSingleContest = contestEntries.length <= 1;
@@ -293,6 +298,17 @@ const Sidebar = React.memo(function Sidebar({
 
     return (
         <>
+            {/* Hidden Backup File Input */}
+            <input 
+                ref={fileInputRef} 
+                type="file" 
+                accept=".json" 
+                onChange={onImport} 
+                style={{ display: 'none' }} 
+                tabIndex={-1} 
+                aria-hidden="true" 
+            />
+
             {/* Mobile Overlay com Z-index corrigido (z-125, abaixo da sidebar z-130 e acima do header mobile z-120) */}
             {isOpen && (
                 <div
@@ -464,6 +480,37 @@ const Sidebar = React.memo(function Sidebar({
                                             <Plus size={13} className="text-emerald-400 shrink-0" />
                                             <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo Painel</span>
                                         </button>
+
+                                        {onImport && (
+                                            <button
+                                                type="button"
+                                                className="sidebar-item !py-1.5 text-sky-400/90 hover:text-sky-300 hover:bg-sky-500/15 relative border border-sky-500/20"
+                                                onClick={() => {
+                                                    fileInputRef.current?.click();
+                                                    closeMobileSidebar();
+                                                }}
+                                                title="Importar Backup JSON"
+                                            >
+                                                <div className="nested-item-marker !bg-sky-500/20"></div>
+                                                <Upload size={13} className="text-sky-400 shrink-0" />
+                                                <span className="text-[0.78rem] text-sky-300 font-semibold truncate">Restaurar Backup (JSON)</span>
+                                            </button>
+                                        )}
+                                        {onExport && (
+                                            <button
+                                                type="button"
+                                                className="sidebar-item !py-1.5 text-slate-400 hover:text-slate-200 hover:bg-white/5 relative"
+                                                onClick={() => {
+                                                    onExport();
+                                                    closeMobileSidebar();
+                                                }}
+                                                title="Exportar Backup JSON"
+                                            >
+                                                <div className="nested-item-marker"></div>
+                                                <Download size={13} className="text-slate-400 shrink-0" />
+                                                <span className="text-[0.78rem] text-slate-300 font-medium truncate">Exportar Backup</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -624,6 +671,38 @@ const Sidebar = React.memo(function Sidebar({
                                                 <span className="text-[0.78rem]">Reiniciar Tutorial</span>
                                             </button>
 
+                                            {onImport && (
+                                                <button
+                                                    type="button"
+                                                    className="sidebar-item !py-1.5 hover:!bg-sky-500/10 text-sky-300"
+                                                    onClick={() => {
+                                                        fileInputRef.current?.click();
+                                                        closeMobileSidebar();
+                                                    }}
+                                                    style={{ '--item-color': '#38bdf8' }}
+                                                    title="Importar Backup JSON"
+                                                >
+                                                    <Upload size={13} />
+                                                    <span className="text-[0.78rem]">Restaurar Backup</span>
+                                                </button>
+                                            )}
+
+                                            {onExport && (
+                                                <button
+                                                    type="button"
+                                                    className="sidebar-item !py-1.5 hover:!bg-emerald-500/10 text-emerald-300"
+                                                    onClick={() => {
+                                                        onExport();
+                                                        closeMobileSidebar();
+                                                    }}
+                                                    style={{ '--item-color': '#10b981' }}
+                                                    title="Exportar Backup JSON"
+                                                >
+                                                    <Download size={13} />
+                                                    <span className="text-[0.78rem]">Exportar Backup</span>
+                                                </button>
+                                            )}
+
                                             <button
                                                 type="button"
                                                 className="sidebar-item !py-1.5 hover:!bg-red-500/20 text-red-400 font-bold"
@@ -750,6 +829,21 @@ const Sidebar = React.memo(function Sidebar({
                             <Plus size={13} />
                             <span>Criar Novo Painel</span>
                         </button>
+
+                        {onImport && (
+                            <button
+                                type="button"
+                                className="w-full mt-1.5 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 transition-colors"
+                                onClick={() => {
+                                    fileInputRef.current?.click();
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Upload size={13} />
+                                <span>Restaurar Backup</span>
+                            </button>
+                        )}
                     </div>
                 </>,
                 document.body
@@ -827,6 +921,36 @@ const Sidebar = React.memo(function Sidebar({
                             </button>
 
                             <div className="border-t border-white/5 my-1"></div>
+
+                            {onImport && (
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-sky-300 hover:bg-sky-500/10 transition-colors"
+                                    onClick={() => {
+                                        fileInputRef.current?.click();
+                                        setFlyoutMenu(null);
+                                        setFlyoutAnchorRect(null);
+                                    }}
+                                >
+                                    <Upload size={13} className="text-sky-400" />
+                                    <span>Restaurar Backup (JSON)</span>
+                                </button>
+                            )}
+
+                            {onExport && (
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2 p-2 rounded-lg text-left text-xs text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                                    onClick={() => {
+                                        onExport();
+                                        setFlyoutMenu(null);
+                                        setFlyoutAnchorRect(null);
+                                    }}
+                                >
+                                    <Download size={13} className="text-emerald-400" />
+                                    <span>Exportar Backup</span>
+                                </button>
+                            )}
 
                             <button
                                 type="button"
