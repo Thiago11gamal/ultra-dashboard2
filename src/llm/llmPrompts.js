@@ -20,12 +20,29 @@ Regras obrigatórias:
 
 export function buildCoachExplanationPrompt(payload = {}) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
+  const cleanPayload = {
+    categoryName: String(safePayload.categoryName || '').slice(0, 100),
+    subject: String(safePayload.subject || '').slice(0, 100),
+    urgency: typeof safePayload.urgency === 'number' ? safePayload.urgency : 0,
+    normalizedScore: typeof safePayload.normalizedScore === 'number' ? safePayload.normalizedScore : 0,
+    trend: typeof safePayload.trend === 'number' ? safePayload.trend : 0,
+    volatility: typeof safePayload.volatility === 'number' ? safePayload.volatility : 0,
+    daysSinceLastStudy: typeof safePayload.daysSinceLastStudy === 'number' ? safePayload.daysSinceLastStudy : 0,
+    srsLabel: String(safePayload.srsLabel || '').slice(0, 100),
+    maxScore: typeof safePayload.maxScore === 'number' ? safePayload.maxScore : 100,
+    minScore: typeof safePayload.minScore === 'number' ? safePayload.minScore : 0,
+    probability: typeof safePayload.probability === 'number' ? safePayload.probability : null,
+    isBurnoutRisk: Boolean(safePayload.isBurnoutRisk),
+    sampleSize: typeof safePayload.sampleSize === 'number' ? safePayload.sampleSize : null,
+    calibrationPenalty: typeof safePayload.calibrationPenalty === 'number' ? safePayload.calibrationPenalty : 0,
+    originalRecommendation: String(safePayload.originalRecommendation || '').slice(0, 300),
+  };
 
   return `
 Explique o estado atual do aluno usando apenas os dados abaixo.
 
 Dados:
-${JSON.stringify(safePayload, null, 2)}
+${JSON.stringify(cleanPayload, null, 2)}
 
 Retorne exatamente um JSON com este formato:
 {

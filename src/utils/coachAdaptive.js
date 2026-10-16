@@ -203,10 +203,14 @@ export function simuladosToHistory(simulados, maxScore = 100, minScore = 0) {
       const current = sorted[i];
       const prev = sorted[i - 1];
 
+      const currentTs = Number(current.rawTimestamp);
+      const prevTs = Number(prev.rawTimestamp);
       const isRapidSuccession =
-          current.rawTimestamp > 0 &&
-          prev.rawTimestamp > 0 &&
-          (current.rawTimestamp - prev.rawTimestamp) < 7200000;
+          Number.isFinite(currentTs) &&
+          Number.isFinite(prevTs) &&
+          currentTs > 0 &&
+          prevTs > 0 &&
+          (currentTs - prevTs) < 7200000;
 
       if (isRapidSuccession) {
           burstCount++;

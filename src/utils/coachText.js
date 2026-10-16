@@ -77,6 +77,7 @@ export function parseCoachTask(task, categories = []) {
   const clean = cleanCoachTags(raw);
   const separatorIndex = clean.indexOf(':');
   const hasSeparator = separatorIndex !== -1;
+  const rootBracket = !hasSeparator ? clean.match(RX_BRACKET_TOPIC) : null;
 
   let subjectRaw = String(
     task?.subjectName ||
@@ -84,13 +85,15 @@ export function parseCoachTask(task, categories = []) {
     task?.subject?.subjectName ||
     task?.category ||
     task?.catName ||
-    (hasSeparator ? clean.slice(0, separatorIndex) : clean) ||
+    (hasSeparator ? clean.slice(0, separatorIndex) : (rootBracket ? rootBracket[1] : clean)) ||
     "Matéria Indefinida"
   )
     .replace(/^Foco em\s*/i, '')
     .trim();
 
-  let action = hasSeparator ? clean.slice(separatorIndex + 1).trim() : clean;
+  let action = hasSeparator
+    ? clean.slice(separatorIndex + 1).trim()
+    : (rootBracket ? rootBracket[2].trim() : clean);
 
   const bracketMatch = action ? String(action).match(RX_BRACKET_TOPIC) : null;
   let topicRaw = String(task?.topicName || '').trim();

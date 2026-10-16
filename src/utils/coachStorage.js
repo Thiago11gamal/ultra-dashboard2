@@ -18,36 +18,49 @@ const EVICTABLE_PREFIXES = [
 export function safeSetItem(key, value) {
   const storage = getStorage();
   if (!storage) return false;
-  const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+  let serialized;
   try {
-    storage.setItem(key, serialized);
-    return true;
+    serialized = typeof value === 'string' ? value : JSON.stringify(value);
   } catch (err) {
-    if (err?.name === 'QuotaExceededError') {
-      console.warn(`[CoachStorage] Quota excedida ao salvar "${key}". Tentando limpeza.`);
-      try {
-        const coachKeys = [];
-        for (let i = 0; i < storage.length; i++) {
-          const k = storage.key(i);
-          if (k && k.startsWith('coach_')) coachKeys.push(k);
-        }
-        const evictable = coachKeys.filter(k =>
-          EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
-        );
-        if (evictable.length > 0) {
-          evictable.forEach(k => storage.removeItem(k));
-        } else if (coachKeys.length > 0) {
-          storage.removeItem(coachKeys[0]);
-        }
-        if (coachKeys.length > 0) {
-          storage.setItem(key, serialized);
-          return true;
-        }
-      } catch { /* fallback failed */ }
-    }
-    console.error(`[CoachStorage] Falha ao salvar "${key}":`, err?.message || String(err));
+    console.error(`[CoachStorage] Valor não serializável para "${key}":`, err?.message || String(err));
     return false;
   }
+
+  let attempts = 0;
+  while (attempts < 5) {
+    try {
+      storage.setItem(key, serialized);
+      return true;
+    } catch (err) {
+      attempts++;
+      if (err?.name === 'QuotaExceededError') {
+        console.warn(`[CoachStorage] Quota excedida ao salvar "${key}". Tentando limpeza (tentativa ${attempts}).`);
+        try {
+          const coachKeys = [];
+          for (let i = 0; i < storage.length; i++) {
+            const k = storage.key(i);
+            if (k && k.startsWith('coach_')) coachKeys.push(k);
+          }
+          const evictable = coachKeys.filter(k =>
+            EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
+          );
+          if (evictable.length > 0) {
+            storage.removeItem(evictable[0]);
+          } else if (coachKeys.length > 0) {
+            storage.removeItem(coachKeys[0]);
+          } else {
+            break;
+          }
+        } catch {
+          break;
+        }
+      } else {
+        console.error(`[CoachStorage] Falha ao salvar "${key}":`, err?.message || String(err));
+        return false;
+      }
+    }
+  }
+  return false;
 }
 
 export function safeGetItem(key, fallback = null) {

@@ -425,7 +425,9 @@ export default function Coach() {
         // lateral não fica "preso" aguardando cálculo síncrono.
         const analysisTimer = setTimeout(() => {
             try {
-                const targetScore = targetScorePoints;
+                const safeTargetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
+                const safeMax = Number.isFinite(currentMaxScore) ? currentMaxScore : (data?.maxScore ?? 100);
+                const safeMin = Number.isFinite(currentMinScore) ? currentMinScore : (data?.minScore ?? 0);
                 const collectedMetrics = [];
 
                 const result = getSuggestedFocus(
@@ -433,9 +435,10 @@ export default function Coach() {
                     history,
                     studyLogs,
                     {
-                        user: data.user,
-                        targetScore,
-                        maxScore: data.maxScore ?? 100,
+                        user: data?.user,
+                        ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
+                        maxScore: safeMax,
+                        minScore: safeMin,
                         calibrationHistoryByCategory: calibrationHistoryRef.current,
                         flashcardDecks: flashcardDecks,
                         flashcardDue,
@@ -464,8 +467,12 @@ export default function Coach() {
 
                 if (collectedMetrics.length > 0) {
                     metricsTimer = setTimeout(() => {
+                        if (!isMountedRef.current) return;
                         collectedMetrics.forEach((metric, i) => {
-                            const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                            const t = setTimeout(() => {
+                                if (!isMountedRef.current) return;
+                                persistCalibrationMetric(metric);
+                            }, i * 600);
                             nestedTimeouts.push(t);
                         });
                     }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
@@ -491,7 +498,10 @@ export default function Coach() {
         history, 
         studyLogs, 
         data?.user, 
+        currentMaxScore,
+        currentMinScore,
         data?.maxScore, 
+        data?.minScore,
         data?.settings?.adaptiveCalibrationEnabled,
         targetScorePoints,
         flashcardDue,
@@ -535,7 +545,9 @@ export default function Coach() {
             if (!isMountedRef.current) return;
 
             try {
-                const targetScore = targetScorePoints;
+                const targetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
+                const safeMax = Math.max(1, Number(currentMaxScore) || 100);
+                const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
                 const collectedMetrics = [];
 
                 // BUG-1 FIX: Use categories, history, studyLogs directly (now in dep array)
@@ -544,9 +556,10 @@ export default function Coach() {
                     history,
                     studyLogs,
                     {
-                        user: data.user,
-                        targetScore,
-                        maxScore: data.maxScore ?? 100,
+                        user: data?.user,
+                        ...(targetScore !== null ? { targetScore } : {}),
+                        maxScore: safeMax,
+                        minScore: safeMin,
                         calibrationHistoryByCategory: calibrationHistoryRef.current,
                         onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                         config: {
@@ -562,9 +575,10 @@ export default function Coach() {
                         history,
                         studyLogs,
                         {
-                            user: data.user,
-                            targetScore,
-                            maxScore: data.maxScore ?? 100,
+                            user: data?.user,
+                            ...(targetScore !== null ? { targetScore } : {}),
+                            maxScore: safeMax,
+                            minScore: safeMin,
                             calibrationHistoryByCategory: calibrationHistoryRef.current,
                             flashcardDecks,
                             flashcardDue,
@@ -590,23 +604,20 @@ export default function Coach() {
                 }
                 
                 if (newTasks.length) {
-                    setData(prev => { 
-                        if(prev) {
-                            prev.coachPlan = newTasks; 
-                            prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-                        }
-                        return {
-                            coachPlan: newTasks,
-                            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-                        };
-                    });
+                    setData(() => ({
+                        coachPlan: newTasks,
+                        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+                    }));
                     showToastRef.current('Sugestões geradas!', 'success');
                 } else {
                     showToastRef.current('Nenhuma sugestão necessária.', 'info');
                 }
 
                 collectedMetrics.forEach((metric, i) => {
-                    const t = setTimeout(() => persistCalibrationMetric(metric), i * 600);
+                    const t = setTimeout(() => {
+                        if (!isMountedRef.current) return;
+                        persistCalibrationMetric(metric);
+                    }, i * 600);
                     generationTimeoutsRef.current.push(t);
                 });
             } catch (err) {
@@ -618,23 +629,17 @@ export default function Coach() {
             }
         }, 1500);
     // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
-    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, categories, history, studyLogs, flashcardDecks, flashcardDue]);
+    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore, categories, history, studyLogs, flashcardDecks, flashcardDue]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {
         clearMcCache();
         clearUrgencyCache();
         clearTopicsCache();
-        setData(prev => {
-            if (prev) {
-                prev.coachPlan = [];
-                prev.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-            }
-            return {
-                coachPlan: [],
-                coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-            };
-        });
+        setData(() => ({
+            coachPlan: [],
+            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+        }));
     }, [setData]);
 
     useEffect(() => {

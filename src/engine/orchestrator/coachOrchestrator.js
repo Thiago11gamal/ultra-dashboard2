@@ -24,6 +24,7 @@ import {
   clearMcCache,
 } from '../../utils/coachLogic.js';
 import { writeFlags, readFlags } from '../../utils/coachFeatureStore.js';
+import { isValidFeatureKey } from '../../utils/coachFeatures.js';
 
 const ORCHESTRATOR_VERSION = '12.0.0';
 // FIX (BUG-34): timeout padrão para não pendurar a UI em operações longas
@@ -48,7 +49,9 @@ function safeArray(value) {
 function clampFinite(value, min, max, fallback = min) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
+  const safeMin = Math.min(min, max);
+  const safeMax = Math.max(min, max);
+  return Math.min(safeMax, Math.max(safeMin, n));
 }
 
 function getFeature(features, key, fallback = false) {
@@ -161,7 +164,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     const baseFeatures = readFlags();
     const optionFeatures = options.features || {};
     for (const [k, v] of Object.entries({ ...baseFeatures, ...optionFeatures })) {
-      if (typeof k === 'string' && typeof v === 'boolean') features[k] = v;
+      if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
     }
     writeFlags(features);
 
@@ -192,7 +195,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         const updatedBase = readFlags();
         features = {};
         for (const [k, v] of Object.entries({ ...updatedBase, ...optionFeatures })) {
-          if (typeof k === 'string' && typeof v === 'boolean') features[k] = v;
+          if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
         }
         writeFlags(features);
       } catch (err) {

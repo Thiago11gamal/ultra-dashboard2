@@ -29,16 +29,30 @@ export async function coach(input = {}, options = {}) {
           ok: false,
           error: 'Orquestrador retornou resultado inválido',
           generatedAt: Date.now(),
+          focus: null,
+          tasks: [],
+          recommendation: '',
+          details: {},
           meta: { modules: {}, errors: [] }
         };
       }
-      return result;
+      return {
+        focus: null,
+        tasks: [],
+        recommendation: '',
+        details: {},
+        ...result,
+      };
   } catch (err) {
       console.error('[CoachPipeline] Erro no orquestrador:', err);
       return {
           ok: false,
           error: err?.message || String(err),
           generatedAt: Date.now(),
+          focus: null,
+          tasks: [],
+          recommendation: '',
+          details: {},
           meta: { modules: {}, errors: [{ step: 'orchestrator', message: err?.message || String(err) }] }
       };
   }

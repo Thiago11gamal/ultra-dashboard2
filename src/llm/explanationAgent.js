@@ -83,6 +83,8 @@ export function normalizeCoachExplanationInput(coachResult = {}, context = {}) {
     categoryName:
       context.categoryName ??
       coachResult?.categoryName ??
+      coachResult?.focus?.name ??
+      coachResult?.focus?.category ??
       details?.categoryName ??
       null,
 
@@ -96,6 +98,7 @@ export function normalizeCoachExplanationInput(coachResult = {}, context = {}) {
     ),
 
     maxScore: toFinite(context.maxScore, 100),
+    minScore: toFinite(context.minScore, 0),
 
     probability: toFinite(
       mc?.probability ?? details?.probability ?? coachResult?.mcProbability,
@@ -390,7 +393,13 @@ export async function enhanceCoachResultWithLLM(coachResult = {}, options = {}) 
     context
   );
 
-  const llmExplanation = await explainCoachMetrics(normalizedInput, options);
+  let llmExplanation = null;
+  try {
+    llmExplanation = await explainCoachMetrics(normalizedInput, options);
+  } catch (err) {
+    console.warn('[CoachLLM] enhanceCoachResultWithLLM failed, falling back to deterministic explanation:', err?.message || String(err));
+    llmExplanation = deterministicCoachExplanation(normalizedInput);
+  }
 
   return {
     ...coachResult,

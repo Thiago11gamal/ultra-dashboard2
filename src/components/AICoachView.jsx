@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
 import { getSafeId } from '../utils/idGenerator';
 import { ensureCoachTaskId } from '../utils/coachTaskId';
-import { parseCoachTask } from '../utils/coachText';
+import { parseCoachTask, isSystemAlertTask } from '../utils/coachText';
 import { displaySubject } from '../utils/displaySubject';
 import { useToast } from '../hooks/useToast';
 
@@ -232,8 +232,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         const raw = activeContest?.coachPlan || [];
         return (Array.isArray(raw) ? raw : Object.values(raw || {})).map(ensureCoachTaskId);
     }, [activeContest?.coachPlan]);
-    const systemAlerts = useMemo(() => coachPlanRaw.filter(task => /\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
-    const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !/\[ALERTA MESTRE\]|\[STATUS\]/i.test(task?.text || task?.title || '')), [coachPlanRaw]);
+    const systemAlerts = useMemo(() => coachPlanRaw.filter(task => isSystemAlertTask(task)), [coachPlanRaw]);
+    const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !isSystemAlertTask(task)), [coachPlanRaw]);
     const coachPlan = actionableTasks;
     const startNeuralSession = useAppStore(state => state.startNeuralSession);
     const navigate = useNavigate();
