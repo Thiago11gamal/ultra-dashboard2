@@ -9,6 +9,7 @@ import { safeClone } from '../utils/safeClone.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { toArray } from '../utils/normalize.js';
 import { isCategoryTombstoned } from '../utils/tombstones.js';
+import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
 
 // P07 PERF FIX: Added depth limit to prevent runaway recursion on deeply nested data
 const cleanUndefined = (obj, seen = new WeakSet(), depth = 0) => {
@@ -698,8 +699,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           contestsSnap.forEach(cDoc => {
             const cData = cDoc.data();
             if (cData) {
-              if (cDoc.id === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' && (!cData.contestName || cData.contestName === 'Novo Concurso')) {
+              if (cDoc.id === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || cData.contestName === 'Direito') {
                 cData.contestName = 'Direito';
+                if (!cData.categories || !Array.isArray(cData.categories) || cData.categories.length === 0) {
+                  cData.categories = safeClone(RECOVERED_DIREITO_CONTEST.categories);
+                  cData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(cData.user || {}) };
+                }
               }
               cloudData.contests[cDoc.id] = cData;
               allContestIds.add(cDoc.id);

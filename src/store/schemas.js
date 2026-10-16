@@ -4,6 +4,7 @@ import { generateId } from '../utils/idGenerator.js';
 import { normalize, aliases } from '../utils/normalization.js';
 import { getDateKey } from '../utils/dateHelper.js';
 import { computeCategoryStats } from '../engine/index.js';
+import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
 
@@ -176,12 +177,26 @@ export const repairContestHistory = (rawData) => {
 };
 
 
-export const sanitizeContest = (data) => {
+export const sanitizeContest = (data, contestId = '') => {
   if (!data || typeof data !== 'object') return { ...INITIAL_DATA };
 
-  const source = (data.simuladoRows && data.simuladoRows.length > 0)
+  let source = (data.simuladoRows && data.simuladoRows.length > 0)
     ? repairContestHistory(data)
     : data;
+
+  const isDireito = contestId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || 
+    source.contestName === 'Direito' || 
+    data?.contestName === 'Direito' || 
+    source.user?.name === 'Direito';
+
+  if (isDireito && (!source.categories || !Array.isArray(source.categories) || source.categories.length === 0)) {
+    source = {
+      ...source,
+      contestName: 'Direito',
+      user: { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(source.user || {}) },
+      categories: safeClone(RECOVERED_DIREITO_CONTEST.categories)
+    };
+  }
 
   // FORTRESS-01: Defensive initialization for all top-level keys
   return {
@@ -354,7 +369,7 @@ export const validateAppState = (data) => {
         // ✅ Filtrar chaves inválidas ANTES de sanitizar
         if (id === 'length' || typeof rawContests[id] !== 'object') return;
         const cleanId = String(id).replace(new RegExp('[.#$/\\\\[\\\\]]', 'g'), '').trim() || 'default';
-        const sanitized = sanitizeContest(rawContests[id]);
+        const sanitized = sanitizeContest(rawContests[id], cleanId);
         if (sanitized) {
             validatedContests[cleanId] = sanitized;
         }

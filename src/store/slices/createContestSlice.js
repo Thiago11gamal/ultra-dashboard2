@@ -3,6 +3,7 @@ import { INITIAL_DATA } from '../../data/initialData.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { current } from 'immer';
 import { markStorageDirty } from '../../utils/storageSafe.js';
+import { RECOVERED_DIREITO_CONTEST } from '../../data/recoveredContests.js';
 
 // BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
 // causando crash silencioso no timer quando o concurso era trocado/deletado.
@@ -33,8 +34,18 @@ export const createContestSlice = (set) => ({
         }
 
         const activeData = state.appState.contests[targetId];
-        if (activeData && !activeData.coachPlanner) {
-            activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+        if (activeData) {
+            const isDireito = targetId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || 
+                activeData.contestName === 'Direito' || 
+                activeData.user?.name === 'Direito';
+            if (isDireito && (!activeData.categories || !Array.isArray(activeData.categories) || activeData.categories.length === 0)) {
+                activeData.categories = safeClone(RECOVERED_DIREITO_CONTEST.categories);
+                activeData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(activeData.user || {}) };
+                activeData.contestName = 'Direito';
+            }
+            if (!activeData.coachPlanner) {
+                activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+            }
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
