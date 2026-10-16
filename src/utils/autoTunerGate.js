@@ -8,21 +8,26 @@ export function bootstrapPromotionGate(pairedDeltas, {
 } = {}) {
   const d = (pairedDeltas || []).map(Number).filter(Number.isFinite);
   const n = d.length;
+  const safeNBoot = Math.max(10, Math.round(Number(nBoot) || 2000));
+  const safeAlpha = Math.min(0.5, Math.max(0.001, Number(alpha) || 0.05));
+  const safeBlock = Math.max(1, Math.round(Number(blockLength) || 3));
   if (n < 8) return { promote: false, reason: 'insufficient_samples', ciLow: null, ciHigh: null, n };
   const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
   const observed = mean(d);
   const means = [];
-  for (let b = 0; b < nBoot; b++) {
+  for (let b = 0; b < safeNBoot; b++) {
     const sample = [];
     while (sample.length < n) {
       const start = Math.floor(rng() * n);
-      for (let j = 0; j < blockLength && sample.length < n; j++) sample.push(d[(start + j) % n]);
+      for (let j = 0; j < safeBlock && sample.length < n; j++) sample.push(d[(start + j) % n]);
     }
     means.push(mean(sample));
   }
   means.sort((a, b) => a - b);
-  const ciLow = means[Math.floor((alpha / 2) * nBoot)];
-  const ciHigh = means[Math.ceil((1 - alpha / 2) * nBoot) - 1];
+  const lowIdx = Math.min(means.length - 1, Math.max(0, Math.floor((safeAlpha / 2) * safeNBoot)));
+  const highIdx = Math.min(means.length - 1, Math.max(0, Math.ceil((1 - safeAlpha / 2) * safeNBoot) - 1));
+  const ciLow = means[lowIdx];
+  const ciHigh = means[highIdx];
   const promote = ciHigh < 0 && Math.abs(observed) >= minEffect;
   return { promote, ciLow, ciHigh, observed, n };
 }

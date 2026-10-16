@@ -202,20 +202,30 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
   const categoryId = category?.id || categoryName || 'unknown';
 
   const categorySimulados = safeArray(simulados)
-    .filter((simulado) => {
+    .map((simulado, _idx) => ({
+      simulado,
+      _idx,
+      time: toTime(simulado?.date ?? simulado?.createdAt),
+    }))
+    .filter(({ simulado }) => {
       if (!simulado) return false;
       return isSubjectMatch(simulado.subject || '', categoryName);
     })
     .sort((a, b) => {
-      const timeA = toTime(a?.date ?? a?.createdAt);
-      const timeB = toTime(b?.date ?? b?.createdAt);
+      const aFinite = Number.isFinite(a.time);
+      const bFinite = Number.isFinite(b.time);
 
-      if (Number.isFinite(timeA) && Number.isFinite(timeB)) {
-        return timeA - timeB;
+      if (aFinite && bFinite) {
+        if (a.time !== b.time) return a.time - b.time;
+      } else if (aFinite && !bFinite) {
+        return -1;
+      } else if (!aFinite && bFinite) {
+        return 1;
       }
 
-      return 0;
-    });
+      return a._idx - b._idx;
+    })
+    .map((entry) => entry.simulado);
 
   const splits = [];
 

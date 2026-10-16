@@ -11,8 +11,8 @@ import ConfirmModal from '../components/ConfirmModal';
 const EMPTY_ARRAY = Object.freeze([]);
 
 function getActiveContest(state) {
-  const id = state.appState.activeId;
-  return state.appState.contests[id] || {};
+  const id = state.appState?.activeId || 'default';
+  return state.appState?.contests?.[id] || {};
 }
 
 export default function Agenda() {
@@ -53,6 +53,7 @@ export default function Agenda() {
   }, [currentMonth]);
 
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   const eventsForSelected = useMemo(() => {
     return agenda
@@ -61,16 +62,15 @@ export default function Agenda() {
   }, [agenda, selectedDateStr]);
 
   const upcomingEvents = useMemo(() => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
     return agenda
       .filter(e => e.date >= todayStr)
       .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''))
       .slice(0, 6);
-  }, [agenda]);
+  }, [agenda, todayStr]);
 
   // Quick stats
   const totalPlannedMinutes = useMemo(() => {
-    return agenda.reduce((acc, ev) => acc + (Number(ev.duration) || 60), 0);
+    return agenda.reduce((acc, ev) => acc + Math.max(1, Math.round(Number(ev.duration) || 60)), 0);
   }, [agenda]);
 
   function changeMonth(delta) {
@@ -103,7 +103,7 @@ export default function Agenda() {
       time: form.time,
       title: form.title.trim(),
       subject: form.subject,
-      duration: Number(form.duration) || 60,
+      duration: Math.max(1, Math.round(Number(form.duration) || 60)),
       notes: form.notes.trim(),
       createdAt: new Date().toISOString()
     };
@@ -208,7 +208,16 @@ export default function Agenda() {
 
           <div className="text-xs mt-4 text-slate-500 px-1 flex items-center justify-between">
             <div>{agenda.length} blocos totais • {totalPlannedMinutes} minutos planejados</div>
-            <button onClick={() => setSelectedDate(new Date())} className="hover:text-teal-300">Hoje</button>
+            <button
+              onClick={() => {
+                const now = new Date();
+                setCurrentMonth(now);
+                setSelectedDate(now);
+              }}
+              className="hover:text-teal-300"
+            >
+              Hoje
+            </button>
           </div>
         </div>
 
@@ -305,7 +314,7 @@ export default function Agenda() {
                 </div>
                 <div>
                   <label className="micro-label mb-1 block">Duração (min)</label>
-                  <input type="number" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm" />
+                  <input type="number" min="1" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm" />
                 </div>
               </div>
 
@@ -343,4 +352,3 @@ export default function Agenda() {
     </PageErrorBoundary>
   );
 }
-

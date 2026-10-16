@@ -13,7 +13,8 @@ import ConfirmModal from '../components/ConfirmModal';
 export default function Tasks() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const rawCategories = useAppStore(useShallow(state => {
-    const activeContest = state.appState?.contests?.[state.appState?.activeId];
+    const activeId = state.appState?.activeId || 'default';
+    const activeContest = state.appState?.contests?.[activeId];
     return activeContest?.categories || [];
   }));
 
@@ -28,10 +29,14 @@ export default function Tasks() {
   const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
   const showToast = useToast();
   
-  // ✅ FIX: Calcular maxScore global das categorias
   const maxScore = React.useMemo(() => {
-    const scores = categories.map(c => c.maxScore).filter(s => typeof s === 'number' && s > 0);
+    const scores = categories.map(c => Number(c?.maxScore)).filter(s => Number.isFinite(s) && s > 0);
     return scores.length > 0 ? scores.reduce((a, b) => Math.max(a, b), -Infinity) : 100;
+  }, [categories]);
+
+  const minScore = React.useMemo(() => {
+    const scores = categories.map(c => Number(c?.minScore)).filter(s => Number.isFinite(s));
+    return scores.length > 0 ? scores.reduce((a, b) => Math.min(a, b), Infinity) : 0;
   }, [categories]);
   
   const handleResetConfirm = () => {
@@ -76,9 +81,8 @@ export default function Tasks() {
             </button>
           </h2>
           
-          {/* ✅ FIX: Passar maxScore para os componentes */}
-          <PerformanceTable categories={categories} maxScore={maxScore} />
-          <SubtopicsTable categories={categories} maxScore={maxScore} />
+          <PerformanceTable categories={categories} maxScore={maxScore} minScore={minScore} />
+          <SubtopicsTable categories={categories} maxScore={maxScore} minScore={minScore} />
         </div>
       </div>
 
@@ -95,4 +99,3 @@ export default function Tasks() {
     </PageErrorBoundary>
   );
 }
-

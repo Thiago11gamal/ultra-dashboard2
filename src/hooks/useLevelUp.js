@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Hook customizado para gerenciar o evento de Level Up.
@@ -22,7 +22,7 @@ export function useLevelUp() {
     return () => window.removeEventListener('level-up', handleLevelUp);
   }, []);
 
-  const clearCurrent = () => setQueue(prev => prev.slice(1));
+  const clearCurrent = useCallback(() => setQueue(prev => prev.slice(1)), []);
 
   return { 
     levelUpData: queue[0] || null, 

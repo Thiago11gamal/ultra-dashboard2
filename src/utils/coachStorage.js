@@ -7,26 +7,40 @@ function getStorage() {
   catch { return null; }
 }
 
+const EVICTABLE_PREFIXES = [
+  'coach_calibration_events',
+  'coach_health_snapshots',
+  'coach_evaluation_results',
+  'coach_tuner_history',
+  'coach_backtest_report'
+];
+
 export function safeSetItem(key, value) {
   const storage = getStorage();
   if (!storage) return false;
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value);
   try {
-    storage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    storage.setItem(key, serialized);
     return true;
   } catch (err) {
     if (err?.name === 'QuotaExceededError') {
       console.warn(`[CoachStorage] Quota excedida ao salvar "${key}". Tentando limpeza.`);
       try {
-        // Tenta limpar chaves antigas do Coach
         const coachKeys = [];
         for (let i = 0; i < storage.length; i++) {
           const k = storage.key(i);
           if (k && k.startsWith('coach_')) coachKeys.push(k);
         }
-        // Remove a mais antiga
-        if (coachKeys.length > 1) {
+        const evictable = coachKeys.filter(k =>
+          EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
+        );
+        if (evictable.length > 0) {
+          evictable.forEach(k => storage.removeItem(k));
+        } else if (coachKeys.length > 0) {
           storage.removeItem(coachKeys[0]);
-          storage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+        }
+        if (coachKeys.length > 0) {
+          storage.setItem(key, serialized);
           return true;
         }
       } catch { /* fallback failed */ }

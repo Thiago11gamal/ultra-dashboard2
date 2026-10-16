@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 /**
  * Custom hook that returns the current time, updating every second.
@@ -77,7 +77,7 @@ const useClock = () => {
         };
     }, []);
 
-    return new Date(epochSecond * 1000);
+    return useMemo(() => new Date(epochSecond * 1000), [epochSecond]);
 };
 
 export default useClock;

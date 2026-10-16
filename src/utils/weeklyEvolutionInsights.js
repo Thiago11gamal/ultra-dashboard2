@@ -40,6 +40,8 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 
   if (!previousWindow.length) return null;
 
+  const WEEK_MS = 7 * 86400000;
+
   const calculateEMA = (windowData, alphaBase = 0.3) => {
     if (!windowData.length) return null;
 
@@ -51,9 +53,9 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
 
       if (!Number.isFinite(currentTime)) return;
 
-      const deltaT = lastTime ? Math.max(1, (currentTime - lastTime) / 86400000) : 1;
-      const alpha = 1 - Math.pow(1 - alphaBase, deltaT);
-      const safeAlpha = Math.min(0.9, alpha);
+      const deltaWeeks = lastTime ? Math.max(1, (currentTime - lastTime) / WEEK_MS) : 1;
+      const alpha = 1 - Math.pow(1 - alphaBase, deltaWeeks);
+      const safeAlpha = Math.min(0.9, Math.max(alphaBase, alpha));
 
       let weekSum = 0;
       let weekVol = 0;
@@ -77,9 +79,8 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
         } else {
           ema = (weekAvg * safeAlpha) + (ema * (1 - safeAlpha));
         }
+        lastTime = currentTime;
       }
-
-      lastTime = currentTime;
     });
 
     return ema;

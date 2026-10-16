@@ -3,8 +3,10 @@ const TELEMETRY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
 
 async function sendToFirebaseAnalytics(metric) {
     try {
-        const { analytics, isLocalMode } = await import('../services/firebase.js');
-        if (isLocalMode || !analytics) return;
+        const { getAppAnalytics, isLocalMode } = await import('../services/firebase.js');
+        if (isLocalMode || typeof getAppAnalytics !== 'function') return;
+        const analytics = await getAppAnalytics();
+        if (!analytics) return;
         const { logEvent } = await import('firebase/analytics');
         logEvent(analytics, 'coach_calibration_event', {
             event_type: String(metric.eventType || 'calibration'),

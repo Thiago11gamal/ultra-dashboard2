@@ -6,8 +6,13 @@ const toNum = (v, fb = 0) => {
 };
 
 function safeDomain(maxScore, minScore) {
-  const max = Math.max(1, toNum(maxScore, 100));
-  const min = Math.min(toNum(minScore, 0), max);
+  let max = toNum(maxScore, 100);
+  let min = toNum(minScore, 0);
+  if (min > max) {
+    const tmp = min;
+    min = max;
+    max = tmp;
+  }
   return { max, min, range: Math.max(1e-9, max - min) };
 }
 
@@ -39,12 +44,14 @@ export function ratioToCorrect(ratio, total) {
 }
 
 export function formatUnitValue(val, unit = "%") {
-  const n = Number(val);
+  const n = val !== null && val !== '' ? Number(val) : NaN;
   if (!Number.isFinite(n)) return `0${unit}`;
   if (unit === "horas") {
-    const h = Math.floor(n);
-    const m = Math.round((n - h) * 60);
-    return m > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${h}h`;
+    const sign = n < 0 ? "-" : "";
+    const totalMinutes = Math.round(Math.abs(n) * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return m > 0 ? `${sign}${h}h${m.toString().padStart(2, "0")}` : `${sign}${h}h`;
   }
   return `${n}${unit}`;
 }

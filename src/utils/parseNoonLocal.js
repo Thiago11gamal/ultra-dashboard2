@@ -18,15 +18,12 @@ export function parseNoonLocal(input) {
 }
 
 export function addDaysNoon(date, days) {
-  if (!date || typeof date.getTime !== 'function' || Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const d = new Date(date.getTime());
-  d.setDate(d.getDate() + (Number(days) || 0));
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const isoNoon = `${y}-${m}-${dd}T12:00:00-04:00`;
-  const result = new Date(isoNoon);
+  const baseNoon = parseNoonLocal(date);
+  if (!baseNoon) return null;
+  const deltaDays = Math.round(Number(days) || 0);
+  const targetMs = baseNoon.getTime() + deltaDays * 86400000;
+  const key = getDateKey(new Date(targetMs));
+  if (!key) return null;
+  const result = new Date(`${key}T12:00:00-04:00`);
   return Number.isNaN(result.getTime()) ? null : result;
 }
