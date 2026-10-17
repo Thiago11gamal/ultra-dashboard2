@@ -13,6 +13,7 @@ import { formatValue } from '../../utils/scoreHelper';
 export const GaussianPlot = ({ 
     mean, 
     sd, 
+    volatility,
     low95, 
     high95, 
     targetScore, 
@@ -74,9 +75,11 @@ export const GaussianPlot = ({
         // Clamp do Alvo contra corrupções nos bounds visuais
         const targetVal = Math.max(domainMin, Math.min(domainMax, rawTargetVal));
 
-        const sdFloor = safeRange * 0.001;
-        let vizSdLeft = Math.max(sdFloor, propSdLeft ?? sd ?? sdFloor);
-        let vizSdRight = Math.max(sdFloor, propSdRight ?? sd ?? sdFloor);
+        const effectiveVol = volatility !== undefined ? volatility : sd;
+        const safeVolatility = Math.max(1e-6, Number(effectiveVol) || 1e-6);
+        const sdFloor = Math.max(1e-6, safeRange * 0.001);
+        let vizSdLeft = Math.max(sdFloor, Number(propSdLeft) || safeVolatility);
+        let vizSdRight = Math.max(sdFloor, Number(propSdRight) || safeVolatility);
 
         const hasValidKDE = kdeData && kdeData.length > 5;
 

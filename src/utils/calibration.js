@@ -27,6 +27,19 @@ function pavBlocks(blocks) {
   
   if (iterations >= maxIterations) {
     console.warn('[calibration] pavBlocks atingiu limite de iterações, possível convergência lenta');
+
+    blocks.sort((a, b) => Number(a.minX ?? a.x ?? 0) - Number(b.minX ?? b.x ?? 0));
+
+    for (let j = 1; j < blocks.length; j++) {
+      const prevMean = Number(blocks[j - 1]?.mean ?? blocks[j - 1]?.y ?? 0);
+      const currMean = Number(blocks[j]?.mean ?? blocks[j]?.y ?? 0);
+
+      if (currMean < prevMean) {
+        if ('mean' in blocks[j] || blocks[j].mean !== undefined) blocks[j].mean = prevMean;
+        if ('y' in blocks[j] || blocks[j].y !== undefined) blocks[j].y = prevMean;
+        blocks[j].forcedMonotonic = true;
+      }
+    }
   }
   return blocks;
 }
@@ -403,7 +416,16 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
     for (let i = 0; i < n; i++) acc += computeLogLoss(series[i], observed[i]);
     return acc / n;
   });
-  const aic = logLoss.map((l, m) => 2 * l * n + 2 * (Number(complexityParams[m]) || 0));
+  const aic = logLoss.map((lossValue, m) => {
+    const loss = Number.isFinite(lossValue) ? lossValue : 1e6;
+    const lossSum = loss * n;
+    const kParam = Number(complexityParams?.[m]) || 0;
+    const base = 2 * lossSum + 2 * kParam;
+    const aicc = n > kParam + 1
+      ? base + ((2 * kParam * (kParam + 1)) / (n - kParam - 1))
+      : base;
+    return Number.isFinite(aicc) ? aicc : base;
+  });
   const minAic = Math.min(...aic);
   const raw = aic.map(a => Math.exp(-0.5 * (a - minAic)));
   const z = kahanSum(raw) || 1;

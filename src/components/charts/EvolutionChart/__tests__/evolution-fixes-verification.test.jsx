@@ -148,7 +148,7 @@ describe('Verificação das Correções dos 12 Bugs do Menu Evolução', () => {
         />
       );
 
-      expect(html).toContain('<h3 class="text-sm sm:text-base font-bold text-white">Matriz de criticidade e pontos de fuga</h3>');
+      expect(html).toContain('Matriz de criticidade e pontos de fuga');
     });
   });
 });

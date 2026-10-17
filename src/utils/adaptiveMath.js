@@ -299,11 +299,8 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     // O piso desce de 1.0 para 0.1, permitindo que a penalidade de incerteza seja aplicada corretamente.
     // Transição suave: interpola entre 1.0 e N/(N-1) via sigmoid
     // para evitar descontinuidade em effectiveN = 1.5
-    const besselRaw = effectiveN > 1.01 ? effectiveN / (effectiveN - 1) : effectiveN * 10;
-    const transition = 1 / (1 + Math.exp(-5 * (effectiveN - 1.5)));
-    const consistencyFactor = 1 * (1 - transition) + Math.min(10, besselRaw) * transition;
-    
-    const sd = Math.sqrt(Math.max(0, weightedVariance * consistencyFactor));
+    const bessel = effectiveN > 1 ? effectiveN / (effectiveN - 1) : 1;
+    const sd = Math.sqrt(Math.max(0, weightedVariance * bessel));
     
     // MATEMÁTICA COMPLEXA: Em vez de linear trend clampada, usamos Bootstrapping 
     // para medir se o momento positivo é estatisticamente significativo ou só sorte.
@@ -313,9 +310,10 @@ export function computeAdaptiveSignal(historyOrScores = []) {
 
     if (finiteScores.length >= 5) {
         // Reamostragem de Monte Carlo (Bootstrap) com os deltas mais recentes
+        const recentScores = finiteScores.slice(-8);
         const recentDeltas = [];
-        for (let i = 1; i < finiteScores.length; i++) {
-            recentDeltas.push(finiteScores[i] - finiteScores[i-1]);
+        for (let i = 1; i < recentScores.length; i++) {
+            recentDeltas.push(recentScores[i] - recentScores[i - 1]);
         }
         
         // Pede o Intervalo de Confiança (CI) a 95% para a média dos deltas

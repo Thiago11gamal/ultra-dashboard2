@@ -2,7 +2,7 @@ import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
 import { normalizeDate, safeDateParse } from '../utils/dateHelper.js';
 import { calculateSlope } from './projection.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
-import { kahanSum, kahanMean } from './math/kahan.js';
+import { kahanSum, kahanMean, average, averageOrZero } from './math/kahan.js';
 import { computeAdaptiveLambda } from './diagnostics.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 
@@ -308,6 +308,7 @@ export function mean(arr) {
 }
 
 export const calcularMedia = mean;
+export { average, averageOrZero };
 
 // ✅ FIX: standardDeviation aceita array de números nus
 export function standardDeviation(arr, maxScore = 100, customMean = null, minScore = 0) {

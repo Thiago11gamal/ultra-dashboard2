@@ -141,7 +141,7 @@ export function useCoachControlCenter({
           runAutoTuner: options.runAutoTuner === true,
           trainCausalModel: options.trainCausalModel === true,
           saveHealthSnapshots: options.saveHealthSnapshots === true,
-          force: true,
+          force: options.force === true,
         }
       );
       // FIX: valida mount E que esta ainda é a execução mais recente
@@ -199,7 +199,7 @@ export function useCoachControlCenter({
     try {
       const result = await runCoachAutoTuner({
         maxScore,
-        force: true,
+        force: options.force === true,
         autoApply: options.autoApply === true,
         forceApply: options.forceApply === true,
         exploration: options.exploration === true,

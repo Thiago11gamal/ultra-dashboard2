@@ -9,7 +9,7 @@ const EMPTY_ARRAY = Object.freeze([]);
 const getHistoryArray = (cat) => Object.values(cat?.simuladoStats?.history || EMPTY_OBJECT).filter(Boolean).filter(r => r.valid !== false);
 const getHistoryDate = (entry) => entry?.date || entry?.createdAt || null;
 
-function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0, weight = 1) {
+export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minScore = 0, weight = 1) {
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
@@ -26,41 +26,65 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
     for (const h of history) {
         const key = getDateKey(getHistoryDate(h));
         if (!key) continue;
-        const entry = aggregatedByDate.get(key);
         const rawTotal = Math.max(0, Number(h?.total) || 0);
         const rawCorrect = Math.max(0, Math.min(rawTotal, Number(h?.correct) || 0));
         const score = getSafeScore(h, safeMax, safeMin);
-        const safeScore = Number.isFinite(score) ? score : NaN;
+        const hasScore = Number.isFinite(score);
+        const safeScore = hasScore ? score : NaN;
+
+        const isPercentOnly = rawTotal <= 0 && hasScore;
 
         let compTotal = rawTotal;
-        let compCorrect = rawTotal > 0 && Number.isFinite(safeScore)
-            ? Math.round(toRatio(safeScore) * rawTotal)
-            : rawCorrect;
+        let compCorrect = rawCorrect;
 
-        if (rawTotal === 0 && h?.score != null && Number.isFinite(safeScore)) {
+        if (isPercentOnly) {
             compTotal = getSyntheticTotal(safeMax);
-            compCorrect = Math.round(toRatio(safeScore) * compTotal);
+            compCorrect = Math.round(toRatio(score) * compTotal);
+        } else if (rawTotal > 0 && hasScore) {
+            compCorrect = Math.round(toRatio(score) * rawTotal);
         }
         compCorrect = Math.max(0, Math.min(compTotal, Number.isFinite(compCorrect) ? compCorrect : 0));
 
-        if (entry) {
-            entry.compCorrect += compCorrect;
-            entry.compTotal += compTotal;
-            entry.total += rawTotal;
-            entry.correct += Math.max(0, Math.min(rawTotal, Math.max(0, Number(h?.correct) || 0)));
-            entry.score = entry.compTotal > 0
-                ? safeMin + (entry.compCorrect / entry.compTotal) * safeRange
-                : NaN;
-        } else {
+        if (!aggregatedByDate.has(key)) {
             aggregatedByDate.set(key, {
                 date: key,
-                compCorrect,
-                compTotal,
-                total: rawTotal,
-                correct: Math.max(0, Math.min(rawTotal, Math.max(0, Number(h?.correct) || 0))),
-                score: safeScore,
+                realTotal: 0,
+                realCorrect: 0,
+                compTotal: 0,
+                compCorrect: 0,
+                total: 0,
+                correct: 0,
+                scoreSum: 0,
+                scoreCount: 0,
+                hasSynthetic: false,
+                score: safeScore
             });
         }
+
+        const entry = aggregatedByDate.get(key);
+
+        if (!isPercentOnly) {
+            entry.realTotal += rawTotal;
+            entry.realCorrect += rawCorrect;
+            entry.total += rawTotal;
+            entry.correct += rawCorrect;
+        }
+
+        entry.compTotal += compTotal;
+        entry.compCorrect += compCorrect;
+
+        if (hasScore) {
+            entry.scoreSum += score;
+            entry.scoreCount += 1;
+        }
+
+        if (isPercentOnly) {
+            entry.hasSynthetic = true;
+        }
+
+        entry.score = entry.compTotal > 0
+            ? safeMin + (entry.compCorrect / entry.compTotal) * safeRange
+            : (hasScore ? score : NaN);
     }
 
     // Ordenar as chaves uma única vez
@@ -153,8 +177,24 @@ function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100, minSc
                 lastEventDate: lastEntry ? lastEntry.date : null,
                 minScore: safeMin,
             });
+            const aggTotals = accumulated.reduce((acc, e) => {
+                acc.realTotal += (e.realTotal ?? 0);
+                acc.realCorrect += (e.realCorrect ?? 0);
+                acc.compTotal += (e.compTotal ?? 0);
+                acc.compCorrect += (e.compCorrect ?? 0);
+                if (e.hasSynthetic) acc.hasSynthetic = true;
+                return acc;
+            }, { realTotal: 0, realCorrect: 0, compTotal: 0, compCorrect: 0, hasSynthetic: false });
+
             dateToStats[date] = {
-                stats: cachedStats,
+                stats: cachedStats ? {
+                    ...cachedStats,
+                    realTotal: aggTotals.realTotal,
+                    realCorrect: aggTotals.realCorrect,
+                    compTotal: aggTotals.compTotal,
+                    compCorrect: aggTotals.compCorrect,
+                    hasSynthetic: aggTotals.hasSynthetic
+                } : null,
                 last: lastEntry,
                 bayesian: {
                     mean: bayStats.mean,
@@ -183,7 +223,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             Number(h?.score ?? 0),
             Number(h?.correct ?? 0),
             Number(h?.total ?? 0),
-            Array.isArray(h?.topics) ? h.topics.length : 0,
+            Array.isArray(h?.topics) ? h.topics.length : Object.values(h?.topics || {}).length,
             h?.taskId || ''
         ].join(':')).join('|');
         return [cat?.id || '', cat?.name || '', tasks.length, histDigest].join('::');
@@ -192,11 +232,13 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     const activeCategories = useMemo(() => {
         let valid = categories.filter(c => {
             const hist = c?.simuladoStats?.history;
-            if (Array.isArray(hist)) return hist.length > 0;
-            if (hist && typeof hist === 'object') {
-                return Object.values(hist).some(h => h && typeof h === 'object');
-            }
-            return false;
+            return Object.values(hist || {}).some(entry => {
+                if (!entry || typeof entry !== 'object') return false;
+                const hasScore = Number.isFinite(Number(entry.score ?? entry.scorePoints));
+                const hasTotal = Number.isFinite(Number(entry.total)) && Number(entry.total) > 0;
+                const hasCorrect = Number.isFinite(Number(entry.correct));
+                return hasScore || hasTotal || hasCorrect;
+            });
         });
         const getVol = (h) => {
             const t = Math.max(0, Number(h?.total) || 0);
@@ -389,6 +431,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     const globalMetrics = useMemo(() => {
         let totalQuestions = 0;
         let totalCorrect = 0;
+        let syntheticQuestions = 0;
+        let syntheticCorrect = 0;
         activeCategories.forEach(cat => {
             const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
             const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
@@ -402,8 +446,15 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 let tot = Math.max(0, Number(h.total) || 0);
                 const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) return;
+
+                const isSyntheticVolume =
+                    h?.syntheticVolume === true ||
+                    h?.isSynthetic === true ||
+                    h?.type === 'percent-only' ||
+                    (tot === 0 && h?.score != null);
+
                 let corrNorm;
-                if (tot === 0 && h.score != null) {
+                if (isSyntheticVolume && tot === 0) {
                     tot = getSyntheticTotal(catMax);
                     corrNorm = Math.round(toCatRatio(score) * tot);
                 } else if (!h.isPercentage && Number.isFinite(Number(h.correct))) {
@@ -416,14 +467,26 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 if (!Number.isFinite(corrNorm)) return;
                 const safeTot = Number(tot);
                 if (!Number.isFinite(safeTot) || safeTot <= 0) return;
-                totalQuestions += safeTot;
-                totalCorrect += Math.max(0, Math.min(safeTot, corrNorm));
+
+                const safeCorr = Math.max(0, Math.min(safeTot, corrNorm));
+
+                if (!isSyntheticVolume) {
+                    totalQuestions += safeTot;
+                    totalCorrect += safeCorr;
+                } else {
+                    syntheticQuestions += safeTot;
+                    syntheticCorrect += safeCorr;
+                }
             });
         });
-        const globalAccuracy = (totalQuestions > 0) ? (totalCorrect / totalQuestions) * 100 : 0;
+        const globalAccuracy = (totalQuestions > 0)
+            ? (totalCorrect / totalQuestions) * 100
+            : (syntheticQuestions > 0 ? (syntheticCorrect / syntheticQuestions) * 100 : 0);
         return {
             totalQuestions: Number.isFinite(totalQuestions) ? totalQuestions : 0,
             totalCorrect: Number.isFinite(totalCorrect) ? totalCorrect : 0,
+            syntheticQuestions: Number.isFinite(syntheticQuestions) ? syntheticQuestions : 0,
+            syntheticCorrect: Number.isFinite(syntheticCorrect) ? syntheticCorrect : 0,
             globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0
         };
     }, [activeCategories, safeMax, safeMin]);

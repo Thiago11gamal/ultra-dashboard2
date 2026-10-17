@@ -63,3 +63,27 @@ export function kahanMean(arr) {
     return count === 0 ? 0 : sum / count;
 }
 
+export function average(arr) {
+    if (!isArrayLike(arr) || arr.length === 0) return NaN;
+    let count = 0;
+    let sum = 0.0;
+    let c = 0.0;
+    for (let i = 0; i < arr.length; i++) {
+        const raw = arr[i];
+        if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') continue;
+        const val = Number(raw);
+        if (!Number.isFinite(val)) continue;
+        const y = val - c;
+        const t = sum + y;
+        c = (t - sum) - y;
+        sum = t;
+        count++;
+    }
+    return count === 0 ? NaN : sum / count;
+}
+
+export function averageOrZero(values) {
+    const result = average(values);
+    return Number.isFinite(result) ? result : 0;
+}
+

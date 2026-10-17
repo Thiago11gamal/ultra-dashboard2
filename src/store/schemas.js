@@ -5,6 +5,7 @@ import { normalize, aliases } from '../utils/normalization.js';
 import { getDateKey } from '../utils/dateHelper.js';
 import { computeCategoryStats } from '../engine/index.js';
 import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
+import { getSyntheticTotal } from '../utils/scoreHelper.js';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
 
@@ -33,8 +34,38 @@ const extractRowDate = (r) => {
 };
 
 // ✅ FIX 2 & BUG-01: Reconciliação do Histórico das Categorias com base nos Registros Brutos dos Simulados
-export const repairContestHistory = (rawData) => {
+export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
   if (!rawData || typeof rawData !== 'object') return rawData;
+
+  if (Array.isArray(rawData)) {
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Math.max(safeMin + 1e-9, Number(maxScore) || 100);
+    return rawData.map(r => {
+      if (!r || typeof r !== 'object') return r;
+      const rawScore = Number(r?.score ?? r?.scorePoints);
+      const hasRawScore = Number.isFinite(rawScore);
+
+      let rawTotal = Math.max(0, parseInt(r?.total, 10) || 0);
+      let rawCorrect = Math.max(0, parseInt(r?.correct, 10) || 0);
+      let isSyntheticVolume = r?.syntheticVolume === true;
+
+      if (rawTotal <= 0 && hasRawScore) {
+        const ratio = Math.max(0, Math.min(1, (rawScore - safeMin) / (safeMax - safeMin)));
+        rawTotal = typeof getSyntheticTotal === 'function' ? getSyntheticTotal(safeMax) : 20;
+        rawCorrect = Math.round(ratio * rawTotal);
+        isSyntheticVolume = true;
+      }
+
+      return {
+        ...r,
+        score: hasRawScore ? Math.min(safeMax, Math.max(safeMin, rawScore)) : safeMin,
+        total: rawTotal,
+        correct: rawCorrect,
+        syntheticVolume: isSyntheticVolume,
+      };
+    });
+  }
+
   const data = safeClone(rawData);
   if (!data.simuladoRows || data.simuladoRows.length === 0 || !data.categories) return data;
 
@@ -146,7 +177,8 @@ export const repairContestHistory = (rawData) => {
           date,
           correct: stats.correct,
           total: stats.total,
-          score: Math.min(maxScore, Math.max(minScore, finalScore))
+          score: Math.min(maxScore, Math.max(minScore, finalScore)),
+          syntheticVolume: stats.normalRowCount === 0 && stats.directScoreCount > 0
         };
       }).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 
@@ -349,7 +381,7 @@ export const extractCore = (obj, depth = 0) => {
 
 export const validateAppState = (data) => {
   try {
-    if (!data) return { contests: { 'default': INITIAL_DATA }, activeId: 'default', lastUpdated: new Date().toISOString() };
+    if (!data) return { contests: { 'default': INITIAL_DATA }, activeId: 'default', lastUpdated: null };
 
     let coreData = extractCore(data);
     let d = coreData || data;
@@ -360,7 +392,7 @@ export const validateAppState = (data) => {
       d = {
         contests: { 'default': contestData },
         activeId: 'default',
-        lastUpdated: d.lastUpdated || new Date().toISOString()
+        lastUpdated: d.lastUpdated ?? null
       };
     }
 
@@ -417,14 +449,14 @@ export const validateAppState = (data) => {
       lastHistoryTime: Number(d.lastHistoryTime) || 0,
       version: Number(d.version) || 0,
       mcEqualWeights: d.mcEqualWeights ?? true,
-      lastUpdated: d.lastUpdated || new Date().toISOString()
+      lastUpdated: d.lastUpdated ?? null
     };
 
 
     return finalState;
   } catch (err) {
     console.error("[Validate] Erro catastrófico, retornando inicial:", err);
-    return { contests: { 'default': safeClone(INITIAL_DATA) }, activeId: 'default', lastUpdated: new Date().toISOString() };
+    return { contests: { 'default': safeClone(INITIAL_DATA) }, activeId: 'default', lastUpdated: null };
   }
 };
 

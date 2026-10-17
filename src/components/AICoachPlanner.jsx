@@ -318,6 +318,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     };
 
     const handleResize = () => {
+        cachedCols = null;
         cachedRects = null;
         if (lastClientX >= 0) {
             const x = lastClientX, y = lastClientY;
@@ -330,12 +331,14 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     window.addEventListener('touchmove', handleTouchMove, { passive: true });
     window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
     window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
 
     return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('touchmove', handleTouchMove);
         window.removeEventListener('scroll', handleScroll, { capture: true });
         window.removeEventListener('resize', handleResize);
+        window.removeEventListener('orientationchange', handleResize);
         cancelAnimationFrame(animationFrameId);
     };
   }, [isDragging]);

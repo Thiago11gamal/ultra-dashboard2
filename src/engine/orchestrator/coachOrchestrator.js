@@ -489,8 +489,11 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
           : null,
       },
       llmExplanation,
-      tuner: tuner || null,
-      meta,
+      meta: {
+        ...meta,
+        degraded: Array.isArray(meta?.errors) && meta.errors.length > 0,
+        errors: meta?.errors || []
+      },
     };
   } catch (err) {
     return {
@@ -500,7 +503,11 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       version: ORCHESTRATOR_VERSION,
       aborted: controller.signal.aborted,
       error: err?.message || String(err),
-      meta,
+      meta: {
+        ...meta,
+        degraded: true,
+        errors: meta?.errors || []
+      },
     };
   } finally {
     // FIX (BUG-34): sempre limpar o timer de timeout
@@ -527,6 +534,8 @@ export function buildCoachOrchestratorDashboard(result = {}) {
     generatedAt: safeResult.generatedAt || Date.now(),
     durationMs: safeResult.durationMs ?? null,
     version: safeResult.version || ORCHESTRATOR_VERSION,
+    degraded: Boolean(meta.degraded || (Array.isArray(meta.errors) && meta.errors.length > 0)),
+    errors: meta.errors || [],
     cards: [
       {
         id: 'focus_category',

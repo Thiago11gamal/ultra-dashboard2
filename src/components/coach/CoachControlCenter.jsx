@@ -116,6 +116,11 @@ function OverviewPanel({ dashboard }) {
   }
   return (
     <div className="space-y-6">
+      {dashboard?.degraded && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+          Algumas análises foram executadas em modo degradado.
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {(dashboard.cards || []).map((card) => (
           <MetricCard key={card.id} label={card.label} value={card.value} />

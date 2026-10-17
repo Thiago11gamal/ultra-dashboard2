@@ -171,7 +171,7 @@ const getFullInitialState = () => ({
     neuralQueue: [],
     neuralMode: false
   },
-  lastUpdated: "1970-01-01T00:00:00.000Z"
+  lastUpdated: null
 });
 
 export const useAppStore = create(

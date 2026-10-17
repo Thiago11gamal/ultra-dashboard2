@@ -221,6 +221,14 @@ export function useMonteCarloStats({
       weightsMap[cat.id || cat.name] = (stored !== undefined && stored !== null) ? Math.max(0, w) : 1;
     });
 
+    const totalWeight = Object.values(weightsMap).reduce((acc, w) => {
+      return acc + (Number.isFinite(w) ? w : 0);
+    }, 0);
+
+    if (totalWeight <= 0) {
+      return getEqualWeights();
+    }
+
     return weightsMap;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weightsKey, activeCategories.length]);

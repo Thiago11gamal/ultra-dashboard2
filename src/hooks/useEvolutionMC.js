@@ -178,6 +178,9 @@ export function useEvolutionMC({
       const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
 
       setMcLoading(true);
+      const safeCurrentMean = Number.isFinite(currentFocusLevel)
+        ? currentFocusLevel
+        : safeMin;
       try {
         const result = await runAnalysis({
           values: hist,
@@ -186,8 +189,8 @@ export function useEvolutionMC({
           projectionDays: projectDays,
           minScore: safeMin,
           maxScore: safeMax,
-          currentMean: currentFocusLevel,
-          forcedBaseline: currentFocusLevel,
+          currentMean: safeCurrentMean,
+          forcedBaseline: safeCurrentMean,
           projectedTotalTimeSeconds,
           examDurationMinutes
         });
@@ -221,8 +224,8 @@ export function useEvolutionMC({
               projectionDays: projectDays,
               minScore: safeMin,
               maxScore: safeMax,
-              currentMean: currentFocusLevel,
-              forcedBaseline: currentFocusLevel,
+              currentMean: safeCurrentMean,
+              forcedBaseline: safeCurrentMean,
               // ✅ BUG-5 FIX: repassar parâmetros de Time Penalty ao fallback síncrono
               projectedTotalTimeSeconds,
               examDurationMinutes

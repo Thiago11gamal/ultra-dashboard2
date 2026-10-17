@@ -138,6 +138,19 @@ const Sidebar = React.memo(function Sidebar({
         }
     }, [collapsed]);
 
+    // FIX (E-24): Travar scroll do body no mobile quando sidebar estiver aberta
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const shouldLock = Boolean(isOpen && window.innerWidth < 1024);
+
+        document.body.style.overflow = shouldLock ? 'hidden' : '';
+
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     // Handlers para abrir/fechar Flyouts com posição de âncora fixa
     const handleToggleContestsFlyout = useCallback((e) => {
         if (collapsed) {

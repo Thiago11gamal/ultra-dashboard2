@@ -29,8 +29,12 @@ export function detectRegimeTransition(scores = [], options = {}) {
         maxScore = 100,
         minScore = 0,
         windowSize = 10,
-        minHistory = 6
+        minHistory = 4
     } = options;
+
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Math.max(safeMin + 1e-9, Number(maxScore) || 100);
+    const safeRange = safeMax - safeMin;
 
     const noData = {
         currentState: 'insufficient_data',
@@ -40,19 +44,30 @@ export function detectRegimeTransition(scores = [], options = {}) {
         regimeStability: null
     };
 
-    if (!Array.isArray(scores) || scores.length < minHistory) return noData;
+    if (!Array.isArray(scores)) return noData;
+
+    const normalizedScores = scores
+        .map(score => {
+            const raw = typeof score === 'object' && score !== null ? (score.score ?? score.scorePoints) : score;
+            const n = Number(raw);
+            return Number.isFinite(n) ? n : null;
+        })
+        .filter(v => v !== null && Number.isFinite(v));
+
+    const effectiveMinHistory = Number.isFinite(Number(options.minHistory)) ? Number(options.minHistory) : 4;
+    if (normalizedScores.length < effectiveMinHistory) return noData;
     
     // BUG-ADAPT-01 FIX: Janela Dinâmica
     // Se scores.length < windowSize * 1.5, a janela de 10 itens impede a geração 
     // de 2 estados (necessários para a derivada). Ajustamos para scores.length/2.
-    const actualWindowSize = Math.min(windowSize, Math.floor(scores.length / 2));
+    const actualWindowSize = Math.min(windowSize, Math.max(2, Math.floor(normalizedScores.length / 2)));
 
     // 1. Calcular estados em janelas deslizantes
     const states = [];
     const stepSize = Math.max(1, Math.floor(actualWindowSize / 2)); // 50% overlap
-    for (let end = actualWindowSize; end <= scores.length; end += stepSize) {
-        const window = scores.slice(end - actualWindowSize, end);
-        const result = analyzeProgressState(window, { maxScore, minScore, window_size: actualWindowSize });
+    for (let end = actualWindowSize; end <= normalizedScores.length; end += stepSize) {
+        const window = normalizedScores.slice(end - actualWindowSize, end);
+        const result = analyzeProgressState(window, { maxScore: safeMax, minScore: safeMin, window_size: actualWindowSize });
         if (result && result.state !== 'insufficient_data') {
             states.push({
                 state: result.state,
@@ -91,7 +106,7 @@ export function detectRegimeTransition(scores = [], options = {}) {
         // Se a variância está subindo enquanto o slope diminui
         // [CORREÇÃO] Injetar um limite mínimo (Epsilon) de variância para impedir (Bug 3.1 Fix)
         // que um salto de 0 para 0.01 dispare uma falsa "Instabilidade crescente".
-        const varianciaMinima = Math.pow(maxScore * 0.02, 2); // Piso de 2%
+        const varianciaMinima = Math.pow(safeRange * 0.02, 2); // Piso de 2%
         const varianciaAnteriorSegura = Math.max(previous.variance, varianciaMinima);
         
         if (current.variance > varianciaAnteriorSegura * 1.5 && slopeChange < 0) {

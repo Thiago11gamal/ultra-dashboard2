@@ -1,5 +1,5 @@
 import { getXPProgress } from './gamification.js';
-import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey } from './dateHelper.js';
+import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey, getManausDayRange, getStreakDateKey } from './dateHelper.js';
 import { parseNoonLocal } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
 import { safeDate } from '../engine/math/date.js';
@@ -8,28 +8,6 @@ import { toFinite } from '../engine/math/safe.js';
 import { toArray } from './normalize.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-// T-024 FIX: helper para ancorar "hoje" em America/Manaus (UTC-4).
-// Se o timezone do app mudar, este offset precisa acompanhar APP_TIMEZONE.
-const getManausDayRange = (dateInput) => {
-    const key = getDateKey(dateInput);
-
-    if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-        return null;
-    }
-
-    const [year, month, day] = key.split('-').map(Number);
-
-    // America/Manaus é UTC-4.
-    // Meia-noite de Manaus = 04:00 UTC.
-    const start = Date.UTC(year, month - 1, day, 4, 0, 0, 0);
-
-    return {
-        key,
-        start,
-        end: start + MS_PER_DAY
-    };
-};
 
 /**
  * Distributes a rounding remainder across items based on their decimal parts.
@@ -110,22 +88,14 @@ export const calculateStudyStreak = (studyLogs) => {
         return { current: 0, best: longest, longest, isActive: false };
     }
     let streak = 0;
-    let cursorKey = lastDayStr;
+    let cursor = new Date(`${lastDayStr}T12:00:00Z`);
     // BUG-FIX: proteger contra loop quase-infinito com datas inválidas
     const maxIterations = Math.min(sortedDays.length + 2, 3660);
-    let prevCursorKey = null;
     for (let i = 0; i < maxIterations; i++) {
+        const cursorKey = getStreakDateKey(cursor);
         if (!cursorKey || !daySet.has(cursorKey)) break;
-        // BUG-FIX: detectar cursor travado (mesma chave = bug de timezone)
-        if (cursorKey === prevCursorKey) break;
-        prevCursorKey = cursorKey;
         streak++;
-        const anchoredIso = `${cursorKey}T12:00:00-04:00`;
-        const anchored = new Date(anchoredIso);
-        anchored.setDate(anchored.getDate() - 1);
-        const nextKey = getDateKey(anchored);
-        if (!nextKey) break;
-        cursorKey = nextKey;
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
     }
     const longest = calculateLongest(sortedDays);
     return { current: streak, best: longest, longest, isActive: gapDays <= 1 };
@@ -768,10 +738,11 @@ export const calculatePomodoroStats = (stats) => {
     const pomodoroDuration = settings?.pomodoroWork || 25;
     const dailyGoalMinutes = dailyGoalPomodoros * pomodoroDuration;
 
-    // T-024 FIX: usar range ancorado em Manaus, com fallback local
-    const todayRange = getManausDayRange(new Date()) || {
-        start: getLocalMidnight().getTime(),
-        end: getLocalMidnight().getTime() + MS_PER_DAY
+    // T-024 FIX: usar range ancorado em Manaus, sem fallback local corruptor
+    const safeTodayRange = getManausDayRange(new Date());
+    const todayRange = safeTodayRange || {
+        start: NaN,
+        end: NaN
     };
 
     const todaySessions = safeStudySessions.filter(s => {
@@ -783,6 +754,8 @@ export const calculatePomodoroStats = (stats) => {
             : new Date(start.getTime() + (Number(s.duration) || 0) * 60000);
 
         return (
+            Number.isFinite(todayRange.start) &&
+            Number.isFinite(todayRange.end) &&
             Number.isFinite(end?.getTime()) &&
             end.getTime() > todayRange.start &&
             start.getTime() < todayRange.end

@@ -2,6 +2,40 @@ import { addDays } from 'date-fns';
 
 export const APP_TIMEZONE = 'America/Manaus';
 
+const manausDayFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
+export function getManausDateKey(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return getDateKey(date);
+  return manausDayFormatter.format(d);
+}
+
+export function getStreakDateKey(date = new Date()) {
+  return getManausDateKey(date);
+}
+
+const MS_PER_DAY_MANAUS = 24 * 60 * 60 * 1000;
+
+export function getManausDayRange(dateInput = new Date()) {
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  const key = Number.isNaN(d.getTime()) ? getDateKey(dateInput) : getManausDateKey(d);
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+    return null;
+  }
+  const [year, month, day] = key.split('-').map(Number);
+  const start = Date.UTC(year, month - 1, day, 4, 0, 0, 0);
+  return {
+    key,
+    start,
+    end: start + MS_PER_DAY_MANAUS
+  };
+}
+
 export const safeDateParse = (dateInput, fallback = null) => {
   if (!dateInput) return fallback;
   if (typeof dateInput === 'boolean') return fallback;
