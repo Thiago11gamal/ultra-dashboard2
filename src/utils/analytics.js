@@ -724,7 +724,7 @@ export const detectProcrastination = (categories, studyLogs) => {
         // T-024 FIX: remover chaves inválidas/null do set
         const uniqueDays = new Set(
             last7Days
-                .map(log => getDateKey(log.date))
+                .map(log => getDateKey(log?.date))
                 .filter(Boolean)
         ).size;
 

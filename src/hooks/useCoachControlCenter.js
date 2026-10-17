@@ -25,7 +25,7 @@ import { replaceFlags, writeFlags } from '../utils/coachFeatureStore.js';
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
 
 // FIX: conjunto de abas válidas para validar estado persistido
-const VALID_TABS = new Set(['overview', 'flags', 'health', 'causal', 'autotuner', 'backtest']);
+const VALID_TABS = new Set(['overview', 'flags', 'health', 'causal', 'autotuner', 'backtest', 'llm']);
 
 // FIX: valida shape do estado persistido (evita corromper a UI com dado inválido)
 function loadControlCenterState() {
@@ -128,7 +128,7 @@ export function useCoachControlCenter({
         ...flagOverrides,
         ...(options.features || {}),
         // PATCH: orquestrador configurável
-        useCoachOrchestrator: (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? true),
+        useCoachOrchestrator: (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? currentFlags?.useCoachOrchestrator ?? true),
       };
       const result = await runCoachOrchestrator(
         { categories, simulados, studyLogs },
@@ -310,7 +310,8 @@ export function useCoachControlCenter({
   }, [healthSnapshots]);
 
   const hasError = error !== null;
-  const isReady = !loading && orchestratorResult !== null;
+  const isSkipped = orchestratorResult?.skipped === true;
+  const isReady = !loading && orchestratorResult !== null && !isSkipped;
 
   return {
     // Estado

@@ -14,11 +14,16 @@ import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, unit, stableThreshold = 2 }) => {
     if (!active || !payload || !payload.length) return null;
 
+    const hasValidData = payload.some(entry =>
+        Number.isFinite(Number(entry?.value))
+    );
+    if (!hasValidData) return null;
+
     const visibleEntries = payload.filter((entry) => {
         const dataKey = String(entry.dataKey || '');
         const isDelta = dataKey.startsWith('delta_');
         const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
-        return !hiddenKeys[baseKey] && entry.value != null;
+        return !hiddenKeys[baseKey] && entry.value != null && Number.isFinite(Number(entry.value));
     });
 
     if (visibleEntries.length === 0) return null;

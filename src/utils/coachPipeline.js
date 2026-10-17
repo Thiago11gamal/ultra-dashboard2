@@ -21,7 +21,10 @@ export const clearCoachCaches = _clearCoachCaches;
  */
 export async function coach(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
-  const safeOptions = options && typeof options === 'object' ? options : {};
+  const safeOptions = {
+    force: options.force ?? true,
+    ...(options && typeof options === 'object' ? options : {}),
+  };
   try {
       const result = await runCoachOrchestrator(safeInput, safeOptions);
       if (!result) {
@@ -33,15 +36,25 @@ export async function coach(input = {}, options = {}) {
           tasks: [],
           recommendation: '',
           details: {},
-          meta: { modules: {}, errors: [] }
+          meta: { modules: {}, errors: [], flags: {} }
         };
       }
+      const safeMeta = {
+        modules: {},
+        errors: [],
+        flags: {},
+        ...(result?.meta || {}),
+      };
+
       return {
+        ok: true,
+        generatedAt: Date.now(),
         focus: null,
         tasks: [],
         recommendation: '',
         details: {},
         ...result,
+        meta: safeMeta,
       };
   } catch (err) {
       console.error('[CoachPipeline] Erro no orquestrador:', err);
@@ -53,9 +66,23 @@ export async function coach(input = {}, options = {}) {
           tasks: [],
           recommendation: '',
           details: {},
-          meta: { modules: {}, errors: [{ step: 'orchestrator', message: err?.message || String(err) }] }
+          meta: {
+            modules: {},
+            errors: [String(err?.message || err)],
+            flags: {},
+          }
       };
   }
+}
+
+/**
+ * Constrói o dashboard a partir de um resultado já calculado, sem reexecutar.
+ */
+export function coachDashboardFromResult(result) {
+  if (!result || typeof result !== 'object') {
+    return null;
+  }
+  return buildCoachOrchestratorDashboard(result);
 }
 
 /**
@@ -65,7 +92,10 @@ export async function coach(input = {}, options = {}) {
  */
 export async function coachDashboard(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
-  const safeOptions = options && typeof options === 'object' ? options : {};
+  const safeOptions = {
+    force: options.force ?? true,
+    ...(options && typeof options === 'object' ? options : {}),
+  };
   try {
       const result = await runCoachOrchestrator(safeInput, safeOptions);
       if (!result || typeof result !== 'object') return null;
@@ -79,6 +109,7 @@ export async function coachDashboard(input = {}, options = {}) {
 export default {
   coach,
   coachDashboard,
+  coachDashboardFromResult,
   runCoachOrchestrator,
   buildCoachOrchestratorDashboard,
   clearCoachCaches,

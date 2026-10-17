@@ -233,7 +233,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         });
 
         activeCategories.forEach(cat => {
-            const history = getHistoryArray(cat).sort((a, b) => {
+            const history = [...getHistoryArray(cat)].sort((a, b) => {
                 const dA = normalizeDate(getHistoryDate(a));
                 const dB = normalizeDate(getHistoryDate(b));
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);

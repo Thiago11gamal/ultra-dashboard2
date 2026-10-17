@@ -12,6 +12,39 @@ import { getDateKey, toDateMs } from '../utils/dateHelper';
 const safeDateKey = (raw) => {
   const key = getDateKey(raw);
   return key && typeof key === 'string' && key.trim() !== '' ? key : null;
+// Helper para merge de tópicos
+const mergeTopics = (oldTopics = [], incomingTopics = []) => {
+  const safeOld = Array.isArray(oldTopics)
+    ? oldTopics
+    : Object.values(oldTopics || {});
+
+  const safeIncoming = Array.isArray(incomingTopics)
+    ? incomingTopics
+    : Object.values(incomingTopics || {});
+
+  const map = new Map();
+
+  [...safeOld, ...safeIncoming].forEach(topic => {
+    const name = String(topic?.name ?? topic?.topic ?? topic ?? '').trim();
+    if (!name) return;
+
+    const key = normalize(name);
+
+    const prev = map.get(key) || {
+      name,
+      correct: 0,
+      total: 0,
+      score: topic?.score,
+      isPercentage: !!topic?.isPercentage
+    };
+
+    prev.correct += Math.max(0, Number(topic?.correct) || 0);
+    prev.total += Math.max(0, Number(topic?.total) || 0);
+
+    map.set(key, prev);
+  });
+
+  return [...map.values()];
 };
 
 export default function Notes() {
@@ -107,41 +140,28 @@ export default function Notes() {
                 const totalQ = topics.reduce((s, t) => s + t.total, 0);
                 const calcScore = totalQ > 0 ? catMin + (totalC / totalQ) * catRange : catMin;
 
-                if (mergedHistoryMap[dateKey]) {
-                    const existingTopics = Array.isArray(mergedHistoryMap[dateKey].topics) ? mergedHistoryMap[dateKey].topics : [];
-                    const topicMap = new Map();
-                    existingTopics.forEach(t => {
-                        const key = normalize(t.name || t.topic || 'Geral');
-                        topicMap.set(key, { ...t });
-                    });
-                    topics.forEach(t => {
-                        const key = normalize(t.name || t.topic || 'Geral');
-                        const prev = topicMap.get(key);
-                        if (prev) {
-                            prev.correct = Math.max(0, Number(prev.correct) || 0) + t.correct;
-                            prev.total = Math.max(0, Number(prev.total) || 0) + t.total;
-                        } else {
-                            topicMap.set(key, { ...t });
-                        }
-                    });
-                    const combinedTopics = Array.from(topicMap.values());
-                    const combinedC = combinedTopics.reduce((s, t) => s + (Number(t.correct) || 0), 0);
-                    const combinedQ = combinedTopics.reduce((s, t) => s + (Number(t.total) || 0), 0);
-                    mergedHistoryMap[dateKey].topics = combinedTopics;
-                    mergedHistoryMap[dateKey].correct = combinedQ > 0 ? combinedC : totalC;
-                    mergedHistoryMap[dateKey].total = combinedQ > 0 ? combinedQ : totalQ;
-                    mergedHistoryMap[dateKey].score = combinedQ > 0 ? catMin + (combinedC / combinedQ) * catRange : calcScore;
-                    mergedHistoryMap[dateKey].isPercentage = false;
-                } else {
+                if (!mergedHistoryMap[dateKey]) {
                     mergedHistoryMap[dateKey] = {
                         date: dateKey,
-                        correct: totalC,
-                        total: totalQ,
-                        score: calcScore,
+                        correct: 0,
+                        total: 0,
+                        score: catMin,
                         isPercentage: false,
-                        topics: topics
+                        topics: []
                     };
                 }
+
+                const entry = mergedHistoryMap[dateKey];
+                entry.topics = mergeTopics(entry.topics, topics);
+                const combinedC = entry.topics.reduce((s, t) => s + (Number(t.correct) || 0), 0);
+                const combinedQ = entry.topics.reduce((s, t) => s + (Number(t.total) || 0), 0);
+
+                entry.correct = combinedQ > 0 ? combinedC : (entry.correct + Math.max(0, Number(totalC) || 0));
+                entry.total = combinedQ > 0 ? combinedQ : (entry.total + Math.max(0, Number(totalQ) || 0));
+                entry.score = entry.total > 0
+                    ? catMin + (entry.correct / entry.total) * catRange
+                    : calcScore;
+                entry.isPercentage = false;
             });
 
             // 4. Cleanup: If an entry still has no topics, add a "Geral" topic

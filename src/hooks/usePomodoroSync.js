@@ -92,7 +92,7 @@ export function usePomodoroSync({
                     stateRefs.current.isRunning = true;
                     syncPomodoroState({ isRunning: true });
 
-                    if (Number.isFinite(incomingTime) && incomingTime >= 0) {
+                    if (Number.isFinite(incomingTime) && incomingTime >= 0 && incomingTime <= 24 * 3600) {
                         stateRefs.current.timeLeft = incomingTime;
                         setTimeLeft(incomingTime);
                     }
@@ -101,7 +101,7 @@ export function usePomodoroSync({
                     if (endsAtRef) {
                         if (Number.isFinite(incomingEndsAt) && incomingEndsAt > Date.now()) {
                             endsAtRef.current = incomingEndsAt;
-                        } else if (Number.isFinite(incomingTime) && incomingTime > 0) {
+                        } else if (Number.isFinite(incomingTime) && incomingTime > 0 && incomingTime <= 24 * 3600) {
                             const currentSpeed = speedRef?.current || 1;
                             endsAtRef.current = Date.now() + (incomingTime * 1000) / currentSpeed;
                         }
@@ -123,7 +123,7 @@ export function usePomodoroSync({
                     stateRefs.current.isRunning = false;
                     syncPomodoroState({ isRunning: false });
 
-                    if (Number.isFinite(incomingTime) && incomingTime >= 0) {
+                    if (Number.isFinite(incomingTime) && incomingTime >= 0 && incomingTime <= 24 * 3600) {
                         setTimeLeft(incomingTime);
                         stateRefs.current.timeLeft = incomingTime;
                     }

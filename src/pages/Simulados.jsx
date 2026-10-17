@@ -337,7 +337,10 @@ export default function Simulados() {
       resultRows = simuladoRowsArray.filter((r) => {
         if (!r || typeof r !== 'object') return false;
         // Para manual, queremos agrupar todos do dia
-        const isManual = r.source === 'manual' || r.isAuto === false;
+        const isManual =
+          r?.source === 'manual' ||
+          r?.isAuto === false ||
+          (r?.source == null && r?.isAuto == null && r?.id?.startsWith('manual'));
         if (!isManual) return false;
         return getRowDateKey(r) === refDateKey;
       });

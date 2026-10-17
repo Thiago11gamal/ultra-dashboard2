@@ -362,6 +362,7 @@ export const MonteCarloConfig = ({
                                         }}
                                         className="text-slate-500 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all p-0.5"
                                         title="Remover nota de corte"
+                                        aria-label="Remover nota de corte"
                                     >
                                         <Minus size={14} />
                                     </button>

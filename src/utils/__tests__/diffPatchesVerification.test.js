@@ -158,4 +158,27 @@ describe('Diffs 01-12 Verification Suite', () => {
       expect(formatTimeAgo('2026-05-08T12:15:00.000Z')).toBe('No futuro');
     });
   });
+
+  // DIFF 11: coachPipeline
+  describe('DIFF 11: coachPipeline contract', () => {
+    it('retorna meta, ok: true e generatedAt em execução de coach()', async () => {
+      const { coach, coachDashboardFromResult } = await import('../coachPipeline.js');
+      const res = await coach({ categories: [] });
+      expect(res.ok).toBe(true);
+      expect(typeof res.generatedAt).toBe('number');
+      expect(res.meta).toBeDefined();
+      expect(res.meta.errors).toBeDefined();
+      expect(res.meta.flags).toBeDefined();
+
+      const dash = coachDashboardFromResult(res);
+      expect(dash).toBeDefined();
+    });
+
+    it('retorna null em coachDashboardFromResult com input inválido', async () => {
+      const { coachDashboardFromResult } = await import('../coachPipeline.js');
+      expect(coachDashboardFromResult(null)).toBeNull();
+      expect(coachDashboardFromResult(undefined)).toBeNull();
+      expect(coachDashboardFromResult('not-an-object')).toBeNull();
+    });
+  });
 });

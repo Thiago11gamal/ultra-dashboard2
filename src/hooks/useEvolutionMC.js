@@ -61,13 +61,20 @@ export function useEvolutionMC({
   const currentFocusLevel = focusCategory ? categoryLevels?.[focusCategory.id] : undefined;
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!focusCategory || !focusCategory.id || !Array.isArray(historyArray) || historyArray.length === 0) {
-      queueMicrotask(() => {
-        setMcLoading(false);
-        setMcResult(null);
-        setMcProjectionSeries(null);
-      });
-      return;
+      const timer = setTimeout(() => {
+        if (!cancelled) {
+          setMcLoading(false);
+          setMcResult(null);
+          setMcProjectionSeries(null);
+        }
+      }, 0);
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
     }
 
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
@@ -94,15 +101,19 @@ export function useEvolutionMC({
 
     // FIX 3B: verificar antes de prosseguir
     if (hist.length < 1) {
-        queueMicrotask(() => {
+      const timer = setTimeout(() => {
+        if (!cancelled) {
           setMcLoading(false);
           setMcResult(null);
           setMcProjectionSeries(null);
-        });
-        return;
+        }
+      }, 0);
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
     }
 
-    let cancelled = false;
     const workerDebounceTimeout = setTimeout(async () => {
       // ✅ BUG-5 FIX: Mover cálculos de tempo para ANTES do try/catch
       // para que fiquem acessíveis no fallback síncrono
@@ -154,8 +165,16 @@ export function useEvolutionMC({
       const store = useAppStore.getState();
       const activeId = store.appState?.activeId;
       const contest = store.appState?.contests?.[activeId];
-      const defaultExamTotalQuestions = contest?.examTotalQuestions || 100;
-      const examDurationMinutes = contest?.examDurationMinutes || 240;
+      const defaultExamTotalQuestions =
+        Number.isFinite(Number(contest?.examTotalQuestions)) &&
+        Number(contest?.examTotalQuestions) > 0
+          ? Number(contest.examTotalQuestions)
+          : 100;
+      const examDurationMinutes =
+        Number.isFinite(Number(contest?.examDurationMinutes)) &&
+        Number(contest?.examDurationMinutes) > 0
+          ? Number(contest.examDurationMinutes)
+          : 240;
       const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
 
       setMcLoading(true);
