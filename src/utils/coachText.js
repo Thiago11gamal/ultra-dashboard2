@@ -93,7 +93,7 @@ export function parseCoachTask(task, categories = []) {
 
   let action = hasSeparator
     ? clean.slice(separatorIndex + 1).trim()
-    : (rootBracket ? rootBracket[2].trim() : clean);
+    : (rootBracket ? (rootBracket[2]?.trim() || '') : clean);
 
   const bracketMatch = action ? String(action).match(RX_BRACKET_TOPIC) : null;
   let topicRaw = String(task?.topicName || '').trim();

@@ -133,7 +133,7 @@ function PersonalRanking({ categories = [] }) {
             const correct = Math.max(0, Math.round(correctRaw));
             const wrong = Math.max(0, total - correct);
             const balance = correct - wrong;
-            const percentCorrect = total > 0 ? Math.round((correct / total) * 100) : 0;
+            const percentCorrect = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
 
             return { ...cat, total, correct, wrong, balance, percentCorrect };
         });

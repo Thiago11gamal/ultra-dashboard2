@@ -188,6 +188,9 @@ export const useAppStore = create(
               localStorage.removeItem('pomodoro-endsAt');
             }
           } catch { /* ignore */ }
+          try {
+            idbDel('appState_indexedDB').catch(() => {});
+          } catch { /* ignore */ }
           clearCoachCaches();
           try {
             sessionStorage.removeItem('hasSeenWelcomeScreen');

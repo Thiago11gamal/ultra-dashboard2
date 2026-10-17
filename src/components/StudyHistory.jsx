@@ -474,7 +474,7 @@ const StudyHistory = React.memo(function StudyHistory({
                             let criticalCount = 0;
 
                             uniqueTopicStats.forEach(({ correct, total }) => {
-                                const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+                                const pct = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
                                 if (pct >= 70) dominatedCount++;
                                 else if (pct >= 50) attentionCount++;
                                 else criticalCount++;

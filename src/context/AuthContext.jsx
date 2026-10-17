@@ -54,10 +54,11 @@ export function AuthProvider({ children }) {
     }, []);
 
     const login = useCallback((email, password) => {
+        const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
         if (isLocalMode) {
             const fakeUser = {
                 uid: 'local-user',
-                email: email || 'local@example.com',
+                email: cleanEmail || 'local@example.com',
                 displayName: 'Usuário Local',
                 emailVerified: true
             };
@@ -67,7 +68,7 @@ export function AuthProvider({ children }) {
             return Promise.resolve(fakeUser);
         }
         if (!auth) return Promise.reject(new Error("Auth service is not available."));
-        return signInWithEmailAndPassword(auth, email, password);
+        return signInWithEmailAndPassword(auth, cleanEmail, password);
     }, []);
 
     const logout = useCallback(async () => {

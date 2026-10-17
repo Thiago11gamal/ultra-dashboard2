@@ -374,6 +374,8 @@ export const getCoachPriorities = (topicsData) => {
           bayesian: topic
         }))
         .sort((a, b) => {
+          if (a.completed && !b.completed) return 1;
+          if (!a.completed && b.completed) return -1;
           const valA = Number.isFinite(a.realProficiency) ? a.realProficiency : 1;
           const valB = Number.isFinite(b.realProficiency) ? b.realProficiency : 1;
           return valA - valB;
@@ -421,6 +423,8 @@ export const getCoachPriorities = (topicsData) => {
     };
   })
   .sort((a, b) => {
+    if (a.completed && !b.completed) return 1;
+    if (!a.completed && b.completed) return -1;
     const valA = Number.isFinite(a.realProficiency) ? a.realProficiency : 1;
     const valB = Number.isFinite(b.realProficiency) ? b.realProficiency : 1;
     return valA - valB;

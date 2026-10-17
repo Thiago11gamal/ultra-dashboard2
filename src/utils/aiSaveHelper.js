@@ -17,7 +17,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
   const assunto = (formData.assunto || '').trim();
   const categoryId = formData.categoryId || null;
   const taskId = formData.taskId || null;
-  const computedScore = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const computedScore = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
   const diffMap = { facil: 0.7, medio: 1.0, dificil: 1.3, expert: 1.6 };
   const numericDifficulty = diffMap[formData.dificuldade] || 1.0;
 

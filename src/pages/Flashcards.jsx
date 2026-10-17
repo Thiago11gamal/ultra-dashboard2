@@ -155,7 +155,7 @@ export default function Flashcards() {
         cards: nextCards,
         stats: {
           ...deck.stats,
-          mastered: nextCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) > 6).length
+          mastered: nextCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) >= 6).length
         }
       };
     });
@@ -251,7 +251,7 @@ export default function Flashcards() {
           cards: updatedCards,
           stats: {
             totalReviews: (deck.stats?.totalReviews || 0) + 1,
-            mastered: updatedCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) > 6).length
+            mastered: updatedCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) >= 6).length
           }
         };
       });

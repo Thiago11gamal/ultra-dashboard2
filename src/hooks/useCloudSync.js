@@ -826,7 +826,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             console.error('[Sync] Erro ao aplicar dados remotos:', pullErr);
           } finally {
             applyingRemoteRef.current = false;
-            requestAnimationFrame(() => { isCloudPullRef.current = false; });
+            isCloudPullRef.current = false;
           }
         } else {
           isCloudPullRef.current = false;

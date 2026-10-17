@@ -311,7 +311,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     if (total > 0) {
                       correct = Math.min(correct, total);
                     }
-                    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+                    const pct = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
 
                     let status = 'ATENÇÃO';
                     let action = 'Treino Prático';
