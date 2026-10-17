@@ -9,6 +9,7 @@ export function PomodoroClock({
     mode,
     isRunning,
     timeLeft,
+    totalTime,
     svgCircleRef,
     clockRef,
     isFullscreen,
@@ -38,9 +39,8 @@ export function PomodoroClock({
                                 key={s}
                                 type="button"
                                 onClick={() => setSpeed(s)}
-                                disabled={isProtocolInactive}
                                 aria-label={`Velocidade ${s}x`}
-                                className={`px-2 sm:px-2.5 h-6 sm:h-7 rounded-md text-[11px] font-black transition-all disabled:opacity-30 disabled:cursor-not-allowed ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
+                                className={`px-2 sm:px-2.5 h-6 sm:h-7 rounded-md text-[11px] font-black transition-all ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
                             >
                                 {s}X
                             </button>
@@ -104,7 +104,11 @@ export function PomodoroClock({
                         {formatTime(timeLeft)}
                     </span>
                     <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em] sm:tracking-[0.25em] text-white/90 drop-shadow mt-1 text-center px-2">
-                        {isRunning ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação')) : 'SESSÃO PAUSADA'}
+                        {isRunning
+                            ? (mode === 'work' ? 'PROTOCOL Foco' : (mode === 'long_break' ? 'Pausa Longa' : 'Recuperação'))
+                            : (isProtocolInactive
+                                ? 'AGUARDANDO PROTOCOLO'
+                                : (totalTime && timeLeft >= totalTime ? 'PRONTO PARA FOCO' : 'SESSÃO PAUSADA'))}
                     </span>
                 </div>
             </div>

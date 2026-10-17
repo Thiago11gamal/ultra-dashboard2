@@ -346,7 +346,7 @@ function ActionsAndMentorView({
 
     const activeTaskStats = useMemo(() => {
         if (!activeSubject) return null;
-        const currentCategory = (categories || []).find(c => c?.id === activeSubject.categoryId);
+        const currentCategory = (categories || []).find(c => c && (c.id === activeSubject.categoryId || (activeSubject.category && c.name === activeSubject.category)));
         const rawTasks = currentCategory?.tasks || [];
         const safeCategoryTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
         const categoryTasks = safeCategoryTasks.filter(Boolean);
@@ -842,7 +842,7 @@ function PomodoroSidePanel({
 // =====================================================
 // BARRA SUPERIOR DO CRONÔMETRO (COMPACTA, ELEGANTE E PERFEITAMENTE ENQUADRADA)
 // =====================================================
-function PomodoroTopBar({ activeSubject }) {
+function PomodoroTopBar({ activeSubject, isRunning }) {
     const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
 
     return (
@@ -858,7 +858,13 @@ function PomodoroTopBar({ activeSubject }) {
                             <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#2d1a12]/85 truncate">
                                 {activeSubject?.category || 'SISTEMA'}
                             </span>
-                            <div className="w-2 h-2 rounded-full bg-emerald-700 animate-pulse shrink-0 shadow-sm" />
+                            <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${
+                                activeSubject && isRunning
+                                    ? 'bg-emerald-700 animate-pulse'
+                                    : activeSubject
+                                        ? 'bg-amber-700/80'
+                                        : 'bg-[#2d1a12]/30'
+                            }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando protocolo'} />
                         </div>
                         <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}>
                             {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}
@@ -1057,13 +1063,15 @@ export default function Pomodoro() {
 
     useEffect(() => {
         if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
-            const cat = (categories || []).find(c => c && c.id === location.state.categoryId);
-            const tsk = (cat?.tasks || []).find(t => t && t.id === location.state.taskId);
+            const cat = (categories || []).find(c => c && (c.id === location.state.categoryId || c.name === location.state.categoryId));
+            const rawTasks = cat?.tasks || [];
+            const safeTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
+            const tsk = safeTasks.find(t => t && (t.id === location.state.taskId || t.text === location.state.taskId));
             if (cat && tsk) {
                 navigate(location.pathname, { replace: true, state: null });
                 useAppStore.getState().startPomodoroSession({
                     categoryId: cat.id,
-                    taskId: tsk.id,
+                    taskId: tsk.id || tsk.text,
                     category: cat.name,
                     task: tsk.title || tsk.text || 'Estudo',
                     priority: tsk.priority,
@@ -1247,6 +1255,12 @@ export default function Pomodoro() {
                 const returnPath = resolveReturnPath(sourceAfterFinish, false);
                 if (returnPath === '/pomodoro') {
                     showToast('Sessão finalizada! Selecione sua próxima meta.', 'info');
+                    try {
+                        localStorage.removeItem('pomodoroState');
+                        localStorage.removeItem('pomodoro-endsAt');
+                    } catch {
+                        // ignore storage errors
+                    }
                     setPomodoroActiveSubject(null);
                     return;
                 }
@@ -1289,6 +1303,7 @@ export default function Pomodoro() {
                     <div className="w-full xl:w-[480px] 2xl:w-[510px] flex-shrink-0 flex flex-col items-center gap-1 min-w-0">
                         <PomodoroTopBar
                             activeSubject={activeSubject}
+                            isRunning={liveTimerState !== null ? liveTimerState.isRunning : (pomodoroState.isRunning || false)}
                         />
                         <PomodoroTimer
                             settings={settings}
@@ -1323,7 +1338,13 @@ export default function Pomodoro() {
                             mode={liveTimerState?.mode || pomodoroState.mode || 'work'}
                             isRunning={liveTimerState !== null ? liveTimerState.isRunning : (pomodoroState.isRunning || false)}
                             timeLeft={liveTimerState !== null ? liveTimerState.timeLeft : (pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60)}
-                            totalTime={liveTimerState?.totalTime || (settings?.pomodoroWork || 25) * 60}
+                            totalTime={liveTimerState?.totalTime || (
+                                (liveTimerState?.mode || pomodoroState.mode) === 'break'
+                                    ? (settings?.pomodoroBreak || 5) * 60
+                                    : (liveTimerState?.mode || pomodoroState.mode) === 'long_break'
+                                        ? (settings?.pomodoroLongBreak || 15) * 60
+                                        : (settings?.pomodoroWork || 25) * 60
+                            )}
                             targetCycles={liveTimerState?.targetCycles || pomodoroState.targetCycles || 1}
                             completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
                             isLayoutLocked={isLayoutLocked}

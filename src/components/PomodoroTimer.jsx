@@ -299,16 +299,44 @@ function PomodoroTimer({
     const timeRef = useRef(timeLeft);
     const handlePhaseEndRef = useRef(null);
 
-    // ✅ RESTORE DE SESSÃO APÓS RELOAD
+    // ✅ RESTORE DE SESSÃO APÓS RELOAD (COM ESCOPO DE TAREFA E SESSÃO)
     useEffect(() => {
         try {
             const rawEndsAt = localStorage.getItem('pomodoro-endsAt');
             if (!rawEndsAt) return;
-            const endsAt = Number(rawEndsAt);
+            let endsAt = null;
+            let endsAtTaskId = null;
+            let endsAtSessionId = null;
+
+            try {
+                const parsed = JSON.parse(rawEndsAt);
+                if (parsed && typeof parsed === 'object') {
+                    endsAt = Number(parsed.endsAt);
+                    endsAtTaskId = parsed.taskId || null;
+                    endsAtSessionId = parsed.sessionInstanceId || null;
+                } else {
+                    endsAt = Number(rawEndsAt);
+                }
+            } catch {
+                endsAt = Number(rawEndsAt);
+            }
+
             if (!Number.isFinite(endsAt) || endsAt <= 0) {
                 try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
                 return;
             }
+
+            const currentTaskId = activeSubject?.taskId || null;
+            const currentSessionId = activeSubject?.sessionInstanceId || null;
+            if (endsAtTaskId && currentTaskId && endsAtTaskId !== currentTaskId) {
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                return;
+            }
+            if (endsAtSessionId && currentSessionId && endsAtSessionId !== currentSessionId) {
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                return;
+            }
+
             const currentSpeed = speedRef.current || 1;
             const now = Date.now();
             if (endsAt > now) {
@@ -335,7 +363,7 @@ function PomodoroTimer({
         } catch (err) {
             console.warn('[PomodoroTimer] Falha ao restaurar endsAt:', err);
         }
-    }, [setPomodoroRunning]);
+    }, [activeSubject?.taskId, activeSubject?.sessionInstanceId, setPomodoroRunning]);
 
     const [syncChannel] = useState(() => {
         try {
@@ -382,7 +410,13 @@ function PomodoroTimer({
             if (isRunning && endsAtRef.current) {
                 const currentLeft = Number(stateRefs.current?.timeLeft ?? timeLeft) || 0;
                 endsAtRef.current = Date.now() + (currentLeft * 1000) / (speed || 1);
-                try { localStorage.setItem('pomodoro-endsAt', String(endsAtRef.current)); } catch {}
+                try {
+                    localStorage.setItem('pomodoro-endsAt', JSON.stringify({
+                        endsAt: endsAtRef.current,
+                        taskId: activeSubjectRef.current?.taskId || null,
+                        sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+                    }));
+                } catch {}
             }
             postSync({
                 type: 'SPEED_CHANGE',
@@ -833,6 +867,8 @@ function PomodoroTimer({
             }
             savePomodoroState({ isRunning: false, timeLeft: stateRefs.current.timeLeft });
             setPomodoroRunning(false);
+            endsAtRef.current = null;
+            try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
         };
     }, [savePomodoroState, safeSettings, safeOnUpdateStudyTime, onSessionComplete, setPomodoroRunning]);
 
@@ -924,6 +960,10 @@ function PomodoroTimer({
             savedMinutes = sessionMinutes;
         }
 
+        const actualSeriesMinutes = Number(
+            ((stateRefs.current.accumulatedMinutes || 0) + sessionMinutes).toFixed(1)
+        );
+
         if (transitionTimeoutRef.current) {
             clearTimeout(transitionTimeoutRef.current);
         }
@@ -1006,7 +1046,9 @@ function PomodoroTimer({
             if (isEndingCycle) {
                 const liveSettings = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.settings || safeSettings;
                 const workMins = Number(liveSettings?.pomodoroWork) || 25;
-                const seriesTotalMinutes = currentTarget * workMins;
+                const seriesTotalMinutes = source === 'natural'
+                    ? (currentTarget * workMins)
+                    : Math.round(actualSeriesMinutes);
                 safeOnFullCycleComplete(
                     seriesTotalMinutes,
                     source === 'natural'
@@ -1211,7 +1253,13 @@ function PomodoroTimer({
         const currentLeft = stateRefs.current.timeLeft > 0 ? stateRefs.current.timeLeft : timeLeft;
         const currentSpeed = speedRef.current || 1;
         endsAtRef.current = Date.now() + (currentLeft * 1000) / currentSpeed;
-        try { localStorage.setItem('pomodoro-endsAt', String(endsAtRef.current)); } catch {}
+        try {
+            localStorage.setItem('pomodoro-endsAt', JSON.stringify({
+                endsAt: endsAtRef.current,
+                taskId: activeSubjectRef.current?.taskId || null,
+                sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+            }));
+        } catch {}
         stateRefs.current.isRunning = true;
         setIsRunning(true);
         setPomodoroRunning(true);
@@ -1318,7 +1366,7 @@ function PomodoroTimer({
                     backgroundPosition: 'center',
                     boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
                 }}
-                className="w-full border-3 sm:border-4 border-[#3f2e26] p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
+                className="w-full border-[3px] sm:border-4 border-[#3f2e26] p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
 
                 {/* Mostrador SVG, Toolbar e Indicadores */}
@@ -1329,6 +1377,7 @@ function PomodoroTimer({
                     mode={mode}
                     isRunning={isRunning}
                     timeLeft={timeLeft}
+                    totalTime={totalTime}
                     safeSettings={safeSettings}
                     svgCircleRef={svgCircleRef}
                     clockRef={clockRef}

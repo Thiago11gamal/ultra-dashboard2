@@ -88,6 +88,12 @@ export const createPomodoroSlice = (set, get) => ({
                 p.completedCycles = 0;
                 p.mode = 'work';
                 p.accumulatedMinutes = 0;
+                p.isRunning = false;
+                try {
+                    if (typeof localStorage !== 'undefined') {
+                        localStorage.removeItem('pomodoro-endsAt');
+                    }
+                } catch { /* ignore */ }
             }
 
             if (subject.source !== 'neural_core') {

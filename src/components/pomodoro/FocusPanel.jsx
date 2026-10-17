@@ -352,6 +352,7 @@ function NextTaskPreview({ categories, currentTaskId }) {
     let nextTask = null;
     if (categories) {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories);
+        // Prioridade 1: Tarefas de alta prioridade não concluídas
         for (const cat of safeCats) {
             if (!cat) continue;
             const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
@@ -363,16 +364,33 @@ function NextTaskPreview({ categories, currentTaskId }) {
             }
             if (nextTask) break;
         }
+
+        // Prioridade 2: Tarefas de média prioridade não concluídas caso não haja alta
+        if (!nextTask) {
+            for (const cat of safeCats) {
+                if (!cat) continue;
+                const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+                for (const task of tasks) {
+                    if (task && !task.completed && (task.id || task.text) !== currentTaskId && task.priority === 'medium') {
+                        nextTask = { ...task, catName: cat.name };
+                        break;
+                    }
+                }
+                if (nextTask) break;
+            }
+        }
     }
 
     if (!nextTask) return null;
 
+    const isHighPriority = nextTask.priority === 'high';
+
     return (
         <div className="bg-slate-800/30 rounded-xl p-3 border border-dashed border-white/10">
             <div className="flex items-center gap-2 mb-1">
-                <Target size={12} className="text-slate-500" />
+                <Target size={12} className={isHighPriority ? 'text-rose-400' : 'text-slate-500'} />
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    Próxima Tarefa Crítica
+                    {isHighPriority ? 'Próxima Tarefa Crítica' : 'Próxima Tarefa'}
                 </span>
             </div>
             <div className="text-xs text-slate-300 font-medium truncate">
@@ -404,7 +422,7 @@ export function SessionFocusPanel({
     const [showMoreStats, setShowMoreStats] = useState(false);
 
     const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-    const currentCategory = activeSubject ? safeCats.find(c => c && c.id === activeSubject.categoryId) : null;
+    const currentCategory = activeSubject ? safeCats.find(c => c && (c.id === activeSubject.categoryId || (activeSubject.category && c.name === activeSubject.category))) : null;
 
     return (
         <div className="w-full flex flex-col gap-3.5" role="complementary" aria-label="Painel de telemetria da sessão">
@@ -465,7 +483,7 @@ export function SessionFocusPanel({
             {/* Tempo de Estudo Hoje */}
             <TodayStudyTime
                 studyLogs={studyLogs || []}
-                categoryId={activeSubject?.categoryId}
+                categoryId={activeSubject?.categoryId || currentCategory?.id}
             />
 
             {/* Streak */}

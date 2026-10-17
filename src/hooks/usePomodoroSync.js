@@ -81,13 +81,20 @@ export function usePomodoroSync({
                     return;
                 }
                 // Se a mensagem tem sessionInstanceId mas nós NÃO temos sessão ativa, ignorar
-                if (sessionInstanceId != null && currentSessionId == null) {
+                // EXCETO para START_SESSION, que notifica a aba que o protocolo foi ativado
+                if (type !== 'START_SESSION' && sessionInstanceId != null && currentSessionId == null) {
                     return;
                 }
             }
 
             switch (type) {
                 case 'START_SESSION': {
+                    if (data.speed && [1, 10, 100].includes(Number(data.speed))) {
+                        const s = Number(data.speed);
+                        setSpeed(s);
+                        if (speedRef) speedRef.current = s;
+                    }
+
                     setIsRunning(true);
                     stateRefs.current.isRunning = true;
                     syncPomodoroState({ isRunning: true });
@@ -107,7 +114,11 @@ export function usePomodoroSync({
                         }
                         try {
                             if (endsAtRef.current) {
-                                localStorage.setItem('pomodoro-endsAt', String(endsAtRef.current));
+                                localStorage.setItem('pomodoro-endsAt', JSON.stringify({
+                                    endsAt: endsAtRef.current,
+                                    taskId: activeSubjectRef.current?.taskId || null,
+                                    sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+                                }));
                             }
                         } catch { /* ignore */ }
                     }
@@ -136,6 +147,18 @@ export function usePomodoroSync({
                     if ([1, 10, 100].includes(parsedSpeed)) {
                         setSpeed(parsedSpeed);
                         speedRef.current = parsedSpeed;
+
+                        if (stateRefs.current?.isRunning && endsAtRef?.current) {
+                            const currentLeft = Number(stateRefs.current?.timeLeft) || 0;
+                            endsAtRef.current = Date.now() + (currentLeft * 1000) / parsedSpeed;
+                            try {
+                                localStorage.setItem('pomodoro-endsAt', JSON.stringify({
+                                    endsAt: endsAtRef.current,
+                                    taskId: activeSubjectRef.current?.taskId || null,
+                                    sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+                                }));
+                            } catch { /* ignore */ }
+                        }
                     }
                     break;
                 }
