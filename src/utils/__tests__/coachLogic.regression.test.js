@@ -117,7 +117,7 @@ describe('calculateUrgencyScore — robustez', () => {
 
 describe('getCrunchMultiplier — limites', () => {
   it('não excede 2.0', () => {
-    expect(getCrunchMultiplier(0)).toBe(1.3);
+    expect(getCrunchMultiplier(0)).toBeCloseTo(1.9526, 3);
     expect(getCrunchMultiplier(1)).toBeLessThanOrEqual(2.0);
     expect(getCrunchMultiplier(365)).toBeLessThanOrEqual(2.0);
   });

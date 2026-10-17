@@ -79,3 +79,17 @@ export function hashString64(str) {
   const hex2 = (h2 >>> 0).toString(16).padStart(8, '0');
   return hex1 + hex2;
 }
+
+// Variantes estritas: rejeitam null/undefined/''/boolean
+// (semântica exigida pelo coachEvaluator — antes duplicada localmente).
+export function toFiniteStrict(value, fallback = null) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function clampFiniteStrict(value, min, max, fallback = min) {
+  const n = toFiniteStrict(value, null);
+  if (n === null) return fallback;
+  return Math.min(max, Math.max(min, n));
+}

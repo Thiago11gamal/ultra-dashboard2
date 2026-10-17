@@ -181,13 +181,14 @@ const getDaysDiff = (newer, older) => {
  * - menos distorção para veteranos
  * - curva logística mais justa e explicável
  *
- * PATCH: daysToExam === 0 → curva logística converge para ~2.0 (máxima urgência no dia da prova)
+ * PATCH: daysToExam === 0 → a própria curva logística converge para ~1.95
+ * (máxima urgência no dia da prova). O caso especial `return 1.3` criava
+ * um penhasco: véspera ≈1.94 → dia da prova 1.3.
  * daysToExam < 0 → retorna 1.0 (prova já passou)
  */
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
     if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
     if (daysToExam < 0) return 1.0;
-    if (daysToExam === 0) return 1.3;
 
     let criticalHorizon = 21;
     let timeDivisor = 7;
@@ -1327,6 +1328,12 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     } = metrics;
     const minScore = metrics.minScore ?? 0;
     const domain = Math.max(1e-6, (maxScore || 100) - minScore);
+    // FIX: globalProjectedMean está em PONTOS da prova — normalizar para
+    // a escala 0–100 antes de formatar como %. Provas com maxScore ≠ 100
+    // exibiam "Contexto Global MC: 742%".
+    const globalProjectedPct = globalProjectedMean != null
+        ? ((globalProjectedMean - minScore) / domain) * 100
+        : null;
     const {
         scoreComponent,
         recencyComponent,
@@ -1375,7 +1382,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     if (mcHasData && mcRiskLabel === 'critical') {
         const burnoutNote = isBurnoutRisk ? ` (⚠️ ${burnoutMsg || 'Sinais de estafa — mude o método.'})` : '';
         const targetInfo = effectiveMCTarget < targetScore ? ` (Meta ZDP: ${formatValue(effectiveMCTarget)})` : '';
-        const globalNote = globalProjectedMean != null ? ` [Global: ${formatPercent(globalProjectedMean)}]` : '';
+        const globalNote = globalProjectedPct != null ? ` [Global: ${formatPercent(globalProjectedPct)}]` : '';
         recommendation = `🎯 Projeção Crítica: ${Math.round(mcProbability)}% de chance. Risco Crítico.${targetInfo}${globalNote}${burnoutNote}`;
     } else if (isBurnoutRisk) {
         recommendation = `🛑 Risco de Estafa: ${burnoutMsg || 'Você estudou muito mas a nota não reagiu.'} Considere descansar.`;
@@ -1492,7 +1499,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 "Tendência": trend > 0.5 ? `↑ +${formatValue(trend)}` : trend < -0.5 ? `↓ ${formatValue(trend)}` : "→ Estável",
                 "Instabilidade": `±${formatValue(mssdVolatility)} pts`,
                 "Probabilidade (MC)": mcHasData ? formatPercent(mcProbability) : "Dados insuf.",
-                "Contexto Global MC": globalProjectedMean != null ? formatPercent(globalProjectedMean) : null,
+                "Contexto Global MC": globalProjectedPct != null ? formatPercent(globalProjectedPct) : null,
                 "Peso da Matéria": weightLabel,
                 "Status": srsLabel || (normalized > 70 ? "🔥 Urgente" : normalized > 50 ? "⚡ Médio" : "✓ Estável")
             },
@@ -1570,6 +1577,13 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             ? (logsForChecksum[logsForChecksum.length - 1]?.date || logsForChecksum[logsForChecksum.length - 1]?.createdAt || '')
             : '';
         const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (t?.priority === 'high' ? 5 : 0), 0);
+        // FIX: a soma de minutos impacta a urgência (balance bridge,
+        // burnout/dynamicBurnoutThreshold, totalHours). Antes, editar a
+        // duração de um log existente não invalidava o cache — só
+        // logCount e o timestamp do último log eram observados.
+        const logsMinutesChecksum = safeLogs
+            .reduce((acc, l) => acc + sanitizeMinutes(l?.minutes), 0)
+            .toFixed(0);
         const activeId = useAppStore.getState()?.appState?.activeId || 'default';
         const weightsHash = simpleHash(
             (options.allCategories || [])
@@ -1620,7 +1634,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const cacheKeyRaw = JSON.stringify([
             activeId, catId, simCount, logCount, scoreChecksum,
             refDateStr, optKey, targetKey, lastSim, lastLog,
-            tasksHash, weightsHash, globalHash, calibrationHash,
+            tasksHash, logsMinutesChecksum, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash,
             options.maxScore ?? 100, options.targetScore ?? 0
         ]);
@@ -1774,7 +1788,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const result = {
         ...top,
         urgency: clonedUrgency,
-        weakestTopic: getWeakestTopic(top, simulados, maxScore) || null || null
+        weakestTopic: getWeakestTopic(top, simulados, maxScore) || null
     };
     // ✅ FIX: Verificar se options.flashcardDue é número antes de comparar
     if (options && Number.isFinite(Number(options.flashcardDue)) && Number(options.flashcardDue) > 0) {
@@ -2590,7 +2604,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         }
     });
 
-    // ✅ CORREÇÃO — manter a versão mais recente de cada ID
+    // ✅ CORREÇÃO — dedupe por ID. Tarefas geradas não possuem
+    // lastUpdated/createdAt, então a primeira ocorrência é mantida
+    // (os duplicados têm conteúdo idêntico — o dedupe é só garantia
+    // de unicidade).
     const taskMap = new Map();
     for (const t of allGeneratedTasks) {
       if (!t || !t.id) continue;
@@ -2745,7 +2762,10 @@ export const getCoachInsight = (category, simulados = [], studyLogs = [], option
     }
     parts.push(trend > 0.5 ? "tendência positiva" : trend < -0.5 ? "tendência negativa" : "estável");
     
-    if (vol > 15) parts.push("alta volatilidade");
+    // FIX: o threshold hardcoded de 15 pts valia só para provas de 100 pts.
+    // Em provas de 1000 pts, "alta volatilidade" nunca disparava.
+    const safeMaxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+    if (vol > 15 * (safeMaxScore / 100)) parts.push("alta volatilidade");
     
     return {
       text: parts.join(" · "),

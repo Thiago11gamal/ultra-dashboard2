@@ -264,6 +264,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     const hasAnythingToClear = coachPlanRaw.length > 0 || Object.values(coachPlanner).some(day => (day || []).length > 0);
 
+    // FIX (perf): antes era recalculado num IIFE dentro do JSX a cada render.
+    const cardTasks = useMemo(() => {
+        const allAssignedIds = new Set();
+        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => {
+            const sid = getSafeId(ensureCoachTaskId(t));
+            if (sid) allAssignedIds.add(sid);
+        }));
+        return coachPlan.filter(task => !allAssignedIds.has(getSafeId(ensureCoachTaskId(task))));
+    }, [coachPlanner, coachPlan]);
+
     const handleStartNeural = (task) => {
         const allAssignedIds = new Set();
         Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(ensureCoachTaskId(t)); if (sid) allAssignedIds.add(sid); }));
@@ -440,10 +450,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
                         {hasPlan ? (
                             (() => {
-                                const allAssignedIds = new Set();
-                                Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(ensureCoachTaskId(t)); if (sid) allAssignedIds.add(sid); }));
-                                const cardTasks = coachPlan.filter(task => !allAssignedIds.has(getSafeId(ensureCoachTaskId(task))));
-                                
                                 if (cardTasks.length === 0) {
                                     return (
                                         <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">

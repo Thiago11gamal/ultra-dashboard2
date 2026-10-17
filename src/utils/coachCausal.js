@@ -421,7 +421,10 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
     .map((task, originalIndex) => ({
       task,
       sortKey:
-        orderMap.get(task?.id || task?.text || '') ??
+        // FIX: o mesmo fallback `task-${originalIndex}` usado na criação dos
+        // candidatos. Antes, tarefas sem id/text usavam '' no lookup e
+        // nunca casavam com o id 'task-N' do orderMap (re-rank furado).
+        orderMap.get(task?.id || task?.text || `task-${originalIndex}`) ??
         (safeRanked.length + originalIndex),
     }))
     .sort((a, b) => a.sortKey - b.sortKey)

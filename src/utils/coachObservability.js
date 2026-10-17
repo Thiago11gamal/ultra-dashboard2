@@ -54,6 +54,11 @@ export function loadCalibrationTelemetryEvents() {
  */
 export function extractObservabilitySeries(simulados = [], options = {}) {
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+  // FIX: respeitar minScore — concursos com piso > 0 geravam séries
+  // levemente distorcidas no drift monitor.
+  const minScore = Number.isFinite(Number(options.minScore))
+    ? Math.min(Number(options.minScore), maxScore)
+    : 0;
   const windowSize = Math.max(3, Number(options.volatilityWindow) || 5);
 
   const sorted = safeArray(simulados)
@@ -62,7 +67,7 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
     .map((simulado, _idx) => ({
       simulado,
       time: toTime(simulado?.date ?? simulado?.createdAt),
-      score: getSafeScore(simulado, maxScore),
+      score: getSafeScore(simulado, maxScore, minScore),
       _idx,
     }))
     .filter((entry) => Number.isFinite(entry.score))

@@ -95,15 +95,23 @@ function UrgencyBar({ score, cfg }) {
 }
 
 // Adicione este componente dentro de AICoachWidget.jsx
-function MonteCarloGauge({ mc }) {
+function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
     const rawProbValue = mc?.probability ?? mc?.probabilityRaw;
     if (!mc || rawProbValue == null || !Number.isFinite(Number(rawProbValue))) return null;
     
     const rawProb = Number(rawProbValue);
     const prob = Math.min(100, Math.max(0, rawProb));
-    const rawLow = Number.isFinite(Number(mc.ci95Low)) ? Number(mc.ci95Low) : prob - 5;
+    // FIX: ci95Low/ci95High estão na escala de PONTOS da prova (clampados por
+    // safeMaxScore em coachAdaptive.js), não em porcentagem. Em provas com
+    // maxScore ≠ 100 (ex.: 1000 pts) o gauge quebrava: "Pior cenário 100%" e
+    // barra de confiança com largura 0. Normalizar pela escala do concurso.
+    const toPct = (value) => {
+        const range = Math.max(1e-9, scaleMax - scaleMin);
+        return Math.min(100, Math.max(0, ((value - scaleMin) / range) * 100));
+    };
+    const rawLow = Number.isFinite(Number(mc.ci95Low)) ? toPct(Number(mc.ci95Low)) : prob - 5;
     const low = Math.min(100, Math.max(0, rawLow));
-    const rawHigh = Number.isFinite(Number(mc.ci95High)) ? Number(mc.ci95High) : prob + 5;
+    const rawHigh = Number.isFinite(Number(mc.ci95High)) ? toPct(Number(mc.ci95High)) : prob + 5;
     const high = Math.min(100, Math.max(low, rawHigh));
 
     // Define a cor baseada na zona de risco (lógica exata do seu motor)
@@ -145,10 +153,10 @@ function MonteCarloGauge({ mc }) {
                     className="absolute top-0 bottom-0 bg-white/10 rounded-full"
                 />
                 
-                {/* Ponto de Probabilidade Exata — VIS-FIX: centralizado no valor (antes estourava a barra em 100%) */}
+                {/* Ponto de Probabilidade Exata — VIS-FIX: offset constante de 3px = metade da largura do ponto (w-1.5 = 6px) */}
                 <Motion.div 
-                    initial={{ left: 'calc(0% - 0px)' }}
-                    animate={{ left: `calc(${prob}% - ${prob * 0.06}px)` }}
+                    initial={{ left: 'calc(0% - 3px)' }}
+                    animate={{ left: `calc(${prob}% - 3px)` }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
                     className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
                 />
@@ -336,7 +344,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <div className="space-y-3 lg:col-span-2 xl:col-span-1">
                                 <UrgencyBar score={urgencyScore} cfg={cfg} />
                                 {suggestion.urgency?.details?.monteCarlo && (
-                                    <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} />
+                                    <MonteCarloGauge mc={suggestion.urgency.details.monteCarlo} scaleMax={scaleMax} scaleMin={scaleMin} />
                                 )}
 
                                 {suggestion.urgency?.details?.monteCarlo?.diagnostics && (

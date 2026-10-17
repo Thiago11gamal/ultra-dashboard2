@@ -271,12 +271,11 @@ export default function Coach() {
                 degraded: isDegraded,
                 source: 'coach'
             }].slice(-500);
-            prev.calibrationHistoryByCategory = prev.calibrationHistoryByCategory || {};
-            prev.calibrationHistoryByCategory[normalizedCategoryId] = nextHistory;
-            prev.calibrationOps = calibrationOps;
-            prev.calibrationAuditLog = calibrationAuditLog;
             return {
-                calibrationHistoryByCategory: prev.calibrationHistoryByCategory,
+                calibrationHistoryByCategory: {
+                    ...(prev.calibrationHistoryByCategory || {}),
+                    [normalizedCategoryId]: nextHistory
+                },
                 calibrationOps,
                 calibrationAuditLog
             };
@@ -893,7 +892,11 @@ function RaioXDashboard({ data }) {
     const toPercentLabel = (value) => {
         const n = Number(value);
         if (!Number.isFinite(n)) return '-';
-        return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
+        // FIX: eventos do Coach persistem `probability` na escala 0–1
+        // (coachLogic divide por 100 em onCalibrationMetric). Antes,
+        // Math.round(0.75) = 1 → exibição errada "1%" para 75%.
+        const pct = Math.abs(n) <= 1 ? n * 100 : n;
+        return `${Math.max(0, Math.min(100, Math.round(pct)))}%`;
     };
 
     const sortedLogs = useMemo(() => {

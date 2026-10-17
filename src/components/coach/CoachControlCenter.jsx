@@ -227,6 +227,7 @@ function OverviewPanel({ dashboard }) {
 // Painel: Flags
 // ==========================================================
 function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, strategySpace }) {
+  const [search, setSearch] = useState('');
   const groupedFlags = useMemo(() => {
     const groups = {
       'Lote 1 — State-Space': ['useStateSpace', 'useStateSpaceAverage', 'useStateSpaceTrend'],
@@ -248,6 +249,18 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
     if (extras.length > 0) groups['Lote 14 — Não catalogadas'] = extras;
     return groups;
   }, [currentFlags]);
+
+  // FIX (UX): busca para navegar em 60+ flags
+  const visibleGroups = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return groupedFlags;
+    const filtered = {};
+    for (const [groupName, flags] of Object.entries(groupedFlags)) {
+      const hits = flags.filter((key) => key.toLowerCase().includes(term));
+      if (hits.length > 0) filtered[groupName] = hits;
+    }
+    return filtered;
+  }, [groupedFlags, search]);
 
   const activeCount = Object.entries(currentFlags).filter(([, v]) => v === true).length;
   const overrideCount = Object.keys(flagOverrides).length;
@@ -283,7 +296,15 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
         </div>
       )}
 
-      {Object.entries(groupedFlags).map(([groupName, flags]) => (
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Buscar flag (ex.: causal, drift, fsrs...)"
+        className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/50 rounded-xl text-sm text-slate-200 placeholder-slate-500 outline-none focus:border-indigo-500/50 transition-colors"
+      />
+
+      {Object.entries(visibleGroups).map(([groupName, flags]) => (
         <div key={groupName} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
           <SectionTitle>{groupName}</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -329,6 +350,10 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
           </div>
         </div>
       ))}
+
+      {Object.keys(visibleGroups).length === 0 && search.trim() && (
+        <EmptyState message={`Nenhuma flag encontrada para "${search.trim()}".`} />
+      )}
     </div>
   );
 }
@@ -364,7 +389,11 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
             style={{ width: `${Math.max(0, Math.min(100, safeScore))}%` }}
           />
         </div>
-        <p className="text-xs text-slate-500 mt-2">Gerado em {new Date(latestHealth.generatedAt).toLocaleString('pt-BR')}</p>
+        <p className="text-xs text-slate-500 mt-2">
+          Gerado em {Number.isFinite(Number(latestHealth.generatedAt))
+            ? new Date(latestHealth.generatedAt).toLocaleString('pt-BR')
+            : '—'}
+        </p>
       </div>
 
       {alerts.length > 0 && (

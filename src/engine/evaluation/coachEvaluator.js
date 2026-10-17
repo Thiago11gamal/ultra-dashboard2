@@ -19,22 +19,14 @@ import {
   computeLogLoss,
   computeCalibrationDiagnostics,
 } from '../../utils/calibration.js';
+import { toFiniteStrict, clampFiniteStrict } from '../../utils/coachSafe.js';
 
 const EVAL_STORAGE_KEY = 'coach_evaluation_results_v1';
 const EVAL_STORAGE_MAX = 500;
 
-function clampFinite(value, min, max, fallback = min) {
-  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(max, Math.max(min, n));
-}
-
-function toFinite(value, fallback = null) {
-  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
+// FIX: helpers canônicos do coachSafe (evita duplicação/divergência).
+const clampFinite = clampFiniteStrict;
+const toFinite = toFiniteStrict;
 
 // FIX: remove acentos (NFD) para casar "Funções" ≙ "funcoes"
 function normalizeName(value) {
@@ -398,8 +390,11 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
           bins: options.bins ?? 6,
         })
       : {
-          ece: 0,
-          mce: 0,
+          // FIX: null = "sem dados". Zero exibia falsamente "calibração
+          // perfeita" no dashboard do Control Center. O pipeline downstream
+          // já trata null (Number.isFinite → card exibe '—').
+          ece: null,
+          mce: null,
           reliability: [],
         };
 

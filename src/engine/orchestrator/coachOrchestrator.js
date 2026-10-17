@@ -137,6 +137,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   const simulados = safeArray(safeInput.simulados);
   const studyLogs = safeArray(safeInput.studyLogs);
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
+  const minScore = clampFinite(options.minScore, 0, maxScore, 0);
   const targetScore = clampFinite(
     options.targetScore,
     0,
@@ -151,7 +152,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const checkAbort = (stepName) => {
+  const ensureNotAborted = (stepName) => {
     if (controller.signal.aborted) {
       meta.errors.push({ step: stepName, message: 'Timeout exceeded' });
       throw new Error(`Orchestrator aborted at step: ${stepName}`);
@@ -219,7 +220,8 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         getFeature(features, 'useOrchestratorHealth', false)
       );
 
-    if (shouldRunHealth && !checkAbort('observability')) {
+    if (shouldRunHealth) {
+      ensureNotAborted('observability');
       const observabilityModule = await loadOptionalModule(
         'coachObservability',
         meta
@@ -234,6 +236,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
           if (observabilityModule.extractObservabilitySeries) {
             series = observabilityModule.extractObservabilitySeries(simulados, {
               maxScore,
+              minScore,
             });
           }
           health = observabilityModule.runCoachDriftGuard({
@@ -262,7 +265,8 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       getFeature(features, 'usePersonalizedPolicy', false) ||
       getFeature(features, 'useCausalTaskSelection', false);
 
-    if (shouldLoadCausal && !checkAbort('causal')) {
+    if (shouldLoadCausal) {
+      ensureNotAborted('causal');
       causalModule = await loadOptionalModule('coachCausal', meta);
       if (causalModule) {
         try {
@@ -305,6 +309,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     const coachOptions = {
       ...options,
       maxScore,
+      minScore,
       targetScore,
       features,
       allCategories: categories,
@@ -316,7 +321,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     let bestTask = null;
 
     try {
-      checkAbort('getSuggestedFocus');
+      ensureNotAborted('getSuggestedFocus');
       focus = getSuggestedFocus(categories, simulados, studyLogs, coachOptions);
     } catch (err) {
       if (controller.signal.aborted) throw err;
@@ -327,7 +332,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     }
 
     try {
-      checkAbort('generateDailyGoals');
+      ensureNotAborted('generateDailyGoals');
       tasks = generateDailyGoals(categories, simulados, studyLogs, coachOptions);
     } catch (err) {
       if (controller.signal.aborted) throw err;
@@ -338,7 +343,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     }
 
     try {
-      checkAbort('getBestTask');
+      ensureNotAborted('getBestTask');
       bestTask = getBestTask(categories, options.excludeTaskId ?? null);
     } catch (err) {
       if (controller.signal.aborted) throw err;
@@ -356,9 +361,9 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       causalModule?.rerankCoachTasksWithCausalPolicy &&
       causalModel &&
       Array.isArray(tasks) &&
-      tasks.length > 0 &&
-      !checkAbort('causalTaskRerank')
+      tasks.length > 0
     ) {
+      ensureNotAborted('causalTaskRerank');
       try {
         tasks = causalModule.rerankCoachTasksWithCausalPolicy(
           tasks,
@@ -388,15 +393,17 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         getFeature(features, 'useOrchestratorLLM', false)
       );
 
-    if (shouldRunLLM && focus?.urgency && !checkAbort('llmExplanation')) {
+    if (shouldRunLLM && focus?.urgency) {
+      ensureNotAborted('llmExplanation');
       const explanationModule = await loadOptionalModule(
         'explanationAgent',
         meta
       );
       if (explanationModule?.enhanceCoachResultWithLLM) {
+        let llmTimerId = null;
         try {
           const llmTimeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('LLM timeout')), 5000)
+            llmTimerId = setTimeout(() => reject(new Error('LLM timeout')), 5000)
           );
           const enhanced = await Promise.race([
             explanationModule.enhanceCoachResultWithLLM(
@@ -421,6 +428,8 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
             step: 'llmExplanation',
             message: err?.message || String(err),
           });
+        } finally {
+          if (llmTimerId !== null) clearTimeout(llmTimerId);
         }
       }
     }
@@ -436,12 +445,13 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         getFeature(features, 'useOrchestratorAutoTuner', false)
       );
 
-    if (shouldRunTuner && !checkAbort('autoTuner')) {
+    if (shouldRunTuner) {
+      ensureNotAborted('autoTuner');
       const tunerModule =
         optimizerModule || (await loadOptionalModule('coachOptimizer', meta));
       if (tunerModule?.runCoachAutoTuner) {
         try {
-          tuner = tunerModule.runCoachAutoTuner({
+          tuner = await tunerModule.runCoachAutoTuner({
             maxScore,
             force: true,
             autoApply: options.autoApplyTuner === true,
@@ -474,6 +484,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       tasks: Array.isArray(tasks) ? tasks : [],
       bestTask,
       health: health || null,
+      tuner: tuner || null,
       causal: {
         available: Boolean(causalModel),
         model: causalModel

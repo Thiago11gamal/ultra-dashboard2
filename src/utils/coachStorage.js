@@ -44,10 +44,14 @@ export function safeSetItem(key, value) {
           const evictable = coachKeys.filter(k =>
             EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
           );
+          const pickLargest = (keys) => keys.reduce(
+            (biggest, k) => (storage.getItem(k)?.length || 0) > (storage.getItem(biggest)?.length || 0) ? k : biggest,
+            keys[0]
+          );
           if (evictable.length > 0) {
-            storage.removeItem(evictable[0]);
+            storage.removeItem(pickLargest(evictable));
           } else if (coachKeys.length > 0) {
-            storage.removeItem(coachKeys[0]);
+            storage.removeItem(pickLargest(coachKeys));
           } else {
             break;
           }

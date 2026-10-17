@@ -195,9 +195,10 @@ export function simuladosToHistory(simulados, maxScore = 100, minScore = 0) {
       return a._idx - b._idx;
     });
 
-  // ✅ FIX L06: fatigueFlag agora ignora scores inválidos (NaN/Infinity).
-  // Antes, NaN < NaN retornava false, mas NaN < número válido retornava
-  // false também, mascarando fadiga real. Agora a comparação é protegida.
+  // FIX: garantir fatigueFlag definido (false) no primeiro item.
+  // O loop começa em i=1, então sorted[0].fatigueFlag ficava undefined
+  // para consumidores que esperam booleano.
+  if (sorted.length > 0) sorted[0].fatigueFlag = false;
   let burstCount = 1;
   for (let i = 1; i < sorted.length; i++) {
       const current = sorted[i];
