@@ -120,6 +120,7 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
 
     const safeVolatility = Number.isFinite(Number(mc.volatility)) ? Math.round(Number(mc.volatility)) : 0;
     const safeBarWidth = Math.max(0, Math.min(100 - low, high - low));
+    const safeProbPos = Math.max(1.5, Math.min(98.5, prob));
 
     return (
         <Motion.div 
@@ -155,8 +156,8 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
                 
                 {/* Ponto de Probabilidade Exata — VIS-FIX: offset constante de 3px = metade da largura do ponto (w-1.5 = 6px) */}
                 <Motion.div 
-                    initial={{ left: 'calc(0% - 3px)' }}
-                    animate={{ left: `calc(${prob}% - 3px)` }}
+                    initial={{ left: '0%' }}
+                    animate={{ left: `calc(${safeProbPos}% - 3px)` }}
                     transition={{ duration: 1.5, ease: "easeOut" }}
                     className={`absolute top-0 bottom-0 w-1.5 rounded-full ${color} shadow-[0_0_12px_rgba(0,0,0,0.8)]`}
                 />
@@ -261,7 +262,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 type="button"
                                 onClick={onGenerateGoals}
                                 disabled={loading}
-                                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
                             >
                                 {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flame className="w-3.5 h-3.5" />}
                                 {loading ? 'Calculando...' : 'Recalcular'}
@@ -348,17 +349,19 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                 )}
 
                                 {suggestion.urgency?.details?.monteCarlo?.diagnostics && (
-                                    <div className="text-[9px] rounded-lg bg-slate-900/50 border border-white/5 px-2.5 py-2 grid grid-cols-2 gap-x-2 gap-y-0.5 text-slate-400 font-mono">
-                                        <div className="flex justify-between col-span-2">
-                                            <span>MC</span>
-                                            <span className="text-emerald-300">{suggestion.urgency.details.monteCarlo.diagnostics.simulationCount} sims</span>
+                                    <div className="text-[9px] rounded-lg bg-slate-900/50 border border-white/5 px-2.5 py-2 space-y-1 text-slate-400 font-mono">
+                                        <div className="flex justify-between items-center border-b border-white/5 pb-1">
+                                            <span>MC Sims</span>
+                                            <span className="text-emerald-300 font-bold">{suggestion.urgency.details.monteCarlo.diagnostics.simulationCount} sims</span>
                                         </div>
-                                        {suggestion.urgency.details.monteCarlo.diagnostics?.modelHealth != null && (
-                                            <div>Health: {Number(suggestion.urgency.details.monteCarlo.diagnostics.modelHealth).toFixed(1)}</div>
-                                        )}
-                                        {suggestion.urgency.details.monteCarlo?.healthAdjustedProb != null && (
-                                            <div>Adj: {Number(suggestion.urgency.details.monteCarlo.healthAdjustedProb).toFixed(0)}%</div>
-                                        )}
+                                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                                            {suggestion.urgency.details.monteCarlo.diagnostics?.modelHealth != null && (
+                                                <span>Health: <strong className="text-slate-300">{Number(suggestion.urgency.details.monteCarlo.diagnostics.modelHealth).toFixed(1)}</strong></span>
+                                            )}
+                                            {suggestion.urgency.details.monteCarlo?.healthAdjustedProb != null && (
+                                                <span>Adj: <strong className="text-slate-300">{Number(suggestion.urgency.details.monteCarlo.healthAdjustedProb).toFixed(0)}%</strong></span>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>

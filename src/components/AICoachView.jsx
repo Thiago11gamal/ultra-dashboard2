@@ -352,13 +352,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-                            {/* VIS-FIX: os dois botões tinham estilos/bordas diferentes → alturas diferentes e "pulo" ao alternar */}
-                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/10 rounded-xl p-1 shadow-inner" role="group" aria-label="Modo de visualização">
+                            {/* Seletor de Modo de Visualização */}
+                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/10 rounded-xl p-0.5 sm:p-1 shadow-inner h-8 sm:h-9" role="group" aria-label="Modo de visualização">
                                 <button
                                     type="button"
                                     aria-pressed={viewMode === 'planner'}
                                     onClick={() => setViewMode('planner')}
-                                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`h-full px-2.5 sm:px-3 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
                                     <LayoutGrid size={12} className="shrink-0" />
                                     Planner
@@ -367,20 +367,20 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     type="button"
                                     aria-pressed={viewMode === 'cards'}
                                     onClick={() => setViewMode('cards')}
-                                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                    className={`h-full px-2.5 sm:px-3 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
                                 >
                                     <Sparkles size={12} className="shrink-0" />
                                     Pendências
                                 </button>
                             </div>
 
-                            {/* Recalcular Estratégia - integrado na barra de ações principal */}
+                            {/* Recalcular Estratégia */}
                             <button
                                 type="button"
                                 onClick={onGenerateGoals}
                                 disabled={loading}
                                 aria-busy={loading}
-                                className="group relative overflow-hidden px-3.5 sm:px-4 py-1.5 rounded-xl font-black text-[9.5px] sm:text-[10.5px] tracking-[0.1em] uppercase transition-all duration-200 flex items-center gap-1.5 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_16px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                                className="group relative overflow-hidden h-8 sm:h-9 px-3 sm:px-4 rounded-xl font-black text-[9.5px] sm:text-[10px] tracking-[0.1em] uppercase transition-all duration-200 flex items-center justify-center gap-1.5 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_16px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
                             >
                                 <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
                                 {loading ? (
@@ -391,8 +391,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 ) : (
                                     <>
                                         <BrainCircuit size={13} className="shrink-0" />
-                                        <span className="hidden sm:inline">Recalcular Estratégia</span>
-                                        <span className="sm:hidden">Recalcular</span>
+                                        <span className="hidden min-[480px]:inline">Recalcular Estratégia</span>
+                                        <span className="min-[480px]:hidden">Recalcular</span>
                                     </>
                                 )}
                             </button>
@@ -403,20 +403,20 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     onClick={handleExport}
                                     disabled={isExporting}
                                     title="Exportar plano para PDF"
-                                    className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] sm:text-[9.5px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isExporting ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
-                                    <span className="hidden sm:inline">PDF</span>
+                                    {isExporting ? <Loader2 size={12} className="animate-spin shrink-0" /> : <Download size={12} className="shrink-0" />}
+                                    <span>PDF</span>
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleClearWithConfirm}
                                     disabled={!hasAnythingToClear}
                                     title={hasAnythingToClear ? 'Limpar sugestões e planejamento' : 'Nada para limpar'}
-                                    className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] sm:text-[9.5px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
                                 >
-                                    <Trash2 size={11} />
-                                    <span className="hidden sm:inline">Limpar</span>
+                                    <Trash2 size={12} className="shrink-0" />
+                                    <span>Limpar</span>
                                 </button>
                             </div>
                         </div>
@@ -591,14 +591,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 </div>
                                             )}
 
-                                            {alertTask.analysis?.verdict && (
+                                            {(alertTask.analysis?.verdict || actionDesc) && (
                                                 <div className="flex flex-col gap-2 mt-1">
-                                                    <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
-                                                        <BrainCircuit size={14} className="shrink-0 mt-0.5" />
-                                                        <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
-                                                    </div>
+                                                    {alertTask.analysis?.verdict && (
+                                                        <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
+                                                            <BrainCircuit size={14} className="shrink-0 mt-0.5" />
+                                                            <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
+                                                        </div>
+                                                    )}
                                                     {actionDesc && (
-                                                        <div className="pt-3 border-t border-white/5 mt-1">
+                                                        <div className={`pt-2.5 ${alertTask.analysis?.verdict ? 'border-t border-white/5' : ''} mt-0.5`}>
                                                             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
                                                             <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
                                                         </div>

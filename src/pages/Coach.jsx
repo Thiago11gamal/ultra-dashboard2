@@ -22,6 +22,7 @@ import MonteCarloDebugger from '../components/MonteCarloDebugger';
 import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { useSubscription } from '../hooks/useSubscription';
+import { useAuth } from '../context/useAuth';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { getSuggestedFocus, generateDailyGoals, clearMcCache, clearUrgencyCache, clearTopicsCache, getCombinedHistory } from '../utils/coachLogic';
 import { useToast } from '../hooks/useToast';
@@ -117,7 +118,8 @@ export default function Coach() {
     const userProfile = data?.user;
     
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
-    const { isPremium } = useSubscription(userProfile);
+    const { currentUser } = useAuth();
+    const { isPremium } = useSubscription(currentUser || userProfile);
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState('insights');
@@ -682,7 +684,7 @@ export default function Coach() {
                     
                     <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 bg-slate-900/80 border border-white/10 p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
                         <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-1 w-full sm:w-auto">
-                            <QuickStat label="Volatilidade" value={`${normalizedVolatility.toFixed(1)}pp`} color="text-amber-400" icon={<Zap size={13} />} />
+                            <QuickStat label="Volatilidade" value={`${Number.isFinite(normalizedVolatility) ? normalizedVolatility.toFixed(1) : '0.0'}pp`} color="text-amber-400" icon={<Zap size={13} />} />
                             <div className="w-px h-5 bg-white/10 shrink-0" />
                             <QuickStat
                                 label="Tendência"
@@ -709,72 +711,66 @@ export default function Coach() {
                     <div className="w-full">
                         <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
 
-                        <Motion.div 
-                            key={safeActiveTab}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.25, ease: "easeOut" }}
-                            className="min-h-[200px]"
-                        >
-                            <div
-                                role="tabpanel"
-                                id="coach-panel-insights"
-                                aria-labelledby="coach-tab-insights"
-                                tabIndex={safeActiveTab === 'insights' ? 0 : -1}
-                                hidden={safeActiveTab !== 'insights'}
+                        <AnimatePresence mode="wait">
+                            <Motion.div 
+                                key={safeActiveTab}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -8 }}
+                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                className="min-h-[200px]"
                             >
-                                {safeActiveTab === 'insights' && (
-                                    <>
-                                        {flashcardDue > 0 && (
-                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
-                                                <BookOpen className="text-amber-400 shrink-0" size={16} />
-                                                <div className="flex-1 min-w-[180px] text-amber-200">
-                                                    <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
+                                <div
+                                    role="tabpanel"
+                                    id={`coach-panel-${safeActiveTab}`}
+                                    aria-labelledby={`coach-tab-${safeActiveTab}`}
+                                    tabIndex={0}
+                                >
+                                    {safeActiveTab === 'insights' ? (
+                                        <>
+                                            {flashcardDue > 0 && (
+                                                <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
+                                                    <BookOpen className="text-amber-400 shrink-0" size={16} />
+                                                    <div className="flex-1 min-w-[180px] text-amber-200">
+                                                        <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => navigate('/flashcards')}
+                                                        className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
+                                                    >
+                                                        Revisar agora
+                                                    </button>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => navigate('/flashcards')}
-                                                    className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
-                                                >
-                                                    Revisar agora
-                                                </button>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {/* Visual global MC context */}
-                                        {globalProjection && (
-                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
-                                                <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
-                                                <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
-                                                    {globalProjection.points.toFixed(1)}
-                                                    <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
-                                                </span>
-                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
-                                                {globalProjection.probability !== null && (
-                                                    <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
-                                                )}
-                                            </div>
-                                        )}
-                                        <AICoachView 
-                                            suggestedFocus={suggestedFocus}
-                                            onGenerateGoals={handleGenerateGoals}
-                                            loading={coachLoading}
-                                            onClearHistory={handleClearHistory}
-                                        />
-                                    </>
-                                )}
-                            </div>
-
-                            <div
-                                role="tabpanel"
-                                id="coach-panel-analytics"
-                                aria-labelledby="coach-tab-analytics"
-                                tabIndex={safeActiveTab === 'analytics' ? 0 : -1}
-                                hidden={safeActiveTab !== 'analytics'}
-                            >
-                                {safeActiveTab === 'analytics' && <RaioXDashboard data={data} />}
-                            </div>
-                        </Motion.div>
+                                            {/* Visual global MC context */}
+                                            {globalProjection && (
+                                                <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
+                                                    <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
+                                                    <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
+                                                        {globalProjection.points.toFixed(1)}
+                                                        <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
+                                                    </span>
+                                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
+                                                    {globalProjection.probability !== null && (
+                                                        <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <AICoachView 
+                                                suggestedFocus={suggestedFocus}
+                                                onGenerateGoals={handleGenerateGoals}
+                                                loading={coachLoading}
+                                                onClearHistory={handleClearHistory}
+                                            />
+                                        </>
+                                    ) : (
+                                        <RaioXDashboard data={data} />
+                                    )}
+                                </div>
+                            </Motion.div>
+                        </AnimatePresence>
                     </div>
                 </div>
             </div>
@@ -975,7 +971,7 @@ function RaioXDashboard({ data }) {
 
                                         <div className="shrink-0 relative w-12 h-12 flex items-center justify-center">
                                             <svg className="w-full h-full -rotate-90 transform drop-shadow-md" viewBox="0 0 36 36">
-                                                <circle cx="18" cy="18" r={radius} fill="none" className="stroke-black/40" strokeWidth="3" />
+                                                <circle cx="18" cy="18" r={radius} fill="none" className="stroke-white/10" strokeWidth="3" />
                                                 <circle 
                                                     cx="18" cy="18" r={radius} fill="none" 
                                                     className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`} 
@@ -1124,7 +1120,7 @@ function RaioXDashboard({ data }) {
                         <select
                             value={effectiveCategory}
                             onChange={(e) => setSeriesCategory(e.target.value)}
-                            className="text-[10px] font-black uppercase tracking-widest text-cyan-300 bg-slate-900/60 border border-white/10 rounded-xl px-4 py-2 outline-none cursor-pointer hover:bg-slate-800 transition-all backdrop-blur-md"
+                            className="text-[10px] font-black uppercase tracking-widest text-cyan-300 bg-slate-900/60 border border-white/10 rounded-xl px-3 sm:px-4 py-2 outline-none cursor-pointer hover:bg-slate-800 transition-all backdrop-blur-md max-w-[170px] sm:max-w-[240px] truncate"
                         >
                             {categoryNames.map(cat => (
                                 <option key={cat} value={cat}>{displaySubject(cat)}</option>

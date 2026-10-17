@@ -50,9 +50,10 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
               ? {
                 ...provided.draggableProps.style,
                 ...(snapshot.draggingOver && snapshot.draggingOver !== 'backlog'
-                  // FIX (M6): width fixa de 180px encolhia cards em telas largas
-                  ? { width: '100%', maxWidth: '220px' }
-                  : {})
+                  ? { width: '100%', maxWidth: '145px' }
+                  : snapshot.draggingOver === 'backlog'
+                    ? { width: '100%', maxWidth: '280px' }
+                    : {})
               }
               : provided.draggableProps.style
           }
@@ -73,7 +74,7 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   ? 'border-emerald-500/20 bg-emerald-950/10 opacity-75'
                   : isBacklog
                     ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
-                    : `${dayTheme.cardBorder} ${dayTheme.cardBg} hover:border-white/20`
+                    : `${dayTheme?.cardBorder || 'border-white/10'} ${dayTheme?.cardBg || 'bg-white/5'} hover:border-white/20`
               }`}
           >
             <span
@@ -81,18 +82,18 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                   ? 'from-emerald-500 to-teal-500'
                   : isBacklog
                     ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
-                    : dayTheme.gradient
+                    : (dayTheme?.gradient || 'from-violet-500 to-indigo-500')
                 }`}
             />
             <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
               <div className="flex items-start justify-between gap-1.5 min-w-0 mt-0.5">
                 <div className="flex items-start gap-1 flex-1 min-w-0">
-                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-1 ${isCompleted ? 'bg-emerald-400' : isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : 'bg-current'}`} />
-                  <span className={`text-[8.5px] sm:text-[9px] font-black uppercase tracking-[0.06em] leading-tight break-words line-clamp-1 ${isCompleted ? 'text-emerald-400/90 line-through' : isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : dayTheme.text}`} title={displaySubject(subject, categories)}>
+                  <div className={`w-1.5 h-1.5 shrink-0 rounded-full mt-1 ${isCompleted ? 'bg-emerald-400' : isBacklog ? (isPriority ? 'bg-amber-400' : 'bg-violet-400') : (dayTheme?.dot || 'bg-violet-400')}`} />
+                  <span className={`text-[8.5px] sm:text-[9px] font-black uppercase tracking-[0.06em] leading-tight break-words line-clamp-1 ${isCompleted ? 'text-emerald-400/90 line-through' : isBacklog ? (isPriority ? 'text-amber-300' : 'text-violet-300') : (dayTheme?.text || 'text-violet-300')}`} title={displaySubject(subject, categories)}>
                     {displaySubject(subject, categories)}
                   </span>
                 </div>
-                <div className="flex items-center gap-0.5 shrink-0 bg-black/20 rounded border border-white/5 p-0.5">
+                <div className="flex items-center gap-0.5 shrink-0 bg-black/25 rounded-md border border-white/5 p-0.5">
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); if (typeof onStartPomodoro === 'function') onStartPomodoro(task, isBacklog ? 'backlog' : dayTheme?.id); }}
@@ -101,15 +102,15 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                     onTouchStart={(e) => e.stopPropagation()}
                     aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
                     title="Estudar agora no Pomodoro"
-                    className={`w-4 h-4 rounded flex items-center justify-center transition-all ${!isBacklog && dayTheme
+                    className={`w-5 h-5 rounded flex items-center justify-center transition-all ${!isBacklog && dayTheme
                         ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
                         : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
                       }`}
                   >
-                    <Play size={7} className="fill-current ml-0.5" />
+                    <Play size={8.5} className="fill-current ml-0.5" />
                   </button>
-                  <div className="w-3.5 h-4 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors pointer-events-none">
-                    <GripVertical size={10} className="pointer-events-none" />
+                  <div className="w-4 h-5 flex items-center justify-center cursor-grab text-slate-500 hover:text-slate-300 transition-colors pointer-events-none">
+                    <GripVertical size={11} className="pointer-events-none" />
                   </div>
                 </div>
               </div>

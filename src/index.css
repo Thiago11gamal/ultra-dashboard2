@@ -371,7 +371,7 @@ body::before {
   }
 
   .mobile-menu-tab-idle {
-    border-color: rgba(148, 163, 184, 0.12) !important;
+    border-color: rgba(148, 163, 184, 0.12);
     background: rgba(15, 23, 42, 0.6);
   }
 
