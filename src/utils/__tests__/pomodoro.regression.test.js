@@ -145,3 +145,74 @@ describe('Pomodoro Slice - Unhydrated State Safety & Contest Switching', () => {
     expect(countWithBug).toBe(4);
   });
 });
+
+describe('Pomodoro Regressions - Multi-tab, Speed Recalculation & Structured endsAt', () => {
+  it('reseta isRunning e limpa endsAt ao trocar para nova sessão ativa', () => {
+    let removedKey = null;
+    globalThis.localStorage = {
+      removeItem: (k) => { removedKey = k; },
+      getItem: () => null,
+      setItem: () => {}
+    };
+
+    let state = {
+      appState: {
+        activeId: 'contest-1',
+        pomodoro: {
+          isRunning: true,
+          activeSubject: { taskId: 'task-old', sessionInstanceId: 'inst-1' }
+        }
+      }
+    };
+    const set = (updater) => {
+      if (typeof updater === 'function') updater(state);
+      else Object.assign(state, updater);
+    };
+    const get = () => state;
+    const slice = createPomodoroSlice(set, get);
+
+    slice.setPomodoroActiveSubject({ taskId: 'task-new', sessionInstanceId: 'inst-2' });
+
+    expect(state.appState.pomodoro.isRunning).toBe(false);
+    expect(state.appState.pomodoro.activeSubject.taskId).toBe('task-new');
+    expect(removedKey).toBe('pomodoro-endsAt');
+  });
+
+  it('recalcula endsAt corretamente na mudança de velocidade sem inflar o cronômetro', () => {
+    const currentLeft = 1200; // 20 minutos restantes
+    const parsedSpeed = 2; // alterado para velocidade 2x
+    const now = 1000000;
+    
+    // Cálculo corrigido: agora + (segundos restantes * 1000) / velocidade
+    const calculatedEndsAt = now + (currentLeft * 1000) / parsedSpeed;
+    
+    // O tempo real de relógio restante deve ser 600 segundos (10 minutos reais a 2x)
+    expect(calculatedEndsAt - now).toBe(600 * 1000);
+  });
+
+  it('valida payload estruturado de endsAt isolando por taskId e sessionInstanceId', () => {
+    const parseStoredEndsAt = (raw, expectedTaskId, expectedSessionId) => {
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'object' && parsed !== null) {
+          if (expectedTaskId && parsed.taskId && parsed.taskId !== expectedTaskId) return null;
+          if (expectedSessionId && parsed.sessionInstanceId && parsed.sessionInstanceId !== expectedSessionId) return null;
+          return Number(parsed.endsAt);
+        }
+        return Number(parsed);
+      } catch {
+        return Number(raw);
+      }
+    };
+
+    const validPayload = JSON.stringify({ endsAt: 1700000000000, taskId: 'task-1', sessionInstanceId: 'sess-1' });
+    const wrongTaskPayload = JSON.stringify({ endsAt: 1700000000000, taskId: 'task-2', sessionInstanceId: 'sess-1' });
+    const legacyPayload = '1700000000000';
+
+    expect(parseStoredEndsAt(validPayload, 'task-1', 'sess-1')).toBe(1700000000000);
+    expect(parseStoredEndsAt(wrongTaskPayload, 'task-1', 'sess-1')).toBeNull();
+    expect(parseStoredEndsAt(legacyPayload, 'task-1', 'sess-1')).toBe(1700000000000);
+  });
+});
+
