@@ -54,7 +54,7 @@ export function detectRegimeTransition(scores = [], options = {}) {
         })
         .filter(v => v !== null && Number.isFinite(v));
 
-    const effectiveMinHistory = Number.isFinite(Number(options.minHistory)) ? Number(options.minHistory) : 4;
+    const effectiveMinHistory = Number.isFinite(Number(minHistory)) ? Number(minHistory) : 4;
     if (normalizedScores.length < effectiveMinHistory) return noData;
     
     // BUG-ADAPT-01 FIX: Janela Dinâmica

@@ -75,6 +75,7 @@ export const EvolutionHeatmap = ({
     const [windowSize, setWindowSize] = useState('all');
     const [granularity, setGranularity] = useState('daily');
     const [hoveredCell, setHoveredCell] = useState(null);
+    const scrollDebounceRef = useRef(null);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -83,6 +84,7 @@ export const EvolutionHeatmap = ({
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => {
             window.removeEventListener('scroll', handleScroll);
+            if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
         };
     }, []);
 

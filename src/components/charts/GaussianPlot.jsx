@@ -239,7 +239,7 @@ export const GaussianPlot = ({
             range, xMin, targetVal, xp,
             domainMin, domainMax, curveY: calculateCurveY
         };
-    }, [mean, sd, targetScore, prob, propSdLeft, propSdRight, kdeData, minScore, maxScore, unit]);
+    }, [mean, sd, volatility, targetScore, prob, propSdLeft, propSdRight, kdeData, minScore, maxScore, unit]);
 
     const targetPos = xp(targetVal);
     const targetY = curveY(targetVal);

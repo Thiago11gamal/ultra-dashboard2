@@ -109,7 +109,7 @@ export function usePomodoroSync({
                             if (endsAtRef.current) {
                                 localStorage.setItem('pomodoro-endsAt', String(endsAtRef.current));
                             }
-                        } catch {}
+                        } catch { /* ignore */ }
                     }
 
                     showToast('Protocolo ativo em outra aba 🖥️', 'info');
@@ -118,7 +118,7 @@ export function usePomodoroSync({
 
                 case 'PAUSE_SESSION': {
                     if (endsAtRef) endsAtRef.current = null;
-                    try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                    try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
                     setIsRunning(false);
                     stateRefs.current.isRunning = false;
                     syncPomodoroState({ isRunning: false });
@@ -163,7 +163,7 @@ export function usePomodoroSync({
                 case 'PHASE_COMPLETE':
                 case 'PHASE_REWIND': {
                     if (endsAtRef) endsAtRef.current = null;
-                    try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                    try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
                     setIsRunning(false);
                     stateRefs.current.isRunning = false;
 

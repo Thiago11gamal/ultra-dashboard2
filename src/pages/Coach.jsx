@@ -339,7 +339,7 @@ export default function Coach() {
         }
         
         return clampVal(safeMin + (safeMax - safeMin) * 0.85);
-    }, [userProfile?.targetScore, userProfile?.targetProbability, currentMinScore, currentMaxScore]);
+    }, [userProfile, currentMinScore, currentMaxScore]);
     
     const mcStats = useMonteCarloStats({
         categories: categories,
@@ -394,7 +394,7 @@ export default function Coach() {
     const activeCategoryIds = useMemo(() => {
         const cats = Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {});
         return new Set(cats.map(c => getSafeId(c.id || c.name)));
-    }, [data?.categories]);
+    }, [data]);
 
     const degradedCount = useMemo(
         () => Object.entries(data?.calibrationOps || {}).filter(([catId, o]) => o?.degraded && activeCategoryIds.has(catId)).length,

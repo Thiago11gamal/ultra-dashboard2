@@ -257,7 +257,7 @@ export function useEvolutionMC({
 
     return () => { cancelled = true; clearTimeout(workerDebounceTimeout); };
   }, [
-    focusCategory?.id, currentFocusLevel, historyArray, debouncedTarget,
+    focusCategory, currentFocusLevel, historyArray, debouncedTarget,
     projectDays, runAnalysis, minScore, maxScore
   ]);
 

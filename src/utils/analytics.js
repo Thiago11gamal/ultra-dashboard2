@@ -1,5 +1,5 @@
 import { getXPProgress } from './gamification.js';
-import { normalizeDate, getLocalMidnight, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey, getManausDayRange, getStreakDateKey } from './dateHelper.js';
+import { normalizeDate, getDateKey, getFlashcardTodayKey, getFlashcardNextDueKey, getManausDayRange, getStreakDateKey } from './dateHelper.js';
 import { parseNoonLocal } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
 import { safeDate } from '../engine/math/date.js';
@@ -88,7 +88,8 @@ export const calculateStudyStreak = (studyLogs) => {
         return { current: 0, best: longest, longest, isActive: false };
     }
     let streak = 0;
-    let cursor = new Date(`${lastDayStr}T12:00:00Z`);
+    const startIso = `${lastDayStr}T12:00:00Z`;
+    let cursor = new Date(startIso);
     // BUG-FIX: proteger contra loop quase-infinito com datas inválidas
     const maxIterations = Math.min(sortedDays.length + 2, 3660);
     for (let i = 0; i < maxIterations; i++) {

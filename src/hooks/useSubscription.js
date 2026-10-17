@@ -17,9 +17,11 @@ export function useSubscription(user) {
 
   useEffect(() => {
     if (isDevBypass || isAdminEmail) {
-        setIsPremium(true);
-        setLoading(false);
-        return;
+        const t = setTimeout(() => {
+            setIsPremium(true);
+            setLoading(false);
+        }, 0);
+        return () => clearTimeout(t);
     }
     
     if (!user?.uid) { 
@@ -28,13 +30,6 @@ export function useSubscription(user) {
             setLoading(false); 
         }, 0);
         return () => clearTimeout(t);
-    }
-
-    // Explicit bypass for admin email
-    if (isAdminEmail) {
-        setIsPremium(true);
-        setLoading(false);
-        return;
     }
     
     let unsub = null;
@@ -149,7 +144,7 @@ export function useSubscription(user) {
             fallbackUnsubRef.current = null;
         }
     };
-  }, [user, isDevBypass]);
+  }, [user, isDevBypass, isAdminEmail]);
 
   if (isDevBypass) return { isPremium: true, loading: false };
   if (!user?.uid) return { isPremium: false, loading: false };

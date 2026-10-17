@@ -899,8 +899,6 @@ export default function Pomodoro() {
     const pomodoroState = usePomodoroState();
     const activeSubject = pomodoroState.activeSubject;
     const setPomodoroActiveSubject = useAppStore(state => state.setPomodoroActiveSubject);
-    const completedCycles = pomodoroState.completedCycles ?? 0;
-    const accumulatedMinutes = pomodoroState.accumulatedMinutes ?? 0;
     const neuralMode = pomodoroState.neuralMode;
     const neuralQueue = pomodoroState.neuralQueue || EMPTY_ARRAY;
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');

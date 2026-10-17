@@ -631,7 +631,6 @@ export function buildCoachOrchestratorDashboard(result = {}) {
           applied: tuner.applied === true,
         }
       : null,
-    errors: Array.isArray(meta.errors) ? meta.errors : [],
     modules: meta.modules || {},
     flags: meta.flags || {},
   };

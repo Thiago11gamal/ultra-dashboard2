@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { isSystemAlertTask, cleanCoachTags, parseCoachTask } from '../coachText.js';
 import { safeSetItem } from '../coachStorage.js';
 import { coach } from '../coachPipeline.js';
 import {
   normalizeCoachExplanationInput,
   enhanceCoachResultWithLLM,
-  deterministicCoachExplanation,
 } from '../../llm/explanationAgent.js';
 import { buildCoachExplanationPrompt } from '../../llm/llmPrompts.js';
 import { isValidFeatureKey, DEFAULT_COACH_FEATURES } from '../coachFeatures.js';

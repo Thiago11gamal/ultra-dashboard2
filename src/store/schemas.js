@@ -140,7 +140,6 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
         const rawTotal = Number.isFinite(Number(r.total)) ? Number(r.total) : 0;
         const rawCorrect = Number.isFinite(Number(r.correct)) ? Number(r.correct) : 0;
 
-        const safeMaxScore = Math.max(1, maxScore);
         const scoreCandidate = r.score != null ? r.score : r.scorePoints;
         const rawScore = Number.isFinite(Number(scoreCandidate)) ? Number(scoreCandidate) : null;
         const safeScore = rawScore !== null ? Math.min(maxScore, Math.max(minScore, rawScore)) : null;

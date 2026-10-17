@@ -24,6 +24,7 @@ export function addDaysNoon(date, days) {
   const targetMs = baseNoon.getTime() + deltaDays * 86400000;
   const key = getDateKey(new Date(targetMs));
   if (!key) return null;
-  const result = new Date(`${key}T12:00:00-04:00`);
+  const isoTarget = `${key}T12:00:00-04:00`;
+  const result = new Date(isoTarget);
   return Number.isNaN(result.getTime()) ? null : result;
 }
