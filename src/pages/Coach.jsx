@@ -890,6 +890,7 @@ function RaioXDashboard({ data }) {
     }, [data?.calibrationHistoryByCategory]);
 
     const toPercentLabel = (value) => {
+        if (value === null || value === undefined || value === '') return '-';
         const n = Number(value);
         if (!Number.isFinite(n)) return '-';
         // FIX: eventos do Coach persistem `probability` na escala 0–1

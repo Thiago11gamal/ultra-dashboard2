@@ -1326,8 +1326,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         globalProjectedMean,
         agilityPenalty
     } = metrics;
-    const minScore = metrics.minScore ?? 0;
-    const domain = Math.max(1e-6, (maxScore || 100) - minScore);
+    const minScore = metrics.minScore ?? options.minScore ?? 0;
+    const domain = Math.max(1e-6, (maxScore || options.maxScore || 100) - minScore);
     // FIX: globalProjectedMean está em PONTOS da prova — normalizar para
     // a escala 0–100 antes de formatar como %. Provas com maxScore ≠ 100
     // exibiam "Contexto Global MC: 742%".
