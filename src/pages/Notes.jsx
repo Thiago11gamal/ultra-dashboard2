@@ -12,6 +12,8 @@ import { getDateKey, toDateMs } from '../utils/dateHelper';
 const safeDateKey = (raw) => {
   const key = getDateKey(raw);
   return key && typeof key === 'string' && key.trim() !== '' ? key : null;
+};
+
 // Helper para merge de tópicos
 const mergeTopics = (oldTopics = [], incomingTopics = []) => {
   const safeOld = Array.isArray(oldTopics)
