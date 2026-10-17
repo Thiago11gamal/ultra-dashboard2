@@ -123,6 +123,14 @@ export const EvolutionHeatmap = ({
     }, []);
 
     useEffect(() => {
+        // Se for granularidade diária, aggregateHeatmap é síncrono e identidade (filtered).
+        // Evita envio desnecessário ao WebWorker e piscada de "Processando...".
+        if (granularity === 'daily') {
+            setAggregated(filtered);
+            setIsAggregating(false);
+            return;
+        }
+
         const worker = workerRef.current;
         if (!worker) {
             setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));

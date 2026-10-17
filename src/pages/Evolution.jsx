@@ -61,8 +61,12 @@ export default function Evolution() {
     if (hasValidNumber(user?.targetScore)) {
       let ts = Number(user.targetScore);
       // Compatibilidade legada: se o valor está estritamente abaixo do piso da escala (ex: default 75 no ENEM com piso 200)
-      // e está na faixa percentual [0, 100], converte para a escala em pontos.
-      if (ts < safeMin && ts >= 0 && ts <= 100 && (safeMax - safeMin) > 0) {
+      // ou se a escala total é ampliada (safeMax > 100 e amplitude >= 200) e o valor está no intervalo percentual [0, 100],
+      // converte percentual para a escala em pontos.
+      const isPercentileRange = ts >= 0 && ts <= 100 && (safeMax - safeMin) > 0;
+      const isBelowMin = ts < safeMin;
+      const isLegacyPercentageOnLargeScale = safeMax > 100 && (safeMax - safeMin) >= 200 && ts <= 100;
+      if (isPercentileRange && (isBelowMin || isLegacyPercentageOnLargeScale)) {
         ts = safeMin + (ts / 100) * (safeMax - safeMin);
       }
       return clamp(ts);

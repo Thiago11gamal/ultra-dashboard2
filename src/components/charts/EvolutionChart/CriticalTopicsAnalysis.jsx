@@ -3,7 +3,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList, Cell
 } from "recharts";
-import { normalizeDate } from "../../../utils/dateHelper";
+import { normalizeDate, getDateKey } from "../../../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 
@@ -32,7 +32,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
     // Calc time window
-    const { startDate, endDate, dateLabel } = useMemo(() => {
+    const { startDate, endDate, startDateKey, endDateKey, dateLabel } = useMemo(() => {
         const end = new Date();
         end.setHours(23, 59, 59, 999);
         end.setDate(end.getDate() - (selectedWeekOffset * 7));
@@ -46,6 +46,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         return {
             startDate: start,
             endDate: end,
+            startDateKey: getDateKey(start),
+            endDateKey: getDateKey(end),
             dateLabel: `${format(start)} — ${format(end)}`
         };
     }, [selectedWeekOffset]);
@@ -60,8 +62,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             if (!history.length) return;
 
             const recentHistory = history.filter(h => {
-                const d = normalizeDate(getHistoryDate(h));
-                return d && d >= startDate && d <= endDate;
+                const k = getDateKey(getHistoryDate(h));
+                return k && k >= startDateKey && k <= endDateKey;
             });
 
             const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
@@ -129,7 +131,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
-    }, [categories, startDate, endDate, maxScore, minScore]);
+    }, [categories, startDateKey, endDateKey, maxScore, minScore]);
 
     const pointLeakageData = useMemo(() => {
         if (!categories || !categories.length) return [];
@@ -143,8 +145,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
 
             const recentHistory = history.filter(h => {
-                const d = normalizeDate(getHistoryDate(h));
-                return d && d >= startDate && d <= endDate;
+                const k = getDateKey(getHistoryDate(h));
+                return k && k >= startDateKey && k <= endDateKey;
             });
             const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
             const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
@@ -214,7 +216,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 displayValue: Math.round(item.value * 10) / 10
             };
         });
-    }, [categories, startDate, endDate, maxScore, minScore]);
+    }, [categories, startDateKey, endDateKey, maxScore, minScore]);
 
     const hasData = useMemo(() => {
       if (!categories) return false;
@@ -226,7 +228,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
           : Object.values(historyRaw || {});
     
         return history.some(h => {
-          const d = normalizeDate(getHistoryDate(h));
+          const k = getDateKey(getHistoryDate(h));
           const topics = toArray(h.topics);
     
           const hasTopicData = topics.some(
@@ -234,9 +236,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
           );
     
           return (
-            d &&
-            d >= startDate &&
-            d <= endDate &&
+            k &&
+            k >= startDateKey &&
+            k <= endDateKey &&
             (
               parseInt(h.total, 10) > 0 ||
               h.score != null ||
@@ -245,7 +247,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
           );
         });
       });
-    }, [categories, startDate, endDate]);
+    }, [categories, startDateKey, endDateKey]);
 
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
 

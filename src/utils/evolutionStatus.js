@@ -121,7 +121,10 @@ export function computeEvolutionStatuses({
   }
 
   // Constância nos últimos 14 dias
-  const heatmapDates = Array.isArray(heatmapData?.dates) ? heatmapData.dates : [];
+  const rawHeatmapDates = Array.isArray(heatmapData?.dates) ? heatmapData.dates : [];
+  const heatmapDates = rawHeatmapDates
+    .map((d) => (typeof d === 'string' ? d : d?.key || getDateKey(d)))
+    .filter(Boolean);
   const allActiveDates = new Set([
     ...heatmapDates,
     ...(Array.isArray(timeline) ? timeline.map((d) => d?.date).filter(Boolean) : [])

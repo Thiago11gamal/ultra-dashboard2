@@ -486,8 +486,9 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
                                     {chartData.map((entry, index) => {
                                         let barColor = `url(#gradBad_${instanceId})`;
+                                        const warnThreshold = Math.max(25, targetScorePct * 0.75);
                                         if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
-                                        else if (entry.accuracy >= 60) barColor = `url(#gradWarn_${instanceId})`;
+                                        else if (entry.accuracy >= warnThreshold) barColor = `url(#gradWarn_${instanceId})`;
                                         return <Cell key={`cell-${index}`} fill={barColor} />;
                                     })}
                                     <LabelList

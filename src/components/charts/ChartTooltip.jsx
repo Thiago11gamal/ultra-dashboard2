@@ -139,7 +139,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                 return (
                                     <div className="mt-3 flex flex-col gap-1.5 px-1">
                                         <div className="text-[10px] text-slate-400 flex justify-between items-center">
-                                            <span>Último Simulado:</span>
+                                            <span>Simulado deste dia:</span>
                                             <span>
                                                 <strong className="text-rose-400">{errs} erros</strong> ({errPct}%)
                                             </span>

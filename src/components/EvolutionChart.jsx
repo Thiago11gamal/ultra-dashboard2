@@ -380,7 +380,7 @@ export default React.memo(function EvolutionChart({
     }, [propCategories, rawCategories]);
 
     const [activeEngine, setActiveEngine] = useState("raw_weekly");
-    const [selectedSubjectId, setFocusSubjectId] = useState(() => categories[0]?.id);
+    const [selectedSubjectId, setFocusSubjectId] = useState(null);
     
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
     const mcWeights = useAppStore(
@@ -388,12 +388,12 @@ export default React.memo(function EvolutionChart({
     );
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore, minScore);
 
-    // Prioriza activeCategories para evitar foco em disciplina sem simulados
+    // Prioriza activeCategories no default, mas respeita seleção explícita de qualquer categoria
     const focusSubjectId = useMemo(() => {
-        const pool = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
-        if (pool && pool.some(c => c.id === selectedSubjectId)) {
+        if (selectedSubjectId && categories && categories.some(c => c.id === selectedSubjectId)) {
             return selectedSubjectId;
         }
+        const pool = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
         return pool?.[0]?.id ?? categories?.[0]?.id;
     }, [activeCategories, categories, selectedSubjectId]);
 
