@@ -158,29 +158,34 @@ function DailySummaryCards({ simuladoRows }) {
         const rk = getDateKey(normalizeDate(r.date || r.createdAt));
         return rk === dayKey && (parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0);
       });
-      const totalQ = rows.reduce((s, r) => s + (parseInt(r.total, 10) || 0), 0);
-      const totalC = rows.reduce((s, r) => s + (parseInt(r.correct, 10) || 0), 0);
-      // FIX C-03: clamp contra dado corrompido (correct > total) e divisão por zero.
+      let totalQ = 0;
+      let totalC = 0;
+      const subjectMap = {};
+
+      rows.forEach(r => {
+        const rowT = Math.max(0, parseInt(r.total, 10) || 0);
+        const rowC = Math.max(0, Math.min(rowT, parseInt(r.correct, 10) || 0));
+        totalQ += rowT;
+        totalC += rowC;
+
+        const name = r.subject || 'Geral';
+        if (!subjectMap[name]) subjectMap[name] = { c: 0, t: 0 };
+        subjectMap[name].c += rowC;
+        subjectMap[name].t += rowT;
+      });
+
       const safeC = Math.min(totalC, totalQ);
       const pct = totalQ > 0 ? Math.max(0, Math.min(100, Math.round((safeC / totalQ) * 100))) : 0;
       const subjects = new Set(rows.map((r) => r.subject).filter(Boolean)).size;
 
-      // Breakdown por matéria
-      const subjectMap = {};
-      rows.forEach(r => {
-        const name = r.subject || 'Geral';
-        if (!subjectMap[name]) subjectMap[name] = { c: 0, t: 0 };
-        subjectMap[name].c += parseInt(r.correct, 10) || 0;
-        subjectMap[name].t += parseInt(r.total, 10) || 0;
-      });
       const bySubject = Object.entries(subjectMap)
         .map(([name, d]) => {
-          const safeC = Math.min(d.c, d.t);
-          return { name, pct: d.t > 0 ? Math.round((safeC / d.t) * 100) : 0, c: safeC, t: d.t };
+          const safeSubjC = Math.min(d.c, d.t);
+          return { name, pct: d.t > 0 ? Math.round((safeSubjC / d.t) * 100) : 0, c: safeSubjC, t: d.t };
         })
         .sort((a, b) => b.t - a.t);
 
-      return { totalQ, totalC, pct, subjects, count: rows.length, bySubject };
+      return { totalQ, totalC: safeC, pct, subjects, count: rows.length, bySubject };
     };
 
     const today = calcDay(todayKey);
@@ -395,8 +400,11 @@ export default function Simulados() {
         const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows)
           ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
 
-        const submittedIds = new Set(rawRows.map(r => r.id).filter(Boolean));
-        const submittedKeys = new Set(rawRows.map(r => {
+        const actuallySubmittedRows = rawRows.filter(
+          (r) => r && r.subject && r.topic && Number.isFinite(Number(r.total)) && Number(r.total) > 0
+        );
+        const submittedIds = new Set(actuallySubmittedRows.map(r => r.id).filter(Boolean));
+        const submittedKeys = new Set(actuallySubmittedRows.map(r => {
           if (r.categoryId && r.topicId) return `${r.categoryId}-${r.topicId}`;
           if (r.subject && r.topic) return `${normalize(r.subject)}-${normalize(r.topic)}`;
           return null;
@@ -462,7 +470,7 @@ export default function Simulados() {
           const rawHistory = Array.isArray(cat.simuladoStats.history)
             ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history || {});
           const history = rawHistory.filter(Boolean);
-          const historyWithoutToday = history.filter((h) => h?.date !== todayKey);
+          const historyWithoutToday = history.filter((h) => getDateKey(normalizeDate(h?.date || h?.createdAt)) !== todayKey);
 
           const todayRows = validatedRows.filter((r) => {
             const rowSubjectNorm = normalize(String(r?.subject || ''));
@@ -573,7 +581,7 @@ export default function Simulados() {
             total: totalQ, correct: totalC, type: 'auto-analyzer', subject: 'Simulado Geral',
             createdAt: nowIso, lastUpdated: nowIso
           };
-          updatedSimulados = [...updatedSimulados.filter(s => !(s?.date === todayKey && s?.type === 'auto-analyzer')), newSimuladoEvent]
+          updatedSimulados = [...updatedSimulados.filter(s => !(getDateKey(normalizeDate(s?.date || s?.createdAt)) === todayKey && s?.type === 'auto-analyzer')), newSimuladoEvent]
             .sort((a, b) => getMs(a) - getMs(b)).slice(-100);
         }
 

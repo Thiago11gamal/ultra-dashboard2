@@ -585,14 +585,14 @@ export default function AIGeneratedSimulado() {
     }
   }, [questions.length]);
 
-  const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false) => {
+  const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false, batchId = null) => {
     // FIX: mutação atômica síncrona, desliga temporariamente os subscribers se preventGlobalEvent for true
     useAppStore.setState(
         (state) => {
             const nextContests = { ...state.appState.contests };
             const draft = nextContests[state.appState.activeId];
             if (!draft) return state;
-            applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent);
+            applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId);
             return {
                 appState: {
                     ...state.appState,
@@ -644,6 +644,7 @@ export default function AIGeneratedSimulado() {
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
     const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (timePerQ[q.id] || 0), 0);
     const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
+    const sessionBatchId = generateId('batch');
 
     if (f.categoryId === 'mixed') {
       const groups = {};
@@ -683,7 +684,7 @@ export default function AIGeneratedSimulado() {
               g.timeSpent > 0
                 ? g.timeSpent
                 : Math.round(fallbackTimeSpent * (g.total / Math.max(1, totalQuestionsInMixed)));
-            await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true);
+            await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true, sessionBatchId);
         } catch (err) {
             console.error(`[AI Sim] Falha ao salvar grupo ${groupKey}:`, err);
             failedGroups.push(groupKey);
@@ -704,6 +705,7 @@ export default function AIGeneratedSimulado() {
       const mixedScorePct = mixedRatio * 100;
       const globalMixedEvent = {
         id: generateId('ai-sim'),
+        batchId: sessionBatchId,
         date: todayKey,
         createdAt: nowIso,
         lastUpdated: nowIso,
@@ -742,7 +744,7 @@ export default function AIGeneratedSimulado() {
       );
       markStorageDirty();
     } else {
-      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent);
+      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent, false, sessionBatchId);
     }
 
       setResults({

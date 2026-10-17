@@ -10,19 +10,21 @@ function safeArray(val) {
     return [];
 }
 
-export function applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent) {
+export function applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId) {
   if (!draft || typeof draft !== 'object') return;
   const todayKey = getDateKey(normalizeDate(new Date()));
   const materia = (formData.materia || '').trim();
   const assunto = (formData.assunto || '').trim();
   const categoryId = formData.categoryId || null;
   const taskId = formData.taskId || null;
+  const assignedBatchId = batchId || formData?.batchId || generateId('batch');
   const computedScore = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
   const diffMap = { facil: 0.7, medio: 1.0, dificil: 1.3, expert: 1.6 };
   const numericDifficulty = diffMap[formData.dificuldade] || 1.0;
 
   const newRow = {
     id: generateId('ai-row'),
+    batchId: assignedBatchId,
     subject: materia,
     topic: assunto,
     categoryId,
@@ -54,7 +56,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     const isTaskOrTopicMatch = (taskId && r.taskId)
       ? r.taskId === taskId
       : normalize(r.topic) === normalize(assunto);
-    if (isCatMatch && isTaskOrTopicMatch) {
+    const isSameBatch = r.batchId && r.batchId === assignedBatchId;
+    if (isCatMatch && isTaskOrTopicMatch && isSameBatch) {
       rowFound = true;
       const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
       const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs, isDelta: true }, domain.max, domain.min);
@@ -74,6 +77,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       const ratio = total > 0 ? correct / total : 0;
       const newSimEvent = {
         id: generateId('ai-sim'),
+        batchId: assignedBatchId,
         date: todayKey,
         scorePoints: domain.min + ratio * (domain.max - domain.min),
         scorePct: ratio * 100,
@@ -113,7 +117,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       }
       let history = cat.simuladoStats.history;
 
-      const todayIdx = history.findIndex(h => h.date === todayKey);
+      const todayIdx = history.findIndex(h => getDateKey(normalizeDate(h?.date || h?.createdAt)) === todayKey);
       const newTopicEntry = { name: assunto, correct, total, taskId, timeSpent: timeSpentSecs, difficulty: numericDifficulty };
 
       if (todayIdx !== -1) {
@@ -182,7 +186,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       }
 
       const statsResult = computeCategoryStats(history, cat.weight || 1, 60, catMaxScore, catMinScore);
-      const todayEntry = history.find(h => h.date === todayKey);
+      const todayEntry = history.find(h => getDateKey(normalizeDate(h?.date || h?.createdAt)) === todayKey);
 
       cat.simuladoStats.average = statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0;
       cat.simuladoStats.trend = statsResult?.trend || 'stable';
