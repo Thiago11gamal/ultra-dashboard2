@@ -33,8 +33,9 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
   if (cleanPairs.length >= 6) {
     const sorted = [...cleanPairs].sort((a, b) => Number(a.probability) - Number(b.probability));
     const globalSuccessRate = cleanPairs.filter(p => Number(p.observed) >= 0.5).length / cleanPairs.length;
-    const K = 1.0;
-    const alphaPrior = Math.max(0.2, Math.min(0.8, globalSuccessRate)) * K;
+    // ✅ FIX: Prior adaptativo mais robusto com força proporcional ao tamanho amostral
+    const K = Math.max(2, Math.min(6, cleanPairs.length * 0.15));
+    const alphaPrior = Math.max(0.1, Math.min(0.9, globalSuccessRate)) * K;
     let dangerCandidates = [];
     let safeCandidates = [];
 
@@ -447,8 +448,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
             }
           }
 
+          const btSimulations = Math.min(200, Math.max(100, Math.floor(safeSimulations * 0.2)));
           const bt = monteCarloSimulation(train, safeTargetScore, gapDays,
-            Math.min(500, Math.max(200, Math.floor(safeSimulations * 0.35))),
+            btSimulations,
             { maxScore: safeMaxScore, minScore: safeMinScore, agilityPenalty, globalBaselinePct: neutralPct });
 
           if (!bt || !Number.isFinite(bt.probability)) continue;
@@ -486,9 +488,19 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         ece = diagnostics.ece;
         reliability = diagnostics.reliability;
 
-        // ✅ FIX (BUG-CAL-6 downstream): ece/mce agora podem ser null se cleanPairs ficou vazio
-        const safeEce = Number.isFinite(ece) ? ece : 0;
-        const eceScaled = Math.max(0, Math.min(1, safeEce / 0.25));
+        // ✅ FIX (BUG-CAL-6 & Brier decomposition): tratamento robusto de ECE null vs 0
+        const brierDecomp = diagnostics?.brierDecomposition;
+        const reliabilityTerm = brierDecomp?.reliability ?? 0;
+        const uncertainty = brierDecomp?.uncertainty ?? 0.25;
+
+        // Penalidade baseada na razão reliability/uncertainty (normalizada)
+        const calibrationRatio = uncertainty > 1e-6 
+          ? Math.min(1, reliabilityTerm / uncertainty) 
+          : 0;
+
+        const hasDiagnostics = Number.isFinite(ece);
+        const safeEce = hasDiagnostics ? ece : 0;
+        const eceScaled = hasDiagnostics ? Math.max(0, Math.min(1, safeEce / 0.25)) : 0;
         const mceScaled = Math.max(0, Math.min(1, Number(diagnostics.mce || 0) / 0.4));
         const penaltyCap = adaptive?.calibrationMaxPenalty ?? safeCfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25;
         const meanLL = rawPreds.length > 0
@@ -496,13 +508,17 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
           : 0;
         const llScaled = Math.max(0, Math.min(1, meanLL / 0.693));
 
-        // FIX: validação de calibrationPenalty antes do blend
+        // FIX: decomposição de Brier em vez de mistura ad-hoc
         const rawCalibrationPenalty = Number.isFinite(calibrationPenalty) ? calibrationPenalty : 0;
-        calibrationPenalty = Math.min(penaltyCap,
-          (rawCalibrationPenalty * 0.65) +
-          (eceScaled * 0.20 * penaltyCap) +
-          (mceScaled * 0.10 * penaltyCap) +
-          (llScaled * 0.05 * penaltyCap));
+        if (hasDiagnostics && brierDecomp) {
+          calibrationPenalty = Math.min(penaltyCap,
+            (rawCalibrationPenalty * 0.5) +
+            (calibrationRatio * penaltyCap * 0.3) +
+            (eceScaled * penaltyCap * 0.15) +
+            (llScaled * penaltyCap * 0.05));
+        } else {
+          calibrationPenalty = Math.min(penaltyCap, rawCalibrationPenalty);
+        }
       }
     }
 

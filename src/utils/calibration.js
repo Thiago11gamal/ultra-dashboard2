@@ -81,7 +81,6 @@ export function summarizeCalibration(scores = [], options = {}) {
 }
 
 export function computeCalibrationDiagnostics(pairs = [], options = {}) {
-  const bins = Math.max(2, Number(options.bins) || 5);
   // ✅ FIX (BUG-CAL-6): retornar null para ece/mce quando não há dados,
   // em vez de 0 que sinaliza falsamente "calibração perfeita"
   if (!Array.isArray(pairs) || pairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
@@ -92,6 +91,12 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     }))
     .filter((p) => Number.isFinite(p.probability) && Number.isFinite(p.observed));
   if (cleanPairs.length === 0) return { ece: null, mce: null, reliability: [], brierDecomposition: null };
+
+  // Regra de Sturges adaptada quando bins não for especificado explicitamente
+  const bins = options.bins != null
+    ? Math.max(2, Number(options.bins))
+    : Math.max(3, Math.min(12, Math.round(Math.log2(cleanPairs.length) + 1)));
+
   const sorted = [...cleanPairs].sort((a, b) => a.probability - b.probability);
   let ece = 0;
   let mce = 0;
@@ -99,22 +104,36 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
   const overallObserved = kahanSum(cleanPairs.map(p => p.observed)) / cleanPairs.length;
   let relTerm = 0;
   let resTerm = 0;
-  // [LOTE 5] ECE equal-frequency quando n < 20 (menos variância); equal-width p/ n grande
+  // [LOTE 5] ECE equal-frequency quando n < 20 ou n >= 100; equal-width para n intermediário
   const strategy = options.binStrategy || 'auto';
-  const useQuantile = strategy === 'quantile' || (strategy === 'auto' && cleanPairs.length < 20);
-  const edges = [];
-  for (let i = 0; i <= bins; i++) {
-    if (i === 0) edges.push(-0.01);
-    else if (i === bins) edges.push(1.01);
-    else if (!useQuantile) edges.push(i / bins);
-    else edges.push(sorted[Math.floor((i / bins) * sorted.length)].probability);
-  }
-  for (let i = 1; i < edges.length; i++) {
-    if (edges[i] <= edges[i - 1]) {
-        edges[i] = edges[i - 1] + 1e-6;
+  const useQuantile = strategy === 'quantile' || (strategy === 'auto' && (cleanPairs.length < 20 || cleanPairs.length >= 100));
+
+  let edges = [];
+  if (!useQuantile) {
+    for (let i = 0; i <= bins; i++) {
+      if (i === 0) edges.push(-0.01);
+      else if (i === bins) edges.push(1.01);
+      else edges.push(i / bins);
     }
+  } else {
+    // Usar quantis reais com interpolação e garantir bins não-vazios
+    const quantile = (arr, q) => {
+      const pos = (arr.length - 1) * q;
+      const lo = Math.floor(pos), hi = Math.ceil(pos);
+      if (lo === hi) return arr[lo];
+      return arr[lo] * (hi - pos) + arr[hi] * (pos - lo);
+    };
+    const probs = sorted.map(p => p.probability);
+    const interiorEdges = [];
+    for (let i = 1; i < bins; i++) {
+      interiorEdges.push(quantile(probs, i / bins));
+    }
+    // Remover edges duplicados em vez de adicionar epsilon
+    const uniqueInterior = [...new Set(interiorEdges.map(e => Number(e.toFixed(6))))].sort((a, b) => a - b);
+    edges = [-0.01, ...uniqueInterior, 1.01];
   }
-  for (let i = 0; i < bins; i++) {
+
+  for (let i = 0; i < edges.length - 1; i++) {
     const binMin = edges[i];
     const binMax = edges[i + 1];
     const slice = sorted.filter(p => p.probability >= binMin && p.probability < binMax);
@@ -142,6 +161,21 @@ export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct =
   const limit = Math.max(0, Math.min(1, Number.isFinite(Number(maxAppliedPenalty)) ? Number(maxAppliedPenalty) : 0.5));
   const k = Math.max(0, Math.min(limit, Number.isFinite(Number(penalty)) ? Number(penalty) : 0));
   return p * (1 - k) + neutral * k;
+}
+
+export function shrinkProbabilityLogistic(probabilityPct, penalty, neutralPct = 50, maxPenalty = 0.5) {
+  const p = clamp01(Number(probabilityPct) / 100);
+  const neutral = clamp01(Number(neutralPct) / 100);
+  const limit = Math.max(0, Math.min(1, Number.isFinite(Number(maxPenalty)) ? Number(maxPenalty) : 0.5));
+  const k = Math.min(limit, Math.max(0, Number(penalty) || 0));
+
+  // Transformar para log-odds, encolher, transformar de volta (preserva caudas)
+  const logitP = Math.log(Math.max(1e-6, p) / Math.max(1e-6, 1 - p));
+  const logitNeutral = Math.log(Math.max(1e-6, neutral) / Math.max(1e-6, 1 - neutral));
+  const shrunkLogit = logitP * (1 - k) + logitNeutral * k;
+  const shrunkP = 1 / (1 + Math.exp(-shrunkLogit));
+
+  return shrunkP * 100;
 }
 
 // FIX: sem storeUpdateFn — retorna evento validado (loop de aprendizagem)
@@ -273,8 +307,8 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
     let b = null;
     if (Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1)) {
       const rawP = Number(h.probability);
-      const isPercentScale = cfg.scale === 'pct' || (cfg.scale !== 'ratio' && rawP > 1 && rawP <= 100);
-      // ✅ FIX: detecção de escala suportada por flag explícita cfg.scale
+      const isPercentScale = cfg.scale === 'pct';
+      // ✅ FIX: detecção de escala com flag explícita cfg.scale
       const p = Math.max(0, Math.min(1, isPercentScale ? rawP / 100 : rawP));
       b = (p - h.observed) ** 2;
     } else if (Number.isFinite(Number(h.avgBrier))) {
@@ -391,8 +425,10 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
   }
   const n = clean.length;
   const residuals = clean.map(x => Math.abs(x.probability - x.observed)).sort((a, b) => a - b);
-  const idx = Math.max(0, Math.min(n - 1, Math.ceil((1 - alpha) * n) - 1));
-  const qConformal = residuals[idx] * ((n + 1) / n);
+  // ✅ FIX: Quantil conformal de cobertura finita correta ceil((n + 1)(1 - alpha)) / n
+  const conformalLevel = Math.min(1, Math.ceil((n + 1) * (1 - alpha)) / n);
+  const idx = Math.max(0, Math.min(n - 1, Math.ceil(conformalLevel * n) - 1));
+  const qConformal = residuals[idx];
   const smoothedP = (p * n + 0.5) / (n + 1);
   const standardError = Math.sqrt((smoothedP * (1 - smoothedP)) / n);
   const zScore = alpha <= 0.05 ? 1.96 : (alpha <= 0.1 ? 1.645 : 1.28);
@@ -431,8 +467,8 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
   const z = kahanSum(raw) || 1;
   const maxLoss = Math.max(...logLoss);
   const isSeverePenalty = maxLoss > 2.0;
-  // ✅ FIX: regularização mais forte para amostras mínimas (antes lambda=0.5 em n=4)
-  const regularization = isSeverePenalty ? 0.2 : (n < 8 ? 8 : 4);
+  // ✅ FIX: regularização mais forte para amostras mínimas (n < 6: 16, n < 8: 8)
+  const regularization = isSeverePenalty ? 0.2 : (n < 6 ? 16 : (n < 8 ? 8 : 4));
   const lambda = Math.min(1, Math.max(0, n / (n + regularization)));
   return raw.map(w => lambda * (w / z) + (1 - lambda) / k);
 }

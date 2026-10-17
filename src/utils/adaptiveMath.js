@@ -278,29 +278,30 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const robustSigma = Math.max(0.5, 1.4826 * mad);
     const huberK = 2.5 * robustSigma;
 
-    // ✅ FIX: quando os pesos decaíram, usar variância simples (não ponderada).
-    // Antes, numerator≈0 / sumW≈0 → sd≈0 → motor ficava superconfiante em séries antigas.
-    const weightedVariance = weightsCollapsed
-        ? kahanSum(finiteScores.map((s) => {
+    // ✅ FIX (BUG-MATH-04): Variância ponderada com correção de Bessel para pesos de confiabilidade
+    let weightedVariance;
+    if (weightsCollapsed) {
+        const denom = Math.max(1, finiteScores.length - 1);
+        const num = kahanSum(finiteScores.map((s) => {
             const d = s - weightedMean;
             const clipped = Math.max(-huberK, Math.min(huberK, d));
             return clipped * clipped;
-          })) / Math.max(1, finiteScores.length - 1)
-        : kahanSum(finiteScores.map((s, i) => {
+        }));
+        weightedVariance = num / denom;
+    } else {
+        // Denominador correto: wSum - (w2Sum / wSum) já incorpora a correção amostral (Bessel)
+        const denom = sumW - (sumW2 / Math.max(1e-9, sumW));
+        const safeDenom = denom > 1e-6 ? denom : sumW;
+        const weightedVarNumerator = kahanSum(finiteScores.map((s, i) => {
             const d = s - weightedMean;
             const clipped = Math.max(-huberK, Math.min(huberK, d));
             return weighted[i] * clipped * clipped;
-          })) / Math.max(1e-9, sumW);
+        }));
+        weightedVariance = weightedVarNumerator / Math.max(1e-9, safeDenom);
+    }
 
-    // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo (que só funcionava para N=10) 
-    // pela verdadeira Correção de Bessel adaptável ao Tamanho Efetivo da Amostra (effectiveN).
-    // CORREÇÃO: Substituir o CONSISTENCY_FACTOR fixo pela verdadeira Correção de Bessel,
-    // mas com clamping defensivo para evitar assíntotas hiperbólicas quando effectiveN cai para perto de 1.
-    // O piso desce de 1.0 para 0.1, permitindo que a penalidade de incerteza seja aplicada corretamente.
-    // Transição suave: interpola entre 1.0 e N/(N-1) via sigmoid
-    // para evitar descontinuidade em effectiveN = 1.5
-    const bessel = effectiveN > 1 ? effectiveN / (effectiveN - 1) : 1;
-    const sd = Math.sqrt(Math.max(0, weightedVariance * bessel));
+    // NÃO aplicar Bessel separadamente — já está incorporado no denominador
+    const sd = Math.sqrt(Math.max(0, weightedVariance));
     
     // MATEMÁTICA COMPLEXA: Em vez de linear trend clampada, usamos Bootstrapping 
     // para medir se o momento positivo é estatisticamente significativo ou só sorte.

@@ -59,6 +59,10 @@ const shrinkToNeutral = (p, factor, neutral = 50) => {
   return neutral + (safeP - neutral) * (1 - safeFactor);
 };
 
+// Cache com TTL para simulações por matéria (evita recalculação redundante)
+const SUBJECT_SIM_CACHE = new Map();
+const SUBJECT_SIM_TTL_MS = 60000;
+
 export function useMonteCarloStats({
   categories,
   goalDate,
@@ -835,7 +839,14 @@ export function useMonteCarloStats({
 
     if (modelHealth > 0.7) {
       const trust = (modelHealth - 0.7) / 0.3;
-      finalProb = finalProb * (1 - trust * 0.5) + (rawProbability * (1 - calibrationPenalty * 0.5)) * (trust * 0.5);
+      // ✅ FIX (BUG-CAL-07): em vez de misturar com rawProbability (que desfaz calibração),
+      // apenas reduz moderadamente o shrinkage da calibração (no máximo 30%)
+      const reducedPenalty = calibrationPenalty * (1 - trust * 0.3);
+      let recomputedProb = shrinkProbabilityToNeutral(rawProbability, reducedPenalty, 50, 0.5);
+      if (confFactor > 0) {
+        recomputedProb = shrinkToNeutral(recomputedProb, confFactor, 50);
+      }
+      finalProb = recomputedProb;
     }
 
     // FIX: saúde do modelo não deve mascarar risco crítico puxando tudo para 50.
@@ -1031,19 +1042,43 @@ export function useMonteCarloStats({
         const targetRatio = clamp((Number(debouncedTarget) - Number(minScore)) / globalRange, 0, 1);
         const subjectTarget = clamp(catMinScore + targetRatio * catRange, catMinScore, catMaxScore);
 
-        const result = simulateNormalDistribution({
-          mean: baseline,
-          sd: cat.bayesianSd ?? cat.sd,
-          targetScore: subjectTarget,   // ✅ LOTE-01 FIX
-          simulations: Math.min(dynamicSimulations || 2000, 3000),
-          categoryName: cat.name,
-          minScore: catMinScore,
-          maxScore: catMaxScore,
-          simuladoRows: rawSimuladoRows,
-          subjects: [{ name: cat.name }],
-          historyLength: cat.n || 0,
-          bayesianCI: cat.bayesianCI || null
-        });
+        // ✅ Cache por matéria com TTL (Performance #16)
+        const simKey = [
+          cat.name,
+          Number(baseline).toFixed(3),
+          Number(cat.bayesianSd ?? cat.sd ?? 0).toFixed(3),
+          Number(subjectTarget).toFixed(3),
+          Math.min(dynamicSimulations || 2000, 3000),
+          catMinScore,
+          catMaxScore,
+          cat.n || 0,
+          rawSimuladoRows?.length || 0
+        ].join('|');
+
+        const cachedSim = SUBJECT_SIM_CACHE.get(simKey);
+        let result;
+        if (cachedSim && (Date.now() - cachedSim.timestamp < SUBJECT_SIM_TTL_MS)) {
+          result = cachedSim.result;
+        } else {
+          result = simulateNormalDistribution({
+            mean: baseline,
+            sd: cat.bayesianSd ?? cat.sd,
+            targetScore: subjectTarget,   // ✅ LOTE-01 FIX
+            simulations: Math.min(dynamicSimulations || 2000, 3000),
+            categoryName: cat.name,
+            minScore: catMinScore,
+            maxScore: catMaxScore,
+            simuladoRows: rawSimuladoRows,
+            subjects: [{ name: cat.name }],
+            historyLength: cat.n || 0,
+            bayesianCI: cat.bayesianCI || null
+          });
+          if (SUBJECT_SIM_CACHE.size > 200) {
+            const oldestKey = SUBJECT_SIM_CACHE.keys().next().value;
+            SUBJECT_SIM_CACHE.delete(oldestKey);
+          }
+          SUBJECT_SIM_CACHE.set(simKey, { result, timestamp: Date.now() });
+        }
 
         const subjDiag = {
           ...(result.diagnostics || {}),

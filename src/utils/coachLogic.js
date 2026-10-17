@@ -575,8 +575,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 const days = getDaysDiff(today, simDate);
                 let timeWeight = Math.exp(-K * days);
                 if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
+                const maxReasonableQuestions = 300; // ✅ FIX: limite sensato de questões em vez de maxScore * 2
                 const rawTotal = Math.max(1, Number(s.total) || getSyntheticTotal(maxScore));
-                const volumeWeight = Math.sqrt(Math.min(rawTotal, maxScore * 2));
+                const volumeWeight = Math.sqrt(Math.min(rawTotal, maxReasonableQuestions));
                 const peso = timeWeight * volumeWeight;
                 weightedSum += sScore * peso;
                 totalWeight += peso;
@@ -983,6 +984,24 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     };
 };
 
+export function deriveUrgencyWeights(mcResult, volatility, sampleSize, cfg = {}) {
+    const nEff = mcResult?.sampleSize ?? sampleSize ?? 5;
+    const volPct = (volatility || 0) / 100;
+    const mcTrust = Math.min(1, nEff / 15);
+    const volWeight = Math.min(1, volPct / 0.15);
+
+    const baseScoreMax = cfg.SCORE_MAX ?? 45;
+    const baseRecencyMax = cfg.RECENCY_MAX ?? 28;
+    const baseInstabilityMax = cfg.INSTABILITY_MAX ?? 22;
+
+    return {
+        scoreMax: baseScoreMax * (0.7 + 0.3 * mcTrust),
+        recencyMax: baseRecencyMax * (1.1 - 0.1 * mcTrust),
+        instabilityMax: baseInstabilityMax * (0.8 + 0.4 * volWeight),
+        mcBoostMax: 25 * mcTrust
+    };
+}
+
 export const calculateUrgencyScore = (metrics, options = {}) => {
     const {
         cfg,
@@ -1023,8 +1042,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         minScore
     );
     const performanceDeficit = Math.max(0, targetScore - averageScore);
-    const gapRange = Math.max(1e-6, targetScore - minScore);
-    const gapRatio = clamp(performanceDeficit / gapRange, 0, 1);
+    const rawGapRange = targetScore - minScore;
+    const gapRatio = rawGapRange <= 0 ? 0 : clamp(performanceDeficit / rawGapRange, 0, 1);
     // ✅ FIX: Adicionar validação de retention
     const safeRetention = Number.isFinite(forgetting.retentionPct)
         ? forgetting.retentionPct
@@ -1059,20 +1078,28 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const inefficiencyPenaltyMultiplier = totalTasks >= 5
         ? 1 + (inefficiency * 0.15 * empiricalTrust)
         : 1.0;
-    // SCORE: agora mede distância até a meta, não até 100%
-    const scoreComponent = clamp(gapRatio * cfg.SCORE_MAX, 0, cfg.SCORE_MAX);
-    // RECENCY: recência desconhecida não é mais máxima
+
+    const urgencyWeights = deriveUrgencyWeights(
+        mcResult,
+        safeMssdVolatility,
+        (simuladosWithMaxScore || []).length,
+        cfg
+    );
+
+    // SCORE: agora mede distância até a meta com peso adaptativo
+    const scoreComponent = clamp(gapRatio * urgencyWeights.scoreMax, 0, urgencyWeights.scoreMax);
+    // RECENCY: recência desconhecida não é mais máxima, peso adaptativo por confiança MC
     const effectiveRiskDays = recencyUnknown ? 5 : Math.min(daysSinceLastStudy, 45);
     const recencyFactor = 1 - Math.exp(-effectiveRiskDays / 8);
     const recencyRaw =
-        cfg.RECENCY_MAX *
+        urgencyWeights.recencyMax *
         (memoryRisk / 35) *
         recencyFactor *
         crunchMultiplier *
         (backtestWeights?.recencyWeight ?? 1) *
         inefficiencyPenaltyMultiplier;
-    const recencyComponent = clamp(recencyRaw, 0, cfg.RECENCY_MAX * 1.2);
-    // INSTABILITY: mais justa, baseada em % do domínio e com filtro de ruído
+    const recencyComponent = clamp(recencyRaw, 0, urgencyWeights.recencyMax * 1.2);
+    // INSTABILITY: baseada em % do domínio, filtro de ruído e peso adaptativo
     const lastNCount = Math.max(2, (lastNScores || []).length || 2);
     const trendNoise = 0.75 * (mssdVolatility / Math.sqrt(lastNCount));
     const trendThreshold = Math.max(getDynamicTrendThreshold(averageScore, maxScore), trendNoise);
@@ -1083,11 +1110,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         trendModifier = 1.25;
     }
     const instabilityRaw =
-        cfg.INSTABILITY_MAX *
+        urgencyWeights.instabilityMax *
         Math.min(1, volatilityRiskPct / 12) *
         trendModifier *
         (backtestWeights?.instabilityWeight ?? 1);
-    const instabilityComponent = clamp(instabilityRaw, 0, cfg.INSTABILITY_MAX);
+    const instabilityComponent = clamp(instabilityRaw, 0, urgencyWeights.instabilityMax);
     // MC BOOST
     let mcUrgencyBoost = 0;
     let mcRiskLabel = null;
@@ -1217,10 +1244,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     );
     // Rotation penalty corrigida: menos dependente da nota e mais dependente de recência/volatilidade
     let exactLastTime = 0;
-    if (simuladosWithMaxScore.length > 0) {
+    if (Array.isArray(simuladosWithMaxScore) && simuladosWithMaxScore.length > 0) {
         exactLastTime = (normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt) || new Date(0)).getTime();
     }
-    if (validStudyLogs.length > 0) {
+    if (Array.isArray(validStudyLogs) && validStudyLogs.length > 0) {
         const logsOrdenados = [...validStudyLogs].sort((a, b) =>
             (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
         );
@@ -1286,9 +1313,9 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         memoryRisk,
         volatilityRisk: volatilityRiskPct,
         totalPain: performanceDeficit + memoryRisk + volatilityRiskPct,
-        dynamicScoreMax: cfg.SCORE_MAX,
-        dynamicRecencyMax: cfg.RECENCY_MAX,
-        dynamicInstabilityMax: cfg.INSTABILITY_MAX,
+        dynamicScoreMax: urgencyWeights.scoreMax,
+        dynamicRecencyMax: urgencyWeights.recencyMax,
+        dynamicInstabilityMax: urgencyWeights.instabilityMax,
         completionRate,
         inefficiencyPenaltyMultiplier,
         totalHours,
