@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
+import { normalCDF_complement } from '../engine/math/gaussian.js';
 import { getDateKey, normalizeDate, parseNoonLocal, daysUntilGoal } from '../utils/dateHelper';
 import {
   shrinkProbabilityToNeutral,
