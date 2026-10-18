@@ -1508,8 +1508,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 ci95High: safeFixedNumber(mcResult?.ci95High),
                 urgencyBoost: safeFixedNumber(mcUrgencyBoost),
                 calibrationPenalty: safeFixedNumber(mcResult?.calibrationPenalty, 4),
-                avgBrier: safeFixedNumber(mcResult?.avgBrier, 4),
-                ece: safeFixedNumber(mcResult?.ece, 4),
+                avgBrier: mcResult?.avgBrier != null ? safeFixedNumber(mcResult.avgBrier, 4) : null,
+                ece: mcResult?.ece != null ? safeFixedNumber(mcResult.ece, 4) : null,
                 reliability: Array.isArray(mcResult?.reliability) ? mcResult.reliability : [],
                 explainability: {
                     confidenceAdjusted: (mcResult?.calibrationPenalty || 0) > 0,

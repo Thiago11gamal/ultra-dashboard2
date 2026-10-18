@@ -5,7 +5,7 @@ import {
   computeCalibrationDiagnostics
 } from '../calibration.js';
 import { runCoachMonteCarlo } from '../coachAdaptive.js';
-import { calculateUrgencyDetailed } from '../coachLogic.js';
+import { calculateUrgency } from '../coachLogic.js';
 
 describe('Calibration Integrity & Edge Cases Audit', () => {
   describe('1. backfillObservedFromSimulados with minScore & Category Specific Scale', () => {
@@ -138,10 +138,14 @@ describe('Calibration Integrity & Edge Cases Audit', () => {
 
   describe('4. runCoachMonteCarlo Insufficient Data & Domain Bounds', () => {
     it('returns null avgBrier and null ece when history size is less than 8', () => {
+      // 6 points: >= 5 (so MC runs) but < 8 (so backtest calibration does not run)
       const history = [
         { score: 70, date: '2026-01-01', total: 10, correct: 7 },
-        { score: 75, date: '2026-01-05', total: 10, correct: 7 },
-        { score: 80, date: '2026-01-10', total: 10, correct: 8 }
+        { score: 72, date: '2026-01-05', total: 10, correct: 7 },
+        { score: 74, date: '2026-01-10', total: 10, correct: 7 },
+        { score: 76, date: '2026-01-15', total: 10, correct: 7 },
+        { score: 78, date: '2026-01-20', total: 10, correct: 8 },
+        { score: 80, date: '2026-01-25', total: 10, correct: 8 }
       ];
 
       const mc = runCoachMonteCarlo(
@@ -187,7 +191,7 @@ describe('Calibration Integrity & Edge Cases Audit', () => {
     });
   });
 
-  describe('5. calculateUrgencyDetailed Explainability on Null avgBrier', () => {
+  describe('5. calculateUrgency Explainability on Null avgBrier', () => {
     it('classifies calibrationQuality as low when avgBrier is null or data is insufficient', () => {
       const category = {
         id: 'cat-1',
@@ -199,15 +203,20 @@ describe('Calibration Integrity & Edge Cases Audit', () => {
 
       const simulados = [
         { id: 's1', subject: 'Português', score: 70, date: '2026-01-01', total: 10, correct: 7 },
-        { id: 's2', subject: 'Português', score: 72, date: '2026-01-05', total: 10, correct: 7 }
+        { id: 's2', subject: 'Português', score: 72, date: '2026-01-05', total: 10, correct: 7 },
+        { id: 's3', subject: 'Português', score: 74, date: '2026-01-10', total: 10, correct: 7 },
+        { id: 's4', subject: 'Português', score: 76, date: '2026-01-15', total: 10, correct: 7 },
+        { id: 's5', subject: 'Português', score: 78, date: '2026-01-20', total: 10, correct: 8 },
+        { id: 's6', subject: 'Português', score: 80, date: '2026-01-25', total: 10, correct: 8 }
       ];
 
-      const detailed = calculateUrgencyDetailed(category, simulados, [], {
+      const urgency = calculateUrgency(category, simulados, [], {
         config: { MC_ENABLE_ADAPTIVE_CALIBRATION: true }
       });
 
-      if (detailed?.details?.monteCarlo) {
-        expect(detailed.details.monteCarlo.explainability.calibrationQuality).toBe('low');
+      if (urgency?.details?.monteCarlo) {
+        expect(urgency.details.monteCarlo.avgBrier).toBeNull();
+        expect(urgency.details.monteCarlo.explainability.calibrationQuality).toBe('low');
       }
     });
   });
