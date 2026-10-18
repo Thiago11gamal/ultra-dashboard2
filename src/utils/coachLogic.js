@@ -1,6 +1,7 @@
 // ==================== CONSTANTES ====================
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { getSortedHistory } from '../engine/stats.js';
+import { useAppStore } from '../store/useAppStore.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { safeDateParse as _safeDateParse, normalizeDate, getDateKey } from './dateHelper.js';
@@ -50,11 +51,14 @@ const URGENCY_CACHE_MAX = 80;
 const TOPICS_CACHE_MAX = 50;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
-// LRU Cache for urgency calculations
-export const _urgencyCache = new Map();
-export const clearUrgencyCache = () => _urgencyCache.clear();
-export const _topicsCache = new Map();
-export const clearTopicsCache = () => _topicsCache.clear();
+// LRU Cache for urgency calculations sourced from independent coachCaches.js module
+import {
+    _urgencyCache,
+    clearUrgencyCache,
+    _topicsCache,
+    clearTopicsCache
+} from './coachCaches.js';
+export { _urgencyCache, clearUrgencyCache, _topicsCache, clearTopicsCache };
 
 // ✅ FIX: Helper para inserção com limite e TTL
 function cacheSet(cache, maxSize, key, value) {

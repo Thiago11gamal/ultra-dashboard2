@@ -5,17 +5,15 @@ import { createCategorySlice } from '../../store/slices/createCategorySlice.js';
 
 describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
     describe('1. Sidebar and Navigation to Meu Painel', () => {
-        it('getContestDisplayName falls back to user.name when contest name/contestName is absent', () => {
-            const contestWithoutName = {
-                user: { name: 'Dr. Concurseiro' }
-            };
-            const result = getContestDisplayName(contestWithoutName);
-            expect(result).toBe('Dr. Concurseiro');
+        it('getContestDisplayName prefers contestName and name', () => {
+            expect(getContestDisplayName({ contestName: 'PF 2026' })).toBe('PF 2026');
+            expect(getContestDisplayName({ name: 'PRF 2026' })).toBe('PRF 2026');
         });
 
-        it('getContestDisplayName returns Sem nome only when neither contestName nor user.name exists', () => {
+        it('getContestDisplayName returns Sem nome when neither contestName nor name exists', () => {
             expect(getContestDisplayName({})).toBe('Sem nome');
             expect(getContestDisplayName(null)).toBe('Sem nome');
+            expect(getContestDisplayName({ user: { name: 'João' } })).toBe('Sem nome');
         });
 
         it('sessionStorage navigateToDashboard flag prevents RootRedirect bounce', () => {

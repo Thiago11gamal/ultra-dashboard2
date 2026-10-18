@@ -48,7 +48,7 @@ export function getContestDisplayName(contestData) {
         const trimmed = contestData.trim();
         return trimmed || 'Sem nome';
     }
-    const explicitName = contestData?.contestName ?? contestData?.name ?? contestData?.user?.name;
+    const explicitName = contestData?.contestName ?? contestData?.name;
     const normalized = typeof explicitName === 'string' ? explicitName.trim() : '';
     return normalized || 'Sem nome';
 }

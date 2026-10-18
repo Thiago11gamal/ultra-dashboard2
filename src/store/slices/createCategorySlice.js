@@ -3,7 +3,8 @@ import { normalize } from '../../utils/normalization.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
-import { clearUrgencyCache, clearTopicsCache, clearMcCache } from '../../utils/coachLogic.js';
+import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
+import { clearMcCache } from '../../utils/coachAdaptive.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => {
