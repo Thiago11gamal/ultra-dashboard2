@@ -370,16 +370,16 @@ export default function Coach() {
     const rawVolatility = mcStats?.statsData?.pooledSD ?? mcStats?.sd ?? 0;
     const volatility = Number.isFinite(Number(rawVolatility)) ? Number(rawVolatility) : 0;
     const normalizedVolatility = useMemo(() => {
-        const denom = Math.max(1, Number(currentMaxScore) || 0);
-        return (volatility / denom) * 100;
-    }, [volatility, currentMaxScore]);
+        const domain = Math.max(1e-9, (Number(currentMaxScore) || 100) - (Number(currentMinScore) || 0));
+        return (volatility / domain) * 100;
+    }, [volatility, currentMaxScore, currentMinScore]);
     const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore, { minScore: currentMinScore }), [combinedHistory, currentMaxScore, currentMinScore]);
     const normalizedDrift = useMemo(() => {
         const safeDrift = Number.isFinite(Number(drift)) ? Number(drift) : 0;
-        const denom = Math.max(1, Number(currentMaxScore) || 1);
-        const val = ((safeDrift * 30) / denom) * 100;
+        const domain = Math.max(1e-9, (Number(currentMaxScore) || 100) - (Number(currentMinScore) || 0));
+        const val = ((safeDrift * 30) / domain) * 100;
         return Number.isFinite(val) ? val : 0;
-    }, [drift, currentMaxScore]);
+    }, [drift, currentMaxScore, currentMinScore]);
     const formattedDrift = useMemo(() => {
         if (Math.abs(normalizedDrift) < 0.05) return "0.0pp";
         return `${normalizedDrift > 0 ? '+' : ''}${normalizedDrift.toFixed(1)}pp`;
@@ -405,8 +405,19 @@ export default function Coach() {
 
     const activeCategoryIds = useMemo(() => {
         const cats = Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {});
-        return new Set(cats.map(c => getSafeId(c.id || c.name)));
-    }, [data]);
+        const set = new Set();
+        cats.forEach(c => {
+            if (c?.id) {
+                set.add(String(c.id));
+                set.add(getSafeId(c.id));
+            }
+            if (c?.name) {
+                set.add(String(c.name));
+                set.add(getSafeId(c.name));
+            }
+        });
+        return set;
+    }, [data?.categories]);
 
     const degradedCount = useMemo(() => {
         const ops = data?.calibrationOps || {};
@@ -462,7 +473,7 @@ export default function Coach() {
 
                 const result = getSuggestedFocus(
                     categories,
-                    history,
+                    combinedHistory,
                     studyLogs,
                     {
                         user: data?.user,
@@ -525,7 +536,7 @@ export default function Coach() {
         isHydrated,
         data?.categories,
         categories, 
-        history, 
+        combinedHistory, 
         studyLogs, 
         data?.user, 
         currentMaxScore,
@@ -580,10 +591,10 @@ export default function Coach() {
                 const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
                 const collectedMetrics = [];
 
-                // BUG-1 FIX: Use categories, history, studyLogs directly (now in dep array)
+                // BUG-1 FIX: Use categories, combinedHistory, studyLogs directly (now in dep array)
                 const newTasks = generateDailyGoals(
                     categories,
-                    history,
+                    combinedHistory,
                     studyLogs,
                     {
                         user: data?.user,
@@ -602,7 +613,7 @@ export default function Coach() {
                 try {
                     const freshFocus = getSuggestedFocus(
                         categories,
-                        history,
+                        combinedHistory,
                         studyLogs,
                         {
                             user: data?.user,
@@ -658,8 +669,8 @@ export default function Coach() {
                 timeoutRef.current = null;
             }
         }, 1500);
-    // BUG-1 FIX: Added categories, history, studyLogs to prevent stale closure
-    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore, categories, history, studyLogs, flashcardDecks, flashcardDue]);
+    // BUG-1 FIX: Added categories, combinedHistory, studyLogs to prevent stale closure
+    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore, categories, combinedHistory, history, studyLogs, flashcardDecks, flashcardDue]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {
@@ -880,7 +891,18 @@ function RaioXDashboard({ data }) {
     }, [data?.categories]);
 
     const activeCategoryIds = useMemo(() => {
-        return new Set(categories.map(c => getSafeId(c.id || c.name)));
+        const set = new Set();
+        categories.forEach(c => {
+            if (c?.id) {
+                set.add(String(c.id));
+                set.add(getSafeId(c.id));
+            }
+            if (c?.name) {
+                set.add(String(c.name));
+                set.add(getSafeId(c.name));
+            }
+        });
+        return set;
     }, [categories]);
 
     // BUG-7 FIX: Derive 'now' from latest calibration timestamp to avoid impure Date.now() in useMemo.

@@ -498,7 +498,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const catName = safeCategory?.name || safeCategory?.id || '';
 
     const relevantAllPreSort = catName
-        ? safeSimulados.filter(s => s && isSubjectMatch(s.subject || "", catName))
+        ? safeSimulados.filter(s => s && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || "", catName))
         : safeSimulados;
 
     const relevantAll = relevantAllPreSort
@@ -519,7 +519,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     let globalBaselinePct = 50;
     const validCatNorms = new Set((options.allCategories || []).map(c => normalize(c?.name || "")));
     const allSimsForBaseline = validCatNorms.size > 0
-        ? safeSimulados.filter(s => s && validCatNorms.has(normalize(s.subject || "")))
+        ? safeSimulados.filter(s => s && validCatNorms.has(normalize(s.subject || s.categoryName || s.materia || s.disciplina || "")))
         : safeSimulados;
 
     // FIX: normalizar cada score para [0,1] usando os limites da própria matéria antes de somar.
@@ -531,7 +531,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const validGlobalRatios = allSimsForBaseline
         .map((s) => {
-            const sCat = (s?.subject && catMap.get(normalize(s.subject))) || (s?.categoryId && catMap.get(String(s.categoryId))) || null;
+            const sSub = s?.subject || s?.categoryName || s?.materia || s?.disciplina;
+            const sCat = (sSub && catMap.get(normalize(sSub))) || (s?.categoryId && catMap.get(String(s.categoryId))) || null;
             const sMax = Number.isFinite(Number(sCat?.maxScore ?? s?.maxScore)) && Number(sCat?.maxScore ?? s?.maxScore) > 0
                 ? Number(sCat?.maxScore ?? s?.maxScore)
                 : maxScore;
@@ -540,9 +541,11 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 : 0;
             const sRange = Math.max(1e-9, sMax - sMin);
 
-            if (s?.correct != null && s?.total != null && Number(s.total) > 0) {
-                const c = sanitizeNum(s.correct);
-                const t = sanitizeNum(s.total);
+            const sTotal = s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions;
+            const sCorrect = s?.correct ?? s?.acertos ?? s?.correctCount;
+            if (sCorrect != null && sTotal != null && Number(sTotal) > 0) {
+                const c = sanitizeNum(sCorrect);
+                const t = sanitizeNum(sTotal);
                 if (Number.isFinite(c) && Number.isFinite(t) && t > 0) {
                     return Math.max(0, Math.min(1, c / t));
                 }
@@ -579,7 +582,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 let timeWeight = Math.exp(-K * days);
                 if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
                 const maxReasonableQuestions = 300; // ✅ FIX: limite sensato de questões em vez de maxScore * 2
-                const rawTotal = Math.max(1, Number(s.total) || getSyntheticTotal(maxScore));
+                const rawTotal = Math.max(1, Number(s.total ?? s.questoes ?? s.totalQuestoes ?? s.questions) || getSyntheticTotal(maxScore));
                 const volumeWeight = Math.sqrt(Math.min(rawTotal, maxReasonableQuestions));
                 const peso = timeWeight * volumeWeight;
                 weightedSum += sScore * peso;
@@ -644,19 +647,22 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         if (simDate > lastDate) lastDate = simDate;
     }
 
-    const categoryStudyLogs = safeStudyLogs.filter(log =>
-        categoryId && log?.categoryId === categoryId &&
-        (normalizeDate(log.date) || new Date(0)).getTime() > 0
-    );
+    const categoryStudyLogs = safeStudyLogs.filter(log => {
+        if (!log) return false;
+        const matchesId = categoryId && (log?.categoryId === categoryId || String(log?.categoryId) === String(categoryId));
+        const matchesName = catName && isSubjectMatch(log?.subject || log?.categoryName || log?.materia || '', catName);
+        const validTime = (normalizeDate(log.date || log.createdAt) || new Date(0)).getTime() > 0;
+        return (matchesId || matchesName) && validTime;
+    });
 
     const MIN_MINUTES_VALID_STUDY = 15;
-    const validStudyLogs = categoryStudyLogs.filter(log => sanitizeMinutes(log.minutes) >= MIN_MINUTES_VALID_STUDY);
+    const validStudyLogs = categoryStudyLogs.filter(log => sanitizeMinutes(log.minutes ?? log.minutos ?? log.duration) >= MIN_MINUTES_VALID_STUDY);
 
     if (validStudyLogs.length > 0) {
         const sortedLogs = [...validStudyLogs].sort((a, b) =>
-            (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
+            (normalizeDate(b.date || b.createdAt) || new Date(0)).getTime() - (normalizeDate(a.date || a.createdAt) || new Date(0)).getTime()
         );
-        const logDate = normalizeDate(sortedLogs[0].date) || new Date(0);
+        const logDate = normalizeDate(sortedLogs[0].date || sortedLogs[0].createdAt) || new Date(0);
         if (logDate > lastDate) lastDate = logDate;
     }
 
@@ -1612,7 +1618,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // duração de um log existente não invalidava o cache — só
         // logCount e o timestamp do último log eram observados.
         const logsMinutesChecksum = safeLogs
-            .reduce((acc, l) => acc + sanitizeMinutes(l?.minutes), 0)
+            .reduce((acc, l) => acc + sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration), 0)
             .toFixed(0);
         const activeId = useAppStore.getState()?.appState?.activeId || 'default';
         const weightsHash = simpleHash(
@@ -1666,7 +1672,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, logsMinutesChecksum, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash,
-            options.maxScore ?? 100, options.targetScore ?? 0
+            options.maxScore ?? catMax, options.minScore ?? catMin, options.targetScore ?? 0
         ]);
         const cacheKey = `urg_${hashString64(cacheKeyRaw)}`;
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
@@ -1812,13 +1818,14 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     });
     const top = ranked[0];
     if (!top) return null;
-    const maxScore = options.maxScore ?? 100;
+    const maxScore = options.maxScore ?? top.maxScore ?? 100;
+    const minScore = options.minScore ?? top.minScore ?? 0;
     // FIX (BUG-14): deepClone robusto do urgency para evitar mutação do cache
     const clonedUrgency = top.urgency ? deepClone(top.urgency) : null;
     const result = {
         ...top,
         urgency: clonedUrgency,
-        weakestTopic: getWeakestTopic(top, simulados, maxScore) || null
+        weakestTopic: getWeakestTopic(top, simulados, maxScore, minScore) || null
     };
     // ✅ FIX: Verificar se options.flashcardDue é número antes de comparar
     if (options && Number.isFinite(Number(options.flashcardDue)) && Number(options.flashcardDue) > 0) {
@@ -1940,10 +1947,24 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
         const entryDate = normalizeDate(safeEntryTime) || new Date(safeEntryTime);
         const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
-        const topics = entry.topics || [];
+        let topics = entry.topics;
+        if (!Array.isArray(topics) || topics.length === 0) {
+            const singleTopicName = entry.topic || entry.assunto || entry.subtopic || entry.topicName;
+            if (singleTopicName) {
+                topics = [{
+                    name: String(singleTopicName).trim(),
+                    total: entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions,
+                    correct: entry.correct ?? entry.acertos ?? entry.correctCount,
+                    score: entry.score,
+                    isPercentage: entry.isPercentage
+                }];
+            } else {
+                topics = [];
+            }
+        }
         topics.forEach(t => {
             if (!t) return;
-            let rawName = t.name;
+            let rawName = t.name || t.topic || t.assunto || t.subtopic || t.topicName;
             if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
             const name = rawName.trim();
             if (!topicMap[name]) {
@@ -1957,16 +1978,18 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                 };
                 topicMap[name].hasUnfinishedTask = false;
             }
-            let rawTotal = Number(t.total);
+            const candidateTotal = t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions;
+            let rawTotal = Number(candidateTotal);
             let topicTotal = Number.isFinite(rawTotal) && rawTotal > 0 ? rawTotal : 0;
             let topicCorrect = 0;
-            const isTotalMissing = t.total === undefined || t.total === null || String(t.total).trim() === "" || Number(t.total) === 0;
+            const isTotalMissing = candidateTotal === undefined || candidateTotal === null || String(candidateTotal).trim() === "" || Number(candidateTotal) === 0;
+            const candidateCorrect = t.correct ?? t.acertos ?? t.correctCount;
             if (t.score != null && isTotalMissing) {
                 topicTotal = getSyntheticTotal(catMax);
                 topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
             } else if (topicTotal > 0) {
-                if (t.correct !== undefined && t.correct !== null && !t.isPercentage) {
-                    const rawC = sanitizeNum(t.correct);
+                if (candidateCorrect !== undefined && candidateCorrect !== null && !t.isPercentage) {
+                    const rawC = sanitizeNum(candidateCorrect);
                     topicCorrect = Math.min(topicTotal, Number.isFinite(rawC) ? rawC : 0);
                 } else {
                     topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
@@ -2315,13 +2338,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     return topics;
 };
 
-const getWeakestTopic = (category, simulados = [], maxScore = 100) => {
-    const topics = _buildSortedTopics(category, simulados, maxScore);
+const getWeakestTopic = (category, simulados = [], maxScore = 100, minScore = 0) => {
+    const topics = _buildSortedTopics(category, simulados, maxScore, minScore);
     return (topics && topics.length > 0) ? topics[0] : null;
 };
 
-const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 3) => {
-    const topics = _buildSortedTopics(category, simulados, maxScore);
+const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 3, minScore = 0) => {
+    const topics = _buildSortedTopics(category, simulados, maxScore, minScore);
     return (topics || []).slice(0, limit);
 };
 
@@ -2352,13 +2375,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const catName = category?.name;
         const recentLogs = categoryId
             ? safeStudyLogs.filter(l => {
-                const matchesId = l?.categoryId === categoryId;
+                const matchesId = l?.categoryId === categoryId || String(l?.categoryId) === String(categoryId);
                 // FIX C-02: logs antigos podem ter só categoryName/subject.
-                const matchesName = catName && l?.categoryName
-                    ? normalize(l.categoryName) === normalize(catName)
-                    : (l?.subject ? normalize(l.subject) === normalize(catName) : false);
+                const matchesName = catName && (l?.categoryName || l?.subject || l?.materia)
+                    ? isSubjectMatch(l?.categoryName || l?.subject || l?.materia, catName)
+                    : false;
                 return (matchesId || matchesName) &&
-                    (normalizeDate(l?.date) || new Date(0)).getTime() >= cutoffTime;
+                    (normalizeDate(l?.date || l?.createdAt) || new Date(0)).getTime() >= cutoffTime;
               })
             : [];
 
@@ -2366,7 +2389,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const catNormalized = catName ? normalize(catName) : '';
         const recentSims = catNormalized
             ? safeSimulados.filter(s =>
-                normalize(s?.subject) === catNormalized &&
+                normalize(s?.subject || s?.categoryName || s?.materia || s?.disciplina || '') === catNormalized &&
                 (normalizeDate(s?.date || s?.createdAt) || new Date(0)).getTime() >= cutoffTime
               )
             : [];
@@ -2378,8 +2401,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             ? Math.min(Number(category.minScore), catMax)
             : 0;
         const catRange = Math.max(1e-9, catMax - catMin);
-        const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l?.minutes), 0) / 60;
-        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s?.total) || getSyntheticTotal(catMax)), 0);
+        const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration), 0) / 60;
+        const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions) || getSyntheticTotal(catMax)), 0);
         const questionsPerHour = totalHours >= 0.25 ? totalQuestions / totalHours : 0;
         const dynamicThreshold = totalHours >= 20 ? 30 : totalHours >= 10 ? 20 : 12;
 
@@ -2403,7 +2426,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
         const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : 0;
         const catRange = Math.max(1e-9, catMax - catMin);
-        const weakTopics = getWeakestTopicsList(cat, safeSimulados, catMax, tasksPerCategory);
+        const weakTopics = getWeakestTopicsList(cat, safeSimulados, catMax, tasksPerCategory, catMin);
         const mc = cat.urgency?.details?.monteCarlo;
         const iterations = tasksPerCategory;
         const getPriorityLabel = () => {
@@ -2825,7 +2848,10 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         // FIX-DEDUPE-01: `|| ''` transforma correct:0 / total:0 em '' (0 é falsy),
         // fundindo simulado zerado com simulado sem dado. Usar normalização explícita.
         const norm = (v) => (v === undefined || v === null || v === '' ? '_' : String(v));
-        const sig = `${s.subject || s.categoryId || 'geral'}|${s.date || s.createdAt}|${safeScoreStr}|${norm(s.total)}|${norm(s.correct)}`;
+        const sSub = s.subject || s.categoryName || s.materia || s.disciplina || s.categoryId || 'geral';
+        const sTotal = s.total ?? s.questoes ?? s.totalQuestoes ?? s.questions;
+        const sCorrect = s.correct ?? s.acertos ?? s.correctCount;
+        const sig = `${sSub}|${s.date || s.createdAt}|${safeScoreStr}|${norm(sTotal)}|${norm(sCorrect)}`;
         // FIX-DEDUPE-02: com `id`, incluir o score — senão id repetido com nota
         // diferente sobrescreve o registro anterior em vez de coexistir/ser reportado.
         const key = s.id ? `sim:${s.id}:${safeScoreStr}` : `sig:${sig}`;
@@ -2843,8 +2869,10 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         const dKey = getDateKey(r.date || r.createdAt);
         if (dKey && !hasSimuladoForDate.has(dKey)) {
             if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
-            rowsByDate[dKey].correct += (Number(r.correct) || 0);
-            rowsByDate[dKey].total += (Number(r.total) || 0);
+            const rCorrect = Number(r.correct ?? r.acertos ?? r.correctCount) || 0;
+            const rTotal = Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0;
+            rowsByDate[dKey].correct += rCorrect;
+            rowsByDate[dKey].total += rTotal;
         }
     });
 
@@ -2867,5 +2895,5 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     return getSortedHistory(Array.from(deduplicatedMap.values()));
 }
 
-export { getWeakestTopic, getWeakestTopicsList };
+export { getWeakestTopic, getWeakestTopicsList, _buildSortedTopics };
 

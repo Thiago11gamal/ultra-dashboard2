@@ -209,8 +209,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
     // VIS-FIX: projectedMean está em pontos da prova; antes era exibido como "GLOBAL 742%".
     const globalMeanRaw = Number(suggestion.globalProjectedMean ?? suggestion.urgency?.details?.globalMcContext?.projectedMean);
-    const scaleMax = Math.max(1, Number(activeContest?.maxScore) || 100);
-    const scaleMin = Number.isFinite(Number(activeContest?.minScore)) ? Math.min(Number(activeContest.minScore), scaleMax - 1) : 0;
+    const scaleMax = Math.max(1, Number(activeContest?.maxScore ?? suggestion?.maxScore) || 100);
+    const scaleMin = Number.isFinite(Number(activeContest?.minScore ?? suggestion?.minScore)) ? Math.min(Number(activeContest?.minScore ?? suggestion?.minScore), scaleMax - 1) : 0;
     const globalPct = Number.isFinite(globalMeanRaw)
         ? Math.max(0, Math.min(100, ((globalMeanRaw - scaleMin) / (scaleMax - scaleMin)) * 100))
         : null;

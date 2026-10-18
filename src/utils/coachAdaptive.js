@@ -21,7 +21,7 @@ const clampProbForLoss = (p) => {
   if (!Number.isFinite(n)) return 0.5;
   return Math.min(1 - 1e-6, Math.max(1e-6, n));
 };
-export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = {}, maxScore = 100, backtestPairs = []) {
+export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg = {}, maxScore = 100, backtestPairs = [], minScore = 0) {
   const fallbackDanger = Number(cfg.MC_PROB_DANGER) || 30;
   const fallbackSafe = Number(cfg.MC_PROB_SAFE) || 90;
   // FIX: safeArray protege contra não-arrays (objetos do store)
@@ -73,8 +73,10 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 
   if (rawScores.length < 4) return { danger: fallbackDanger, safe: fallbackSafe };
 
-  const safeMax = maxScore > 0 ? maxScore : 100;
-  const cleanScores = rawScores.map(s => (s / safeMax) * 100);
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const safeMax = (maxScore > 0 ? maxScore : 100);
+  const safeRange = Math.max(1e-9, safeMax - safeMin);
+  const cleanScores = rawScores.map(s => ((s - safeMin) / safeRange) * 100);
   const sorted = [...cleanScores].sort((a, b) => a - b);
 
   const q = (p) => {
@@ -155,7 +157,7 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
   return { boost: Number(boost.toFixed(4)), riskLabel };
 }
 
-export function deriveBacktestWeights(rawScores = [], maxScore = 100) {
+export function deriveBacktestWeights(rawScores = [], maxScore = 100, minScore = 0) {
   const scores = safeArray(rawScores).map(Number).filter(Number.isFinite);
   const n = scores.length;
   if (n < 2) return { scoreWeight: 1, recencyWeight: 1, instabilityWeight: 1, rankQuality: 1, uplift: 0, effectiveN: n };
@@ -164,9 +166,12 @@ export function deriveBacktestWeights(rawScores = [], maxScore = 100) {
   const prev = scores[n - 2];
   const uplift = last - prev;
 
-  const scoreWeight = Math.max(0.85, Math.min(1.2, 1 + (uplift / (maxScore || 100)) * 0.4));
+  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const safeRange = Math.max(1e-9, (maxScore || 100) - safeMin);
+
+  const scoreWeight = Math.max(0.85, Math.min(1.2, 1 + (uplift / safeRange) * 0.4));
   const recencyWeight = Math.max(0.9, Math.min(1.15, 1 + (n / 50) * 0.15));
-  const rankQuality = scores.filter(s => s >= (maxScore * 0.7)).length / n;
+  const rankQuality = scores.filter(s => s >= (safeMin + safeRange * 0.7)).length / n;
   const instabilityWeight = Math.max(0.8, Math.min(1.25, 1 - rankQuality * 0.15 + (uplift < 0 ? 0.15 : -0.05)));
 
   const weighted = scores.map((_, i) => Math.exp(-0.015 * (n - i)));
@@ -344,7 +349,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
    const shrinkAnchorPct = 50;
   const maxAppliedPenalty = toFiniteNumber(safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
 
-  const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore);
+  const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore, safeMinScore);
   const nEff = Math.max(1, Number(btWeights.effectiveN) || history.length);
   const sumCorrect = history.reduce((acc, h) => acc + Number(h.score || 0), 0);
 
