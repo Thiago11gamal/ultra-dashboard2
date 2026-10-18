@@ -118,7 +118,7 @@ function parseObservationTime(entry) {
  */
 export function kalmanAbilityTrend(observations = [], options = {}) {
   const maxScore = clampNumber(options.maxScore ?? 100, 1, 100000);
-  const minScore = clampNumber(options.minScore ?? 0, 0, maxScore);
+  const minScore = clampNumber(options.minScore ?? 0, -1_000_000, maxScore);
   const domain = Math.max(1e-6, maxScore - minScore);
 
   const obs = (Array.isArray(observations) ? observations : [])

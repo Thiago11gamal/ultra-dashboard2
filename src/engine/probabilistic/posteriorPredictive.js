@@ -141,7 +141,7 @@ function quantileSorted(sortedValues, p) {
  */
 export function estimatePosteriorPredictive(input = {}, options = {}) {
   const maxScore = clampFinite(input.maxScore, 1, 1_000_000, 100);
-  const minScore = clampFinite(input.minScore, 0, maxScore, 0);
+  const minScore = clampFinite(input.minScore, -1_000_000, maxScore, 0);
   const domain = Math.max(1e-6, maxScore - minScore);
 
   const ability = clampFinite(

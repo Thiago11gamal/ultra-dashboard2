@@ -68,7 +68,7 @@ function _std(arr, mu = null) {
   return Math.sqrt(Math.max(0, variance));
 }
 
-export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
+export function detectDataAnomalies(historyRaw = [], maxScore = 100, minScore = 0) {
   const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
   const issues = [];
   if (!Array.isArray(history) || history.length === 0) {
@@ -77,7 +77,7 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100) {
   }
 
   const parsed = history.map((h, idx) => {
-    const score = getSafeScore(h, maxScore);
+    const score = getSafeScore(h, maxScore, minScore);
     const dateRaw = h?.date || h?.createdAt;
     const d = dateRaw ? new Date(dateRaw) : null;
     const t = d && !isNaN(d.getTime()) ? d.getTime() : null;

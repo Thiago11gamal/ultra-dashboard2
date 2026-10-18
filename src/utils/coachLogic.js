@@ -161,13 +161,17 @@ export const DEFAULT_CONFIG = {
     MC_MODERATE_MIDPOINT: 55,
 };
 
-function getDynamicTrendThreshold(currentScore, maxScore) {
-    const safeMax = maxScore > 0 ? maxScore : 100;
-    const currentPct = currentScore / safeMax;
-    const damping = Math.max(0, 1 - currentPct);
+function getDynamicTrendThreshold(currentScore, maxScore, minScore = 0) {
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = (Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin) ? Number(maxScore) : (safeMin + 100);
+    const domain = Math.max(1e-9, safeMax - safeMin);
+    const safeCurrent = Number.isFinite(Number(currentScore)) ? Number(currentScore) : safeMin;
+    const currentPct = (safeCurrent - safeMin) / domain;
+    if (!Number.isFinite(currentPct)) return 0.002 * domain;
+    const damping = Math.max(0, 1 - Math.min(1, Math.max(0, currentPct)));
     const baseRequirement = 0.05;
     const dynamicPct = (baseRequirement * Math.pow(damping, 1.5)) + 0.002;
-    return dynamicPct * maxScore;
+    return dynamicPct * domain;
 }
 
 // ==================== FUNÇÕES AUXILIARES ====================
@@ -215,7 +219,7 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
 
-function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null) {
+function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null, minScore = 0) {
   // Lote 7: FSRS avançado opcional
   if (
     getCoachFeature(null, 'useAdvancedFsrs', false) &&
@@ -225,6 +229,7 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
       const fsrsData = estimateCategoryFsrsBoost(history, {
         daysSince,
         maxScore,
+        minScore,
         cfg,
         desiredRetention: 0.85,
       });
@@ -243,7 +248,9 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
     null,
     mssdVolatility,
     effectiveN,
-    daysSince
+    daysSince,
+    0,
+    minScore
   );
 
   // ✅ FIX: Validar retention antes de calcular boost
@@ -462,11 +469,12 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const rawMinScore = Number(safeCategory.minScore ?? safeOptions.minScore ?? 0);
     const minScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, maxScore) : 0;
 
-    const rawTargetScore = Number(safeCategory.minCutoff ?? safeOptions.targetScore ?? (maxScore * 0.8));
-    const fallbackTarget = maxScore * 0.8;
+    const domain = Math.max(1e-9, maxScore - minScore);
+    const fallbackTarget = minScore + domain * 0.8;
+    const rawTargetScore = Number(safeCategory.minCutoff ?? safeOptions.targetScore ?? fallbackTarget);
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
-    const targetScoreLabel = safeOptions.targetScoreLabel ?? Math.round(((targetScore - minScore) / Math.max(1e-9, maxScore - minScore)) * 100);
+    const targetScoreLabel = safeOptions.targetScoreLabel ?? Math.round(((targetScore - minScore) / domain) * 100);
 
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') {
@@ -629,7 +637,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             averageScore = notaBruta;
         }
     } else {
-        const domain = Math.max(1e-6, maxScore - minScore);
         const globalAnchor = Number.isFinite(safeOptions.globalMcStats?.currentMean)
             ? safeOptions.globalMcStats.currentMean
             : (globalBaselinePct !== 50
@@ -687,7 +694,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         .reverse();
 
     const lastNScores = trendHistory.map(t => t.score);
-    const backtestWeights = deriveBacktestWeights(lastNScores, maxScore);
+    const backtestWeights = deriveBacktestWeights(lastNScores, maxScore, minScore);
 
     // ==================== LOTE 1: STATE-SPACE / KALMAN ====================
     let stateSpace = null;
@@ -746,7 +753,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         });
 
         if (dynamicVolatility && Number.isFinite(dynamicVolatility.volatility)) {
-          const dynamicVol = clamp(dynamicVolatility.volatility, 0, maxScore);
+          const dynamicVol = clamp(dynamicVolatility.volatility, 0, domain);
           if (getCoachFeature(options, 'useDynamicVolatilityOverride', false)) {
             mssdVolatility = dynamicVol;
           } else {
@@ -754,7 +761,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             mssdVolatility = clamp(
               (dynamicVol * 0.65) + (baseMssdVolatility * 0.35),
               0,
-              maxScore
+              domain
             );
           }
         }
@@ -775,7 +782,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         ? Math.max(cfg.MC_SIMULATIONS, 1200)
         : cfg.MC_SIMULATIONS;
 
-    const domain = Math.max(1e-6, maxScore - minScore);
     const DISTANCE_THRESHOLD = 0.15 * domain;
     let effectiveMCTarget = targetScore;
     let effectiveMCDays = Number.isFinite(daysToExam)
@@ -848,7 +854,6 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
       try {
         const safeStateSpace = stateSpace ?? null;
         const safeDynamicVolatility = dynamicVolatility ?? null;
-        const domain = Math.max(1e-6, maxScore - minScore);
         const fallbackAbilitySd = Math.max(
           domain * 0.02,
           (Number.isFinite(mssdVolatility) ? mssdVolatility : domain * 0.05) /
@@ -993,9 +998,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     };
 };
 
-export function deriveUrgencyWeights(mcResult, volatility, sampleSize, cfg = {}) {
+export function deriveUrgencyWeights(mcResult, volatility, sampleSize, cfg = {}, domain = 100) {
     const nEff = mcResult?.sampleSize ?? sampleSize ?? 5;
-    const volPct = (volatility || 0) / 100;
+    const safeDomain = Number.isFinite(domain) && domain > 0 ? domain : 100;
+    const volPct = (volatility || 0) / safeDomain;
     const mcTrust = Math.min(1, nEff / 15);
     const volWeight = Math.min(1, volPct / 0.15);
 
@@ -1092,7 +1098,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         mcResult,
         safeMssdVolatility,
         (simuladosWithMaxScore || []).length,
-        cfg
+        cfg,
+        domain
     );
 
     // SCORE: agora mede distância até a meta com peso adaptativo
@@ -1111,7 +1118,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     // INSTABILITY: baseada em % do domínio, filtro de ruído e peso adaptativo
     const lastNCount = Math.max(2, (lastNScores || []).length || 2);
     const trendNoise = 0.75 * (mssdVolatility / Math.sqrt(lastNCount));
-    const trendThreshold = Math.max(getDynamicTrendThreshold(averageScore, maxScore), trendNoise);
+    const trendThreshold = Math.max(getDynamicTrendThreshold(averageScore, maxScore, minScore), trendNoise);
     let trendModifier = 1;
     if (trend > trendThreshold) {
         trendModifier = 0.55;
@@ -1132,10 +1139,12 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         mssdVolatility,
         cfg,
         maxScore,
-        mcResult?.predObsPairs || []
+        mcResult?.predObsPairs || [],
+        minScore
     );
-    if (globalProjectedMean != null && globalProjectedMean > (averageScore + maxScore * 0.1)) {
-        const haloBoost = Math.min(6, (globalProjectedMean - averageScore) * 0.2);
+    if (globalProjectedMean != null && globalProjectedMean > (averageScore + domain * 0.1)) {
+        const diffPct = ((globalProjectedMean - averageScore) / domain) * 100;
+        const haloBoost = Math.min(6, diffPct * 0.2);
         adaptiveRisk.danger = Math.min(99, adaptiveRisk.danger + haloBoost);
         adaptiveRisk.safe = Math.min(99, adaptiveRisk.safe + haloBoost);
     }
@@ -1146,7 +1155,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
             adaptiveRisk.safe,
             mssdVolatility,
             maxScore,
-            cfg
+            cfg,
+            minScore
         );
         mcUrgencyBoost = continuous.boost;
         mcRiskLabel = continuous.riskLabel;
@@ -1235,7 +1245,8 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
             maxScore,
             cfg,
             mssdVolatility,
-            backtestWeights?.effectiveN || simuladosWithMaxScore.length
+            backtestWeights?.effectiveN || simuladosWithMaxScore.length,
+            minScore
         );
         srsBoost = srsData.boost;
         srsLabel = srsData.label;
@@ -1272,11 +1283,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     // Penalizar novamente aqui causava dupla penalização.
     if (exactHoursSinceLast < 24) {
         const recentFatigue = Math.max(0.2, Math.exp(-exactHoursSinceLast / 12));
-        rotationPenalty = Math.min(30, 15 * recentFatigue * (1 + (mssdVolatility / maxScore)));
-        const baseAt24 = mssdVolatility > (maxScore * 0.05) ? 6 : 2;
+        rotationPenalty = Math.min(30, 15 * recentFatigue * (1 + (mssdVolatility / domain)));
+        const baseAt24 = mssdVolatility > (domain * 0.05) ? 6 : 2;
         rotationPenalty = Math.max(rotationPenalty, baseAt24 + 1);
     } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
-        rotationPenalty = mssdVolatility > (maxScore * 0.05) ? 6 : 2;
+        rotationPenalty = mssdVolatility > (domain * 0.05) ? 6 : 2;
     }
     if (srsBoost > 0) rotationPenalty *= 0.1;
     const rawScore = Math.max(
@@ -1407,7 +1418,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     const isEliteMaintenance = averageScore >= (maxScore * 0.95);
     const trendThreshold = Number.isFinite(scoreInfoTrendThreshold)
         ? scoreInfoTrendThreshold
-        : getDynamicTrendThreshold(averageScore, maxScore);
+        : getDynamicTrendThreshold(averageScore, maxScore, minScore);
     const lastNScores = metrics.lastNScores;
     const isStagnant = !isEliteMaintenance && trend <= trendThreshold && lastNScores.length >= 2;
     const burnoutMsg = isHighVolume && isStagnant
@@ -1426,7 +1437,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         recommendation = `${srsLabel} - Não pule essa revisão!`;
     } else if (mcHasData && mcRiskLabel === 'safe') {
         recommendation = `🏆 Cruzeiro Seguro (${formatPercent(mcProbability)} nas projeções). Modo de manutenção ativado.`;
-    } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (maxScore / 100) && trend > 0) {
+    } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (domain / 100) && trend > 0) {
         recommendation = "Desempenho Oscilante: Foque em preencher lacunas de base";
     } else if (trend < -trendThreshold) {
         recommendation = `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`;
@@ -1851,15 +1862,16 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     return result;
 };
 
-function _buildSortedTopics(category, simulados = [], maxScore = 100) {
+function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore = 0) {
     const safeCat = category || {};
     const catId = safeCat.id || safeCat.name || 'unknown';
     const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
         ? Number(safeCat.maxScore)
         : (Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100);
+    const passedMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const catMin = Number.isFinite(Number(safeCat.minScore))
         ? Math.min(Number(safeCat.minScore), catMax)
-        : 0;
+        : passedMin;
     const safeTasks = Array.isArray(safeCat.tasks)
         ? safeCat.tasks
         : Object.values(safeCat.tasks || {});
@@ -2349,8 +2361,10 @@ const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 
 };
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
-    const targetScore = options.targetScore ?? 80;
-    const maxScore = options.maxScore ?? 100;
+    const minScore = Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : 0;
+    const maxScore = Number.isFinite(Number(options.maxScore)) && Number(options.maxScore) > minScore ? Number(options.maxScore) : (minScore + 100);
+    const domain = Math.max(1e-9, maxScore - minScore);
+    const targetScore = Number.isFinite(Number(options.targetScore)) ? Number(options.targetScore) : (minScore + domain * 0.8);
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
     if (safeCategories.length === 0) return [];
@@ -2358,7 +2372,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const safeStudyLogs = safeArray(studyLogs);
     const ranked = safeCategories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: safeCategories })
+        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: safeCategories, minScore, maxScore, targetScore })
     })).sort((a, b) => {
         const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
         const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
@@ -2396,10 +2410,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
         const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0
             ? Number(category.maxScore)
-            : (maxScore > 0 ? maxScore : 100);
+            : (maxScore > minScore ? maxScore : minScore + 100);
         const catMin = Number.isFinite(Number(category?.minScore))
             ? Math.min(Number(category.minScore), catMax)
-            : 0;
+            : minScore;
         const catRange = Math.max(1e-9, catMax - catMin);
         const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration), 0) / 60;
         const totalQuestions = recentSims.reduce((acc, s) => acc + (Number(s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions) || getSyntheticTotal(catMax)), 0);
@@ -2424,7 +2438,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     topCategories.forEach((cat) => {
         let localPriorityCounter = 0;
         const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
-        const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : 0;
+        const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : minScore;
         const catRange = Math.max(1e-9, catMax - catMin);
         const weakTopics = getWeakestTopicsList(cat, safeSimulados, catMax, tasksPerCategory, catMin);
         const mc = cat.urgency?.details?.monteCarlo;
@@ -2716,12 +2730,14 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
     const nowMs = referenceDate.getTime();
     const todayKey = getDateKey(referenceDate);
 
+    const getLogDate = (l) => l?.date || l?.createdAt || l?.lastUpdated;
+
     const minutesToday = safeLogs
-        .filter(l => getDateKey(l?.date) === todayKey)
+        .filter(l => getDateKey(getLogDate(l)) === todayKey)
         .reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0);
 
     const last7DaysLogs = safeLogs.filter(l => {
-        const t = (normalizeDate(l?.date) || new Date(0)).getTime();
+        const t = (normalizeDate(getLogDate(l)) || new Date(0)).getTime();
         return t > 0 && (nowMs - t) <= 7 * MS_PER_DAY;
     });
     const hours7d = last7DaysLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0) / 60;
@@ -2730,7 +2746,7 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
     const weeklyLoad = Math.min(1, hours7d / 40);
     const fatigue = clamp(Math.round((dailyLoad * 0.6 + weeklyLoad * 0.4) * 100), 0, 100);
 
-    const streakDays = new Set(last7DaysLogs.map(l => getDateKey(l?.date)).filter(Boolean)).size;
+    const streakDays = new Set(last7DaysLogs.map(l => getDateKey(getLogDate(l))).filter(Boolean)).size;
     const focus = clamp(Math.round((streakDays / 7) * 100), 0, 100);
 
     let recommendation = 'Ritmo saudável — mantenha o plano.';

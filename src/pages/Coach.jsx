@@ -488,6 +488,7 @@ export default function Coach() {
                         // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
                         globalMcStats: mcStatsContextRef.current,
                         config: {
+                            contestId: activeId,
                             MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                         }
                     }

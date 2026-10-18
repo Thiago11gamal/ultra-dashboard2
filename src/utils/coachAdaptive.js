@@ -112,8 +112,10 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 }
 
 // FIX M3: suavização C¹ também na dimensão de volatilidade
-export function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = {}) {
+export function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = {}, minScore = 0) {
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
   const p = Math.max(0, Math.min(100, Number(probability) || 0));
   const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER || 30));
   const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE || 90));
@@ -134,7 +136,7 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
     boost = minBoost;
   }
 
-  const lowVolLimit = (Number(cfg.MC_VOLATILITY_HIGH || 8) * 0.7) * (safeMaxScore / 100);
+  const lowVolLimit = (Number(cfg.MC_VOLATILITY_HIGH || 8) * 0.7) * (safeRange / 100);
 
   if (Number.isFinite(volatility)) {
     const a = lowVolLimit * 0.8;
@@ -337,8 +339,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   if (history.length < (safeCfg.MC_MIN_DATA_POINTS || 5)) return null;
   if (history.length > 2000) history = pruneHistoryForMemory(history, 1200, 365 * 4);
 
-  // FIX: usar safeMaxScore (validado) em vez de maxScore bruto
-  const anomalies = detectDataAnomalies(history, safeMaxScore);
+  // FIX: usar safeMaxScore e safeMinScore (validados) em vez de maxScore bruto
+  const anomalies = detectDataAnomalies(history, safeMaxScore, safeMinScore);
   const dataIssues = anomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
   const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
   const lowSampleThreshold = Math.max(Number(safeCfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (safeCfg.MC_MIN_DATA_POINTS || 5) + 2);
@@ -606,7 +608,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     };
 
     finalResult.thresholds = deriveAdaptiveRiskThresholds(
-      history.map(h => h.score), rawVolatility, safeCfg, safeMaxScore, predObsPairs);
+      history.map(h => h.score), rawVolatility, safeCfg, safeMaxScore, predObsPairs, safeMinScore);
     finalResult.effectiveMCTarget = safeTargetScore;
     finalResult.adaptiveBaseline = Number.isFinite(Number(adaptive?.calibrationBaseline))
       ? Number(adaptive.calibrationBaseline) : null;
