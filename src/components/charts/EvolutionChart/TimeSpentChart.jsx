@@ -324,12 +324,12 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {
-            if (Number.isFinite(Number(item.displaySeconds))) {
+            if (item.displaySeconds != null && Number.isFinite(Number(item.displaySeconds))) {
             acc.avg += Number(item.displaySeconds);
             acc.avgCount += 1;
         }
 
-        if (item.latestSeconds !== null && Number.isFinite(Number(item.latestSeconds)) && Number(item.latestSeconds) > 0) {
+        if (item.latestSeconds != null && Number.isFinite(Number(item.latestSeconds)) && Number(item.latestSeconds) > 0) {
             acc.latest += Number(item.latestSeconds);
             acc.latestCount += 1;
 
@@ -454,9 +454,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 </div>
 
                 <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-lg flex flex-col justify-between">
-                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                        ÚLTIMO GERAL: <span className="font-bold text-slate-300">{legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}</span>
-                    </span>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Último Geral</span>
                     <span className="text-lg sm:text-2xl font-black text-cyan-400 tracking-tight mt-1">
                         {legendLatestSeconds == null ? 'N/A' : formatTime(legendLatestSeconds)}
                     </span>

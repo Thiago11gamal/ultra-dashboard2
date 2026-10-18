@@ -36,6 +36,7 @@
     "lint:safe": "node scripts/lint-safe.mjs",
     "build:safe": "node scripts/build-safe.mjs",
     "verify:evolution": "node scripts/verify-evolution-stack.mjs",
+    "export:evolution": "node scripts/generate_evolution_unified_md.cjs",
     "test:coach-unit": "vitest run tests/coach-math-regressions.test.js src/utils/__tests__/coachLogic.regression.test.js src/utils/__tests__/coachBacktest.test.js",
     "test:coach-integration": "vitest run tests/coach-logic.integration.test.js",
     "test:coach-suite": "node scripts/test-coach-suite.mjs"

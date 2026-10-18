@@ -11,11 +11,14 @@ import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
 import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
 import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
+const hasValidNumber = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, unit, stableThreshold = 2 }) => {
     if (!active || !payload || !payload.length) return null;
 
     const hasValidData = payload.some(entry =>
-        Number.isFinite(Number(entry?.value))
+        hasValidNumber(entry?.value)
     );
     if (!hasValidData) return null;
 
@@ -23,7 +26,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
         const dataKey = String(entry.dataKey || '');
         const isDelta = dataKey.startsWith('delta_');
         const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
-        return !hiddenKeys[baseKey] && entry.value != null && Number.isFinite(Number(entry.value));
+        return !hiddenKeys[baseKey] && hasValidNumber(entry.value);
     });
 
     if (visibleEntries.length === 0) return null;
@@ -50,7 +53,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
                             const isStable = Math.abs(val) <= stableThreshold;
                             const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
                             const prefix = val > 0 ? '+' : '';
-                            const currentPct = (meta?.currPct === null || meta?.currPct === undefined || meta?.currPct === '') ? entry.payload?.[baseKey] : (Number.isFinite(Number(meta?.currPct)) ? meta.currPct : entry.payload?.[baseKey]);
+                            const currentPct = hasValidNumber(meta?.currPct) ? Number(meta.currPct) : entry.payload?.[baseKey];
 
                             return (
                                 <div key={idx} className="flex flex-col gap-0.5">
@@ -63,7 +66,7 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
                                             {prefix}{formatValue(val)}{unit}
                                         </span>
                                     </div>
-                                    {meta && meta.prevPct != null && Number.isFinite(Number(currentPct)) && (
+                                    {meta && hasValidNumber(meta.prevPct) && hasValidNumber(currentPct) && (
                                         <div className="flex justify-between text-[8px] text-slate-500 pl-3">
                                             <span>De {formatValue(meta.prevPct)}{unit}</span>
                                             <span>
@@ -225,8 +228,8 @@ export const WeeklyEvolutionView = ({
         const validIds = Object.keys(itemsMap);
         if (validIds.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
 
-        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-        const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+        const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const safeMaxScore = hasValidNumber(maxScore) ? Number(maxScore) : 100;
         const lowerBound = Math.min(safeMinScore, safeMaxScore);
         const upperBound = Math.max(safeMinScore, safeMaxScore);
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
@@ -256,7 +259,7 @@ export const WeeklyEvolutionView = ({
                 } else {
                     const score = getSafeScore(h, cMax, cMin);
                     if (!Number.isFinite(score)) return;
-                    if (totalQ === 0 && h.score != null) {
+                    if (totalQ === 0 && hasValidNumber(h.score)) {
                         totalQ = getSyntheticTotal(cMax);
                     }
                     if (totalQ === 0) return;
@@ -272,15 +275,15 @@ export const WeeklyEvolutionView = ({
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
                 const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
-                const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
-                const cMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
+                const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
+                const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
                 processHistory(hArray, cat.id, cMax, cMin);
             });
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
-                const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
-                const cMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
+                const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
+                const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
                 const cRange = Math.max(1e-9, cMax - cMin);
                 const hArray2 = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 hArray2.forEach(h => {
@@ -308,7 +311,7 @@ export const WeeklyEvolutionView = ({
                             } else {
                                 const topicScore = getSafeScore(t, cMax, cMin);
                                 if (!Number.isFinite(topicScore)) return;
-                                if (totalQ === 0 && t.score != null) {
+                                if (totalQ === 0 && hasValidNumber(t.score)) {
                                     totalQ = getSyntheticTotal(cMax);
                                 }
                                 if (totalQ === 0) return;
@@ -420,7 +423,7 @@ export const WeeklyEvolutionView = ({
         finalData.forEach(week => {
             validIds.forEach(id => {
                 const meta = week[`meta_${id}`];
-                if (meta && Number.isFinite(Number(meta.currTot))) volumeTracker[id] += Number(meta.currTot);
+                if (meta && hasValidNumber(meta.currTot)) volumeTracker[id] += Number(meta.currTot);
             });
         });
         const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);

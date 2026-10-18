@@ -10,6 +10,9 @@ import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
 import { normalizeProbability } from '../../../utils/evolutionGuards';
 
+const hasValidNumber = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 const MonteCarloTooltip = React.memo(({ active, payload, unit, targetScore, maxScore, minScore }) => {
     if (active && payload && payload.length) {
         const dataPoint = payload[0].payload;
@@ -106,12 +109,12 @@ export const MonteCarloEvolutionChart = ({
     const [scenario, setScenario] = useState('base');
     const scenarioLabels = useMemo(() => Object.fromEntries(SCENARIO_OPTIONS.map(opt => [opt.id, opt.fullLabel])), []);
 
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
     const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 1;
     
     const safeTargetScore = useMemo(() => {
-      const t = Number(targetScore);
-      return Math.max(safeMin, Math.min(safeMax, Number.isFinite(t) ? t : safeMin));
+      const fallback = safeMin + (safeMax - safeMin) * 0.8;
+      return Math.max(safeMin, Math.min(safeMax, hasValidNumber(targetScore) ? Number(targetScore) : fallback));
     }, [targetScore, safeMin, safeMax]);
 
     const targetOffset = useMemo(() => {

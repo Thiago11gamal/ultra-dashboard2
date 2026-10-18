@@ -8,6 +8,7 @@ import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
 import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
+import { pointsToRatio, ratioToPoints } from "../utils/scoreHelper.conversions";
 import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
 import { GaussianPlot } from "./charts/GaussianPlot";
 import { useAppStore } from "../store/useAppStore";
@@ -38,15 +39,18 @@ import { computeEvolutionStatuses } from '../utils/evolutionStatus';
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 
+function hasValidNumber(value) {
+  return value !== null && value !== undefined && typeof value !== 'boolean' && String(value).trim() !== '' && Number.isFinite(Number(value));
+}
+
 function safeFiniteNumber(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+  return hasValidNumber(value) ? Number(value) : fallback;
 }
 
 function renderInsightText(text, textColorClass) {
   if (typeof text !== 'string') return text;
 
-  const parts = text.split(/(\*\*.*?\*\*|!!.*?!!|\+\+.*?\+\+)/g).filter(Boolean);
+  const parts = text.split(/(\*\*[\s\S]*?\*\*|!![\s\S]*?!!|\+\+[\s\S]*?\+\+)/g).filter(Boolean);
 
   return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**')) {
@@ -89,20 +93,22 @@ function buildPredictiveCompareData(
 ) {
   if (!focusCategory) return timeline;
 
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+  const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+  const safeMax = hasValidNumber(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 100);
 
   // 1. Prepara os dados históricos mapeando as chaves para leitura no gráfico
   let pts = timeline.map((d) => {
     const lowVal = d[`bay_ci_low_${focusCategory.id}`];
     const highVal = d[`bay_ci_high_${focusCategory.id}`];
-    const hasValidBand = lowVal != null && Number.isFinite(Number(lowVal)) && highVal != null && Number.isFinite(Number(highVal));
+    const hasValidBand = hasValidNumber(lowVal) && hasValidNumber(highVal);
+    const bandLow = hasValidBand ? Math.max(safeMin, Math.min(safeMax, Math.min(Number(lowVal), Number(highVal)))) : null;
+    const bandHigh = hasValidBand ? Math.max(safeMin, Math.min(safeMax, Math.max(Number(lowVal), Number(highVal)))) : null;
 
     return {
       ...d,
       "Nota Bruta": d[`raw_${focusCategory.id}`],
       "Nível Bayesiano": d[`bay_${focusCategory.id}`],
-      "Banda Bayesiana": hasValidBand ? [Number(lowVal), Number(highVal)] : null,
+      "Banda Bayesiana": hasValidBand ? [bandLow, bandHigh] : null,
       "Média Histórica": d[`stats_${focusCategory.id}`]
     };
   });
@@ -330,7 +336,8 @@ const ENGINES = [
      guide: ENGINE_GUIDE[engine.id]
     }));
 
-
+const BAYESIAN_ENGINE = ENGINES_WITH_GUIDE.find((e) => e.id === 'bayesian');
+const SECONDARY_ENGINES = ENGINES_WITH_GUIDE.filter((e) => e.id !== 'bayesian');
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -439,11 +446,13 @@ export default React.memo(function EvolutionChart({
     const [exportError, setExportError] = useState(false);
     const [showEngineTooltip, setShowEngineTooltip] = useState(false);
     const exportErrorTimerRef = useRef(null);
+    const isMountedRef = useRef(true);
 
     const engineTabRefs = useRef(new Map());
 
     // FIX-CLEANUP-01: limpar timer de erro e refs de tab ao desmontar.
     useEffect(() => () => {
+        isMountedRef.current = false;
         if (exportErrorTimerRef.current) {
             clearTimeout(exportErrorTimerRef.current);
             exportErrorTimerRef.current = null;
@@ -570,16 +579,24 @@ export default React.memo(function EvolutionChart({
     const radarData = useMemo(() => {
         const sourceCats = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
         if (!sourceCats || !sourceCats.length) return [];
+        const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 100);
         return sourceCats.map(cat => {
-            const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : (Math.max(1, Number(maxScore) || 100));
-            const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
+            const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMax;
+            const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : globalMin;
             const lvl = categoryLevels?.[cat.id];
-            const hasLvl = lvl !== null && lvl !== undefined && lvl !== '' && Number.isFinite(Number(lvl));
-            const val = hasLvl ? Math.max(catMin, Math.min(catMax, Number(Number(lvl).toFixed(2)))) : catMin;
+            const hasLvl = hasValidNumber(lvl);
+            // Normaliza da escala da categoria para a escala global do eixo do Radar
+            const rawVal = hasLvl ? Math.max(catMin, Math.min(catMax, Number(lvl))) : catMin;
+            const normalizedVal = (catMax !== globalMax || catMin !== globalMin)
+                ? ratioToPoints(pointsToRatio(rawVal, catMax, catMin), globalMax, globalMin)
+                : rawVal;
+            const val = Number(Math.max(globalMin, Math.min(globalMax, normalizedVal)).toFixed(2));
             const fullName = String(cat.name || 'Sem nome');
-            const meta = Number.isFinite(Number(cat?.minCutoff))
-                ? Number(cat.minCutoff)
-                : Math.max(catMin, Math.min(catMax, Number(targetScore) || catMin));
+            const rawMeta = hasValidNumber(cat?.minCutoff)
+                ? ratioToPoints(pointsToRatio(Number(cat.minCutoff), catMax, catMin), globalMax, globalMin)
+                : (hasValidNumber(targetScore) ? Number(targetScore) : globalMin + (globalMax - globalMin) * 0.8);
+            const meta = Number(Math.max(globalMin, Math.min(globalMax, rawMeta)).toFixed(2));
             return {
                 subject: fullName.replace(/Direito /gi, 'D. '),
                 fullSubject: fullName,
@@ -670,6 +687,7 @@ export default React.memo(function EvolutionChart({
     const filterHasData = filteredHistoricalData.length >= 1;
 
     const handleExport = async () => {
+        if (isExporting) return;
         setIsExporting(true);
         setExportError(false);
 
@@ -677,11 +695,14 @@ export default React.memo(function EvolutionChart({
             await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
         } catch (err) {
             console.error('[EvolutionChart] Falha ao exportar PDF:', err);
+            if (!isMountedRef.current) return;
             setExportError(true);
             if (exportErrorTimerRef.current) clearTimeout(exportErrorTimerRef.current);
-            exportErrorTimerRef.current = setTimeout(() => setExportError(false), 4000);
+            exportErrorTimerRef.current = setTimeout(() => {
+                if (isMountedRef.current) setExportError(false);
+            }, 4000);
         } finally {
-            setIsExporting(false);
+            if (isMountedRef.current) setIsExporting(false);
         }
     };
 
@@ -866,7 +887,7 @@ export default React.memo(function EvolutionChart({
                             <EvolutionLineChart
                                 filteredChartData={filteredHistoricalData}
                                 activeCategories={activeCategories}
-                                engine={ENGINES_WITH_GUIDE.find(e => e.id === 'bayesian')}
+                                engine={BAYESIAN_ENGINE}
                                 targetScore={targetScore}
                                 focusSubjectId={focusSubjectId}
                                 showOnlyFocus={showOnlyFocus}
@@ -939,7 +960,7 @@ export default React.memo(function EvolutionChart({
                 <div className="relative mb-6 w-full">
                     <div className="p-1.5 rounded-2xl bg-slate-950/70 border border-white/[0.07] backdrop-blur-md shadow-inner">
                         <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex items-center overflow-x-auto gap-1.5 px-0.5 py-0.5 w-full no-scrollbar scroll-smooth">
-                            {ENGINES_WITH_GUIDE.filter(e => e.id !== 'bayesian').map((eng, idx, arr) => {
+                            {SECONDARY_ENGINES.map((eng, idx, arr) => {
                                 const active = activeEngine === eng.id;
                                 return (
                                     <button

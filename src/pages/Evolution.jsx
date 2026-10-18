@@ -7,6 +7,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { normalizeProbability } from '../utils/evolutionGuards';
 
 const EMPTY_ARRAY = Object.freeze([]);
+const hasValidNumber = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 export default function Evolution() {
   const navigate = useNavigate();
@@ -44,18 +46,28 @@ export default function Evolution() {
     return Array.isArray(monteCarloHistory) ? monteCarloHistory : Object.values(monteCarloHistory || {});
   }, [monteCarloHistory]);
 
+  const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
+  const safeMaxScore = hasValidNumber(maxScore) && Number(maxScore) > safeMinScore
+    ? Number(maxScore)
+    : Math.max(100, safeMinScore + 100);
+
   const hasEvolutionData = (Array.isArray(safeCategories) && safeCategories.some(category => {
     const h = category?.simuladoStats?.history;
     const list = Array.isArray(h) ? h : Object.values(h || {});
-    return list.some(entry => entry && (Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) > 0 || entry.score != null));
+    return list.some(entry => {
+      if (!entry) return false;
+      const hasHeaderData = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) > 0 || hasValidNumber(entry.score);
+      if (hasHeaderData) return true;
+      const topics = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
+      return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasValidNumber(t.score)));
+    });
   })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.length > 0);
 
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova
   const targetScorePoints = React.useMemo(() => {
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : Math.max(100, safeMin + 100);
+    const safeMin = safeMinScore;
+    const safeMax = safeMaxScore;
     const clamp = (value) => Math.min(safeMax, Math.max(safeMin, Number.isFinite(Number(value)) ? Number(value) : safeMin));
-    const hasValidNumber = (v) => v !== null && v !== undefined && String(v).trim() !== '' && Number.isFinite(Number(v));
     
     // 1) Se existir targetScore explícito, ele é a meta em pontos
     if (hasValidNumber(user?.targetScore)) {
@@ -80,7 +92,7 @@ export default function Evolution() {
     
     // 3) Default seguro: 80% da escala
     return clamp(safeMin + (safeMax - safeMin) * 0.8);
-  }, [user, minScore, maxScore]);
+  }, [user, safeMinScore, safeMaxScore]);
 
   return (
     <ErrorBoundary>
@@ -117,8 +129,8 @@ export default function Evolution() {
             monteCarloHistory={safeMonteCarloHistory}
             simuladoRows={safeSimuladoRows}
             unit={unit}
-            minScore={minScore}
-            maxScore={maxScore}
+            minScore={safeMinScore}
+            maxScore={safeMaxScore}
           />
         )}
       </div>

@@ -1,4 +1,4 @@
-import React, { useId, useCallback } from 'react';
+import React, { useId, useCallback, useMemo } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
@@ -79,14 +79,25 @@ export function CompareChart({
         });
     }, [filteredChartData]);
 
-    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const futureDisplayByDate = useMemo(() => {
+        const map = new Map();
+        for (let i = 0; i < chartData.length; i++) {
+            const item = chartData[i];
+            if (item?.__future && item?.date && item?.displayDate) {
+                map.set(item.date, item.displayDate);
+            }
+        }
+        return map;
+    }, [chartData]);
+
+    const safeMinScore = minScore !== null && minScore !== undefined && String(minScore).trim() !== '' && Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMaxScore = Number(maxScore) > safeMinScore ? Number(maxScore) : safeMinScore + 1;
     
     const safeTargetScore = Math.max(
       safeMinScore,
       Math.min(
         safeMaxScore,
-        Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMinScore
+        targetScore !== null && targetScore !== undefined && String(targetScore).trim() !== '' && Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMinScore
       )
     );
     
@@ -95,7 +106,7 @@ export function CompareChart({
       safeTargetScore - ((safeMaxScore - safeMinScore) * 0.08)
     );
 
-    const isValidValue = (value) => value != null && Number.isFinite(Number(value));
+    const isValidValue = (value) => value !== null && value !== undefined && String(value).trim() !== '' && Number.isFinite(Number(value));
 
     const lastValidIdx = React.useMemo(() => {
       const last = { bay: -1, raw: -1, stats: -1, mc: -1 };
@@ -115,7 +126,7 @@ export function CompareChart({
     }, [chartData]);
 
     // 🎯 FIX: Algoritmo de Colisão Adaptativo baseado no Range Real
-    const solveCollisions = (points) => {
+    const solveCollisions = useCallback((points) => {
         if (!points.length) return [];
         const sorted = [...points].sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
         const yPos = sorted.map(p => ({
@@ -165,44 +176,51 @@ export function CompareChart({
         }
 
         return yPos;
-    };
+    }, [safeMinScore, safeMaxScore]);
 
-    const todayIdx = chartData.reduce((acc, curr, i) => {
-      const hasObserved =
-        isValidValue(curr["Nota Bruta"]) ||
-        isValidValue(curr["Nível Bayesiano"]) ||
-        isValidValue(curr["Média Histórica"]);
-    
-      return hasObserved ? i : acc;
-    }, -1);
-    
-    const todayPoints = [];
-    if (todayIdx >= 0) {
-        const d = chartData[todayIdx];
-        if (d["Nível Bayesiano"] != null && lastValidIdx.bay === todayIdx) todayPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
-        if (d["Nota Bruta"] != null && lastValidIdx.raw === todayIdx) todayPoints.push({ name: 'raw', value: d["Nota Bruta"] });
-        if (d["Média Histórica"] != null && lastValidIdx.stats === todayIdx) todayPoints.push({ name: 'stats', value: d["Média Histórica"] });
-        if (d["Futuro Provável"] != null && lastValidIdx.mc === todayIdx) todayPoints.push({ name: 'mc', value: d["Futuro Provável"] });
-    }
-    const todayY = solveCollisions(todayPoints);
+    const { todayIdx, todayY, futureIdx, isFuturePoint, lastY } = useMemo(() => {
+        const tIdx = chartData.reduce((acc, curr, i) => {
+            const hasObserved =
+                isValidValue(curr["Nota Bruta"]) ||
+                isValidValue(curr["Nível Bayesiano"]) ||
+                isValidValue(curr["Média Histórica"]);
+            return hasObserved ? i : acc;
+        }, -1);
 
-    const futureIdx = chartData.length - 1;
-    const isFuturePoint = futureIdx > todayIdx;
-    const lastPoints = [];
-    if (isFuturePoint && futureIdx >= 0) {
-        const d = chartData[futureIdx];
-        if (d["Futuro Provável"] != null && lastValidIdx.mc === futureIdx) lastPoints.push({ name: 'mc', value: d["Futuro Provável"] });
-        if (d["Nível Bayesiano"] != null && lastValidIdx.bay === futureIdx) lastPoints.push({ name: 'bay', value: d["Nível Bayesiano"] });
-        if (d["Nota Bruta"] != null && lastValidIdx.raw === futureIdx) lastPoints.push({ name: 'raw', value: d["Nota Bruta"] });
-        if (d["Média Histórica"] != null && lastValidIdx.stats === futureIdx) lastPoints.push({ name: 'stats', value: d["Média Histórica"] });
-    }
-    const lastY = solveCollisions(lastPoints);
+        const tPoints = [];
+        if (tIdx >= 0) {
+            const d = chartData[tIdx];
+            if (isValidValue(d["Nível Bayesiano"]) && lastValidIdx.bay === tIdx) tPoints.push({ name: 'bay', value: Number(d["Nível Bayesiano"]) });
+            if (isValidValue(d["Nota Bruta"]) && lastValidIdx.raw === tIdx) tPoints.push({ name: 'raw', value: Number(d["Nota Bruta"]) });
+            if (isValidValue(d["Média Histórica"]) && lastValidIdx.stats === tIdx) tPoints.push({ name: 'stats', value: Number(d["Média Histórica"]) });
+            if (isValidValue(d["Futuro Provável"]) && lastValidIdx.mc === tIdx) tPoints.push({ name: 'mc', value: Number(d["Futuro Provável"]) });
+        }
+
+        const fIdx = chartData.length - 1;
+        const isFuture = fIdx > tIdx;
+        const lPoints = [];
+        if (isFuture && fIdx >= 0) {
+            const d = chartData[fIdx];
+            if (isValidValue(d["Futuro Provável"]) && lastValidIdx.mc === fIdx) lPoints.push({ name: 'mc', value: Number(d["Futuro Provável"]) });
+            if (isValidValue(d["Nível Bayesiano"]) && lastValidIdx.bay === fIdx) lPoints.push({ name: 'bay', value: Number(d["Nível Bayesiano"]) });
+            if (isValidValue(d["Nota Bruta"]) && lastValidIdx.raw === fIdx) lPoints.push({ name: 'raw', value: Number(d["Nota Bruta"]) });
+            if (isValidValue(d["Média Histórica"]) && lastValidIdx.stats === fIdx) lPoints.push({ name: 'stats', value: Number(d["Média Histórica"]) });
+        }
+
+        return {
+            todayIdx: tIdx,
+            todayY: solveCollisions(tPoints),
+            futureIdx: fIdx,
+            isFuturePoint: isFuture,
+            lastY: solveCollisions(lPoints)
+        };
+    }, [chartData, lastValidIdx, solveCollisions]);
 
 
 
     const renderLabel = (props, type, color) => {
         const { x, index, value, viewBox } = props;
-        if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+        if (!isValidValue(value) || !Number.isFinite(Number(x))) {
           return null;
         }
         
@@ -298,10 +316,7 @@ export function CompareChart({
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis 
                         dataKey="date" 
-                        tickFormatter={(val, idx) => {
-                            const item = chartData[idx];
-                            return item?.__future && item?.displayDate ? item.displayDate : formatDisplayDate(val);
-                        }}
+                        tickFormatter={(val) => futureDisplayByDate.get(val) || formatDisplayDate(val)}
                         tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
                         dy={12} 
                         axisLine={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} 

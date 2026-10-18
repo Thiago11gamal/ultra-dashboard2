@@ -65,7 +65,8 @@ export function EvolutionLineChart({
         };
     }, []);
     
-    const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const hasValidNum = (v) => v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+    const safeMinScore = hasValidNum(minScore) ? Number(minScore) : 0;
     const safeMaxScore = Number(maxScore) > safeMinScore ? Number(maxScore) : safeMinScore + 1;
     const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
     
@@ -73,7 +74,7 @@ export function EvolutionLineChart({
       safeMinScore,
       Math.min(
         safeMaxScore,
-        Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMinScore
+        hasValidNum(targetScore) ? Number(targetScore) : safeMinScore
       )
     );
     
@@ -121,8 +122,10 @@ export function EvolutionLineChart({
             safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
                 const low = d[`bay_ci_low_${cat.id}`];
                 const high = d[`bay_ci_high_${cat.id}`];
-                if (low != null && Number.isFinite(Number(low)) && high != null && Number.isFinite(Number(high))) {
-                    copy[`band_${cat.id}`] = [Number(low), Number(high)];
+                if (hasValidNum(low) && hasValidNum(high)) {
+                    const l = Number(low);
+                    const h = Number(high);
+                    copy[`band_${cat.id}`] = [Math.min(l, h), Math.max(l, h)];
                 }
             });
             // Fallback defensivo para o eixo X (BUG-T1 Fix)
@@ -226,7 +229,7 @@ export function EvolutionLineChart({
 
         if (hasFocus && !isFocused) return null;
 
-        if (index === lastValidIndexByCat[catId] && value != null) {   // ✅ LOTE-03
+        if (index === lastValidIndexByCat[catId] && hasValidNum(value) && Number.isFinite(Number(x)) && Number.isFinite(Number(y))) {   // ✅ LOTE-03
             let offsetPx = 0;
             const adjustedY = yAdjustedMap[catId];
 

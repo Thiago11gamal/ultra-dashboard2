@@ -26,15 +26,17 @@ const MEGA_PALETTE = [
     "#f43f5e", "#fb7185", "#34d399", "#fbbf24", "#a3e635"
 ];
 
+const hasValidNumber = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 const CustomLineTooltip = React.memo(({ active, payload, label, targetScorePct }) => {
     const safeFix = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v).toFixed(d) : "0");
     
     if (active && payload && payload.length) {
-        const sortedPayload = [...payload].sort((a, b) => {
-            const valA = Number.isFinite(Number(a?.value)) ? Number(a.value) : -Infinity;
-            const valB = Number.isFinite(Number(b?.value)) ? Number(b.value) : -Infinity;
-            return valB - valA;
-        });
+        const validPayload = payload.filter(entry => entry && hasValidNumber(entry.value));
+        if (validPayload.length === 0) return null;
+
+        const sortedPayload = [...validPayload].sort((a, b) => Number(b.value) - Number(a.value));
 
         return (
             <div className="bg-slate-950/95 border border-white/10 p-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl min-w-[320px] z-50">
@@ -121,11 +123,11 @@ export const SubtopicsPerformanceChart = React.memo(({
     const accuracyUnit = '%';
     
     // FIX 5A: garantir range mínimo e fallback sensato
-    const safeMinScorePct = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMinScorePct = hasValidNumber(minScore) ? Number(minScore) : 0;
     const safeMaxScorePct = Number(maxScore) > safeMinScorePct ? Number(maxScore) : safeMinScorePct + 1;
     const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
     
-    const safeTargetScorePctRaw = Number.isFinite(Number(targetScore))
+    const safeTargetScorePctRaw = hasValidNumber(targetScore)
       ? Number(targetScore)
       : safeMinScorePct;
     
@@ -169,14 +171,14 @@ export const SubtopicsPerformanceChart = React.memo(({
     const chartData = useMemo(() => {
         const topicMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
 
         relevantCategories.forEach(cat => {
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
 
-            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMinScore;
+            const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const catRange = Math.max(1e-9, catMax - catMin);
 
             const recentHistory = history.filter(h => {
@@ -200,7 +202,7 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                 topicList.forEach(t => {
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
-                    const n = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
+                    const n = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!n || n.toLowerCase() === 'nenhum') return;
                     const key = n.toLowerCase();
 
@@ -211,7 +213,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                     let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
                     if (t.isPercentage) {
                         if (total === 0) total = getSyntheticTotal(catMax);
-                    } else if (total === 0 && t.score != null) {
+                    } else if (total === 0 && hasValidNumber(t.score)) {
                         total = getSyntheticTotal(catMax);
                     }
                     if (total === 0) return;
@@ -259,7 +261,7 @@ export const SubtopicsPerformanceChart = React.memo(({
         const dateMap = {}; 
         const topicVolumeMap = {}; 
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
 
         const toTopicKey = (name) => {
           const normalized = String(name || '').trim().toLowerCase();
@@ -278,8 +280,8 @@ export const SubtopicsPerformanceChart = React.memo(({
             const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             if (!history.length) return;
 
-            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMinScore;
+            const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const catRange = Math.max(1e-9, catMax - catMin);
 
             const recentHistory = history.filter(h => {
@@ -313,13 +315,13 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                 topicList.forEach(t => {
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
-                    const topicName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
+                    const topicName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
                     let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
                     if (t.isPercentage) {
                         if (total === 0) total = getSyntheticTotal(catMax);
-                    } else if (total === 0 && t.score != null) {
+                    } else if (total === 0 && hasValidNumber(t.score)) {
                         total = getSyntheticTotal(catMax);
                     }
                     if (total === 0) return;

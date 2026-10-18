@@ -3,20 +3,23 @@ import { formatValue, getSafeScore, getSyntheticTotal } from '../../../utils/sco
 import { pointsToPct, pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 
+const hasValidNumber = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100, minScore = 0 }) {
-    const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : (Math.max(1, Number(maxScore) || 100));
-    const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
+    const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+    const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 100);
+    const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMax;
+    const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : globalMin;
     const safeMax = catMax;
     const safeMin = catMin;
     const safeRange = Math.max(1e-9, safeMax - safeMin);
-    const globalMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const globalMax = Math.max(globalMin + 1, Number(maxScore) || 100);
-    const hasLevel = level != null && Number.isFinite(Number(level));
+    const hasLevel = hasValidNumber(level);
     const val = hasLevel ? Number(level) : null;
-    const effectiveTarget = Number.isFinite(Number(cat?.minCutoff))
+    const effectiveTarget = hasValidNumber(cat?.minCutoff)
         ? Number(cat.minCutoff)
-        : (Number.isFinite(Number(target))
-            ? (target <= safeMax && target >= safeMin
+        : (hasValidNumber(target)
+            ? (Number(target) <= safeMax && Number(target) >= safeMin && safeMax === globalMax && safeMin === globalMin
                 ? Number(target)
                 : safeMin + ((Number(target) - globalMin) / (globalMax - globalMin)) * safeRange)
             : safeMin + safeRange * 0.8);
@@ -27,7 +30,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
     const progressWidth = val != null ? Math.max(0, Math.min(100, pointsToPct(val, safeMax, safeMin))) : 0;
 
     let rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
-    if (rawVal == null || !Number.isFinite(Number(rawVal))) {
+    if (!hasValidNumber(rawVal)) {
         const historyRaw = cat?.simuladoStats?.history;
         const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
         if (history.length > 0) {
@@ -62,12 +65,12 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
     }
 
     let statsVal = metrics ? metrics[`stats_${cat.id}`] : null;
-    if ((statsVal == null || !Number.isFinite(Number(statsVal))) && cat?.simuladoStats?.average != null && Number.isFinite(Number(cat.simuladoStats.average))) {
+    if (!hasValidNumber(statsVal) && hasValidNumber(cat?.simuladoStats?.average)) {
         statsVal = Number(cat.simuladoStats.average);
     }
 
     let bayVal = metrics ? metrics[`bay_${cat.id}`] : null;
-    if ((bayVal == null || !Number.isFinite(Number(bayVal))) && cat?.bayesianStats?.mean != null && Number.isFinite(Number(cat.bayesianStats.mean))) {
+    if (!hasValidNumber(bayVal) && hasValidNumber(cat?.bayesianStats?.mean)) {
         bayVal = Number(cat.bayesianStats.mean);
     }
 

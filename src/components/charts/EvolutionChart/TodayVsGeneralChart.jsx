@@ -9,6 +9,9 @@ import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.convers
 import { normalize } from '../../../utils/normalization';
 import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
+const hasValidNumber = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 const COLORS = {
     gaugeBg: 'rgba(255, 255, 255, 0.05)',
     gaugeFillValid: '#a855f7',
@@ -89,10 +92,10 @@ export function TodayVsGeneralChart({
     }, [rawCategories, focusCategory]);
     const generalAccuracy = useMemo(() => {
         const safeMax = Math.max(1, Number(maxScore) || 100);
-        const safeMin = Math.min(Number(minScore) || 0, safeMax);
+        const safeMin = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMax) : 0;
         if (focusCategory) {
-            const catMax = Number.isFinite(Number(focusCategory?.maxScore)) && Number(focusCategory?.maxScore) > 0 ? Number(focusCategory.maxScore) : safeMax;
-            const catMin = Number.isFinite(Number(focusCategory?.minScore)) ? Math.min(Number(focusCategory.minScore), catMax) : safeMin;
+            const catMax = hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0 ? Number(focusCategory.maxScore) : safeMax;
+            const catMin = hasValidNumber(focusCategory?.minScore) ? Math.min(Number(focusCategory.minScore), catMax) : safeMin;
             const history = Object.values(focusCategory.simuladoStats?.history || {});
             let totalQ = 0;
             let totalC = 0;
@@ -122,7 +125,7 @@ export function TodayVsGeneralChart({
     }, [focusCategory, globalMetrics?.globalAccuracy, maxScore, minScore]);
 
     const safeMax = Math.max(1, Number(maxScore) || 100);
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
     const scale = Math.max(1e-9, safeMax - safeMin) / 100;
     const stabilityMargin = Math.max(0.5, (safeMax - safeMin) * 0.02);
 
@@ -150,14 +153,14 @@ export function TodayVsGeneralChart({
     const { dailyData, lastActiveEntry } = useMemo(() => {
         const dayMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-        const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore);
+        const safeMinScore = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMaxScore) : 0;
         const validNowMs = Number(nowMs) || 0;
         const localNext = getDateKey(new Date(validNowMs + 86400000));
         const utcNext = new Date(validNowMs + 86400000).toISOString().split('T')[0];
         const maxAllowedDateKey = localNext > utcNext ? localNext : utcNext;
         activeCategories.forEach(cat => {
-            const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
@@ -221,11 +224,11 @@ export function TodayVsGeneralChart({
         };
 
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-        const safeMinScore = Math.min(Number(minScore) || 0, safeMaxScore);
+        const safeMinScore = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMaxScore) : 0;
 
         activeCategories.forEach(cat => {
-            const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const hDateKey = getDateKey(h.date || h.createdAt);
@@ -279,14 +282,14 @@ export function TodayVsGeneralChart({
                 .sort((a, b) => {
                     const timeA = toDateMs(a.createdAt || a.date);
                     const timeB = toDateMs(b.createdAt || b.date);
-                    return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+                    return (Number.isFinite(timeB) ? timeB : -Infinity) - (Number.isFinite(timeA) ? timeA : -Infinity);
                 });
             if (sortedRows.length > 0) {
                 const latestRow = sortedRows[0];
                 const rSubj = normalize(latestRow.subject || latestRow.categoryName || latestRow.materia);
                 const matchedCat = activeCategories.find(c => (c.name && normalize(c.name) === rSubj) || (c.id && c.id === latestRow.categoryId));
-                const lMax = Number.isFinite(Number(matchedCat?.maxScore)) && Number(matchedCat?.maxScore) > 0 ? Number(matchedCat.maxScore) : safeMaxScore;
-                const lMin = Number.isFinite(Number(matchedCat?.minScore)) ? Math.min(Number(matchedCat.minScore), lMax) : safeMinScore;
+                const lMax = hasValidNumber(matchedCat?.maxScore) && Number(matchedCat.maxScore) > 0 ? Number(matchedCat.maxScore) : safeMaxScore;
+                const lMin = hasValidNumber(matchedCat?.minScore) ? Math.min(Number(matchedCat.minScore), lMax) : safeMinScore;
                 const rawLatest = getSafeScore(latestRow, lMax, lMin);
                 latestAcc = Number.isFinite(rawLatest) ? ratioToPoints(pointsToRatio(rawLatest, lMax, lMin), safeMaxScore, safeMinScore) : null;
                 latestTimestamp = toDateMs(latestRow.createdAt || latestRow.date) || -Infinity;
@@ -296,8 +299,8 @@ export function TodayVsGeneralChart({
 
         // Fallback/Sincronização com cat.simuladoStats.history caso simuladoRows esteja vazio ou desatualizado
         activeCategories.forEach(cat => {
-            const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
-            const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+            const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
+            const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const history = Object.values(cat.simuladoStats?.history || {});
             history.forEach(h => {
                 const hDateKey = getDateKey(h?.date || h?.createdAt);
@@ -326,7 +329,7 @@ export function TodayVsGeneralChart({
     }, [activeCategories, maxScore, minScore, nowMs, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
-    const latestAcc = Number.isFinite(Number(lastMetric?.val)) ? Number(lastMetric.val) : null;
+    const latestAcc = hasValidNumber(lastMetric?.val) ? Number(lastMetric.val) : null;
 
     const chartData = useMemo(() => {
         if (!dailyData || dailyData.length === 0) return [];

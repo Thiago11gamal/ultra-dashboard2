@@ -28,6 +28,9 @@ const WEEKS = [
 
 import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
 
+const hasValidNumber = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0 }) => {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
@@ -66,8 +69,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 return k && k >= startDateKey && k <= endDateKey;
             });
 
-            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
-            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
+            const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+            const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 100);
+            const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMax;
+            const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : globalMin;
             const catRange = Math.max(1e-9, catMax - catMin);
             if (!Number.isFinite(catRange) || catRange <= 0) return;
             for (let i = 0; i < recentHistory.length; i++) {
@@ -90,7 +95,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     if (!topicMap[key]) topicMap[key] = { name: n, total: 0, correct: 0, criticidade: 0 };
 
                     let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
-                    if (total === 0 && t.score != null) {
+                    if (total === 0 && hasValidNumber(t.score)) {
                         total = getSyntheticTotal(catMax);
                     } else if (total === 0) {
                         return;
@@ -163,12 +168,14 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
-            const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
-            const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
+            const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+            const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 100);
+            const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMax;
+            const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : globalMin;
             const catRange = Math.max(1e-9, catMax - catMin);
             for (const h of recentHistory) {
                 let t = parseInt(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 10) || 0;
-                if (t === 0 && h.score != null) {
+                if (t === 0 && hasValidNumber(h.score)) {
                     t = getSyntheticTotal(catMax);
                 } else if (t === 0) {
                     let topicList = toArray(h.topics);
@@ -184,7 +191,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     // Fallback: agrega a partir de h.topics se o cabeçalho h não tiver total/score
                     topicList.forEach(tp => {
                         let tpTot = parseInt(tp.total ?? tp.questoes ?? tp.totalQuestoes ?? tp.questions, 10) || 0;
-                        if (tpTot === 0 && tp.score != null) tpTot = getSyntheticTotal(catMax);
+                        if (tpTot === 0 && hasValidNumber(tp.score)) tpTot = getSyntheticTotal(catMax);
                         if (tpTot <= 0) return;
                         const hasTpCorr = !tp.isPercentage && (
                             (tp.correct !== null && tp.correct !== undefined && String(tp.correct).trim() !== '') ||
@@ -267,7 +274,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
           const topics = toArray(h.topics);
     
           const hasTopicData = topics.some(
-            t => Number(t.total) > 0 || t.score != null
+            t => Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) > 0 || hasValidNumber(t?.score)
           );
     
           return (
@@ -275,8 +282,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             k >= startDateKey &&
             k <= endDateKey &&
             (
-              parseInt(h.total, 10) > 0 ||
-              h.score != null ||
+              parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10) > 0 ||
+              hasValidNumber(h?.score) ||
               hasTopicData
             )
           );
