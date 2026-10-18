@@ -1,7 +1,6 @@
 // ==================== CONSTANTES ====================
 import { calculateMSSD, calculateSlope } from '../engine/projection.js';
 import { getSortedHistory } from '../engine/stats.js';
-import { useAppStore } from '../store/useAppStore.js';
 import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { safeDateParse as _safeDateParse, normalizeDate, getDateKey } from './dateHelper.js';

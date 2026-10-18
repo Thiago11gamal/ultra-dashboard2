@@ -78,6 +78,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const history = toArray(rawHistory);
+    const hasHistory = history.length > 0;
 
     let trendIcon = (
         <div className="w-4 h-4 flex items-center justify-center rounded-full bg-slate-500/10">
@@ -85,16 +86,16 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         </div>
     );
 
-    let trendText = 'Estável';
+    let trendText = hasHistory ? 'Estável' : 'Sem dados';
 
-    if (trend === 'up') {
+    if (hasHistory && trend === 'up') {
         trendIcon = (
             <div className="w-4 h-4 flex items-center justify-center rounded-full bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
                 <TrendingUp size={12} className="text-emerald-400" />
             </div>
         );
         trendText = 'Subindo';
-    } else if (trend === 'down') {
+    } else if (hasHistory && trend === 'down') {
         trendIcon = (
             <div className="w-4 h-4 flex items-center justify-center rounded-full bg-rose-500/20 shadow-[0_0_8px_rgba(244,63,94,0.3)]">
                 <TrendingDown size={12} className="text-rose-400" />
@@ -105,19 +106,23 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 
     let levelColor = 'text-slate-400 bg-slate-500/10 border-slate-500/20';
 
-    if (level === 'ALTO') levelColor = 'text-green-400 bg-green-500/10 border-green-500/20';
-    if (level === 'MÉDIO') levelColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
-    if (level === 'BAIXO') levelColor = 'text-red-400 bg-red-500/10 border-red-500/20';
+    if (hasHistory) {
+        if (level === 'ALTO') levelColor = 'text-green-400 bg-green-500/10 border-green-500/20';
+        if (level === 'MÉDIO') levelColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
+        if (level === 'BAIXO') levelColor = 'text-red-400 bg-red-500/10 border-red-500/20';
+    }
 
     const avgNum = Number(average);
     const formattedAvg = Number.isFinite(avgNum)
         ? (Number.isInteger(avgNum) ? avgNum : avgNum.toFixed(1))
         : average;
 
-    const avgDisplay = safeMax === 100
-        ? `${formattedAvg}%`
-        : `${formattedAvg} / ${safeMax} pts`;
-    const avgPctSub = safeMax !== 100 && Number.isFinite(avgNum)
+    const avgDisplay = !hasHistory
+        ? '-'
+        : safeMax === 100
+            ? `${formattedAvg}%`
+            : `${formattedAvg} / ${safeMax} pts`;
+    const avgPctSub = hasHistory && safeMax !== 100 && Number.isFinite(avgNum)
         ? `${Math.round((avgNum / safeMax) * 100)}%`
         : null;
 
@@ -126,10 +131,12 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(1))
         : lastAttempt;
 
-    const lastDisplay = safeMax === 100
-        ? `${formattedLast}%`
-        : `${formattedLast} / ${safeMax} pts`;
-    const lastPctSub = safeMax !== 100 && Number.isFinite(lastNum)
+    const lastDisplay = !hasHistory
+        ? '-'
+        : safeMax === 100
+            ? `${formattedLast}%`
+            : `${formattedLast} / ${safeMax} pts`;
+    const lastPctSub = hasHistory && safeMax !== 100 && Number.isFinite(lastNum)
         ? `${Math.round((lastNum / safeMax) * 100)}%`
         : null;
 
@@ -175,7 +182,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                         Nível
                     </span>
                     <span className="text-xs font-black">
-                        {level}
+                        {hasHistory ? level : '-'}
                     </span>
                 </div>
 
@@ -202,13 +209,15 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     <div className="flex items-end h-10 gap-0.5 w-full overflow-visible">
                         {history.slice(-10).map((h, i) => {
                             const dateLabel = getHistoryDateLabel(h);
-                            const hScore = Number(h.score || 0);
+                            const rawScore = h?.score ?? (h?.total > 0 ? (h.correct / h.total) * safeMax : 0);
+                            const hScore = Number.isFinite(Number(rawScore)) ? Number(rawScore) : 0;
+                            const formattedHScore = Number.isInteger(hScore) ? hScore : hScore.toFixed(1);
                             const hPct = Math.round((hScore / safeMax) * 100);
                             const barHeight = Math.min(100, Math.max(2, (hScore / safeMax) * 100));
 
                             const labelTooltip = safeMax === 100
-                                ? `${h.score}% (${dateLabel})`
-                                : `${h.score} pts (${hPct}%) (${dateLabel})`;
+                                ? `${formattedHScore}% (${dateLabel})`
+                                : `${formattedHScore} pts (${hPct}%) (${dateLabel})`;
 
                             return (
                                 <div
@@ -257,8 +266,8 @@ const TaskItem = ({
             <div className="flex items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
                 <input
                     type="checkbox"
-                    checked={task.completed}
-                    onChange={() => onToggle(task.id)}
+                    checked={Boolean(task.completed)}
+                    onChange={() => onToggle(task.id || task.text || task.title)}
                     className="flex-shrink-0 w-5 h-5 cursor-pointer accent-purple-500 hover:scale-110 transition-transform"
                     aria-label={`Concluir tarefa: ${taskTitle}`}
                 />
@@ -269,7 +278,7 @@ const TaskItem = ({
                             {taskTitle}
                         </p>
 
-                        {task.status === 'studying' && (
+                        {task.status === 'studying' && !task.completed && (
                             <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-gradient-to-r from-purple-500 to-pink-500 text-white animate-pulse shadow-lg shadow-purple-500/20 whitespace-nowrap flex-shrink-0">
                                 ⚡ Estudando
                             </span>
@@ -285,7 +294,7 @@ const TaskItem = ({
             </div>
 
             <div className="flex items-center justify-end gap-2 w-full sm:w-auto ml-auto pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0">
-                {task.status === 'studying' ? (
+                {task.status === 'studying' && !task.completed ? (
                     <button
                         type="button"
                         onClick={(e) => {
@@ -322,7 +331,7 @@ const TaskItem = ({
                     type="button"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onTogglePriority(task.id || task.text);
+                        onTogglePriority(task.id || task.text || task.title);
                     }}
                     className={`px-3 sm:w-20 py-1.5 rounded-lg text-[9px] sm:text-xs font-black uppercase transition-all cursor-pointer hover:scale-105 active:scale-95 select-none ${priority.bg} ${priority.text} ${priority.border} border`}
                     title="Clique para alternar o nível: Baixa → Média → Alta"
@@ -337,7 +346,7 @@ const TaskItem = ({
 
                 <button
                     type="button"
-                    onClick={() => onDelete(task.id)}
+                    onClick={() => onDelete(task.id || task.text || task.title)}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all"
                     title="Excluir tarefa"
                     aria-label={`Excluir tarefa: ${taskTitle}`}
@@ -373,7 +382,7 @@ const CategoryAccordion = React.memo(({
         [category.tasks]
     );
 
-    const completedCount = originalTasks.filter(t => t.completed).length;
+    const completedCount = originalTasks.filter(t => t && t.completed).length;
 
     const progress = originalTasks.length > 0
         ? Math.round((completedCount / originalTasks.length) * 100)
@@ -449,7 +458,7 @@ const CategoryAccordion = React.memo(({
                             onOpenDeleteCategoryModal(category.id, category.name);
                         }}
                         className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-red-500/20"
-                        title="Excluir Disciplina Permanente"
+                        title="Excluir Disciplina (Mover para Lixeira)"
                         aria-label={`Excluir disciplina ${category.name || 'sem nome'}`}
                     >
                         <Trash2 size={16} strokeWidth={2.5} />
@@ -621,11 +630,11 @@ function Checklist({
         const sourceContest = contests?.[sourceContestId];
         const sourceCats = sourceContest?.categories || [];
         const catToImport = (Array.isArray(sourceCats) ? sourceCats : Object.values(sourceCats))
-            .find(c => c.id === categoryId);
+            .find(c => c && (c.id === categoryId || c.name === categoryId));
         if (!catToImport) return;
         const activeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         const alreadyExists = activeCats.some(c =>
-            normalize(c.name) === normalize(catToImport.name)
+            normalize(c?.name || '') === normalize(catToImport?.name || '')
         );
         if (alreadyExists) {
             showToast(`"${catToImport.name}" já existe neste concurso.`, 'warning');
@@ -670,6 +679,7 @@ function Checklist({
             ...cat,
             originalTasks: cat.tasks || [],
             tasks: (cat.tasks || []).filter(task => {
+                if (!task) return false;
                 if (filter === 'active') return !task.completed;
                 if (filter === 'completed') return task.completed;
                 return true;
@@ -1082,12 +1092,12 @@ function Checklist({
 
                                                 return (
                                                     <button
-                                                        key={cat.id}
+                                                        key={cat.id || cat.name}
                                                         type="button"
                                                         disabled={exists}
                                                         onClick={() => {
                                                             if (handleImportWithFeedback) {
-                                                                handleImportWithFeedback(importSourceContest, cat.id);
+                                                                handleImportWithFeedback(importSourceContest, cat.id || cat.name);
                                                                 setIsImportModalOpen(false);
                                                                 scrollToBottom();
                                                             }
@@ -1155,6 +1165,7 @@ function Checklist({
                 onConfirm={() => {
                     if (deleteCatModal) {
                         onDeleteCategory(deleteCatModal.id);
+                        showToast(`Disciplina "${deleteCatModal.name || ''}" movida para a lixeira.`, 'info');
                     }
                     setDeleteCatModal(null);
                 }}
@@ -1168,7 +1179,10 @@ function Checklist({
                 onClose={() => setDeleteTaskModal(null)}
                 onConfirm={() => {
                     if (deleteTaskModal) {
-                        onDeleteTask(deleteTaskModal.catId, deleteTaskModal.task.id || deleteTaskModal.task.text);
+                        const tId = deleteTaskModal.task?.id || deleteTaskModal.task?.text || deleteTaskModal.task?.title;
+                        const tName = deleteTaskModal.task?.title || deleteTaskModal.task?.text || 'Assunto';
+                        onDeleteTask(deleteTaskModal.catId, tId);
+                        showToast(`Assunto "${tName}" excluído.`, 'info');
                     }
                     setDeleteTaskModal(null);
                 }}

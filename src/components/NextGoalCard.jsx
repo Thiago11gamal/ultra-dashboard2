@@ -159,7 +159,7 @@ function NextGoalCard({
         textHighlight: 'text-blue-400'
     };
 
-    if (urgencyScore > 70) {
+    if (hasSimuladoData && urgencyScore > 70) {
         urgencyStyle = {
             gradient: 'from-red-500/10 to-transparent',
             border: 'border-red-500/20 hover:border-red-500/40',
@@ -169,7 +169,7 @@ function NextGoalCard({
             iconBg: 'bg-red-500/10 border-red-500/20 text-red-500',
             textHighlight: 'text-red-500'
         };
-    } else if (urgencyScore > 50) {
+    } else if (hasSimuladoData && urgencyScore > 50) {
         urgencyStyle = {
             gradient: 'from-amber-500/10 to-transparent',
             border: 'border-amber-500/20 hover:border-amber-500/40',

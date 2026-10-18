@@ -344,7 +344,10 @@ const Sidebar = React.memo(function Sidebar({
                     <Link
                         to="/"
                         className="sidebar-logo"
-                        onClick={closeMobileSidebar}
+                        onClick={() => {
+                            sessionStorage.setItem('navigateToDashboard', 'true');
+                            closeMobileSidebar();
+                        }}
                         title="Método Arraia"
                         onMouseEnter={(e) => handleTooltipEnter(e, { label: 'Método Arraia', color: '#818cf8' }, '(Início)')}
                         onMouseLeave={handleTooltipLeave}

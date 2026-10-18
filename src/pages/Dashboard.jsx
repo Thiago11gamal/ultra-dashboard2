@@ -33,11 +33,11 @@ export default function Dashboard() {
     const showToast = useToast();
     const navigate = useNavigate();
 
-    const filter = useAppStore(state => state.appState.dashboardFilter || 'all');
-    const isHydrated = useAppStore(state => state.appState.isHydrated);
-    const activeId = useAppStore(state => state.appState.activeId);
+    const filter = useAppStore(state => state.appState?.dashboardFilter || 'all');
+    const isHydrated = useAppStore(state => state.appState?.isHydrated);
+    const activeId = useAppStore(state => state.appState?.activeId);
 
-    const contestsRaw = useAppStore(state => state.appState.contests);
+    const contestsRaw = useAppStore(state => state.appState?.contests);
     const contests = React.useMemo(() => contestsRaw || {}, [contestsRaw]);
 
     const {

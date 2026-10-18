@@ -64,8 +64,8 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
 
         // BUG-T16 FIX: Verificar se já existe outra categoria com o mesmo nome.
         const isDuplicate = allCategories.some(c =>
-            c.id !== category.id &&
-            normalize(c.name) === normalize(cleanName)
+            c && c.id !== category.id &&
+            normalize(c.name || '') === normalize(cleanName)
         );
         if (isDuplicate) {
             showToast('Já existe uma disciplina com este nome.', 'error');
@@ -97,6 +97,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             maxScore: Number(parsedMax.toFixed(2))
         });
 
+        showToast('Disciplina atualizada com sucesso!', 'success');
         onClose();
     };
 

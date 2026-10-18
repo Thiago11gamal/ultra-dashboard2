@@ -122,10 +122,12 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         [user.xp]
     );
 
-    const effTheme = useMemo(() => {
-        const hasData = efficiency && efficiency.efficiency !== 'sem_dados' && efficiency.score !== undefined;
+    const hasEffData = useMemo(() => {
+        return Boolean(efficiency && efficiency.efficiency !== 'sem_dados' && efficiency.score !== undefined);
+    }, [efficiency]);
 
-        if (!hasData) {
+    const effTheme = useMemo(() => {
+        if (!hasEffData) {
             return {
                 glow: 'bg-slate-500/10',
                 glowHover: 'group-hover:bg-slate-500/20',
@@ -136,7 +138,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         }
 
         return getEfficiencyTheme(efficiency?.score ?? 0);
-    }, [efficiency]);
+    }, [efficiency, hasEffData]);
 
     const daysRemaining = useMemo(() => {
         if (!user.goalDate) return null;
@@ -291,9 +293,17 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             </div>
                         </div>
 
-                        <div className="text-2xl sm:text-3xl font-black text-white my-1">
-                            {formatValue(efficiency?.score || 0)}
-                            <span className="text-base sm:text-lg text-slate-300 font-bold ml-0.5">%</span>
+                        <div className="text-2xl sm:text-3xl font-black my-1">
+                            {hasEffData ? (
+                                <>
+                                    <span className="text-white">{formatValue(efficiency?.score || 0)}</span>
+                                    <span className="text-base sm:text-lg text-slate-300 font-bold ml-0.5">%</span>
+                                </>
+                            ) : (
+                                <span className="text-lg sm:text-xl text-slate-500 font-bold">
+                                    Sem dados
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -408,7 +418,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                     <div className="mt-auto pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
                         <span className="text-slate-400 font-medium">
-                            Precisão: <strong className="text-amber-400">{formatValue(fcStats.flashcardAccuracy || 0)}%</strong>
+                            Precisão:{' '}
+                            <strong className={(fcStats.flashcardReviews || 0) > 0 ? "text-amber-400" : "text-slate-500"}>
+                                {(fcStats.flashcardReviews || 0) > 0 ? `${formatValue(fcStats.flashcardAccuracy || 0)}%` : '-'}
+                            </strong>
                         </span>
 
                         <span className="text-slate-400">

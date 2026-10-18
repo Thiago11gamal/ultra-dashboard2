@@ -38,6 +38,14 @@ export const createTaskSlice = (set, get) => ({
                 task.lastStudiedAt = nowIso;
                 // ✅ FIX N-03: Gravar o XP concedido como "recibo" imutável
                 task.awardedXP = Math.abs(xpChange);
+                if (task.status === 'studying') {
+                    task.status = null;
+                }
+                const activeTaskId = state.appState.pomodoro?.activeSubject?.taskId;
+                if (activeTaskId && (activeTaskId === taskId || activeTaskId === task.id || activeTaskId === task.text || activeTaskId === task.title)) {
+                    state.appState.pomodoro.activeSubject = null;
+                    state.appState.pomodoro.isRunning = false;
+                }
             } else {
                 // ✅ FIX N-03: Ao desmarcar, usar o recibo gravado (não o XP atual da prioridade)
                 // Isso impede o exploit de mudar prioridade após completar

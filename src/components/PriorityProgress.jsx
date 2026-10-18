@@ -73,8 +73,8 @@ export default function PriorityProgress({ categories = [] }) {
 
     if (totalRealTasks === 0) return null;
 
-    const globalPct = totalWeightedTasks > 0
-        ? Math.round((totalWeightedCompleted / totalWeightedTasks) * 100)
+    const globalPct = totalRealTasks > 0
+        ? Math.round((totalRealCompleted / totalRealTasks) * 100)
         : 0;
 
     return (
@@ -148,9 +148,7 @@ export default function PriorityProgress({ categories = [] }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {priorities.map(p => {
                     const { total, completed } = taskCounts[p];
-                    const wTotal = weightedCounts[p].total;
-                    const wCompleted = weightedCounts[p].completed;
-                    const pct = wTotal > 0 ? Math.round((wCompleted / wTotal) * 100) : 0;
+                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                     const conf = priorityColors[p];
 
                     return (

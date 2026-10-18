@@ -53,6 +53,9 @@ export const createCategorySlice = (set) => ({
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
             markStorageDirty();
+            clearUrgencyCache();
+            clearTopicsCache();
+            clearMcCache();
             added = true;
         });
         return added;
@@ -185,10 +188,39 @@ export const createCategorySlice = (set) => ({
 
         const category = activeData.categories.find(c => c && (c.id === id || c.name === id));
         if (category) {
+            const oldName = category.name;
             Object.assign(category, fields);
             if (fields.name) {
                 removeCategoryTombstone(category.id, fields.name);
+                if (oldName && fields.name !== oldName) {
+                    if (activeData.mcWeights) {
+                        if (activeData.mcWeights[oldName] !== undefined) {
+                            activeData.mcWeights[fields.name] = activeData.mcWeights[oldName];
+                            delete activeData.mcWeights[oldName];
+                        }
+                    }
+                    if (Array.isArray(activeData.simuladoRows)) {
+                        activeData.simuladoRows.forEach(r => {
+                            if (r && (r.categoryId === id || normalize(r.subject || '') === normalize(oldName))) {
+                                r.subject = fields.name;
+                            }
+                        });
+                    }
+                    if (Array.isArray(activeData.simulados)) {
+                        activeData.simulados.forEach(s => {
+                            if (s && (s.categoryId === id || normalize(s.subject || '') === normalize(oldName))) {
+                                s.subject = fields.name;
+                            }
+                        });
+                    }
+                    if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
+                        state.appState.pomodoro.activeSubject.category = fields.name;
+                    }
+                }
             }
+            clearUrgencyCache();
+            clearTopicsCache();
+            clearMcCache();
             const nowIso = new Date().toISOString();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
@@ -453,12 +485,14 @@ export const createCategorySlice = (set) => ({
             const sourceData = state.appState.contests[sourceContestId];
             const activeData = state.appState.contests[state.appState.activeId];
 
-            if (!sourceData || !activeData || !Array.isArray(sourceData.categories)) return;
+            if (!sourceData || !activeData) return;
+            const sourceCategories = Array.isArray(sourceData.categories)
+                ? sourceData.categories
+                : Object.values(sourceData.categories || {});
 
-            const categoryToImport = sourceData.categories.find(c => c.id === categoryId);
+            const categoryToImport = sourceCategories.find(c => c && (c.id === categoryId || c.name === categoryId));
             if (!categoryToImport) return;
 
-            if (!activeData) return;
             if (!Array.isArray(activeData.categories)) {
                 activeData.categories = activeData.categories && typeof activeData.categories === 'object'
                     ? Object.values(activeData.categories)
@@ -466,12 +500,9 @@ export const createCategorySlice = (set) => ({
             }
 
             // Check duplicates
-            const normName = normalize(categoryToImport.name);
-            if (activeData.categories.some(c => normalize(c.name) === normName)) {
+            const normName = normalize(categoryToImport.name || '');
+            if (activeData.categories.some(c => normalize(c?.name || '') === normName)) {
                 console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
-                // BUG-T03 FIX: Retornar um valor que o caller possa usar
-                // para exibir feedback. O caller (Checklist) já faz a
-                // verificação antes de chamar, mas este é o fallback.
                 return;
             }
 
@@ -512,6 +543,9 @@ export const createCategorySlice = (set) => ({
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
             markStorageDirty();
+            clearUrgencyCache();
+            clearTopicsCache();
+            clearMcCache();
             result = true;
         });
         return result;
