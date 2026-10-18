@@ -88,6 +88,7 @@ export default function AIGeneratedSimulado() {
   const abortControllerRef = useRef(null);
   const activeGenerationRef = useRef(null);
 
+  const stepRef = useRef(step);
   const latestAnswersRef = useRef(answers);
   const latestQuestionsRef = useRef(questions);
   const latestFormRef = useRef(form);
