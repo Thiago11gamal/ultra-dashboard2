@@ -26,8 +26,14 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
     for (const h of history) {
         const key = getDateKey(getHistoryDate(h));
         if (!key) continue;
-        const rawTotal = Math.max(0, Number(h?.total) || 0);
-        const rawCorrect = Math.max(0, Math.min(rawTotal, Number(h?.correct) || 0));
+        const rawTotal = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
+        const hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
+                          (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
+                          (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
+        const parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
+        const rawCorrect = hasCorrect && Number.isFinite(parsedCorrect)
+            ? Math.max(0, Math.min(rawTotal > 0 ? rawTotal : Infinity, parsedCorrect))
+            : 0;
         const score = getSafeScore(h, safeMax, safeMin);
         const hasScore = Number.isFinite(score);
         const safeScore = hasScore ? score : NaN;
@@ -235,13 +241,14 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             return Object.values(hist || {}).some(entry => {
                 if (!entry || typeof entry !== 'object') return false;
                 const hasScore = Number.isFinite(Number(entry.score ?? entry.scorePoints));
-                const hasTotal = Number.isFinite(Number(entry.total)) && Number(entry.total) > 0;
-                const hasCorrect = Number.isFinite(Number(entry.correct));
+                const entryTot = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
+                const hasTotal = Number.isFinite(entryTot) && entryTot > 0;
+                const hasCorrect = Number.isFinite(Number(entry.correct ?? entry.acertos ?? entry.correctCount));
                 return hasScore || hasTotal || hasCorrect;
             });
         });
         const getVol = (h) => {
-            const t = Math.max(0, Number(h?.total) || 0);
+            const t = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
             if (t > 0) return t;
             if (h?.score != null) return getSyntheticTotal(safeMax);
             return 0;
@@ -443,7 +450,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 return Math.max(0, Math.min(1, (n - catMin) / catRange));
             };
             getHistoryArray(cat).forEach(h => {
-                let tot = Math.max(0, Number(h.total) || 0);
+                let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
                 const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) return;
 
@@ -453,14 +460,19 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     h?.type === 'percent-only' ||
                     (tot === 0 && h?.score != null);
 
+                const hasExplicitC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
+                                    (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
+                                    (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+                const rawParsedC = Number(h.correct ?? h.acertos ?? h.correctCount);
+
                 let corrNorm;
                 if (isSyntheticVolume && tot === 0) {
                     tot = getSyntheticTotal(catMax);
                     corrNorm = Math.round(toCatRatio(score) * tot);
-                } else if (!h.isPercentage && Number.isFinite(Number(h.correct))) {
-                    corrNorm = Math.max(0, Math.min(tot, Number(h.correct)));
+                } else if (!h.isPercentage && hasExplicitC && Number.isFinite(rawParsedC)) {
+                    corrNorm = Math.max(0, Math.min(tot, rawParsedC));
                 } else {
-                    const raw = Math.max(0, Number(h.correct) || 0);
+                    const raw = Math.max(0, Number.isFinite(rawParsedC) ? rawParsedC : 0);
                     corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;
                 }
                 // FIX 2B: blindagem extra contra NaN em corrNorm e tot

@@ -85,36 +85,52 @@ export function useMonteCarloStats({
 
   const activeId = useAppStore(state => state.appState?.activeId);
 
-  const weights = useAppStore(useShallow(state => state.appState?.contests?.[activeId]?.mcWeights || {}));
+  const weights = useAppStore(useShallow(state => {
+    const currentActiveId = state.appState?.activeId;
+    return state.appState?.contests?.[currentActiveId]?.mcWeights || {};
+  }));
   const equalWeightsMode = useAppStore(state => state.appState?.mcEqualWeights ?? true);
 
   const mcHistory = useAppStore(useShallow(state => {
-    const arr = state.appState?.contests?.[activeId]?.monteCarloHistory;
+    const currentActiveId = state.appState?.activeId;
+    const arr = state.appState?.contests?.[currentActiveId]?.monteCarloHistory;
     return Array.isArray(arr) ? arr : Object.values(arr || {});
   }));
 
   const flashcardDecks = useAppStore(useShallow(state => {
-    const arr = state.appState?.contests?.[activeId]?.flashcardDecks;
+    const currentActiveId = state.appState?.activeId;
+    const arr = state.appState?.contests?.[currentActiveId]?.flashcardDecks;
     return Array.isArray(arr) ? arr : Object.values(arr || {});
   }));
 
   const historicalCutoffs = useAppStore(useShallow(state => {
-    const arr = state.appState?.contests?.[activeId]?.historicalCutoffs;
+    const currentActiveId = state.appState?.activeId;
+    const arr = state.appState?.contests?.[currentActiveId]?.historicalCutoffs;
     return Array.isArray(arr) ? arr : Object.values(arr || {});
   }));
 
     // ✅ LOTE-03 FIX (A2): assinar APENAS simuladoRows em vez do concurso inteiro.
     // Antes, qualquer campo do concurso (studyLogs, flashcards, tasks, sessões...)
     // trocava a referência de `contest` e re-renderizava os DOIS gauges.
-    const contestSimuladoRows = useAppStore(state => state.appState?.contests?.[activeId]?.simuladoRows);
+    const contestSimuladoRows = useAppStore(state => {
+      const currentActiveId = state.appState?.activeId;
+      return state.appState?.contests?.[currentActiveId]?.simuladoRows;
+    });
 
   const calibrationEvents = useAppStore(useShallow(state => {
-    const evs = state.appState?.contests?.[activeId]?.calibrationEvents;
+    const currentActiveId = state.appState?.activeId;
+    const evs = state.appState?.contests?.[currentActiveId]?.calibrationEvents;
     return Array.isArray(evs) ? evs : Object.values(evs || {});
   }));
 
-  const examDurationMinutes = useAppStore(state => state.appState?.contests?.[activeId]?.examDurationMinutes || 240);
-  const defaultExamTotalQuestions = useAppStore(state => state.appState?.contests?.[activeId]?.examTotalQuestions || 100);
+  const examDurationMinutes = useAppStore(state => {
+    const currentActiveId = state.appState?.activeId;
+    return state.appState?.contests?.[currentActiveId]?.examDurationMinutes || 240;
+  });
+  const defaultExamTotalQuestions = useAppStore(state => {
+    const currentActiveId = state.appState?.activeId;
+    return state.appState?.contests?.[currentActiveId]?.examTotalQuestions || 100;
+  });
 
     const rawSimuladoRows = useMemo(() => {
         const source = propSimuladoRows ?? contestSimuladoRows ?? [];

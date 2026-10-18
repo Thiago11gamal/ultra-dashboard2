@@ -13,8 +13,8 @@ import ConfirmModal from '../components/ConfirmModal';
 const EMPTY_ARRAY = Object.freeze([]);
 
 function getActiveContest(state) {
-  const id = state.appState.activeId;
-  return state.appState.contests[id] || {};
+  const id = state.appState?.activeId || 'default';
+  return state.appState?.contests?.[id] || {};
 }
 
 export default function Flashcards() {

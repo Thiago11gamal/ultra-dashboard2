@@ -205,12 +205,12 @@ export function resolveTargetPoints(value, domainOrMax, minScore = 0, unit = "au
 export function normalizeScoreValue(row, maxScore, minScore = 0) {
   const r = row && typeof row === "object" ? row : {};
   const domain = safeDomain(maxScore, minScore);
-  const totalRaw = Number(r.total);
+  const totalRaw = Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions);
   const total = Number.isFinite(totalRaw) ? Math.max(0, Math.trunc(totalRaw)) : 0;
 
   let correct = 0;
   if (total > 0) {
-    const correctRaw = Number(r.correct);
+    const correctRaw = Number(r.correct ?? r.acertos ?? r.correctCount);
     correct = Number.isFinite(correctRaw)
       ? Math.max(0, Math.min(total, Math.trunc(correctRaw)))
       : 0;
@@ -371,9 +371,9 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     if (row.isPercentage && Number.isFinite(score)) {
       score = safeMin + (score / 100) * range;
     }
-  } else if (row.correct != null && row.total != null) {
-    const total = Number(row.total);
-    const correct = Number(row.correct);
+  } else if ((row.correct != null || row.acertos != null || row.correctCount != null) && (row.total != null || row.questoes != null || row.totalQuestoes != null || row.questions != null)) {
+    const total = Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions);
+    const correct = Number(row.correct ?? row.acertos ?? row.correctCount);
     // ✅ FIX: proteger contra total=0 → divisão por zero
     if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
       score = safeMin + (Math.max(0, Math.min(total, correct)) / total) * range;

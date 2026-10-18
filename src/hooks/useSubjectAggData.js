@@ -57,7 +57,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const catRange = Math.max(1e-9, catMax - catMin);
 
         const totalQ = history.reduce((s, h) => {
-          let tot = Math.max(0, Number(h.total) || 0);
+          let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
           if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
           const score = getSafeScore(h, catMax, catMin);
           if (!Number.isFinite(score)) return s;
@@ -66,10 +66,13 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
 
         const totalCorrect = Math.round(
           history.reduce((s, h) => {
-            let tot = Math.max(0, Number(h.total) || 0);
+            let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
             if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
-            const rawC = Number(h.correct);
-            if (!h.isPercentage && Number.isFinite(rawC)) {
+            const hasRawC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
+                            (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
+                            (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+            const rawC = Number(h.correct ?? h.acertos ?? h.correctCount);
+            if (!h.isPercentage && hasRawC && Number.isFinite(rawC)) {
               return s + Math.max(0, Math.min(tot, rawC));
             }
             const score = getSafeScore(h, catMax, catMin);
@@ -92,14 +95,15 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
                 const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                 const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
                   ? t.timedQuestoes
-                  : Number(t.total) || 0;
+                  : Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0;
                 if (tTs !== null && tTs > 0 && tTot > 0) {
                   topicsTs += tTs; topicsTimedQ += tTot; hasTopicWithTime = true;
                 }
               }
             }
             if (hasTopicWithTime) return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-            if (rootTs !== null && rootTs > 0 && Number(h.total) > 0) return { ts: acc.ts + rootTs, tq: acc.tq + Number(h.total) };
+            const rootTot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
+            if (rootTs !== null && rootTs > 0 && rootTot > 0) return { ts: acc.ts + rootTs, tq: acc.tq + rootTot };
             if (rootTs !== null && rootTs > 0 && h.score != null) return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(catMax) };
             return acc;
           },

@@ -203,6 +203,13 @@ export const WeeklyEvolutionView = ({
                         if (!itemsMap[key]) {
                             itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
                         }
+                    } else if (h.topic || h.assunto || h.subtopic || h.topicName) {
+                        const rawTopicText = h.topic || h.assunto || h.subtopic || h.topicName;
+                        const tName = String(rawTopicText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
+                        const key = toSafeKey(tName);
+                        if (!itemsMap[key]) {
+                            itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                        }
                     } else {
                         if (!itemsMap['top_geral']) {
                             itemsMap['top_geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
@@ -234,10 +241,13 @@ export const WeeklyEvolutionView = ({
                 if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
 
-                let totalQ = Math.max(0, Number(h.total) || 0);
+                let totalQ = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
                 let corr = 0;
-                if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
-                    const rawC = Math.max(0, Number(h.correct) || 0);
+                const hasValidC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
+                                  (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
+                                  (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+                if (hasValidC && !h.isPercentage) {
+                    const rawC = Math.max(0, Number(h.correct ?? h.acertos ?? h.correctCount) || 0);
                     if (totalQ === 0) totalQ = rawC > 0 ? rawC : getSyntheticTotal(cMax);
                     corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
                 } else {
@@ -283,10 +293,13 @@ export const WeeklyEvolutionView = ({
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
-                            let totalQ = Math.max(0, Number(t.total) || 0);
+                            let totalQ = Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
                             let corr = 0;
-                            if (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== '' && !t.isPercentage) {
-                                const rawC = Math.max(0, Number(t.correct) || 0);
+                            const hasValidC = (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== '') ||
+                                              (t.acertos !== undefined && t.acertos !== null && String(t.acertos).trim() !== '') ||
+                                              (t.correctCount !== undefined && t.correctCount !== null && String(t.correctCount).trim() !== '');
+                            if (hasValidC && !t.isPercentage) {
+                                const rawC = Math.max(0, Number(t.correct ?? t.acertos ?? t.correctCount) || 0);
                                 if (totalQ === 0) totalQ = rawC > 0 ? rawC : getSyntheticTotal(cMax);
                                 corr = Math.min(totalQ, Number.isFinite(rawC) ? rawC : 0);
                             } else {
@@ -305,6 +318,11 @@ export const WeeklyEvolutionView = ({
                     } else if (h.taskId) {
                         const rawTaskText = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
                         const tName = String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
+                        const tId = toSafeKey(tName);
+                        processHistory([h], tId, cMax, cMin);
+                    } else if (h.topic || h.assunto || h.subtopic || h.topicName) {
+                        const rawTopicText = h.topic || h.assunto || h.subtopic || h.topicName;
+                        const tName = String(rawTopicText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
                         const tId = toSafeKey(tName);
                         processHistory([h], tId, cMax, cMin);
                     } else {
@@ -326,9 +344,9 @@ export const WeeklyEvolutionView = ({
             };
 
             const currentWeekDate = parseNoonLocal(weekObj.week);
-            const expectedPrevDate = new Date(currentWeekDate);
-            expectedPrevDate.setDate(expectedPrevDate.getDate() - 7);
-            const expectedPrevKey = getDateKey(expectedPrevDate);
+            const expectedPrevDate = currentWeekDate ? new Date(currentWeekDate) : null;
+            if (expectedPrevDate) expectedPrevDate.setDate(expectedPrevDate.getDate() - 7);
+            const expectedPrevKey = expectedPrevDate ? getDateKey(expectedPrevDate) : null;
             
             validIds.forEach(id => {
                 const currentData = weekObj[id];

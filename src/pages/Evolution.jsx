@@ -47,7 +47,7 @@ export default function Evolution() {
   const hasEvolutionData = (Array.isArray(safeCategories) && safeCategories.some(category => {
     const h = category?.simuladoStats?.history;
     const list = Array.isArray(h) ? h : Object.values(h || {});
-    return list.some(entry => entry && (Number(entry.total) > 0 || entry.score != null));
+    return list.some(entry => entry && (Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) > 0 || entry.score != null));
   })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.length > 0);
 
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova

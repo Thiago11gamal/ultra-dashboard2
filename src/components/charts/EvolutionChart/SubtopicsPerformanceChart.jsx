@@ -187,8 +187,18 @@ export const SubtopicsPerformanceChart = React.memo(({
 
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
+                let topicList = toArray(h.topics);
+                if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
+                    topicList = [{
+                        name: h.topic || h.assunto || h.subtopic || h.topicName,
+                        total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+                        correct: h.correct ?? h.acertos ?? h.correctCount,
+                        score: h.score,
+                        isPercentage: h.isPercentage
+                    }];
+                }
 
-                toArray(h.topics).forEach(t => {
+                topicList.forEach(t => {
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const n = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!n || n.toLowerCase() === 'nenhum') return;
@@ -198,7 +208,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                         topicMap[key] = { name: n, correct: 0, total: 0 };
                     }
 
-                    let total = parseInt(t.total, 10) || 0;
+                    let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
                     if (t.isPercentage) {
                         if (total === 0) total = getSyntheticTotal(catMax);
                     } else if (total === 0 && t.score != null) {
@@ -206,8 +216,13 @@ export const SubtopicsPerformanceChart = React.memo(({
                     }
                     if (total === 0) return;
                     
-                    const hasValidC = !t.isPercentage && t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '';
-                    let correctCount = hasValidC && Number.isFinite(Number(t.correct)) ? Number(t.correct) : NaN;
+                    const hasValidC = !t.isPercentage && (
+                        (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
+                        (t.acertos !== null && t.acertos !== undefined && String(t.acertos).trim() !== '') ||
+                        (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
+                    );
+                    const parsedC = Number(t.correct ?? t.acertos ?? t.correctCount);
+                    let correctCount = hasValidC && Number.isFinite(parsedC) ? parsedC : NaN;
 
                     if (!Number.isFinite(correctCount)) {
                         const rawScore = getSafeScore(t, catMax, catMin);
@@ -285,12 +300,23 @@ export const SubtopicsPerformanceChart = React.memo(({
                     dateMap[dateKey] = { dateLabel, originalDate: dayNoonMs };
                 }
 
-                toArray(h.topics).forEach(t => {
+                let topicList = toArray(h.topics);
+                if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
+                    topicList = [{
+                        name: h.topic || h.assunto || h.subtopic || h.topicName,
+                        total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+                        correct: h.correct ?? h.acertos ?? h.correctCount,
+                        score: h.score,
+                        isPercentage: h.isPercentage
+                    }];
+                }
+
+                topicList.forEach(t => {
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const topicName = rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase();
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
                     
-                    let total = parseInt(t.total, 10) || 0;
+                    let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
                     if (t.isPercentage) {
                         if (total === 0) total = getSyntheticTotal(catMax);
                     } else if (total === 0 && t.score != null) {
@@ -300,8 +326,13 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
 
-                    const hasValidC = !t.isPercentage && t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '';
-                    let correct = hasValidC && Number.isFinite(Number(t.correct)) ? Number(t.correct) : NaN;
+                    const hasValidC = !t.isPercentage && (
+                        (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
+                        (t.acertos !== null && t.acertos !== undefined && String(t.acertos).trim() !== '') ||
+                        (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
+                    );
+                    const parsedC = Number(t.correct ?? t.acertos ?? t.correctCount);
+                    let correct = hasValidC && Number.isFinite(parsedC) ? parsedC : NaN;
 
                     if (!Number.isFinite(correct)) {
                         const rawScore = getSafeScore(t, catMax, catMin);
@@ -486,7 +517,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                 <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
                                     {chartData.map((entry, index) => {
                                         let barColor = `url(#gradBad_${instanceId})`;
-                                        const warnThreshold = Math.max(25, targetScorePct * 0.75);
+                                        const warnThreshold = targetScorePct > 35 ? Math.max(25, targetScorePct * 0.75) : targetScorePct * 0.75;
                                         if (entry.accuracy >= targetScorePct) barColor = `url(#gradGood_${instanceId})`;
                                         else if (entry.accuracy >= warnThreshold) barColor = `url(#gradWarn_${instanceId})`;
                                         return <Cell key={`cell-${index}`} fill={barColor} />;

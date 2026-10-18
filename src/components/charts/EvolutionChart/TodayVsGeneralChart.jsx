@@ -268,7 +268,7 @@ export function TodayVsGeneralChart({
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
             const sortedRows = [...simuladoRows]
                 .filter(r => {
-                  const rSubj = normalize(r.subject);
+                  const rSubj = normalize(r.subject || r.categoryName || r.materia);
                   const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
                   const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
                 
@@ -281,7 +281,7 @@ export function TodayVsGeneralChart({
                 });
             if (sortedRows.length > 0) {
                 const latestRow = sortedRows[0];
-                const rSubj = normalize(latestRow.subject);
+                const rSubj = normalize(latestRow.subject || latestRow.categoryName || latestRow.materia);
                 const matchedCat = activeCategories.find(c => (c.name && normalize(c.name) === rSubj) || (c.id && c.id === latestRow.categoryId));
                 const lMax = Number.isFinite(Number(matchedCat?.maxScore)) && Number(matchedCat?.maxScore) > 0 ? Number(matchedCat.maxScore) : safeMaxScore;
                 const lMin = Number.isFinite(Number(matchedCat?.minScore)) ? Math.min(Number(matchedCat.minScore), lMax) : safeMinScore;

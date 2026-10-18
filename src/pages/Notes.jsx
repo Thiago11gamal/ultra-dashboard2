@@ -50,7 +50,7 @@ const mergeTopics = (oldTopics = [], incomingTopics = []) => {
 };
 
 export default function Notes() {
-    const activeContest = useAppStore(state => state.appState.contests[state.appState.activeId]);
+    const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
     
     // FIX: Evitamos recriar o array `|| []` em cada renderização para não quebrar a memoização do useMemo
     const categoriesRaw = activeContest?.categories;

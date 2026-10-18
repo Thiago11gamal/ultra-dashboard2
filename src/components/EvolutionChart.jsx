@@ -571,18 +571,23 @@ export default React.memo(function EvolutionChart({
         const sourceCats = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
         if (!sourceCats || !sourceCats.length) return [];
         return sourceCats.map(cat => {
+            const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : (Math.max(1, Number(maxScore) || 100));
+            const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
             const lvl = categoryLevels?.[cat.id];
             const hasLvl = lvl !== null && lvl !== undefined && lvl !== '' && Number.isFinite(Number(lvl));
-            const val = hasLvl ? Number(Number(lvl).toFixed(2)) : minScore;
+            const val = hasLvl ? Math.max(catMin, Math.min(catMax, Number(Number(lvl).toFixed(2)))) : catMin;
             const fullName = String(cat.name || 'Sem nome');
+            const meta = Number.isFinite(Number(cat?.minCutoff))
+                ? Number(cat.minCutoff)
+                : Math.max(catMin, Math.min(catMax, Number(targetScore) || catMin));
             return {
                 subject: fullName.replace(/Direito /gi, 'D. '),
                 fullSubject: fullName,
                 nivel: val,
-                meta: Number.isFinite(Number(cat?.minCutoff)) ? Number(cat.minCutoff) : targetScore
+                meta
             };
         });
-    }, [activeCategories, categories, targetScore, categoryLevels, minScore]);
+    }, [activeCategories, categories, targetScore, categoryLevels, minScore, maxScore]);
 
     const insight = useMemo(() => {
         return generateEvolutionInsights({

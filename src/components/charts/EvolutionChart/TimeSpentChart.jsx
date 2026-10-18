@@ -180,7 +180,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     if (safeTopics.length > 0) {
                         for (const t of safeTopics) {
                             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
+                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
                             if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
                                 topicsTs += tTs;
                                 topicsTimedQ += tTot;
@@ -192,7 +192,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     if (hasTopicWithTime) {
                         return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
                     } else {
-                        let tot = Number(h.total) || 0;
+                        let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
                         if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
                         if (tot > 0 && rootTs !== null && rootTs > 0) {
                             return { ts: acc.ts + rootTs, tq: acc.tq + tot };
@@ -223,7 +223,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     const safeTopics = Array.isArray(entry?.topics) ? entry.topics : Object.values(entry?.topics || {});
                     for (const t of safeTopics) {
                         const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                        const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total) || 0);
+                        const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
                         if (tTs !== null && tTs > 0 && tTot > 0) {
                             topicsTs += tTs;
                             topicsTimedQ += tTot;
@@ -231,7 +231,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         }
                     }
                     if (hasTopicWithTime && topicsTimedQ > 0) return { ts: topicsTs, tq: topicsTimedQ };
-                    let tot = Number(entry?.total) || 0;
+                    let tot = Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0;
                     if (tot === 0 && entry?.score != null) tot = getSyntheticTotal(maxScore);
                     if (tot > 0 && rootTs !== null && rootTs > 0) return { ts: rootTs, tq: tot };
                     return null;

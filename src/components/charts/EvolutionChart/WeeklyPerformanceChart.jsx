@@ -67,10 +67,13 @@ const WeeklyPerformanceChart = ({
                 history.forEach(h => {
                     const hDate = getDateKey(getHistoryDate(h));
                     if (hDate === dateKey) {
-                        let q = Number(h.total) || 0;
+                        let q = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
                         let corr = 0;
-                        if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
-                            const rawC = Math.max(0, Number(h.correct) || 0);
+                        const hasCorrect = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
+                                          (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
+                                          (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+                        if (hasCorrect && !h.isPercentage) {
+                            const rawC = Math.max(0, Number(h.correct ?? h.acertos ?? h.correctCount) || 0);
                             corr = Math.min(q > 0 ? q : rawC, Number.isFinite(rawC) ? rawC : 0);
                             if (q === 0) q = corr > 0 ? corr : getSyntheticTotal(catMax);
                         } else {

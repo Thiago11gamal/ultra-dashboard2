@@ -311,7 +311,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const activeId = useAppStore(state => state.appState?.activeId);
     const contestSettings = useAppStore(
         useShallow(state => {
-            const contest = state.appState?.contests?.[activeId];
+            const currentActiveId = state.appState?.activeId;
+            const contest = state.appState?.contests?.[currentActiveId];
             return {
                 maxScore: contest?.maxScore ?? contest?.settings?.maxScore,
                 minScore: contest?.minScore ?? contest?.settings?.minScore,
@@ -360,7 +361,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     // FIX Bug 4: useShallow envolve o seletor conforme API do Zustand/React
     const storeFlashcardDecks = useAppStore(
         useShallow(state => {
-            const rawDecks = state.appState?.contests?.[activeId]?.flashcardDecks || [];
+            const currentActiveId = state.appState?.activeId;
+            const rawDecks = state.appState?.contests?.[currentActiveId]?.flashcardDecks || [];
             return Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
         })
     );
@@ -477,14 +479,20 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     }, [targetScore]);
 
 
-    const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || null);
+    const weights = useAppStore(state => {
+        const currentActiveId = state.appState?.activeId;
+        return state.appState?.contests?.[currentActiveId]?.mcWeights || null;
+    });
     const setWeights = useAppStore(state => state.setMonteCarloWeights);
     const equalWeightsMode = useAppStore(state => state.appState?.mcEqualWeights ?? true);
     const setEqualWeightsMode = useAppStore(state => state.setMcEqualWeights);
     // T-008 FIX: Normalizar para array. Se vier como objeto Firebase,
     // convertemos com Object.values para evitar crash em .map().
     const rawHistoricalCutoffs = useAppStore(
-        state => state.appState?.contests?.[activeId]?.historicalCutoffs
+        state => {
+            const currentActiveId = state.appState?.activeId;
+            return state.appState?.contests?.[currentActiveId]?.historicalCutoffs;
+        }
     );
     const historicalCutoffs = useMemo(() => {
         if (Array.isArray(rawHistoricalCutoffs)) return rawHistoricalCutoffs;

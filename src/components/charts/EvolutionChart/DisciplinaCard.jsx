@@ -50,7 +50,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                     if (getDateKey(h?.date || h?.createdAt || h?.timestamp) !== latestDayKey) continue;
                     const s = getSafeScore(h, safeMax, safeMin);
                     if (!Number.isFinite(s)) continue;
-                    const q = Number(h?.total) > 0 ? Number(h.total) : getSyntheticTotal(safeMax);
+                    const q = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) > 0 ? Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) : getSyntheticTotal(safeMax);
                     dayTotal += q;
                     dayCorrect += pointsToRatio(s, safeMax, safeMin) * q;
                 }

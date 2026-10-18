@@ -95,11 +95,20 @@ const MonteCarloGaugeBase = ({
     const activeId = useAppStore(state => state.appState?.activeId);
     // ✅ LOTE-02 FIX (A1): `|| {}` criava objeto NOVO a cada snapshot da store →
     // Object.is sempre divergia → gauge re-renderizava em qualquer mudança global.
-    const weights = useAppStore(state => state.appState?.contests?.[activeId]?.mcWeights || EMPTY_WEIGHTS);
-    const activeUser = useAppStore(state => state.appState?.contests?.[activeId]?.user);
+    const weights = useAppStore(state => {
+        const currentActiveId = state.appState?.activeId;
+        return state.appState?.contests?.[currentActiveId]?.mcWeights || EMPTY_WEIGHTS;
+    });
+    const activeUser = useAppStore(state => {
+        const currentActiveId = state.appState?.activeId;
+        return state.appState?.contests?.[currentActiveId]?.user;
+    });
     // T-008 FIX: Normalizar para array antes de passar ao MonteCarloConfig.
     const rawHistoricalCutoffs = useAppStore(
-        state => state.appState?.contests?.[activeId]?.historicalCutoffs
+        state => {
+            const currentActiveId = state.appState?.activeId;
+            return state.appState?.contests?.[currentActiveId]?.historicalCutoffs;
+        }
     );
     const historicalCutoffs = useMemo(() => {
         if (Array.isArray(rawHistoricalCutoffs)) return rawHistoricalCutoffs;

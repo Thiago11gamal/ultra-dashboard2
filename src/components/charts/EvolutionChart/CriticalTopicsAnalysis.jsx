@@ -72,14 +72,24 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             if (!Number.isFinite(catRange) || catRange <= 0) return;
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
+                let topicList = toArray(h.topics);
+                if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
+                    topicList = [{
+                        name: h.topic || h.assunto || h.subtopic || h.topicName,
+                        total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+                        correct: h.correct ?? h.acertos ?? h.correctCount,
+                        score: h.score,
+                        isPercentage: h.isPercentage
+                    }];
+                }
 
-                toArray(h.topics).forEach(t => {
+                topicList.forEach(t => {
                     const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     if (!n || n.toLowerCase() === 'nenhum') return;
                     const key = n.toLowerCase();
                     if (!topicMap[key]) topicMap[key] = { name: n, total: 0, correct: 0, criticidade: 0 };
 
-                    let total = parseInt(t.total, 10) || 0;
+                    let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
                     if (total === 0 && t.score != null) {
                         total = getSyntheticTotal(catMax);
                     } else if (total === 0) {
@@ -87,10 +97,15 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     }
                     
                     if (total <= 0) return;
-                    const hasExplicitCorrect = !t.isPercentage && t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '' && Number.isFinite(Number(t.correct));
+                    const hasExplicitCorrect = !t.isPercentage && (
+                        (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
+                        (t.acertos !== null && t.acertos !== undefined && String(t.acertos).trim() !== '') ||
+                        (t.correctCount !== null && t.correctCount !== undefined && String(t.correctCount).trim() !== '')
+                    );
+                    const parsedCorrect = Number(t.correct ?? t.acertos ?? t.correctCount);
                     let correctCount;
-                    if (hasExplicitCorrect) {
-                        correctCount = Number(t.correct);
+                    if (hasExplicitCorrect && Number.isFinite(parsedCorrect)) {
+                        correctCount = parsedCorrect;
                     } else {
                         const score = getSafeScore(t, catMax, catMin);
                         if (!Number.isFinite(score)) return;
@@ -152,19 +167,34 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number(minScore) || 0);
             const catRange = Math.max(1e-9, catMax - catMin);
             for (const h of recentHistory) {
-                let t = parseInt(h.total, 10) || 0;
+                let t = parseInt(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 10) || 0;
                 if (t === 0 && h.score != null) {
                     t = getSyntheticTotal(catMax);
                 } else if (t === 0) {
+                    let topicList = toArray(h.topics);
+                    if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
+                        topicList = [{
+                            name: h.topic || h.assunto || h.subtopic || h.topicName,
+                            total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+                            correct: h.correct ?? h.acertos ?? h.correctCount,
+                            score: h.score,
+                            isPercentage: h.isPercentage
+                        }];
+                    }
                     // Fallback: agrega a partir de h.topics se o cabeçalho h não tiver total/score
-                    toArray(h.topics).forEach(tp => {
-                        let tpTot = parseInt(tp.total, 10) || 0;
+                    topicList.forEach(tp => {
+                        let tpTot = parseInt(tp.total ?? tp.questoes ?? tp.totalQuestoes ?? tp.questions, 10) || 0;
                         if (tpTot === 0 && tp.score != null) tpTot = getSyntheticTotal(catMax);
                         if (tpTot <= 0) return;
-                        const hasTpCorr = !tp.isPercentage && tp.correct !== null && tp.correct !== undefined && String(tp.correct).trim() !== '' && Number.isFinite(Number(tp.correct));
+                        const hasTpCorr = !tp.isPercentage && (
+                            (tp.correct !== null && tp.correct !== undefined && String(tp.correct).trim() !== '') ||
+                            (tp.acertos !== null && tp.acertos !== undefined && String(tp.acertos).trim() !== '') ||
+                            (tp.correctCount !== null && tp.correctCount !== undefined && String(tp.correctCount).trim() !== '')
+                        );
+                        const parsedTpCorr = Number(tp.correct ?? tp.acertos ?? tp.correctCount);
                         let tpCorr;
-                        if (hasTpCorr) {
-                            tpCorr = Number(tp.correct);
+                        if (hasTpCorr && Number.isFinite(parsedTpCorr)) {
+                            tpCorr = parsedTpCorr;
                         } else {
                             const tpScore = getSafeScore(tp, catMax, catMin);
                             if (!Number.isFinite(tpScore)) return;
@@ -178,10 +208,15 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     continue;
                 }
                 
-                const hasExplicitCorrect = !h.isPercentage && h.correct !== null && h.correct !== undefined && String(h.correct).trim() !== '' && Number.isFinite(Number(h.correct));
+                const hasExplicitCorrect = !h.isPercentage && (
+                    (h.correct !== null && h.correct !== undefined && String(h.correct).trim() !== '') ||
+                    (h.acertos !== null && h.acertos !== undefined && String(h.acertos).trim() !== '') ||
+                    (h.correctCount !== null && h.correctCount !== undefined && String(h.correctCount).trim() !== '')
+                );
+                const parsedHCorrect = Number(h.correct ?? h.acertos ?? h.correctCount);
                 let correctCount;
-                if (hasExplicitCorrect) {
-                    correctCount = Number(h.correct);
+                if (hasExplicitCorrect && Number.isFinite(parsedHCorrect)) {
+                    correctCount = parsedHCorrect;
                 } else {
                     const score = getSafeScore(h, catMax, catMin);
                     if (!Number.isFinite(score)) continue;
