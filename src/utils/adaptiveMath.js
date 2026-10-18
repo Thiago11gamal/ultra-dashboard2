@@ -157,6 +157,9 @@ export const calcSlopeWithSignificance = (dados) => {
     const n = dados.length;
     if (n < 3) return { slope: 0, se: 0, tStat: 0 };
     
+    // FIX-M01: para séries com n >= 5, aplicar pesos exponenciais
+    // com meia-vida de 30 dias. Isso reduz o impacto de simulados antigos
+    // e captura melhor a tendência recente.
     // Extração bruta
     const rawXs = dados.map((d, i) => {
         const rawX = (d && typeof d === 'object' && d.x !== undefined) ? d.x : i;
@@ -172,11 +175,44 @@ export const calcSlopeWithSignificance = (dados) => {
     // FIX 1: Centralização dos eixos X (Mean Centering) para anular a perda de precisão
     // em matrizes de ponto flutuante durante a elevação ao quadrado de datas gigantes.
     let minX = Infinity;
+    let maxX = -Infinity;
     for (let i = 0; i < n; i++) {
         if (rawXs[i] < minX) minX = rawXs[i];
+        if (rawXs[i] > maxX) maxX = rawXs[i];
     }
     const Xs = rawXs.map(x => x - minX);
+
+    if (n >= 5) {
+        // WLS com decaimento exponencial (meia-vida de 30 dias)
+        const isMs = maxX > 1e11;
+        const lambda = Math.LN2 / 30; // ~0.0231
+        const weights = rawXs.map((rx) => {
+            const ageDays = isMs ? Math.max(0, (maxX - rx) / 86400000) : Math.max(0, maxX - rx);
+            return Math.exp(-lambda * ageDays);
+        });
+
+        const sumW = kahanSum(weights);
+        if (sumW > 1e-9) {
+            const meanX_w = kahanSum(Xs.map((x, i) => weights[i] * x)) / sumW;
+            const meanY_w = kahanSum(Ys.map((y, i) => weights[i] * y)) / sumW;
+            const covXY = kahanSum(Xs.map((x, i) => weights[i] * (x - meanX_w) * (Ys[i] - meanY_w)));
+            const varX = kahanSum(Xs.map((x, i) => weights[i] * Math.pow(x - meanX_w, 2)));
+
+            if (varX > 1e-12) {
+                const slope = covXY / varX;
+                const intercept = meanY_w - slope * meanX_w;
+                const predYs = Xs.map((x) => intercept + slope * x);
+                const ssRes = kahanSum(Ys.map((y, i) => weights[i] * Math.pow(y - predYs[i], 2)));
+                const effectiveDf = Math.max(1, sumW - 2);
+                const varRes = ssRes / effectiveDf;
+                const seSlope = Math.sqrt(varRes / varX);
+                const tStat = seSlope > 0 ? slope / seSlope : 0;
+                return { slope, se: seSlope, tStat };
+            }
+        }
+    }
     
+    // OLS padrão para n < 5 ou fallback
     const sumX = kahanSum(Xs);
     const sumY = kahanSum(Ys);
     const sumXY = kahanSum(Xs.map((x, i) => x * Ys[i]));

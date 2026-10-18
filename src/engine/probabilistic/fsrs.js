@@ -122,8 +122,10 @@ export function estimateTopicFsrs(topic, options = {}) {
 
   const difficultyFactor = 1 - (difficulty * 0.35);
 
+  // FIX-C01: unificado com estimateCategoryFsrsBoost (antes: 21 vs 14)
+  const FSRS_STABILITY_MULTIPLIER = 14;
   const baseStability =
-    (3 + (21 * consistencyFactor * performanceFactor * reviewFactor)) *
+    (3 + (FSRS_STABILITY_MULTIPLIER * consistencyFactor * performanceFactor * reviewFactor)) *
     difficultyFactor;
 
   const stability = clamp(baseStability, 1, 180);
@@ -171,6 +173,8 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
   const daysSince = Math.max(0, Number(options.daysSince) || 0);
 
   const minScore = Number(options.minScore) || 0;
+  // FIX-C01b: aceitar difficulty como option (padrão: neutro)
+  const rawDifficulty = toFiniteNumber(options.difficulty, 1.0);
   const domain = Math.max(1e-6, maxScore - minScore);
 
   const scores = safeHistory
@@ -186,7 +190,12 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
 
   const consistencyFactor = Math.max(0.1, 1 - (sd / domain));
   const performanceFactor = Math.max(0.1, (mean - minScore) / domain);
-  const baseStability = 3 + (14 * consistencyFactor * performanceFactor * Math.min(1, scores.length / 5));
+  const reviewFactor = Math.min(1, scores.length / 5);
+  // FIX-C01: mesmo multiplicador e difficultyFactor do estimateTopicFsrs
+  const FSRS_STABILITY_MULTIPLIER = 14;
+  const difficulty = clamp(rawDifficulty / 2, 0, 1);
+  const difficultyFactor = 1 - (difficulty * 0.35);
+  const baseStability = (3 + (FSRS_STABILITY_MULTIPLIER * consistencyFactor * performanceFactor * reviewFactor)) * difficultyFactor;
 
   const stability = Math.max(1, Math.min(180, baseStability));
   const retention = fsrsRetrievability(daysSince, stability);

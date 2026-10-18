@@ -168,15 +168,16 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
     evidence * 0.7 +
     (1 - uncertainty) * 0.3;
 
-  // Pesques padrão.
-  const weaknessWeight = clampFinite(options.weaknessWeight, 0, 100, 36);
-  const uncertaintyWeight = clampFinite(options.uncertaintyWeight, 0, 100, 10);
-  const evidenceWeight = clampFinite(options.evidenceWeight, 0, 100, 10);
-  const priorityWeight = clampFinite(options.priorityWeight, 0, 100, 18);
+  // FIX-PARAM: pesos normalizados para somar 100 (antes: 106).
+  const weaknessWeight = clampFinite(options.weaknessWeight, 0, 100, 34);
+  const uncertaintyWeight = clampFinite(options.uncertaintyWeight, 0, 100, 9);
+  const evidenceWeight = clampFinite(options.evidenceWeight, 0, 100, 9);
+  const priorityWeight = clampFinite(options.priorityWeight, 0, 100, 17);
   const recencyWeight = clampFinite(options.recencyWeight, 0, 100, 10);
   const errorWeight = clampFinite(options.errorWeight, 0, 100, 8);
-  const riskWeight = clampFinite(options.riskWeight, 0, 100, 8);
+  const riskWeight = clampFinite(options.riskWeight, 0, 100, 7);
   const weightWeight = clampFinite(options.weightWeight, 0, 100, 6);
+  // Soma: 34+9+9+17+10+8+7+6 = 100 ✓
 
   const baseUtility =
     weakness * weaknessWeight +

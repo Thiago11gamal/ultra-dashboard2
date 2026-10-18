@@ -521,6 +521,23 @@ export function estimateIPTWUplift(events = [], options = {}) {
 
   const pTreat = propensity.pTreat;
 
+  // FIX-M06: validação de overlap (região de suporte comum).
+  // Se treated e control têm propensity scores sem sobreposição,
+  // os pesos IPTW explodem e a estimativa é inválida.
+  const treatedProps = propensity.probabilities.filter((_, i) => safeEvents[i].treated === 1);
+  const controlProps = propensity.probabilities.filter((_, i) => safeEvents[i].treated === 0);
+  if (treatedProps.length > 0 && controlProps.length > 0) {
+    const overlapMin = Math.max(Math.min(...treatedProps), Math.min(...controlProps));
+    const overlapMax = Math.min(Math.max(...treatedProps), Math.max(...controlProps));
+    if (overlapMin >= overlapMax) {
+      // Sem overlap → fallback para naive
+      return {
+        ...naive,
+        method: 'naive_fallback_iptw_no_overlap',
+      };
+    }
+  }
+
   let weightedTreatedSum = 0;
   let weightedTreatedWeight = 0;
 

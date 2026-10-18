@@ -298,9 +298,14 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
   const rawProbability = (successCount / simulations) * 100;
 
   // Confiança baseada no tamanho amostral.
+  // FIX-I04: constante de shrinkage proporcional ao domínio.
+  // +8 era arbitrário; para n=3, trust=0.27 (73% do peso ia pro MC legado).
+  // Agora: trust = n / (n + K) onde K = max(3, domain * 0.03).
+  // Para domain=100: K=3 → n=3: trust=0.50; n=10: trust=0.77; n=30: trust=0.91.
+  const trustK = Math.max(3, domain * 0.03);
   const sampleTrust =
     sampleSize > 0
-      ? Math.min(1, sampleSize / (sampleSize + 8))
+      ? Math.min(1, sampleSize / (sampleSize + trustK))
       : 0.35;
 
   const baseProbability = clampFinite(input.baseProbability, 0, 100, NaN);

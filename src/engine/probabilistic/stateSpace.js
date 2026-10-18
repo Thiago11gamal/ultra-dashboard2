@@ -170,7 +170,10 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
 
   const qAbility = Math.pow(domain * 0.005, 2);
   const qTrend = Math.pow(domain * 0.001, 2);
-  const maxTrendPerDay = Math.max(0.05, domain * 0.015);
+  // FIX-PARAM: maxTrendPerDay reduzido de 0.015 para 0.005 do domínio.
+  // Antes: domain=100 → 1.5 pts/dia = 45 pts/mês (irrealista).
+  // Agora: domain=100 → 0.5 pts/dia = 15 pts/mês (realista).
+  const maxTrendPerDay = Math.max(0.05, domain * 0.005);
 
   let previousTime = obs[0].time;
   let logLikelihood = 0;

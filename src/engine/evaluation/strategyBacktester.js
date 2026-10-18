@@ -195,7 +195,6 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
     : maxScore * 0.8;
 
   const minTrain = Math.max(3, Math.round(Number(options.minTrain) || 5));
-  const horizon = Math.max(1, Math.round(Number(options.horizon) || 1));
   const maxSplits = Math.max(1, Math.round(Number(options.maxSplits) || 8));
 
   const categoryName = category?.name || '';
@@ -226,6 +225,27 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
       return a._idx - b._idx;
     })
     .map((entry) => entry.simulado);
+
+  // FIX-M03: horizon adaptativo baseado no gap mediano entre simulados.
+  // Alunos que fazem simulados semanais: horizon=2.
+  // Alunos que fazem a cada 3 dias: horizon=5.
+  let horizon = Math.max(1, Math.round(Number(options.horizon) || 1));
+  if (!Number.isFinite(Number(options.horizon))) {
+    // Auto-detectar a partir dos gaps temporais
+    const times = categorySimulados
+      .map(s => toTime(s?.date ?? s?.createdAt))
+      .filter(t => Number.isFinite(t))
+      .sort((a, b) => a - b);
+    if (times.length >= 3) {
+      const gaps = [];
+      for (let i = 1; i < times.length; i++) {
+        gaps.push((times[i] - times[i - 1]) / 86400000);
+      }
+      gaps.sort((a, b) => a - b);
+      const medianGap = gaps[Math.floor(gaps.length / 2)];
+      horizon = Math.max(2, Math.min(8, Math.round(14 / Math.max(1, medianGap))));
+    }
+  }
 
   const splits = [];
 

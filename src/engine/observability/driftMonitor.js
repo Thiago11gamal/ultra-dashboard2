@@ -79,8 +79,12 @@ export function computeEwmaControlChart(values, options = {}) {
   for (let i = 0; i < safe.length; i++) {
     ewma = lambda * safe[i] + (1 - lambda) * ewma;
 
-    const upper = center + L * sigmaEwma;
-    const lower = center - L * sigmaEwma;
+    // FIX-C07: limites de controle variantes no tempo.
+    // Nos primeiros pontos, o EWMA ainda não convergiu.
+    // Variância real no ponto i: σ²·(λ/(2-λ))·(1-(1-λ)^(2(i+1)))
+    const convergenceFactor = 1 - Math.pow(1 - lambda, 2 * (i + 1));
+    const upper = center + L * sigmaEwma * Math.sqrt(convergenceFactor);
+    const lower = center - L * sigmaEwma * Math.sqrt(convergenceFactor);
 
     const outOfControl = ewma > upper || ewma < lower;
 
@@ -126,10 +130,19 @@ export function cusumDrift(values, options = {}) {
     return null;
   }
 
-  const baselineSize = Math.max(3, Math.floor(safe.length * 0.6));
+  // FIX-C08: detectar tendência antes de definir baseline.
+  // Se a série está melhorando, os primeiros 60% são a fase ruim,
+  // e o CUSUM classificaria a melhoria como "drift up" (alarme falso).
+  const n = safe.length;
+  const baselineSize = Math.max(3, Math.floor(n * 0.6));
   const baseline = safe.slice(0, baselineSize);
+  const recent = safe.slice(baselineSize);
+  const baseMean = meanValues(baseline);
+  const recentMean = meanValues(recent);
+  const isImproving = recentMean > baseMean;
 
-  const target = meanValues(baseline);
+  // Se melhorando, usar a média GLOBAL como target (não só o baseline)
+  const target = isImproving ? meanValues(safe) : baseMean;
   const sigma = sdValues(baseline) || 1e-6;
 
   const k = clampFinite(options.k, 0, 5, 0.5) * sigma;
@@ -165,6 +178,7 @@ export function cusumDrift(values, options = {}) {
     k: Number(k.toFixed(6)),
     h: Number(h.toFixed(6)),
     alarm,
+    isImproving,  // FIX-C08: contexto para o consumidor
     sPos: Number(sPos.toFixed(6)),
     sNeg: Number(sNeg.toFixed(6)),
     series: series.slice(-30),
@@ -177,7 +191,11 @@ export function cusumDrift(values, options = {}) {
 export function detectDriftInSeries(values, options = {}) {
   const safe = finiteSeries(values);
 
-  const recentWindow = Math.round(clampFinite(options.recentWindow, 2, 30, 5));
+  // FIX-PARAM: recentWindow adaptativo (mínimo 5, máximo 10, 20% de n).
+  // Antes, window=5 fixo gerava alta variância na estimativa recente.
+  const safeLength = safe.length;
+  const defaultRecentWindow = Math.max(5, Math.min(10, Math.round(safeLength * 0.2)));
+  const recentWindow = Math.round(clampFinite(options.recentWindow ?? defaultRecentWindow, 2, 30, defaultRecentWindow));
   const minSamples = Math.round(clampFinite(options.minSamples, 4, 200, 8));
 
   if (safe.length < minSamples) {
@@ -219,7 +237,9 @@ export function detectDriftInSeries(values, options = {}) {
 
   const effectThresholdLow = clampFinite(options.effectThresholdLow, 0, 5, 0.5);
   const effectThresholdMedium = clampFinite(options.effectThresholdMedium, 0, 6, 1.0);
-  const effectThresholdHigh = clampFinite(options.effectThresholdHigh, 0, 8, 1.8);
+  // FIX-PARAM: threshold alto reduzido de 1.8 para 1.5.
+  // Cohen's d = 1.8 é raramente atingido em séries educacionais.
+  const effectThresholdHigh = clampFinite(options.effectThresholdHigh, 0, 8, 1.5);
 
   let severity = 'none';
 
@@ -417,9 +437,22 @@ export function detectProbabilityCalibrationDrift(pairs = [], options = {}) {
     return null;
   }
 
+  // FIX-I08: split temporal em vez de posicional.
+  // Se os pares têm timestamps, usar o último 40% do TEMPO, não da posição.
   const recentFraction = clampFinite(options.recentFraction, 0.2, 0.6, 0.4);
-  const splitIndex = Math.floor(safePairs.length * (1 - recentFraction));
-
+  let splitIndex;
+  const hasTimestamps = safePairs.every(p => p.timestamp > 0);
+  if (hasTimestamps && safePairs.length >= 8) {
+    const minTs = safePairs[0].timestamp;
+    const maxTs = safePairs[safePairs.length - 1].timestamp;
+    const cutoffTs = minTs + (maxTs - minTs) * (1 - recentFraction);
+    splitIndex = safePairs.findIndex(p => p.timestamp >= cutoffTs);
+    if (splitIndex <= 0 || splitIndex >= safePairs.length - 1) {
+      splitIndex = Math.floor(safePairs.length * (1 - recentFraction));
+    }
+  } else {
+    splitIndex = Math.floor(safePairs.length * (1 - recentFraction));
+  }
   const baselinePairs = safePairs.slice(0, splitIndex);
   const recentPairs = safePairs.slice(splitIndex);
 

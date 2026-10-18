@@ -88,11 +88,17 @@ describe('Lote 1 — computeRollingCalibrationParams (FIX F1)', () => {
 });
 
 describe('Lote 1 — conformalizedCalibrationInterval (FIX F4)', () => {
-  it('miscalibração extrema → intervalo largo (teto 0.35)', () => {
+  it('miscalibração extrema → intervalo largo (teto adaptativo)', () => {
     const bad = Array.from({ length: 12 }, () => ({ probability: 0.9, observed: 0 }));
     const c = conformalizedCalibrationInterval(0.9, bad, 0.1);
-    expect(c.qHat).toBeCloseTo(0.35, 5);
-    expect(c.high - c.low).toBeCloseTo(0.7, 5);
+    const expectedMaxQ = Math.min(0.5, 1.5 / Math.sqrt(12));
+    expect(c.qHat).toBeCloseTo(expectedMaxQ, 5);
+    expect(c.high - c.low).toBeCloseTo(expectedMaxQ * 2, 5);
+
+    // Com teto explícito
+    const cExplicit = conformalizedCalibrationInterval(0.9, bad, 0.1, { maxQ: 0.35 });
+    expect(cExplicit.qHat).toBeCloseTo(0.35, 5);
+    expect(cExplicit.high - cExplicit.low).toBeCloseTo(0.7, 5);
   });
   it('resíduos zero → nunca abaixo do ruído amostral', () => {
     const perfect = Array.from({ length: 12 }, (_, i) => ({

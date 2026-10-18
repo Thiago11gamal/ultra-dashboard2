@@ -207,13 +207,17 @@ export function estimateDynamicVolatility(history = [], options = {}) {
   if (useGarch && returns.length >= 5) {
     model = 'garch11';
 
+    // FIX-PARAM: persistência GARCH reduzida.
+    // Antes: α+β ∈ [0.86, 0.92] → choques demoram 7-12 períodos para
+    // decair pela metade. Para simulados espaçados 7 dias, isso é
+    // 50-84 dias de memória de volatilidade — excessivo.
+    // Agora: α+β ∈ [0.76, 0.84] → meia-vida de 3-5 períodos.
     const maturity = clampFinite((returns.length - 5) / 10, 0, 1, 0);
-    alpha = 0.14 - 0.04 * maturity;
-    beta = 0.72 + 0.10 * maturity;
-
+    alpha = 0.16 - 0.04 * maturity;
+    beta = 0.60 + 0.08 * maturity;
     // Estacionaridade: alpha + beta < 1.
-    if (alpha + beta > 0.95) {
-      beta = 0.95 - alpha;
+    if (alpha + beta > 0.90) {
+      beta = 0.90 - alpha;
     }
 
     omega = Math.max(

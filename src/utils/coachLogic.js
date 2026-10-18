@@ -17,6 +17,8 @@ import {
     simuladosToHistory
 } from './coachAdaptive.js';
 import { computeAdaptiveCoachWeight } from './adaptiveMath.js';
+// FIX-M04: importar detecção de regime (já existente em adaptiveEngine.js)
+import { detectRegimeTransition } from './adaptiveEngine.js';
 import { getCoachFeature } from './coachFeatures.js';
 import { kalmanAbilityTrend } from '../engine/probabilistic/stateSpace.js';
 import { estimateDynamicVolatility } from '../engine/probabilistic/volatility.js';
@@ -124,7 +126,8 @@ const simpleHash = hashString;
 export const DEFAULT_CONFIG = {
     MC_HISTORY_WINDOW: 10,
     SCORE_MAX: 45,
-    RECENCY_MAX: 28,
+    // FIX-PARAM: RECENCY_MAX reduzido de 28 para 22
+    RECENCY_MAX: 22,
     INSTABILITY_MAX: 22,
     PRIORITY_BOOST: 18,
     EFFICIENCY_MAX: 10,
@@ -726,7 +729,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const limiteSuperior = maxScore - averageScore;
     const limiteInferior = minScore - averageScore;
-    const trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
+    let trend = Math.max(limiteInferior, Math.min(limiteSuperior, rawTrend));
 
     // ✅ PATCH-27: Janela do MC configurável (padrão 10 para volatilidade de curto prazo)
     const MC_WINDOW = Number(cfg.MC_HISTORY_WINDOW) || 10;
@@ -736,9 +739,24 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         ? calculateMSSD(mcHistory, maxScore, minScore)
         : computeRobustVolatilityForCoach(mcHistory, maxScore, minScore);
 
+    // FIX-M04: integrar detecção de regime ao pipeline.
+    // Se desacelerando, reduzir tendência. Se instável, aumentar volatilidade.
+    let regimeAdjustedVolatility = baseMssdVolatility;
+    try {
+      const regime = detectRegimeTransition(lastNScores, { maxScore, minScore, windowSize: Math.min(10, lastNScores.length) });
+      if (regime?.currentState === 'decelerating' && trend > 0) {
+        trend *= 0.5; // Reduzir projeção de tendência
+      }
+      if (regime?.currentState === 'chronic_instability') {
+        regimeAdjustedVolatility = baseMssdVolatility * 1.3; // Aumentar volatilidade efetiva
+      }
+    } catch (err) {
+      console.warn('[CoachLogic] Regime detection failed:', err);
+    }
+
     // ==================== LOTE 2: VOLATILIDADE DINÂMICA ====================
     let dynamicVolatility = null;
-    let mssdVolatility = baseMssdVolatility;
+    let mssdVolatility = regimeAdjustedVolatility;
 
     if (
       getCoachFeature(options, 'useDynamicVolatility', false) &&
@@ -759,7 +777,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
           } else {
             // Blend conservador: mantém parte do comportamento antigo.
             mssdVolatility = clamp(
-              (dynamicVol * 0.65) + (baseMssdVolatility * 0.35),
+              (dynamicVol * 0.65) + (regimeAdjustedVolatility * 0.35),
               0,
               domain
             );
@@ -768,7 +786,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
       } catch (err) {
         console.warn('[CoachLogic] Dynamic volatility failed:', err);
         dynamicVolatility = null;
-        mssdVolatility = baseMssdVolatility;
+        mssdVolatility = regimeAdjustedVolatility;
       }
     }
 
@@ -999,14 +1017,20 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 };
 
 export function deriveUrgencyWeights(mcResult, volatility, sampleSize, cfg = {}, domain = 100) {
-    const nEff = mcResult?.sampleSize ?? sampleSize ?? 5;
+    // FIX-I02: mcResult.sampleSize pode ser undefined quando o MC falha
+    // parcialmente. Verificar explicitamente antes de usar.
+    const mcSampleSize = Number.isFinite(mcResult?.sampleSize) ? mcResult.sampleSize : null;
+    const nEff = mcSampleSize ?? sampleSize ?? 5;
     const safeDomain = Number.isFinite(domain) && domain > 0 ? domain : 100;
     const volPct = (volatility || 0) / safeDomain;
     const mcTrust = Math.min(1, nEff / 15);
     const volWeight = Math.min(1, volPct / 0.15);
 
     const baseScoreMax = cfg.SCORE_MAX ?? 45;
-    const baseRecencyMax = cfg.RECENCY_MAX ?? 28;
+    // FIX-PARAM: RECENCY_MAX reduzido de 28 para 22.
+    // Com crunch e multiplicadores, o recency efetivo podia chegar a ~88 pts,
+    // dominando o score. 22 mantém influência sem dominar.
+    const baseRecencyMax = cfg.RECENCY_MAX ?? 22;
     const baseInstabilityMax = cfg.INSTABILITY_MAX ?? 22;
 
     return {
@@ -1063,9 +1087,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const safeRetention = Number.isFinite(forgetting.retentionPct)
         ? forgetting.retentionPct
         : 100;
+    // FIX-I01: floor 0 quando estudou hoje (daysSinceLastStudy === 0).
+    // Antes, retenção=100% ainda gerava memoryRisk=2, inflando recency.
+    const rawMemoryRisk = 35 * Math.pow(1 - safeRetention / 100, 1.5);
+    const memoryFloor = (!recencyUnknown && daysSinceLastStudy === 0) ? 0 : 2;
     const memoryRisk = !hasData
         ? 8
-        : clamp(35 * Math.pow(1 - safeRetention / 100, 1.5), 2, 35);
+        : clamp(rawMemoryRisk, memoryFloor, 35);
     const safeMssdVolatility = Number.isFinite(mssdVolatility)
         ? mssdVolatility
         : 0;
@@ -1085,11 +1113,13 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const completedTasks = safeTasksArray.filter(t => t?.completed).length;
     const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 1.0;
     const inefficiency = Math.max(0, 1 - completionRate);
-    let empiricalTrust = 1.0;
-    if (!hasData) {
-        const globalSignal = computeAdaptiveCoachWeight(metrics.trendHistory || []);
-        empiricalTrust = Math.max(0.2, globalSignal?.confidenceWeight ?? 0.2);
-    }
+    // FIX-C05: empiricalTrust calculado SEMPRE, não apenas quando !hasData.
+    // Antes, categorias com dados tinham trust=1.0 fixo, ignorando a
+    // confiança real nos dados (n, volatilidade, tendência).
+    const globalSignal = computeAdaptiveCoachWeight(metrics.trendHistory || []);
+    const empiricalTrust = hasData
+        ? Math.max(0.2, globalSignal?.confidenceWeight ?? 0.5)
+        : Math.max(0.2, globalSignal?.confidenceWeight ?? 0.2);
     const inefficiencyPenaltyMultiplier = totalTasks >= 5
         ? 1 + (inefficiency * 0.15 * empiricalTrust)
         : 1.0;
@@ -1107,11 +1137,15 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     // RECENCY: recência desconhecida não é mais máxima, peso adaptativo por confiança MC
     const effectiveRiskDays = recencyUnknown ? 5 : Math.min(daysSinceLastStudy, 45);
     const recencyFactor = 1 - Math.exp(-effectiveRiskDays / 8);
+    // FIX-PARAM: limitar o efeito do crunch no recency a 1.5×.
+    // Antes, crunch=2.0 (reta final) podia gerar recencyRaw > 88 pts,
+    // dominando completamente o score (38.7% do total).
+    const effectiveCrunchForRecency = Math.min(crunchMultiplier, 1.5);
     const recencyRaw =
         urgencyWeights.recencyMax *
         (memoryRisk / 35) *
         recencyFactor *
-        crunchMultiplier *
+        effectiveCrunchForRecency *
         (backtestWeights?.recencyWeight ?? 1) *
         inefficiencyPenaltyMultiplier;
     const recencyComponent = clamp(recencyRaw, 0, urgencyWeights.recencyMax * 1.2);
@@ -1228,7 +1262,10 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const idealShare = totalSyllabusWeight > 0
         ? metrics.rawWeight / totalSyllabusWeight
         : (1 / activeCount);
-    const tolerance = 0.05;
+    // FIX-C04: tolerance relativa (30% do ideal ou 5%, o que for menor).
+    // Antes, tolerance=0.05 fixo impedia boost para idealShare < 0.05
+    // (ex: 15 matérias com pesos iguais → idealShare ≈ 0.067).
+    const tolerance = Math.min(0.05, idealShare * 0.3);
     const underAllocation = Math.max(0, idealShare - observedShare - tolerance);
     const balanceBridgeBoost = clamp(
         Math.min(cfg.EFFICIENCY_MAX, Math.pow(underAllocation * 10, 1.5)),
@@ -1280,14 +1317,15 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     let rotationPenalty = 0;
     // FIX: Removido fatigueRatio baseado em performance.
     // Notas altas já recebem urgência menor via SCORE_MAX (gap da meta).
-    // Penalizar novamente aqui causava dupla penalização.
+    // FIX-C03: volatilidade removida da rotation penalty.
+    // A volatilidade já é penalizada no instabilityComponent.
+    // Manter aqui causava dupla contagem (~39 pts para σ=15%).
     if (exactHoursSinceLast < 24) {
         const recentFatigue = Math.max(0.2, Math.exp(-exactHoursSinceLast / 12));
-        rotationPenalty = Math.min(30, 15 * recentFatigue * (1 + (mssdVolatility / domain)));
-        const baseAt24 = mssdVolatility > (domain * 0.05) ? 6 : 2;
-        rotationPenalty = Math.max(rotationPenalty, baseAt24 + 1);
+        rotationPenalty = Math.min(30, 15 * recentFatigue);
+        rotationPenalty = Math.max(rotationPenalty, 3);
     } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
-        rotationPenalty = mssdVolatility > (domain * 0.05) ? 6 : 2;
+        rotationPenalty = 2;
     }
     if (srsBoost > 0) rotationPenalty *= 0.1;
     const rawScore = Math.max(

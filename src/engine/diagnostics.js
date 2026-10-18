@@ -360,9 +360,11 @@ export function computeOptimalReviewInterval(stability, targetRetention = 0.7, m
       const confidence = Math.min(1, effectiveN / 15);
       const stabilityBonus = Math.max(0, 0.08 - normalizedMssd) * 12;
       const performanceFactor = currentMean !== null ? Math.max(0, ((currentMean - minScore) / domain) - 0.5) * 2.5 : 1;
-      crystallizationBonus = 1 + (confidence * stabilityBonus * performanceFactor);
+      // FIX-C02: teto de 1.5× (antes podia chegar a 2.2×, triplicando o intervalo)
+      crystallizationBonus = Math.min(1.5, 1 + (confidence * stabilityBonus * performanceFactor));
     }
-    baseInterval = baseInterval * fragilityPenalty * crystallizationBonus;
+    // FIX-C02: teto absoluto de 2× a estabilidade base (evita intervalos > 6 meses)
+    baseInterval = Math.min(baseInterval * fragilityPenalty * crystallizationBonus, S * 9 * 2);
   }
 
   const safeAgilityPenalty = Math.max(0, Math.min(0.4, Number(agilityPenalty) || 0));

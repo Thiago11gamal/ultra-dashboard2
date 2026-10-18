@@ -261,12 +261,16 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
     const rawPageRank = pageRank.get(node) || 0;
     const normalizedPageRank = rawPageRank / maxPageRank;
 
+    // FIX-M05: métrica de "blocked importance" — tópicos com alta importância
+    // E pré-requisitos fracos devem ter máxima prioridade de desbloqueio.
+    const blockedImportance = normalizedPageRank * (1 - prereqReadiness);
     return {
       name: displayName.get(node) || node,
       normalizedKey: node,
       pageRank: Number(rawPageRank.toFixed(6)),
       normalizedPageRank: Number(normalizedPageRank.toFixed(6)),
       graphImportance: Number(normalizedPageRank.toFixed(6)),
+      blockedImportance: Number(blockedImportance.toFixed(6)),
       indegree: (incoming.get(node) || []).length,
       outdegree: (outgoing.get(node) || []).length,
       prerequisiteCount: prerequisites.length,

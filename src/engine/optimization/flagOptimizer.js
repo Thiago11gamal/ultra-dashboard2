@@ -344,12 +344,15 @@ export function scoreStrategyEvaluation(summary = {}, latestHealth = null, optio
     ? 0.5 + clampFinite(uplift / (maxScore * 0.10), -0.5, 0.5, 0)
     : 0.5;
 
+  // FIX-M07: NDCG de tópicos (que mede se o sistema identifica os
+  // tópicos certos) tem peso maior. Brier ainda importante mas não domina.
   const quality =
-    brierScore * 0.35 +
-    calibrationScore * 0.15 +
-    maeScore * 0.20 +
-    ndcgScore * 0.20 +
-    upliftScore * 0.10;
+    brierScore * 0.25 +
+    calibrationScore * 0.10 +
+    maeScore * 0.15 +
+    ndcgScore * 0.30 +
+    upliftScore * 0.20;
+  // Soma: 0.25+0.10+0.15+0.30+0.20 = 1.00 ✓
 
   const healthScore = latestHealth?.healthScore != null
     ? clampFinite(latestHealth.healthScore, 0, 100, 80) / 100

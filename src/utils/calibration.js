@@ -249,19 +249,21 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
     let score = null;
     let observedAt = null;
     if (String(ev.category).toLowerCase() === 'global') {
-      // Agrega as rows do PRIMEIRO dia de simulado após o evento
-      // (média ponderada por total de questões quando disponível).
+      // FIX-I05: agregar TODOS os dias de simulado após o evento (não só o primeiro).
+      // Antes, simulados em dias diferentes (sábado + domingo) eram ignorados.
       const candidates = timed.filter(x => x.ts >= Number(ev.timestamp) + minHorizonMs);
       if (candidates.length > 0) {
-        const firstDayKey = getDateKey(candidates[0].row.date || candidates[0].row.createdAt);
-        if (!firstDayKey) return { ...ev, backfilled: false }; // ✅ FIX: data inválida → pular evento
-        const sameDay = candidates.filter(x => {
+        // Coletar todos os dias distintos com simulados
+        const dayKeys = [...new Set(candidates.map(x => getDateKey(x.row.date || x.row.createdAt)).filter(Boolean))];
+        if (dayKeys.length === 0) return { ...ev, backfilled: false };
+        // Usar todos os dias (não apenas o primeiro)
+        const allDays = candidates.filter(x => {
           const key = getDateKey(x.row.date || x.row.createdAt);
-          return key !== null && key === firstDayKey; // ✅ FIX: excluir nulls
+          return key !== null && dayKeys.includes(key);
         });
         let sumScore = 0;
         let sumWeight = 0;
-        sameDay.forEach(x => {
+        allDays.forEach(x => {
           const s = getSafeScore(x.row, maxScore, minScore);
           if (!Number.isFinite(s)) return;
           const w = Math.max(1, Number(x.row.total ?? x.row.questoes ?? x.row.totalQuestoes) || 1);
@@ -323,9 +325,18 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
     let b = null;
     if (Number.isFinite(Number(h.probability)) && (h.observed === 0 || h.observed === 1)) {
       const rawP = Number(h.probability);
-      const isPercentScale = cfg.scale === 'pct';
-      // ✅ FIX: detecção de escala com flag explícita cfg.scale
-      const p = Math.max(0, Math.min(1, isPercentScale ? rawP / 100 : rawP));
+      // FIX-I06: auto-detecção de escala + flag explícita.
+      // Se rawP > 1, é escala percentual (0-100). Se cfg.scale='pct', força divisão.
+      // Se cfg.scale='ratio', força uso direto. Sem flag, auto-detecta.
+      let p;
+      if (cfg.scale === 'pct') {
+        p = rawP / 100;
+      } else if (cfg.scale === 'ratio') {
+        p = rawP;
+      } else {
+        p = rawP > 1 ? rawP / 100 : rawP;
+      }
+      p = Math.max(0, Math.min(1, p));
       b = (p - h.observed) ** 2;
     } else if (Number.isFinite(Number(h.avgBrier))) {
       b = Number(h.avgBrier);
@@ -427,7 +438,7 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
 }
 
 // FIX F4: conformal real (resíduos) + teto 0.35 + piso = ruído amostral
-export function conformalizedCalibrationInterval(probability01, pairs = [], alpha = 0.1) {
+export function conformalizedCalibrationInterval(probability01, pairs = [], alpha = 0.1, options = {}) {
   const p = clamp01(probability01);
   const clean = (pairs || [])
     .map(x => ({ probability: clamp01(x?.probability), observed: clamp01(x?.observed) }))
@@ -453,7 +464,12 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
   const smoothedP = (p * n + 0.5) / (n + 1);
   const standardError = Math.sqrt((smoothedP * (1 - smoothedP)) / n);
   const zScore = alpha <= 0.05 ? 1.96 : (alpha <= 0.1 ? 1.645 : 1.28);
-  const qHat = Math.min(0.35, Math.max(qConformal, standardError * zScore));
+  // FIX-M02: teto adaptativo (diminui com n).
+  // Antes, teto fixo de 0.35 podia ser muito largo para n grande
+  // ou muito estreito para n pequeno com alta variabilidade.
+  const adaptiveMaxQ = Math.min(0.5, 1.5 / Math.sqrt(n));
+  const maxQ = Number.isFinite(options?.maxQ) ? Number(options.maxQ) : adaptiveMaxQ;
+  const qHat = Math.min(maxQ, Math.max(qConformal, standardError * zScore));
   let low = p - qHat;
   let high = p + qHat;
   if (high > 1) { low -= (high - 1); high = 1; }
@@ -488,8 +504,9 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
   const z = kahanSum(raw) || 1;
   const maxLoss = Math.max(...logLoss);
   const isSeverePenalty = maxLoss > 2.0;
-  // ✅ FIX: regularização mais forte para amostras mínimas (n < 6: 16, n < 8: 8)
-  const regularization = isSeverePenalty ? 0.2 : (n < 6 ? 16 : (n < 8 ? 8 : 4));
+  // FIX-C06: regularização proporcional (antes: n=3 → lambda=0.158, 84% uniforme).
+  // Agora: n=3 → reg=7.5 → lambda=0.286; n=5 → reg=4.5 → lambda=0.526.
+  const regularization = isSeverePenalty ? 0.2 : Math.max(2, 12 - n * 1.5);
   const lambda = Math.min(1, Math.max(0, n / (n + regularization)));
   return raw.map(w => lambda * (w / z) + (1 - lambda) / k);
 }
@@ -522,9 +539,11 @@ export function buildCalibrationDashboardSeries(events = []) {
     penalty: e.calibrationPenalty,
     probability: e.probability
   }));
+  // FIX-I07: média móvel exclusivamente passada (sem o ponto atual).
+  // Incluir o ponto atual cria autocorrelação e mascara drift real.
   const rolling7 = trend.map((row, idx) => {
     const startTs = row.timestamp - (7 * 24 * 60 * 60 * 1000);
-    const win = trend.slice(0, idx + 1).filter(r => r.timestamp >= startTs && Number.isFinite(r.avgBrier));
+    const win = trend.slice(0, idx).filter(r => r.timestamp >= startTs && Number.isFinite(r.avgBrier));
     const winMean = win.length > 0 ? (win.reduce((a, b) => a + b.avgBrier, 0) / win.length) : null;
     return { timestamp: row.timestamp, date: row.date, avgBrier7d: winMean };
   });

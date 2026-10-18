@@ -142,13 +142,12 @@ export function computeContinuousMcBoost(probability, dangerThreshold, safeThres
     const a = lowVolLimit * 0.8;
     const b = lowVolLimit * 1.2;
     const tVol = smoothstep(Math.max(0, Math.min(1, (volatility - a) / Math.max(1e-9, b - a))));
-
-    if (boost < 0) {
-      boost *= 1 - 0.75 * tVol;
-    } else if (boost > 0 && tVol > 0.5) {
-      // Alta volatilidade também reduz boost positivo (simetria)
-      boost *= 1 - 0.35 * (tVol - 0.5) * 2;
-    }
+    // FIX-I03: ajuste de volatilidade unificado (sem assimetria por sinal).
+    // Antes, boost positivo e negativo tinham tratamentos diferentes,
+    // criando descontinuidade na fronteira p=d quando o boost cruza zero.
+    // Redução simétrica: alta volatilidade atenua o boost em até 50%
+    const volAttenuation = 1 - 0.5 * tVol;
+    boost *= volAttenuation;
   }
 
   let riskLabel = 'ok';
