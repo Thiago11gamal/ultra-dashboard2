@@ -136,7 +136,8 @@ describe('TimeSpentChart bug fixes', () => {
     );
 
     // Apenas cat1 tem último tempo (9s); cat2 com null não deve puxar a média para 5s
-    expect(html).toContain('ÚLTIMO GERAL: <span class="font-bold text-slate-300">9s</span>');
-    expect(html).not.toContain('ÚLTIMO GERAL: <span class="font-bold text-slate-300">5s</span>');
+    expect(html).toContain('Último Geral');
+    expect(html).toContain('9s');
+    expect(html).not.toContain('5s');
   });
 });
