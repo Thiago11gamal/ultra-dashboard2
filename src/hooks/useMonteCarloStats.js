@@ -62,6 +62,7 @@ const shrinkToNeutral = (p, factor, neutral = 50) => {
 // Cache com TTL para simulações por matéria (evita recalculação redundante)
 const SUBJECT_SIM_CACHE = new Map();
 const SUBJECT_SIM_TTL_MS = 60000;
+const SUBJECT_SIM_MAX_SIZE = 100; // G-01 FIX: cap menor e eviction real
 
 export function useMonteCarloStats({
   categories,
@@ -989,9 +990,11 @@ export function useMonteCarloStats({
   ]);
 
   const perSubjectProbs = useMemo(() => {
-    // T-040 FIX: só calcular probabilidades por matéria quando o painel estiver aberto.
-    // Isso evita simulações pesadas desnecessárias no primeiro render.
-    if (!enablePerSubject || !statsData?.categoryStats?.length || simulationData?.status !== 'ready') return [];
+    // G-02 FIX: Recalcular quando simulationData ficar ready,
+    // não apenas quando enablePerSubject mudar.
+    if (!enablePerSubject) return [];
+    if (!statsData?.categoryStats?.length) return [];
+    if (simulationData?.status !== 'ready') return [];
 
     return statsData.categoryStats
       .filter(cat => cat.weight > 0)
@@ -1092,9 +1095,17 @@ export function useMonteCarloStats({
             historyLength: cat.n || 0,
             bayesianCI: cat.bayesianCI || null
           });
-          if (SUBJECT_SIM_CACHE.size > 200) {
-            const oldestKey = SUBJECT_SIM_CACHE.keys().next().value;
-            SUBJECT_SIM_CACHE.delete(oldestKey);
+          // G-01 FIX: Eviction adequada — remover entradas expiradas primeiro,
+          // depois LRU se ainda acima do limite.
+          if (SUBJECT_SIM_CACHE.size > SUBJECT_SIM_MAX_SIZE) {
+            const now = Date.now();
+            for (const [key, entry] of SUBJECT_SIM_CACHE.entries()) {
+              if (now - entry.timestamp > SUBJECT_SIM_TTL_MS) SUBJECT_SIM_CACHE.delete(key);
+            }
+            while (SUBJECT_SIM_CACHE.size > SUBJECT_SIM_MAX_SIZE) {
+              const oldestKey = SUBJECT_SIM_CACHE.keys().next().value;
+              SUBJECT_SIM_CACHE.delete(oldestKey);
+            }
           }
           SUBJECT_SIM_CACHE.set(simKey, { result, timestamp: Date.now() });
         }

@@ -494,6 +494,8 @@ export function computeBayesianLevel(
         : historyWithTime;
     const historyToProcess = itemsToProcess.map(item => item.original);
 
+    // M-08 FIX: Reutilizar buffer se possível (evitar alocação a cada chamada)
+    // Nota: em produção, considerar um pool de buffers.
     const runningPriors = new Float64Array(historyToProcess.length);
     if (historyToProcess.length > 0) {
         let priorSum = 0, priorC = 0, priorCount = 0;

@@ -85,24 +85,7 @@ export default function AIGeneratedSimulado() {
 
   const mountedRef = useRef(true);
   const didMountRestoreRef = useRef(false);
-  const stepRef = useRef(step);
-  // ✅ FIX: AbortController para cancelar requests ao desmontar
   const abortControllerRef = useRef(null);
-  useEffect(() => { stepRef.current = step; }, [step]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { 
-      mountedRef.current = false; 
-      // ✅ FIX: Abortar request pendente ao desmontar
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-    };
-  }, []);
-
-  // FIX: activeGenerationPromise movido para useRef (não mais variável de módulo)
   const activeGenerationRef = useRef(null);
 
   const latestAnswersRef = useRef(answers);
@@ -113,6 +96,39 @@ export default function AIGeneratedSimulado() {
   const latestTimePerQuestionRef = useRef(timePerQuestion);
   const latestTimeLeftRef = useRef(timeLeft);
   const simStartMsRef = useRef(null);
+
+  useEffect(() => { stepRef.current = step; }, [step]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { 
+      mountedRef.current = false; 
+      // G-20 FIX: Salvar draft imediatamente ao desmontar
+      if (stepRef.current === 'playing' && latestQuestionsRef.current.length > 0) {
+        try {
+          const draft = {
+            version: 1,
+            form: latestFormRef.current,
+            questions: latestQuestionsRef.current,
+            answers: latestAnswersRef.current,
+            currentIndex: latestCurrentIndexRef.current,
+            timeLeft: latestTimeLeftRef.current,
+            timePerQuestion: latestTimePerQuestionRef.current,
+            simStartMs: simStartMsRef.current,
+            savedAt: Date.now()
+          };
+          localStorage.setItem(getAiSimStorageKey(), JSON.stringify(draft));
+        } catch (e) {
+          console.warn('[Draft] Falha ao salvar no unmount:', e);
+        }
+      }
+      // ✅ FIX: Abortar request pendente ao desmontar
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => { latestAnswersRef.current = answers; }, [answers]);
   useEffect(() => { latestQuestionsRef.current = questions; }, [questions]);
@@ -292,15 +308,18 @@ export default function AIGeneratedSimulado() {
             ? currentCategories 
             : Object.values(currentCategories);
           
-          const stillValidCat = restoredForm.categoryId && catsArray.some(c => c.id === restoredForm.categoryId);
-          const catRef = catsArray.find(c => c.id === restoredForm.categoryId);
-          const catTasksRef = catRef?.tasks || [];
-          const safeTasksArray = Array.isArray(catTasksRef) ? catTasksRef : Object.values(catTasksRef);
-          const stillValidTask = restoredForm.taskId && stillValidCat && safeTasksArray.some(t => t.id === restoredForm.taskId);
+          // C-14 FIX: Validar que a categoria do draft existe no concurso ATUAL
+          const cat = catsArray.find(c => c && c.id === f.categoryId);
+          if (!cat && f.categoryId) {
+            // Categoria não existe mais — descartar draft
+            localStorage.removeItem(getAiSimStorageKey());
+            localStorage.removeItem(getAiGenStorageKey());
+            return;
+          }
+          const safeTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})) : [];
+          const tsk = safeTasks.find(t => t && t.id === f.taskId);
           
-          if (restoredForm.categoryId && !stillValidCat) {
-            restoredForm = { ...restoredForm, categoryId: '', taskId: '', materia: '', assunto: '' };
-          } else if (restoredForm.taskId && !stillValidTask) {
+          if (restoredForm.taskId && !tsk) {
             restoredForm = { ...restoredForm, taskId: '', assunto: '' };
           }
           

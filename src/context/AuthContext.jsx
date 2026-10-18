@@ -79,12 +79,14 @@ export function AuthProvider({ children }) {
             } else if (auth) {
                 await signOut(auth);
             }
-        } finally {
-            // 🎯 DATA LEAK PROTECTION: Garante limpeza da memória RAM mesmo se signOut falhar na rede
+            // C-09 FIX: Só resetar store se signOut foi bem-sucedido.
             useAppStore.getState().resetStore();
             if (useAppStore.temporal) {
                 useAppStore.temporal.getState().clear();
             }
+        } catch (err) {
+            console.error('[Auth] Logout falhou, dados locais preservados:', err);
+            // Não resetar store — o usuário ainda está autenticado.
         }
     }, []);
 

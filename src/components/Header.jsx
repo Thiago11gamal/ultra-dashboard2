@@ -74,6 +74,9 @@ const Header = React.memo(function Header({
 
     // FIX BUG-045: Sincronizar displayName via useEffect para evitar double-render e sobrescrita
     useEffect(() => {
+        // G-13 FIX: Não sobrescrever se o usuário está digitando
+        // (debounce ainda não disparou).
+        if (debounceRef.current) return; // debounce ativo = usuário digitando
         if (displayName !== prevDisplayNameRef.current) {
             prevDisplayNameRef.current = displayName;
             setLocalName(displayName);

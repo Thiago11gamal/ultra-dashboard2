@@ -51,8 +51,20 @@ export default function Coach() {
         clearMcCache();
         clearUrgencyCache();
         clearTopicsCache();
-        // BUG 1 FIX: Removed calibrationAlertCache.clear() to prevent global cache reset on mount
+        // G-03 FIX: Limpar cache de alertas ao trocar de concurso
+        calibrationAlertCacheRef.current.clear();
     }, [activeId]);
+
+    // G-03 FIX: Cleanup periódico do cache de alertas (evita leak)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const now = Date.now();
+            for (const [key, ts] of calibrationAlertCacheRef.current.entries()) {
+                if (now - ts > ALERT_COOLDOWN_MS) calibrationAlertCacheRef.current.delete(key);
+            }
+        }, 60000); // a cada 60s
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         // Garantir que a tela do Coach AI seja perfeitamente enquadrada a partir do topo

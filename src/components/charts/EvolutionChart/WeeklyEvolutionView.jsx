@@ -101,8 +101,11 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
 
 const getMondayStr = (dateStr) => {
     const dt = parseNoonLocal(dateStr);
-    // ✅ BUG-3 FIX: parseNoonLocal pode retornar null → guard antes de getTime()
-    if (!dt || isNaN(dt.getTime())) return null;
+    // G-15 FIX: Retornar fallback em vez de null para não perder dados
+    if (!dt || isNaN(dt.getTime())) {
+        console.warn(`[WeeklyEvolution] Data inválida ignorada: ${dateStr}`);
+        return null;
+    }
     const dayOfWeek = dt.getDay();
     const diff = dt.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
     dt.setDate(diff);

@@ -15,7 +15,8 @@ service cloud.firestore {
     // Limitamos o número de chaves a 500 para evitar mapas inflados abusivos.
     // O limite de 1MB por documento é garantido nativamente pela infraestrutura do Firestore.
     function withinFieldCountLimit() {
-      return request.resource.data.size() < 500;
+      // L-02 FIX: Usar <= 500 para permitir exatamente 500 campos
+      return request.resource.data.size() <= 500;
     }
 
     match /backups/{userId} {

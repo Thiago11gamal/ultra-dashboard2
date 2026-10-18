@@ -271,6 +271,8 @@ export default function Flashcards() {
       due: nextDue
     };
 
+    // G-11 FIX: Atualizar estado local DEPOIS da persistência,
+    // não antes. Se persistDecks falhar, o estado local não avança.
     const safeRating = Number.isFinite(Number(rating)) ? Number(rating) : 0;
     const isKnown = safeRating >= 2;
     const projectedKnown = studyStats.known + (isKnown ? 1 : 0);

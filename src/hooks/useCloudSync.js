@@ -250,7 +250,6 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       // hashString64 do coachSafe.js gera hash de 64 bits com colisão mínima.
       try {
         const fullJson = JSON.stringify(item);
-        // Gerar hash simples de 64 bits inline (sem dependência externa)
         let h1 = 0x811c9dc5;
         let h2 = 0x01000193;
         for (let i = 0; i < fullJson.length; i++) {
@@ -258,10 +257,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           h1 = Math.imul(h1 ^ c, 0x01000193);
           h2 = Math.imul(h2 ^ c, 0x85ebca6b);
         }
-        return `unknown:${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
+        // G-19 FIX: Incluir índice para evitar colisão entre itens
+        // diferentes que serializam para o mesmo JSON.
+        return `unknown:${index ?? 'x'}:${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
       } catch {
-        // Se JSON.stringify falhar (circular, etc.), gerar chave baseada em posição
-        return `unknown:unserializable-${index ?? 'x'}`;
+        return `unknown:unserializable-${index ?? 'x'}-${Date.now()}`;
       }
     };
 
@@ -613,9 +613,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         const cats = c?.categories;
         if (Array.isArray(cats)) {
           contentFingerprint += cats.length;
-          cats.forEach(cat => { contentFingerprint += (cat.tasks?.length || 0); });
+          // C-05 FIX: incluir mais campos para detectar mudanças que não
+          // alteram contagens (nome, cor, status, histórico).
+          cats.forEach(cat => {
+            contentFingerprint += (cat.tasks?.length || 0);
+            contentFingerprint += (cat.simuladoStats?.history?.length || 0);
+            contentFingerprint += cat.name ? cat.name.length : 0;
+          });
         }
-        contentFingerprint += (c?.simuladoRows?.length || 0);
+        contentFingerprint += (c?.simuladoRows?.length || 0) * 7;
+        contentFingerprint += (c?.studyLogs?.length || 0) * 3;
+        contentFingerprint += (c?.notes?.length || 0);
       });
     }
     const hashStr = (s) => {
@@ -955,9 +963,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   useEffect(() => {
     if (!currentUser?.uid || !db) return;
     const handleVisibilityChange = () => {
-      // ✅ FIX: Nunca disparar emergency sync se um pull estiver ocorrendo
-      if (document.visibilityState === 'hidden' && !isCloudPullRef.current) {
-        performEmergencySync();
+      if (document.visibilityState === 'hidden') {
+        // C-04 FIX: Disparar sync síncrono via beforeunload-like pattern.
+        // performEmergencySync é async; não podemos aguardar aqui, mas
+        // podemos marcar dirty para o beforeunload flush.
+        if (!isCloudPullRef.current) {
+          try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch {}
+          performEmergencySync(); // fire-and-forget, mas o dirty flag garante retry
+        }
       } else if (document.visibilityState === 'visible') {
         setIsInternalSyncing(false);
         isInternalSyncingRef.current = false;
@@ -1015,6 +1028,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     if (isCloudPullRef.current) {
       isCloudPullRef.current = false;
       lastSyncedRef.current = currentStateString;
+      // C-06 FIX: Não descartar a mutação que acabou de ser aplicada.
+      // Se o estado local mudou durante o pull, re-disparar sync.
+      const freshState = useAppStore.getState().appState;
+      if (stateStringForSync(freshState) !== currentStateString) {
+        needsSyncRef.current = true;
+      }
       return;
     }
     if (lastSyncedRef.current === currentStateString) return;

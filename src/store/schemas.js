@@ -119,12 +119,17 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
       (h.total !== undefined && h.total !== null && Number.isNaN(Number(h.total)))
     );
 
-    const dateCompressionBug = uniqueDaysInLogs > 1 && currentUniqueDays <= 1 && currentHistory.length > 0;
-    // ✅ LOTE-03: REMOVER uniqueDaysInLogs > repairThreshold
-    // Reconstruir APENAS quando os dados estão corrompidos ou faltando.
+    // C-10 FIX: dateCompressionBug pode ser falso positivo quando
+    // simuladoRows tem datas duplicadas legítimas (2 simulados no mesmo dia).
+    // Adicionar verificação de que as datas nos logs são realmente distintas.
+    const uniqueLogDates = new Set(
+      myRows.map(r => getDateKey(extractRowDate(r))).filter(Boolean)
+    );
+    const realDateCompression = uniqueLogDates.size > 1 && currentUniqueDays <= 1 && currentHistory.length > 0;
+
     if (
       hasCorruptedHistory ||
-      dateCompressionBug ||
+      realDateCompression ||
       currentHistory.length === 0
     ) {
       hasRepaired = true;

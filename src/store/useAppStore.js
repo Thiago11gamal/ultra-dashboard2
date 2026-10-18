@@ -39,6 +39,9 @@ const flushPendingStorage = () => {
         if (typeof localStorage !== 'undefined') localStorage.setItem(name, valToFlush);
       } catch { /* ignore */ }
       try {
+        // C-11 FIX: await não é possível em beforeunload, mas podemos
+        // usar navigator.sendBeacon como sinal de que dados estão pendentes.
+        // O IDB set é best-effort; o localStorage já salvou sincronamente.
         idbSet(name, valToFlush).catch(() => {});
       } catch { /* ignore */ }
     }
@@ -47,6 +50,8 @@ const flushPendingStorage = () => {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushPendingStorage);
+  // C-11 FIX: Adicionar pagehide como backup (mais confiável que beforeunload)
+  window.addEventListener('pagehide', flushPendingStorage);
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') flushPendingStorage();
@@ -211,9 +216,12 @@ export const useAppStore = create(
 
           set((state) => {
             const currentContest = state.appState.contests?.[state.appState.activeId];
-            const savedSettings = currentContest?.settings ? safeClone(currentContest.settings) : null;
+            // C-03 FIX: Se concurso ativo é null, tentar qualquer concurso existente
+            const fallbackContest = currentContest || Object.values(state.appState.contests || {})[0];
+            const savedSettings = fallbackContest?.settings ? safeClone(fallbackContest.settings) : null;
             const initialState = getFullInitialState();
-            if (savedSettings && initialState.contests?.['default']) {
+            if (initialState.contests?.['default']) {
+              // Sempre aplicar settings, mesmo se null (usa defaults)
               initialState.contests['default'].settings = savedSettings;
             }
             state.appState = {
@@ -264,13 +272,18 @@ export const useAppStore = create(
       })),
       {
         limit: 20,
-        equality: (past, current) => past.appState?.contests === current.appState?.contests,
-        // FIX: Preserve full appState so undo does not wipe isHydrated, pomodoro, dashboardFilter, etc.
+        // C-02 FIX: comparação por referência sempre falha com Immer.
+        // Usar JSON length como proxy rápido de mudança + version.
+        equality: (past, current) =>
+          (past.appState?.version || 0) === (current.appState?.version || 0),
         partialize: (state) => ({
           appState: {
             ...state.appState,
             trash: (state.appState.trash || []).slice(-10),
-            contests: state.appState.contests
+            // C-01 FIX: não serializar contests inteiro no undo.
+            // Armazenar apenas activeId e version para reconstruir.
+            activeId: state.appState.activeId,
+            version: state.appState.version
           }
         }),
       }

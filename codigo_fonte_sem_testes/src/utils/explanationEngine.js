@@ -1,0 +1,190 @@
+// ==========================================
+// HUMAN EXPLANATION ENGINE
+// Traduz telemetria matemática em linguagem natural
+// ==========================================
+
+export function buildHumanExplanation({
+    calibrationPenalty,
+    volatility,
+    trend,
+    confidenceTier,
+    intervalWidth,
+    maxScore = 100
+}) {
+    const scale = Math.max(0.01, (Number(maxScore) || 100) / 100);
+    const messages = [];
+
+    if (confidenceTier === 'HIGH') {
+        messages.push('Seu desempenho recente está consistente.');
+    }
+
+    if (volatility > 15 * scale) {
+        messages.push('Suas notas recentes oscilaram bastante.');
+    }
+
+    if (trend > 5 * scale) {
+        messages.push('Seu desempenho mostrou melhora recente.');
+    }
+
+    if (trend < -5 * scale) {
+        messages.push('Seu desempenho recente apresentou queda.');
+    }
+
+    if (calibrationPenalty > 0.08) {
+        messages.push('O sistema ampliou a margem de incerteza para evitar excesso de confiança.');
+    }
+
+    if (intervalWidth > 40 * scale) {
+        messages.push('A faixa provável ficou mais ampla devido à alta variabilidade recente.');
+    }
+
+    // ✅ FIX: Retornar mensagem padrão se não houver mensagens
+    return messages.length > 0 ? messages : ['Desempenho estável dentro do padrão esperado.'];
+}
+
+export function getConfidenceTier({
+    calibrationPenalty,
+    volatility,
+    sampleSize,
+    maxScore = 100
+}) {
+    const scale = Math.max(0.01, (Number(maxScore) || 100) / 100);
+    // Tolerância adaptativa: normalizar a volatilidade para a escala base de 100
+    // calibrationPenalty está entre 0 e 1 (0.1 = 10% de penalidade).
+    const normalizedVolatility = volatility / scale;
+    const instability = (calibrationPenalty * 100) + (normalizedVolatility * 0.2);
+
+    if (sampleSize < 3) {
+        return {
+            tier: 'LOW',
+            label: 'Baixa confiabilidade (Poucos dados)',
+            color: '#ef4444',
+            glow: 'shadow-red-500/30',
+        };
+    }
+
+    if (instability < 18) {
+        return {
+            tier: 'HIGH',
+            label: 'Alta confiabilidade',
+            color: '#22c55e',
+            glow: 'shadow-green-500/30',
+        };
+    }
+
+    if (instability < 35) {
+        return {
+            tier: 'MEDIUM',
+            label: 'Confiabilidade moderada',
+            color: '#f59e0b',
+            glow: 'shadow-yellow-500/30',
+        };
+    }
+
+    return {
+        tier: 'LOW',
+        label: 'Baixa confiabilidade',
+        color: '#ef4444',
+        glow: 'shadow-red-500/30',
+    };
+}
+
+export function detectPerformanceDrift({
+    recentMean,
+    baselineMean,
+    recentVolatility,
+    maxScore = 100,
+    margin = 2 // % do domínio
+}) {
+    const alerts = [];
+    const scale = Math.max(0.1, (Number(maxScore) || 100) / 100);
+    const diff = recentMean - baselineMean;
+
+    // ✅ PATCH-12: Se estiver em platô/estagnado, retorna sem gerar alertas falsos de "queda"
+    if (Math.abs(diff) <= (margin * scale)) {
+       alerts.push({
+          type: 'plateau',
+          severity: 'low',
+          message: 'Desempenho estável, em fase de consolidação.'
+       });
+       return alerts; // Interrompe para não gerar falsos positivos
+    }
+
+    if (diff < -(12 * scale)) {
+        alerts.push({
+            type: 'performance_drop',
+            severity: 'high',
+            message: 'Seu desempenho recente caiu significativamente.',
+        });
+    }
+
+    if (recentVolatility > (20 * scale)) {
+        alerts.push({
+            type: 'high_volatility',
+            severity: 'medium',
+            message: 'Suas notas recentes estão muito instáveis.',
+        });
+    }
+
+    return alerts;
+}
+
+export function buildPredictionMood({
+    probability,
+    confidenceTier,
+}) {
+    const prob = Number.isFinite(Number(probability)) ? Number(probability) : null;
+    if (prob === null) return 'unknown';
+
+    if (prob >= 80) {
+        return confidenceTier === 'HIGH' ? 'stable' : 'moderate';
+    }
+    if (prob >= 50) {
+        return 'moderate';
+    }
+    return 'risk';
+}
+
+export function normalizeAlertSeverity(severity, confidenceTier) {
+    if (severity === 'high' && confidenceTier === 'LOW') {
+        return {
+            color: '#f59e0b',
+            label: 'Atenção moderada',
+            glow: 'shadow-orange-500/20'
+        };
+    }
+    return {
+        color: '#ef4444',
+        label: 'Alerta importante',
+        glow: 'shadow-red-500/20'
+    };
+}
+
+export function smoothConfidenceTier({ previousTier, currentTier, stabilityCounter = 0 }) {
+    if (previousTier && previousTier !== currentTier && stabilityCounter < 3) {
+        return { tier: previousTier, stabilityCounter: stabilityCounter + 1 };
+    }
+    return { tier: currentTier, stabilityCounter: 0 };
+}
+
+export function humanizeVolatility(sd, maxScore = 100) {
+    const scale = Math.max(1, maxScore / 100);
+    if (sd < 8 * scale) return 'Muito estável';
+    if (sd < 18 * scale) return 'Relativamente estável';
+    if (sd < 30 * scale) return 'Oscilação moderada';
+    return 'Alta instabilidade';
+}
+
+export function validatePrediction({ probability, interval, confidenceTier }) {
+    if (Number.isNaN(probability)) {
+        throw new Error('Invalid probability');
+    }
+    if (interval.low > interval.high) {
+        throw new Error('Invalid conformal interval');
+    }
+    if (!confidenceTier) {
+        throw new Error('Missing confidence tier');
+    }
+    return true;
+}
+

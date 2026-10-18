@@ -66,12 +66,17 @@ export function usePomodoroSync({
                 if (taskId != null && currentTaskId != null && taskId !== currentTaskId) {
                     return;
                 }
-                // Se a mensagem tem sessionInstanceId E nós temos, devem bater
-                if (sessionInstanceId != null && currentSessionId != null && sessionInstanceId !== currentSessionId) {
+                // G-09 FIX: Se a mensagem tem sessionInstanceId, validar.
+                // Se NÓS temos sessionId mas a mensagem NÃO tem, aceitar
+                // (mensagem de aba que não trackeia sessions).
+                // Se a mensagem TEM sessionId mas NÓS NÃO temos, rejeitar
+                // (excepto START_SESSION que notifica ativação).
+                if (sessionInstanceId != null && currentSessionId != null &&
+                    sessionInstanceId !== currentSessionId) {
                     return;
                 }
-                // Se a mensagem tem sessionInstanceId mas nós NÃO temos sessão ativa, ignorar
-                // EXCETO para START_SESSION, que notifica a aba que o protocolo foi ativado
+                // G-09 FIX: Se a mensagem TEM sessionId mas nós NÃO temos,
+                // só aceitar START_SESSION (ativação inicial).
                 if (type !== 'START_SESSION' && sessionInstanceId != null && currentSessionId == null) {
                     return;
                 }

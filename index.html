@@ -85,6 +85,8 @@
       if (!alreadyAttempted) {
         try {
           sessionStorage.setItem('ultra_auto_reloaded', 'true');
+          // C-15 FIX: Timestamp para expirar o flag após 60s
+          sessionStorage.setItem('ultra_auto_reloaded_at', String(Date.now()));
         } catch { /* ignore */ }
 
         if ('serviceWorker' in navigator) {
@@ -98,6 +100,13 @@
           window.location.reload();
         }
         return true;
+      }
+      // C-15 FIX: Se já tentou e faz mais de 60s, permitir nova tentativa
+      const reloadAt = parseInt(sessionStorage.getItem('ultra_auto_reloaded_at') || '0', 10);
+      if (alreadyAttempted && Date.now() - reloadAt > 60000) {
+        sessionStorage.removeItem('ultra_auto_reloaded');
+        sessionStorage.removeItem('ultra_auto_reloaded_at');
+        return handleChunkOrScriptError(reason); // retry
       }
       return false;
     }

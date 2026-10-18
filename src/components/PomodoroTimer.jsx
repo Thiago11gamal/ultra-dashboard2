@@ -241,6 +241,18 @@ function PomodoroTimer({
     const timeRef = useRef(timeLeft);
     const handlePhaseEndRef = useRef(null);
 
+    // C-07 FIX: stateRefs deve ser definido ANTES de commitTimeLeft.
+    const stateRefs = useRef({
+        mode,
+        timeLeft,
+        isRunning,
+        sessions,
+        targetCycles,
+        completedCycles,
+        accumulatedMinutes,
+        lastTaskId: activeSubject?.taskId
+    });
+
     const commitTimeLeft = useCallback((value) => {
         const safe = Math.max(0, Number(value) || 0);
         timeRef.current = safe;
@@ -256,17 +268,6 @@ function PomodoroTimer({
             stateRefs.current.timeLeft = timeLeft;
         }
     }, [timeLeft]);
-
-    const stateRefs = useRef({
-        mode,
-        timeLeft,
-        isRunning,
-        sessions,
-        targetCycles,
-        completedCycles,
-        accumulatedMinutes,
-        lastTaskId: activeSubject?.taskId
-    });
 
     useEffect(() => {
         if (typeof onTimerStateChange === 'function') {
@@ -518,7 +519,9 @@ function PomodoroTimer({
     const hasFlushedRef = useRef(false);
 
     const flushPendingStudyTime = useCallback((subjectOverride = null) => {
-        if (hasFlushedRef.current) return;
+        // C-08 FIX: hasFlushedRef já protege, mas também verificar se
+        // estamos em transição para evitar flush duplo.
+        if (hasFlushedRef.current || isTransitioningRef.current) return;
         const subjectSnapshot = subjectOverride || activeSubjectRef.current;
         if (!subjectSnapshot) return;
 
@@ -854,7 +857,9 @@ function PomodoroTimer({
                 return;
             }
 
-            if (hasFlushedRef.current) return;
+            // C-08 FIX: Verificar se já houve flush E se não estamos
+            // em transição de fase (que faz seu próprio flush).
+            if (hasFlushedRef.current || isTransitioningRef.current) return;
             const currentSub = activeSubjectRef.current;
             if (currentSub && stateRefs.current.mode === 'work') {
                 const totalWorkSeconds = (safeSettings.pomodoroWork || 25) * 60;

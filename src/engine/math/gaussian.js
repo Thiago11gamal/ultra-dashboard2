@@ -1,6 +1,7 @@
 // src/engine/math/gaussian.js
 import { getPercentile } from './percentile.js';
 import { MIN_SD_FLOOR } from './constants.js';
+import { mulberry32 } from '../random.js';
 
 /**
  * Abramowitz & Stegun approximation (formula 7.1.26) for Normal(0,1) CDF
@@ -319,11 +320,13 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options) {
         if (strictDeterminism) {
             throw new Error('STRICT_DETERMINISM: sampleTruncatedNormal requires a deterministic RNG function');
         }
+        // G-07 FIX: Usar mulberry32 com seed fixo em vez de Math.random
+        // para garantir reprodutibilidade.
         if (!globalThis.__MC_WARNED_FALLBACK_RNG__) {
-            console.warn('sampleTruncatedNormal: no RNG provided, falling back to Math.random() (non-deterministic)');
+            console.warn('sampleTruncatedNormal: no RNG provided, using deterministic fallback');
             globalThis.__MC_WARNED_FALLBACK_RNG__ = true;
         }
-        rng = Math.random;
+        rng = mulberry32(42); // seed fixo para determinismo
     }
     const sampledU = rng();
     const u = Number.isFinite(sampledU)

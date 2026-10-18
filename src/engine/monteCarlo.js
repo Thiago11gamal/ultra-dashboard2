@@ -11,7 +11,7 @@ import {
     truncatedNormalFromUniform
 } from './math/gaussian.js';
 import { monteCarloSimulation } from './projection.js';
-export { monteCarloSimulation };
+export { monteCarloSimulation, sampleTruncatedNormal };
 
 import { getPercentile } from './math/percentile.js';
 import { kahanSum } from './math/kahan.js';

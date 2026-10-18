@@ -82,10 +82,13 @@ export default function Paywall({ user, onLogout }) {
                 const { error, sessionId, url } = data;
 
                 if (error) {
+                    // C-12 FIX: Limpar listener em caso de erro
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    if (unsubRef.current) { unsubRef.current(); unsubRef.current = null; }
                     setError(`Erro da Stripe: ${error.message}`);
                     setLoading(false);
+                    return; // ← Parar processamento
                 }
 
                 if (url) {

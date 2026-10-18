@@ -25,6 +25,11 @@ export function stopCleanup() {
         clearInterval(cleanupInterval);
         cleanupInterval = null;
     }
+    // M-05 FIX: Também limpar pending requests órfãos
+    for (const [id, pending] of sharedPendingRequests) {
+        clearTimeout(pending.timeoutId);
+        sharedPendingRequests.delete(id);
+    }
 }
 
 function startCleanup() {

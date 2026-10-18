@@ -85,7 +85,6 @@
   },
   "allowScripts": {
     "@firebase/util": true,
-    "core-js": true,
     "esbuild": true,
     "@playwright/test": true,
     "protobufjs": true,

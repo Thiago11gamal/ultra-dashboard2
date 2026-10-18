@@ -950,7 +950,8 @@ export function monteCarloSimulation(
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
                     const effSd = s.sd * Math.max(0.80, s.immunityFactor || 1.0);
                     const subjScore = sampleTruncatedNormal(s.mean, effSd, sMin, sMax, rng);
-                    if (subjScore < s.minCutoff) {
+                    // G-08 FIX: Verificar se subjScore é finito antes de comparar
+                    if (!Number.isFinite(subjScore) || subjScore < s.minCutoff) {
                         passedMins = false;
                         break;
                     }

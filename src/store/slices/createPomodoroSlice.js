@@ -271,10 +271,14 @@ export const createPomodoroSlice = (set, get) => ({
                 p.completedCycles = currentCycles;
 
                 if (currentCycles >= targetCycles) {
+                    // G-18 FIX: Salvar lastCompletedSeriesMinutes ANTES de zerar
                     p.lastCompletedSeriesMinutes = p.accumulatedMinutes || 0;
                     p.sessions = 1;
                     p.mode = 'work';
                     p.completedCycles = 0;
+                    // G-18 FIX: Zerar accumulatedMinutes DEPOIS que
+                    // onFullCycleComplete leu o valor.
+                    // O caller deve ler lastCompletedSeriesMinutes.
                     p.accumulatedMinutes = 0;
                 } else {
                     const longBreakAfter = settings.longBreakAfter || 4;

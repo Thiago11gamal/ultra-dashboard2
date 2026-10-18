@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 600" width="500" height="600">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#f0f0f0"/>
+      <stop offset="100%" stop-color="#d0d0d0"/>
+    </radialGradient>
+    <radialGradient id="skinGrad" cx="45%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#d4956a"/>
+      <stop offset="100%" stop-color="#b8733d"/>
+    </radialGradient>
+    <radialGradient id="eyeLeft" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#6b3a1f"/>
+      <stop offset="100%" stop-color="#2c1506"/>
+    </radialGradient>
+    <radialGradient id="eyeRight" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#6b3a1f"/>
+      <stop offset="100%" stop-color="#2c1506"/>
+    </radialGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="rgba(0,0,0,0.2)"/>
+    </filter>
+    <filter id="hairTexture">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+      <feBlend in="SourceGraphic" in2="grayNoise" mode="multiply" result="blend"/>
+      <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="500" height="600" fill="url(#bgGrad)"/>
+
+  <!-- Neck -->
+  <path d="M195 390 Q195 450 200 470 L300 470 Q305 450 305 390 Z" fill="url(#skinGrad)"/>
+
+  <!-- Shirt body -->
+  <path d="M60 600 L60 470 Q80 440 150 425 L200 470 L300 470 L350 425 Q420 440 440 470 L440 600 Z" fill="#1a1a1a"/>
+
+  <!-- Shirt collar -->
+  <path d="M200 470 Q250 500 300 470 L310 490 Q250 525 190 490 Z" fill="#111"/>
+
+  <!-- Shirt sleeve hint left -->
+  <path d="M60 470 L80 560 L110 580 L90 470 Z" fill="#1a1a1a"/>
+
+  <!-- NFL logo on shirt -->
+  <g transform="translate(235, 500)">
+    <!-- Shield shape -->
+    <path d="M0,-18 L15,-10 L15,5 Q15,18 0,22 Q-15,18 -15,5 L-15,-10 Z" fill="#c8102e" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M0,-14 L11,-8 L11,4 Q11,14 0,18 Q-11,14 -11,4 L-11,-8 Z" fill="#fff"/>
+    <!-- NFL letters -->
+    <text x="-7" y="6" font-family="Arial Black,sans-serif" font-size="8" font-weight="900" fill="#c8102e" letter-spacing="0.5">NFL</text>
+  </g>
+
+  <!-- Face base -->
+  <ellipse cx="250" cy="280" rx="115" ry="140" fill="url(#skinGrad)" filter="url(#softShadow)"/>
+
+  <!-- Cheek highlight left -->
+  <ellipse cx="185" cy="295" rx="28" ry="22" fill="rgba(255,200,160,0.25)"/>
+  <!-- Cheek highlight right -->
+  <ellipse cx="315" cy="295" rx="28" ry="22" fill="rgba(255,200,160,0.25)"/>
+
+  <!-- Hair base (back) -->
+  <ellipse cx="250" cy="178" rx="115" ry="90" fill="#1a1205"/>
+
+  <!-- Hair top styled slicked back -->
+  <path d="M135 220 Q140 140 180 125 Q210 112 250 110 Q290 112 320 125 Q360 140 365 220 Q340 175 300 162 Q270 155 250 156 Q230 155 200 162 Q160 175 135 220 Z" fill="#0f0b04"/>
+
+  <!-- Hair shine -->
+  <path d="M200 120 Q230 108 265 115 Q285 120 295 130 Q270 118 245 118 Q220 118 200 120 Z" fill="rgba(255,255,255,0.12)"/>
+
+  <!-- Forehead line / hairline -->
+  <path d="M145 220 Q160 185 195 170 Q220 162 250 160 Q280 162 305 170 Q340 185 355 220 Q330 200 300 192 Q275 186 250 186 Q225 186 200 192 Q170 200 145 220 Z" fill="#0f0b04"/>
+
+  <!-- Sideburn left -->
+  <path d="M140 225 Q132 255 135 290 Q138 280 143 265 Q148 250 150 235 Z" fill="#1a1205"/>
+  <!-- Sideburn right -->
+  <path d="M360 225 Q368 255 365 290 Q362 280 357 265 Q352 250 350 235 Z" fill="#1a1205"/>
+
+  <!-- Eyebrow left -->
+  <path d="M178 238 Q200 228 225 232 Q210 237 195 240 Q186 241 178 238 Z" fill="#1a1205"/>
+  <!-- Eyebrow right -->
+  <path d="M275 232 Q300 228 322 238 Q314 241 305 240 Q290 237 275 232 Z" fill="#1a1205"/>
+
+  <!-- Eye white left -->
+  <ellipse cx="202" cy="262" rx="22" ry="14" fill="#f5f0ea"/>
+  <!-- Eye white right -->
+  <ellipse cx="298" cy="262" rx="22" ry="14" fill="#f5f0ea"/>
+
+  <!-- Iris left -->
+  <circle cx="204" cy="262" r="10" fill="url(#eyeLeft)"/>
+  <!-- Iris right -->
+  <circle cx="300" cy="262" r="10" fill="url(#eyeRight)"/>
+
+  <!-- Pupil left -->
+  <circle cx="205" cy="262" r="5.5" fill="#0a0604"/>
+  <!-- Pupil right -->
+  <circle cx="301" cy="262" r="5.5" fill="#0a0604"/>
+
+  <!-- Eye shine left -->
+  <circle cx="207" cy="258" r="2" fill="rgba(255,255,255,0.65)"/>
+  <!-- Eye shine right -->
+  <circle cx="303" cy="258" r="2" fill="rgba(255,255,255,0.65)"/>
+
+  <!-- Upper eyelid left -->
+  <path d="M180 258 Q202 248 224 258" stroke="#1a1205" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Upper eyelid right -->
+  <path d="M276 258 Q298 248 320 258" stroke="#1a1205" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Lower eyelid left -->
+  <path d="M181 266 Q202 274 223 266" stroke="#b8733d" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <!-- Lower eyelid right -->
+  <path d="M277 266 Q298 274 319 266" stroke="#b8733d" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Nose bridge -->
+  <path d="M245 270 Q242 295 238 315 Q248 320 262 315 Q258 295 255 270 Z" fill="rgba(0,0,0,0.07)"/>
+
+  <!-- Nose tip -->
+  <ellipse cx="250" cy="318" rx="20" ry="13" fill="rgba(0,0,0,0.08)"/>
+  <!-- Nose nostrils -->
+  <path d="M232 320 Q237 328 243 322" stroke="#8a5030" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M268 320 Q263 328 257 322" stroke="#8a5030" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Philtrum shadow -->
+  <path d="M244 327 Q250 333 256 327" stroke="rgba(0,0,0,0.15)" stroke-width="1.5" fill="none"/>
+
+  <!-- Upper lip -->
+  <path d="M220 343 Q235 336 250 338 Q265 336 280 343 Q265 348 250 347 Q235 348 220 343 Z" fill="#b06060"/>
+  <!-- Lower lip -->
+  <path d="M222 345 Q250 360 278 345 Q270 368 250 370 Q230 368 222 345 Z" fill="#c07070"/>
+  <!-- Lip line -->
+  <path d="M220 343 Q250 350 280 343" stroke="#9a4040" stroke-width="1.5" fill="none"/>
+  <!-- Lip highlight -->
+  <ellipse cx="250" cy="357" rx="18" ry="6" fill="rgba(255,200,200,0.2)"/>
+
+  <!-- Mustache -->
+  <path d="M215 340 Q230 334 250 336 Q270 334 285 340 Q268 346 250 344 Q232 346 215 340 Z" fill="#1a1205"/>
+
+  <!-- Soul patch / chin beard -->
+  <path d="M238 375 Q250 372 262 375 Q265 388 262 400 Q250 408 238 400 Q235 388 238 375 Z" fill="#1a1205"/>
+
+  <!-- Chin shape -->
+  <path d="M200 380 Q220 410 250 418 Q280 410 300 380" stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none"/>
+
+  <!-- Ear left hint -->
+  <path d="M136 280 Q128 290 130 305 Q132 318 140 320 Q138 305 139 290 Z" fill="url(#skinGrad)"/>
+  <!-- Ear right hint -->
+  <path d="M364 280 Q372 290 370 305 Q368 318 360 320 Q362 305 361 290 Z" fill="url(#skinGrad)"/>
+
+</svg>

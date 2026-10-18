@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
@@ -9,7 +9,11 @@ export function useSubscription(user) {
   const userEmail = (user?.email || '').trim().toLowerCase();
   const isAdminEmail = Boolean(userEmail && (userEmail === 'antunest040@gmail.com' || adminEmails.includes(userEmail)));
 
-  const isDevBypass = import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || isLocalMode || user?.uid === 'local-user' || isAdminEmail;
+  // G-17 FIX: Recalcular isDevBypass quando user muda
+  const isDevBypass = useMemo(() =>
+      import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || isLocalMode || user?.uid === 'local-user' || isAdminEmail,
+      [user?.uid, isAdminEmail]
+  );
 
   const [isPremium, setIsPremium] = useState(isDevBypass);
   const [loading, setLoading] = useState(!isDevBypass);

@@ -144,6 +144,13 @@ export async function secureLogout() {
             console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
         }
 
+        // C-13 FIX: Limpar IndexedDB do Firestore (dados do usuário anterior)
+        try {
+            await clearFirestoreCache();
+        } catch (e) {
+            console.warn('[Firebase] Falha ao limpar cache Firestore:', e);
+        }
+
         // ✅ FIX N-01: Limpar chaves de quarantine
         try {
             const quarantineKeys = [];

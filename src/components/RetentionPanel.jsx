@@ -180,7 +180,13 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!document.hidden) setNow(Date.now());
+            // G-12 FIX: Só atualizar se a aba estiver visível E
+            // se houve mudança real de minuto (evitar re-render a cada 60s
+            // quando nada mudou visualmente).
+            if (!document.hidden) {
+                const newNow = Date.now();
+                setNow(prev => Math.floor(prev / 60000) !== Math.floor(newNow / 60000) ? newNow : prev);
+            }
         }, 60000);
 
         const handleVisibilityChange = () => {

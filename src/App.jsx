@@ -50,6 +50,7 @@ import { parseImportedData } from './utils/backupManager';
 import { exportData } from './data/initialData';
 import useIdleLogout from './hooks/useIdleLogout';
 import { stopCleanup } from './hooks/useMonteCarloWorker';
+import { MAX_BACKUP_SIZE } from './config.js';
 
 
 
@@ -257,7 +258,10 @@ function MainLayout() {
   useEffect(() => {
     isMountedRef.current = true;
     try {
-      sessionStorage.removeItem('ultra_auto_reloaded');
+      // C-15 FIX: NÃO remover o flag aqui.
+      // O flag deve persistir até o próximo load bem-sucedido.
+      // Remover aqui permite loop infinito de reloads.
+      // sessionStorage.removeItem('ultra_auto_reloaded');
     } catch { /* ignore */ }
     return () => { 
       isMountedRef.current = false; 
@@ -270,8 +274,8 @@ function MainLayout() {
     if (!file) return;
     event.target.value = '';
 
-    if (!Number.isFinite(file.size) || file.size > 50 * 1024 * 1024) { // 50MB
-      showToast('O arquivo de backup é grande demais (máx 50MB).', 'error');
+    if (!Number.isFinite(file.size) || file.size > MAX_BACKUP_SIZE) {
+      showToast('O arquivo de backup é grande demais.', 'error');
       return;
     }
 

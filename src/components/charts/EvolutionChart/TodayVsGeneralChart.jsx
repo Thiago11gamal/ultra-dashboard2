@@ -231,7 +231,9 @@ export function TodayVsGeneralChart({
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 if (!hDateKey || hDateKey > maxAllowedDateKey) return;
                 const time = toDateMs(h.date || h.createdAt);
-                if (!time) return;
+                // G-16 FIX: Distinguir NaN (dado corrompido) de null (campo ausente)
+                if (time === null || Number.isNaN(time)) return;
+                if (!Number.isFinite(time)) return;
                 let tot = Number(h.total) || 0;
                 let corr = 0;
                 if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {

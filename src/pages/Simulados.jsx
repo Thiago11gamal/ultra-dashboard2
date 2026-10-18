@@ -371,6 +371,11 @@ export default function Simulados() {
     try {
       const analysisResult = payload?.analysis || payload || {};
       const rawRows = Array.isArray(payload?.rawRows) ? payload.rawRows : [];
+      // G-10 FIX: Validar rawRows antes de processar
+      if (!rawRows.length) {
+        showToast('Nenhuma linha válida para processar.', 'warning');
+        return;
+      }
       const todayKey = getDateKey(normalizeDate(new Date()));
       const nowIso = new Date().toISOString();
       const batchId = generateId('batch');

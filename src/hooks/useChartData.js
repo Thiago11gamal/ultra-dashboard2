@@ -224,15 +224,13 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     const categoriesVersion = useMemo(() => categories.map((cat) => {
         const history = getHistoryArray(cat);
         const tasks = Array.isArray(cat?.tasks) ? cat.tasks : EMPTY_ARRAY;
-        const histDigest = history.map((h) => [
-            getDateKey(getHistoryDate(h)) || 'nodate',
-            Number(h?.score ?? 0),
-            Number(h?.correct ?? 0),
-            Number(h?.total ?? 0),
-            Array.isArray(h?.topics) ? h.topics.length : Object.values(h?.topics || {}).length,
-            h?.taskId || ''
-        ].join(':')).join('|');
-        return [cat?.id || '', cat?.name || '', tasks.length, histDigest].join('::');
+        // M-02 FIX: Usar hash numérico em vez de string gigante
+        let hash = 0;
+        history.forEach((h) => {
+            hash = ((hash << 5) - hash + Number(h?.score ?? 0)) | 0;
+            hash = ((hash << 5) - hash + Number(h?.total ?? 0)) | 0;
+        });
+        return `${cat?.id || ''}|${tasks.length}|${history.length}|${hash}`;
     }).join('||'), [categories]);
 
     const activeCategories = useMemo(() => {

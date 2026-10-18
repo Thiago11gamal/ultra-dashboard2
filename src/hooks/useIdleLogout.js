@@ -29,8 +29,9 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         };
     }, []);
 
-    // P03 PERF FIX: Throttle to avoid hundreds of calls/sec from mousemove
-    const THROTTLE_MS = 2000;
+    // G-14 FIX: Reduzir throttle para 500ms para não perder atividade
+    // legítima em timeouts curtos.
+    const THROTTLE_MS = 500;
 
     const resetTimer = useCallback((force = false) => {
         const now = Date.now();
