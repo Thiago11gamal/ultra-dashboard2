@@ -33,7 +33,7 @@ export function bootstrapCI(samples, statFn, {
     : (values) => kahanSum(values) / values.length;
 
   const estimateRaw = Number(fn(clean));
-  const estimate = Number.isFinite(estimateRaw) ? estimateRaw : 0;
+  const estimate = estimateRaw;
   const n = clean.length;
   const iters = Math.max(500, Math.floor(Number(iterations) || 1000));
   const safeAlpha = Math.max(0.001, Math.min(0.5, Number(alpha) || 0.05));
@@ -54,13 +54,14 @@ export function bootstrapCI(samples, statFn, {
 
   // ✅ Bootstrap percentílico puro — sem ruído artificial
   const dist = new Array(iters);
+  const fallbackVal = Number.isFinite(estimate) ? estimate : 0;
   for (let i = 0; i < iters; i++) {
     const bag = new Array(n);
     for (let j = 0; j < n; j++) {
       bag[j] = clean[Math.min(n - 1, Math.floor(rand() * n))];
     }
     const value = Number(fn(bag));
-    dist[i] = Number.isFinite(value) ? value : estimate;
+    dist[i] = Number.isFinite(value) ? value : fallbackVal;
   }
 
   dist.sort((a, b) => a - b);

@@ -56,7 +56,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     const isTaskOrTopicMatch = (taskId && r.taskId)
       ? r.taskId === taskId
       : normalize(r.topic) === normalize(assunto);
-    const isSameBatch = r.batchId && r.batchId === assignedBatchId;
+    const hasExplicitBatch = Boolean(r.batchId || batchId || formData?.batchId);
+    const isSameBatch = hasExplicitBatch ? (r.batchId === assignedBatchId) : true;
     if (isCatMatch && isTaskOrTopicMatch && isSameBatch) {
       rowFound = true;
       const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
