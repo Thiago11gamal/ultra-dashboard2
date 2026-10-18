@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { BookOpen, Zap, Calendar, Clock, CheckCircle2 } from 'lucide-react'; // ✅ LOTE-04: Activity removido (não usado)
 import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
+import { resolveHumanTaskTitle } from '../utils/taskTitleHelper';
 
 // ✅ LOTE-04 FIX: movido para o escopo do módulo — antes era recriado a cada render
 // T-021 FIX: tasks podem ser arrays ou objetos no Firebase.
@@ -115,6 +116,22 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                 if (byCatName) return byCatName;
             }
 
+            if (log.category) {
+                const byCategory = categoriesByName.get(log.category) || categoriesByName.get(String(log.category).trim().toLowerCase());
+                if (byCategory) return byCategory;
+            }
+
+            if (log.catName) {
+                const byCatName = categoriesByName.get(log.catName) || categoriesByName.get(String(log.catName).trim().toLowerCase());
+                if (byCatName) return byCatName;
+            }
+
+            // Fallback: If taskId starts with a category ID (ex: cat-1772560345316-opevcca-topic-c1-0)
+            if (log.taskId && typeof log.taskId === 'string' && log.taskId.startsWith('cat-')) {
+                const matchedCat = categoriesArray.find(c => c && c.id && log.taskId.startsWith(String(c.id)));
+                if (matchedCat) return matchedCat;
+            }
+
             return undefined;
         };
 
@@ -128,7 +145,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                     color: category.color || '#a855f7'
                 };
             }
-            const rawName = String(log?.categoryName || log?.subject || 'Outros').trim();
+            const rawName = String(log?.categoryName || log?.category || log?.catName || log?.subject || 'Outros').trim();
             const id = `raw:${rawName}`;
             return {
                 category: undefined,
@@ -227,20 +244,19 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                 };
             }
 
-            const getCleanTitle = (val) => (val && typeof val === 'string' && val.trim() !== '-' && val.trim() !== '' ? val.trim() : null);
-            let rawTitle = null;
-            if (category && log.taskId) {
-                const taskMap = tasksByCatAndId.get(category);
-                const task = taskMap?.get(String(log.taskId));
-                if (task) {
-                    rawTitle = getCleanTitle(task.text) || getCleanTitle(task.title);
-                }
-            }
-            const taskTitle = rawTitle || getCleanTitle(log.taskTitle) || getCleanTitle(log.task) || getCleanTitle(log.title) || getCleanTitle(log.taskName) || 'Sessão de Estudo';
+            // Resolve human-readable task title (never leaks raw cat-/task- machine IDs)
+            const taskTitle = resolveHumanTaskTitle(
+                log.taskTitle || log.task || log.title || log.taskName,
+                log.taskId,
+                category,
+                categoriesArray
+            );
 
             // Check if this task is already in the list for this day (Merge strategy com Map O(1))
             const targetGroup = grouped[uniqueDayKey].categories[categoryId];
-            const mergeKey = log.taskId ? `id:${String(log.taskId)}` : `title:${taskTitle}`;
+            const mergeKey = (taskTitle && taskTitle !== 'Sessão de Estudo')
+                ? `title:${taskTitle.toLowerCase().trim()}`
+                : `log:${log.id || log.taskId || Math.random()}`;
             const existingLog = targetGroup.logMap.get(mergeKey);
 
             if (existingLog) {
@@ -432,7 +448,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                                                         <span className="break-words line-clamp-2 text-xs sm:text-sm" title={log.taskTitle}>{log.taskTitle}</span>
                                                     </div>
                                                     <span className="font-mono whitespace-nowrap opacity-60">
-                                                        +{Math.round(log.minutes) >= 60 ? formatTime(log.minutes) : `${Math.round(log.minutes)}m`}
+                                                        +{Math.round(log.minutes) >= 60 ? formatTime(log.minutes) : (Math.round(log.minutes) > 0 ? `${Math.round(log.minutes)}m` : '<1m')}
                                                     </span>
                                                 </div>
                                             ))}

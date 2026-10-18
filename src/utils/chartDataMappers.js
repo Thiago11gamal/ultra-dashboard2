@@ -1,4 +1,4 @@
-np/**
+/**
  * Mapper functions to transform application state into chart-ready data
  */
 import { normalizeDate, getDateKey } from './dateHelper.js';
@@ -202,17 +202,20 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
             cat = categoriesById.get(String(log.categoryId));
         }
         if (!cat) {
-            const catNameSearch = log.subject || log.categoryName;
+            const catNameSearch = log.subject || log.categoryName || log.category || log.catName;
             if (catNameSearch) {
                 cat = categoriesByName.get(normalizeKey(catNameSearch));
             }
+        }
+        if (!cat && log.taskId && typeof log.taskId === 'string' && log.taskId.startsWith('cat-')) {
+            cat = safeCategories.find(c => c && c.id && log.taskId.startsWith(String(c.id)));
         }
 
         let displayName = 'Outros';
         if (cat && cat.name) {
             displayName = String(cat.name).trim();
         } else {
-            const catNameSearch = log.categoryName || log.subject;
+            const catNameSearch = log.categoryName || log.category || log.catName || log.subject;
             if (catNameSearch && String(catNameSearch).trim() !== 'undefined' && String(catNameSearch).trim() !== 'null') {
                 displayName = String(catNameSearch).trim();
             }

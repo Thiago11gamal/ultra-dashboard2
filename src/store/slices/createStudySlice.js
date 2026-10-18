@@ -2,12 +2,13 @@ import { generateId } from '../../utils/idGenerator.js';
 import { XP_CONFIG } from '../../config/gamification.js';
 import { SYNC_LOG_CAP } from '../../config.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
+import { resolveHumanTaskTitle, cleanTaskTitle } from '../../utils/taskTitleHelper.js';
 
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
 
 export const createStudySlice = (set, get) => ({
-  handleUpdateStudyTime: (categoryId, minutes, taskId) => {
+  handleUpdateStudyTime: (categoryId, minutes, taskId, taskTitleOverride = '') => {
     const rawMinutes = Number(minutes);
     if (!Number.isFinite(rawMinutes) || rawMinutes <= 0) {
       console.warn('[StudySlice] minutes inválido, ignorando:', minutes);
@@ -28,15 +29,17 @@ export const createStudySlice = (set, get) => ({
 
       const category = activeData?.categories?.find(c => c.id === categoryId);
 
-      let taskTitle = '';
-
-      if (category && taskId) {
-        const task = (category.tasks || []).find(
-          t => t.id === taskId || t.text === taskId || t.title === taskId
-        );
-
-        taskTitle = task?.title || task?.text || (String(taskId).startsWith('task') ? '' : taskId);
+      let initialTitle = '';
+      if (taskTitleOverride && typeof taskTitleOverride === 'string') {
+        initialTitle = cleanTaskTitle(taskTitleOverride, category?.name || '');
       }
+
+      const taskTitle = resolveHumanTaskTitle(
+        initialTitle,
+        taskId,
+        category,
+        activeData?.categories
+      );
 
       const newLog = {
         id: logId,

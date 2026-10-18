@@ -545,7 +545,8 @@ function PomodoroTimer({
             safeOnUpdateStudyTime(
                 subjectSnapshot.categoryId,
                 minutes,
-                subjectSnapshot.taskId
+                subjectSnapshot.taskId,
+                subjectSnapshot.task || subjectSnapshot.title || subjectSnapshot.name || ''
             );
             if (typeof onSessionComplete === 'function') {
                 onSessionComplete();
@@ -600,7 +601,8 @@ function PomodoroTimer({
                 safeOnUpdateStudyTime(
                     prev.subject.categoryId,
                     lostMinutes,
-                    prev.subject.taskId
+                    prev.subject.taskId,
+                    prev.subject.task || prev.subject.title || prev.subject.name || ''
                 );
                 if (typeof onSessionComplete === 'function') {
                     onSessionComplete();
@@ -861,7 +863,12 @@ function PomodoroTimer({
                 const elapsedMins = Number((elapsedSec / 60).toFixed(2));
                 if (elapsedMins >= 0.25) {
                     hasFlushedRef.current = true;
-                    safeOnUpdateStudyTime(currentSub.categoryId, elapsedMins, currentSub.taskId);
+                    safeOnUpdateStudyTime(
+                        currentSub.categoryId,
+                        elapsedMins,
+                        currentSub.taskId,
+                        currentSub.task || currentSub.title || currentSub.name || ''
+                    );
                     if (typeof onSessionComplete === 'function') {
                         onSessionComplete();
                     }
@@ -962,7 +969,8 @@ function PomodoroTimer({
             safeOnUpdateStudyTime(
                 targetSubject.categoryId,
                 sessionMinutes,
-                targetSubject.taskId
+                targetSubject.taskId,
+                targetSubject.task || targetSubject.title || targetSubject.name || ''
             );
             hasFlushedRef.current = true;
             savedMinutes = sessionMinutes;
