@@ -944,7 +944,12 @@ function RaioXDashboard({ data }) {
                 const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : null;
                 const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;
                 if (validCount === 0) return null;
-                const matchedCategory = categories.find(c => c && (String(c.id) === categoryId || getSafeId(c.id || c.name) === categoryId));
+                const matchedCategory = categories.find(c => c && (
+                    String(c.id) === categoryId ||
+                    String(c.name) === categoryId ||
+                    getSafeId(c.id) === categoryId ||
+                    getSafeId(c.name) === categoryId
+                ));
                 const label = matchedCategory?.name || rows[rows.length - 1]?.categoryName || categoryId;
                 return { categoryId, label, count: validCount, avgBrier, avgPenalty };
             })

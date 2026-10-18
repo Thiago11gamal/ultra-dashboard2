@@ -149,7 +149,12 @@ export function computeCalibrationDiagnostics(pairs = [], options = {}) {
     reliability.push({ bin: i + 1, binMin, binMax, count: slice.length, meanPred, observedRate, gap });
   }
   const uncertainty = overallObserved * (1 - overallObserved);
-  return { ece, mce, reliability, brierDecomposition: { reliability: relTerm, resolution: resTerm, uncertainty } };
+  return {
+    ece: reliability.length > 0 ? ece : null,
+    mce: reliability.length > 0 ? mce : null,
+    reliability,
+    brierDecomposition: { reliability: relTerm, resolution: resTerm, uncertainty }
+  };
 }
 
 export function shrinkProbabilityToNeutral(probabilityPct, penalty, neutralPct = 50, maxAppliedPenalty = 0.5) {
@@ -217,13 +222,13 @@ export function computeCalibrationSummary(events = [], options = {}) {
   };
 }
 
-// FIX M4: imutável, causal (ts >= evento) e targetScore null-safe
-export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRows = [], _categories = [], maxScore = 100) {
+export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRows = [], categories = [], maxScore = 100, minScore = 0) {
   if (!Array.isArray(calibrationEvents)) return [];
   if (!Array.isArray(simuladoRows) || simuladoRows.length === 0) return calibrationEvents;
   const timed = simuladoRows
     .map(row => {
-      const parsed = normalizeDate(row?.date || row?.createdAt);
+      // Priorizar createdAt se disponível para timestamp exato; fallback para date
+      const parsed = normalizeDate(row?.createdAt || row?.timestamp || row?.date);
       return { row, ts: parsed ? parsed.getTime() : NaN };
     })
     .filter(x => Number.isFinite(x.ts))
@@ -251,9 +256,9 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
         let sumScore = 0;
         let sumWeight = 0;
         sameDay.forEach(x => {
-          const s = getSafeScore(x.row, maxScore);
+          const s = getSafeScore(x.row, maxScore, minScore);
           if (!Number.isFinite(s)) return;
-          const w = Math.max(1, Number(x.row.total) || 1);
+          const w = Math.max(1, Number(x.row.total ?? x.row.questoes ?? x.row.totalQuestoes) || 1);
           sumScore += s * w;
           sumWeight += w;
         });
@@ -265,15 +270,20 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
     } else {
       const hit = timed.find(x =>
         x.ts >= Number(ev.timestamp) &&
-        isSubjectMatch(ev.category, x.row.subject || x.row.categoryName)
+        isSubjectMatch(ev.category, x.row.subject || x.row.categoryName || x.row.materia || x.row.disciplina)
       );
       if (hit) {
-        score = getSafeScore(hit.row, maxScore);
+        const catMeta = Array.isArray(categories)
+          ? categories.find(c => isSubjectMatch(ev.category, c?.name || c?.id || c?.subject || c?.categoryName))
+          : null;
+        const catMax = Number.isFinite(Number(catMeta?.maxScore)) ? Number(catMeta.maxScore) : maxScore;
+        const catMin = Number.isFinite(Number(catMeta?.minScore)) ? Number(catMeta.minScore) : minScore;
+        score = getSafeScore(hit.row, catMax, catMin);
         observedAt = hit.ts;
       }
     }
     if (score === null || !Number.isFinite(score)) return { ...ev, backfilled: false };
-    return { ...ev, observed: score >= Number(ev.targetScore) ? 1 : 0, backfilled: true, observedAt };
+    return { ...ev, observed: score >= Number(ev.targetScore) ? 1 : 0, observedScore: score, backfilled: true, observedAt };
   });
 }
 
@@ -474,20 +484,21 @@ export function computeStackingWeights(candidateProbs = [], observed = [], compl
 }
 
 export function buildCalibrationDashboardSeries(events = []) {
+  const toFiniteOrNull = (val) => (val !== null && val !== undefined && val !== '' && Number.isFinite(Number(val))) ? Number(val) : null;
   const clean = (events || [])
     .map(e => ({
       timestamp: Number(e?.timestamp),
-      avgBrier: Number(e?.avgBrier),
-      ece: Number(e?.ece),
-      calibrationPenalty: Number(e?.calibrationPenalty),
-      probability: Number(e?.probability)
+      avgBrier: toFiniteOrNull(e?.avgBrier),
+      ece: toFiniteOrNull(e?.ece),
+      calibrationPenalty: toFiniteOrNull(e?.calibrationPenalty),
+      probability: toFiniteOrNull(e?.probability)
     }))
     .filter(e => Number.isFinite(e.timestamp))
     .sort((a, b) => a.timestamp - b.timestamp);
   if (clean.length === 0) {
     return { trend: [], rolling7: [], controlLimits: { brierMean: null, brierUpper95: null, brierLower95: null }, driftSignals: [] };
   }
-  const briers = clean.map(e => Number.isFinite(e.avgBrier) ? e.avgBrier : null).filter(v => v !== null);
+  const briers = clean.map(e => e.avgBrier).filter(v => v !== null);
   const mean = briers.length > 0 ? kahanSum(briers) / briers.length : null;
   const sd = briers.length > 1
     ? Math.sqrt(kahanSum(briers.map(v => (v - mean) ** 2)) / (briers.length - 1))
@@ -495,10 +506,10 @@ export function buildCalibrationDashboardSeries(events = []) {
   const trend = clean.map(e => ({
     timestamp: e.timestamp,
     date: getDateKey(new Date(e.timestamp)),
-    avgBrier: Number.isFinite(e.avgBrier) ? e.avgBrier : null,
-    ece: Number.isFinite(e.ece) ? e.ece : null,
-    penalty: Number.isFinite(e.calibrationPenalty) ? e.calibrationPenalty : null,
-    probability: Number.isFinite(e.probability) ? e.probability : null
+    avgBrier: e.avgBrier,
+    ece: e.ece,
+    penalty: e.calibrationPenalty,
+    probability: e.probability
   }));
   const rolling7 = trend.map((row, idx) => {
     const startTs = row.timestamp - (7 * 24 * 60 * 60 * 1000);

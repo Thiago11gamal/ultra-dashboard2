@@ -1514,9 +1514,9 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 explainability: {
                     confidenceAdjusted: (mcResult?.calibrationPenalty || 0) > 0,
                     confidenceAdjustmentPct: safeFixedNumber((mcResult?.calibrationPenalty || 0) * 100),
-                    calibrationQuality: (mcResult?.avgBrier || 0) <= cfg.MC_CALIBRATION_BRIER_BASELINE
+                    calibrationQuality: (mcResult?.avgBrier != null && mcResult?.avgBrier <= cfg.MC_CALIBRATION_BRIER_BASELINE)
                         ? 'good'
-                        : (mcResult?.avgBrier || 0) <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07) ? 'moderate' : 'low',
+                        : (mcResult?.avgBrier != null && mcResult?.avgBrier <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07)) ? 'moderate' : 'low',
                     note: (mcResult?.calibrationPenalty || 0) > 0
                         ? 'Probabilidade ajustada para reduzir overconfidence após backtest interno.'
                         : 'Sem ajuste de calibração significativo.'

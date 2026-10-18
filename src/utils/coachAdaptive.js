@@ -420,8 +420,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
     const enableAdaptiveCalibration = safeCfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false;
     let calibrationPenalty = 0;
-    let avgBrier = 0;
-    let ece = 0;
+    let avgBrier = null;
+    let ece = null;
     let reliability = [];
     let predObsPairs = [];
     let rawPreds = [];
@@ -564,7 +564,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const ciMid = (ciLow + ciHigh) / 2;
     const appliedShrinkK = Math.min(maxAppliedPenalty, totalShrink);
     const ciExpand = 1 + Math.max(0, appliedShrinkK * 1.2);
-    const widenedCiLow = Math.max(0, ciMid - ((ciMid - ciLow) * ciExpand));
+    const widenedCiLow = Math.max(safeMinScore, ciMid - ((ciMid - ciLow) * ciExpand));
     // FIX: usar safeMaxScore (validado) em vez de maxScore bruto
     const widenedCiHigh = Math.min(safeMaxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
 

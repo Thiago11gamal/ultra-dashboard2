@@ -153,7 +153,9 @@ export function useMonteCarloStats({
   const modelHealth = useMemo(() => {
     if (!calibrationSummary) return 0.5;
 
-    const brierHealth = Math.max(0, Math.min(1, 1 - (calibrationSummary.avgBrier - 0.12) / 0.2));
+    const brierHealth = Number.isFinite(Number(calibrationSummary.avgBrier))
+      ? Math.max(0, Math.min(1, 1 - (Number(calibrationSummary.avgBrier) - 0.12) / 0.2))
+      : 0.5;
     const trendHealth = calibrationSummary.trend === 'improving'
       ? 0.2
       : (calibrationSummary.trend === 'degrading' ? -0.2 : 0);
@@ -388,7 +390,8 @@ export function useMonteCarloStats({
         calibrationEvents,
         rawSimuladoRows,
         statsData?.categoryStats || [],
-        maxScore
+        maxScore,
+        minScore
       );
 
       const changed = backfilled.length !== calibrationEvents.length ||
@@ -406,7 +409,7 @@ export function useMonteCarloStats({
     } catch {
       // ignore
     }
-  }, [rawSimuladoRows, maxScore, calibrationEvents, statsData?.categoryStats]);
+  }, [rawSimuladoRows, maxScore, minScore, calibrationEvents, statsData?.categoryStats]);
 
     const projectDaysRef = useRef(projectDays);
   useEffect(() => { projectDaysRef.current = projectDays; }, [projectDays]);
@@ -1134,6 +1137,7 @@ export function useMonteCarloStats({
 
         return {
           name: cat.name,
+          targetScore: subjectTarget,
           prob: clamp(subjProb, 0, 100),
           probabilityLower: clamp(subjProb - subjUncertainty, 0, 100),
           probabilityUpper: clamp(subjProb + subjUncertainty, 0, 100),
@@ -1186,33 +1190,34 @@ export function useMonteCarloStats({
       const setDataFn = useAppStore.getState().setData;
       if (!setDataFn) return;
 
+      const newEvents = [];
       perSubjectProbs.forEach(subj => {
         if (subj.prob == null) return;
 
         const ev = recordPredictionEvent({
           timestamp: Date.now(),
           probability: Number(subj.prob) / 100,
-          targetScore: debouncedTarget,
+          targetScore: subj.targetScore != null ? subj.targetScore : debouncedTarget,
           sims: 500,
           category: subj.name || 'subject',
           effectiveN: subj.diagnostics?.effectiveN
         });
 
-        if (ev) {
-          setDataFn(contest => {
-            const evs = Array.isArray(contest.calibrationEvents)
-              ? [...contest.calibrationEvents]
-              : [];
-
-            evs.push(ev);
-
-            return {
-              ...contest,
-              calibrationEvents: evs.slice(-200)
-            };
-          });
-        }
+        if (ev) newEvents.push(ev);
       });
+
+      if (newEvents.length > 0) {
+        setDataFn(contest => {
+          const evs = Array.isArray(contest.calibrationEvents)
+            ? [...contest.calibrationEvents]
+            : [];
+
+          return {
+            ...contest,
+            calibrationEvents: [...evs, ...newEvents].slice(-200)
+          };
+        });
+      }
     } catch {
       // ignore
     }
