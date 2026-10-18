@@ -20,7 +20,8 @@ export {
   applyRecommendedFlags,
 } from '../engine/optimization/flagOptimizer.js';
 
-import { writeFlags } from './coachFeatureStore.js';
+import { writeFlags, setCoachFeatureContestScope } from './coachFeatureStore.js';
+import { DEFAULT_COACH_FEATURES, isValidFeatureKey } from './coachFeatures.js';
 
 export {
   saveBacktestReport,
@@ -44,36 +45,34 @@ import {
 } from '../engine/optimization/autoTuner.js';
 
 /**
- * Inicializa flags persistidas.
- * Deve ser chamado no bootstrap da aplicação.
- *
- * FIX: merge correto baseline + persistido (apenas booleans válidos)
- * e propagação para globalThis.__COACH_FEATURES__ — antes o orquestrador
- * relia o global e nunca enxergava as flags persistidas.
+ * Inicializa flags persistidas preservando todas as chaves válidas do Coach.
  */
-export function bootstrapCoachFlags() {
-  const baseline = getSafeBaselineFeatures();
-  const persisted = loadPersistedCoachFlags();
+export function bootstrapCoachFlags(contestId = 'default') {
+  setCoachFeatureContestScope(contestId);
+  const baseline = {
+    ...DEFAULT_COACH_FEATURES,
+    ...getSafeBaselineFeatures(),
+  };
+  const persisted = loadPersistedCoachFlags(contestId);
 
   if (!persisted || typeof persisted !== 'object') {
-    writeFlags({ ...baseline });
+    writeFlags({ ...baseline }, contestId);
     return { ...baseline };
   }
 
   const merged = { ...baseline };
   for (const [key, value] of Object.entries(persisted)) {
-    // ✅ FIX: Validar que a chave existe no baseline antes de sobrescrever
-    if (typeof value === 'boolean' && key in baseline) {
+    if (typeof value === 'boolean' && (isValidFeatureKey(key) || key in baseline)) {
       merged[key] = value;
     }
   }
 
-  writeFlags(merged);
+  writeFlags(merged, contestId);
   return merged;
 }
 
 /**
- * Rode o AutoTuner.
+ * Roda o AutoTuner.
  */
 export function runCoachAutoTuner(options = {}) {
   return runAutoTunerCycle(options);
@@ -91,4 +90,3 @@ export default {
   runCoachAutoTuner,
   buildCoachAutoTunerDashboard,
 };
-

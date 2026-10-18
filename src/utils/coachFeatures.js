@@ -5,7 +5,7 @@
  */
 import { getFlag } from './coachFeatureStore.js';
 
-const DEFAULT_COACH_FEATURES = Object.freeze({
+export const DEFAULT_COACH_FEATURES = Object.freeze({
   // Lote 1 — State-Space
   useStateSpace: false,
   useStateSpaceAverage: false,

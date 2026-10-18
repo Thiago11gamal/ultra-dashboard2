@@ -59,9 +59,17 @@ export function validateCoachExplanation(raw, options = {}) {
   const recommendation = sanitizeText(raw.recommendation, 320);
   if (!recommendation) return null;
 
-  const confidenceRaw = Number(raw.confidence);
-  const confidence = Number.isFinite(confidenceRaw)
-    ? Math.min(1, Math.max(0, confidenceRaw))
+  const hasConfidence =
+    raw.confidence !== null &&
+    raw.confidence !== undefined &&
+    raw.confidence !== '' &&
+    typeof raw.confidence !== 'boolean';
+  const confidenceRaw = hasConfidence ? Number(raw.confidence) : NaN;
+  const normalizedConfidence = Number.isFinite(confidenceRaw)
+    ? (confidenceRaw > 1 && confidenceRaw <= 100 ? confidenceRaw / 100 : confidenceRaw)
+    : NaN;
+  const confidence = Number.isFinite(normalizedConfidence)
+    ? Math.min(1, Math.max(0, normalizedConfidence))
     : 0.5;
 
   const tone = sanitizeText(raw.tone, 60) || 'neutral';
@@ -100,4 +108,3 @@ export default {
   validateCoachExplanation,
   CoachExplanationSchema,
 };
-

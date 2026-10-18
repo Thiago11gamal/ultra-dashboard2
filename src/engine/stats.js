@@ -747,8 +747,20 @@ export function computeBayesianLevel(
     const marginOfError = tMultiplier * effectiveSd * safeRange;
     const adjustedMarginOfError = Number.isFinite(marginOfError) ? marginOfError : 0;
 
-    const centerForCI = safeMinScore + p_tilde * safeRange;
-    const trueMean = safeMinScore + p * safeRange;
+    // ✅ FIX BUG-16 & BUG-22: Desfaz transformação de prova penalizada e respeita [minScore, maxScore]
+    const effectiveRatioCenter = options?.isPenalizedFormat && safeMinScore < 0
+      ? (2 * p_tilde - 1)
+      : p_tilde;
+    const centerForCI = options?.isPenalizedFormat && safeMinScore < 0
+      ? effectiveRatioCenter * safeMaxScore
+      : safeMinScore + p_tilde * safeRange;
+
+    const effectiveRatio = options?.isPenalizedFormat && safeMinScore < 0
+      ? (2 * p - 1) // Inverte (ratio + 1) / 2 de volta para [-1, 1]
+      : p;
+    const trueMean = options?.isPenalizedFormat && safeMinScore < 0
+      ? Math.max(safeMinScore, Math.min(safeMaxScore, effectiveRatio * safeMaxScore))
+      : safeMinScore + p * safeRange;
 
     let ciLow = centerForCI - adjustedMarginOfError;
     let ciHigh = centerForCI + adjustedMarginOfError;

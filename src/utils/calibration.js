@@ -237,6 +237,12 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
   return calibrationEvents.map(ev => {
     if (!ev || ev.observed != null || !ev.category) return ev;
     if (ev.targetScore == null || !Number.isFinite(Number(ev.timestamp))) return ev;
+    const minHorizonMs = Number.isFinite(Number(ev.minBackfillDays))
+      ? Number(ev.minBackfillDays) * 86400000
+      : 0;
+    const target = Number.isFinite(Number(ev.stepTargetScore))
+      ? Number(ev.stepTargetScore)
+      : (Number.isFinite(Number(ev.targetScore)) ? Number(ev.targetScore) : 70);
     // ✅ LOTE-03 FIX (C6): eventos com category 'global' NUNCA casavam porque
     // simuladoRows são registros POR MATÉRIA — o loop de aprendizagem global
     // estava morto (observed ficava null para sempre).
@@ -245,7 +251,7 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
     if (String(ev.category).toLowerCase() === 'global') {
       // Agrega as rows do PRIMEIRO dia de simulado após o evento
       // (média ponderada por total de questões quando disponível).
-      const candidates = timed.filter(x => x.ts >= Number(ev.timestamp));
+      const candidates = timed.filter(x => x.ts >= Number(ev.timestamp) + minHorizonMs);
       if (candidates.length > 0) {
         const firstDayKey = getDateKey(candidates[0].row.date || candidates[0].row.createdAt);
         if (!firstDayKey) return { ...ev, backfilled: false }; // ✅ FIX: data inválida → pular evento
@@ -269,7 +275,7 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
       }
     } else {
       const hit = timed.find(x =>
-        x.ts >= Number(ev.timestamp) &&
+        x.ts >= Number(ev.timestamp) + minHorizonMs &&
         isSubjectMatch(ev.category, x.row.subject || x.row.categoryName || x.row.materia || x.row.disciplina)
       );
       if (hit) {
@@ -283,7 +289,7 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
       }
     }
     if (score === null || !Number.isFinite(score)) return { ...ev, backfilled: false };
-    return { ...ev, observed: score >= Number(ev.targetScore) ? 1 : 0, observedScore: score, backfilled: true, observedAt };
+    return { ...ev, observed: score >= target ? 1 : 0, observedScore: score, backfilled: true, observedAt };
   });
 }
 
@@ -434,7 +440,12 @@ export function conformalizedCalibrationInterval(probability01, pairs = [], alph
     return { low: Math.max(0, low), high: Math.min(1, high), qHat: 0.15 };
   }
   const n = clean.length;
-  const residuals = clean.map(x => Math.abs(x.probability - x.observed)).sort((a, b) => a - b);
+  const residuals = clean.map(x => {
+    const rawResidual = Math.abs(x.probability - x.observed);
+    const bernoulliStd = Math.sqrt(x.probability * (1 - x.probability));
+    // Isola o erro de calibração excedente
+    return Math.max(0, rawResidual - 0.5 * bernoulliStd);
+  }).sort((a, b) => a - b);
   // ✅ FIX: Quantil conformal de cobertura finita correta ceil((n + 1)(1 - alpha)) / n
   const conformalLevel = Math.min(1, Math.ceil((n + 1) * (1 - alpha)) / n);
   const idx = Math.max(0, Math.min(n - 1, Math.ceil(conformalLevel * n) - 1));

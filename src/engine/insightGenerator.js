@@ -86,16 +86,13 @@ export function generateEvolutionInsights({
 
     const raw = getLastValid(`raw_${focusCategory.id}`);
     const bayesian = getLastValid(`bay_${focusCategory.id}`);
-    // ✅ BUG-4 FIX: Não reatribuir o parâmetro; criar variável local sanitizada
     const safeMaxScore = safeFinite(maxScore, 100) > 0 ? safeFinite(maxScore, 100) : 100;
     const safeMinScore = safeFinite(minScore, 0);
-    // ✅ BUG-4 FIX: scale usa a amplitude real (maxScore - minScore) em vez de maxScore sozinho
     const scale = Math.max(0.01, (safeMaxScore - safeMinScore) / 100);
 
     // Lógica do Mapa de Calor (Raw Weekly)
     if (activeEngine === "raw_weekly") {
         const DAY_NAMES_SINGULAR = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-        const DAY_NAMES_PLURAL = ['domingos', 'segundas-feiras', 'terças-feiras', 'quartas-feiras', 'quintas-feiras', 'sextas-feiras', 'sábados'];
         const dayStats = {};
         const now = new Date();
         
@@ -155,11 +152,12 @@ export function generateEvolutionInsights({
         };
     }
 
-    // Lógica de Alertas de Burnout de Alta Prioridade
+    // Lógica de Alertas de Burnout de Alta Prioridade (restrita às abas de desempenho geral)
     const safeRaw = safeFinite(raw, NaN);
     const safeBayesianFallback = safeFinite(bayesian, NaN);
+    const isGeneralPerformanceTab = activeEngine === "raw" || activeEngine === "bayesian" || activeEngine === "compare";
 
-    if (Number.isFinite(safeRaw) && Number.isFinite(safeBayesianFallback)) {
+    if (isGeneralPerformanceTab && Number.isFinite(safeRaw) && Number.isFinite(safeBayesianFallback)) {
         const nowMs = new Date().getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -172,7 +170,7 @@ export function generateEvolutionInsights({
             })
             .reduce((sum, h) => {
                 const parsedTotal = parseInt(h?.total, 10);
-                const fallbackTotal = h?.score != null ? getSyntheticTotal(maxScore) : 0;
+                const fallbackTotal = h?.score != null ? getSyntheticTotal(safeMaxScore) : 0;
                 const safeTotal = Number.isFinite(parsedTotal) && parsedTotal > 0
                     ? parsedTotal
                     : fallbackTotal;
@@ -213,7 +211,6 @@ export function generateEvolutionInsights({
 
         const recentScores = scores.slice(-5);
         
-        // CORREÇÃO M4: Guarda contra array vazio (Math.max(...[]) = -Infinity → crash)
         if (recentScores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
         
         const maxSwing = Math.max(...recentScores) - Math.min(...recentScores);
@@ -343,4 +340,3 @@ export function generateEvolutionInsights({
 
     return { type: 'info', icon: "✅", title: "++Rendimento de Mestre++", text: `Operando na zona de ++máxima eficiência++.`, advice: "Mantenha o ritmo." };
 }
-

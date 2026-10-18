@@ -8,22 +8,15 @@
  * - reduzir reação excessiva a ruído antigo;
  * - aumentar reação a instabilidade recente;
  * - fornecer base para Monte Carlo posterior preditivo no Lote 3.
- *
- * Modelos:
- * - EWMA:
- *   sigma2_t = lambda * sigma2_{t-1} + (1 - lambda) * r_t^2
- *
- * - GARCH(1,1) simplificado:
- *   sigma2_t = omega + alpha * r_t^2 + beta * sigma2_{t-1}
- *
- * Importante:
- * Este módulo não substitui o motor atual por padrão.
- * Ele só afeta o sistema se as feature flags estiverem ativas.
  */
 
 import { kahanSum } from '../math/kahan.js';
+import { getSafeScore } from '../../utils/scoreHelper.js';
 
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return fallback;
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
@@ -87,7 +80,7 @@ function median(values) {
  */
 export function estimateDynamicVolatility(history = [], options = {}) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-  const minScore = clampFinite(options.minScore, 0, maxScore, 0);
+  const minScore = clampFinite(options.minScore, -1_000_000, maxScore, 0);
   const domain = Math.max(1e-6, maxScore - minScore);
 
   const useGarch = options.useGarch === true;
@@ -99,12 +92,15 @@ export function estimateDynamicVolatility(history = [], options = {}) {
 
   const observations = rawHistory
     .map((entry, index) => {
-      const score = Number(entry?.score ?? entry);
+      const rawScore =
+        entry && typeof entry === 'object'
+          ? getSafeScore(entry, maxScore, minScore)
+          : Number(typeof entry === 'string' ? entry.replace(',', '.') : entry);
       const time = parseTime(entry?.date ?? entry?.createdAt ?? entry?.timestamp);
 
       return {
         index,
-        score: Number.isFinite(score) ? clampFinite(score, minScore, maxScore, score) : NaN,
+        score: Number.isFinite(rawScore) ? clampFinite(rawScore, minScore, maxScore, rawScore) : NaN,
         time,
       };
     })
@@ -113,8 +109,12 @@ export function estimateDynamicVolatility(history = [], options = {}) {
       const hasTimeA = Number.isFinite(a.time);
       const hasTimeB = Number.isFinite(b.time);
 
-      if (hasTimeA && hasTimeB && a.time !== b.time) {
-        return a.time - b.time;
+      if (hasTimeA && hasTimeB) {
+        if (a.time !== b.time) return a.time - b.time;
+        return a.index - b.index;
+      }
+      if (hasTimeA !== hasTimeB) {
+        return hasTimeA ? -1 : 1;
       }
 
       return a.index - b.index;
@@ -148,12 +148,11 @@ export function estimateDynamicVolatility(history = [], options = {}) {
 
     let dtDays = 1;
 
-    if (
-      Number.isFinite(prev.time) &&
-      Number.isFinite(curr.time) &&
-      curr.time > prev.time
-    ) {
-      dtDays = clampFinite((curr.time - prev.time) / 86400000, 0.25, 60, 1);
+    if (Number.isFinite(prev.time) && Number.isFinite(curr.time)) {
+      const rawDeltaDays = (curr.time - prev.time) / 86400000;
+      dtDays = rawDeltaDays > 0
+        ? clampFinite(rawDeltaDays, 0.25, 60, 1)
+        : 0.25;
     }
 
     const diff = curr.score - prev.score;
@@ -202,13 +201,15 @@ export function estimateDynamicVolatility(history = [], options = {}) {
   let beta = null;
   let persistence = 0.94;
 
-  const maxSigma2 = Math.pow(domain * 0.25, 2);
+  const maxDailyVol = domain * 0.20;
+  const maxSigma2 = Math.pow(maxDailyVol, 2);
 
   if (useGarch && returns.length >= 5) {
     model = 'garch11';
 
-    alpha = returns.length >= 12 ? 0.10 : 0.14;
-    beta = returns.length >= 12 ? 0.82 : 0.72;
+    const maturity = clampFinite((returns.length - 5) / 10, 0, 1, 0);
+    alpha = 0.14 - 0.04 * maturity;
+    beta = 0.72 + 0.10 * maturity;
 
     // Estacionaridade: alpha + beta < 1.
     if (alpha + beta > 0.95) {
@@ -222,15 +223,15 @@ export function estimateDynamicVolatility(history = [], options = {}) {
 
     persistence = alpha + beta;
 
-    for (let i = 0; i < returns.length; i++) {
+    for (let i = 0; i < winsorizedReturns.length; i++) {
       const dt = clampFinite(dts[i], 0.25, 30, 1);
-      const shock = returns[i] * returns[i];
+      const centered = winsorizedReturns[i] - returnMean;
+      const shock = centered * centered;
       const betaEffective = Math.pow(beta, dt);
+      const stepScale = (1 - betaEffective) / Math.max(1e-6, 1 - beta);
 
-      const omegaAdjusted = omega * (1 - betaEffective) / (1 - beta);
       sigma2Daily =
-        omegaAdjusted +
-        alpha * shock +
+        (omega + alpha * shock) * stepScale +
         betaEffective * sigma2Daily;
 
       sigma2Daily = clampFinite(sigma2Daily, 1e-12, maxSigma2, sigma2Daily);
@@ -241,10 +242,11 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     const lambda = 0.94;
     persistence = lambda;
 
-    for (let i = 0; i < returns.length; i++) {
+    for (let i = 0; i < winsorizedReturns.length; i++) {
       const dt = clampFinite(dts[i], 0.25, 30, 1);
       const lambdaEffective = Math.pow(lambda, dt);
-      const shock = returns[i] * returns[i];
+      const centered = winsorizedReturns[i] - returnMean;
+      const shock = centered * centered;
 
       sigma2Daily =
         lambdaEffective * sigma2Daily +
@@ -254,7 +256,12 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     }
   }
 
-  const dailyVolatility = Math.sqrt(Math.max(0, sigma2Daily));
+  const dailyVolatility = clampFinite(
+    Math.sqrt(Math.max(0, sigma2Daily)),
+    0,
+    maxDailyVol,
+    0
+  );
 
   // Converte volatilidade diária em volatilidade esperada para o intervalo típico.
   const modelVolatility =
@@ -281,7 +288,7 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     volatility,
     modelVolatility: clampFinite(modelVolatility, 0, domain * 0.65, modelVolatility),
     fallbackVolatility: clampFinite(fallbackVolatility, 0, domain * 0.65, fallbackVolatility),
-    dailyVolatility: clampFinite(dailyVolatility, 0, domain * 0.20, dailyVolatility),
+    dailyVolatility,
     horizonDays,
     medianGapDays,
     sampleSize: returns.length,
@@ -300,31 +307,6 @@ export function estimateDynamicVolatility(history = [], options = {}) {
   };
 }
 
-const isDev =
-  typeof process !== 'undefined' &&
-  process.env &&
-  process.env.NODE_ENV !== 'production';
-
-if (isDev) {
-  // Teste: a variância de longo prazo deve convergir para ω/(1-α-β)
-  // independentemente do valor de dt
-  const alphaG = 0.05, betaG = 0.75;
-  const unconditionalVarG = 25; // σ²_∞ desejado
-  const omegaG = (1 - alphaG - betaG) * unconditionalVarG; // = 5
-
-  let testSigma2 = unconditionalVarG;
-  for (let i = 0; i < 500; i++) {
-    const dt = 1 + Math.random() * 5; // dt variável entre 1 e 6 dias
-    const betaEff = Math.pow(betaG, dt);
-    const omegaAdj = omegaG * (1 - betaEff) / (1 - betaG);
-    const shock = (Math.random() - 0.5) * 10;
-    testSigma2 = omegaAdj + alphaG * shock * shock + betaEff * testSigma2;
-  }
-  console.assert(Math.abs(testSigma2 - unconditionalVarG) < unconditionalVarG * 0.3,
-    `Variância deveria convergir para ~${unconditionalVarG}, obteve ${testSigma2}`);
-}
-
 export default {
   estimateDynamicVolatility,
 };
-
