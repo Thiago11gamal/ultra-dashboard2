@@ -28,7 +28,7 @@ function renderBoldText(text) {
     });
 }
 
-function AICoachCard({ task, idx, onStartPomodoro }) {
+function AICoachCard({ task, idx, onStartPomodoro, categories }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
     const parsed = parseCoachTask({ ...task, text: rawText });
@@ -86,13 +86,13 @@ function AICoachCard({ task, idx, onStartPomodoro }) {
                         )}
                         <div className={`inline-flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.15em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full min-w-0`}>
                             <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
-                            <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart)}</span>
+                            <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart, categories)}</span>
                         </div>
                     </div>
                 </div>
                 <button 
                     type="button"
-                    aria-label={`${isCompleted ? 'Revisar' : 'Iniciar'} estudo: ${displaySubject(subjectPart)}`}
+                    aria-label={`${isCompleted ? 'Revisar' : 'Iniciar'} estudo: ${displaySubject(subjectPart, categories)}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onStartPomodoro(task);
@@ -462,7 +462,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                 return (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
                                         {cardTasks.map((task, idx) => (
-                                            <AICoachCard key={getSafeId(ensureCoachTaskId(task)) || `coach-card-${idx}`} task={task} idx={idx} onStartPomodoro={handleStartNeural} />
+                                            <AICoachCard
+                                                key={getSafeId(ensureCoachTaskId(task)) || `coach-card-${idx}`}
+                                                task={task}
+                                                idx={idx}
+                                                onStartPomodoro={handleStartNeural}
+                                                categories={activeContest?.categories}
+                                            />
                                         ))}
                                     </div>
                                 );
@@ -553,7 +559,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md border ${t.badgeBg}`}>
-                                                            {displaySubject(subjectName)}
+                                                            {displaySubject(subjectName, activeContest?.categories)}
                                                         </span>
                                                         {t.isCritical && (
                                                             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">

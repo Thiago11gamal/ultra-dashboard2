@@ -157,15 +157,23 @@ export default function Coach() {
         calibrationHistoryRef.current = data?.calibrationHistoryByCategory || {};
     }, [data?.calibrationHistoryByCategory]);
 
+    const categoriesRef = useRef(data?.categories || []);
+    useEffect(() => {
+        categoriesRef.current = data?.categories || [];
+    }, [data?.categories]);
+
     // Backfill de simulados agora é gerenciado no hook useMonteCarloStats via rawSimuladoRows (evita duplicação).
 
     const lastPersistByCategoryRef = useRef({});
     const persistCalibrationMetric = useCallback((metric) => {
-        if (!metric?.categoryId || !isMountedRef.current) return;
+        if ((!metric?.categoryId && !metric?.categoryName) || !isMountedRef.current) return;
 
         // RATE-LIMIT: Evita loops por categoria se métricas forem emitidas em sequência rápida
         const now = Date.now();
-        const catKey = String(metric.categoryId);
+        const normalizedCategoryId = getSafeId(metric?.categoryId || metric?.categoryName);
+        if (!normalizedCategoryId) return;
+
+        const catKey = String(normalizedCategoryId);
         if (now - (lastPersistByCategoryRef.current[catKey] || 0) < 500) return;
         lastPersistByCategoryRef.current[catKey] = now;
 
@@ -175,13 +183,14 @@ export default function Coach() {
             return Number.isFinite(n) ? n : fallback;
         };
         const metricTimestamp = metric?.timestamp || now;
-        const normalizedCategoryId = getSafeId(metric?.categoryId || metric?.categoryName);
         const avgBrier = toFinite(metric?.avgBrier, null);
         const ece = toFinite(metric?.ece, null);
         const probability = toFinite(metric?.probability, null);
         const calibrationPenalty = toFinite(metric?.calibrationPenalty, 0);
         const reliability = Array.isArray(metric?.reliability) ? metric.reliability : [];
-        const isDegraded = metric?.degraded === true || calibrationPenalty >= HIGH_PENALTY_THRESHOLD;
+        const isDegraded = metric?.degraded === true || 
+            calibrationPenalty >= HIGH_PENALTY_THRESHOLD || 
+            (avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD);
 
         // DATA-QUALITY GATE: evita persistir eventos vazios/ruins que poluem histórico e painéis.
         const hasUsefulSignal = avgBrier !== null || ece !== null || probability !== null || calibrationPenalty > 0 || reliability.length > 0;
@@ -196,7 +205,8 @@ export default function Coach() {
             ece,
             probability,
             calibrationPenalty,
-            reliability
+            reliability,
+            degraded: isDegraded
         };
 
         // BUG-3 FIX: Immer mutation pattern — explicit return undefined to document intent
@@ -234,6 +244,7 @@ export default function Coach() {
                 const probabilityDelta = metricDelta(probability, lastEntry.probability);
                 const reliabilitySignatureChanged =
                     toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
+                const degradationChanged = Boolean(lastEntry.degraded) !== Boolean(isDegraded);
 
                 // BUG 6 FIX: Lowered absolute thresholds to capture low-variance micro-movements
                 const shouldSkipPersist =
@@ -243,7 +254,7 @@ export default function Coach() {
                     probabilityDelta < 0.01 &&
                     !reliabilitySignatureChanged;
 
-                if (shouldSkipPersist) return prev;
+                if (shouldSkipPersist && !degradationChanged) return prev;
             }
 
             const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
@@ -301,7 +312,7 @@ export default function Coach() {
             if (currentTime - lastAlertAt > ALERT_COOLDOWN_MS) {
                 // VIS-FIX: avgBrier pode ser null (degradação só por penalty) → antes exibia "Brier 0.00".
                 const brierLabel = avgBrier !== null ? ` (Brier ${avgBrier.toFixed(2)})` : '';
-                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || 'categoria')}${brierLabel}.`, 'warning');
+                showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || normalizedCategoryId || 'categoria', categoriesRef.current)}${brierLabel}.`, 'warning');
                 calibrationAlertCacheRef.current.set(normalizedCategoryId, now);
                 if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX && calibrationAlertCacheRef.current.size > 0) {
                     const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
@@ -362,7 +373,7 @@ export default function Coach() {
         const denom = Math.max(1, Number(currentMaxScore) || 0);
         return (volatility / denom) * 100;
     }, [volatility, currentMaxScore]);
-    const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore), [combinedHistory, currentMaxScore]);
+    const drift = useMemo(() => calculateAdaptiveSlope(combinedHistory, currentMaxScore, { minScore: currentMinScore }), [combinedHistory, currentMaxScore, currentMinScore]);
     const normalizedDrift = useMemo(() => {
         const safeDrift = Number.isFinite(Number(drift)) ? Number(drift) : 0;
         const denom = Math.max(1, Number(currentMaxScore) || 1);
@@ -397,10 +408,28 @@ export default function Coach() {
         return new Set(cats.map(c => getSafeId(c.id || c.name)));
     }, [data]);
 
-    const degradedCount = useMemo(
-        () => Object.entries(data?.calibrationOps || {}).filter(([catId, o]) => o?.degraded && activeCategoryIds.has(catId)).length,
-        [data?.calibrationOps, activeCategoryIds]
-    );
+    const degradedCount = useMemo(() => {
+        const ops = data?.calibrationOps || {};
+        const historyByCategory = data?.calibrationHistoryByCategory || {};
+        let count = 0;
+        activeCategoryIds.forEach(catId => {
+            const op = ops[catId] || ops[getSafeId(catId)];
+            if (op?.degraded) {
+                count++;
+                return;
+            }
+            const history = historyByCategory[catId] || historyByCategory[getSafeId(catId)];
+            if (Array.isArray(history) && history.length > 0) {
+                const latest = history[history.length - 1];
+                const brier = Number(latest?.avgBrier);
+                const pen = Number(latest?.calibrationPenalty);
+                if ((Number.isFinite(brier) && brier >= CRITICAL_BRIER_THRESHOLD) || (Number.isFinite(pen) && pen >= HIGH_PENALTY_THRESHOLD)) {
+                    count++;
+                }
+            }
+        });
+        return count;
+    }, [data?.calibrationOps, data?.calibrationHistoryByCategory, activeCategoryIds]);
 
     const mcStatsContext = useMemo(() => ({
         projectedMean: mcStats?.projectedMean,
@@ -842,9 +871,20 @@ function RaioXDashboard({ data }) {
         return Number.isFinite(n) ? n : fallback;
     };
 
+    const categories = useMemo(() => {
+        const raw = data?.categories || [];
+        return (Array.isArray(raw) ? raw : Object.values(raw || {})).map(c => ({
+            ...c,
+            tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {})
+        }));
+    }, [data?.categories]);
+
+    const activeCategoryIds = useMemo(() => {
+        return new Set(categories.map(c => getSafeId(c.id || c.name)));
+    }, [categories]);
+
     // BUG-7 FIX: Derive 'now' from latest calibration timestamp to avoid impure Date.now() in useMemo.
-    // Falls back to a coarse epoch bucket (per-minute) only when no timestamps exist,
-    // which is stable enough to not cause unnecessary recomputation.
+    // Falls back to a coarse epoch bucket (per-minute) only when no timestamps exist.
     const calibrationSummary = useMemo(() => {
         const historyByCategory = data?.calibrationHistoryByCategory || {};
         // Derive 'now' from the data itself: use the newest timestamp across all categories
@@ -857,10 +897,12 @@ function RaioXDashboard({ data }) {
                 }
             }
         }
-        // If no timestamps exist, use a coarse epoch (won't cause re-renders since dep didn't change)
-        // eslint-disable-next-line react-hooks/purity
         const now = latestTs > 0 ? latestTs : Math.floor(Date.now() / 60000) * 60000;
         return Object.entries(historyByCategory)
+            .filter(([categoryId]) => {
+                if (activeCategoryIds.size === 0) return true;
+                return activeCategoryIds.has(getSafeId(categoryId));
+            })
             .map(([categoryId, history]) => {
                 const rows = Array.isArray(history) ? history : [];
                 if (rows.length === 0) return null;
@@ -875,23 +917,22 @@ function RaioXDashboard({ data }) {
                     .filter(h => h?.calibrationPenalty !== null && h?.calibrationPenalty !== undefined && h?.calibrationPenalty !== '')
                     .map(h => Number(h.calibrationPenalty))
                     .filter(Number.isFinite);
-                const avgBrier = brierValues.length > 0 ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length : 0;
-                const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : 0;
+                // FIX: If no brier values exist yet, return null (never a fake 0.00 "perfect" error)
+                const avgBrier = brierValues.length > 0 ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length : null;
+                const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : null;
                 const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;
                 if (validCount === 0) return null;
-                const label = rows[rows.length - 1]?.categoryName || categoryId;
+                const matchedCategory = categories.find(c => c && (String(c.id) === categoryId || getSafeId(c.id || c.name) === categoryId));
+                const label = matchedCategory?.name || rows[rows.length - 1]?.categoryName || categoryId;
                 return { categoryId, label, count: validCount, avgBrier, avgPenalty };
             })
             .filter(Boolean);
-    }, [data?.calibrationHistoryByCategory]);
+    }, [data?.calibrationHistoryByCategory, activeCategoryIds, categories]);
 
     const toPercentLabel = (value) => {
         if (value === null || value === undefined || value === '') return '-';
         const n = Number(value);
         if (!Number.isFinite(n)) return '-';
-        // FIX: eventos do Coach persistem `probability` na escala 0–1
-        // (coachLogic divide por 100 em onCalibrationMetric). Antes,
-        // Math.round(0.75) = 1 → exibição errada "1%" para 75%.
         const pct = Math.abs(n) <= 1 ? n * 100 : n;
         return `${Math.max(0, Math.min(100, Math.round(pct)))}%`;
     };
@@ -901,30 +942,63 @@ function RaioXDashboard({ data }) {
         return [...source].sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
     }, [data?.calibrationAuditLog]);
 
-    const filteredLogs = useMemo(() => (sortedLogs
-        .filter(log => filter === 'all' || (filter === 'degraded' && Boolean(log?.degraded)))
-        .slice(0, 50)), [sortedLogs, filter]);
+    const isLogDegraded = useCallback((log) => {
+        if (Boolean(log?.degraded)) return true;
+        const brier = toFiniteNumber(log?.avgBrier, null);
+        if (brier !== null && brier >= CRITICAL_BRIER_THRESHOLD) return true;
+        const penalty = toFiniteNumber(log?.calibrationPenalty, 0);
+        if (penalty >= HIGH_PENALTY_THRESHOLD) return true;
+        return false;
+    }, []);
 
-    const latestWithReliability = sortedLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0);
+    const filteredLogs = useMemo(() => (sortedLogs
+        .filter(log => filter === 'all' || (filter === 'degraded' && isLogDegraded(log)))
+        .slice(0, 50)), [sortedLogs, filter, isLogDegraded]);
+
     const eceValues = sortedLogs.map(log => toFiniteNumber(log?.ece, null)).filter(val => val !== null);
     const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
-    const categorySeriesMap = sortedLogs.reduce((acc, log) => {
-        const cat = log?.categoryName ? String(log.categoryName).trim() : 'Categoria';
-        if (!acc[cat]) acc[cat] = [];
-        acc[cat].push({
-            ts: toFiniteNumber(log?.timestamp),
-            brier: toFiniteNumber(log?.avgBrier, null),
-            ece: toFiniteNumber(log?.ece, null)
-        });
-        return acc;
-    }, {});
-    const categoryNames = Object.keys(categorySeriesMap);
+
+    // FIX: Canonical category grouping for temporal drift chart using displaySubject
+    const categorySeriesMap = useMemo(() => {
+        return sortedLogs.reduce((acc, log) => {
+            const rawCat = log?.categoryName || log?.categoryId;
+            if (!rawCat) return acc;
+            const catKey = displaySubject(rawCat, categories) || String(rawCat).trim();
+            if (!acc[catKey]) acc[catKey] = [];
+            const brier = toFiniteNumber(log?.avgBrier, null);
+            const ece = toFiniteNumber(log?.ece, null);
+            if (brier !== null || ece !== null) {
+                acc[catKey].push({
+                    ts: toFiniteNumber(log?.timestamp),
+                    brier,
+                    ece
+                });
+            }
+            return acc;
+        }, {});
+    }, [sortedLogs, categories]);
+
+    const categoryNames = useMemo(() => Object.keys(categorySeriesMap), [categorySeriesMap]);
     const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
-    // BUG-07 FIX: Keep selected category valid when data changes
     const effectiveCategory = categoryNames.includes(seriesCategory) ? seriesCategory : (categoryNames[0] || '');
-    const temporalSeries = effectiveCategory
-        ? [...categorySeriesMap[effectiveCategory]].sort((a, b) => a.ts - b.ts).slice(-12)
-        : [];
+
+    // FIX-CRASH: Guard against categorySeriesMap[effectiveCategory] being undefined
+    const temporalSeries = useMemo(() => {
+        if (!effectiveCategory || !categorySeriesMap[effectiveCategory]) return [];
+        return [...categorySeriesMap[effectiveCategory]].sort((a, b) => a.ts - b.ts).slice(-12);
+    }, [effectiveCategory, categorySeriesMap]);
+
+    // FIX: Prefer reliability diagram for the selected category, fall back to newest with reliability
+    const activeReliabilityLog = useMemo(() => {
+        if (effectiveCategory) {
+            const match = sortedLogs.find(log => {
+                const name = displaySubject(log?.categoryName || log?.categoryId, categories);
+                return name === effectiveCategory && Array.isArray(log?.reliability) && log.reliability.length > 0;
+            });
+            if (match) return match;
+        }
+        return sortedLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0) || null;
+    }, [sortedLogs, effectiveCategory, categories]);
 
     return (
         <div className="space-y-12 animate-fade-in">
@@ -945,27 +1019,31 @@ function RaioXDashboard({ data }) {
                 
                     <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         {calibrationSummary.map(row => {
-                            const op = ops[row.categoryId] || {};
-                            const avgBrier = toFiniteNumber(row.avgBrier);
-                            const brierPct = Math.max(0, Math.min(100, (avgBrier / 0.35) * 100));
+                            const op = ops[row.categoryId] || ops[getSafeId(row.categoryId)] || (row.label && ops[getSafeId(row.label)]) || (row.label && ops[row.label]) || {};
+                            const hasBrier = row.avgBrier !== null && Number.isFinite(row.avgBrier);
+                            const avgBrier = hasBrier ? Number(row.avgBrier) : null;
+                            const penVal = toFiniteNumber(row.avgPenalty);
+                            const isDegraded = Boolean(op.degraded || (hasBrier && avgBrier >= CRITICAL_BRIER_THRESHOLD) || penVal >= HIGH_PENALTY_THRESHOLD);
+                            
+                            const brierPct = hasBrier ? Math.max(0, Math.min(100, (avgBrier / 0.35) * 100)) : 0;
                             const radius = 14;
                             const circ = 2 * Math.PI * radius;
-                            const offset = circ - (brierPct / 100) * circ;
-                            const colorClass = avgBrier >= 0.25 ? 'text-rose-500' : (avgBrier > 0.18 ? 'text-amber-500' : 'text-emerald-500');
+                            const offset = Number.isFinite(circ - (brierPct / 100) * circ) ? circ - (brierPct / 100) * circ : circ;
+                            const colorClass = !hasBrier ? 'text-slate-400' : (avgBrier >= 0.25 ? 'text-rose-500' : (avgBrier > 0.18 ? 'text-amber-500' : 'text-emerald-500'));
                             
                             return (
                                 <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
                                     <div className="flex justify-between items-start gap-4 mb-4">
                                         <div className="flex flex-col min-w-0 flex-1">
-                                            <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate mb-1.5">
-                                                {displaySubject(row.label)}
+                                            <p className="text-sm sm:text-[15px] text-white font-black tracking-tight truncate mb-1.5" title={displaySubject(row.label, categories)}>
+                                                {displaySubject(row.label, categories)}
                                             </p>
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-inner ${op.degraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${op.degraded ? 'bg-rose-400' : 'bg-emerald-400'} animate-pulse shadow-[0_0_8px_currentColor]`} />
-                                                    {op.degraded ? 'Degradado' : 'Estável'}
+                                                <div className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-inner ${isDegraded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${isDegraded ? 'bg-rose-400' : 'bg-emerald-400'} animate-pulse shadow-[0_0_8px_currentColor]`} />
+                                                    {isDegraded ? 'Degradado' : 'Estável'}
                                                 </div>
-                                                <span className="text-[9px] font-mono text-slate-500 font-bold bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded-md">n={row.count}</span>
+                                                <span className="text-[9px] font-mono text-slate-500 font-bold bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded-md" title={`${row.count} eventos de calibração analisados`}>n={row.count}</span>
                                             </div>
                                         </div>
 
@@ -983,7 +1061,7 @@ function RaioXDashboard({ data }) {
                                             </svg>
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 <span className={`text-[10px] font-black font-mono tracking-tighter ${colorClass}`}>
-                                                    {avgBrier.toFixed(2)}
+                                                    {hasBrier ? avgBrier.toFixed(2) : '-'}
                                                 </span>
                                             </div>
                                         </div>
@@ -999,11 +1077,10 @@ function RaioXDashboard({ data }) {
                                         </div>
                                     
                                         {(() => {
-                                            const pen = toFiniteNumber(row.avgPenalty);
-                                            if (pen <= 0.001) return null;
+                                            if (penVal <= 0.001) return null;
                                             return (
                                                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10">
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Pena: <span className="font-mono">-{Math.round(pen * 100)}%</span></span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Pena: <span className="font-mono">-{Math.round(penVal * 100)}%</span></span>
                                                 </div>
                                             );
                                         })()}
@@ -1053,8 +1130,8 @@ function RaioXDashboard({ data }) {
                             <tr className="border-b border-white/10 bg-white/[0.03]">
                                 <th className="py-3.5 pl-4 pr-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[120px]">Data</th>
                                 <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[140px]">Categoria</th>
-                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]">Brier (erro)</th>
-                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]">ECE (calib.)</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]" title="Brier Score — quanto menor o valor, mais preciso o motor">Brier (erro)</th>
+                                <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px]" title="Expected Calibration Error — mede calibração probabilística">ECE (calib.)</th>
                                 <th className="py-3.5 px-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[110px]">Ajuste</th>
                                 <th className="py-3.5 pl-4 pr-4 text-[9.5px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap min-w-[100px] text-right">Prob Final</th>
                             </tr>
@@ -1065,13 +1142,13 @@ function RaioXDashboard({ data }) {
                                 const eceVal = toFiniteNumber(log?.ece, null);
                                 const brierColor = brierVal === null ? 'text-slate-500' : (brierVal >= 0.25 ? 'text-rose-400' : (brierVal > 0.18 ? 'text-amber-400' : 'text-emerald-400'));
                                 const eceColor = eceVal === null ? 'text-slate-500' : (eceVal > 0.12 ? 'text-amber-400' : 'text-cyan-300');
-                                const isDeg = Boolean(log?.degraded);
+                                const isDeg = isLogDegraded(log);
                                 return (
                                 <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.03] transition-colors">
                                     <td className="py-3 pl-4 pr-4 text-[10px] text-slate-400 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
                                         <div className="flex items-center gap-2">
-                                            <span>{displaySubject(log.categoryName)}</span>
+                                            <span>{displaySubject(log.categoryName || log.categoryId, categories)}</span>
                                             {isDeg && (
                                                 <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
                                                     Degradado
@@ -1092,9 +1169,15 @@ function RaioXDashboard({ data }) {
                     </table>
                     {filteredLogs.length === 0 && (
                         <div className="py-12 text-center space-y-2 px-4">
-                            <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">Nenhum evento registrado</p>
+                            <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">
+                                {sortedLogs.length > 0 && filter === 'degraded'
+                                    ? 'Nenhum evento degradado'
+                                    : 'Nenhum evento registrado'}
+                            </p>
                             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[340px] mx-auto leading-relaxed">
-                                Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).
+                                {sortedLogs.length > 0 && filter === 'degraded'
+                                    ? 'Todas as calibrações registradas estão estáveis.'
+                                    : 'Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).'}
                             </p>
                         </div>
                     )}
@@ -1102,13 +1185,21 @@ function RaioXDashboard({ data }) {
             </div>
             <div className="p-4 sm:p-6 rounded-2xl border border-white/5 bg-slate-900/40">
                 <div className="flex items-center justify-between mb-5 gap-3">
-                    <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
+                    <div>
+                        <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Confiabilidade (ECE)</h3>
+                        {activeReliabilityLog && (
+                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                                {displaySubject(activeReliabilityLog.categoryName || activeReliabilityLog.categoryId, categories)}
+                                {activeReliabilityLog?.timestamp > 0 ? ` · ${formatDateTimePtBR(activeReliabilityLog.timestamp)}` : ''}
+                            </p>
+                        )}
+                    </div>
                     <span className="text-[10px] font-black text-cyan-300 shrink-0">
                         {avgEce !== null ? `ECE médio: ${avgEce.toFixed(3)}` : 'Sem ECE'}
                     </span>
                 </div>
-                {latestWithReliability ? (
-                    <ReliabilityCurveChart buckets={latestWithReliability.reliability} />
+                {activeReliabilityLog ? (
+                    <ReliabilityCurveChart buckets={activeReliabilityLog.reliability} />
                 ) : (
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center py-6">Sem buckets de confiabilidade ainda</p>
                 )}
@@ -1123,20 +1214,19 @@ function RaioXDashboard({ data }) {
                             className="text-[10px] font-black uppercase tracking-widest text-cyan-300 bg-slate-900/60 border border-white/10 rounded-xl px-3 sm:px-4 py-2 outline-none cursor-pointer hover:bg-slate-800 transition-all backdrop-blur-md max-w-[170px] sm:max-w-[240px] truncate"
                         >
                             {categoryNames.map(cat => (
-                                <option key={cat} value={cat}>{displaySubject(cat)}</option>
+                                <option key={cat} value={cat}>{displaySubject(cat, categories)}</option>
                             ))}
                         </select>
                     ) : (
                         <span className="text-[10px] text-slate-400 font-bold">
-                            {effectiveCategory ? displaySubject(effectiveCategory) : 'Sem categoria'}
+                            {effectiveCategory ? displaySubject(effectiveCategory, categories) : 'Sem categoria'}
                         </span>
                     )}
                 </div>
 
                 {temporalSeries.length > 1 ? (
                     <div className="space-y-2">
-                        {/* VIS-FIX: legenda + escala realista. Antes Brier 0.20 virava uma barra de 20%
-                            e ECE 0.05 uma barra de 5% (quase invisível), sem indicar qual cor era qual. */}
+                        {/* VIS-FIX: legenda + escala realista */}
                         <div className="flex flex-wrap items-center gap-4 pb-2 text-[9px] font-black uppercase tracking-widest text-slate-500">
                             <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-rose-400/80" />Brier (escala 0–0.50)</span>
                             <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-cyan-400/80" />ECE (escala 0–0.30)</span>
@@ -1144,7 +1234,7 @@ function RaioXDashboard({ data }) {
                         {temporalSeries.map((point, idx) => (
                             <div key={`${point.ts}-${idx}`} className="space-y-1">
                                 <div className="flex justify-between gap-3 text-[9px] text-slate-500 font-mono">
-                                    <span>{point.ts > 0 ? formatDatePtBR(point.ts) : '-'}</span>
+                                    <span>{point.ts > 0 ? formatDateTimePtBR(point.ts) : '-'}</span>
                                     <span className="tabular-nums">Brier {point.brier !== null ? point.brier.toFixed(3) : '–'} · ECE {point.ece !== null ? point.ece.toFixed(3) : '–'}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
