@@ -1,5 +1,5 @@
-import React from 'react';
-import { formatTime } from '../../utils/pomodoroHelpers';
+import React, { useId } from 'react';
+import { formatTime, SPEED_OPTIONS } from '../../utils/pomodoroHelpers';
 import { Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react';
 
 export function PomodoroClock({
@@ -17,6 +17,9 @@ export function PomodoroClock({
     isMuted,
     toggleMute
 }) {
+    const rawId = useId();
+    const gradientId = `timerGradient_${rawId.replace(/:/g, '')}`;
+
     return (
         <div className="w-full flex flex-col items-center">
             {/* Barra superior de controles do relógio */}
@@ -34,7 +37,7 @@ export function PomodoroClock({
                 <div className="flex items-center gap-1.5 sm:gap-2">
                     {/* Seletor de Velocidade */}
                     <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
-                        {[1, 10, 100].map(s => (
+                        {SPEED_OPTIONS.map(s => (
                             <button
                                 key={s}
                                 type="button"
@@ -78,7 +81,7 @@ export function PomodoroClock({
                 <svg viewBox="0 0 256 256" className="w-[min(50vw,12rem)] h-[min(50vw,12rem)] sm:w-44 sm:h-44 lg:w-[190px] lg:h-[190px] transform -rotate-90 relative z-10">
                     <circle cx="128" cy="128" r="110" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="14" strokeLinecap="round" />
                     <defs>
-                        <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" stopColor={mode === 'work' ? '#3b82f6' : (mode === 'long_break' ? '#a855f7' : '#22c55e')} />
                             <stop offset="100%" stopColor={mode === 'work' ? '#2563eb' : (mode === 'long_break' ? '#9333ea' : '#10b981')} />
                         </linearGradient>
@@ -86,7 +89,7 @@ export function PomodoroClock({
                     <circle
                         ref={svgCircleRef}
                         cx="128" cy="128" r="110" fill="none"
-                        stroke="url(#timerGradient)"
+                        stroke={`url(#${gradientId})`}
                         strokeWidth="14"
                         strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 110}
@@ -98,7 +101,8 @@ export function PomodoroClock({
                         ref={clockRef} 
                         className="text-3xl sm:text-4xl lg:text-[3.25rem] font-black tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] leading-none tabular-nums"
                         role="timer"
-                        aria-live="polite"
+                        aria-live="off"
+                        aria-atomic="true"
                         aria-label={`Tempo restante: ${formatTime(timeLeft)}`}
                     >
                         {formatTime(timeLeft)}

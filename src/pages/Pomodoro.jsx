@@ -31,7 +31,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         const todayDate = new Date();
         const dayOfWeek = (todayDate.getDay() + 6) % 7; // 0 = Monday, 6 = Sunday
         const startOfWeek = startOfToday - (86400000 * dayOfWeek);
-        const startOfMonth = startOfToday - (86400000 * 30);
+        const startOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime();
 
         let weekMins = 0;
         let monthMins = 0;
@@ -406,7 +406,9 @@ function ActionsAndMentorView({
     const safeCatName = (name) => {
         const n = String(name || '').trim();
         if (!n) return 'Categoria';
-        if (/^[A-Za-z0-9_-]{8,}$/.test(n)) return 'Categoria';
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n)) {
+            return 'Categoria';
+        }
         return n;
     };
 
@@ -553,7 +555,7 @@ function ActionsAndMentorView({
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: idx * 0.04 }}
-                                    onClick={() => onStartTask(task, null, 'neural_core')}
+                                    onClick={() => onStartTask(task, null, task.source || 'pomodoro')}
                                     className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all duration-300 group text-left relative overflow-hidden ${isActive
                                         ? 'bg-amber-500/5 border-amber-500/20 shadow-sm'
                                         : 'bg-white/[0.015] border-transparent hover:bg-white/[0.03] hover:border-white/5'
@@ -949,6 +951,8 @@ export default function Pomodoro() {
         }
     }, [activeSubject?.taskId, activeSubject?.sessionInstanceId]);
 
+    const ALLOWED_RETURN_PATHS = ['/', '/pomodoro', '/simulados', '/revisao', '/desempenho', '/calendario', '/configuracoes'];
+
     const resolveReturnPath = (source, forceDashboard = false) => {
         if (forceDashboard) return '/';
         const normalized = String(source || '').replace(/^\/+/, '');
@@ -958,7 +962,8 @@ export default function Pomodoro() {
         if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
             return '/';
         }
-        return `/${normalized}`;
+        const candidate = `/${normalized}`;
+        return ALLOWED_RETURN_PATHS.includes(candidate) ? candidate : '/pomodoro';
     };
 
     const resolveSessionSource = (subjectSource) => {
@@ -1018,26 +1023,21 @@ export default function Pomodoro() {
         let consecutiveStudyMinutes = 0;
 
         const recentLogs = [...(studyLogs || [])]
-            .filter(log => {
-                if (!log) return false;
+            .map(log => {
+                if (!log) return null;
                 const rawDate = log.date || log.createdAt || log.timestamp;
-                if (!rawDate) return false;
+                if (!rawDate) return null;
                 const parsed = parseNoonLocal(rawDate) || normalizeDate(rawDate);
                 const t = parsed ? parsed.getTime() : new Date(rawDate).getTime();
-                return Number.isFinite(t) && t >= startOfToday;
+                return Number.isFinite(t) ? { ...log, _parsedTime: t } : null;
             })
-            .sort((a, b) => {
-                const dateA = a.date || a.createdAt || a.timestamp;
-                const dateB = b.date || b.createdAt || b.timestamp;
-                return new Date(dateB).getTime() - new Date(dateA).getTime();
-            });
+            .filter(log => log && log._parsedTime >= startOfToday)
+            .sort((a, b) => b._parsedTime - a._parsedTime);
 
         let lastTimeBoundary = now.getTime();
 
         for (const log of recentLogs) {
-            const rawDate = log.date || log.createdAt || log.timestamp;
-            const parsedDate = parseNoonLocal(rawDate) || normalizeDate(rawDate);
-            const logDate = parsedDate ? parsedDate.getTime() : new Date(rawDate).getTime();
+            const logDate = log._parsedTime;
             const minutes = Number(log.minutes) || 0;
             if (!logDate || Number.isNaN(logDate) || minutes <= 0) continue;
 
@@ -1105,13 +1105,14 @@ export default function Pomodoro() {
 
         if (subjectSnapshot) {
             setData(prev => {
-                const rawCats = prev.categories;
+                if (!prev) return prev;
+                const rawCats = prev.categories || [];
                 const catsArray = Array.isArray(rawCats) ? rawCats : Object.values(rawCats || {});
                 return {
                     ...prev,
-                    categories: catsArray.map(c => c.id === subjectSnapshot.categoryId ? {
+                    categories: catsArray.map(c => c && c.id === subjectSnapshot.categoryId ? {
                         ...c,
-                        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t.id === subjectSnapshot.taskId ? { ...t, status: 'idle' } : t)
+                        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t && (t.id === subjectSnapshot.taskId || t.text === subjectSnapshot.taskId) ? { ...t, status: 'idle' } : t)
                     } : c)
                 };
             });
@@ -1148,6 +1149,8 @@ export default function Pomodoro() {
                 if (!catName) catName = foundCat.name;
             }
         }
+
+        catId = catId || 'geral';
 
         if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
             const highPriority = [];
@@ -1217,7 +1220,9 @@ export default function Pomodoro() {
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
                 const task = catTasks.find(t => t && (t.id || t.text) === currentSubject.taskId);
                 if (!task || !task.completed) {
-                    store.toggleNeuralTask(currentSubject.taskId);
+                    if (typeof store.toggleNeuralTask === 'function') {
+                        store.toggleNeuralTask(currentSubject.taskId);
+                    }
                     showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
                 } else {
                     showToast(`Sessão finalizada: "${currentSubject.task}"! ✅`, 'info');
@@ -1229,7 +1234,9 @@ export default function Pomodoro() {
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
                 const task = catTasks.find(t => t && (t.id || t.text) === currentSubject.taskId);
                 if (task && !task.completed) {
-                    store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
+                    if (typeof store.toggleTask === 'function') {
+                        store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
+                    }
                     showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
                 }
             }

@@ -158,12 +158,17 @@ function SubjectStats({ category, maxScore = 100 }) {
 // ============================================================================
 function StreakDisplay({ studyLogs }) {
     const streak = useMemo(() => {
-        const res = calculateStudyStreak(studyLogs || []);
-        return {
-            current: res.current || 0,
-            best: res.best || res.longest || 0,
-            isActive: Boolean(res.isActive)
-        };
+        try {
+            const res = calculateStudyStreak(studyLogs || []);
+            return {
+                current: res?.current || 0,
+                best: res?.best || res?.longest || 0,
+                isActive: Boolean(res?.isActive)
+            };
+        } catch (e) {
+            console.warn('[FocusPanel] Falha ao calcular streak:', e);
+            return { current: 0, best: 0, isActive: false };
+        }
     }, [studyLogs]);
 
     return (
@@ -194,7 +199,7 @@ function StreakDisplay({ studyLogs }) {
 // SUBCOMPONENTE: Progresso do Ciclo Pomodoro
 // ============================================================================
 function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
-    const safeTarget = Math.max(1, Number(targetCycles) || 1);
+    const safeTarget = Math.min(20, Math.max(1, Number(targetCycles) || 1));
     const safeCompleted = Math.max(0, Math.min(safeTarget, Number(completedCycles) || 0));
 
     return (
@@ -243,7 +248,7 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
 // ============================================================================
 // SUBCOMPONENTE: Tempo de Estudo Hoje
 // ============================================================================
-function TodayStudyTime({ studyLogs, categoryId }) {
+function TodayStudyTime({ studyLogs, categoryId, taskId }) {
     const todayData = useMemo(() => {
         const todayKey = getDateKey(new Date());
 
@@ -254,15 +259,15 @@ function TodayStudyTime({ studyLogs, categoryId }) {
         });
 
         const totalMinutes = todayLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
-        const categoryMinutes = categoryId
+        const categoryMinutes = (categoryId || taskId)
             ? todayLogs
-                .filter(log => log.categoryId === categoryId)
+                .filter(log => (categoryId && log.categoryId === categoryId) || (taskId && log.taskId === taskId))
                 .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0)
             : 0;
         const sessionCount = todayLogs.length;
 
         return { totalMinutes, categoryMinutes, sessionCount };
-    }, [studyLogs, categoryId]);
+    }, [studyLogs, categoryId, taskId]);
 
     const formatTime = (minutes) => {
         const total = Math.max(0, Math.round(Number(minutes) || 0));
@@ -461,7 +466,6 @@ export function SessionFocusPanel({
 
             {/* Status da Sessão */}
             <SessionStatus
-                activeSubject={activeSubject}
                 isRunning={isRunning}
                 timeLeft={timeLeft}
                 totalTime={totalTime}
@@ -484,6 +488,7 @@ export function SessionFocusPanel({
             <TodayStudyTime
                 studyLogs={studyLogs || []}
                 categoryId={activeSubject?.categoryId || currentCategory?.id}
+                taskId={activeSubject?.taskId}
             />
 
             {/* Streak */}

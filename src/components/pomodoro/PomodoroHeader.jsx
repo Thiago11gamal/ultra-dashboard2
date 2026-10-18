@@ -3,6 +3,28 @@ import { motion as Motion } from 'framer-motion';
 import { Zap, AlertCircle, Target } from 'lucide-react';
 
 export function PomodoroHeader({ mode, activeSubject }) {
+    if (!activeSubject) {
+        return (
+            <div className="w-full bg-indigo-500/10 border border-indigo-500/20 rounded-xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
+                <Target size={15} className="text-indigo-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-indigo-300 truncate">
+                    Selecione uma missão no painel para focar
+                </span>
+            </div>
+        );
+    }
+
+    if (typeof activeSubject !== 'object' || !activeSubject.taskId) {
+        return (
+            <div className="w-full bg-red-950/30 border border-dashed border-red-500/40 rounded-2xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
+                <AlertCircle size={16} className="text-red-400 shrink-0" />
+                <span className="text-xs sm:text-sm font-bold text-red-300 truncate">
+                    Erro ao carregar missão. Selecione novamente.
+                </span>
+            </div>
+        );
+    }
+
     if (mode === 'break' || mode === 'long_break') {
         return (
             <Motion.div
@@ -10,32 +32,17 @@ export function PomodoroHeader({ mode, activeSubject }) {
                 animate={{ opacity: 1, y: 0 }}
                 role="status"
                 aria-live="polite"
-                className={`flex items-center justify-center gap-2.5 w-full rounded-2xl py-2.5 px-4 border shadow-md ${mode === 'long_break' ? 'bg-violet-900/50 border-violet-500/60 text-violet-100' : 'bg-emerald-900/50 border-emerald-500/60 text-emerald-100'}`}
+                className={`flex items-center justify-center gap-2.5 w-full rounded-2xl py-2.5 px-4 border shadow-md ${
+                    mode === 'long_break'
+                        ? 'bg-violet-900/50 border-violet-500/60 text-violet-100'
+                        : 'bg-emerald-900/50 border-emerald-500/60 text-emerald-100'
+                }`}
             >
                 <Zap size={18} className={mode === 'long_break' ? 'text-violet-300' : 'text-emerald-300'} />
                 <span className="text-xs sm:text-sm font-black tracking-[0.2em] uppercase">
                     {mode === 'long_break' ? 'Pausa Longa Ativa' : 'Recuperação Neural'}
                 </span>
             </Motion.div>
-        );
-    }
-
-    if (!activeSubject) {
-        return (
-            <div className="w-full bg-indigo-500/10 border border-indigo-500/20 rounded-xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
-                <Target size={15} className="text-indigo-400 shrink-0" />
-                <span className="text-xs sm:text-sm font-semibold text-indigo-300 truncate">Selecione uma missão no painel para focar</span>
-            </div>
-        );
-    }
-
-    // Garante que activeSubject é um objeto válido antes de prosseguir
-    if (typeof activeSubject !== 'object') {
-        return (
-            <div className="w-full bg-red-950/30 border border-dashed border-red-500/40 rounded-2xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
-                <AlertCircle size={16} className="text-red-400 shrink-0" />
-                <span className="text-xs sm:text-sm font-bold text-red-300 truncate">Erro ao carregar missão. Selecione novamente.</span>
-            </div>
         );
     }
 

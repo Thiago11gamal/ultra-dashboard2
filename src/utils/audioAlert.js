@@ -26,6 +26,10 @@ function getAudioContext() {
     return audioCtx;
 }
 
+export function unlockAudio() {
+    getAudioContext();
+}
+
 export function playPomodoroAlarm(options = {}) {
     try {
         const ctx = getAudioContext();

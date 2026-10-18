@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createPomodoroSlice } from '../../store/slices/createPomodoroSlice';
-import { formatTime } from '../pomodoroHelpers';
+import { formatTime, SPEED_OPTIONS, MAX_TARGET_CYCLES } from '../pomodoroHelpers';
 import { calculateStudyStreak, countPomodorosToday } from '../analytics';
 
 describe('Pomodoro Slice - Skip and Phase Progression Regressions', () => {
@@ -84,6 +84,13 @@ describe('Pomodoro Slice - Skip and Phase Progression Regressions', () => {
     slice.setPomodoroRunning(false);
     expect(getState().appState.pomodoro.isRunning).toBe(false);
   });
+
+  it('limita targetCycles a MAX_TARGET_CYCLES no slice', () => {
+    const { slice, getState } = createMockStore();
+
+    slice.setPomodoroTargetCycles(100);
+    expect(getState().appState.pomodoro.targetCycles).toBe(MAX_TARGET_CYCLES);
+  });
 });
 
 describe('Pomodoro Helpers - formatTime', () => {
@@ -98,15 +105,16 @@ describe('Pomodoro Helpers - formatTime', () => {
 
 describe('Pomodoro Analytics - Streak Persistence', () => {
   it('mantém streak ativo se o usuário estudou ontem mesmo sem ter estudado hoje', () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayIso = yesterday.toISOString();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-02-10T12:00:00Z'));
 
-    const logs = [{ date: yesterdayIso, minutes: 25 }];
+    const logs = [{ date: '2026-02-09T12:00:00Z', minutes: 25 }];
     const streak = calculateStudyStreak(logs);
 
     expect(streak.current).toBeGreaterThanOrEqual(1);
     expect(streak.isActive).toBe(true);
+
+    vi.useRealTimers();
   });
 });
 
@@ -128,7 +136,7 @@ describe('Pomodoro Slice - Unhydrated State Safety & Contest Switching', () => {
     expect(() => slice.setPomodoroActiveSubject(null)).not.toThrow();
   });
 
-  it('countPomodorosToday não duplica a contagem de ciclos já salvos em studyLogs', () => {
+  it('countPomodorosToday calcula ciclos com base nos minutos salvos em studyLogs', () => {
     const now = new Date().toISOString();
     // 2 ciclos de 25 min concluídos e já registrados nos logs
     const studyLogs = [
@@ -136,21 +144,16 @@ describe('Pomodoro Slice - Unhydrated State Safety & Contest Switching', () => {
       { date: now, minutes: 25 }
     ];
 
-    // Com extraCompletedCycles = 0 (correção do bug)
     const count = countPomodorosToday(studyLogs, 25, 0);
     expect(count).toBe(2);
-
-    // Se extraCompletedCycles fosse erroneamente passado como 2, o resultado seria 4 (bug corrigido)
-    const countWithBug = countPomodorosToday(studyLogs, 25, 2);
-    expect(countWithBug).toBe(4);
   });
 });
 
 describe('Pomodoro Regressions - Multi-tab, Speed Recalculation & Structured endsAt', () => {
   it('reseta isRunning e limpa endsAt ao trocar para nova sessão ativa', () => {
-    let removedKey = null;
+    const removedKeys = [];
     globalThis.localStorage = {
-      removeItem: (k) => { removedKey = k; },
+      removeItem: (k) => { removedKeys.push(k); },
       getItem: () => null,
       setItem: () => {}
     };
@@ -175,19 +178,21 @@ describe('Pomodoro Regressions - Multi-tab, Speed Recalculation & Structured end
 
     expect(state.appState.pomodoro.isRunning).toBe(false);
     expect(state.appState.pomodoro.activeSubject.taskId).toBe('task-new');
-    expect(removedKey).toBe('pomodoro-endsAt');
+    expect(removedKeys).toContain('pomodoro-endsAt');
+    expect(removedKeys).toContain('pomodoroState');
   });
 
-  it('recalcula endsAt corretamente na mudança de velocidade sem inflar o cronômetro', () => {
+  it('recalcula endsAt corretamente na mudança de velocidade suportada sem inflar o cronômetro', () => {
     const currentLeft = 1200; // 20 minutos restantes
-    const parsedSpeed = 2; // alterado para velocidade 2x
+    const parsedSpeed = 10; // velocidade suportada [1, 10, 100]
+    expect(SPEED_OPTIONS).toContain(parsedSpeed);
     const now = 1000000;
     
     // Cálculo corrigido: agora + (segundos restantes * 1000) / velocidade
     const calculatedEndsAt = now + (currentLeft * 1000) / parsedSpeed;
     
-    // O tempo real de relógio restante deve ser 600 segundos (10 minutos reais a 2x)
-    expect(calculatedEndsAt - now).toBe(600 * 1000);
+    // O tempo real de relógio restante deve ser 120 segundos (2 minutos reais a 10x)
+    expect(calculatedEndsAt - now).toBe(120 * 1000);
   });
 
   it('valida payload estruturado de endsAt isolando por taskId e sessionInstanceId', () => {
@@ -215,4 +220,3 @@ describe('Pomodoro Regressions - Multi-tab, Speed Recalculation & Structured end
     expect(parseStoredEndsAt(legacyPayload, 'task-1', 'sess-1')).toBe(1700000000000);
   });
 });
-

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Minus, Plus, Layers } from 'lucide-react';
+import { MAX_TARGET_CYCLES } from '../../utils/pomodoroHelpers';
 
 export function PomodoroProgress({
     targetCycles,
@@ -14,8 +15,17 @@ export function PomodoroProgress({
     timeLeft = 0,
     totalTime = 25 * 60
 }) {
-    const safeTargetCycles = Math.min(20, Math.max(1, Math.round(Number(targetCycles) || 1)));
+    const safeTargetCycles = Math.min(MAX_TARGET_CYCLES, Math.max(1, Math.round(Number(targetCycles) || 1)));
     const safeCompletedCycles = Math.min(safeTargetCycles, Math.max(0, Math.round(Number(completedCycles) || 0)));
+
+    useEffect(() => {
+        if (workFillsRef?.current && Array.isArray(workFillsRef.current)) {
+            workFillsRef.current.length = safeTargetCycles;
+        }
+        if (breakBallsRef?.current && Array.isArray(breakBallsRef.current)) {
+            breakBallsRef.current.length = Math.max(0, safeTargetCycles - 1);
+        }
+    }, [safeTargetCycles, workFillsRef, breakBallsRef]);
 
     return (
         <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-3.5 sm:px-4 py-2 sm:py-2.5 shadow-xl relative overflow-hidden group">
@@ -57,11 +67,17 @@ export function PomodoroProgress({
                             disabled={safeTargetCycles <= Math.max(1, safeCompletedCycles)}
                             className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Reduzir meta de ciclos"
+                            aria-label={`Reduzir meta de ciclos para ${safeTargetCycles - 1}`}
                         >
                             <Minus size={13} className="stroke-[3]" />
                         </button>
 
-                        <div className="flex items-baseline gap-1 px-2 py-0.5 rounded-lg bg-[#2d1a12]/10 border border-[#2d1a12]/15 text-xs sm:text-sm font-black tabular-nums shadow-inner">
+                        <div 
+                            className="flex items-baseline gap-1 px-2 py-0.5 rounded-lg bg-[#2d1a12]/10 border border-[#2d1a12]/15 text-xs sm:text-sm font-black tabular-nums shadow-inner"
+                            role="status"
+                            aria-live="polite"
+                            aria-label={`Ciclos: ${safeCompletedCycles} de ${safeTargetCycles}`}
+                        >
                             <span className="text-[#2d1a12] font-black">{safeCompletedCycles}</span>
                             <span className="text-[#2d1a12]/40 text-[10px] font-bold">/</span>
                             <span className="text-[#2d1a12]/80 text-[10px] font-bold">{safeTargetCycles}</span>
@@ -70,7 +86,7 @@ export function PomodoroProgress({
                         <button
                             type="button"
                             onClick={() => {
-                                const newTarget = Math.min(20, safeTargetCycles + 1);
+                                const newTarget = Math.min(MAX_TARGET_CYCLES, safeTargetCycles + 1);
                                 if (typeof setTargetCycles === 'function') {
                                     setTargetCycles(newTarget);
                                 }
@@ -88,9 +104,10 @@ export function PomodoroProgress({
                                     console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
                                 }
                             }}
-                            disabled={safeTargetCycles >= 20}
+                            disabled={safeTargetCycles >= MAX_TARGET_CYCLES}
                             className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Aumentar meta de ciclos"
+                            aria-label={`Aumentar meta de ciclos para ${safeTargetCycles + 1}`}
                         >
                             <Plus size={13} className="stroke-[3]" />
                         </button>

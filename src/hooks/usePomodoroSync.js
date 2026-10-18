@@ -1,13 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
-
-const formatTime = (seconds) => {
-    const secsInt = Math.ceil(Math.max(0, seconds));
-    const mins = Math.floor(secsInt / 60);
-    const secs = secsInt % 60;
-
-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-};
+import { formatTime, SPEED_OPTIONS, MAX_TARGET_CYCLES } from '../utils/pomodoroHelpers';
 
 const SESSION_SCOPED_TYPES = [
     'START_SESSION',
@@ -18,8 +11,6 @@ const SESSION_SCOPED_TYPES = [
     'PHASE_REWIND',
     'TARGET_CYCLES_CHANGE'
 ];
-
-const MAX_TARGET_CYCLES = 20;
 
 export function usePomodoroSync({
     syncChannel,
@@ -46,7 +37,7 @@ export function usePomodoroSync({
         const handleMessage = (event) => {
             if (!isMounted) return;
             const data = event.data;
-            // ✅ FIX: Validar estrutura da mensagem antes de processar
+            // Validar estrutura da mensagem antes de processar
             if (!data || typeof data !== 'object' || !data.type) return;
             const KNOWN_TYPES = [
                 'START_SESSION', 'PAUSE_SESSION', 'TIMER_RESET',
@@ -66,7 +57,6 @@ export function usePomodoroSync({
             } = data;
 
             if (tabId === STABLE_TAB_ID) return;
-
 
             if (SESSION_SCOPED_TYPES.includes(type)) {
                 const currentTaskId = activeSubjectRef.current?.taskId ?? null;
@@ -89,7 +79,7 @@ export function usePomodoroSync({
 
             switch (type) {
                 case 'START_SESSION': {
-                    if (data.speed && [1, 10, 100].includes(Number(data.speed))) {
+                    if (data.speed && SPEED_OPTIONS.includes(Number(data.speed))) {
                         const s = Number(data.speed);
                         setSpeed(s);
                         if (speedRef) speedRef.current = s;
@@ -144,20 +134,22 @@ export function usePomodoroSync({
                 case 'SPEED_CHANGE': {
                     const parsedSpeed = Number(incomingSpeed);
 
-                    if ([1, 10, 100].includes(parsedSpeed)) {
+                    if (SPEED_OPTIONS.includes(parsedSpeed)) {
                         setSpeed(parsedSpeed);
-                        speedRef.current = parsedSpeed;
+                        if (speedRef) speedRef.current = parsedSpeed;
 
-                        if (stateRefs.current?.isRunning && endsAtRef?.current) {
+                        if (stateRefs.current?.isRunning) {
                             const currentLeft = Number(stateRefs.current?.timeLeft) || 0;
-                            endsAtRef.current = Date.now() + (currentLeft * 1000) / parsedSpeed;
-                            try {
-                                localStorage.setItem('pomodoro-endsAt', JSON.stringify({
-                                    endsAt: endsAtRef.current,
-                                    taskId: activeSubjectRef.current?.taskId || null,
-                                    sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
-                                }));
-                            } catch { /* ignore */ }
+                            if (endsAtRef) {
+                                endsAtRef.current = Date.now() + (currentLeft * 1000) / parsedSpeed;
+                                try {
+                                    localStorage.setItem('pomodoro-endsAt', JSON.stringify({
+                                        endsAt: endsAtRef.current,
+                                        taskId: activeSubjectRef.current?.taskId || null,
+                                        sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
+                                    }));
+                                } catch { /* ignore */ }
+                            }
                         }
                     }
                     break;
@@ -195,6 +187,25 @@ export function usePomodoroSync({
                         if (!raw) break;
                         const saved = JSON.parse(raw);
                         if (!saved || typeof saved !== 'object') break;
+
+                        const currentTaskId = activeSubjectRef.current?.taskId ?? null;
+                        const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
+
+                        if (
+                            saved?.activeTaskId &&
+                            currentTaskId &&
+                            saved.activeTaskId !== currentTaskId
+                        ) {
+                            break;
+                        }
+
+                        if (
+                            saved?.sessionInstanceId &&
+                            currentSessionId &&
+                            saved.sessionInstanceId !== currentSessionId
+                        ) {
+                            break;
+                        }
 
                         const targetMode =
                             data.toMode !== undefined && typeof data.toMode === 'string'
@@ -297,4 +308,3 @@ export function usePomodoroSync({
         endsAtRef
     ]);
 }
-

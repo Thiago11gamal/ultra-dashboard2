@@ -1,3 +1,7 @@
+export const SPEED_OPTIONS = [1, 10, 100];
+export const MAX_TARGET_CYCLES = 20;
+export const MAX_TIME_LEFT_SECONDS = 24 * 3600;
+
 export const asArray = (value) =>
   Array.isArray(value) ? value : Object.values(value || {});
 
@@ -29,3 +33,4 @@ export function formatTime(seconds) {
   const secs = secsInt % 60;
   return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
+
