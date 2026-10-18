@@ -91,6 +91,7 @@ export function useCoachControlCenter({
   // FIX: contador de execução para descartar resultados obsoletos
   const orchestratorRunIdRef = useRef(0);
   const tunerRunIdRef = useRef(0);
+  const pendingRunsRef = useRef(0);
   const tunerAbortControllerRef = useRef(null);
   // FIX (A5): snapshot das flags no início da sessão — "Reset Overrides"
   // restaura este estado. Antes relia o storage (que já contém os toggles
@@ -120,6 +121,7 @@ export function useCoachControlCenter({
   const runOrchestrator = useCallback(async (options = {}) => {
     // FIX: registra esta execução; resultados de execuções anteriores são descartados
     const runId = ++orchestratorRunIdRef.current;
+    pendingRunsRef.current += 1;
     setLoading(true);
     setError(null);
     try {
@@ -159,7 +161,8 @@ export function useCoachControlCenter({
       }
       return null;
     } finally {
-      if (isMounted.current && runId === orchestratorRunIdRef.current) setLoading(false);
+      pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
+      if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
   }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides]);
 
@@ -194,6 +197,7 @@ export function useCoachControlCenter({
     const abortController = new AbortController();
     tunerAbortControllerRef.current = abortController;
     const runId = ++tunerRunIdRef.current;
+    pendingRunsRef.current += 1;
     setLoading(true);
     setError(null);
     try {
@@ -223,7 +227,8 @@ export function useCoachControlCenter({
       }
       return null;
     } finally {
-      if (isMounted.current && runId === tunerRunIdRef.current) setLoading(false);
+      pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
+      if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
   }, [maxScore, loadAuxiliaryData]);
 
@@ -279,6 +284,7 @@ export function useCoachControlCenter({
     const next = writeFlags({ [flagKey]: value });
     persistCoachFlags(next);
     setCurrentFlags(next);
+    clearCoachCaches();
   }, []);
 
   // ==========================================================
@@ -290,6 +296,7 @@ export function useCoachControlCenter({
     replaceFlags(base);
     persistCoachFlags(base);
     setCurrentFlags(base);
+    clearCoachCaches();
   }, []);
 
   // ==========================================================

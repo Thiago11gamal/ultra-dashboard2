@@ -342,9 +342,9 @@ export const sanitizeNum = (val) => {
   } else if (hasComma) {
     const afterComma = str.split(',')[1];
     if (afterComma && afterComma.length === 3) {
-      str = str.replace(/\./g, '').replace(',', '');
+      str = str.replace(/\./g, '').replace(/,/g, '');
     } else {
-      str = str.replace(/\./g, '').replace(',', '.');
+      str = str.replace(/\./g, '').replace(/,/g, '.');
     }
   } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
     str = str.replace(/\./g, '');
@@ -452,7 +452,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const cfg = { ...DEFAULT_CONFIG, ...(safeOptions.config || {}) };
     const safeCategory = category || {};
-    const categoryId = safeCategory.id;
+    const categoryId = safeCategory.id ?? safeCategory.name;
     const calibrationHistory = safeOptions.calibrationHistoryByCategory?.[getCalibrationKey(categoryId)] || [];
     const rollingCalibration = computeRollingCalibrationParams(calibrationHistory, {
         baseline: cfg.MC_CALIBRATION_BRIER_BASELINE,
@@ -1208,23 +1208,25 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         25
     );
     // Burnout / hours
-    const totalMinutes = (categoryStudyLogs || []).reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
+    const getLogMinutes = (log) => sanitizeMinutes(log?.minutes ?? log?.minutos ?? log?.duration);
+    const getLogDate = (log) => normalizeDate(log?.date || log?.createdAt) || new Date(0);
+    const totalMinutes = (categoryStudyLogs || []).reduce((acc, log) => acc + getLogMinutes(log), 0);
     const totalHours = totalMinutes / 60;
     const sortedLogsForBurnout = [...(categoryStudyLogs || [])].sort((a, b) =>
-        (normalizeDate(a.date) || new Date(0)).getTime() - (normalizeDate(b.date) || new Date(0)).getTime()
+        getLogDate(a).getTime() - getLogDate(b).getTime()
     );
     const rollingWindowMs = 28 * MS_PER_DAY;
     // ✅ FIX: Verificar se metrics.referenceNow existe antes de usar
     const nowMs = Number.isFinite(metrics.referenceNow) ? metrics.referenceNow : Date.now();
     const recentBaselineLogs = sortedLogsForBurnout.filter(log =>
-        (nowMs - (normalizeDate(log.date) || new Date(0)).getTime()) <= rollingWindowMs
+        (nowMs - getLogDate(log).getTime()) <= rollingWindowMs
     );
-    const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0) / 60;
+    const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + getLogMinutes(log), 0) / 60;
     const firstLogTime = sortedLogsForBurnout.length > 0
-        ? (normalizeDate(sortedLogsForBurnout[0].date) || new Date(nowMs)).getTime()
+        ? getLogDate(sortedLogsForBurnout[0]).getTime()
         : nowMs;
     const recentSpanDays = recentBaselineLogs.length > 0
-        ? Math.max(1, (nowMs - (normalizeDate(recentBaselineLogs[0].date) || new Date(nowMs)).getTime()) / MS_PER_DAY)
+        ? Math.max(1, (nowMs - getLogDate(recentBaselineLogs[0]).getTime()) / MS_PER_DAY)
         : Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
     const activeWeeks = Math.max(1, Math.min(4, recentSpanDays / 7));
     const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / activeWeeks) : 5.0;
@@ -1242,12 +1244,20 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         ? safeGlobalLogsInput
         : Object.values(safeGlobalLogsInput || {});
     const recentAllLogs = safeGlobalLogs.filter(log =>
-        (normalizeDate(log?.date) || new Date(0)).getTime() >= windowStart
+        getLogDate(log).getTime() >= windowStart
     );
-    const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
+    const catNameForMatch = safeCategory?.name || safeCategory?.id || '';
+    const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + getLogMinutes(log), 0);
     const totalRecentMinutesCat = recentAllLogs
-        .filter(log => log?.categoryId === metrics.categoryId)
-        .reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0);
+        .filter(log => {
+            if (!log) return false;
+            const matchesId = metrics.categoryId !== undefined && metrics.categoryId !== null && log?.categoryId !== undefined && log?.categoryId !== null && (
+                log.categoryId === metrics.categoryId || String(log.categoryId) === String(metrics.categoryId)
+            );
+            const matchesName = Boolean(catNameForMatch) && isSubjectMatch(log?.subject || log?.categoryName || log?.materia || '', catNameForMatch);
+            return matchesId || matchesName;
+        })
+        .reduce((acc, log) => acc + getLogMinutes(log), 0);
     const observedShare = totalRecentMinutesAll > 0
         ? totalRecentMinutesCat / totalRecentMinutesAll
         : (1 / activeCount);
@@ -1306,9 +1316,9 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     }
     if (Array.isArray(validStudyLogs) && validStudyLogs.length > 0) {
         const logsOrdenados = [...validStudyLogs].sort((a, b) =>
-            (normalizeDate(b.date) || new Date(0)).getTime() - (normalizeDate(a.date) || new Date(0)).getTime()
+            getLogDate(b).getTime() - getLogDate(a).getTime()
         );
-        const logTime = (normalizeDate(logsOrdenados[0].date) || new Date(0)).getTime();
+        const logTime = getLogDate(logsOrdenados[0]).getTime();
         if (logTime > exactLastTime) exactLastTime = logTime;
     }
     const exactHoursSinceLast = exactLastTime > 0
@@ -1443,17 +1453,17 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     let recommendation = "";
     const oneWeekAgo = (normalizeDate(metrics.referenceDate) || new Date()).getTime() - (7 * 24 * 60 * 60 * 1000);
     const recentLogs = categoryStudyLogs.filter(log => {
-        const d = normalizeDate(log.date) || new Date(0);
+        const d = normalizeDate(log?.date || log?.createdAt) || new Date(0);
         return d && d.getTime() >= oneWeekAgo;
     });
-    const recentHours = recentLogs.reduce((acc, log) => acc + sanitizeMinutes(log.minutes), 0) / 60;
+    const recentHours = recentLogs.reduce((acc, log) => acc + sanitizeMinutes(log?.minutes ?? log?.minutos ?? log?.duration), 0) / 60;
     // FIX: contar dias reais, não timestamps únicos
     const recentStudyDays = new Set(
-        recentLogs.map(log => getDateKey(log.date)).filter(Boolean)
+        recentLogs.map(log => getDateKey(log?.date || log?.createdAt)).filter(Boolean)
     ).size;
     const isHighVolume = recentHours > dynamicBurnoutThreshold;
     const isHighFrequency = recentStudyDays >= 5;
-    const isEliteMaintenance = averageScore >= (maxScore * 0.95);
+    const isEliteMaintenance = averageScore >= (minScore + domain * 0.95);
     const trendThreshold = Number.isFinite(scoreInfoTrendThreshold)
         ? scoreInfoTrendThreshold
         : getDynamicTrendThreshold(averageScore, maxScore, minScore);

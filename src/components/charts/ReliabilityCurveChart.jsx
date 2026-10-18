@@ -5,6 +5,7 @@ import { ChartFrame } from './ChartFrame';
 
 // FIX: conversão segura para percentual inteiro (nunca NaN)
 const toPercentInt = (value, fallback = 0) => {
+    if (value === null || value === undefined || value === '') return fallback;
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
     const result = Math.round(n * 100);
@@ -62,12 +63,22 @@ const CustomTooltip = ({ active, payload }) => {
 const ReliabilityCurveChart = ({ buckets }) => {
     const chartData = useMemo(() => {
         if (!buckets || !Array.isArray(buckets) || buckets.length === 0) return [];
-        return buckets.map(b => ({
-            pred: Number.isFinite(Number(b?.meanPred)) ? Number(b.meanPred) : 0,
-            obs: Number.isFinite(Number(b?.observedRate)) ? Number(b.observedRate) : 0,
-            gap: Number.isFinite(Number(b?.gap)) ? Number(b.gap) : 0,
-            count: Number.isFinite(Number(b?.count)) ? Math.max(0, Math.round(Number(b.count))) : 0
-        })).sort((a, b) => a.pred - b.pred);
+        return buckets
+            .filter(b => {
+                const count = b?.count != null && b?.count !== '' ? Number(b.count) : 0;
+                const hasPred = b?.meanPred !== null && b?.meanPred !== undefined && b?.meanPred !== '' && Number.isFinite(Number(b.meanPred));
+                const hasObs = b?.observedRate !== null && b?.observedRate !== undefined && b?.observedRate !== '' && Number.isFinite(Number(b.observedRate));
+                return count > 0 && hasPred && hasObs;
+            })
+            .map(b => ({
+                pred: Number(b.meanPred),
+                obs: Number(b.observedRate),
+                gap: b?.gap !== null && b?.gap !== undefined && b?.gap !== '' && Number.isFinite(Number(b.gap))
+                    ? Number(b.gap)
+                    : Math.abs(Number(b.meanPred) - Number(b.observedRate)),
+                count: Math.max(0, Math.round(Number(b.count)))
+            }))
+            .sort((a, b) => a.pred - b.pred);
     }, [buckets]);
 
     if (chartData.length === 0) {

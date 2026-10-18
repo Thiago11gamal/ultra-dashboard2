@@ -1,0 +1,683 @@
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Compass, Trash2, LayoutGrid, List, Target, AlertCircle, Trophy, Activity, CheckCircle2 } from 'lucide-react';
+import { AnimatePresence, motion as Motion } from 'framer-motion';
+import AICoachWidget from './AICoachWidget';
+import AICoachPlanner from './AICoachPlanner';
+import { useAppStore } from '../store/useAppStore';
+import { useNavigate } from 'react-router-dom';
+import { exportComponentAsPDF } from '../utils/pdfExport';
+import { getSafeId } from '../utils/idGenerator';
+import { ensureCoachTaskId } from '../utils/coachTaskId';
+import { parseCoachTask, isSystemAlertTask } from '../utils/coachText';
+import { displaySubject } from '../utils/displaySubject';
+import { useToast } from '../hooks/useToast';
+
+// BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
+
+function renderBoldText(text) {
+    const safeText = String(text || '');
+    // BUG-04 FIX: Robustness against markdown nesting/formatting
+    // Usando `.*?` em vez de `[^*]+` garante que **texto com caracteres especiais** 
+    // ou pontuações seja capturado de forma non-greedy sem quebrar o split.
+    const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
+    return parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={`bold-${idx}`} className="text-white font-black">{part.slice(2, -2)}</strong>;
+        }
+        return <React.Fragment key={`bold-${idx}`}>{part}</React.Fragment>;
+    });
+}
+
+function AICoachCard({ task, idx, onStartPomodoro, categories }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
+    const parsed = parseCoachTask({ ...task, text: rawText });
+
+    const isCompleted = parsed.isCompleted || Boolean(task?.completed) || task?.status === 'completed';
+    const subjectPart = parsed.subjectRaw;
+    const isPriority = (parsed.priority === 'high' || parsed.isSystemAlert) && !isCompleted;
+    const displayAssunto = parsed.topic || rawText || 'Revisão Recomendada';
+    const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
+    const systemAlertMessage = parsed.isSystemAlert ? parsed.action : null;
+
+    const CARD_COLORS = [
+        { accent: 'border-l-violet-500', dot: 'bg-violet-500', badge: 'bg-violet-500/10 text-violet-300 border-violet-500/20', glow: 'from-violet-900/20', btnHover: 'hover:bg-violet-600 hover:text-white hover:border-violet-500 hover:shadow-[0_0_20px_-3px_rgba(139,92,246,0.4)]' },
+        { accent: 'border-l-cyan-500', dot: 'bg-cyan-500', badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20', glow: 'from-cyan-900/20', btnHover: 'hover:bg-cyan-600 hover:text-white hover:border-cyan-500 hover:shadow-[0_0_20px_-3px_rgba(6,182,212,0.4)]' },
+        { accent: 'border-l-emerald-500', dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20', glow: 'from-emerald-900/20', btnHover: 'hover:bg-emerald-600 hover:text-white hover:border-emerald-500 hover:shadow-[0_0_20px_-3px_rgba(16,185,129,0.4)]' },
+        { accent: 'border-l-rose-500', dot: 'bg-rose-500', badge: 'bg-rose-500/10 text-rose-300 border-rose-500/20', glow: 'from-rose-900/20', btnHover: 'hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_20px_-3px_rgba(244,63,94,0.4)]' },
+    ];
+    const col = CARD_COLORS[Math.max(0, idx) % CARD_COLORS.length];
+
+    return (
+        <div
+            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
+                isCompleted
+                    ? 'border-emerald-500/30 border-l-4 sm:border-l-8 border-l-emerald-500 opacity-80 hover:opacity-100'
+                    : isPriority 
+                        ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]' 
+                        : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
+            }`}
+        >
+            {/* Efeitos Visuais de Fundo (Glassmorphism & Cinematic Glow) */}
+            <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
+            
+            {/* Efeito de Sirene/Alerta Cinematico para Cards Críticos */}
+            {isPriority && (
+                <>
+                    <div className="absolute -top-20 -right-20 w-56 h-56 bg-rose-600/20 blur-[80px] rounded-full pointer-events-none animate-pulse" />
+                </>
+            )}
+
+            <div className="relative z-10 grid grid-cols-[1fr_auto] items-start mb-5 gap-4">
+                <div className="flex flex-col items-start gap-2 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {isCompleted && (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                <CheckCircle2 size={12} className="shrink-0 text-emerald-400" />
+                                <span>Concluído</span>
+                            </div>
+                        )}
+                        {isPriority && (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] bg-rose-500/10 text-rose-300 shadow-[0_0_20px_-2px_rgba(225,29,72,0.5)] border border-rose-500/40 shrink-0 relative group/badge">
+                                <div className="absolute inset-0 bg-rose-400/20 blur-md animate-pulse" />
+                                <Target size={12} className="shrink-0 relative z-10 text-rose-400" />
+                                <span className="relative z-10 text-rose-200">Alvo Prioritário</span>
+                            </div>
+                        )}
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-[0.15em] ${col.badge} shadow-lg backdrop-blur-md border max-w-full min-w-0`}>
+                            <div className={`w-2 h-2 rounded-full ${col.dot} shadow-[0_0_12px_rgba(255,255,255,0.4)] shrink-0`} />
+                            <span className="leading-[1.32] truncate min-w-0 block">{displaySubject(subjectPart, categories)}</span>
+                        </div>
+                    </div>
+                </div>
+                <button 
+                    type="button"
+                    aria-label={`${isCompleted ? 'Revisar' : 'Iniciar'} estudo: ${displaySubject(subjectPart, categories)}`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onStartPomodoro(task);
+                    }}
+                    className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
+                        isCompleted
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-500'
+                            : isPriority 
+                                ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
+                                : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
+                    }`}
+                >
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{isCompleted ? 'Revisar' : 'Iniciar'}</span>
+                    <Play size={13} fill="currentColor" className="transition-colors" />
+                </button>
+            </div>
+            <div className="relative z-10 flex-1 mb-5">
+                <h3 className={`text-[17px] sm:text-xl font-black leading-[1.2] mb-1.5 tracking-tighter line-clamp-4 ${isCompleted ? 'text-slate-400 line-through' : 'text-white'}`}>
+                    {displayAssunto}
+                </h3>
+                {systemAlertMessage && (
+                    <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-start gap-2.5 shadow-[inset_0_0_15px_rgba(225,29,72,0.05)]">
+                        <AlertCircle size={14} className="text-rose-400 mt-0.5 shrink-0" />
+                        <span className="text-[11px] sm:text-[12px] text-rose-300/90 leading-relaxed font-medium">
+                            {systemAlertMessage}
+                        </span>
+                    </div>
+                )}
+                {displayMeta && (
+                    <div className="relative mt-2">
+                        <p className="text-[11px] sm:text-[12px] text-slate-400/80 leading-relaxed font-medium line-clamp-3 pr-2">{displayMeta}</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Exposição Visual dos KPIs Matemáticos */}
+            {task.analysis?.monteCarlo && Number.isFinite(Number(task.analysis.monteCarlo.probability ?? task.analysis.monteCarlo.probabilityRaw)) && (() => {
+                // VIS-FIX: probability/volatility ausentes geravam "NaN%" no card.
+                const rawVal = task.analysis.monteCarlo.probability ?? task.analysis.monteCarlo.probabilityRaw;
+                const mcProb = Math.max(0, Math.min(100, Number(rawVal)));
+                const mcVol = Number.isFinite(Number(task.analysis.monteCarlo.volatility)) ? Number(task.analysis.monteCarlo.volatility) : 0;
+                const highVol = mcVol > 8;
+                return (
+                <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
+                        <div className="flex items-center justify-between z-10 relative">
+                            <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
+                            <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(mcProb)}%</span>
+                        </div>
+                        <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
+                            <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${mcProb}%` }} />
+                        </div>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
+                        <div className="flex items-center justify-between z-10 relative">
+                            <span className={`text-[9px] font-black tracking-widest uppercase ${highVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
+                            <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)}</span>
+                        </div>
+                        <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
+                            <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, mcVol / 20 * 100))}%` }} />
+                        </div>
+                    </div>
+                </div>
+                );
+            })()}
+            {task.analysis && (
+                <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
+                    <button 
+                        type="button"
+                        aria-expanded={isExpanded}
+                        onClick={() => setIsExpanded(!isExpanded)} 
+                        className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                                <BrainCircuit size={12} className="text-indigo-400" />
+                            </div>
+                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors ${isExpanded ? 'text-indigo-300' : 'text-slate-400'}`}>Análise do Coach</span>
+                        </div>
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180 text-indigo-400' : 'text-slate-500'}`} />
+                    </button>
+                    <AnimatePresence>
+                        {isExpanded && (
+                            <Motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pt-3 pb-2 space-y-3">
+                                    <div className="text-[11px] sm:text-xs text-indigo-200/80 leading-relaxed bg-indigo-500/[0.04] p-5 rounded-xl border border-indigo-500/10 font-medium whitespace-pre-wrap shadow-[inset_0_0_20px_rgba(99,102,241,0.03)] font-mono tracking-tight">
+                                        {renderBoldText(task.analysis.reason)}
+                                    </div>
+                                    {task.analysis.metrics && (
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            {Object.entries(task.analysis.metrics).map(([key, value], idx) => (
+                                                <div key={`metric-${key}-${idx}`} className="bg-indigo-500/[0.03] border border-indigo-500/10 px-3 py-2 rounded-xl flex flex-col gap-0.5">
+                                                    <span className="text-[8px] text-indigo-400/60 uppercase tracking-widest font-black">{key}</span>
+                                                    <span className="text-[10px] font-mono text-indigo-200 font-bold">{value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {task.analysis.monteCarlo?.calibrationPenalty >= 0.005 && (
+                                        <div className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5">
+                                            <Zap size={12} className="text-amber-400 mt-0.5 shrink-0" />
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[10px] font-black uppercase text-amber-500 tracking-widest">Ajuste de Calibração: -{Math.round(task.analysis.monteCarlo.calibrationPenalty * 100)}%</span>
+                                                <span className="text-[10px] text-amber-500/70 font-medium leading-relaxed">Você está errando sistematicamente a dificuldade nesta matéria. Reduzimos a projeção temporariamente até a sua precisão estabilizar.</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </Motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, onClearHistory }) {
+    const [isExporting, setIsExporting] = useState(false);
+    const [viewMode, setViewMode] = useState('planner');
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
+    const coachPlanner = useMemo(() => {
+        const raw = activeContest?.coachPlanner || {};
+        const normalized = {};
+        for (const [key, val] of Object.entries(raw)) {
+            normalized[key] = (Array.isArray(val) ? val : Object.values(val || {})).map(ensureCoachTaskId);
+        }
+        return normalized;
+    }, [activeContest?.coachPlanner]);
+    const coachPlanRaw = useMemo(() => {
+        const raw = activeContest?.coachPlan || [];
+        return (Array.isArray(raw) ? raw : Object.values(raw || {})).map(ensureCoachTaskId);
+    }, [activeContest?.coachPlan]);
+    const systemAlerts = useMemo(() => coachPlanRaw.filter(task => isSystemAlertTask(task)), [coachPlanRaw]);
+    const actionableTasks = useMemo(() => coachPlanRaw.filter(task => !isSystemAlertTask(task)), [coachPlanRaw]);
+    const coachPlan = actionableTasks;
+    const startNeuralSession = useAppStore(state => state.startNeuralSession);
+    const navigate = useNavigate();
+    const showToast = useToast();
+
+    const handleClearWithConfirm = useCallback(() => {
+        setShowClearConfirm(true);
+    }, []);
+
+    const handleConfirmClear = useCallback(() => {
+        onClearHistory();
+        setShowClearConfirm(false);
+        showToast('Plano limpo com sucesso.', 'info');
+    }, [onClearHistory, showToast]);
+
+    // A11Y/UX-FIX: modal de confirmação agora fecha com Esc e foca "Cancelar" ao abrir.
+    const cancelClearRef = useRef(null);
+    useEffect(() => {
+        if (!showClearConfirm) return;
+        const onKey = (e) => { if (e.key === 'Escape') setShowClearConfirm(false); };
+        window.addEventListener('keydown', onKey);
+        const raf = requestAnimationFrame(() => cancelClearRef.current?.focus());
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            cancelAnimationFrame(raf);
+        };
+    }, [showClearConfirm]);
+
+    const hasAnythingToClear = coachPlanRaw.length > 0 || Object.values(coachPlanner).some(day => (day || []).length > 0);
+
+    // FIX (perf): antes era recalculado num IIFE dentro do JSX a cada render.
+    const cardTasks = useMemo(() => {
+        const allAssignedIds = new Set();
+        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => {
+            const sid = getSafeId(ensureCoachTaskId(t));
+            if (sid) allAssignedIds.add(sid);
+        }));
+        return coachPlan.filter(task => !allAssignedIds.has(getSafeId(ensureCoachTaskId(task))));
+    }, [coachPlanner, coachPlan]);
+
+    const handleStartNeural = (task) => {
+        const allAssignedIds = new Set();
+        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(ensureCoachTaskId(t)); if (sid) allAssignedIds.add(sid); }));
+        const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(ensureCoachTaskId(t))));
+        
+        // BUG FIX: Se a tarefa clicada não estiver nos não-alocados (ex: foi movida), 
+        // usamos a lista unallocated como base, mas buscamos o índice correto.
+        const taskSid = getSafeId(ensureCoachTaskId(task));
+        let targetIndex = unallocatedTasks.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
+        let sessionTasks = unallocatedTasks;
+
+        let sourceContext = 'backlog';
+
+        if (targetIndex === -1) {
+            // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
+            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
+                (tasks || []).some(t => getSafeId(ensureCoachTaskId(t)) === taskSid)
+            );
+            if (dayEntry) {
+                sessionTasks = dayEntry[1];
+                targetIndex = sessionTasks.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
+                sourceContext = dayEntry[0];
+            } else {
+                // Fallback: se não estiver no unallocated nem em nenhum dia, usa o coachPlan inteiro
+                sessionTasks = coachPlan;
+                targetIndex = coachPlan.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
+            }
+        }
+
+        if (!Array.isArray(sessionTasks) || sessionTasks.length === 0) return;
+        const safeIndex = targetIndex !== -1 ? targetIndex : 0;
+        
+        // FIX: Inject sourceContext just like in AICoachPlanner.jsx
+        const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
+        
+        startNeuralSession(sessionWithContext, safeIndex);
+        navigate('/pomodoro');
+    };
+
+    const handleExport = async () => {
+        setIsExporting(true);
+        try {
+            const ok = await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+            if (!ok) {
+                showToast('Erro ao exportar o plano para PDF.', 'error');
+            } else {
+                showToast('Plano exportado em PDF com sucesso!', 'success');
+            }
+        } catch (err) {
+            console.error('PDF Export Error:', err);
+            showToast('Erro ao exportar o plano para PDF.', 'error');
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const hasPlan = coachPlan && coachPlan.length > 0;
+
+    return (
+        // VIS-FIX: removido font-family inline 'DM Sans' — a fonte não é carregada no index.html,
+        // então o painel caía para system-ui e ficava com tipografia diferente do resto do app (Outfit).
+        <div id="ai-coach-container" className="space-y-4 sm:space-y-5 pb-8 w-full mx-auto">
+            <div className="flex flex-col gap-3 sm:gap-4">
+                <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-3 sm:p-4 rounded-2xl shadow-inner relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none"></div>
+                    
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
+                                <Compass size={18} className="text-indigo-400" />
+                            </div>
+                            <div className="min-w-0">
+                                <h2 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">Painel Coach AI</h2>
+                                <p className="text-[9px] text-cyan-400/80 uppercase tracking-[0.2em] font-bold">Estratégia inteligente com MC</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                            {/* Seletor de Modo de Visualização */}
+                            <div className="flex items-center gap-0.5 bg-slate-950/80 border border-white/10 rounded-xl p-0.5 sm:p-1 shadow-inner h-8 sm:h-9" role="group" aria-label="Modo de visualização">
+                                <button
+                                    type="button"
+                                    aria-pressed={viewMode === 'planner'}
+                                    onClick={() => setViewMode('planner')}
+                                    className={`h-full px-2.5 sm:px-3 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'planner' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                >
+                                    <LayoutGrid size={12} className="shrink-0" />
+                                    Planner
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-pressed={viewMode === 'cards'}
+                                    onClick={() => setViewMode('cards')}
+                                    className={`h-full px-2.5 sm:px-3 rounded-lg border text-[9.5px] font-black uppercase tracking-[0.1em] transition-all flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' : 'border-transparent text-slate-400 hover:text-white hover:bg-white/10'}`}
+                                >
+                                    <Sparkles size={12} className="shrink-0" />
+                                    Pendências
+                                </button>
+                            </div>
+
+                            {/* Recalcular Estratégia */}
+                            <button
+                                type="button"
+                                onClick={onGenerateGoals}
+                                disabled={loading}
+                                aria-busy={loading}
+                                className="group relative overflow-hidden h-8 sm:h-9 px-3 sm:px-4 rounded-xl font-black text-[9.5px] sm:text-[10px] tracking-[0.1em] uppercase transition-all duration-200 flex items-center justify-center gap-1.5 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_16px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+                            >
+                                <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
+                                {loading ? (
+                                    <>
+                                        <Loader2 size={13} className="animate-spin shrink-0" />
+                                        <span>Calculando...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <BrainCircuit size={13} className="shrink-0" />
+                                        <span className="hidden min-[480px]:inline">Recalcular Estratégia</span>
+                                        <span className="min-[480px]:hidden">Recalcular</span>
+                                    </>
+                                )}
+                            </button>
+                            
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={handleExport}
+                                    disabled={isExporting}
+                                    title="Exportar plano para PDF"
+                                    className="flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-white/[0.04] border border-white/10 text-[9px] sm:text-[9.5px] font-black text-slate-300 uppercase tracking-widest hover:bg-white/10 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isExporting ? <Loader2 size={12} className="animate-spin shrink-0" /> : <Download size={12} className="shrink-0" />}
+                                    <span>PDF</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleClearWithConfirm}
+                                    disabled={!hasAnythingToClear}
+                                    title={hasAnythingToClear ? 'Limpar sugestões e planejamento' : 'Nada para limpar'}
+                                    className="flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[9px] sm:text-[9.5px] font-black text-rose-300 uppercase tracking-widest hover:bg-rose-500/20 hover:text-rose-200 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    <Trash2 size={12} className="shrink-0" />
+                                    <span>Limpar</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <AnimatePresence mode="wait">
+                {viewMode === 'cards' && (
+                    <Motion.div 
+                        key="cards"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="space-y-8"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center">
+                                    <Sparkles className="text-indigo-400" size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-sm font-black text-white uppercase tracking-[0.2em]">Foco do Dia</h2>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Sugestões de estudo baseadas em telemetria</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {hasPlan ? (
+                            (() => {
+                                if (cardTasks.length === 0) {
+                                    return (
+                                        <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                            <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco pendente fora do planner</p>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
+                                        {cardTasks.map((task, idx) => (
+                                            <AICoachCard
+                                                key={getSafeId(ensureCoachTaskId(task)) || `coach-card-${idx}`}
+                                                task={task}
+                                                idx={idx}
+                                                onStartPomodoro={handleStartNeural}
+                                                categories={activeContest?.categories}
+                                            />
+                                        ))}
+                                    </div>
+                                );
+                            })()
+                        ) : (
+                            <div className="mb-8 sm:mb-12 p-8 sm:p-12 rounded-3xl border border-dashed border-white/[0.07] bg-white/[0.01] text-center">
+                                <Target size={32} className="text-slate-600 mx-auto mb-4" />
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em]">Nenhum foco definido para hoje</p>
+                            </div>
+                        )}
+                    </Motion.div>
+                )}
+
+                {viewMode === 'planner' && (
+                    <Motion.div 
+                        key="planner"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                    >
+                        <div className="space-y-4 mb-4">
+                    {suggestedFocus ? (
+                        <div className="w-full">
+                            {/* UX-FIX: sem onGenerateGoals aqui — havia dois botões de recalcular ("Recalcular Estratégia" e "Recalcular") a poucos px de distância */}
+                            <AICoachWidget suggestion={suggestedFocus} loading={loading} />
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-6 text-center">
+                            <AlertCircle size={18} className="mx-auto mb-2 text-slate-600" />
+                            <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">Recalcule a estratégia após novos simulados.</p>
+                        </div>
+                    )}
+                        </div>
+
+                        {systemAlerts.length > 0 && (
+                            <div className="mb-4 sm:mb-5 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                                {systemAlerts.map((alertTask, alertIdx) => {
+                                    const rawAlertText = String(alertTask?.text || alertTask?.title || '');
+                                    const cleanText = rawAlertText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
+                                    const separatorIndex = cleanText.indexOf(':');
+                                    const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
+                                    const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
+                                    
+                                    let type = 'info';
+                                    let titlePart = message;
+                                    let descPart = '';
+                                    let actionDesc = '';
+                                    
+                                    if (/VETOR CRÍTICO/i.test(message)) {
+                                        type = 'danger';
+                                        titlePart = "Vetor Crítico";
+                                        descPart = message.replace(/🚨 VETOR CRÍTICO!?\s*/i, '');
+                                        actionDesc = "Conclua os focos pendentes desta matéria hoje para frear a queda imediata de rendimento.";
+                                    } else if (/OSCILAÇÃO/i.test(message)) {
+                                        type = 'warning';
+                                        titlePart = "Oscilação Estatística";
+                                        descPart = message.replace(/🌪️ OSCILAÇÃO ESTATÍSTICA:?\s*/i, '');
+                                        actionDesc = "Revisite os tópicos sugeridos abaixo para estabilizar sua taxa de acertos e reduzir a imprevisibilidade.";
+                                    } else if (/CRUZEIRO SEGURO/i.test(message)) {
+                                        type = 'success';
+                                        titlePart = "Cruzeiro Seguro";
+                                        descPart = message.replace(/🏆 CRUZEIRO SEGURO:?\s*/i, '');
+                                        actionDesc = "Mantenha a constância atual. Resolva apenas as manutenções leves sugeridas para não perder o ritmo.";
+                                    } else {
+                                        type = 'info';
+                                        titlePart = "Revisão Recomendada";
+                                        descPart = message;
+                                        actionDesc = "Acompanhe as metas recomendadas para otimizar sua evolução nesta disciplina.";
+                                    }
+
+                                    const t = {
+                                        danger: { bg: 'bg-[#1a0b12]', border: 'border-rose-500/20', iconBg: 'bg-rose-500/10', iconColor: 'text-rose-500', titleColor: 'text-rose-100', descColor: 'text-rose-200/70', badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-300', verdictBg: 'bg-rose-500/5 text-rose-400', glowColor: 'bg-rose-600', Icon: AlertCircle, isCritical: true },
+                                        warning: { bg: 'bg-[#171109]', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', titleColor: 'text-amber-100', descColor: 'text-amber-200/70', badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-300', verdictBg: 'bg-amber-500/5 text-amber-400', glowColor: 'bg-amber-600', Icon: Activity, isCritical: false },
+                                        success: { bg: 'bg-[#06140e]', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', titleColor: 'text-emerald-100', descColor: 'text-emerald-200/70', badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300', verdictBg: 'bg-emerald-500/5 text-emerald-400', glowColor: 'bg-emerald-600', Icon: Trophy, isCritical: false },
+                                        info: { bg: 'bg-slate-900/50', border: 'border-slate-500/20', iconBg: 'bg-slate-500/10', iconColor: 'text-slate-400', titleColor: 'text-slate-100', descColor: 'text-slate-400', badgeBg: 'bg-slate-500/10 border-slate-500/30 text-slate-300', verdictBg: 'bg-slate-500/5 text-slate-400', glowColor: 'bg-slate-600', Icon: AlertCircle, isCritical: false }
+                                    }[type];
+
+                                    return (
+                                        <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-3.5 sm:p-4 rounded-2xl border flex flex-col gap-3 shadow-lg ${t.bg} ${t.border}`}>
+                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
+                                            
+                                            <div className="flex items-start gap-3">
+                                                <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
+                                                    <t.Icon size={18} className={t.isCritical ? "animate-pulse" : ""} />
+                                                </div>
+                                                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md border ${t.badgeBg}`}>
+                                                            {displaySubject(subjectName, activeContest?.categories)}
+                                                        </span>
+                                                        {t.isCritical && (
+                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
+                                                                Intervenção Exigida
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className={`text-sm sm:text-base font-black tracking-tight leading-snug uppercase ${t.titleColor}`}>
+                                                        {titlePart}
+                                                    </span>
+                                                    {descPart && (
+                                                        <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
+                                                            {descPart}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {alertTask.analysis?.monteCarlo && (
+                                                <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
+                                                    <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                        <Target size={12} className={t.iconColor} />
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Number.isFinite(Number(alertTask.analysis.monteCarlo.probabilityRaw)) ? Number(alertTask.analysis.monteCarlo.probabilityRaw) : (Number.isFinite(Number(alertTask.analysis.monteCarlo.probability)) ? Number(alertTask.analysis.monteCarlo.probability) : 0))}%</span></span>
+                                                    </div>
+                                                    <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                        <Activity size={12} className={t.iconColor} />
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(1)} pts</span></span>
+                                                    </div>
+                                                    {alertTask.analysis.monteCarlo?.calibrationPenalty > 0.01 && (
+                                                        <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
+                                                            <Zap size={12} className="text-amber-400" />
+                                                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysis.monteCarlo.calibrationPenalty * 100)}%</span></span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {(alertTask.analysis?.verdict || actionDesc) && (
+                                                <div className="flex flex-col gap-2 mt-1">
+                                                    {alertTask.analysis?.verdict && (
+                                                        <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
+                                                            <BrainCircuit size={14} className="shrink-0 mt-0.5" />
+                                                            <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
+                                                        </div>
+                                                    )}
+                                                    {actionDesc && (
+                                                        <div className={`pt-2.5 ${alertTask.analysis?.verdict ? 'border-t border-white/5' : ''} mt-0.5`}>
+                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
+                                                            <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        <AICoachPlanner />
+                    </Motion.div>
+                )}
+
+            </AnimatePresence>
+
+            {/* Modal de Confirmação para Limpar Plano */}
+            <AnimatePresence>
+                {showClearConfirm && (
+                    <Motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                        onClick={() => setShowClearConfirm(false)}
+                    >
+                        <Motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            role="alertdialog"
+                            aria-modal="true"
+                            aria-labelledby="coach-clear-title"
+                            aria-describedby="coach-clear-desc"
+                            className="bg-[#0d1117] border border-rose-500/20 rounded-3xl p-8 max-w-sm mx-4 shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex flex-col items-center gap-5">
+                                <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                                    <Trash2 size={28} className="text-rose-400" />
+                                </div>
+                                <div className="text-center">
+                                    <h3 id="coach-clear-title" className="text-lg font-black text-white mb-2">Limpar Plano?</h3>
+                                    <p id="coach-clear-desc" className="text-sm text-slate-400 leading-relaxed">
+                                        Isso vai apagar <span className="text-rose-300 font-bold">todas as sugestões</span> e o <span className="text-rose-300 font-bold">planejamento semanal</span>. Essa ação não pode ser desfeita.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3 w-full">
+                                    <button
+                                        ref={cancelClearRef}
+                                        type="button"
+                                        onClick={() => setShowClearConfirm(false)}
+                                        className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-sm font-bold text-slate-300 hover:bg-white/5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleConfirmClear}
+                                        className="flex-1 px-4 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-sm font-bold text-rose-300 hover:bg-rose-500/30 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50"
+                                    >
+                                        Sim, Limpar
+                                    </button>
+                                </div>
+                            </div>
+                        </Motion.div>
+                    </Motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}

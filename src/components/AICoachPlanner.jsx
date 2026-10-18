@@ -194,12 +194,12 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       const withId = ensureCoachTaskId(t);
       // FIX C-05: usa id explícito se existir; senão usa id estável por índice,
       // evitando fundir duas tarefas distintas com o mesmo texto.
-      let sid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
-      if (seen.has(sid)) {
-        sid = `${sid}-dup-${fallbackIndex}`;
-        if (seen.has(sid)) {
-          sid = `${sid}-dup2-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
-        }
+      const baseSid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
+      let sid = baseSid;
+      let dupCount = 1;
+      while (seen.has(sid)) {
+        sid = `${baseSid}-dup${dupCount}-${fallbackIndex}`;
+        dupCount++;
       }
       // FIX-COACH-01: dedupe entre colunas com garantia de visto
       seen.add(sid);
@@ -216,11 +216,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       if (item) backlog.push(item);
       i++;
     }
-    const cleanCol = (arr) => {
+    const cleanCol = (arr, colKey) => {
       const out = [];
       let j = 0;
       for (const t of (Array.isArray(arr) ? arr : [])) {
-        const item = take(t, `col-${j}`);
+        const item = take(t, `${colKey}-${j}`);
         if (item) out.push(item);
         j++;
       }
@@ -228,10 +228,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     };
     return {
       backlog,
-      mon: cleanCol(planner?.mon), tue: cleanCol(planner?.tue),
-      wed: cleanCol(planner?.wed), thu: cleanCol(planner?.thu),
-      fri: cleanCol(planner?.fri), sat: cleanCol(planner?.sat),
-      sun: cleanCol(planner?.sun)
+      mon: cleanCol(planner?.mon, 'mon'), tue: cleanCol(planner?.tue, 'tue'),
+      wed: cleanCol(planner?.wed, 'wed'), thu: cleanCol(planner?.thu, 'thu'),
+      fri: cleanCol(planner?.fri, 'fri'), sat: cleanCol(planner?.sat, 'sat'),
+      sun: cleanCol(planner?.sun, 'sun')
     };
   }, []);
 
@@ -441,7 +441,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
 
   // FIX (BUG-01): contador ao vivo (−1 na origem, +1 no destino durante o drag)
   const liveCount = useCallback((colId, base) => {
-    if (!dragInfo) return base;
+    if (!dragInfo || !dragInfo.destination || dragInfo.source === dragInfo.destination) return base;
     let n = base;
     if (dragInfo.source === colId) n -= 1;
     if (dragInfo.destination === colId) n += 1;

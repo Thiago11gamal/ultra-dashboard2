@@ -7,6 +7,7 @@ export default function MonteCarloDebugger({ stats }) {
 
     // Auto-close when clicking outside the widget or pressing Escape
     useEffect(() => {
+        if (!isOpen) return;
         function handleClickOutside(event) {
             if (containerRef.current && !containerRef.current.contains(event.target)) {
                 setIsOpen(false);
@@ -25,7 +26,7 @@ export default function MonteCarloDebugger({ stats }) {
             document.removeEventListener("touchstart", handleClickOutside);
             window.removeEventListener("keydown", handleKeyDown);
         };
-    }, []);
+    }, [isOpen]);
 
     if (!stats) return null;
 

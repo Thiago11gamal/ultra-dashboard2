@@ -482,7 +482,11 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
           <div className="max-h-64 overflow-y-auto space-y-1">
             {[...healthSnapshots].reverse().map((snapshot, idx) => (
               <div key={idx} className="flex items-center gap-3 text-sm py-1.5 border-b border-slate-700/30 last:border-0">
-                <span className="text-slate-500 text-xs w-32 flex-shrink-0">{new Date(snapshot.generatedAt).toLocaleDateString('pt-BR')}</span>
+                <span className="text-slate-500 text-xs w-32 flex-shrink-0">
+                  {Number.isFinite(Number(snapshot?.generatedAt))
+                    ? new Date(Number(snapshot.generatedAt)).toLocaleDateString('pt-BR')
+                    : '—'}
+                </span>
                 <span className="font-mono text-white">{snapshot.healthScore}</span>
                 <StatusBadge status={snapshot.status} />
               </div>
@@ -606,7 +610,11 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
             {[...tunerHistory].reverse().map((entry, idx) => (
               <div key={idx} className="bg-slate-900/40 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-slate-500">{new Date(entry.generatedAt).toLocaleString('pt-BR')}</span>
+                  <span className="text-xs text-slate-500">
+                    {Number.isFinite(Number(entry?.generatedAt))
+                      ? new Date(Number(entry.generatedAt)).toLocaleString('pt-BR')
+                      : '—'}
+                  </span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
                     entry.recommendation?.action === 'promote' ? 'bg-emerald-500/15 text-emerald-300'
                       : entry.recommendation?.action === 'rollback' ? 'bg-red-500/15 text-red-300'
@@ -638,7 +646,11 @@ function BacktestPanel({ backtestReport }) {
   const strategyIds = Object.keys(summaries);
   return (
     <div className="space-y-6">
-      <div className="text-xs text-slate-500">Gerado em {new Date(backtestReport.generatedAt).toLocaleString('pt-BR')}</div>
+      <div className="text-xs text-slate-500">
+        Gerado em {Number.isFinite(Number(backtestReport?.generatedAt))
+          ? new Date(Number(backtestReport.generatedAt)).toLocaleString('pt-BR')
+          : '—'}
+      </div>
 
       {strategyIds.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 overflow-hidden">
@@ -845,7 +857,7 @@ export default function CoachControlCenter({
           <TabButton active={activeTab === 'backtest'} onClick={() => setActiveTab('backtest')} icon="📈">Backtests</TabButton>
         </div>
 
-        {hasError && <ErrorAlert key={error} message={error} />}
+        {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} />}
         {loading && !dashboard && <LoadingSpinner />}
 
         <div className="min-h-[400px]">

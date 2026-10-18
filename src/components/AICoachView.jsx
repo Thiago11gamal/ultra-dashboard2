@@ -28,14 +28,17 @@ function renderBoldText(text) {
     });
 }
 
-function AICoachCard({ task, idx, onStartPomodoro, categories }) {
+function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, minScore = 0 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
     const parsed = parseCoachTask({ ...task, text: rawText });
 
     const isCompleted = parsed.isCompleted || Boolean(task?.completed) || task?.status === 'completed';
     const subjectPart = parsed.subjectRaw;
-    const isPriority = (parsed.priority === 'high' || parsed.isSystemAlert) && !isCompleted;
+    const isSrsCard = Boolean(task?.analysis?.reason?.includes('SRS') || rawText.includes('SRS'));
+    const isSafeCard = Boolean(task?.analysis?.reason?.includes('Cruzeiro') || task?.analysis?.reason?.includes('Manutenção'));
+    const isChaosCard = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
+    const isPriority = (parsed.priority === 'high' || parsed.isSystemAlert || isSrsCard || isChaosCard) && !isSafeCard && !isCompleted;
     const displayAssunto = parsed.topic || rawText || 'Revisão Recomendada';
     const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
     const systemAlertMessage = parsed.isSystemAlert ? parsed.action : null;
@@ -134,7 +137,9 @@ function AICoachCard({ task, idx, onStartPomodoro, categories }) {
                 const rawVal = task.analysis.monteCarlo.probability ?? task.analysis.monteCarlo.probabilityRaw;
                 const mcProb = Math.max(0, Math.min(100, Number(rawVal)));
                 const mcVol = Number.isFinite(Number(task.analysis.monteCarlo.volatility)) ? Number(task.analysis.monteCarlo.volatility) : 0;
-                const highVol = mcVol > 8;
+                const scaleDomain = Math.max(1, (Number(maxScore) || 100) - (Number(minScore) || 0));
+                const mcVolPct = (mcVol / scaleDomain) * 100;
+                const highVol = mcVolPct > 8;
                 return (
                 <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
                     <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
@@ -152,7 +157,7 @@ function AICoachCard({ task, idx, onStartPomodoro, categories }) {
                             <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)}</span>
                         </div>
                         <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, mcVol / 20 * 100))}%` }} />
+                            <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (mcVolPct / 20) * 100))}%` }} />
                         </div>
                     </div>
                 </div>
@@ -275,14 +280,15 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     }, [coachPlanner, coachPlan]);
 
     const handleStartNeural = (task) => {
-        const allAssignedIds = new Set();
-        Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => { const sid = getSafeId(ensureCoachTaskId(t)); if (sid) allAssignedIds.add(sid); }));
-        const unallocatedTasks = coachPlan.filter(t => !allAssignedIds.has(getSafeId(ensureCoachTaskId(t))));
+        const unallocatedTasks = cardTasks;
+        const matchTask = (t) => {
+            const taskSid = getSafeId(ensureCoachTaskId(task));
+            const candidateSid = getSafeId(ensureCoachTaskId(t));
+            if (taskSid && candidateSid && taskSid === candidateSid) return true;
+            return t === task || Boolean(task?.text && t?.text === task.text);
+        };
         
-        // BUG FIX: Se a tarefa clicada não estiver nos não-alocados (ex: foi movida), 
-        // usamos a lista unallocated como base, mas buscamos o índice correto.
-        const taskSid = getSafeId(ensureCoachTaskId(task));
-        let targetIndex = unallocatedTasks.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
+        let targetIndex = unallocatedTasks.findIndex(matchTask);
         let sessionTasks = unallocatedTasks;
 
         let sourceContext = 'backlog';
@@ -290,16 +296,16 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         if (targetIndex === -1) {
             // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
             const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
-                (tasks || []).some(t => getSafeId(ensureCoachTaskId(t)) === taskSid)
+                (tasks || []).some(matchTask)
             );
             if (dayEntry) {
                 sessionTasks = dayEntry[1];
-                targetIndex = sessionTasks.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
+                targetIndex = sessionTasks.findIndex(matchTask);
                 sourceContext = dayEntry[0];
             } else {
                 // Fallback: se não estiver no unallocated nem em nenhum dia, usa o coachPlan inteiro
                 sessionTasks = coachPlan;
-                targetIndex = coachPlan.findIndex(t => getSafeId(ensureCoachTaskId(t)) === taskSid);
+                targetIndex = coachPlan.findIndex(matchTask);
             }
         }
 
@@ -468,6 +474,8 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                 idx={idx}
                                                 onStartPomodoro={handleStartNeural}
                                                 categories={activeContest?.categories}
+                                                maxScore={activeContest?.maxScore ?? 100}
+                                                minScore={activeContest?.minScore ?? 0}
                                             />
                                         ))}
                                     </div>

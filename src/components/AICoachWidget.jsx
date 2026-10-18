@@ -109,9 +109,11 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
         const range = Math.max(1e-9, scaleMax - scaleMin);
         return Math.min(100, Math.max(0, ((value - scaleMin) / range) * 100));
     };
-    const rawLow = Number.isFinite(Number(mc.ci95Low)) ? toPct(Number(mc.ci95Low)) : prob - 5;
+    const hasLow = mc.ci95Low !== null && mc.ci95Low !== undefined && mc.ci95Low !== '' && Number.isFinite(Number(mc.ci95Low));
+    const rawLow = hasLow ? toPct(Number(mc.ci95Low)) : prob - 5;
     const low = Math.min(100, Math.max(0, rawLow));
-    const rawHigh = Number.isFinite(Number(mc.ci95High)) ? toPct(Number(mc.ci95High)) : prob + 5;
+    const hasHigh = mc.ci95High !== null && mc.ci95High !== undefined && mc.ci95High !== '' && Number.isFinite(Number(mc.ci95High));
+    const rawHigh = hasHigh ? toPct(Number(mc.ci95High)) : prob + 5;
     const high = Math.min(100, Math.max(low, rawHigh));
 
     // Define a cor baseada na zona de risco (lógica exata do seu motor)
@@ -208,7 +210,8 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     const { tier, Icon: TierIcon } = cfg;
     const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
     // VIS-FIX: projectedMean está em pontos da prova; antes era exibido como "GLOBAL 742%".
-    const globalMeanRaw = Number(suggestion.globalProjectedMean ?? suggestion.urgency?.details?.globalMcContext?.projectedMean);
+    const rawGlobalMeanCandidate = suggestion.globalProjectedMean ?? suggestion.urgency?.details?.globalMcContext?.projectedMean;
+    const globalMeanRaw = rawGlobalMeanCandidate !== null && rawGlobalMeanCandidate !== undefined && rawGlobalMeanCandidate !== '' ? Number(rawGlobalMeanCandidate) : NaN;
     const scaleMax = Math.max(1, Number(activeContest?.maxScore ?? suggestion?.maxScore) || 100);
     const scaleMin = Number.isFinite(Number(activeContest?.minScore ?? suggestion?.minScore)) ? Math.min(Number(activeContest?.minScore ?? suggestion?.minScore), scaleMax - 1) : 0;
     const globalPct = Number.isFinite(globalMeanRaw)

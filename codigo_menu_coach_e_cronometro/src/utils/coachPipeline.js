@@ -1,0 +1,117 @@
+/**
+ * coachPipeline.js
+ *
+ * Lote 12 — Facade do Unified Coach Orchestrator.
+ */
+import {
+  runCoachOrchestrator as _runCoachOrchestrator,
+  buildCoachOrchestratorDashboard as _buildCoachOrchestratorDashboard,
+  clearCoachCaches as _clearCoachCaches,
+} from '../engine/orchestrator/coachOrchestrator.js';
+
+export const runCoachOrchestrator = _runCoachOrchestrator;
+export const buildCoachOrchestratorDashboard = _buildCoachOrchestratorDashboard;
+export const clearCoachCaches = _clearCoachCaches;
+
+/**
+ * API simples para executar o Coach completo.
+ *
+ * FIX: garante que input é objeto antes de repassar
+ * (o orquestrador também valida, mas evita exceção em chamadas inválidas).
+ */
+export async function coach(input = {}, options = {}) {
+  const safeInput = input && typeof input === 'object' ? input : {};
+  const safeOptions = {
+    force: options.force ?? true,
+    ...(options && typeof options === 'object' ? options : {}),
+  };
+  try {
+      const result = await runCoachOrchestrator(safeInput, safeOptions);
+      if (!result) {
+        return {
+          ok: false,
+          error: 'Orquestrador retornou resultado inválido',
+          generatedAt: Date.now(),
+          focus: null,
+          tasks: [],
+          recommendation: '',
+          details: {},
+          meta: { modules: {}, errors: [], flags: {} }
+        };
+      }
+      const safeMeta = {
+        modules: {},
+        errors: [],
+        flags: {},
+        ...(result?.meta || {}),
+      };
+
+      return {
+        ok: true,
+        generatedAt: Date.now(),
+        focus: null,
+        tasks: [],
+        recommendation: '',
+        details: {},
+        ...result,
+        meta: safeMeta,
+      };
+  } catch (err) {
+      console.error('[CoachPipeline] Erro no orquestrador:', err);
+      return {
+          ok: false,
+          error: err?.message || String(err),
+          generatedAt: Date.now(),
+          focus: null,
+          tasks: [],
+          recommendation: '',
+          details: {},
+          meta: {
+            modules: {},
+            errors: [String(err?.message || err)],
+            flags: {},
+          }
+      };
+  }
+}
+
+/**
+ * Constrói o dashboard a partir de um resultado já calculado, sem reexecutar.
+ */
+export function coachDashboardFromResult(result) {
+  if (!result || typeof result !== 'object') {
+    return null;
+  }
+  return buildCoachOrchestratorDashboard(result);
+}
+
+/**
+ * API simples para gerar dashboard do Coach completo.
+ *
+ * FIX: valida input e retorna null se o resultado for inválido.
+ */
+export async function coachDashboard(input = {}, options = {}) {
+  const safeInput = input && typeof input === 'object' ? input : {};
+  const safeOptions = {
+    force: options.force ?? true,
+    ...(options && typeof options === 'object' ? options : {}),
+  };
+  try {
+      const result = await runCoachOrchestrator(safeInput, safeOptions);
+      if (!result || typeof result !== 'object') return null;
+      return buildCoachOrchestratorDashboard(result);
+  } catch (err) {
+      console.error('[CoachPipeline] Erro ao gerar dashboard:', err);
+      return null;
+  }
+}
+
+export default {
+  coach,
+  coachDashboard,
+  coachDashboardFromResult,
+  runCoachOrchestrator,
+  buildCoachOrchestratorDashboard,
+  clearCoachCaches,
+};
+

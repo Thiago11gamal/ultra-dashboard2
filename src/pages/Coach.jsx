@@ -53,6 +53,7 @@ export default function Coach() {
         clearTopicsCache();
         // G-03 FIX: Limpar cache de alertas ao trocar de concurso
         calibrationAlertCacheRef.current.clear();
+        setSuggestedFocus(null);
     }, [activeId]);
 
     // G-03 FIX: Cleanup periódico do cache de alertas (evita leak)
@@ -221,6 +222,7 @@ export default function Coach() {
             degraded: isDegraded
         };
 
+        let didSkipPersist = false;
         // BUG-3 FIX: Immer mutation pattern — explicit return undefined to document intent
         setData(prev => {
             if (!prev) return;
@@ -258,15 +260,21 @@ export default function Coach() {
                     toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
                 const degradationChanged = Boolean(lastEntry.degraded) !== Boolean(isDegraded);
 
+                const prevBrierBase = Number.isFinite(Number(lastEntry.avgBrier)) ? Math.max(0.001, Math.abs(Number(lastEntry.avgBrier))) : 0.001;
+                const prevEceBase = Number.isFinite(Number(lastEntry.ece)) ? Math.max(0.001, Math.abs(Number(lastEntry.ece))) : 0.001;
+
                 // BUG 6 FIX: Lowered absolute thresholds to capture low-variance micro-movements
                 const shouldSkipPersist =
-                    (brierDelta < 0.001 || (brierDelta / Math.max(0.001, lastEntry.avgBrier)) < 0.05) &&
-                    (eceDelta < 0.001 || (eceDelta / Math.max(0.001, lastEntry.ece)) < 0.05) &&
+                    (brierDelta < 0.001 || (brierDelta / prevBrierBase) < 0.05) &&
+                    (eceDelta < 0.001 || (eceDelta / prevEceBase) < 0.05) &&
                     penaltyDelta < 0.001 &&
                     probabilityDelta < 0.01 &&
                     !reliabilitySignatureChanged;
 
-                if (shouldSkipPersist && !degradationChanged) return prev;
+                if (shouldSkipPersist && !degradationChanged) {
+                    didSkipPersist = true;
+                    return prev;
+                }
             }
 
             const cutoff = now - CALIBRATION_HISTORY_RETENTION_MS;
@@ -306,6 +314,8 @@ export default function Coach() {
             };
         });
 
+        if (didSkipPersist) return;
+
         if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
             logCalibrationTelemetryEvent({ ...normalizedMetric, eventType: 'high_penalty_alert' });
         } else {
@@ -325,7 +335,8 @@ export default function Coach() {
                 // VIS-FIX: avgBrier pode ser null (degradação só por penalty) → antes exibia "Brier 0.00".
                 const brierLabel = avgBrier !== null ? ` (Brier ${avgBrier.toFixed(2)})` : '';
                 showToastRef.current(`⚠️ Calibração crítica em ${displaySubject(normalizedMetric.categoryName || normalizedCategoryId || 'categoria', categoriesRef.current)}${brierLabel}.`, 'warning');
-                calibrationAlertCacheRef.current.set(normalizedCategoryId, now);
+                calibrationAlertCacheRef.current.delete(normalizedCategoryId);
+                calibrationAlertCacheRef.current.set(normalizedCategoryId, currentTime);
                 if (calibrationAlertCacheRef.current.size > CALIBRATION_ALERT_CACHE_MAX && calibrationAlertCacheRef.current.size > 0) {
                     const oldestKey = calibrationAlertCacheRef.current.keys().next().value;
                     if (oldestKey !== undefined) calibrationAlertCacheRef.current.delete(oldestKey);
@@ -435,24 +446,39 @@ export default function Coach() {
         const ops = data?.calibrationOps || {};
         const historyByCategory = data?.calibrationHistoryByCategory || {};
         let count = 0;
-        activeCategoryIds.forEach(catId => {
-            const op = ops[catId] || ops[getSafeId(catId)];
+        const seenCanonical = new Set();
+
+        categories.forEach(cat => {
+            if (!cat) return;
+            const canonicalKey = getSafeId(cat.id || cat.name);
+            if (!canonicalKey || seenCanonical.has(canonicalKey)) return;
+            seenCanonical.add(canonicalKey);
+
+            const candidateKeys = [
+                cat.id && String(cat.id),
+                cat.id && getSafeId(cat.id),
+                cat.name && String(cat.name),
+                cat.name && getSafeId(cat.name)
+            ].filter(Boolean);
+
+            const op = candidateKeys.map(k => ops[k]).find(Boolean);
             if (op?.degraded) {
                 count++;
                 return;
             }
-            const history = historyByCategory[catId] || historyByCategory[getSafeId(catId)];
+
+            const history = candidateKeys.map(k => historyByCategory[k]).find(h => Array.isArray(h) && h.length > 0);
             if (Array.isArray(history) && history.length > 0) {
                 const latest = history[history.length - 1];
-                const brier = Number(latest?.avgBrier);
-                const pen = Number(latest?.calibrationPenalty);
+                const brier = latest?.avgBrier != null && latest?.avgBrier !== '' ? Number(latest.avgBrier) : NaN;
+                const pen = latest?.calibrationPenalty != null && latest?.calibrationPenalty !== '' ? Number(latest.calibrationPenalty) : NaN;
                 if ((Number.isFinite(brier) && brier >= CRITICAL_BRIER_THRESHOLD) || (Number.isFinite(pen) && pen >= HIGH_PENALTY_THRESHOLD)) {
                     count++;
                 }
             }
         });
         return count;
-    }, [data?.calibrationOps, data?.calibrationHistoryByCategory, activeCategoryIds]);
+    }, [data?.calibrationOps, data?.calibrationHistoryByCategory, categories]);
 
     const mcStatsContext = useMemo(() => ({
         projectedMean: mcStats?.projectedMean,
@@ -469,7 +495,12 @@ export default function Coach() {
     useEffect(() => { mcStatsContextRef.current = mcStatsContext; }, [mcStatsContext]);
 
     useEffect(() => {
-        if (!data?.categories || !isHydrated) return;
+        if (!isHydrated) return;
+        if (!data?.categories || categories.length === 0) {
+            setSuggestedFocus(null);
+            setIsAnalyzing(false);
+            return;
+        }
 
         let metricsTimer = null;
         let nestedTimeouts = [];
@@ -936,7 +967,7 @@ function RaioXDashboard({ data }) {
         return Object.entries(historyByCategory)
             .filter(([categoryId]) => {
                 if (activeCategoryIds.size === 0) return true;
-                return activeCategoryIds.has(getSafeId(categoryId));
+                return activeCategoryIds.has(String(categoryId)) || activeCategoryIds.has(getSafeId(categoryId));
             })
             .map(([categoryId, history]) => {
                 const rows = Array.isArray(history) ? history : [];
@@ -995,9 +1026,6 @@ function RaioXDashboard({ data }) {
         .filter(log => filter === 'all' || (filter === 'degraded' && isLogDegraded(log)))
         .slice(0, 50)), [sortedLogs, filter, isLogDegraded]);
 
-    const eceValues = sortedLogs.map(log => toFiniteNumber(log?.ece, null)).filter(val => val !== null);
-    const avgEce = eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
-
     // FIX: Canonical category grouping for temporal drift chart using displaySubject
     const categorySeriesMap = useMemo(() => {
         return sortedLogs.reduce((acc, log) => {
@@ -1038,6 +1066,16 @@ function RaioXDashboard({ data }) {
             if (match) return match;
         }
         return sortedLogs.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0) || null;
+    }, [sortedLogs, effectiveCategory, categories]);
+
+    const avgEce = useMemo(() => {
+        const targetLogs = effectiveCategory
+            ? sortedLogs.filter(log => displaySubject(log?.categoryName || log?.categoryId, categories) === effectiveCategory)
+            : sortedLogs;
+        const eceValues = (targetLogs.length > 0 ? targetLogs : sortedLogs)
+            .map(log => toFiniteNumber(log?.ece, null))
+            .filter(val => val !== null);
+        return eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
     }, [sortedLogs, effectiveCategory, categories]);
 
     return (
