@@ -12,7 +12,7 @@ const CLOCK_THEMES = {
         auraClass: 'bg-blue-500/15 shadow-[0_0_50px_rgba(37,99,235,0.3)]',
         pulsePingClass: 'bg-blue-400',
         pulseDotClass: 'bg-blue-500',
-        statusActive: 'PROTOCOL Foco'
+        statusActive: 'Foco'
     },
     long_break: {
         gradientStops: [
@@ -201,7 +201,7 @@ export function PomodoroClock({
                             {isRunning
                                 ? currentTheme.statusActive
                                 : (isProtocolInactive
-                                    ? 'AGUARDANDO PROTOCOLO'
+                                    ? 'AGUARDANDO INÍCIO'
                                     : (totalTime && timeLeft >= totalTime ? 'PRONTO PARA FOCO' : 'SESSÃO PAUSADA'))}
                         </span>
                     </div>

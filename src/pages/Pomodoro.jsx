@@ -866,10 +866,10 @@ function PomodoroTopBar({ activeSubject, isRunning }) {
                                     : activeSubject
                                         ? 'bg-amber-700/80'
                                         : 'bg-[#2d1a12]/30'
-                            }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando protocolo'} />
+                            }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando início'} />
                         </div>
-                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}>
-                            {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando protocolo...'}
+                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}>
+                            {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}
                         </h1>
                     </div>
                 </div>

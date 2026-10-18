@@ -1,4 +1,4 @@
-/**
+np/**
  * Mapper functions to transform application state into chart-ready data
  */
 import { normalizeDate, getDateKey } from './dateHelper.js';
@@ -96,15 +96,15 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     // toLocaleDateString depende da localidade do browser e pode falhar o matching.
     // 🎯 STABILITY FIX: Inclui o Ano na chave para evitar colisão entre anos diferentes (Bug do Fantasma do Ano Passado)
     const getFullKey = (dateObj) => {
-      const key = getDateKey(dateObj);
-      if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-        // Fallback: usar componentes UTC para evitar shift de timezone
-        const y = dateObj.getUTCFullYear();
-        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-        const d = String(dateObj.getUTCDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
-      }
-      return key;
+        const key = getDateKey(dateObj);
+        if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+            // Fallback: usar componentes UTC para evitar shift de timezone
+            const y = dateObj.getUTCFullYear();
+            const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getUTCDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        return key;
     };
 
     const getDisplayKey = (dateObj) => {
@@ -140,15 +140,15 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
     }
 
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    
+
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
         const logDate = normalizeDate(log.date);
         if (!logDate || Number.isNaN(logDate.getTime())) return;
-        
+
         const logFullKey = getFullKey(logDate);
         if (!logFullKey) return;
-        
+
         const dayMatch = daysMap.get(logFullKey);
         if (dayMatch) {
             const minutes = getStudyLogMinutes(log);
@@ -176,7 +176,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     const hoursMap = new Map();
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
     const safeCategories = Array.isArray(categories) ? categories : [];
-    
+
     const normalizeKey = (str) => String(str ?? '').trim().toLowerCase().normalize('NFC');
 
     // Pré-indexar categorias por ID e por Nome normalizado
@@ -196,7 +196,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
 
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
-        
+
         let cat = null;
         if (log.categoryId != null) {
             cat = categoriesById.get(String(log.categoryId));
@@ -207,7 +207,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
                 cat = categoriesByName.get(normalizeKey(catNameSearch));
             }
         }
-        
+
         let displayName = 'Outros';
         if (cat && cat.name) {
             displayName = String(cat.name).trim();
@@ -220,7 +220,7 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
 
         const normKey = normalizeKey(displayName);
         const actualMinutes = getStudyLogMinutes(log);
-        
+
         if (Number.isFinite(actualMinutes) && actualMinutes > 0) {
             if (!hoursMap.has(normKey)) {
                 hoursMap.set(normKey, { disciplina: displayName, minutes: 0 });
