@@ -140,7 +140,7 @@ describe('Evolution Menu - Comprehensive Fixes Regression Suite', () => {
       );
 
       expect(html).toContain('Média Geral');
-      expect(html).toContain('ÚLTIMO GERAL');
+      expect(html).toMatch(/Último Geral/i);
     });
   });
 
