@@ -771,7 +771,7 @@ function PomodoroTimer({
                 ) {
                     el.style.width = '100%';
                 } else if (i === currentSessions - 1 && currentMode === 'work') {
-                    el.style.width = currentPercent;
+                    if (!isRunning) el.style.width = currentPercent;
                 } else {
                     el.style.width = '0%';
                 }
@@ -784,14 +784,14 @@ function PomodoroTimer({
                 if (i < currentSessions - 1) {
                     el.style.height = '100%';
                 } else if (i === currentSessions - 1 && currentMode !== 'work') {
-                    el.style.height = currentPercent;
+                    if (!isRunning) el.style.height = currentPercent;
                 } else {
                     el.style.height = '0%';
                 }
             });
         }
 
-        if (svgCircleRef.current?.style) {
+        if (!isRunning && svgCircleRef.current?.style) {
             svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE * fraction;
         }
     }, [
@@ -799,6 +799,7 @@ function PomodoroTimer({
         sessions,
         targetCycles,
         timeLeft,
+        isRunning,
         safeSettings.pomodoroWork,
         safeSettings.pomodoroBreak,
         safeSettings.pomodoroLongBreak
@@ -1103,9 +1104,85 @@ function PomodoroTimer({
                 clearInterval(id);
                 handlePhaseEnd();
             }
-        }, 250); // Tick curto para precisão
+        }, 250); // Tick curto para precisão e background survival
         return () => clearInterval(id);
     }, [isRunning, handlePhaseEnd]);
+
+    // ✅ ANIMAÇÃO 60FPS/120FPS ULTRA-FLUIDA DO MOSTRADOR CIRCULAR E PROGRESSO
+    useEffect(() => {
+        if (!isRunning || !endsAtRef.current) {
+            if (svgCircleRef.current?.style) {
+                svgCircleRef.current.style.transition = 'stroke-dashoffset 0.35s cubic-bezier(0.4, 0, 0.2, 1)';
+            }
+            return;
+        }
+
+        if (svgCircleRef.current?.style) {
+            svgCircleRef.current.style.transition = 'none';
+        }
+
+        let animFrameId = null;
+        const currentMode = mode;
+        const currentSessions = sessions;
+        const currentTotalTime = currentMode === 'work'
+            ? (safeSettings.pomodoroWork || 25) * 60
+            : currentMode === 'long_break'
+                ? (safeSettings.pomodoroLongBreak || 15) * 60
+                : (safeSettings.pomodoroBreak || 5) * 60;
+
+        const updateFluidRing = () => {
+            if (!endsAtRef.current || !isMountedRef.current) return;
+
+            const currentSpeed = speedRef.current || 1;
+            const now = Date.now();
+            const msRemaining = Math.max(0, (endsAtRef.current - now) * currentSpeed);
+            const fracSeconds = msRemaining / 1000;
+            const fraction = Math.max(0, Math.min(1, fracSeconds / (currentTotalTime || 1)));
+
+            // 1. Atualização contínua do anel SVG a 60/120fps sem degraus
+            if (svgCircleRef.current?.style) {
+                svgCircleRef.current.style.strokeDashoffset = `${CIRCUMFERENCE * fraction}px`;
+            }
+
+            // 2. Sincronização em milissegundos dos dígitos numéricos
+            const wholeSec = Math.ceil(fracSeconds);
+            if (clockRef.current && clockRef.current.__lastSec !== wholeSec) {
+                clockRef.current.__lastSec = wholeSec;
+                clockRef.current.textContent = formatTime(wholeSec);
+            }
+
+            // 3. Atualização fluida do indicador de ciclo ativo
+            const currentPercent = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+            if (currentMode === 'work') {
+                const fillEl = workFillsRef.current?.[currentSessions - 1];
+                if (fillEl?.style) {
+                    fillEl.style.width = currentPercent;
+                }
+            } else {
+                const breakEl = breakBallsRef.current?.[currentSessions - 1];
+                if (breakEl?.style) {
+                    breakEl.style.height = currentPercent;
+                }
+            }
+
+            animFrameId = requestAnimationFrame(updateFluidRing);
+        };
+
+        animFrameId = requestAnimationFrame(updateFluidRing);
+
+        return () => {
+            if (animFrameId) {
+                cancelAnimationFrame(animFrameId);
+            }
+        };
+    }, [
+        isRunning,
+        mode,
+        sessions,
+        safeSettings.pomodoroWork,
+        safeSettings.pomodoroBreak,
+        safeSettings.pomodoroLongBreak
+    ]);
 
     const reset = () => {
         if (!isMountedRef.current) return;
