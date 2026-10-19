@@ -254,6 +254,12 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
         showToast('Plano limpo com sucesso.', 'info');
     }, [onClearHistory, showToast]);
 
+    const isMountedRef = useRef(true);
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => { isMountedRef.current = false; };
+    }, []);
+
     // A11Y/UX-FIX: modal de confirmação agora fecha com Esc e foca "Cancelar" ao abrir.
     const cancelClearRef = useRef(null);
     useEffect(() => {
@@ -271,12 +277,20 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     // FIX (perf): antes era recalculado num IIFE dentro do JSX a cada render.
     const cardTasks = useMemo(() => {
-        const allAssignedIds = new Set();
+        const assignedCounts = new Map();
         Object.values(coachPlanner).forEach(dayTasks => (dayTasks || []).forEach(t => {
             const sid = getSafeId(ensureCoachTaskId(t));
-            if (sid) allAssignedIds.add(sid);
+            if (sid) assignedCounts.set(sid, (assignedCounts.get(sid) || 0) + 1);
         }));
-        return coachPlan.filter(task => !allAssignedIds.has(getSafeId(ensureCoachTaskId(task))));
+        return coachPlan.filter(task => {
+            const sid = getSafeId(ensureCoachTaskId(task));
+            const count = sid ? (assignedCounts.get(sid) || 0) : 0;
+            if (count > 0) {
+                assignedCounts.set(sid, count - 1);
+                return false;
+            }
+            return true;
+        });
     }, [coachPlanner, coachPlan]);
 
     const handleStartNeural = (task) => {
@@ -320,9 +334,11 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
     };
 
     const handleExport = async () => {
+        if (isExporting) return;
         setIsExporting(true);
         try {
             const ok = await exportComponentAsPDF('ai-coach-container', 'Plano_Execucao_Coach.pdf', 'portrait');
+            if (!isMountedRef.current) return;
             if (!ok) {
                 showToast('Erro ao exportar o plano para PDF.', 'error');
             } else {
@@ -330,9 +346,9 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
             }
         } catch (err) {
             console.error('PDF Export Error:', err);
-            showToast('Erro ao exportar o plano para PDF.', 'error');
+            if (isMountedRef.current) showToast('Erro ao exportar o plano para PDF.', 'error');
         } finally {
-            setIsExporting(false);
+            if (isMountedRef.current) setIsExporting(false);
         }
     };
 
@@ -580,37 +596,45 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                                     </span>
                                                     {descPart && (
                                                         <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
-                                                            {descPart}
+                                                            {renderBoldText(descPart)}
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
 
-                                            {alertTask.analysis?.monteCarlo && (
+                                            {alertTask.analysis?.monteCarlo && (() => {
+                                                const mc = alertTask.analysis.monteCarlo;
+                                                const hasProbRaw = mc.probabilityRaw !== null && mc.probabilityRaw !== undefined && mc.probabilityRaw !== '' && Number.isFinite(Number(mc.probabilityRaw));
+                                                const hasProb = mc.probability !== null && mc.probability !== undefined && mc.probability !== '' && Number.isFinite(Number(mc.probability));
+                                                const safeProb = hasProbRaw ? Number(mc.probabilityRaw) : (hasProb ? Number(mc.probability) : 0);
+                                                const hasVol = mc.volatility !== null && mc.volatility !== undefined && mc.volatility !== '' && Number.isFinite(Number(mc.volatility));
+                                                const safeVol = hasVol ? Number(mc.volatility) : 0;
+                                                return (
                                                 <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Target size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Number.isFinite(Number(alertTask.analysis.monteCarlo.probabilityRaw)) ? Number(alertTask.analysis.monteCarlo.probabilityRaw) : (Number.isFinite(Number(alertTask.analysis.monteCarlo.probability)) ? Number(alertTask.analysis.monteCarlo.probability) : 0))}%</span></span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Math.max(0, Math.min(100, safeProb)))}%</span></span>
                                                     </div>
                                                     <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
                                                         <Activity size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{(Number.isFinite(Number(alertTask.analysis.monteCarlo.volatility)) ? Number(alertTask.analysis.monteCarlo.volatility) : 0).toFixed(1)} pts</span></span>
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{safeVol.toFixed(1)} pts</span></span>
                                                     </div>
-                                                    {alertTask.analysis.monteCarlo?.calibrationPenalty > 0.01 && (
+                                                    {Number(mc.calibrationPenalty) > 0.01 && (
                                                         <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
-                                                            <Zap size={12} className="text-amber-400" />
-                                                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(alertTask.analysis.monteCarlo.calibrationPenalty * 100)}%</span></span>
+                                                             <Zap size={12} className="text-amber-400" />
+                                                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(Number(mc.calibrationPenalty) * 100)}%</span></span>
                                                         </div>
                                                     )}
                                                 </div>
-                                            )}
+                                                );
+                                            })()}
 
                                             {(alertTask.analysis?.verdict || actionDesc) && (
                                                 <div className="flex flex-col gap-2 mt-1">
                                                     {alertTask.analysis?.verdict && (
                                                         <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
                                                             <BrainCircuit size={14} className="shrink-0 mt-0.5" />
-                                                            <span className="leading-relaxed">{alertTask.analysis.verdict}</span>
+                                                            <span className="leading-relaxed">{renderBoldText(alertTask.analysis.verdict)}</span>
                                                         </div>
                                                     )}
                                                     {actionDesc && (

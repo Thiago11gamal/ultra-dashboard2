@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Sparkles, BarChart3 } from 'lucide-react';
 
 const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId, disabled = false }) {
@@ -38,6 +38,13 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
 
 export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     const availableTabs = ['insights', 'analytics']; // Analytics is now always available as a sample
+    const rafRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, []);
 
     const focusTab = (tabKey) => {
         if (typeof document === 'undefined') return;
@@ -50,7 +57,10 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
         if (!availableTabs.includes(tabKey)) return;
         onChangeTab(tabKey);
         // rAF em vez de setTimeout(50): foca assim que o DOM atualiza, sem atraso perceptível
-        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => focusTab(tabKey));
+        if (typeof requestAnimationFrame === 'function') {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+            rafRef.current = requestAnimationFrame(() => focusTab(tabKey));
+        }
     };
 
     const handleTabKeyDown = (event) => {

@@ -183,10 +183,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   // nem skipResetCountRef — nada para dessincronizar.
   // ==========================================================
   const deriveColumns = useCallback((plan, planner) => {
-    const assigned = new Set();
+    const assignedCounts = new Map();
     DAYS.forEach(d => (planner?.[d.id] || []).forEach(t => {
       const sid = getSafeId(ensureCoachTaskId(t));
-      if (sid) assigned.add(sid);
+      if (sid) assignedCounts.set(sid, (assignedCounts.get(sid) || 0) + 1);
     }));
     const seen = new Set(); // FIX (BUG-08): dedupe de draggableId entre colunas
     const take = (t, fallbackIndex) => {
@@ -211,7 +211,12 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     for (const t of safePlan) {
       if (!t || isSystemAlertTask(t)) { i++; continue; }
       const sid = getSafeId(ensureCoachTaskId(t));
-      if (sid && assigned.has(sid)) { i++; continue; }
+      const remainingAssigned = sid ? (assignedCounts.get(sid) || 0) : 0;
+      if (remainingAssigned > 0) {
+        assignedCounts.set(sid, remainingAssigned - 1);
+        i++;
+        continue;
+      }
       const item = take(t, `backlog-${i}`);
       if (item) backlog.push(item);
       i++;
@@ -387,8 +392,13 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       );
       const startList = [...(cur[source.droppableId] || [])];
       
-      const realSourceIndex = startList.findIndex(t => getSafeId(t) === result.draggableId || t.id === result.draggableId);
-      const safeSourceIndex = realSourceIndex !== -1 ? realSourceIndex : source.index;
+      const realSourceIndex = startList.findIndex(
+        t => t?.draggableId === result.draggableId || getSafeId(t) === result.draggableId || t?.id === result.draggableId
+      );
+      const safeSourceIndex = realSourceIndex !== -1
+        ? realSourceIndex
+        : (source.index >= 0 && source.index < startList.length ? source.index : -1);
+      if (safeSourceIndex === -1) return prev;
       
       const [moved] = startList.splice(safeSourceIndex, 1);
       if (!moved) return prev;

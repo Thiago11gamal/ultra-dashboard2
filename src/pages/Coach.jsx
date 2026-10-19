@@ -43,7 +43,13 @@ const EMPTY_ARRAY = Object.freeze([]);
 export default function Coach() {
     const topRef = useRef(null);
     const calibrationAlertCacheRef = useRef(new Map());
+    const [coachLoading, setCoachLoading] = useState(false);
+    const [suggestedFocus, setSuggestedFocus] = useState(null);
+    const timeoutRef = useRef(null);
+    const generationTimeoutsRef = useRef([]);
+    const lastPushedScoreRef = useRef(null);
     const activeId = useAppStore(state => state.appState.activeId);
+
     // LEAK-MCCACHE FIX: limpar o cache do Monte Carlo ao trocar de concurso.
     // O hash já previne resultados errados, mas entradas do concurso anterior
     // ocupam memória desnecessariamente até o cap de 50 ser atingido.
@@ -54,6 +60,16 @@ export default function Coach() {
         // G-03 FIX: Limpar cache de alertas ao trocar de concurso
         calibrationAlertCacheRef.current.clear();
         setSuggestedFocus(null);
+        lastPushedScoreRef.current = null;
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+            setCoachLoading(false);
+        }
+        if (generationTimeoutsRef.current.length > 0) {
+            generationTimeoutsRef.current.forEach(clearTimeout);
+            generationTimeoutsRef.current = [];
+        }
     }, [activeId]);
 
     // G-03 FIX: Cleanup periódico do cache de alertas (evita leak)
@@ -147,11 +163,6 @@ export default function Coach() {
     }, [activeTab, safeActiveTab]);
 
     const [isAnalyzing, setIsAnalyzing] = useState(true);
-    const [coachLoading, setCoachLoading] = useState(false);
-    const [suggestedFocus, setSuggestedFocus] = useState(null);
-    const timeoutRef = useRef(null);
-    const generationTimeoutsRef = useRef([]);
-    const lastPushedScoreRef = useRef(null);
     const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
     const isMountedRef = useRef(true);
 
@@ -626,8 +637,9 @@ export default function Coach() {
             generationTimeoutsRef.current = [];
         }
 
+        const capturedActiveId = activeId;
         timeoutRef.current = setTimeout(() => {
-            if (!isMountedRef.current) return;
+            if (!isMountedRef.current || capturedActiveId !== activeId) return;
 
             try {
                 const targetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
@@ -648,6 +660,7 @@ export default function Coach() {
                         calibrationHistoryByCategory: calibrationHistoryRef.current,
                         onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                         config: {
+                            contestId: capturedActiveId,
                             MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                         }
                     }
@@ -669,6 +682,7 @@ export default function Coach() {
                             flashcardDue,
                             globalMcStats: mcStatsContextRef.current,
                             config: {
+                                contestId: capturedActiveId,
                                 MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
                             }
                         }
@@ -714,7 +728,7 @@ export default function Coach() {
             }
         }, 1500);
     // BUG-1 FIX: Added categories, combinedHistory, studyLogs to prevent stale closure
-    }, [data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore, categories, combinedHistory, history, studyLogs, flashcardDecks, flashcardDue]);
+    }, [activeId, data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore, categories, combinedHistory, studyLogs, flashcardDecks, flashcardDue]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {
@@ -964,14 +978,29 @@ function RaioXDashboard({ data }) {
             }
         }
         const now = latestTs > 0 ? latestTs : Math.floor(Date.now() / 60000) * 60000;
-        return Object.entries(historyByCategory)
+        const mergedByCanonical = new Map();
+        Object.entries(historyByCategory)
             .filter(([categoryId]) => {
                 if (activeCategoryIds.size === 0) return true;
                 return activeCategoryIds.has(String(categoryId)) || activeCategoryIds.has(getSafeId(categoryId));
             })
-            .map(([categoryId, history]) => {
+            .forEach(([categoryId, history]) => {
                 const rows = Array.isArray(history) ? history : [];
-                if (rows.length === 0) return null;
+                if (rows.length === 0) return;
+                const matchedCategory = categories.find(c => c && (
+                    String(c.id) === categoryId ||
+                    String(c.name) === categoryId ||
+                    getSafeId(c.id) === getSafeId(categoryId) ||
+                    getSafeId(c.name) === getSafeId(categoryId)
+                ));
+                const canonicalId = getSafeId(matchedCategory?.id || matchedCategory?.name || categoryId) || String(categoryId);
+                const prev = mergedByCanonical.get(canonicalId) || { categoryId: canonicalId, matchedCategory, rows: [] };
+                prev.rows.push(...rows);
+                mergedByCanonical.set(canonicalId, prev);
+            });
+
+        return Array.from(mergedByCanonical.values())
+            .map(({ categoryId, matchedCategory, rows }) => {
                 const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
                 const recent = rows.filter(h => toFiniteNumber(h?.timestamp) >= sevenDaysAgo);
                 const base = recent.length > 0 ? recent : rows;
@@ -988,12 +1017,6 @@ function RaioXDashboard({ data }) {
                 const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : null;
                 const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;
                 if (validCount === 0) return null;
-                const matchedCategory = categories.find(c => c && (
-                    String(c.id) === categoryId ||
-                    String(c.name) === categoryId ||
-                    getSafeId(c.id) === categoryId ||
-                    getSafeId(c.name) === categoryId
-                ));
                 const label = matchedCategory?.name || rows[rows.length - 1]?.categoryName || categoryId;
                 return { categoryId, label, count: validCount, avgBrier, avgPenalty };
             })

@@ -52,7 +52,11 @@ export async function getSuggestedFocusWithLLM(
 
     return {
       ...focus,
-      urgency: enhancedUrgency,
+      urgency: {
+        ...focus.urgency,
+        ...enhancedUrgency,
+        details: enhancedUrgency.details ?? focus.urgency.details,
+      },
     };
   } catch (err) {
     // FIX: LLM é opcional — nunca quebrar o Coach por causa dele

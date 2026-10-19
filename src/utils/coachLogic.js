@@ -340,8 +340,10 @@ export const sanitizeNum = (val) => {
       str = str.replace(/,/g, '');
     }
   } else if (hasComma) {
-    const afterComma = str.split(',')[1];
-    if (afterComma && afterComma.length === 3) {
+    const parts = str.split(',');
+    const beforeComma = parts[0].replace(/^[+-]/, '');
+    const afterComma = parts[1];
+    if (parts.length > 2 || (afterComma && afterComma.length === 3 && /^[1-9]\d{0,2}$/.test(beforeComma))) {
       str = str.replace(/\./g, '').replace(/,/g, '');
     } else {
       str = str.replace(/\./g, '').replace(/,/g, '.');
@@ -554,7 +556,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
             const sTotal = s?.total ?? s?.questoes ?? s?.totalQuestoes ?? s?.questions;
             const sCorrect = s?.correct ?? s?.acertos ?? s?.correctCount;
-            if (sCorrect != null && sTotal != null && Number(sTotal) > 0) {
+            if (!s?.isPercentage && sCorrect != null && sTotal != null && Number(sTotal) > 0) {
                 const c = sanitizeNum(sCorrect);
                 const t = sanitizeNum(sTotal);
                 if (Number.isFinite(c) && Number.isFinite(t) && t > 0) {
@@ -627,8 +629,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
             // ✅ PATCH-09: Validar hoursSinceLastSim explicitamente
             const rawHoursSinceLastSim = (referenceNow - mostRecentSimDate) / (1000 * 60 * 60);
-            const hoursSinceLastSim = Number.isFinite(rawHoursSinceLastSim) && rawHoursSinceLastSim >= 0
-                ? rawHoursSinceLastSim
+            const hoursSinceLastSim = Number.isFinite(rawHoursSinceLastSim) && rawHoursSinceLastSim >= -24
+                ? Math.max(0, rawHoursSinceLastSim)
                 : Infinity; // ← força o caminho "notaBruta"
 
             if (hoursSinceLastSim < 24) {
@@ -837,7 +839,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct
     };
 
-    const agilityData = computeAgilityMetrics(safeCategory.simuladoStats?.history || []) || {};
+    const agilitySource = safeCategory.simuladoStats?.history?.length ? safeCategory.simuladoStats.history : simuladosWithMaxScore;
+    const agilityData = computeAgilityMetrics(agilitySource || []) || {};
     const agilityPenalty = Number.isFinite(agilityData.agilityPenalty)
       ? agilityData.agilityPenalty
       : 0;
@@ -1690,7 +1693,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 `${Number(options.globalMcStats.projectedMean || 0).toFixed(1)}:${Number(options.globalMcStats.probability || 0).toFixed(1)}:${Number(options.globalMcStats.currentMean || 0).toFixed(1)}`
             )
             : 'noglobal';
-        const calibrationHash = (options.calibrationHistoryByCategory?.[getCalibrationKey(catId)] || []).length;
+        const catCalibHistory = options.calibrationHistoryByCategory?.[getCalibrationKey(catId)] || [];
+        const lastCalib = catCalibHistory.length > 0 ? catCalibHistory[catCalibHistory.length - 1] : null;
+        const calibrationHash = `${catCalibHistory.length}_${lastCalib?.timestamp || 0}_${lastCalib?.avgBrier ?? 'na'}`;
         const goalKey = options?.user?.goalDate
             ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
             : '';
@@ -1924,9 +1929,16 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
         ? safeCat.tasks
         : Object.values(safeCat.tasks || {});
     const openTasks = safeTasks.filter(t => t && !t.completed).length;
-    const safeSims = Array.isArray(simulados)
+    const allSafeSims = Array.isArray(simulados)
         ? simulados
         : Object.values(simulados || {});
+    const catNameForSims = safeCat.name || safeCat.id || '';
+    const safeSims = catNameForSims
+        ? allSafeSims.filter(s => s && (
+            (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
+            isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims)
+        ))
+        : allSafeSims;
     let lastSimTimestamp = 0;
     let historyVolume = 0;
     if (safeSims.length > 0) {
@@ -1990,7 +2002,8 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     const catRange = Math.max(1e-9, catMax - catMin);
     const tasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
     const topicMap = {};
-    const history = safeArray(safeCat.simuladoStats?.history);
+    const rawCatHistory = safeArray(safeCat.simuladoStats?.history);
+    const history = rawCatHistory.length > 0 ? rawCatHistory : safeArray(_simulados);
     const todayForTopics = new Date();
     const historyWithTime = history.map(h => {
         const time = (normalizeDate(h?.date || h?.createdAt) || new Date(0)).getTime();

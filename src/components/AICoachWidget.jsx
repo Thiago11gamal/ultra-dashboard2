@@ -117,8 +117,14 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
     const high = Math.min(100, Math.max(low, rawHigh));
 
     // Define a cor baseada na zona de risco (lógica exata do seu motor)
-    const isCritical = prob < (mc.thresholds?.danger || 30);
-    const color = isCritical ? 'bg-red-400' : (prob >= (mc.thresholds?.safe || 90) ? 'bg-emerald-400' : 'bg-indigo-400');
+    const dangerThreshold = mc.thresholds?.danger != null && Number.isFinite(Number(mc.thresholds.danger))
+        ? Number(mc.thresholds.danger)
+        : 30;
+    const safeThreshold = mc.thresholds?.safe != null && Number.isFinite(Number(mc.thresholds.safe))
+        ? Number(mc.thresholds.safe)
+        : 90;
+    const isCritical = prob < dangerThreshold;
+    const color = isCritical ? 'bg-red-400' : (prob >= safeThreshold ? 'bg-emerald-400' : 'bg-indigo-400');
 
     const safeVolatility = Number.isFinite(Number(mc.volatility)) ? Math.round(Number(mc.volatility)) : 0;
     const safeBarWidth = Math.max(0, Math.min(100 - low, high - low));
@@ -358,10 +364,10 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                             <span className="text-emerald-300 font-bold">{suggestion.urgency.details.monteCarlo.diagnostics.simulationCount} sims</span>
                                         </div>
                                         <div className="flex items-center justify-between gap-2 pt-0.5">
-                                            {suggestion.urgency.details.monteCarlo.diagnostics?.modelHealth != null && (
+                                            {suggestion.urgency.details.monteCarlo.diagnostics?.modelHealth != null && Number.isFinite(Number(suggestion.urgency.details.monteCarlo.diagnostics.modelHealth)) && (
                                                 <span>Health: <strong className="text-slate-300">{Number(suggestion.urgency.details.monteCarlo.diagnostics.modelHealth).toFixed(1)}</strong></span>
                                             )}
-                                            {suggestion.urgency.details.monteCarlo?.healthAdjustedProb != null && (
+                                            {suggestion.urgency.details.monteCarlo?.healthAdjustedProb != null && Number.isFinite(Number(suggestion.urgency.details.monteCarlo.healthAdjustedProb)) && (
                                                 <span>Adj: <strong className="text-slate-300">{Number(suggestion.urgency.details.monteCarlo.healthAdjustedProb).toFixed(0)}%</strong></span>
                                             )}
                                         </div>
@@ -425,7 +431,7 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                                             <div className="mt-3 text-[9px] text-slate-400 bg-white/[0.015] rounded-lg p-2 border border-white/5">
                                                 <div>Simulações: <span className="font-mono text-slate-200">{urgency.monteCarlo.diagnostics.simulationCount}</span></div>
                                                 {urgency.monteCarlo.diagnostics.convergence && <div>Convergência: {urgency.monteCarlo.diagnostics.convergence.sufficient ? '✓ Boa' : '⚠ Parcial'} (SE {urgency.monteCarlo.diagnostics.convergence.achievedSE})</div>}
-                                                {urgency.monteCarlo.diagnostics.effectiveN && <div>Effective N: <span className="font-mono">{Number(urgency.monteCarlo.diagnostics.effectiveN).toFixed(1)}</span></div>}
+                                                {urgency.monteCarlo.diagnostics.effectiveN != null && Number.isFinite(Number(urgency.monteCarlo.diagnostics.effectiveN)) && <div>Effective N: <span className="font-mono">{Number(urgency.monteCarlo.diagnostics.effectiveN).toFixed(1)}</span></div>}
                                             </div>
                                         )}
                                     </Motion.div>
