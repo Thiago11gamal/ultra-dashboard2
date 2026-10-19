@@ -32,6 +32,7 @@ import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } f
 import { displaySubject } from '../utils/displaySubject';
 import { formatDatePtBR, formatDateTimePtBR } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
+import { isSubjectMatch } from '../utils/normalization';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
@@ -930,7 +931,7 @@ const GovernanceBanner = React.memo(function GovernanceBanner({ degradedCount })
     );
 });
 
-function RaioXDashboard({ data }) {
+export function RaioXDashboard({ data }) {
     const ops = data?.calibrationOps || {};
     const [filter, setFilter] = useState('all');
 
@@ -962,6 +963,25 @@ function RaioXDashboard({ data }) {
         });
         return set;
     }, [categories]);
+
+    const categorySimCounts = useMemo(() => {
+        const rawSims = Array.isArray(data?.simulados) ? data.simulados : (data?.simulados ? Object.values(data.simulados) : []);
+        const rawRows = Array.isArray(data?.simuladoRows) ? data.simuladoRows : (data?.simuladoRows ? Object.values(data.simuladoRows) : []);
+        const allSims = [...rawSims, ...rawRows];
+        return categories.map(cat => {
+            const catName = cat.name || cat.id || '';
+            const count = allSims.filter(s => s && (
+                (cat.id && s.categoryId && String(s.categoryId) === String(cat.id)) ||
+                isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName)
+            )).length;
+            return {
+                id: cat.id || catName,
+                name: displaySubject(catName, categories),
+                count,
+                target: 8
+            };
+        }).filter(c => c.name);
+    }, [categories, data?.simulados, data?.simuladoRows]);
 
     // BUG-7 FIX: Derive 'now' from latest calibration timestamp to avoid impure Date.now() in useMemo.
     // Falls back to a coarse epoch bucket (per-minute) only when no timestamps exist.
@@ -1192,11 +1212,36 @@ function RaioXDashboard({ data }) {
                     </div>
                 </div>
             ) : (
-                <div className="py-10 px-4 text-center rounded-2xl border border-white/5 bg-slate-900/40 space-y-2">
-                    <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">Amostra técnica insuficiente</p>
-                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[280px] mx-auto leading-relaxed">
-                        Requer no mínimo <span className="text-indigo-400 font-bold">3 simulados por matéria</span> para calibrar as projeções.
-                    </p>
+                <div className="py-8 px-5 rounded-2xl border border-white/5 bg-slate-900/40 space-y-4">
+                    <div className="text-center space-y-1.5">
+                        <p className="text-[11px] text-slate-300 font-black uppercase tracking-widest">Amostra técnica em formação</p>
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[460px] mx-auto leading-relaxed">
+                            O motor estatístico requer no mínimo <span className="text-indigo-400 font-bold">8 simulados por disciplina</span> para calcular Brier Score, ECE e calibração estocástica com rigor preditivo (n=8).
+                        </p>
+                    </div>
+
+                    {categorySimCounts.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                            {categorySimCounts.map(item => {
+                                const pct = Math.min(100, Math.round((item.count / item.target) * 100));
+                                const missing = Math.max(0, item.target - item.count);
+                                return (
+                                    <div key={item.id} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/[0.05] flex flex-col gap-2">
+                                        <div className="flex justify-between items-center text-[11px]">
+                                            <span className="font-bold text-slate-200 truncate">{item.name}</span>
+                                            <span className="font-mono font-black text-indigo-400 shrink-0">{item.count}/{item.target}</span>
+                                        </div>
+                                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                            <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-right">
+                                            {missing > 0 ? `Faltam ${missing} simulados` : 'Calibrado'}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
             <div className="p-2 border-t border-white/5 pt-8">
@@ -1275,10 +1320,10 @@ function RaioXDashboard({ data }) {
                                     ? 'Nenhum evento degradado'
                                     : 'Nenhum evento registrado'}
                             </p>
-                            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[340px] mx-auto leading-relaxed">
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight max-w-[360px] mx-auto leading-relaxed">
                                 {sortedLogs.length > 0 && filter === 'degraded'
                                     ? 'Todas as calibrações registradas estão estáveis.'
-                                    : 'Os diagnósticos surgirão automaticamente após atingir a maturidade de dados (n=3).'}
+                                    : 'Os diagnósticos de auditoria surgirão automaticamente após atingir a maturidade de dados (n=8 por disciplina).'}
                             </p>
                         </div>
                     )}
