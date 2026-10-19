@@ -143,7 +143,7 @@ return (
                 
                 <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 bg-indigo-500/10 px-4 py-2.5 rounded-full border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)] transition-all duration-500">
                   <Sparkles size={14} className="animate-pulse shrink-0" />
-                  {LOADING_MESSAGES[loadingMsgIdx]}
+                  {LOADING_MESSAGES[loadingMsgIdx] || 'Processando...'}
                 </div>
               </motion.div>
             ) : (
@@ -353,7 +353,7 @@ return (
                 {isLoading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>{LOADING_MESSAGES[loadingMsgIdx].toUpperCase()}</span>
+                    <span>{(LOADING_MESSAGES[loadingMsgIdx] || 'Processando...').toUpperCase()}</span>
                   </>
                 ) : (
                   <>

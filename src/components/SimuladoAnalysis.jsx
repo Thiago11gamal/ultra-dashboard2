@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { normalize, aliases } from '../utils/normalization';
+import React, { useState, useMemo } from 'react';
+import { normalize, aliases, isSubjectMatch } from '../utils/normalization';
 import ConfirmModal from './ConfirmModal';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both' }) {
-    const categoriesArray = Array.isArray(categories) ? categories : Object.values(categories || {});
+    const categoriesArray = useMemo(
+        () => (Array.isArray(categories) ? categories : Object.values(categories || {})),
+        [categories]
+    );
     const analysisTimeoutRef = React.useRef(null);
 
 
@@ -88,6 +91,9 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
                 finalValue = val;
             }
+        } else if (field === 'difficulty') {
+            const parsedDiff = parseFloat(value);
+            finalValue = Number.isFinite(parsedDiff) && parsedDiff > 0 ? parsedDiff : 1.0;
         }
 
         const newRows = rows.map((row, i) => {
@@ -119,7 +125,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const handleConfirmResetScores = () => {
-        const newRows = rows.map(row => ({ ...row, correct: 0, total: 0 }));
+        const newRows = rows.map(row => ({ ...row, correct: 0, total: 0, score: 0, difficulty: 1.0 }));
         setRows(newRows);
         setShowResetScoresConfirm(false);
     };
@@ -164,21 +170,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         // 0. Strict Validation: Check if subjects exist in Dashboard
         if (categoriesArray && categoriesArray.length > 0) {
 
-            const validDataMap = Object.create(null);
+            const validCategories = [];
             categoriesArray.forEach(cat => {
                 if (!cat?.name) return;
-                const subName = normalize(cat.name);
                 const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
-                const topics = new Set(tasks.map(t => normalize(t?.title || t?.text || '')));
-                validDataMap[subName] = topics;
-
-                // Add aliases mapping to the same topics
-                if (aliases[subName]) {
-                    aliases[subName].forEach(alias => {
-                        const aliasNorm = normalize(alias);
-                        validDataMap[aliasNorm] = topics;
-                    });
-                }
+                const topics = new Set(tasks.map(t => normalize(t?.title || t?.text || '')).filter(Boolean));
+                validCategories.push({ name: cat.name, topics });
             });
 
             const invalidSubjects = new Set();
@@ -190,23 +187,23 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             rows.forEach((r, idx) => {
                 if (!r.subject && !r.topic) return;
 
-                const subNorm = normalize(r.subject);
                 const topNorm = normalize(r.topic);
+                const matchedCat = r.subject
+                    ? validCategories.find(vc => isSubjectMatch(vc.name, r.subject))
+                    : null;
 
-                const isSubValid = r.subject ? !!validDataMap[subNorm] : true;
+                const isSubValid = r.subject ? Boolean(matchedCat) : true;
 
                 let isTopValid = true;
                 if (r.topic) {
                     if (topNorm === 'nenhum') {
                         isTopValid = true;
-                    } else if (isSubValid && r.subject && validDataMap[subNorm] instanceof Set) {
-                        const subjectTopics = validDataMap[subNorm];
-                        // Se a matéria não tem tópicos cadastrados, aceitamos qualquer um (ou tratamos como 'nenhum')
-                        isTopValid = subjectTopics.size === 0 ? true : subjectTopics.has(topNorm);
+                    } else if (isSubValid && matchedCat) {
+                        isTopValid = matchedCat.topics.size === 0 ? true : matchedCat.topics.has(topNorm);
                     } else if (r.subject) {
                         isTopValid = false;
                     } else {
-                        isTopValid = Object.values(validDataMap).some(set => (set instanceof Set) && set.has(topNorm));
+                        isTopValid = validCategories.some(vc => vc.topics.has(topNorm));
                     }
                 }
 
@@ -428,12 +425,12 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     }, [categoriesArray, rows, viewMode, onAnalysisComplete]);
 
     React.useEffect(() => {
-        if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading) {
+        if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading && !error) {
             const timer = setTimeout(() => handleAnalyze(), 100);
             return () => clearTimeout(timer);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [viewMode, rowsSignature, analysisData, loading, handleAnalyze]);
+    }, [viewMode, rowsSignature, analysisData, loading, error, handleAnalyze]);
 
     return (
         <div className={`w-full mx-auto space-y-6 animate-fade-in pb-20`}>

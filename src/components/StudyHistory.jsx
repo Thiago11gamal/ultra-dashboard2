@@ -61,7 +61,7 @@ const StudyHistory = React.memo(function StudyHistory({
     const [collapsedSubjects, setCollapsedSubjects] = useState({});
 
     // P09 PERF FIX: Cache today's dateString to avoid new Date() in render path
-    const todayDateStr = useMemo(() => new Date(currentTime).toDateString(), [currentTime]);
+    const todayKeyStr = useMemo(() => getDateKey(normalizeDate(new Date(currentTime))), [currentTime]);
 
     // Calculate total weeks available (Sunday to Sunday boundaries)
     const availableWeeks = useMemo(() => {
@@ -85,7 +85,7 @@ const StudyHistory = React.memo(function StudyHistory({
         firstSunday.setDate(firstSession.getDate() - firstSession.getDay());
         firstSunday.setHours(0, 0, 0, 0);
 
-        const todaySunday = new Date();
+        const todaySunday = new Date(currentTime);
         todaySunday.setDate(todaySunday.getDate() - todaySunday.getDay());
         todaySunday.setHours(0, 0, 0, 0);
 
@@ -419,6 +419,8 @@ const StudyHistory = React.memo(function StudyHistory({
                                 const key = (isAi && r.batchId) ? String(r.batchId) : (isAi ? `ai-${getDateKey(rDate)}` : `manual-${getDateKey(rDate)}`);
                                 if (!acc[key]) {
                                     acc[key] = { key, date: rDate, rows: [], isAi };
+                                } else if (rDate.getTime() > acc[key].date.getTime()) {
+                                    acc[key].date = rDate;
                                 }
                                 acc[key].rows.push(r);
                                 return acc;
@@ -645,7 +647,7 @@ const StudyHistory = React.memo(function StudyHistory({
                             // Renderizador de um card de simulado
                             const renderSimuladoCard = (group, _isComparison = false, deltaInfo = null) => {
                                 const { totalQuestions, totalCorrect, globalPct, subjects } = processSimulado(group.rows);
-                                const isToday = group.date.toDateString() === todayDateStr;
+                                const isToday = getDateKey(group.date) === todayKeyStr;
                                 const title = isToday ? 'Hoje' : group.date.toLocaleDateString('pt-BR');
                                 const bannerStyle = getGlobalBannerStyle(globalPct);
 
@@ -1081,7 +1083,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                                 <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
                                                     {groupedSimulados.map((g, idx) => {
                                                         const isSelected = g.key === activeFocusKey;
-                                                        const isToday = g.date.toDateString() === todayDateStr;
+                                                        const isToday = getDateKey(g.date) === todayKeyStr;
                                                         const label = isToday ? 'Hoje' : g.date.toLocaleDateString('pt-BR');
                                                         return (
                                                             <button
@@ -1193,6 +1195,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         } catch {
                             showToast('Erro ao excluir sessão.', 'error');
                         }
+                        setSessionToDelete(null);
                     }
                 }}
                 title="Excluir Sessão de Estudo"
@@ -1210,6 +1213,13 @@ const StudyHistory = React.memo(function StudyHistory({
                     if (simuladoToDelete?.key && typeof onDeleteSimulado === 'function') {
                         try {
                             onDeleteSimulado(simuladoToDelete.key);
+                            if (selectedSimuladoKey === simuladoToDelete.key) {
+                                setSelectedSimuladoKey(null);
+                            }
+                            setCompareKeys(prev => ({
+                                keyA: prev.keyA === simuladoToDelete.key ? null : prev.keyA,
+                                keyB: prev.keyB === simuladoToDelete.key ? null : prev.keyB,
+                            }));
                             showToast(`Simulado de ${simuladoToDelete.title} excluído.`, 'info');
                         } catch {
                             showToast('Erro ao excluir simulado.', 'error');

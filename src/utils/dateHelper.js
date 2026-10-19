@@ -110,8 +110,8 @@ export const getDateKey = (rawDate) => {
     }
   }
 
-  if (typeof rawDate === 'object' && rawDate !== null && (rawDate.seconds || rawDate._seconds)) {
-    const secs = rawDate.seconds || rawDate._seconds;
+  if (typeof rawDate === 'object' && rawDate !== null && (rawDate.seconds != null || rawDate._seconds != null)) {
+    const secs = rawDate.seconds != null ? rawDate.seconds : rawDate._seconds;
     const d = new Date(secs * 1000);
     if (Number.isNaN(d.getTime())) return null;
     const manausDate = new Date(d.getTime() - (4 * 3600000));

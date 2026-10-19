@@ -139,6 +139,12 @@ export function safeTime(value, fallback = NaN) {
 }
 
 const defaultGetDateKey = (value) => {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
+  }
+
   const t = safeTime(value, NaN);
   if (!Number.isFinite(t)) return null;
 
@@ -595,6 +601,12 @@ export function migrateContestData(contest) {
     );
   }
 
+  if (next.simuladoRows) {
+    next.simuladoRows = mapCollection(next.simuladoRows, (row) =>
+      sanitizeSimuladoRow(row, maxScore, minScore)
+    );
+  }
+
   if (next.categories) {
     next.categories = mapCollection(next.categories, (cat) => {
       if (!cat || typeof cat !== "object") return cat;
@@ -612,6 +624,15 @@ export function migrateContestData(contest) {
         nextCat.history = safeArray(nextCat.history).map((h) =>
           sanitizeSimuladoRow(h, catMax, catMin)
         );
+      }
+
+      if (nextCat.simuladoStats && typeof nextCat.simuladoStats === "object") {
+        nextCat.simuladoStats = {
+          ...nextCat.simuladoStats,
+          history: safeArray(nextCat.simuladoStats.history).map((h) =>
+            sanitizeSimuladoRow(h, catMax, catMin)
+          )
+        };
       }
 
       return nextCat;

@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useToast } from '../../hooks/useToast';
 import { getDateKey } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
+import { isSubjectMatch, normalize } from '../../utils/normalization';
 import SimuladoSetup from './SimuladoSetup';
 import SimuladoPlayer from './SimuladoPlayer';
 import SimuladoResults from './SimuladoResults';
@@ -100,36 +101,42 @@ export default function AIGeneratedSimulado() {
 
   useEffect(() => { stepRef.current = step; }, [step]);
 
+  const persistDraftImmediately = useCallback(() => {
+    if (stepRef.current === 'playing' && latestQuestionsRef.current.length > 0) {
+      try {
+        const draft = {
+          version: 1,
+          form: latestFormRef.current,
+          questions: latestQuestionsRef.current,
+          answers: latestAnswersRef.current,
+          currentIndex: latestCurrentIndexRef.current,
+          timeLeft: latestTimeLeftRef.current,
+          timePerQuestion: latestTimePerQuestionRef.current,
+          simStartMs: simStartMsRef.current,
+          savedAt: Date.now()
+        };
+        localStorage.setItem(getAiSimStorageKey(), JSON.stringify(draft));
+      } catch (e) {
+        console.warn('[Draft] Falha ao salvar rascunho imediato:', e);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
+    window.addEventListener('beforeunload', persistDraftImmediately);
     return () => { 
       mountedRef.current = false; 
+      window.removeEventListener('beforeunload', persistDraftImmediately);
       // G-20 FIX: Salvar draft imediatamente ao desmontar
-      if (stepRef.current === 'playing' && latestQuestionsRef.current.length > 0) {
-        try {
-          const draft = {
-            version: 1,
-            form: latestFormRef.current,
-            questions: latestQuestionsRef.current,
-            answers: latestAnswersRef.current,
-            currentIndex: latestCurrentIndexRef.current,
-            timeLeft: latestTimeLeftRef.current,
-            timePerQuestion: latestTimePerQuestionRef.current,
-            simStartMs: simStartMsRef.current,
-            savedAt: Date.now()
-          };
-          localStorage.setItem(getAiSimStorageKey(), JSON.stringify(draft));
-        } catch (e) {
-          console.warn('[Draft] Falha ao salvar no unmount:', e);
-        }
-      }
+      persistDraftImmediately();
       // ✅ FIX: Abortar request pendente ao desmontar
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
     };
-  }, []);
+  }, [persistDraftImmediately]);
 
   useEffect(() => { latestAnswersRef.current = answers; }, [answers]);
   useEffect(() => { latestQuestionsRef.current = questions; }, [questions]);
@@ -163,7 +170,7 @@ export default function AIGeneratedSimulado() {
     return () => {
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
     };
-  }, [step, questions, answers, currentIndex, form]);
+  }, [step, questions, answers, currentIndex, form, timePerQuestion]);
 
   // FIX: Effect de restore com deps vazias (ref já garante execução única)
   useEffect(() => {
@@ -196,14 +203,16 @@ export default function AIGeneratedSimulado() {
             : Object.values(currentCategories);
           
           const cat = catsArray.find(c => c.id === f.categoryId);
-          const tsk = cat?.tasks?.find(t => t.id === f.taskId);
+          const safeCatTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})) : [];
+          const tsk = safeCatTasks.find(t => t && t.id === f.taskId);
+          const isMixed = f.categoryId === 'mixed';
           
           const normalizedQuestions = gen.questions.map((q) => ({
             ...q,
             id: q.id || nextAiId('ai-bg'),
             categoryId: f.categoryId, taskId: f.taskId,
-            materia: cat?.name || f.materia,
-            assunto: tsk ? (tsk.title || tsk.text || f.assunto) : f.assunto,
+            materia: isMixed ? (q.materia || f.materia) : (cat?.name || q.materia || f.materia),
+            assunto: isMixed ? (q.assunto || 'Geral') : (tsk ? (tsk.title || tsk.text || f.assunto) : (q.assunto || f.assunto)),
           }));
           
           isFinishingRef.current = false;
@@ -311,7 +320,7 @@ export default function AIGeneratedSimulado() {
           
           // C-14 FIX: Validar que a categoria do draft existe no concurso ATUAL
           const cat = catsArray.find(c => c && c.id === f.categoryId);
-          if (!cat && f.categoryId) {
+          if (!cat && f.categoryId && f.categoryId !== 'mixed') {
             // Categoria não existe mais — descartar draft
             localStorage.removeItem(getAiSimStorageKey());
             localStorage.removeItem(getAiGenStorageKey());
@@ -320,7 +329,7 @@ export default function AIGeneratedSimulado() {
           const safeTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})) : [];
           const tsk = safeTasks.find(t => t && t.id === f.taskId);
           
-          if (restoredForm.taskId && !tsk) {
+          if (restoredForm.taskId && restoredForm.taskId !== 'mixed' && !tsk) {
             restoredForm = { ...restoredForm, taskId: '', assunto: '' };
           }
           
@@ -610,8 +619,22 @@ export default function AIGeneratedSimulado() {
     useAppStore.setState(
         (state) => {
             const nextContests = { ...state.appState.contests };
-            const draft = nextContests[state.appState.activeId];
-            if (!draft) return state;
+            const currentDraft = nextContests[state.appState.activeId];
+            if (!currentDraft) return state;
+            const draft = {
+                ...currentDraft,
+                simuladoRows: Array.isArray(currentDraft.simuladoRows)
+                    ? [...currentDraft.simuladoRows]
+                    : Object.values(currentDraft.simuladoRows || {}),
+                simulados: Array.isArray(currentDraft.simulados)
+                    ? [...currentDraft.simulados]
+                    : Object.values(currentDraft.simulados || {}),
+                categories: (Array.isArray(currentDraft.categories)
+                    ? currentDraft.categories
+                    : Object.values(currentDraft.categories || {})
+                ).map(c => c ? { ...c, simuladoStats: c.simuladoStats ? { ...c.simuladoStats, history: [...(Array.isArray(c.simuladoStats.history) ? c.simuladoStats.history : Object.values(c.simuladoStats.history || {}))] } : undefined } : c)
+            };
+            nextContests[state.appState.activeId] = draft;
             applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId);
             return {
                 appState: {
@@ -630,7 +653,7 @@ export default function AIGeneratedSimulado() {
 
   const handleFinish = useCallback(async () => {
     const qList = latestQuestionsRef.current.length > 0 ? latestQuestionsRef.current : questions;
-    const ansMap = Object.keys(latestAnswersRef.current).length > 0 ? latestAnswersRef.current : answers;
+    const ansMap = latestAnswersRef.current || answers || {};
     const f = latestFormRef.current;
     if (qList.length === 0) {
       showToast('Nenhuma questão disponível para finalizar.', 'warning');
@@ -686,18 +709,21 @@ export default function AIGeneratedSimulado() {
       const promises = Object.entries(groups).map(async ([groupKey, g]) => {
         try {
             const [materia, assunto] = groupKey.split('\u0000');
+            const cleanAssunto = String(assunto || '').replace(/\s*\(Nível:.*?\)\s*$/i, '').trim();
 
             const cat = cats.find(c =>
-              String(c?.name || '').trim().toLowerCase() === String(materia || '').trim().toLowerCase()
+              isSubjectMatch(c?.name, materia)
             );
 
             const catTasks = cat?.tasks ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks)) : [];
             const tsk = catTasks.find(t =>
-              String(t?.title || t?.text || '').trim().toLowerCase() === String(assunto || '').trim().toLowerCase()
+              normalize(t?.title || t?.text || '') === normalize(cleanAssunto)
             );
 
             const subForm = {
-              ...f, materia: g.materia, assunto: g.assunto,
+              ...f,
+              materia: cat?.name || g.materia,
+              assunto: tsk ? (tsk.title || tsk.text || cleanAssunto) : cleanAssunto,
               categoryId: cat ? cat.id : null, taskId: tsk ? tsk.id : null,
             };
             const topicTime =
@@ -745,11 +771,14 @@ export default function AIGeneratedSimulado() {
       useAppStore.setState(
         (state) => {
           const nextContests = { ...state.appState.contests };
-          const draft = nextContests[state.appState.activeId];
-          if (!draft) return state;
-          const existingSims = Array.isArray(draft.simulados) ? draft.simulados : [];
-          draft.simulados = [...existingSims, globalMixedEvent].slice(-100);
-          draft.lastUpdated = new Date().toISOString();
+          const currentDraft = nextContests[state.appState.activeId];
+          if (!currentDraft) return state;
+          const existingSims = Array.isArray(currentDraft.simulados) ? currentDraft.simulados : Object.values(currentDraft.simulados || {});
+          nextContests[state.appState.activeId] = {
+            ...currentDraft,
+            simulados: [...existingSims, globalMixedEvent].slice(-100),
+            lastUpdated: new Date().toISOString()
+          };
           return {
             appState: {
               ...state.appState,
@@ -775,6 +804,11 @@ export default function AIGeneratedSimulado() {
       setTimerActive(false);
       localStorage.removeItem(getAiSimStorageKey());
       showToast(`Simulado finalizado! ${correctCount}/${total} acertos`, 'success');
+      try {
+        useAppStore.getState().awardExperience?.(500);
+      } catch (xpErr) {
+        console.warn('Falha não-bloqueante ao conceder XP do simulado IA:', xpErr);
+      }
     } catch (error) {
       console.error('[Simulado] Error finishing:', error);
       showToast('Erro ao finalizar o simulado.', 'error');
@@ -838,6 +872,12 @@ export default function AIGeneratedSimulado() {
 
   const resetAll = useCallback(() => {
     isFinishingRef.current = false;
+    latestAnswersRef.current = {};
+    latestTimePerQuestionRef.current = {};
+    setForm(prev => prev.categoryId === 'mixed'
+      ? { ...prev, categoryId: '', taskId: '', materia: '', assunto: '' }
+      : prev
+    );
     setStep('setup');
     setQuestions([]);
     setAnswers({});
@@ -852,6 +892,8 @@ export default function AIGeneratedSimulado() {
 
   const retrySameQuestions = () => {
     isFinishingRef.current = false;
+    latestAnswersRef.current = {};
+    latestTimePerQuestionRef.current = {};
     setAnswers({});
     setTimePerQuestion({});
     setCurrentIndex(0);

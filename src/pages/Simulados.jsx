@@ -5,7 +5,7 @@ import AIGeneratedSimulado from '../components/ai/AIGeneratedSimulado';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
-import { normalize, aliases } from '../utils/normalization';
+import { normalize, isSubjectMatch } from '../utils/normalization';
 import { computeCategoryStats } from '../engine';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { generateId } from '../utils/idGenerator';
@@ -257,7 +257,7 @@ export default function Simulados() {
   /* ── Rows do formulário manual (apenas matérias/assuntos cadastrados) ── */
   const displayRows = useMemo(() => {
     if (!categoriesArray.length || !categories) return [];
-    const todayKey = getDateKey(new Date());
+    const todayKey = getDateKey(normalizeDate(new Date()));
     const rawTodayRows = simuladoRowsArray.filter(
       r => getDateKey(r.date || r.createdAt) === todayKey
     );
@@ -356,9 +356,10 @@ export default function Simulados() {
       }
     }
 
+    const finalRows = resultRows.length > 0 ? resultRows : [lastRef];
     return {
-      rows: resultRows.length > 0 ? resultRows : [lastRef],
-      source: getSimuladoSource(resultRows),
+      rows: finalRows,
+      source: getSimuladoSource(finalRows),
       timestamp: formatDateTime(lastRef),
     };
   }, [simuladoRowsArray]);
@@ -461,12 +462,7 @@ export default function Simulados() {
         const processStats = (targetName) => {
           const discNameNorm = normalize(String(targetName || ''));
           if (!discNameNorm) return;
-          let catIdx = newCategories.findIndex(c => c && c.name && normalize(c.name) === discNameNorm);
-          if (catIdx === -1) {
-            catIdx = newCategories.findIndex(c =>
-              c && c.name && aliases[normalize(c.name)]?.some((a) => normalize(a) === discNameNorm)
-            );
-          }
+          const catIdx = newCategories.findIndex(c => c && c.name && isSubjectMatch(c.name, targetName));
           if (catIdx === -1) return;
           const cat = newCategories[catIdx];
           if (!cat.simuladoStats) {
@@ -478,10 +474,9 @@ export default function Simulados() {
           const historyWithoutToday = history.filter((h) => getDateKey(normalizeDate(h?.date || h?.createdAt)) !== todayKey);
 
           const todayRows = validatedRows.filter((r) => {
-            const rowSubjectNorm = normalize(String(r?.subject || ''));
             const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
-            const isSubject = rowSubjectNorm === discNameNorm ||
-              aliases[rowSubjectNorm]?.some((a) => normalize(a) === discNameNorm);
+            const isSubject = (cat.id && r?.categoryId && r.categoryId === cat.id) ||
+              isSubjectMatch(r?.subject, cat.name);
             return isToday && isSubject;
           });
 
@@ -499,7 +494,7 @@ export default function Simulados() {
             topicsMap[tName].correct += Number(r.correct) || 0;
             topicsMap[tName].total += Number(r.total) || 0;
             const diff = Number(r.difficulty);
-            topicsMap[tName].difficulty.push(Number.isFinite(diff) ? diff : 1.0);
+            topicsMap[tName].difficulty.push(Number.isFinite(diff) && diff > 0 ? diff : 1.0);
             const rowTime = Number(r.timeSpent) || 0;
             if (rowTime > 0) { topicsMap[tName].timeSpent += rowTime; topicsMap[tName].timedQuestoes += Number(r.total) || 0; }
           });

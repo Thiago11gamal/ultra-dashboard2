@@ -3,6 +3,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Award, ListChecks, CheckCircle2, XCircle, RefreshCw, Sparkles, BarChart3 } from 'lucide-react';
 
+const normalizeLetter = (val) => String(val ?? '').trim().toUpperCase();
+
 export default function SimuladoResults({
   results = { total: 0, correct: 0, questions: [], timeSpentSecs: 0 },
   form = {},
@@ -140,7 +142,9 @@ return (
                     </div>
                     <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Assunto</div>
-                      <div className="text-white font-medium text-[15px] truncate px-2" title={form.assunto}>{form.assunto || '—'}</div>
+                      <div className="text-white font-medium text-[15px] truncate px-2" title={form.assunto}>
+                        {form.categoryId === 'mixed' ? 'Múltiplos Assuntos (Fraquezas)' : (form.assunto || '—')}
+                      </div>
                     </div>
                     <div className="text-center p-5 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
                       <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Nível</div>
@@ -185,8 +189,8 @@ return (
                           {Array.isArray(q.alternativas) && q.alternativas.length > 0 && (
                             <div className="grid grid-cols-1 gap-0.5 text-[12.5px] pt-1">
                               {q.alternativas.map((alt, aIdx) => {
-                                const isUserChoice = q.selected === alt.letra;
-                                const isTheCorrect = alt.letra === q.alternativa_correta;
+                                const isUserChoice = normalizeLetter(q.selected) === normalizeLetter(alt.letra);
+                                const isTheCorrect = normalizeLetter(alt.letra) === normalizeLetter(q.alternativa_correta);
                                 return (
                                   <div key={aIdx} className={`px-2.5 py-1 rounded-lg flex gap-2 items-start ${isTheCorrect ? 'text-emerald-400 bg-emerald-500/[0.06]' : isUserChoice ? 'text-rose-400 line-through' : 'text-slate-500'}`}>
                                     <span className="font-bold tabular-nums w-4 shrink-0">{alt.letra}.</span>

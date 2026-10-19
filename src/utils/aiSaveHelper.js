@@ -1,6 +1,6 @@
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { generateId } from './idGenerator.js';
-import { normalize } from './normalization.js';
+import { normalize, isSubjectMatch } from './normalization.js';
 import { computeCategoryStats } from '../engine/index.js';
 import { mergeQuestionResult, safeDomain } from './measurement.js';
 
@@ -18,6 +18,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
   const categoryId = formData.categoryId || null;
   const taskId = formData.taskId || null;
   const assignedBatchId = batchId || formData?.batchId || generateId('batch');
+  const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
+  const ratio = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.max(0, Math.min(1, correct / total)) : 0;
   const computedScore = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
   const diffMap = { facil: 0.7, medio: 1.0, dificil: 1.3, expert: 1.6 };
   const numericDifficulty = diffMap[formData.dificuldade] || 1.0;
@@ -32,6 +34,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     correct,
     total,
     score: computedScore,
+    scorePct: ratio * 100,
+    scorePoints: domain.min + ratio * domain.range,
     date: todayKey,
     createdAt: new Date().toISOString(),
     isAuto: false,
@@ -52,7 +56,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     if (getDateKey(normalizeDate(r.date || r.createdAt)) !== todayKey) continue;
     const isCatMatch = (categoryId && r.categoryId)
       ? r.categoryId === categoryId
-      : normalize(r.subject) === normalize(materia);
+      : isSubjectMatch(r.subject, materia);
     const isTaskOrTopicMatch = (taskId && r.taskId)
       ? r.taskId === taskId
       : normalize(r.topic) === normalize(assunto);
@@ -60,7 +64,6 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     const isSameBatch = hasExplicitBatch ? (r.batchId === assignedBatchId) : true;
     if (isCatMatch && isTaskOrTopicMatch && isSameBatch) {
       rowFound = true;
-      const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
       const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs, isDelta: true }, domain.max, domain.min);
       Object.assign(r, updatedRow);
       r.lastUpdated = new Date().toISOString();
@@ -74,8 +77,6 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       if (!draft.simulados || !Array.isArray(draft.simulados)) {
         draft.simulados = safeArray(draft.simulados);
       }
-      const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
-      const ratio = total > 0 ? correct / total : 0;
       const newSimEvent = {
         id: generateId('ai-sim'),
         batchId: assignedBatchId,
@@ -103,7 +104,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
   for (const cat of categoriesList) {
     if (!cat) continue;
     const idMatch = categoryId && cat.id === categoryId;
-    const nameMatch = !categoryId && normalize(cat.name) === normalize(materia);
+    const nameMatch = !idMatch && isSubjectMatch(cat.name, materia);
     
     if (idMatch || nameMatch) {
       const catMaxScore = Number(cat.maxScore) || Number(draft.maxScore) || 100;
@@ -150,7 +151,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         const dayTotal = (Number(existing.total) || 0) + total;
         const dayCorrect = (Number(existing.correct) || 0) + correct;
         const dayTimeSpent = (Number(existing.timeSpent) || 0) + timeSpentSecs;
-        const dayTimedQuestoes = (Number(existing.timedQuestoes) || 0) + (timeSpentSecs >= 0 ? total : 0);
+        const dayTimedQuestoes = (Number(existing.timedQuestoes) || 0) + (timeSpentSecs > 0 ? total : 0);
 
         const prevWeight = (existing.difficulty || 1.0) * (existing.total || 0);
         const newWeight = numericDifficulty * total;
@@ -171,7 +172,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           correct,
           total,
           timeSpent: timeSpentSecs,
-          timedQuestoes: timeSpentSecs >= 0 ? total : 0,
+          timedQuestoes: timeSpentSecs > 0 ? total : 0,
           lastSessionTimeSpent: timeSpentSecs,
           lastSessionTotal: total,
           score: total > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (correct / total) * catScoreRange)) : catMinScore,
@@ -180,13 +181,17 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         });
       }
 
-      history.sort((a, b) => (a.date > b.date ? 1 : -1));
+      history.sort((a, b) => {
+        const ka = getDateKey(normalizeDate(a?.date || a?.createdAt)) || '';
+        const kb = getDateKey(normalizeDate(b?.date || b?.createdAt)) || '';
+        return ka.localeCompare(kb);
+      });
       if (history.length > 50) {
          cat.simuladoStats.history = history.slice(-50);
          history = cat.simuladoStats.history;
       }
 
-      const statsResult = computeCategoryStats(history, cat.weight || 1, 60, catMaxScore, catMinScore);
+      const statsResult = computeCategoryStats(history, Number(cat.weight) > 0 ? Number(cat.weight) : 10, 60, catMaxScore, catMinScore);
       const todayEntry = history.find(h => getDateKey(normalizeDate(h?.date || h?.createdAt)) === todayKey);
 
       cat.simuladoStats.average = statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0;

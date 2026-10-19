@@ -2,7 +2,7 @@ import { computeCategoryStats } from '../../engine/stats.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
-import { normalize, aliases } from '../../utils/normalization.js';
+import { isSubjectMatch } from '../../utils/normalization.js';
 
 export const createSimuladoSlice = (set) => ({
   resetSimuladoStats: () => set((state) => {
@@ -121,8 +121,6 @@ export const createSimuladoSlice = (set) => ({
             ? c.simuladoStats.history
             : Object.values(c.simuladoStats.history || {});
 
-          const catNorm = normalize(c.name || '');
-
           // Reconciliar histórico para cada entrada
           const newHistory = safeHistory
             .map(h => {
@@ -136,8 +134,7 @@ export const createSimuladoSlice = (set) => ({
                 const rDateKey = getDateKey(normalizeDate(r.date || r.createdAt));
                 if (rDateKey !== hDateKey) return false;
                 if (c.id && r.categoryId && r.categoryId === c.id) return true;
-                const rSubNorm = normalize(r.subject || '');
-                return rSubNorm === catNorm || (aliases[rSubNorm] && aliases[rSubNorm].some(a => normalize(a) === catNorm));
+                return isSubjectMatch(r.subject, c.name);
               });
 
               if (catRowsForDay.length === 0) {
@@ -149,6 +146,41 @@ export const createSimuladoSlice = (set) => ({
 
               if (dayTotal <= 0) return null;
 
+              const dayTimeSpent = catRowsForDay.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
+              const dayTimedQuestoes = catRowsForDay.reduce(
+                (sum, r) => sum + (Number(r.timeSpent) > 0 ? (parseInt(r.total, 10) || 0) : 0),
+                0
+              );
+
+              const topicsMap = {};
+              let totalDiffWeight = 0;
+              catRowsForDay.forEach(r => {
+                const tName = String(r.topic || 'Geral').trim();
+                const rTot = parseInt(r.total, 10) || 0;
+                const rCor = Math.min(parseInt(r.correct, 10) || 0, rTot);
+                const rDiff = Number.isFinite(Number(r.difficulty)) && Number(r.difficulty) > 0 ? Number(r.difficulty) : 1.0;
+                const rTime = Number(r.timeSpent) || 0;
+                totalDiffWeight += rDiff * rTot;
+
+                if (!topicsMap[tName]) {
+                  topicsMap[tName] = { name: tName, correct: 0, total: 0, diffWeight: 0, timeSpent: 0, taskId: r.taskId || r.topicId || null };
+                }
+                topicsMap[tName].correct += rCor;
+                topicsMap[tName].total += rTot;
+                topicsMap[tName].diffWeight += rDiff * rTot;
+                topicsMap[tName].timeSpent += rTime;
+              });
+
+              const reconciledTopics = Object.values(topicsMap).map(td => ({
+                name: td.name,
+                taskId: td.taskId,
+                correct: td.correct,
+                total: td.total,
+                percentage: td.total > 0 ? (td.correct / td.total) * 100 : 0,
+                difficulty: td.total > 0 ? Number((td.diffWeight / td.total).toFixed(2)) : 1.0,
+                timeSpent: td.timeSpent
+              }));
+
               const ratio = dayCorrect / dayTotal;
               const computedScore = catMinScore + ratio * catRange;
 
@@ -156,7 +188,11 @@ export const createSimuladoSlice = (set) => ({
                 ...h,
                 correct: dayCorrect,
                 total: dayTotal,
-                score: Math.min(catMaxScore, Math.max(catMinScore, Number(computedScore.toFixed(2))))
+                score: Math.min(catMaxScore, Math.max(catMinScore, Number(computedScore.toFixed(2)))),
+                difficulty: Number((totalDiffWeight / dayTotal).toFixed(2)) || 1.0,
+                timeSpent: dayTimeSpent,
+                timedQuestoes: dayTimedQuestoes,
+                topics: reconciledTopics
               };
             })
             .filter(Boolean);

@@ -10,7 +10,8 @@ import {
   deduplicateSimulados,
   latestByDate,
   pointsToPct,
-  pctToPoints
+  pctToPoints,
+  migrateContestData
 } from "../measurement.js";
 
 describe("measurement", () => {
@@ -118,6 +119,26 @@ describe("measurement", () => {
     });
 
     expect(unique).toHaveLength(2);
+  });
+
+  it("deduplicateSimulados com defaultGetDateKey não desloca datas YYYY-MM-DD em fuso UTC-4", () => {
+    const rows = [
+      { subject: "Direito Civil", date: "2026-01-01", total: 10, correct: 8 },
+      { subject: "Direito Civil", date: "2026-01-01T15:00:00-04:00", total: 10, correct: 8 }
+    ];
+    const unique = deduplicateSimulados(rows, { maxScore: 100, minScore: 0 });
+    expect(unique).toHaveLength(1);
+  });
+
+  it("migrateContestData sanitiza simuladoStats.history e simuladoRows", () => {
+    const migrated = migrateContestData({
+      maxScore: 100,
+      minScore: 0,
+      simuladoRows: [{ date: "2026-05-01", total: 10, correct: 15 }],
+      categories: [{ id: "c1", name: "Direito Penal", simuladoStats: { history: [{ date: "2026-05-01", total: 5, correct: 9 }] } }]
+    });
+    expect(migrated.simuladoRows[0].correct).toBe(10);
+    expect(migrated.categories[0].simuladoStats.history[0].correct).toBe(5);
   });
 
   it("latestByDate retorna o mais recente por data real", () => {

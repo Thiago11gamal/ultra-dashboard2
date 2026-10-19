@@ -271,6 +271,67 @@ describe('Simulado Menu Bugs Audit & Fixes', () => {
       expect(contest.categories[0].simuladoStats.history[0].correct).toBe(5);
       expect(contest.categories[0].simuladoStats.history[0].total).toBe(10);
     });
+
+    it('should reconcile topics, difficulty, and timeSpent on partial day deletion and match subject aliases', () => {
+      const contest = mockState.appState.contests['contest-1'];
+      const targetDate = '2026-10-18';
+
+      contest.simuladoRows = [
+        {
+          id: 'row-a',
+          batchId: 'batch-1',
+          subject: 'Constitucional', // Alias de Direito Constitucional
+          topic: 'Controle de Constitucionalidade',
+          correct: 4,
+          total: 10,
+          difficulty: 1.6,
+          timeSpent: 300,
+          date: targetDate,
+          source: 'ai-generated'
+        },
+        {
+          id: 'row-b',
+          batchId: 'batch-2',
+          subject: 'Constitucional',
+          topic: 'Direitos Sociais',
+          correct: 9,
+          total: 10,
+          difficulty: 1.0,
+          timeSpent: 180,
+          date: targetDate,
+          source: 'ai-generated'
+        }
+      ];
+
+      contest.categories[0].simuladoStats = {
+        history: [
+          {
+            date: targetDate,
+            correct: 13,
+            total: 20,
+            score: 65,
+            difficulty: 1.3,
+            timeSpent: 480,
+            timedQuestoes: 20,
+            topics: [
+              { name: 'Controle de Constitucionalidade', correct: 4, total: 10 },
+              { name: 'Direitos Sociais', correct: 9, total: 10 }
+            ]
+          }
+        ]
+      };
+
+      slice.deleteSimulado('batch-1');
+
+      const updatedEntry = contest.categories[0].simuladoStats.history[0];
+      expect(updatedEntry.correct).toBe(9);
+      expect(updatedEntry.total).toBe(10);
+      expect(updatedEntry.difficulty).toBe(1.0);
+      expect(updatedEntry.timeSpent).toBe(180);
+      expect(updatedEntry.timedQuestoes).toBe(10);
+      expect(updatedEntry.topics).toHaveLength(1);
+      expect(updatedEntry.topics[0].name).toBe('Direitos Sociais');
+    });
   });
 
   describe('Bug 4: Date Normalization for Category History Deduplication', () => {

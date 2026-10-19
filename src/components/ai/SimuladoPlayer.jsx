@@ -3,6 +3,8 @@ import React, { useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ArrowLeft, ArrowRight, Award, CheckCircle2, XCircle } from 'lucide-react';
 
+const normalizeLetter = (val) => String(val ?? '').trim().toUpperCase();
+
 export default function SimuladoPlayer({
   form,
   questions,
@@ -78,7 +80,9 @@ return (
                 <div className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/[0.06] text-[10px] font-bold text-slate-500">{difficultyLabel.toUpperCase()}</div>
               </div>
               <div className="text-[15px] font-bold text-white truncate">
-                {form.materia} <span className="text-slate-600 mx-1">›</span> <span className="text-slate-400 font-medium">{form.assunto}</span>
+                {currentQuestion.materia || form.materia}{' '}
+                <span className="text-slate-600 mx-1">›</span>{' '}
+                <span className="text-slate-400 font-medium">{currentQuestion.assunto || (form.categoryId === 'mixed' ? 'Foco em Fraquezas' : form.assunto)}</span>
               </div>
             </div>
 
@@ -112,7 +116,7 @@ return (
                 );
               })}
             </div>
-            <div className="text-center text-[9px] text-slate-600 font-medium tracking-[2px]">A B C D • ← → • ENTER • ESC</div>
+            <div className="text-center text-[9px] text-slate-600 font-medium tracking-[2px]">A B C D E • ← → • ENTER • ESC</div>
           </div>
         </div>
 
@@ -145,7 +149,7 @@ return (
               {/* Alternatives */}
               <div className="space-y-2.5">
                 {(currentQuestion.alternativas || []).map((alt, idx) => {
-                  const isSelected = answers[currentQuestion.id] === alt.letra;
+                  const isSelected = normalizeLetter(answers[currentQuestion.id]) === normalizeLetter(alt.letra);
                   return (
                     <motion.button
                       key={idx}

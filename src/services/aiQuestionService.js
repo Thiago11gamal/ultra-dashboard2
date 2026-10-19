@@ -10,6 +10,7 @@ const AI_TIMEOUT_MS = Number(typeof import.meta !== 'undefined' && import.meta.e
 // explicitamente e o frontend deve usar 'include' apenas quando necessário.
 const isSameOrigin = (() => {
     try {
+        if (typeof window === 'undefined' || !window.location?.origin) return true;
         const backendUrl = new URL(AI_BACKEND_URL, window.location.origin);
         return backendUrl.origin === window.location.origin;
     } catch {
@@ -17,15 +18,11 @@ const isSameOrigin = (() => {
     }
 })();
 
-// ✅ FIX #1: Validação de URL para evitar requisições a endpoints inválidos
-function isValidUrl(url) {
-  if (!url || typeof url !== 'string') return false;
-  try {
-    new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    return true;
-  } catch {
-    return false;
+function safeRandomId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
   }
+  return `ai-q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export const AI_QUESTION_SCHEMA = {
@@ -51,20 +48,32 @@ export function validateAIQuestion(question) {
 
   if (!Array.isArray(question.alternativas) || question.alternativas.length < 2) return null;
 
+  const seenLetters = new Set();
   const alternativas = question.alternativas
-    .map((alt) => ({
-      letra: String(alt?.letra || '').toUpperCase(),
-      texto: String(alt?.texto || '').trim(),
-    }))
-    .filter((alt) => VALID_LETTERS.includes(alt.letra) && alt.texto.length > 0);
+    .map((alt) => {
+      const rawLetra = String(alt?.letra || '').trim().toUpperCase();
+      const cleanLetra = VALID_LETTERS.includes(rawLetra)
+        ? rawLetra
+        : rawLetra.replace(/[^A-E]/g, '').slice(0, 1);
+      return {
+        letra: cleanLetra,
+        texto: String(alt?.texto || '').trim(),
+      };
+    })
+    .filter((alt) => {
+      if (!VALID_LETTERS.includes(alt.letra) || alt.texto.length === 0 || seenLetters.has(alt.letra)) return false;
+      seenLetters.add(alt.letra);
+      return true;
+    });
 
-  const correta = String(question.alternativa_correta || '').toUpperCase();
+  const rawCorreta = String(question.alternativa_correta || '').trim().toUpperCase();
+  const correta = VALID_LETTERS.includes(rawCorreta) ? rawCorreta : rawCorreta.replace(/[^A-E]/g, '').slice(0, 1);
 
   if (!VALID_LETTERS.includes(correta)) return null;
   if (!alternativas.some((alt) => alt.letra === correta)) return null;
 
   return {
-    id: String(question.id || crypto.randomUUID()),
+    id: String(question.id || safeRandomId()),
     enunciado: question.enunciado.trim(),
     alternativas,
     alternativa_correta: correta,
@@ -189,7 +198,7 @@ export async function generateViaBackend({
     }
 
     const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
+    if (!contentType || (!contentType.includes('application/json') && !contentType.includes('text/json'))) {
       throw new Error(`Resposta do backend não é JSON: ${contentType}`);
     }
 
