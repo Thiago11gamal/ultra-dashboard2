@@ -27,9 +27,13 @@ describe('Motor Matemático: Bootstrap CI', () => {
 
     it('Deve lidar com arrays vazios retornando zeros', () => {
         const media = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
-        it('Deve lidar com amostras nulas ou indefinidas', () => {
-            const media = (arr) => arr.length;
-            expect(bootstrapCI(null, media).n).toBe(0);
-            expect(bootstrapCI(undefined, media).n).toBe(0);
-        });
+        expect(bootstrapCI([], media).n).toBe(0);
     });
+
+    it('Deve lidar com amostras nulas ou indefinidas', () => {
+        const media = (arr) => arr.length;
+        expect(bootstrapCI(null, media).n).toBe(0);
+        expect(bootstrapCI(undefined, media).n).toBe(0);
+    });
+});
+
