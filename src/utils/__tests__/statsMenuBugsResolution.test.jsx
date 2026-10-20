@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { render } from '@testing-library/react';
 import ReliabilityCurveChart from '../../components/charts/ReliabilityCurveChart.jsx';
+import { GaussianPlot } from '../../components/charts/GaussianPlot.jsx';
 import { computeFlashcardDueForecast } from '../analytics.js';
 import { mapFocusEvolutionData } from '../chartDataMappers.js';
 import { humanizeVolatility } from '../explanationEngine.js';
@@ -114,6 +115,37 @@ describe('Stats Menu Bug Fixes Resolution Verification', () => {
 
             expect(result).toBeDefined();
             expect(Number.isFinite(result.probability)).toBe(true);
+        });
+    });
+
+    describe('Bug 7: GaussianPlot coordinate alignment between SVG and absolute overlay', () => {
+        it('isolates the SVG and overlay within an unpadded plotting container to prevent downward dot drift', () => {
+            const { container } = render(
+                <GaussianPlot
+                    mean={40.7}
+                    volatility={15}
+                    targetScore={46}
+                    prob={40}
+                    currentMean={40.7}
+                    minScore={0}
+                    maxScore={100}
+                    unit="%"
+                />
+            );
+
+            // Container must have an unpadded plotting area of 176px
+            const plotArea = container.querySelector('.h-\\[176px\\]');
+            expect(plotArea).not.toBeNull();
+            expect(plotArea.className).not.toContain('pb-6');
+
+            // SVG must be inside the unpadded plot area
+            const svg = plotArea.querySelector('svg');
+            expect(svg).not.toBeNull();
+            expect(svg.getAttribute('height')).toBe('100%');
+
+            // Overlay layers must also be inside the unpadded plot area
+            const overlays = plotArea.querySelectorAll('.absolute.inset-0');
+            expect(overlays.length).toBeGreaterThan(0);
         });
     });
 });
