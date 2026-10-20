@@ -1053,9 +1053,15 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
             ? todayKey
             : getFlashcardNextDueKey(i);  // i days ahead, normalized
 
-        // For label + dateLabel we still use date-fns for nice display (from "today")
-        const displayDate = new Date(baseDate.getTime());
-        displayDate.setDate(displayDate.getDate() + i);
+        // For label + dateLabel we derive directly from the key to avoid local timezone drift
+        let dateLabel;
+        if (typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+            const [, m, d] = key.split('-');
+            dateLabel = `${d}/${m}`;
+        } else {
+            const parsed = parseNoonLocal(key);
+            dateLabel = parsed ? format(parsed, 'dd/MM') : format(baseDate, 'dd/MM');
+        }
 
         const count = counts[key] || 0;
 
@@ -1071,7 +1077,7 @@ export function computeFlashcardDueForecast(decks = [], horizon = 14) {
             day: i,
             dateKey: key,
             label,
-            dateLabel: format(displayDate, 'dd/MM'),
+            dateLabel,
             count,
             isToday: i === 0,
             isTomorrow: i === 1

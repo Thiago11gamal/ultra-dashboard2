@@ -90,7 +90,7 @@ function sanitizeOptions(options) {
 
     if (options.historicalCutoffs !== undefined) {
         newOpts.historicalCutoffs = Array.isArray(options.historicalCutoffs)
-            ? options.historicalCutoffs.map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0)
+            ? options.historicalCutoffs.map(v => Number(v)).filter(n => Number.isFinite(n))
             : [];
     }
 
@@ -133,7 +133,7 @@ self.onmessage = function(e) {
                         subjects: input.subjects !== undefined ? sanitizeSubjects(input.subjects) : undefined,
                         historicalCutoffs: input.historicalCutoffs !== undefined
                             ? (Array.isArray(input.historicalCutoffs)
-                                ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
+                                ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n))
                                 : [])
                             : undefined,
                         flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
@@ -162,7 +162,7 @@ self.onmessage = function(e) {
                         maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
                         historicalCutoffs: input.historicalCutoffs !== undefined
                             ? (Array.isArray(input.historicalCutoffs)
-                                ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
+                                ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n))
                                 : [])
                             : undefined,
                         flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
@@ -244,7 +244,7 @@ self.onmessage = function(e) {
                 subjects: sanitizedSubjects,
                 historicalCutoffs: payload.historicalCutoffs !== undefined
                     ? (Array.isArray(payload.historicalCutoffs)
-                        ? payload.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
+                        ? payload.historicalCutoffs.map(Number).filter(n => Number.isFinite(n))
                         : [])
                     : undefined,
                 flashcardImmunity: payload.flashcardImmunity !== undefined ? safeNum(payload.flashcardImmunity, 1.0) : undefined,

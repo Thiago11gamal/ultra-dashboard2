@@ -107,8 +107,12 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
         return key;
     };
 
-    const getDisplayKey = (dateObj) => {
+    const getDisplayKey = (dateObj, fullKey) => {
         try {
+            if (fullKey && /^\d{4}-\d{2}-\d{2}$/.test(fullKey)) {
+                const [, m, d] = fullKey.split('-');
+                return `${d}/${m}`;
+            }
             const day = String(dateObj.getDate()).padStart(2, '0');
             const month = String(dateObj.getMonth() + 1).padStart(2, '0');
             return `${day}/${month}`;
@@ -128,9 +132,10 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
         const d = new Date(todayMidday);
         d.setDate(d.getDate() - i);
 
+        const fullKey = getFullKey(d);
         const dayEntry = {
-            fullKey: getFullKey(d),
-            data: getDisplayKey(d),
+            fullKey,
+            data: getDisplayKey(d, fullKey),
             horasEstudadas: 0
         };
         last14Days.push(dayEntry);

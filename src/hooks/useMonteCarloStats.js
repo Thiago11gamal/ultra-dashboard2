@@ -1314,7 +1314,7 @@ export function useMonteCarloStats({
       maxScore: Number(maxScore) || 100
     });
 
-    const humanVol = humanizeVolatility(sdLeft);
+    const humanVol = humanizeVolatility(sdLeft, Number(maxScore) || 100);
 
     try {
       validatePrediction({

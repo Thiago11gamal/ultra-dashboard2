@@ -17,6 +17,8 @@ const toPercentInt = (value, fallback = 0) => {
  */
 const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
+        const dataPoint = payload[0]?.payload;
+        if (!dataPoint) return null;
         // FIX: gap inválido não vira "NaN%" no tooltip
         const safeGap = Number.isFinite(dataPoint.gap) ? Math.abs(dataPoint.gap) : 0;
         const isNeutralGap = safeGap < 1e-4;

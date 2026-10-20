@@ -461,8 +461,11 @@ export function generateAnalyticsStats({
             }
         });
 
-        return { date, score: pooledTotal > 0 ? safeMinScore + (pooledCorrect / pooledTotal) * globalDomain : -1 };
-    }).filter(item => item.score >= 0 && !isNaN(item.score));
+        return {
+            date,
+            score: pooledTotal > 0 ? safeMinScore + (pooledCorrect / pooledTotal) * globalDomain : null
+        };
+    }).filter(item => item.score !== null && Number.isFinite(item.score) && item.score >= safeMinScore);
 
     const adaptiveSignal = computeAdaptiveSignal(rawGlobalHistory);
     const confidenceMultiplier = getConfidenceMultiplier(adaptiveSignal.effectiveN) * adaptiveSignal.ciInflation;
