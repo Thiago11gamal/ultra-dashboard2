@@ -96,7 +96,8 @@ export const MonteCarloConfig = ({
     const safeRange = Math.max(1, safeMaxScore - safeMinScore);
     const sliderMin = Math.max(safeMinScore, Math.round(safeMinScore + safeRange * 0.05));
     const sliderRange = Math.max(1, safeMaxScore - sliderMin);
-    const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number(targetScore) || sliderMin));
+    const numericTarget = (targetScore !== null && targetScore !== undefined && targetScore !== '') ? Number(targetScore) : NaN;
+    const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number.isFinite(numericTarget) ? numericTarget : sliderMin));
     
     const [localTarget, setLocalTarget] = useState(clampedTarget);
     const isDragging = useRef(false);
@@ -113,7 +114,8 @@ export const MonteCarloConfig = ({
         if (!Array.isArray(categories)) return 0;
         return categories.reduce((acc, cat) => {
             const val = weights?.[cat.id || cat.name];
-            return acc + Math.max(0, parseInt(val !== undefined ? val : 1, 10) || 0);
+            const parsed = val !== undefined && val !== null ? Number(val) : 1;
+            return acc + Math.max(0, Number.isFinite(parsed) ? parsed : 0);
         }, 0);
     }, [categories, weights]);
 
@@ -136,11 +138,13 @@ export const MonteCarloConfig = ({
     }, [show]);
 
     useEffect(() => {
-        document.body.style.overflow = show ? 'hidden' : '';
+        if (!show) return;
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
         return () => {
             if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
             if (dragTimeout.current) clearTimeout(dragTimeout.current);
-            document.body.style.overflow = '';
+            document.body.style.overflow = prevOverflow;
         };
     }, [show]);
 

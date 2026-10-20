@@ -21,7 +21,7 @@ export default function DueForecastChart({ data = [], height = 260 }) {
     const instanceId = useId().replace(/:/g, "");
     const barId = `due_bar_${instanceId}`;
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-[180px] border border-white/5 rounded-2xl bg-black/20 text-slate-500 text-sm" role="img" aria-label="Sem dados de previsão de cartões">
                 Sem dados de previsão.

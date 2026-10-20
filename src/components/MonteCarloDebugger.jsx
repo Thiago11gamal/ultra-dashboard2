@@ -72,7 +72,7 @@ export default function MonteCarloDebugger({ stats }) {
                 <div 
                     role="dialog"
                     aria-label="Auditoria Monte Carlo"
-                    className="absolute top-full right-0 mt-3 bg-[#0a0d18] text-slate-200 p-4 rounded-2xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.9)] w-72 max-w-[calc(100vw-2rem)] space-y-2 z-[9999] animate-fade-in ring-1 ring-indigo-500/30"
+                    className="absolute top-full right-0 mt-3 bg-[#0a0d18] text-slate-200 p-4 rounded-2xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.9)] w-72 max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto space-y-2 z-[9999] animate-fade-in ring-1 ring-indigo-500/30"
                 >
                     <div className="grid grid-cols-2 gap-x-2 gap-y-2 items-center text-[10px]">
                         <span className="text-slate-400 font-medium">Probabilidade Bruta</span>

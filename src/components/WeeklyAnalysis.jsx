@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { BookOpen, Zap, Calendar, Clock, CheckCircle2 } from 'lucide-react'; // ✅ LOTE-04: Activity removido (não usado)
-import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, APP_TIMEZONE } from '../utils/dateHelper';
+import { normalizeDate, formatDuration, getDateKey, formatDatePtBR, parseNoonLocal, APP_TIMEZONE } from '../utils/dateHelper';
 import { resolveHumanTaskTitle } from '../utils/taskTitleHelper';
 
 // ✅ LOTE-04 FIX: movido para o escopo do módulo — antes era recriado a cada render
@@ -51,9 +51,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         // Usar formatadores estáticos do escopo do módulo
         const now = new Date();
         const todayKey = getDateKey(now);
-        const y = new Date(now);
-        y.setDate(y.getDate() - 1);
-        const yesterdayKey = getDateKey(y);
+        const todayNoon = parseNoonLocal(todayKey) || now;
+        const yesterdayDate = new Date(todayNoon.getTime() - 86400000);
+        const yesterdayKey = getDateKey(yesterdayDate);
 
         // T-029 FIX: Se minutes vier 0, mas duration existir, usa duration.
         // FIX Bug 5: Revisões de flashcard não contam como horas de estudo (alinhado com analytics.js e chartDataMappers.js)
@@ -83,20 +83,6 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
             }
         });
 
-        // Pre-indexar tarefas de cada categoria para evitar getTasksArray e .find repetidos em cada log
-        const tasksByCatAndId = new Map();
-        categoriesArray.forEach(c => {
-            if (c) {
-                const tasksArray = getTasksArray(c);
-                const taskMap = new Map();
-                tasksArray.forEach(t => {
-                    if (t?.id != null) {
-                        taskMap.set(String(t.id), t);
-                    }
-                });
-                tasksByCatAndId.set(c, taskMap);
-            }
-        });
 
         const findCategoryForLog = (log) => {
             if (!log) return undefined;
@@ -186,7 +172,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
 
         const grouped = {};
 
-        logsWithTime.forEach(({ log, dateObj, time: logTime }) => {
+        logsWithTime.forEach(({ log, dateObj, time: logTime }, logIndex) => {
             if (!dateObj || !Number.isFinite(logTime)) return;
             const logMinutes = getLogMinutes(log);
             if (logMinutes <= 0) return;
@@ -256,7 +242,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
             const targetGroup = grouped[uniqueDayKey].categories[categoryId];
             const mergeKey = (taskTitle && taskTitle !== 'Sessão de Estudo')
                 ? `title:${taskTitle.toLowerCase().trim()}`
-                : `log:${log.id || log.taskId || Math.random()}`;
+                : `log:${log.id || log.taskId || logIndex}`;
             const existingLog = targetGroup.logMap.get(mergeKey);
 
             if (existingLog) {
@@ -360,9 +346,9 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
 
             {/* Timeline Content */}
             <div className="relative pl-12 sm:pl-20 space-y-12 before:content-[''] before:absolute before:left-[14px] sm:before:left-[34px] before:top-4 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-purple-500 before:via-slate-700 before:to-transparent">
-                {(() => { const currentYear = new Date().getFullYear(); return groups.map((dayGroup, idx) => {
+                {(() => { const currentYear = Number(getDateKey(new Date())?.slice(0, 4)) || new Date().getFullYear(); return groups.map((dayGroup, idx) => {
                     const monthName = monthFormatter.format(dayGroup.dateObj);
-                    const logYear = dayGroup.dateObj?.getFullYear?.();
+                    const logYear = Number(dayGroup.uniqueDayKey?.slice(0, 4)) || dayGroup.dateObj?.getFullYear?.();
                     const yearSuffix = (logYear && logYear !== currentYear) ? ` de ${logYear}` : '';
                     const displayTitle = dayGroup.isToday
                         ? `Hoje, ${dayGroup.manausDayStr} de ${monthName}`

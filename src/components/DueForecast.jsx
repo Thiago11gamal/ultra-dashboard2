@@ -14,7 +14,10 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
     const { forecast, totalDueInHorizon, maxDaily, horizon: usedHorizon, totalCards } = useMemo(() => {
         const decksArray = toArray(decks);
         const res = computeFlashcardDueForecast(decksArray, safeHorizon);
-        const cardsCount = decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
+        const cardsCount = decksArray.reduce(
+            (sum, d) => sum + toArray(d?.cards).filter(c => c && (c.front || c.back)).length,
+            0
+        );
         return {
             ...res,
             totalCards: cardsCount

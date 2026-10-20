@@ -82,7 +82,7 @@ export function HorasDisciplinaChart({ data }) {
                         name="Horas"
                     >
                         {sortedData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            <Cell key={`cell-${entry?.disciplina || index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Bar>
                 </BarChart>

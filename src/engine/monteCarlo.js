@@ -143,13 +143,22 @@ export function simulateNormalDistribution(
         flashcardImmunity = meanOrObj.flashcardImmunity ?? 1.0;
     }
 
+    const sanitizedBounds = sanitizeDomain(minScore, maxScore);
+    minScore = sanitizedBounds.minScore;
+    maxScore = sanitizedBounds.maxScore;
+
+    mean = Number(mean);
     if (!Number.isFinite(mean)) mean = (minScore + maxScore) / 2;
 
     subjects = sanitizeSubjects(subjects);
 
-    historicalCutoffs = Array.isArray(historicalCutoffs)
-        ? historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
-        : [];
+    const rawCutoffs = Array.isArray(historicalCutoffs)
+        ? historicalCutoffs
+        : Object.values(historicalCutoffs || {});
+    historicalCutoffs = rawCutoffs
+        .filter(v => v !== null && v !== undefined && v !== '')
+        .map(Number)
+        .filter(n => Number.isFinite(n) && n >= minScore && n <= maxScore);
 
     flashcardImmunity = toFiniteNumber(flashcardImmunity, 1.0);
     historyLength = Math.max(0, Math.floor(toFiniteNumber(historyLength, 0)));

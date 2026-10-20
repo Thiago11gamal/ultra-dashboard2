@@ -31,6 +31,14 @@ export default function ChartFrame({
     const el = boxRef.current;
     if (!el || isTestEnv) return;
 
+    const initialRect = el.getBoundingClientRect();
+    const initW = Math.floor(initialRect.width);
+    const initH = Math.floor(initialRect.height);
+    if (initW > 0 && initH > 0) {
+      setSize((prev) => (prev.w === initW && prev.h === initH ? prev : { w: initW, h: initH }));
+      setReady(true);
+    }
+
     let ro = null;
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver((entries) => {

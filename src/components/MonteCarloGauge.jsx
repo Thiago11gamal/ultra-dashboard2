@@ -178,7 +178,9 @@ const MonteCarloGaugeBase = ({
     // T-009 FIX: setWeights da store pode não aceitar função updater.
     // Usamos o valor atual de `weights` diretamente para evitar corrupção de estado.
     const stableUpdateWeight = useCallback((name, p) => {
-        setWeights({ ...(weights || {}), [name]: p });
+        const numeric = Number(p);
+        const sanitized = Number.isFinite(numeric) ? Math.max(0, Math.min(999, numeric)) : 0;
+        setWeights({ ...(weights || {}), [name]: sanitized });
     }, [setWeights, weights]);
 
     const getEqualWeights = useCallback(() => {
@@ -587,7 +589,7 @@ const MonteCarloGaugeBase = ({
                             min="0"
                             max={Math.max(1, timelineDates.length - 1)}
                             aria-label="Máquina do tempo"
-                            defaultValue={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
+                            value={localTimeIndex === -1 || localTimeIndex >= timelineDates.length ? Math.max(0, timelineDates.length - 1) : localTimeIndex}
                             onChange={(e) => {
                                 const val = Number(e.target.value);
                                 const newTimeIndex = val === timelineDates.length - 1 ? -1 : val;
@@ -670,7 +672,7 @@ const MonteCarloGaugeBase = ({
             {!forcedMode && (
                 <MonteCarloConfig
                     show={showConfig}
-                    onClose={setShowConfig}
+                    onClose={() => setShowConfig(false)}
                     targetScore={targetScore}
                     setTargetScore={onTargetScoreChange}
                     equalWeightsMode={equalWeightsMode}
@@ -821,7 +823,7 @@ function AnimatedProbability({ value }) {
         }
         frameId = requestAnimationFrame(animate);
         return () => cancelAnimationFrame(frameId);
-    }, [value]);
+    }, [safeValue]);
 
     return <span>{display.toFixed(0)}%</span>;
 }

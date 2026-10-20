@@ -1,0 +1,117 @@
+export const safeDate = (value) => {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    const [y, m, d] = value.trim().split('-').map(Number);
+    const localDate = new Date(y, m - 1, d, 12, 0, 0, 0);
+    return Number.isNaN(localDate.getTime()) ? null : localDate;
+  }
+
+  if (typeof value === 'number' || typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+};
+
+export const getLocalMidnight = (date = new Date()) => {
+  const d = safeDate(date) || new Date();
+
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    0,
+    0,
+    0,
+    0
+  );
+};
+
+export const getLocalEndOfDay = (date = new Date()) => {
+  const d = safeDate(date) || new Date();
+
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+};
+
+export const isSameLocalDay = (a, b) => {
+  const da = safeDate(a);
+  const db = safeDate(b);
+
+  if (!da || !db) return false;
+
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+};
+
+export const daysBetween = (a, b) => {
+  const da = safeDate(a);
+  const db = safeDate(b);
+
+  if (!da || !db) return NaN;
+
+  const ms = db.getTime() - da.getTime();
+
+  return ms / 86400000;
+};
+
+export const ageInDays = (date, reference = new Date()) => {
+  const d = safeDate(date);
+  const ref = safeDate(reference);
+
+  if (!d || !ref) return 0;
+
+  const days = (ref.getTime() - d.getTime()) / 86400000;
+
+  return Number.isFinite(days) && days > 0 ? days : 0;
+};
+
+export const ageInHours = (date, reference = new Date()) => {
+  const d = safeDate(date);
+  const ref = safeDate(reference);
+
+  if (!d || !ref) return 0;
+
+  const hours = (ref.getTime() - d.getTime()) / 3600000;
+
+  return Number.isFinite(hours) && hours > 0 ? hours : 0;
+};
+
+export const daysUntilGoal = (goalDate, { fallback = 30, min = 1, referenceDate = new Date() } = {}) => {
+  if (!goalDate) return fallback;
+  const now = safeDate(referenceDate) || new Date();
+  now.setHours(12, 0, 0, 0);
+
+  let goal = null;
+  if (typeof goalDate === 'object' && goalDate !== null && Number.isFinite(goalDate.seconds)) {
+    goal = new Date(goalDate.seconds * 1000);
+  } else {
+    goal = safeDate(goalDate);
+  }
+
+  if (!goal || Number.isNaN(goal.getTime())) return fallback;
+  goal.setHours(12, 0, 0, 0);
+
+  const diffDays = Math.ceil((goal.getTime() - now.getTime()) / 86400000);
+  if (!Number.isFinite(diffDays)) return fallback;
+
+  const safeDays = diffDays >= min ? diffDays : min;
+  return Math.min(3650, safeDays);
+};
+

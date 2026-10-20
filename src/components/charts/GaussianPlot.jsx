@@ -122,9 +122,9 @@ export const GaussianPlot = ({
                 const currentCap = targetProb > 0.95 ? 8 : 4;
 
                 if (t < m) {
-                    sl = Math.min(vizSdLeft * currentCap, Math.max(1, sl * safeR));
+                    sl = Math.min(vizSdLeft * currentCap, Math.max(sdFloor, sl * safeR));
                 } else {
-                    sr = Math.min(vizSdRight * currentCap, Math.max(1, sr * safeR));
+                    sr = Math.min(vizSdRight * currentCap, Math.max(sdFloor, sr * safeR));
                 }
             }
             vizSdLeft = sl; vizSdRight = sr;
@@ -142,11 +142,9 @@ export const GaussianPlot = ({
             // FIX: Defesa Ativa contra Boundary Leaks no KDE recebido
             const safeX = (val) => Math.max(domainMin, Math.min(domainMax, val));
 
-            points.push({ x: xp(safeX(kdeData[0].x)), y: 100 });
             kdeData.forEach(p => {
                 points.push({ x: xp(safeX(p.x)), y: yp(p.y * baseHeightFactor) });
             });
-            points.push({ x: xp(safeX(kdeData[kdeData.length - 1].x)), y: 100 });
             path = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
             pointsForArea = points;
         } else {

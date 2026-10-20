@@ -16,7 +16,7 @@ import {
 } from '../utils/analytics';
 import { getXPProgress } from '../utils/gamification';
 import { formatValue } from '../utils/scoreHelper';
-import { parseGoalDateUnified, parseNoonLocal } from '../utils/dateHelper';
+import { parseGoalDateUnified, parseNoonLocal, getDateKey } from '../utils/dateHelper';
 
 const getEfficiencyTheme = (score) => {
     if (!Number.isFinite(score) || score === null) {
@@ -60,13 +60,7 @@ const getEfficiencyTheme = (score) => {
     };
 };
 
-const getTodayDateKey = () => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-};
+const getTodayDateKey = () => getDateKey(new Date());
 
 const StatsCards = ({ data, onUpdateGoalDate }) => {
     const dateInputRef = useRef(null);
@@ -123,7 +117,9 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     );
 
     const hasEffData = useMemo(() => {
-        return Boolean(efficiency && efficiency.efficiency !== 'sem_dados' && efficiency.score !== undefined);
+        return Boolean(
+            efficiency && efficiency.efficiency !== 'sem_dados' && efficiency.score !== null && Number.isFinite(Number(efficiency.score))
+        );
     }, [efficiency]);
 
     const effTheme = useMemo(() => {
@@ -201,7 +197,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 auto-rows-fr gap-3 sm:gap-4 animate-fade-in-down">
             {/* ── Sequência ─────────────────────────────────────────────────── */}
-            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between group transition-all duration-500 shadow-2xl min-h-[140px]">
+            <div className="relative glass-hover bg-[#151720]/95 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col justify-between group transition-all duration-500 shadow-2xl min-h-[168px]">
                 <div className="absolute -top-10 -left-10 w-24 h-24 bg-orange-500/10 rounded-full blur-[40px] group-hover:bg-orange-500/20 transition-all duration-700 pointer-events-none" />
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.02] to-transparent pointer-events-none" />
 

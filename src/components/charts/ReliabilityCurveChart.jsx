@@ -17,10 +17,10 @@ const toPercentInt = (value, fallback = 0) => {
  */
 const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
-        const dataPoint = payload[0].payload;
-        const isOverconfident = dataPoint.pred > dataPoint.obs;
         // FIX: gap inválido não vira "NaN%" no tooltip
         const safeGap = Number.isFinite(dataPoint.gap) ? Math.abs(dataPoint.gap) : 0;
+        const isNeutralGap = safeGap < 1e-4;
+        const isOverconfident = !isNeutralGap && dataPoint.pred > dataPoint.obs;
         return (
             <div className="bg-slate-900 border border-white/10 p-3 rounded-xl shadow-2xl min-w-[160px]">
                 <div className="flex items-center gap-2 mb-2 border-b border-white/10 pb-2">
@@ -40,8 +40,8 @@ const CustomTooltip = ({ active, payload }) => {
                     </div>
                     <div className="flex justify-between items-center gap-4 text-[11px] pt-1 mt-1 border-t border-white/5">
                         <span className="text-slate-500 font-bold">Gap/Viés:</span>
-                        <span className={`font-mono font-black ${isOverconfident ? 'text-amber-400' : 'text-indigo-400'}`}>
-                            {isOverconfident ? '-' : '+'}{(safeGap * 100).toFixed(1)}%
+                        <span className={`font-mono font-black ${isNeutralGap ? 'text-slate-400' : isOverconfident ? 'text-amber-400' : 'text-indigo-400'}`}>
+                            {isNeutralGap ? '' : isOverconfident ? '-' : '+'}{(safeGap * 100).toFixed(1)}%
                         </span>
                     </div>
                     {/* FIX: n nulo/vazio protegido */}

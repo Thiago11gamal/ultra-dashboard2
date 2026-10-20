@@ -28,6 +28,11 @@ export function stopCleanup() {
     // M-05 FIX: Também limpar pending requests órfãos
     for (const [id, pending] of sharedPendingRequests) {
         clearTimeout(pending.timeoutId);
+        try {
+            pending.reject?.(new Error('Worker Monte Carlo encerrado durante limpeza.'));
+        } catch {
+            // ignore
+        }
         sharedPendingRequests.delete(id);
     }
 }
@@ -69,7 +74,7 @@ function initSharedWorker() {
         );
 
         sharedWorker.onmessage = (e) => {
-            const { id, type, result, error } = e.data;
+            const { id, type, result, error } = e.data || {};
             const pending = sharedPendingRequests.get(id);
             if (!pending) return;
             sharedPendingRequests.delete(id);

@@ -131,7 +131,7 @@ export const ChartTooltip = ({ active, payload, label, isCompare = false, chartD
                                     </div>
                                 </div>
                             </div>
-                            {rawTotal > 0 && (() => {
+                            {rawCorrect != null && rawTotal > 0 && (() => {
                                 const safeCorr = Math.max(0, Math.min(rawTotal, Number(rawCorrect) || 0));
                                 const errs = Math.max(0, rawTotal - safeCorr);
                                 const errPct = Math.round((errs / rawTotal) * 100);

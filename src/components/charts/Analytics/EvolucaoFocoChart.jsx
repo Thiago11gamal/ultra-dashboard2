@@ -6,7 +6,7 @@ export function EvolucaoFocoChart({ data }) {
     const instanceId = useId().replace(/:/g, "");
     const colorFocoId = `foco_grad_${instanceId}`;
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-full min-h-[300px] border border-white/5 rounded-2xl bg-black/20 mt-4 pb-2">
                 <p className="text-slate-500 text-sm font-medium italic">Dados insuficientes para análise de foco.</p>

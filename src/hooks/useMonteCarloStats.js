@@ -165,9 +165,9 @@ export function useMonteCarloStats({
   }, [calibrationSummary]);
 
   const modelWeight = useMemo(() => {
-    if (!calibrationSummary || !calibrationSummary.avgBrier) return 0.25;
+    if (!calibrationSummary || calibrationSummary.avgBrier == null || !Number.isFinite(Number(calibrationSummary.avgBrier))) return 0.25;
 
-    const brier = Math.max(0.12, Math.min(0.3, calibrationSummary.avgBrier));
+    const brier = Math.max(0.12, Math.min(0.3, Number(calibrationSummary.avgBrier)));
     return Math.max(0.1, Math.min(0.45, 0.25 + (0.18 - brier) * 2.5));
   }, [calibrationSummary]);
 
@@ -346,7 +346,8 @@ export function useMonteCarloStats({
       return { ...pureStatsData, calibrationPenalty: 0 };
     }
 
-    const aleatoricFloor = maxScore * 0.02;
+    const domainSpan = Math.max(1e-6, (Number(maxScore) || 100) - (Number(minScore) || 0));
+    const aleatoricFloor = domainSpan * 0.02;
 
     const epistemicPooled = Math.max(0, pureStatsData.pooledSD - aleatoricFloor);
     const calibratedPooledSD = aleatoricFloor + (epistemicPooled * (1 + calibrationPenalty * 2.5));
@@ -361,7 +362,7 @@ export function useMonteCarloStats({
       rawPooledSD: pureStatsData.pooledSD,
       calibrationPenalty
     };
-  }, [pureStatsData, calibrationPenalty, maxScore]);
+  }, [pureStatsData, calibrationPenalty, maxScore, minScore]);
 
   // ✅ PATCH-04: Hash deve incluir o timeIndex e target para forçar re-cálculo quando muda a meta ou range de datas
   const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}-pd${projectDays}-st${effectiveSimulateToday ? 1 : 0}`;
@@ -1125,7 +1126,7 @@ export function useMonteCarloStats({
           const subjConfWidth = result.ciConformalHigh - result.ciConformalLow;
 
           if (subjConfWidth > 0) {
-            subjConfFactor = Math.min(0.15, subjConfWidth / (catMaxScore * 1.5)) * (1 - modelWeight);
+            subjConfFactor = Math.min(0.15, subjConfWidth / (catRange * 1.5)) * (1 - modelWeight);
 
             if (modelHealth < 0.6) {
               subjConfFactor = Math.min(0.25, subjConfFactor * 1.4);
@@ -1496,14 +1497,15 @@ function useMonteCarloHistoryRecorder({
       const doRecord = () => {
         const today = getDateKey(new Date());
         const currentProb = Number(prob.toFixed(1));
+        const safeTargetNum = Number.isFinite(Number(debouncedTarget)) ? Number(debouncedTarget) : 0;
 
-        const hash = `${activeId}-${today}-${currentProb}-${debouncedTarget.toFixed(1)}`;
+        const hash = `${activeId}-${today}-${currentProb}-${safeTargetNum.toFixed(1)}`;
         if (hash === lastRecordHash.current) return;
 
         const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
         const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
 
-        const currentTarget = Number(debouncedTarget.toFixed(1));
+        const currentTarget = Number(safeTargetNum.toFixed(1));
         const existingProb = Number((existing?.probability ?? existing?.prob ?? 0).toFixed(1));
         const existingTarget = Number((existing?.target ?? 0).toFixed(1));
 
@@ -1521,11 +1523,11 @@ function useMonteCarloHistoryRecorder({
           lastRecordHash.current = hash;
 
           recordMonteCarloSnapshot(today, prob, {
-            mean: Number(currentMean.toFixed(2)),
-            projectedMean: Number(projectedMean.toFixed(2)),
-            ci95Low: Number(ci95Low.toFixed(2)),
-            ci95High: Number(ci95High.toFixed(2)),
-            target: Number(debouncedTarget.toFixed(2)),
+            mean: Number((Number(currentMean) || 0).toFixed(2)),
+            projectedMean: Number((Number(projectedMean) || 0).toFixed(2)),
+            ci95Low: Number((Number(ci95Low) || 0).toFixed(2)),
+            ci95High: Number((Number(ci95High) || 0).toFixed(2)),
+            target: Number(safeTargetNum.toFixed(2)),
             targetDate: goalDate,
             trendType: trendType || 'linear',
             effectiveDrift: Number((effectiveDrift || 0).toFixed(4)),

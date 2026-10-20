@@ -25,7 +25,7 @@ export function AnaliseRetencaoChart({ data }) {
     const barGradId = `ret_barGrad_${instanceId}`;
     const glowId = `ret_glow_${instanceId}`;
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-[300px] border border-white/5 rounded-2xl bg-black/20">
                 <p className="text-slate-500 text-sm font-medium italic">Dados insuficientes para análise de retenção.</p>
@@ -94,6 +94,7 @@ export function AnaliseRetencaoChart({ data }) {
                         }}
                         labelStyle={{ color: '#e2e8f0' }}
                         formatter={(value, name) => {
+                            if (name === 'Risco_glow') return [null, null];
                             if (name === 'Dias sem Revisão') {
                                 return [`${value} dia(s)`, name];
                             }

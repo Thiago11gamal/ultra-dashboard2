@@ -53,10 +53,13 @@ export default function Stats() {
     // FIX E-01: normalização profunda — garante `tasks` como array em todas as categorias.
     const categories = useMemo(() => {
         const list = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
-        return list.filter(Boolean).map(c => ({
-            ...c,
-            tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {})
-        }));
+        return list.filter(Boolean).map(c => {
+            const rawTasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
+            return {
+                ...c,
+                tasks: rawTasks.filter(Boolean)
+            };
+        });
     }, [rawCategories]);
 
     const flashcardDecks = useMemo(() => {
@@ -68,19 +71,24 @@ export default function Stats() {
         const rowsArray = Array.isArray(rawSimuladoRows)
             ? rawSimuladoRows
             : Object.values(rawSimuladoRows || {});
-        const hasValidRows = rowsArray.some(r =>
-            r && r.validated !== false && (
+        const hasValidRows = rowsArray.some(r => {
+            if (!r || r.validated === false) return false;
+            const hasScore = r.score !== null && r.score !== undefined && r.score !== '' && Number.isFinite(Number(r.score));
+            const hasTotal = r.total !== null && r.total !== undefined && r.total !== '' && Number.isFinite(Number(r.total));
+            return (
                 (Number(r.total) > 0 && Number(r.correct) >= 0) ||
-                (Number.isFinite(Number(r.score)) && Number(r.total) >= 0)
-            )
-        );
+                (hasScore && hasTotal && Number(r.total) >= 0)
+            );
+        });
         if (hasValidRows) return true;
         return categories.some(category => {
             const h = category?.simuladoStats?.history;
             const hArray = Array.isArray(h) ? h : Object.values(h || {});
-            return hArray.some(entry =>
-                entry && (Number(entry.total) > 0 || (entry.score != null && Number.isFinite(Number(entry.score))))
-            );
+            return hArray.some(entry => {
+                if (!entry) return false;
+                const hasScore = entry.score !== null && entry.score !== undefined && entry.score !== '' && Number.isFinite(Number(entry.score));
+                return Number(entry.total) > 0 || hasScore;
+            });
         });
     }, [rawSimuladoRows, categories]);
 

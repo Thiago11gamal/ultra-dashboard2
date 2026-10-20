@@ -17,7 +17,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
 import { getSafeScore, formatValue } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
-import { getDateKey, normalizeDate, APP_TIMEZONE } from '../utils/dateHelper';
+import { getDateKey, normalizeDate, parseNoonLocal, APP_TIMEZONE } from '../utils/dateHelper';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 import DueForecast from './DueForecast';
 
@@ -343,13 +343,15 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
     // FIX LÓGICO: Clampar meta à escala [minScore, maxScore] sem loops multiplicativos
     const normalizeTargetToScale = React.useCallback((raw) => {
-        const n = Number(raw);
-
         const fallback = maxScore === 100
             ? 70
             : Math.round(minScore + (maxScore - minScore) * 0.7);
 
-        if (!Number.isFinite(n) || n <= minScore || n > maxScore) return fallback;
+        if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') {
+            return fallback;
+        }
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n < minScore || n > maxScore) return fallback;
 
         return Math.max(minScore, Math.min(maxScore, n));
     }, [maxScore, minScore]);
@@ -513,11 +515,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     }, [safeCategories]);
 
     const updateWeight = React.useCallback((catId, value) => {
-        const numeric = parseInt(value, 10);
+        const numeric = Number(value);
         const sanitize = isNaN(numeric) ? 0 : Math.max(0, Math.min(999, numeric));
-        const updatedWeights = { ...(weights || {}), [catId]: sanitize };
+        const baseWeights = weights && Object.keys(weights).length > 0 ? weights : getEqualWeights();
+        const updatedWeights = { ...baseWeights, [catId]: sanitize };
         setWeights(updatedWeights);
-    }, [weights, setWeights]);
+    }, [weights, setWeights, getEqualWeights]);
 
 
     // Save to LocalStorage and Store whenever it changes
@@ -607,7 +610,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             const dateStr = getDateKey(new Date(h.date));
             if (!dateStr) return;
             if (!dailyMap[dateStr]) {
-                dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: h.date };
+                const canonicalNoon = parseNoonLocal(dateStr)?.getTime() ?? h.date;
+                dailyMap[dateStr] = { scoreSum: 0, weightSum: 0, date: canonicalNoon };
             }
             // Weight by volume to favor "representative" days
             const weight = Math.max(1, Number(h.totalQuestions) || 1);
@@ -1003,7 +1007,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // Sort: Worst states first (regression > stagnation_negative > unstable > others)
         // FIX 1.4: Usar mapa unificado STATE_PRIORITY (inclui mastery)
-        categoryBreakdown.sort((a, b) => (STATE_PRIORITY[a.state] ?? 6) - (STATE_PRIORITY[b.state] ?? 6));
+        categoryBreakdown.sort((a, b) => (STATE_PRIORITY[a.state] ?? 7) - (STATE_PRIORITY[b.state] ?? 7));
 
         // T-030 FIX: Excluir estados insufficient_data da consolidação global.
         // Eles não devem contaminar média, desvio padrão nem mediana de consistência.
@@ -1023,10 +1027,10 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             // D-03 FIX: Usar MEDIANA dos estados em vez da pior matéria.
             // FIX 1.4: Usar STATE_PRIORITY unificado.
             // T-030 FIX: usar apenas categorias elegíveis.
-            const stateValues = eligibleCategories.map(c => STATE_PRIORITY[c.state] ?? 6);
+            const stateValues = eligibleCategories.map(c => STATE_PRIORITY[c.state] ?? 7);
             stateValues.sort((a, b) => a - b);
 
-            const medIdx = Math.floor(stateValues.length / 2);
+            const medIdx = Math.floor((stateValues.length - 1) / 2);
             const medianValue = stateValues[medIdx];
 
             const medianState = Object.entries(STATE_PRIORITY).find(([, v]) => v === medianValue)?.[0] || 'unstable';
