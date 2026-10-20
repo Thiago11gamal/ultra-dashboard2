@@ -56,16 +56,29 @@ function SessionStatus({ isRunning, timeLeft, totalTime, mode }) {
     const IconComponent = config.icon;
 
     return (
-        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl p-4 border border-white/5 shadow-md">
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl p-3.5 sm:p-4 border border-white/5 shadow-md">
             <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isRunning ? `${config.dotClass} animate-pulse` : 'bg-slate-500'}`} />
-                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <IconComponent size={13} className="text-slate-400" />
-                        {config.label}
-                    </span>
+                <div className="flex items-center gap-2.5">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border shadow-sm ${
+                        mode === 'work'
+                            ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400'
+                            : mode === 'long_break'
+                                ? 'bg-violet-500/15 border-violet-500/25 text-violet-400'
+                                : 'bg-amber-500/15 border-amber-500/25 text-amber-400'
+                    }`}>
+                        <IconComponent size={14} />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                                {config.label}
+                            </span>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? `${config.dotClass} animate-pulse` : 'bg-slate-500'}`} />
+                        </div>
+                        <span className="text-[9px] text-slate-400 font-medium">Estado da sessão</span>
+                    </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-slate-300">
+                <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded-md shadow-sm">
                     {Math.round(progress)}%
                 </span>
             </div>
@@ -117,36 +130,41 @@ function SubjectStats({ category, maxScore = 100 }) {
     if (!stats) return null;
 
     const trendIcon = stats.trend > 0.5
-        ? <TrendingUp size={14} className="text-emerald-400" />
+        ? <TrendingUp size={13} className="text-emerald-400" />
         : stats.trend < -0.5
-            ? <TrendingDown size={14} className="text-rose-400" />
-            : <Minus size={14} className="text-slate-400" />;
+            ? <TrendingDown size={13} className="text-rose-400" />
+            : <Minus size={13} className="text-slate-400" />;
 
     return (
         <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-                <BookOpen size={14} className="text-indigo-400" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Stats da Matéria
-                </span>
+            <div className="flex items-center gap-2.5 mb-2.5">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400 shrink-0 shadow-sm">
+                    <BookOpen size={14} />
+                </div>
+                <div>
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
+                        Stats da Matéria
+                    </span>
+                    <span className="text-[9px] text-slate-500 font-medium">Histórico de simulados</span>
+                </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 bg-slate-900/40 p-2 rounded-lg border border-white/[0.04]">
                 <div className="text-center">
-                    <div className="text-lg font-black text-white">{Math.round(stats.accuracy)}%</div>
-                    <div className="text-[9px] text-slate-500 uppercase font-medium">Média</div>
+                    <div className="text-base font-black text-white">{Math.round(stats.accuracy)}%</div>
+                    <div className="text-[9px] text-slate-400 uppercase font-semibold">Média</div>
                 </div>
                 <div className="text-center">
-                    <div className="text-lg font-black text-white">{stats.count}</div>
-                    <div className="text-[9px] text-slate-500 uppercase font-medium">Simulados</div>
+                    <div className="text-base font-black text-white">{stats.count}</div>
+                    <div className="text-[9px] text-slate-400 uppercase font-semibold">Simulados</div>
                 </div>
                 <div className="text-center flex flex-col items-center">
                     <div className="flex items-center gap-1">
                         {trendIcon}
-                        <span className="text-lg font-black text-white">
+                        <span className="text-base font-black text-white">
                             {stats.trend > 0 ? '+' : ''}{stats.trend.toFixed(1)}
                         </span>
                     </div>
-                    <div className="text-[9px] text-slate-500 uppercase font-medium">Tendência</div>
+                    <div className="text-[9px] text-slate-400 uppercase font-semibold">Tendência</div>
                 </div>
             </div>
         </div>
@@ -172,25 +190,34 @@ function StreakDisplay({ studyLogs }) {
     }, [studyLogs]);
 
     return (
-        <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Flame size={16} className={streak.isActive ? 'text-orange-400' : 'text-slate-500'} />
-                    <span className="text-xs font-bold text-slate-300">Sequência</span>
+        <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-orange-500/15 border border-orange-500/25 flex items-center justify-center text-orange-400 shrink-0 shadow-sm">
+                        <Flame size={14} />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
+                            Sequência
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-medium">Consistência</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <span className={`text-2xl font-black ${streak.isActive ? 'text-orange-400' : 'text-slate-400'}`}>
+                <div className="flex items-baseline gap-1 bg-orange-950/40 border border-orange-500/20 px-2 py-0.5 rounded-md shadow-sm">
+                    <span className={`text-base font-black ${streak.isActive ? 'text-orange-400' : 'text-slate-400'}`}>
                         {streak.current}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-bold">dias</span>
+                    <span className="text-[9px] text-orange-300/80 font-bold uppercase">dias</span>
                 </div>
             </div>
-            {streak.isActive && streak.current >= 2 && (
-                <div className="mt-2 text-[10px] text-orange-300/80 flex items-center gap-1 font-medium">
-                    <Flame size={10} />
-                    {streak.current} dias consecutivos de foco! Recorde: {streak.best}
-                </div>
-            )}
+            <div className="mt-2 text-[10px] text-orange-300/80 flex items-center gap-1.5 font-medium">
+                <Flame size={11} className="shrink-0 text-orange-400" />
+                <span className="truncate">
+                    {streak.current >= 2
+                        ? `${streak.current} dias seguidos! Recorde: ${streak.best}`
+                        : `Estude hoje para manter o ritmo!`}
+                </span>
+            </div>
         </div>
     );
 }
@@ -205,13 +232,18 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
     return (
         <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
             <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    <Activity size={14} className="text-blue-400" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Ciclo Pomodoro
-                    </span>
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-400 shrink-0 shadow-sm">
+                        <Activity size={14} />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
+                            Ciclo Pomodoro
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-medium">Progresso de blocos</span>
+                    </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-blue-300">
+                <span className="text-xs font-mono font-bold text-blue-300 bg-blue-950/40 border border-blue-500/20 px-2 py-0.5 rounded-md shadow-sm">
                     {safeCompleted}/{safeTarget}
                 </span>
             </div>
@@ -231,13 +263,13 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
             </div>
             {mode === 'break' && (
                 <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
-                    <Coffee size={10} />
+                    <Coffee size={11} />
                     Pausa ativa — respire e descanse!
                 </div>
             )}
             {mode === 'long_break' && (
                 <div className="mt-2 flex items-center gap-1.5 text-[10px] text-violet-400 font-medium">
-                    <Coffee size={10} />
+                    <Coffee size={11} />
                     Pausa longa — recuperação profunda
                 </div>
             )}
@@ -280,28 +312,34 @@ function TodayStudyTime({ studyLogs, categoryId, taskId }) {
 
     return (
         <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-                <Clock size={14} className="text-cyan-400" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Hoje
-                </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2.5 mb-2.5">
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center text-cyan-400 shrink-0 shadow-sm">
+                    <Clock size={14} />
+                </div>
                 <div>
-                    <div className="text-lg font-black text-white">
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
+                        Tempo de Estudo
+                    </span>
+                    <span className="text-[9px] text-slate-500 font-medium">Registrado hoje</span>
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 bg-slate-900/40 p-2 rounded-lg border border-white/[0.04]">
+                <div>
+                    <div className="text-base font-black text-white">
                         {formatTime(todayData.categoryMinutes)}
                     </div>
-                    <div className="text-[9px] text-slate-500 uppercase font-medium">Nesta matéria</div>
+                    <div className="text-[9px] text-slate-400 uppercase font-semibold">Nesta matéria</div>
                 </div>
                 <div>
-                    <div className="text-lg font-black text-white">
+                    <div className="text-base font-black text-white">
                         {formatTime(todayData.totalMinutes)}
                     </div>
-                    <div className="text-[9px] text-slate-500 uppercase font-medium">Total geral</div>
+                    <div className="text-[9px] text-slate-400 uppercase font-semibold">Total geral</div>
                 </div>
             </div>
-            <div className="mt-2 text-[10px] text-slate-500 font-medium">
-                {todayData.sessionCount} {todayData.sessionCount === 1 ? 'sessão registrada hoje' : 'sessões registradas hoje'}
+            <div className="mt-2 text-[10px] text-slate-500 font-medium flex items-center gap-1.5">
+                <CheckCircle2 size={11} className="text-cyan-500/70" />
+                <span>{todayData.sessionCount} {todayData.sessionCount === 1 ? 'sessão registrada hoje' : 'sessões registradas hoje'}</span>
             </div>
         </div>
     );
@@ -327,24 +365,33 @@ function SessionXP({ user }) {
     if (!xpProgress) return null;
 
     return (
-        <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
+        <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    <Award size={14} className="text-amber-400" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Nível {xpProgress.level}
-                    </span>
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/25 flex items-center justify-center text-amber-400 shrink-0 shadow-sm">
+                        <Award size={14} />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
+                            Nível {xpProgress.level}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-medium">Gamificação</span>
+                    </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-amber-300">{xpProgress.xp} XP</span>
+                <span className="text-xs font-mono font-bold text-amber-300 bg-amber-950/40 border border-amber-500/20 px-2 py-0.5 rounded-md shadow-sm">
+                    {xpProgress.xp} XP
+                </span>
             </div>
-            <div className="h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
-                <Motion.div
-                    className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full"
-                    animate={{ width: `${xpProgress.progress}%` }}
-                />
-            </div>
-            <div className="mt-1 text-right text-[9px] text-slate-500 font-medium">
-                {Math.round(xpProgress.progress)}% para o próximo nível
+            <div>
+                <div className="h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+                    <Motion.div
+                        className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full"
+                        animate={{ width: `${xpProgress.progress}%` }}
+                    />
+                </div>
+                <div className="mt-1 text-right text-[9px] text-slate-400 font-medium">
+                    {Math.round(xpProgress.progress)}% para o próximo nível
+                </div>
             </div>
         </div>
     );
@@ -391,19 +438,30 @@ function NextTaskPreview({ categories, currentTaskId }) {
     const isHighPriority = nextTask.priority === 'high';
 
     return (
-        <div className="bg-slate-800/30 rounded-xl p-3 border border-dashed border-white/10">
-            <div className="flex items-center gap-2 mb-1">
-                <Target size={12} className={isHighPriority ? 'text-rose-400' : 'text-slate-500'} />
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    {isHighPriority ? 'Próxima Tarefa Crítica' : 'Próxima Tarefa'}
-                </span>
+        <div className="bg-slate-800/30 rounded-xl p-3 border border-dashed border-white/10 flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-sm ${
+                isHighPriority
+                    ? 'bg-rose-500/15 border-rose-500/25 text-rose-400'
+                    : 'bg-purple-500/15 border-purple-500/25 text-purple-400'
+            }`}>
+                <Target size={15} />
             </div>
-            <div className="text-xs text-slate-300 font-medium truncate">
-                {nextTask.title || nextTask.text || 'Próxima atividade'}
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        {isHighPriority ? 'Próxima Tarefa Crítica' : 'Próxima Tarefa'}
+                    </span>
+                    {isHighPriority && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    )}
+                </div>
+                <div className="text-xs text-slate-200 font-semibold truncate">
+                    {nextTask.title || nextTask.text || 'Próxima atividade'}
+                </div>
+                {nextTask.catName && (
+                    <div className="text-[10px] text-slate-500 font-medium truncate">{nextTask.catName}</div>
+                )}
             </div>
-            {nextTask.catName && (
-                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">{nextTask.catName}</div>
-            )}
         </div>
     );
 }
@@ -458,9 +516,17 @@ export function SessionFocusPanel({
                     )}
                 </div>
             ) : (
-                <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-center">
-                    <p className="text-xs font-bold text-indigo-300">Telemetria em Espera</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Selecione uma matéria ou tarefa para iniciar o rastreamento em tempo real.</p>
+                <div className="p-3.5 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                        <Activity size={18} className="animate-pulse" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                            <span>Telemetria em Espera</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400/60 animate-ping" />
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">Selecione uma matéria ou tarefa no painel ou inicie o relógio para rastrear em tempo real.</p>
+                    </div>
                 </div>
             )}
 

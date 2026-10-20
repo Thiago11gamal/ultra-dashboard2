@@ -125,15 +125,19 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
         <div className="mb-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 relative overflow-hidden shadow-md">
             <div className="flex justify-between items-center mb-3 relative z-10">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
-                    <Medal size={12} />
+                    <span className="w-5 h-5 rounded-md bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                        <Medal size={11} />
+                    </span>
                     Conquistas e Telemetria
                 </p>
                 <span className="text-[9px] font-black text-indigo-500/60 uppercase">Central de Dados</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 relative z-10">
                 {tiles.map((tile, i) => (
-                    <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.05] px-3 py-2.5 rounded-xl">
-                        <div className="shrink-0">{tile.icon}</div>
+                    <div key={i} className="flex items-center gap-2.5 bg-white/[0.03] border border-white/[0.05] hover:border-white/10 px-3 py-2.5 rounded-xl transition-all group">
+                        <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                            {tile.icon}
+                        </div>
                         <div className="min-w-0">
                             <p className="text-[9px] uppercase tracking-widest text-slate-500 font-bold truncate">{tile.label}</p>
                             <p className="text-sm font-black text-cyan-300 truncate">{tile.value}</p>
@@ -461,11 +465,20 @@ function ActionsAndMentorView({
                             Nível da matéria: <strong className="text-white capitalize">{activeTaskStats.quality}</strong>. {activeTaskStats.improveText}
                         </p>
                         <p className="text-xs text-cyan-300/80 mt-1">{activeTaskStats.statusLine}</p>
-                        <div className="flex items-center gap-4 mt-3">
-                            <span className="flex items-center gap-1.5 text-xs" title="Domínio da matéria"><CheckCircle2 size={12} className="text-emerald-500" /> <strong className="text-slate-200">{activeTaskStats.hitRate}%</strong> Domínio</span>
-                            <span className="flex items-center gap-1.5 text-xs" title="Lacuna na matéria"><AlertCircle size={12} className="text-amber-500" /> <strong className="text-slate-200">{activeTaskStats.missRate}%</strong> Lacuna</span>
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                            <span className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300" title="Domínio da matéria">
+                                <CheckCircle2 size={13} className="text-emerald-400" />
+                                <span><strong className="text-white font-bold">{activeTaskStats.hitRate}%</strong> Domínio</span>
+                            </span>
+                            <span className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300" title="Lacuna na matéria">
+                                <AlertCircle size={13} className="text-amber-400" />
+                                <span><strong className="text-white font-bold">{activeTaskStats.missRate}%</strong> Lacuna</span>
+                            </span>
                             {activeTaskStats.totalMinutes > 0 && (
-                                <span className="flex items-center gap-1.5 text-xs" title="Tempo dedicado à matéria"><Clock size={12} className="text-cyan-500" /> <strong className="text-slate-200">{Math.round(activeTaskStats.totalMinutes)}m</strong> na Matéria</span>
+                                <span className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-300" title="Tempo dedicado à matéria">
+                                    <Clock size={13} className="text-cyan-400" />
+                                    <span><strong className="text-white font-bold">{Math.round(activeTaskStats.totalMinutes)}m</strong> na Matéria</span>
+                                </span>
                             )}
                         </div>
                     </div>
@@ -526,9 +539,11 @@ function ActionsAndMentorView({
 
             <div className="bg-white/[0.015] border border-white/[0.04] rounded-2xl p-4 backdrop-blur-md relative overflow-hidden shadow-inner">
                 <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-slate-500/50" />
-                        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Próximas Ações</p>
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-6 h-6 rounded-lg bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                            <Target size={13} />
+                        </div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-300">Próximas Ações</p>
                     </div>
                     {pendingCount > 0 && (
                         <span className="text-[10px] font-bold bg-slate-800 text-slate-300 border border-white/5 px-2.5 py-0.5 rounded-md">
@@ -711,8 +726,11 @@ function PomodoroSidePanel({
         >
             {/* CABEÇALHO DO PAINEL LATERAL (INTEGRADO, FLUIDO E SEMPRE ACESSÍVEL) */}
             <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/[0.08] shrink-0">
-                <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-slate-300">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
+                        <Target size={13} />
+                    </div>
+                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-slate-200">
                         Painel Tático
                     </span>
                     {!isLayoutLocked ? (
@@ -763,7 +781,9 @@ function PomodoroSidePanel({
                         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
                         }`}
                 >
-                    <Zap size={14} className={activeTab === 'actions' ? 'text-amber-300' : 'text-indigo-400'} />
+                    <span className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${activeTab === 'actions' ? 'bg-white/20 text-amber-300' : 'bg-indigo-500/10 text-indigo-400'}`}>
+                        <Zap size={12} />
+                    </span>
                     <span>Missões & Mentor</span>
                     {pendingCount > 0 && (
                         <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black ${activeTab === 'actions'
@@ -783,7 +803,9 @@ function PomodoroSidePanel({
                         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
                         }`}
                 >
-                    <Activity size={14} className={activeTab === 'telemetry' ? 'text-white' : 'text-cyan-400'} />
+                    <span className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${activeTab === 'telemetry' ? 'bg-white/20 text-white' : 'bg-cyan-500/10 text-cyan-400'}`}>
+                        <Activity size={12} />
+                    </span>
                     <span>Telemetria da Sessão</span>
                     {isRunning && (
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
