@@ -130,7 +130,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
                 </p>
                 <span className="text-[9px] font-black text-indigo-500/60 uppercase">Central de Dados</span>
             </div>
-            <div className="grid grid-cols-2 gap-2 relative z-10">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 relative z-10">
                 {tiles.map((tile, i) => (
                     <div key={i} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.05] px-3 py-2.5 rounded-xl">
                         <div className="shrink-0">{tile.icon}</div>
@@ -543,7 +543,7 @@ function ActionsAndMentorView({
                         <p className="text-[9px] text-slate-500 mt-1">Todas as missões neurais completas ou em foco.</p>
                     </div>
                 ) : (
-                    <div className="space-y-2 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {visibleTasks.filter(Boolean).map((task, idx) => {
                             const taskId = task.id || task.text || `fallback-task-${idx}`;
                             const categoryName = safeCatName(task.catName || task.category);
@@ -603,6 +603,7 @@ function ActionsAndMentorView({
 // PAINEL LATERAL UNIFICADO COM AS DUAS OPÇÕES DE VISUALIZAÇÃO
 // =====================================================
 function PomodoroSidePanel({
+    clockHeight,
     activeTab,
     setActiveTab,
     categories,
@@ -705,10 +706,11 @@ function PomodoroSidePanel({
             animate={uiPosition}
             onDragEnd={handleDragEnd}
             whileDrag={{ scale: 1.01, zIndex: 100 }}
-            className={`flex flex-col w-full relative group p-3.5 sm:p-4 bg-[#08090f]/75 border border-white/10 rounded-2xl sm:rounded-3xl backdrop-blur-xl shadow-2xl xl:max-h-[calc(100vh-100px)] overflow-y-auto custom-scrollbar ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            style={clockHeight ? { height: `${clockHeight}px`, maxHeight: `${clockHeight}px` } : undefined}
+            className={`flex flex-col w-full relative group p-3.5 sm:p-4 bg-[#08090f]/75 border border-white/10 rounded-2xl sm:rounded-3xl backdrop-blur-xl shadow-2xl overflow-hidden ${!isLayoutLocked ? 'cursor-grab active:cursor-grabbing' : ''}`}
         >
             {/* CABEÇALHO DO PAINEL LATERAL (INTEGRADO, FLUIDO E SEMPRE ACESSÍVEL) */}
-            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/[0.08]">
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/[0.08] shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.18em] text-slate-300">
                         Painel Tático
@@ -752,7 +754,7 @@ function PomodoroSidePanel({
             </div>
 
             {/* TAB SELECTOR: DUAS OPÇÕES DE VISUALIZAÇÃO */}
-            <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 border border-white/10 rounded-2xl mb-3.5 shadow-inner">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-950/80 border border-white/10 rounded-2xl mb-3.5 shadow-inner shrink-0">
                 <button
                     type="button"
                     onClick={() => setActiveTab('actions')}
@@ -790,52 +792,54 @@ function PomodoroSidePanel({
             </div>
 
             {/* CONTEÚDO DA VISUALIZAÇÃO SELECIONADA */}
-            <AnimatePresence mode="wait">
-                {activeTab === 'actions' ? (
-                    <Motion.div
-                        key="view-actions"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -6 }}
-                        transition={{ duration: 0.15 }}
-                        className="w-full"
-                    >
-                        <ActionsAndMentorView
-                            categories={categories}
-                            activeSubject={activeSubject}
-                            onStartTask={onStartTask}
-                            stats={stats}
-                            neuralMode={neuralMode}
-                            neuralQueue={neuralQueue}
-                            studyLogs={studyLogs}
-                            simulados={simulados}
-                        />
-                    </Motion.div>
-                ) : (
-                    <Motion.div
-                        key="view-telemetry"
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -6 }}
-                        transition={{ duration: 0.15 }}
-                        className="w-full"
-                    >
-                        <SessionFocusPanel
-                            activeSubject={activeSubject}
-                            categories={categories}
-                            studyLogs={studyLogs}
-                            user={user}
-                            mode={mode}
-                            isRunning={isRunning}
-                            timeLeft={timeLeft}
-                            totalTime={totalTime}
-                            targetCycles={targetCycles}
-                            completedCycles={completedCycles}
-                            settings={settings}
-                        />
-                    </Motion.div>
-                )}
-            </AnimatePresence>
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                <AnimatePresence mode="wait">
+                    {activeTab === 'actions' ? (
+                        <Motion.div
+                            key="view-actions"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.15 }}
+                            className="w-full"
+                        >
+                            <ActionsAndMentorView
+                                categories={categories}
+                                activeSubject={activeSubject}
+                                onStartTask={onStartTask}
+                                stats={stats}
+                                neuralMode={neuralMode}
+                                neuralQueue={neuralQueue}
+                                studyLogs={studyLogs}
+                                simulados={simulados}
+                            />
+                        </Motion.div>
+                    ) : (
+                        <Motion.div
+                            key="view-telemetry"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.15 }}
+                            className="w-full"
+                        >
+                            <SessionFocusPanel
+                                activeSubject={activeSubject}
+                                categories={categories}
+                                studyLogs={studyLogs}
+                                user={user}
+                                mode={mode}
+                                isRunning={isRunning}
+                                timeLeft={timeLeft}
+                                totalTime={totalTime}
+                                targetCycles={targetCycles}
+                                completedCycles={completedCycles}
+                                settings={settings}
+                            />
+                        </Motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
         </Motion.div>
     );
 }
@@ -911,7 +915,44 @@ export default function Pomodoro() {
     const neuralQueue = pomodoroState.neuralQueue || EMPTY_ARRAY;
     const entrySourceRef = useRef(location.state?.from || 'pomodoro');
     const topRef = useRef(null);
+    const clockColRef = useRef(null);
+    const [clockHeight, setClockHeight] = useState(null);
+    const [isDesktop, setIsDesktop] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true));
     const [liveTimerState, setLiveTimerState] = useState(null);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsDesktop(window.innerWidth >= 1280);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        if (!clockColRef.current) return;
+        const measure = () => {
+            if (clockColRef.current) {
+                const h = clockColRef.current.offsetHeight;
+                if (h > 0) {
+                    setClockHeight(h);
+                }
+            }
+        };
+
+        measure();
+
+        let ro = null;
+        if (typeof ResizeObserver !== 'undefined') {
+            ro = new ResizeObserver(() => {
+                measure();
+            });
+            ro.observe(clockColRef.current);
+        }
+
+        return () => {
+            if (ro) ro.disconnect();
+        };
+    }, []);
 
     // Estado do Tab do Painel Lateral (Missões & Mentor vs Telemetria)
     const [activeSideTab, setActiveSideTab] = useState(() => {
@@ -1304,10 +1345,13 @@ export default function Pomodoro() {
 
     return (
         <PageErrorBoundary pageName="Pomodoro">
-            <div ref={topRef} className="min-h-0 flex items-start justify-center pt-0.5 sm:pt-1 pb-2 sm:pb-3 px-2 sm:px-4">
-                <div className="flex flex-col xl:flex-row gap-3.5 sm:gap-4 lg:gap-5 items-start justify-center w-full max-w-[1180px] xl:max-w-[1280px] 2xl:max-w-[1360px] mx-auto">
-                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (PERFEITAMENTE ENQUADRADO) */}
-                    <div className="w-full xl:w-[480px] 2xl:w-[510px] flex-shrink-0 flex flex-col items-center gap-1 min-w-0">
+            <div ref={topRef} className="min-h-0 flex items-start justify-center pt-0.5 sm:pt-1 pb-2 sm:pb-3 px-1 sm:px-2 w-full">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3.5 sm:gap-4 lg:gap-5 items-start w-full max-w-full xl:max-w-[1850px] mx-auto">
+                    {/* COLUNA 1: CONSOLE DO CRONÔMETRO POMODORO (MEIO A MEIO) */}
+                    <div
+                        ref={clockColRef}
+                        className="w-full flex flex-col items-center gap-1 min-w-0"
+                    >
                         <PomodoroTopBar
                             activeSubject={activeSubject}
                             isRunning={liveTimerState !== null ? liveTimerState.isRunning : (pomodoroState.isRunning || false)}
@@ -1328,9 +1372,13 @@ export default function Pomodoro() {
                         />
                     </div>
 
-                    {/* COLUNA 2: PAINEL LATERAL COM AS DUAS OPÇÕES DE VISUALIZAÇÃO */}
-                    <div className="w-full xl:w-[400px] 2xl:w-[440px] flex-shrink-0 min-w-0">
+                    {/* COLUNA 2: PAINEL LATERAL (MEIO A MEIO) */}
+                    <div
+                        className="w-full min-w-0 flex flex-col"
+                        style={isDesktop && clockHeight ? { height: `${clockHeight}px`, maxHeight: `${clockHeight}px` } : undefined}
+                    >
                         <PomodoroSidePanel
+                            clockHeight={isDesktop ? clockHeight : undefined}
                             activeTab={activeSideTab}
                             setActiveTab={handleTabChange}
                             categories={categories || []}

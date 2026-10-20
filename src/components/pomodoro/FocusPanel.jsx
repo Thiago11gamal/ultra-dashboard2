@@ -491,11 +491,13 @@ export function SessionFocusPanel({
                 taskId={activeSubject?.taskId}
             />
 
-            {/* Streak */}
-            <StreakDisplay studyLogs={studyLogs || []} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Streak */}
+                <StreakDisplay studyLogs={studyLogs || []} />
 
-            {/* XP */}
-            <SessionXP user={user} />
+                {/* XP */}
+                <SessionXP user={user} />
+            </div>
 
             {/* Próxima Tarefa */}
             <NextTaskPreview
