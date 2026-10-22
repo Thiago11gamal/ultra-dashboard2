@@ -518,9 +518,103 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     const catName = safeCategory?.name || safeCategory?.id || '';
 
-    const relevantAllPreSort = catName
-        ? safeSimulados.filter(s => s && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || "", catName))
-        : safeSimulados;
+    // ✅ FIX-AUDIT: Coletar TODOS os simulados relevantes para esta matéria específica:
+    // 1. Histórico próprio da categoria em safeCategory.simuladoStats?.history (gerado pelos simulados)
+    // 2. Registros em safeSimulados (e safeOptions.allSimulados) que correspondam à matéria
+    // 3. Linhas individuais em safeOptions.simuladoRows (ou safeOptions.history) correspondentes à matéria
+    const catSims = [];
+    const seenSimKeys = new Set();
+
+    // 1. Histórico da própria categoria
+    const rawCatHistory = safeArray(safeCategory?.simuladoStats?.history);
+    rawCatHistory.forEach((h, idx) => {
+        if (!h) return;
+        const score = getSafeScore(h, maxScore, minScore);
+        if (!Number.isFinite(score)) return;
+        const dStr = getDateKey(h.date || h.createdAt) || `d_${idx}`;
+        const key = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `cat_${dStr}_${score}`);
+        if (seenSimKeys.has(key)) return;
+        seenSimKeys.add(key);
+        catSims.push({
+            ...h,
+            id: h.id || key,
+            date: h.date || h.createdAt,
+            categoryId: safeCategory.id,
+            subject: catName,
+            score
+        });
+    });
+
+    // 2. Simulados da lista passada (ou safeOptions.allSimulados)
+    const combinedSimSources = [...safeSimulados, ...safeArray(safeOptions.allSimulados)];
+    combinedSimSources.forEach(s => {
+        if (!s) return;
+        const matches = (safeCategory.id && s.categoryId && String(s.categoryId) === String(safeCategory.id)) ||
+            (catName && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName));
+        if (!matches) return;
+        const score = getSafeScore(s, maxScore, minScore);
+        if (!Number.isFinite(score)) return;
+        const dStr = getDateKey(s.date || s.createdAt) || 'no-date';
+        const key = s.batchId ? `b_${s.batchId}` : (s.id ? `id_${s.id}` : `sim_${dStr}_${score}`);
+        if (seenSimKeys.has(key)) return;
+        seenSimKeys.add(key);
+        catSims.push({
+            ...s,
+            id: s.id || key,
+            date: s.date || s.createdAt,
+            categoryId: safeCategory.id,
+            subject: catName,
+            score
+        });
+    });
+
+    // 3. Linhas de simuladoRows (agrupadas por batchId ou data)
+    const rawRows = safeArray(safeOptions.simuladoRows || safeOptions.history);
+    const rowsForCat = rawRows.filter(r => r && (
+        (safeCategory.id && r.categoryId && String(r.categoryId) === String(safeCategory.id)) ||
+        (catName && isSubjectMatch(r.subject || r.categoryName || r.materia || r.disciplina || '', catName))
+    ));
+    if (rowsForCat.length > 0) {
+        const grouped = {};
+        rowsForCat.forEach(r => {
+            const groupKey = r.batchId || getDateKey(r.date || r.createdAt) || r.id;
+            if (!grouped[groupKey]) {
+                grouped[groupKey] = {
+                    date: r.date || r.createdAt,
+                    correct: 0,
+                    total: 0,
+                    batchId: r.batchId
+                };
+            }
+            grouped[groupKey].correct += Number(r.correct) || 0;
+            grouped[groupKey].total += Number(r.total) || 0;
+        });
+
+        Object.entries(grouped).forEach(([gKey, gData]) => {
+            const key = gData.batchId ? `b_${gData.batchId}` : `row_${gKey}`;
+            if (seenSimKeys.has(key)) return;
+            seenSimKeys.add(key);
+            const score = gData.total > 0
+                ? minScore + (gData.correct / gData.total) * (maxScore - minScore)
+                : minScore;
+            catSims.push({
+                id: key,
+                date: gData.date,
+                categoryId: safeCategory.id,
+                subject: catName,
+                score,
+                correct: gData.correct,
+                total: gData.total,
+                batchId: gData.batchId
+            });
+        });
+    }
+
+    const relevantAllPreSort = catSims.length > 0 ? catSims : (
+        catName
+            ? safeSimulados.filter(s => s && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || "", catName))
+            : safeSimulados
+    );
 
     const relevantAll = relevantAllPreSort
         .sort((a, b) => {
@@ -1742,9 +1836,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const configHash = options.config
             ? simpleHash(JSON.stringify(options.config))
             : 'defcfg';
+        // ✅ FIX: Incluir hash dos simulados da categoria para que novo simulado invalide o cache imediatamente
+        const catStatsHistoryLen = safeArray(safeCat.simuladoStats?.history).length;
+        const lastCatStat = catStatsHistoryLen > 0 ? safeCat.simuladoStats.history[catStatsHistoryLen - 1] : null;
+        const catStatsHash = `${catStatsHistoryLen}_${lastCatStat?.date || lastCatStat?.createdAt || ''}_${lastCatStat?.score ?? ''}`;
+
         // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
         const cacheKeyRaw = JSON.stringify([
-            activeId, catId, simCount, logCount, scoreChecksum,
+            activeId, catId, simCount, logCount, scoreChecksum, catStatsHash,
             refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, logsMinutesChecksum, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash,
@@ -1765,6 +1864,23 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             if (!categoryStillExists) {
                 _urgencyCache.delete(cacheKey);
             } else {
+                // Se a urgência em cache possui dados de monteCarlo e o chamador passou callback de calibração,
+                // propaga o evento de calibração para não engolir o pipeline em cache hits
+                if (cachedUrgency.details?.monteCarlo && options && typeof options.onCalibrationMetric === 'function') {
+                    try {
+                        options.onCalibrationMetric({
+                            categoryId: cachedUrgency.details.categoryId || catId,
+                            categoryName: safeCat.name || catId,
+                            timestamp: Date.now(),
+                            avgBrier: cachedUrgency.details.monteCarlo.avgBrier,
+                            ece: cachedUrgency.details.monteCarlo.ece,
+                            probability: cachedUrgency.details.monteCarlo.probability != null ? cachedUrgency.details.monteCarlo.probability / 100 : null,
+                            calibrationPenalty: cachedUrgency.details.monteCarlo.calibrationPenalty,
+                            reliability: cachedUrgency.details.monteCarlo.reliability || [],
+                            calibrationQuality: cachedUrgency.details.monteCarlo.explainability?.calibrationQuality || 'low'
+                        });
+                    } catch { /* não quebrar o fluxo */ }
+                }
                 return deepClone(cachedUrgency);
             }
         }

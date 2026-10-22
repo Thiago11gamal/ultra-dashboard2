@@ -30,7 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
-import { formatDateTimePtBR, toDateMs } from '../utils/dateHelper';
+import { formatDateTimePtBR, toDateMs, getDateKey } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 import { isSubjectMatch } from '../utils/normalization';
 
@@ -535,6 +535,8 @@ export default function Coach() {
                         // Pass global MC stats for richer integration (see analysis of Coach + MC)
                         // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
                         globalMcStats: mcStatsContextRef.current,
+                        simuladoRows: data?.simuladoRows,
+                        allSimulados: data?.simulados,
                         config: {
                             contestId: activeId,
                             MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
@@ -585,6 +587,8 @@ export default function Coach() {
         isHydrated,
         activeId,
         data?.categories,
+        data?.simuladoRows,
+        data?.simulados,
         categories, 
         combinedHistory, 
         studyLogs, 
@@ -654,6 +658,8 @@ export default function Coach() {
                         minScore: safeMin,
                         calibrationHistoryByCategory: calibrationHistoryRef.current,
                         onCalibrationMetric: (metric) => collectedMetrics.push(metric),
+                        simuladoRows: data?.simuladoRows,
+                        allSimulados: data?.simulados,
                         config: {
                             contestId: capturedActiveId,
                             MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
@@ -676,6 +682,8 @@ export default function Coach() {
                             flashcardDecks,
                             flashcardDue,
                             globalMcStats: mcStatsContextRef.current,
+                            simuladoRows: data?.simuladoRows,
+                            allSimulados: data?.simulados,
                             config: {
                                 contestId: capturedActiveId,
                                 MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
@@ -989,10 +997,27 @@ export function RaioXDashboard({ data }) {
 
         return categories.map(cat => {
             const catName = cat.name || cat.id || '';
-            const count = allSims.filter(s => s && (
-                (cat.id && s.categoryId && String(s.categoryId) === String(cat.id)) ||
-                isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName)
-            )).length;
+            const catStatsHistory = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+            
+            // Reúne todas as fontes de simulado para esta categoria de forma unificada
+            const catAttempts = new Set();
+            catStatsHistory.forEach((h, hIdx) => {
+                if (!h) return;
+                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `h_${getDateKey(h.date || h.createdAt)}_${h.score}_${hIdx}`);
+                catAttempts.add(dKey);
+            });
+
+            allSims.forEach(s => {
+                if (!s) return;
+                const matches = (cat.id && s.categoryId && String(s.categoryId) === String(cat.id)) ||
+                    isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName);
+                if (matches) {
+                    const dKey = s.batchId ? `b_${s.batchId}` : (s.id ? `id_${s.id}` : `d_${getDateKey(s.date || s.createdAt)}_${s.score}`);
+                    catAttempts.add(dKey);
+                }
+            });
+
+            const count = catAttempts.size;
             return {
                 id: cat.id || catName,
                 name: displaySubject(catName, categories),
