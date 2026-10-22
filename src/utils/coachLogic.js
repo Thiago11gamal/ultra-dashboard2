@@ -1088,6 +1088,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         weightLabel,
         daysToExam,
         relevantSimulados,
+        simuladoCount: relevantSimulados.length,
         rootActivityDate,
         simuladosWithMaxScore,
         averageScore,
@@ -1679,6 +1680,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 avgBrier: mcResult?.avgBrier != null ? safeFixedNumber(mcResult.avgBrier, 4) : null,
                 ece: mcResult?.ece != null ? safeFixedNumber(mcResult.ece, 4) : null,
                 reliability: Array.isArray(mcResult?.reliability) ? mcResult.reliability : [],
+                sampleSize: mcResult?.sampleSize || relevantSimulados?.length || 0,
                 explainability: {
                     confidenceAdjusted: (mcResult?.calibrationPenalty || 0) > 0,
                     confidenceAdjustmentPct: safeFixedNumber((mcResult?.calibrationPenalty || 0) * 100),
