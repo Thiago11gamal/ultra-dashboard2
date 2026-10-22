@@ -13,8 +13,9 @@ export const normalize = (str) => {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, "") // Remove accents/diacritics
         .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "") // eslint-disable-line no-control-regex
-        .replace(/nocoes de\s+/g, "")    // Remove common prefix
-        .replace(/[^\p{L}\p{N}\s]/gu, '') // Keep all letters (unicode) and numbers
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ') // Replace punctuation with space to prevent word concatenation
+        .replace(/\s+/g, ' ')           // Collapse multiple spaces
+        .replace(/\bnocoes de\s+/g, "")  // Remove common prefix safely on word boundaries
         .replace(/\s+/g, ' ')           // Collapse multiple spaces
         .trim();
 };
@@ -71,11 +72,13 @@ export const isSubjectMatch = (name1, name2) => {
  */
 export const safeNormalize = (val, max, min) => {
     // Tratamento de edge case crítico
-    if (typeof val !== 'number' || isNaN(val)) return 0;
+    if (!Number.isFinite(val)) return 0;
     if (!Number.isFinite(max) || !Number.isFinite(min)) return 0;
-    if (max === min) return 0.5; 
-    
-    const normalized = (val - min) / (max - min);
+    if (max === min) return 0.5;
+
+    const low = Math.min(min, max);
+    const high = Math.max(min, max);
+    const normalized = (val - low) / (high - low);
     
     // Clamping para evitar explodir a escala (valores > 1 ou < 0)
     return Math.max(0, Math.min(1, normalized));

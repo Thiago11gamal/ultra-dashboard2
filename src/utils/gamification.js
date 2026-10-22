@@ -1,7 +1,8 @@
 import { XP_CONFIG } from '../config/gamification.js';
 
 export const calculateLevel = (xpInput) => {
-  const safeXp = Math.max(0, Math.trunc(Number(xpInput) || 0));
+  const parsed = Number(xpInput);
+  const safeXp = Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
   const level = Math.floor(Math.sqrt(safeXp / 100)) + 1;
   return Number.isFinite(level) && level >= 1 ? level : 1;
 };
@@ -9,19 +10,22 @@ export const calculateLevel = (xpInput) => {
 export const getLevelFromXP = calculateLevel;
 
 export const getXpThresholdForLevel = (level) => {
-  const safeLevel = Math.max(1, Number(level) || 1);
+  const parsed = Number(level);
+  const safeLevel = Number.isFinite(parsed) ? Math.max(1, Math.trunc(parsed)) : 1;
   return Math.pow(safeLevel - 1, 2) * 100;
 };
 
 export const getXpRemainingToNextLevel = (currentXP) => {
-  const xp = Math.max(0, Number(currentXP) || 0);
+  const parsed = Number(currentXP);
+  const xp = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
   const level = calculateLevel(xp);
   const nextLevelThreshold = getXpThresholdForLevel(level + 1);
   return Math.max(0, nextLevelThreshold - xp);
 };
 
 export const getXPProgress = (xpInput) => {
-  const xp = Math.max(0, Number(xpInput) || 0);
+  const parsed = Number(xpInput);
+  const xp = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
   const level = calculateLevel(xp);
   
   const currentLevelXP = getXpThresholdForLevel(level);
@@ -72,9 +76,9 @@ export const getLevelTitle = (level) => {
 };
 
 export function calculateMissionReward(baseReward = 50, completionRate = 1.0, quality = 1.0) {
-  const safeBase = Number(baseReward) || 50;
-  const safeCompletion = Number(completionRate) || 0;
-  const safeQuality = Number(quality) || 0;
+  const safeBase = Number.isFinite(Number(baseReward)) ? Number(baseReward) : 50;
+  const safeCompletion = Number.isFinite(Number(completionRate)) ? Math.max(0, Number(completionRate)) : 0;
+  const safeQuality = Number.isFinite(Number(quality)) ? Math.max(0, Number(quality)) : 0;
   
   const rawReward = safeBase * safeCompletion * safeQuality;
   const finalReward = Number.isFinite(rawReward) ? Math.max(0, rawReward) : 0;

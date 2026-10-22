@@ -8,14 +8,23 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
   if (data.length <= safeThreshold) {
     return data;
   }
-  const getX = (item) => {
+  const getX = (item, fallbackIdx = 0) => {
+    if (!item || typeof item !== "object") return fallbackIdx;
     const val = item[xKey];
     if (typeof val === "string" && val.includes("-")) {
-      return toDateMs(val);
+      const ms = toDateMs(val);
+      return Number.isFinite(ms) ? ms : fallbackIdx;
     }
-    return Number(val) || 0;
+    const num = Number(val);
+    return Number.isFinite(num) ? num : fallbackIdx;
   };
-  const getY = (item) => Number(item[yKey]) || 0;
+  const getY = (item) => {
+    if (!item || typeof item !== "object") return 0;
+    const raw = item[yKey];
+    if (raw === null || raw === undefined || raw === "") return 0;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : 0;
+  };
   const dataLength = data.length;
   const bucketSize = (dataLength - 2) / (safeThreshold - 2);
   let a = 0;
@@ -28,24 +37,24 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
     avgRangeEnd = avgRangeEnd < dataLength ? avgRangeEnd : dataLength;
     const avgRangeLength = avgRangeEnd - avgRangeStart;
     for (; avgRangeStart < avgRangeEnd; avgRangeStart++) {
-      avgX += getX(data[avgRangeStart]);
+      avgX += getX(data[avgRangeStart], avgRangeStart);
       avgY += getY(data[avgRangeStart]);
     }
     if (avgRangeLength > 0) {
       avgX /= avgRangeLength;
       avgY /= avgRangeLength;
     } else if (avgRangeStart < dataLength) {
-      avgX = getX(data[avgRangeStart]);
+      avgX = getX(data[avgRangeStart], avgRangeStart);
       avgY = getY(data[avgRangeStart]);
     }
     let rangeOffs = Math.floor(i * bucketSize) + 1;
     let rangeTo = Math.floor((i + 1) * bucketSize) + 1;
-    const pointAx = getX(data[a]);
+    const pointAx = getX(data[a], a);
     const pointAy = getY(data[a]);
     let maxArea = -1;
     let maxAreaIndex = -1;
     for (; rangeOffs < rangeTo; rangeOffs++) {
-      const bx = getX(data[rangeOffs]);
+      const bx = getX(data[rangeOffs], rangeOffs);
       const by = getY(data[rangeOffs]);
       const area = Math.abs((pointAx - avgX) * (by - pointAy) - (pointAx - bx) * (avgY - pointAy)) * 0.5;
       if (area > maxArea) {

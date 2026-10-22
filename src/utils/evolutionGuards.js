@@ -1,3 +1,10 @@
+function toStrictFinite(value) {
+  if (value === null || value === undefined || typeof value === 'boolean') return NaN;
+  if (typeof value === 'string' && value.trim() === '') return NaN;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 export function toArray(value) {
   if (Array.isArray(value)) return value;
   if (value && typeof value === 'object') return Object.values(value);
@@ -9,12 +16,14 @@ export function getHistoryDate(h) {
 }
 
 export function isValidScore(value) {
-  return value != null && Number.isFinite(Number(value));
+  return Number.isFinite(toStrictFinite(value));
 }
 
 export function normalizeScoreDomain(minScore, maxScore) {
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  let safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+  const parsedMin = toStrictFinite(minScore);
+  const parsedMax = toStrictFinite(maxScore);
+  const safeMin = Number.isFinite(parsedMin) ? parsedMin : 0;
+  let safeMax = Number.isFinite(parsedMax) ? parsedMax : 100;
 
   if (safeMax <= safeMin) {
     safeMax = safeMin + 1;
@@ -23,7 +32,7 @@ export function normalizeScoreDomain(minScore, maxScore) {
   const range = Math.max(1e-9, safeMax - safeMin);
 
   const clamp = (value, fallback = safeMin) => {
-    const n = Number(value);
+    const n = toStrictFinite(value);
     if (!Number.isFinite(n)) return fallback;
     return Math.max(safeMin, Math.min(safeMax, n));
   };
@@ -33,7 +42,7 @@ export function normalizeScoreDomain(minScore, maxScore) {
 
 export function normalizeTargetScore(targetScore, minScore, maxScore) {
   const { safeMin, safeMax } = normalizeScoreDomain(minScore, maxScore);
-  const target = Number(targetScore);
+  const target = toStrictFinite(targetScore);
 
   if (!Number.isFinite(target)) return safeMin;
 
@@ -41,7 +50,7 @@ export function normalizeTargetScore(targetScore, minScore, maxScore) {
 }
 
 export function normalizeProbability(value, fallback = 0) {
-  const n = Number(value);
+  const n = toStrictFinite(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(100, n));
 }

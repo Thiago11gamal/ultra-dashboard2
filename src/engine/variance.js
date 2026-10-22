@@ -15,6 +15,13 @@ function toHistoryArray(history) {
     return [];
 }
 
+function toStrictFiniteNumber(value) {
+    if (value === null || value === undefined || typeof value === 'boolean') return NaN;
+    if (typeof value === 'string' && value.trim() === '') return NaN;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : NaN;
+}
+
 /**
  * Compute weighted variance from category statistics
  * Formula: Var = (1 - ρ) × [Σ wi² × σi²] + ρ × [Σ (wi × σi)]²
@@ -50,19 +57,40 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
       return fallback;
     }
 
-    // Build aligned score rows: one object per "simulado day" { "Matematica": 82, "Direito": 71, ... }
-    const byDate = {};
+    const safeGlobalMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const bucketsByDate = {};
+
     safeSimuladoRows.forEach(row => {
       const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
       const subj = normalize(row.subject || row.categoryName || row.name);
-      const rowMax = Number.isFinite(Number(row.maxScore)) && Number(row.maxScore) > 0 ? Number(row.maxScore) : maxScore;
-      const rowMin = Number.isFinite(Number(row.minScore)) ? Math.min(Number(row.minScore), rowMax) : 0;
+      if (!subj) return;
+
+      const rawRowMax = toStrictFiniteNumber(row.maxScore);
+      const rowMax = Number.isFinite(rawRowMax) && rawRowMax > 0 ? rawRowMax : safeGlobalMax;
+      const rawRowMin = toStrictFiniteNumber(row.minScore);
+      const rowMin = Number.isFinite(rawRowMin) && rawRowMin < rowMax ? rawRowMin : 0;
       const score = getSafeScore(row, rowMax, rowMin);
       if (!Number.isFinite(score)) return;
 
-      if (!byDate[dateKey]) byDate[dateKey] = {};
-      byDate[dateKey][subj] = score;
+      const normalizedScore = ((score - rowMin) / Math.max(1e-9, rowMax - rowMin)) * safeGlobalMax;
+      const rawWeight = toStrictFiniteNumber(row.total ?? row.questions);
+      const weight = Number.isFinite(rawWeight) && rawWeight > 0 ? rawWeight : 1;
+
+      if (!bucketsByDate[dateKey]) bucketsByDate[dateKey] = {};
+      if (!bucketsByDate[dateKey][subj]) bucketsByDate[dateKey][subj] = { weightedSum: 0, totalWeight: 0 };
+      bucketsByDate[dateKey][subj].weightedSum += normalizedScore * weight;
+      bucketsByDate[dateKey][subj].totalWeight += weight;
+    });
+
+    const byDate = {};
+    Object.entries(bucketsByDate).forEach(([dateKey, subjMap]) => {
+      byDate[dateKey] = {};
+      Object.entries(subjMap).forEach(([subj, agg]) => {
+        if (agg.totalWeight > 0) {
+          byDate[dateKey][subj] = agg.weightedSum / agg.totalWeight;
+        }
+      });
     });
 
     const alignedRows = Object.values(byDate);
@@ -109,8 +137,13 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
         } else if (optionsOrRho.scoreRows && optionsOrRho.subjectNames) {
             rho = estimateInterSubjectCorrelation(optionsOrRho.scoreRows, optionsOrRho.subjectNames, INTER_SUBJECT_CORRELATION);
         } else if (optionsOrRho.simuladoRows && optionsOrRho.categoryNames) {
-            // NEW: Use the full adaptive estimator with blending
-            rho = getAdaptiveInterSubjectCorrelation(stats, optionsOrRho.simuladoRows, optionsOrRho.categoryNames, INTER_SUBJECT_CORRELATION);
+            rho = getAdaptiveInterSubjectCorrelation(
+                stats,
+                optionsOrRho.simuladoRows,
+                optionsOrRho.categoryNames,
+                INTER_SUBJECT_CORRELATION,
+                optionsOrRho.maxScore ?? 100
+            );
         }
     } else {
         // Fallback de compatibilidade
@@ -157,7 +190,7 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
     // Se preserveScale for pedido, escalonamos a variância final linearmente pelo 
     // peso efetivo, prevenindo o colapso quadrático anterior que quebrava o motor.
     if (preserveScale) {
-        finalVar *= effectiveTotalWeight;
+        finalVar *= Math.pow(effectiveTotalWeight, 2);
     }
 
     return Math.max(0, Number.isFinite(finalVar) ? finalVar : 0);
@@ -222,9 +255,11 @@ export function estimateInterSubjectCorrelation(
             const ys = [];
             safeScoreRows.forEach(row => {
                 const rawX = getRowValue(row, aName, origAName);
-                const x = typeof rawX === 'object' && rawX !== null ? Number(rawX?.score) : Number(rawX);
+                const valX = typeof rawX === 'object' && rawX !== null ? rawX?.score : rawX;
+                const x = toStrictFiniteNumber(valX);
                 const rawY = getRowValue(row, bName, origBName);
-                const y = typeof rawY === 'object' && rawY !== null ? Number(rawY?.score) : Number(rawY);
+                const valY = typeof rawY === 'object' && rawY !== null ? rawY?.score : rawY;
+                const y = toStrictFiniteNumber(valY);
                 if (Number.isFinite(x) && Number.isFinite(y)) {
                     xs.push(x);
                     ys.push(y);
@@ -261,9 +296,11 @@ export function estimateInterSubjectCorrelation(
                 varY = t_y;
             }
 
-            const epsilon = 1e-15;
             const safeVarX = Math.max(0, varX);
             const safeVarY = Math.max(0, varY);
+            if (safeVarX <= 1e-12 || safeVarY <= 1e-12) continue;
+
+            const epsilon = 1e-15;
             const denom = Math.sqrt((safeVarX + epsilon) * (safeVarY + epsilon));
             const corr = cov / denom;
 
@@ -300,9 +337,11 @@ export function estimateInterSubjectCorrelation(
     const overlaps = pairwise.map(p => p.n);
     const avgOverlap = kahanSum(overlaps) / overlaps.length;
     const essPairs = computeEffectiveSampleSizeFromWeights(pairwise.map(p => Math.max(1, p.n - 3)));
+    const maxPossiblePairs = Math.max(1, (subjectNames.length * (subjectNames.length - 1)) / 2);
+    const pairCoverage = Math.min(1, essPairs / Math.min(6, maxPossiblePairs));
     
     // Shrinkage empírico-bayesiano
-    const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (essPairs / (essPairs + 6))));
+    const shrink = Math.max(0, Math.min(1, (avgOverlap / (avgOverlap + 10)) * (0.5 + 0.5 * pairCoverage)));
     const blended = (shrink * empirical) + ((1 - shrink) * fallback);
 
     // ✅ LOTE-03 FIX (M2): limite inferior 0.0 (PSD-safe), como o comentário já
@@ -346,36 +385,44 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15, maxSco
 
     let pairedCount = 0;
 
-    const getScoreA = (h) => {
-        const s = getSafeScore(h, maxScoreA, minScoreA);
-        return Number.isFinite(s) ? s : 0;
-    };
-    const getScoreB = (h) => {
-        const s = getSafeScore(h, maxScoreB, minScoreB);
-        return Number.isFinite(s) ? s : 0;
-    };
-
     const getDateStr = (h) => {
         return getDateKey(h?.date || h?.createdAt);
     };
 
-    const mapA = new Map();
-
+    const aggMapA = new Map();
     safeHistoryA.forEach(h => {
         if (!h) return;
         const d = getDateStr(h);
-        if (d) mapA.set(d, getScoreA(h));
+        const s = getSafeScore(h, maxScoreA, minScoreA);
+        if (d && Number.isFinite(s)) {
+            const prev = aggMapA.get(d) || { sum: 0, count: 0 };
+            prev.sum += s;
+            prev.count += 1;
+            aggMapA.set(d, prev);
+        }
+    });
+
+    const aggMapB = new Map();
+    safeHistoryB.forEach(h => {
+        if (!h) return;
+        const d = getDateStr(h);
+        const s = getSafeScore(h, maxScoreB, minScoreB);
+        if (d && Number.isFinite(s)) {
+            const prev = aggMapB.get(d) || { sum: 0, count: 0 };
+            prev.sum += s;
+            prev.count += 1;
+            aggMapB.set(d, prev);
+        }
     });
 
     const xs = [];
     const ys = [];
 
-    safeHistoryB.forEach(h => {
-        if (!h) return;
-        const d = getDateStr(h);
-        if (d && mapA.has(d)) {
-            xs.push(mapA.get(d));
-            ys.push(getScoreB(h));
+    aggMapB.forEach((valB, d) => {
+        if (aggMapA.has(d)) {
+            const valA = aggMapA.get(d);
+            xs.push(valA.sum / valA.count);
+            ys.push(valB.sum / valB.count);
             pairedCount++;
         }
     });
@@ -408,6 +455,8 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15, maxSco
 
     const safeVarX = Math.max(0, varX);
     const safeVarY = Math.max(0, varY);
+    if (safeVarX <= 1e-12 || safeVarY <= 1e-12) return fallback;
+
     const denominator = Math.sqrt(safeVarX * safeVarY);
 
     if (!Number.isFinite(denominator) || denominator === 0) return fallback;
@@ -416,7 +465,9 @@ function calculateDynamicCorrelation(historyA, historyB, fallback = 0.15, maxSco
 
     if (!Number.isFinite(pearsonR)) return fallback;
 
-    return Math.max(-0.3, Math.min(0.8, pearsonR));
+    const shrink = n / (n + 8);
+    const blendedR = (pearsonR * shrink) + (fallback * (1 - shrink));
+    return Math.max(0, Math.min(0.85, blendedR));
 }
 
 /**
@@ -435,7 +486,8 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
         stats,
         adaptiveContext.simuladoRows,
         adaptiveContext.categoryNames,
-        defaultRho
+        defaultRho,
+        adaptiveContext.maxScore ?? 100
       );
     }
     
@@ -449,7 +501,8 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
             
             const rawRhoIJ = (rhoMatrix && rhoMatrix[i] && rhoMatrix[i][j] != null) ? rhoMatrix[i][j] : effectiveDefaultRho;
             const rhoIJ = Math.max(-0.999, Math.min(0.999, Number.isFinite(Number(rawRhoIJ)) ? Number(rawRhoIJ) : effectiveDefaultRho));
-            const rhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
+            const rawRhoJI = (rhoMatrix && rhoMatrix[j] && rhoMatrix[j][i] != null) ? rhoMatrix[j][i] : effectiveDefaultRho;
+            const rhoJI = Math.max(-0.999, Math.min(0.999, Number.isFinite(Number(rawRhoJI)) ? Number(rawRhoJI) : effectiveDefaultRho));
             
             let currentRho = (Number(rhoIJ) + Number(rhoJI)) / 2;
             if (!Number.isFinite(currentRho)) currentRho = effectiveDefaultRho;
