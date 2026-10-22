@@ -1732,7 +1732,8 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 probability: result.details.monteCarlo.probability != null ? result.details.monteCarlo.probability / 100 : null,
                 calibrationPenalty: result.details.monteCarlo.calibrationPenalty,
                 reliability: result.details.monteCarlo.reliability || [],
-                calibrationQuality: result.details.monteCarlo.explainability?.calibrationQuality || 'low'
+                calibrationQuality: result.details.monteCarlo.explainability?.calibrationQuality || 'low',
+                sampleSize: result.details.monteCarlo.sampleSize ?? metrics.simuladoCount ?? 0
             });
         } catch { /* não quebrar o fluxo principal */ }
     }
@@ -1877,7 +1878,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                             probability: cachedUrgency.details.monteCarlo.probability != null ? cachedUrgency.details.monteCarlo.probability / 100 : null,
                             calibrationPenalty: cachedUrgency.details.monteCarlo.calibrationPenalty,
                             reliability: cachedUrgency.details.monteCarlo.reliability || [],
-                            calibrationQuality: cachedUrgency.details.monteCarlo.explainability?.calibrationQuality || 'low'
+                            calibrationQuality: cachedUrgency.details.monteCarlo.explainability?.calibrationQuality || 'low',
+                            sampleSize: cachedUrgency.details.monteCarlo.sampleSize ?? cachedUrgency.details.simuladoCount ?? 0
                         });
                     } catch { /* não quebrar o fluxo */ }
                 }
