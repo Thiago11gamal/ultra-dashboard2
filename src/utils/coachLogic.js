@@ -305,11 +305,9 @@ export function computeRobustVolatilityForCoach(history = [], maxScore = 100, mi
         .map(h => getSafeScore(h, safeMax, safeMin))
         .filter(s => Number.isFinite(s));
 
-    if (scores.length === 0) return 0;
-
-    if (scores.length === 1) {
-        // Prior neutro para amostra única.
-        return Math.max(0, Math.min(20, domain * 0.08));
+    if (scores.length < 2) {
+        // Prior neutro para amostras insuficientes (< 2 pontos).
+        return Math.max(0, Math.min(domain * 0.35, domain * 0.08));
     }
 
     const n = scores.length;

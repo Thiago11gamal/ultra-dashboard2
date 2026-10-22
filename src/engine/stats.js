@@ -316,21 +316,6 @@ export function calcularMedia(values = []) {
   return safe.reduce((acc, x) => acc + x, 0) / safe.length;
 }
 
-export function calcularDesvioPadrao(values = []) {
-  const safe = (Array.isArray(values) ? values : Object.values(values || {}))
-    .map(Number)
-    .filter(Number.isFinite);
-
-  if (safe.length <= 1) return 0;
-
-  const m = calcularMedia(safe);
-  const sumSq = safe.reduce((acc, x) => acc + Math.pow(x - m, 2), 0);
-
-  // BUG: estava usando desvio populacional; o correto para amostra é n-1.
-  const variance = sumSq / (safe.length - 1);
-  return Number.isFinite(variance) && variance >= 0 ? Math.sqrt(variance) : 0;
-}
-
 export { average, averageOrZero };
 
 // ✅ FIX: standardDeviation aceita array de números nus
@@ -379,14 +364,17 @@ export function standardDeviation(arr, maxScore = 100, customMean = null, minSco
   return Math.max(finalSdFloor, Math.sqrt(Math.max(0, adjustedVar)));
 }
 
-export const calcularDesvioPadrao = (arr, isSample = false) => {
-    if (!arr || arr.length === 0) return 0;
+export const calcularDesvioPadrao = (arr, isSample = true) => {
+    if (!arr) return 0;
 
-    const clean = arr.map(Number).filter(Number.isFinite);
+    const clean = (Array.isArray(arr) ? arr : Object.values(arr || {}))
+        .map(Number)
+        .filter(Number.isFinite);
     if (clean.length <= 1) return 0;
 
     const m = kahanMean(clean);
     const sumSq = clean.map(x => Math.pow(x - m, 2));
+    // BUG: estava usando desvio populacional por padrão; o correto para amostra é n-1.
     const denom = isSample ? (clean.length - 1) : clean.length;
     const v = denom > 0 ? kahanSum(sumSq) / denom : 0;
 

@@ -560,3 +560,24 @@ export function buildCalibrationDashboardSeries(events = []) {
   return { trend, rolling7, controlLimits, driftSignals };
 }
 
+export function computeContinuousMcBoost(mcProbability, danger, safe, _options = {}) {
+  // BUG: probability/danger/safe inválidos produziam boost NaN e contaminavam adaptiveRisk.
+  const p = Number(mcProbability);
+  const d = Number(danger);
+  const s = Number(safe);
+
+  if (!Number.isFinite(p)) return 0;
+  if (!Number.isFinite(d) || !Number.isFinite(s)) return 0;
+
+  const safeProbability = Math.max(0, Math.min(100, p));
+  const _safeDanger = Math.max(0, Math.min(99, d));
+  const _safeSafe = Math.max(0, Math.min(99, s));
+
+  const neutral = 50;
+  const boost = (safeProbability - neutral) * 0.12;
+
+  if (!Number.isFinite(boost)) return 0;
+
+  return Math.max(-8, Math.min(8, boost));
+}
+
