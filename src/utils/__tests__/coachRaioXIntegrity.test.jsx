@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD } from '../calibration.js';
 import { displaySubject } from '../displaySubject.js';
 import { calculateAdaptiveSlope } from '../../engine/projection.js';
+import { getSuggestedFocus, clearUrgencyCache, clearMcCache } from '../coachLogic.js';
 
 describe('Coach AI & Raio-X Técnico Data Integrity & Bug Fix Audits', () => {
     describe('1. Critical Brier Degradation Trigger & Thresholds', () => {
@@ -150,4 +151,73 @@ describe('Coach AI & Raio-X Técnico Data Integrity & Bug Fix Audits', () => {
             expect(slopeWithMin).toBeGreaterThan(0);
         });
     });
+
+    describe('7. End-to-End Simulado History to Calibration Pipeline', () => {
+        it('emits onCalibrationMetric when category has >= 8 simulados in simuladoStats.history', () => {
+            clearUrgencyCache();
+            clearMcCache();
+
+            const onCalibrationMetric = vi.fn();
+            const categoryWith8Sims = {
+                id: 'cat_obrigacoes',
+                name: 'Direito das Obrigações',
+                weight: 1,
+                simuladoStats: {
+                    history: [
+                        { date: '2026-10-01', score: 65, total: 100 },
+                        { date: '2026-10-03', score: 70, total: 100 },
+                        { date: '2026-10-05', score: 72, total: 100 },
+                        { date: '2026-10-07', score: 68, total: 100 },
+                        { date: '2026-10-09', score: 75, total: 100 },
+                        { date: '2026-10-11', score: 74, total: 100 },
+                        { date: '2026-10-13', score: 80, total: 100 },
+                        { date: '2026-10-15', score: 82, total: 100 }
+                    ]
+                }
+            };
+
+            const focus = getSuggestedFocus([categoryWith8Sims], [], [], {
+                onCalibrationMetric,
+                maxScore: 100,
+                minScore: 0
+            });
+
+            expect(focus).toBeDefined();
+            expect(onCalibrationMetric).toHaveBeenCalled();
+
+            const emitted = onCalibrationMetric.mock.calls[0][0];
+            expect(emitted.categoryName).toBe('Direito das Obrigações');
+            expect(emitted.categoryId).toBe('cat_obrigacoes');
+            expect(emitted.sampleSize).toBe(8);
+            expect(Number.isFinite(emitted.avgBrier)).toBe(true);
+            expect(Number.isFinite(emitted.ece)).toBe(true);
+            expect(Array.isArray(emitted.reliability)).toBe(true);
+        });
+
+        it('re-emits onCalibrationMetric on urgency cache hits without swallowing calibration data', () => {
+            const onCalibrationMetric = vi.fn();
+            const category = {
+                id: 'cat_tributario',
+                name: 'Direito Tributário',
+                simuladoStats: {
+                    history: Array.from({ length: 9 }, (_, i) => ({
+                        date: `2026-10-0${i + 1}`,
+                        score: 70 + (i % 5),
+                        total: 100
+                    }))
+                }
+            };
+
+            // First call - computes & populates urgency cache
+            getSuggestedFocus([category], [], [], { onCalibrationMetric });
+            expect(onCalibrationMetric).toHaveBeenCalledTimes(1);
+
+            // Second call - hits urgency cache, must still notify onCalibrationMetric
+            const secondCallback = vi.fn();
+            getSuggestedFocus([category], [], [], { onCalibrationMetric: secondCallback });
+            expect(secondCallback).toHaveBeenCalledTimes(1);
+            expect(secondCallback.mock.calls[0][0].categoryId).toBe('cat_tributario');
+        });
+    });
 });
+
