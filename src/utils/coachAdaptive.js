@@ -344,10 +344,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
   const lowSampleThreshold = Math.max(Number(safeCfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (safeCfg.MC_MIN_DATA_POINTS || 5) + 2);
    const neutralPct = toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
-   // ✅ FIX: a âncora do shrinkage é o prior NEUTRO (50), não o baseline global.
-   // (coachLogic sobrescreve MC_CALIBRATION_NEUTRAL_PCT com globalBaselinePct,
-   // o que enviesava categorias fortes para baixo ao encolher em direção à média.)
-   const shrinkAnchorPct = 50;
+  // FIX: a âncora de shrinkage deve respeitar o midpoint da escala do concurso.
+  // Antes: hardcoded 50% enviesava provas com escala 0-1000 ou 200-1000.
+  const shrinkAnchorPct = safeMinScore + (safeMaxScore - safeMinScore) * 0.5;
+  const _shrinkAnchorNormalized = ((shrinkAnchorPct - safeMinScore) / Math.max(1e-9, safeMaxScore - safeMinScore)) * 100;
   const maxAppliedPenalty = toFiniteNumber(safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
 
   const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore, safeMinScore);

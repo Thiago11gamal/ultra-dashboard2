@@ -45,18 +45,18 @@ export function safeSetItem(key, value) {
             EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
           );
           const pickLargest = (keys) => keys.reduce(
-            (biggest, k) => (storage.getItem(k)?.length || 0) > (storage.getItem(biggest)?.length || 0) ? k : biggest,
+            (biggest, k) => ((storage.getItem(k)?.length || 0) > (storage.getItem(biggest)?.length || 0) ? k : biggest),
             keys[0]
           );
-          if (evictable.length > 0) {
-            storage.removeItem(pickLargest(evictable));
-          } else if (coachKeys.length > 0) {
-            storage.removeItem(pickLargest(coachKeys));
-          } else {
-            break;
+          if (evictable.length === 0) {
+            // Nenhum item evitável — tentar limpar qualquer coach_
+            if (coachKeys.length > 0) evictable.push(coachKeys[0]);
+            else return false;
           }
+          const largest = pickLargest(evictable);
+          storage.removeItem(largest);
         } catch {
-          break;
+          return false;
         }
       } else {
         console.error(`[CoachStorage] Falha ao salvar "${key}":`, err?.message || String(err));

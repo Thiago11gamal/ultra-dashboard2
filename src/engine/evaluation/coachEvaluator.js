@@ -28,6 +28,11 @@ const EVAL_STORAGE_MAX = 500;
 const clampFinite = clampFiniteStrict;
 const toFinite = toFiniteStrict;
 
+// FIX: validar que os imports não são undefined (proteção contra tree-shaking)
+if (typeof clampFiniteStrict !== 'function' || typeof toFiniteStrict !== 'function') {
+  throw new Error('[coachEvaluator] coachSafe imports are not functions — check import path');
+}
+
 // FIX: remove acentos (NFD) para casar "Funções" ≙ "funcoes"
 function normalizeName(value) {
   return String(value ?? '')
@@ -600,6 +605,13 @@ export function buildEvaluationDashboardData(summary = {}) {
  * Salva avaliações no localStorage.
  */
 export function saveEvaluationResult(result) {
+  // FIX: validar shape antes de salvar — resultados corrompidos contaminavam o histórico
+  if (!result || typeof result !== 'object') {
+    return false;
+  }
+  if (!Array.isArray(result) && typeof result.timestamp === 'undefined' && typeof result.generatedAt === 'undefined') {
+    return false;
+  }
   const storage = getStorage();
   if (!storage) return false;
   try {

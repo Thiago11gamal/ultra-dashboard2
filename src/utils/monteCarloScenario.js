@@ -1,9 +1,17 @@
-// ✅ FIX: meanBiasFactor é PERCENTUAL da escala (0.025 = 2.5% do maxScore)
 export const SCENARIO_CONFIG = {
+  // FIX: meanBiasFactor era aplicado como absoluto em alguns callers.
+  // Documentar claramente que é FRAÇÃO do range (maxScore - minScore).
   conservative: { meanBiasFactor: -0.015, ciMult: 1.5, probMultFactor: 0.045 },
-  base:         { meanBiasFactor: 0,      ciMult: 1,   probMultFactor: 0 },
-  optimistic:   { meanBiasFactor: 0.025,  ciMult: 0.85, probMultFactor: 0.045 },
+  base: { meanBiasFactor: 0, ciMult: 1, probMultFactor: 0 },
+  optimistic: { meanBiasFactor: 0.025, ciMult: 0.85, probMultFactor: 0.045 },
 };
+
+// FIX: exportar helper para aplicar bias corretamente na escala do concurso
+export function applyScenarioBias(scenario, mean, maxScore, minScore = 0) {
+  const range = Math.max(1e-9, maxScore - minScore);
+  const cfg = SCENARIO_CONFIG[scenario] || SCENARIO_CONFIG.base;
+  return mean + cfg.meanBiasFactor * range;
+}
 
 export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore = 100, minScore = 0) {
   const cfg = SCENARIO_CONFIG[scenario] || SCENARIO_CONFIG.base;

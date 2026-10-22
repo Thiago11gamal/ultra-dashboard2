@@ -7,12 +7,20 @@
 
 export function safeArray(value) {
   if (Array.isArray(value)) return value;
-  if (value && typeof value === 'object') return Object.values(value);
+  // FIX: proteger contra objetos com prototype poluído ou frozen objects
+  if (value && typeof value === 'object') {
+    try { return Object.values(value); }
+    catch { return []; }
+  }
   return [];
 }
 
 export function toFiniteNumber(value, fallback = 0) {
   if (value === null || value === undefined || value === '') return fallback;
+  // FIX: tratar strings com vírgula decimal (formato BR: "85,5")
+  if (typeof value === 'string') {
+    if (value.includes(',')) value = value.replace(/\./g, '').replace(',', '.');
+  }
   const n = Number(value);
   // Number.isFinite já rejeita NaN e Infinity
   return Number.isFinite(n) ? n : fallback;
@@ -84,6 +92,12 @@ export function hashString64(str) {
 // (semântica exigida pelo coachEvaluator — antes duplicada localmente).
 export function toFiniteStrict(value, fallback = null) {
   if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
+  // FIX: tratar string com vírgula decimal
+  if (typeof value === 'string') {
+    const cleaned = (value.includes(',') ? value.trim().replace(/\./g, '').replace(',', '.') : value.trim());
+    if (cleaned === '' || cleaned === '-') return fallback;
+    value = cleaned;
+  }
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }

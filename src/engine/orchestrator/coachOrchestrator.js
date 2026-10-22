@@ -114,6 +114,12 @@ export function clearCoachCaches() {
   } catch {
     // ignore
   }
+  // FIX: limpar também cache de explicações LLM para evitar stale data
+  try {
+    if (typeof globalThis.__COACH_LLM_CACHE__?.clear === 'function') {
+      globalThis.__COACH_LLM_CACHE__.clear();
+    }
+  } catch { /* ignore */ }
 }
 
 /**
@@ -151,6 +157,9 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     : DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  // FIX: limpar timeout se a Promise resolver antes do abort.
+  const cleanup = () => clearTimeout(timeoutId);
 
   const ensureNotAborted = (stepName) => {
     if (controller.signal.aborted) {
@@ -522,6 +531,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     };
   } finally {
     // FIX (BUG-34): sempre limpar o timer de timeout
+    cleanup();
     clearTimeout(timeoutId);
   }
 }

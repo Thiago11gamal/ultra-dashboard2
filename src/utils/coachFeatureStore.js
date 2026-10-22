@@ -70,6 +70,12 @@ export function replaceFlags(flags, contestId) {
 /** Lê uma flag com fallback. */
 export function getFlag(key, fallback = false, contestId) {
   if (typeof key !== 'string') return fallback;
-  const registry = getRegistry(contestId);
+  // FIX: proteger contra registry corrompido (ex: localStorage com JSON inválido)
+  let registry;
+  try {
+    registry = getRegistry(contestId);
+  } catch {
+    return fallback;
+  }
   return typeof registry[key] === 'boolean' ? registry[key] : fallback;
 }

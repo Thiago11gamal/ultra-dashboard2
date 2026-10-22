@@ -45,6 +45,9 @@ export async function coach(input = {}, options = {}) {
         flags: {},
         ...(result?.meta || {}),
       };
+      // FIX: garantir que errors é sempre array mesmo se meta.errors for corrompido
+      if (!Array.isArray(safeMeta.errors)) safeMeta.errors = [];
+      if (!safeMeta.modules || typeof safeMeta.modules !== 'object' || Array.isArray(safeMeta.modules)) safeMeta.modules = {};
 
       return {
         ok: true,
@@ -68,7 +71,7 @@ export async function coach(input = {}, options = {}) {
           details: {},
           meta: {
             modules: {},
-            errors: [String(err?.message || err)],
+            errors: [{ step: 'orchestrator', message: err?.message || String(err) }],
             flags: {},
           }
       };

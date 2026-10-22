@@ -1465,7 +1465,10 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         recentLogs.map(log => getDateKey(log?.date || log?.createdAt)).filter(Boolean)
     ).size;
     const isHighVolume = recentHours > dynamicBurnoutThreshold;
-    const isHighFrequency = recentStudyDays >= 5;
+    // FIX: threshold de frequência deve ser proporcional ao período analisado.
+    // Antes: >= 5 era fixo mesmo para janelas de 3 dias (impossível de atingir).
+    const analysisWindowDays = 7;
+    const isHighFrequency = recentStudyDays >= Math.min(5, analysisWindowDays - 1);
     const isEliteMaintenance = averageScore >= (minScore + domain * 0.95);
     const trendThreshold = Number.isFinite(scoreInfoTrendThreshold)
         ? scoreInfoTrendThreshold
@@ -1816,7 +1819,11 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         cacheSet(_urgencyCache, URGENCY_CACHE_MAX, cacheKey, deepClone(result));
         return result;
     } catch (err) {
-        console.error("[CoachLogic] Critical error in calculateUrgency:", err);
+        // FIX: incluir categoryId e nome no log para debuggability
+        console.error(
+            `[CoachLogic] Critical error in calculateUrgency [cat=${category?.id}, name=${category?.name}]:`,
+            err
+        );
         return {
             score: 0,
             normalizedScore: 0,
@@ -1825,6 +1832,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
                 hasData: false,
                 daysSinceLastStudy: 0,
                 error: true,
+                errorMessage: err?.message || String(err),
                 monteCarlo: null,
                 humanReadable: { "Status": "Erro" }
             }

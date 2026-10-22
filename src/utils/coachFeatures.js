@@ -79,9 +79,25 @@ export const DEFAULT_COACH_FEATURES = Object.freeze({
  * 3. DEFAULT_COACH_FEATURES
  * 4. fallback
  */
-export function getCoachFeature(options, key, fallback = false) {
+export function getCoachFeature(optionsOrKey, keyOrFallback = false, fallbackOrContestId = false) {
+  let options = null;
+  let key = '';
+  let fallback = false;
+
+  if (typeof optionsOrKey === 'string') {
+    key = optionsOrKey;
+    fallback = typeof keyOrFallback === 'boolean' ? keyOrFallback : false;
+  } else {
+    options = optionsOrKey;
+    key = typeof keyOrFallback === 'string' ? keyOrFallback : '';
+    fallback = typeof fallbackOrContestId === 'boolean' ? fallbackOrContestId : false;
+  }
+
   // FIX: guarda contra key inválida antes de qualquer acesso
   if (typeof key !== 'string' || key === '') return fallback;
+  // FIX: validar que a chave existe no registry de features conhecidas.
+  if (!Object.prototype.hasOwnProperty.call(DEFAULT_COACH_FEATURES, key)) return fallback;
+
   try {
     // 1. options.features (prioridade máxima)
     if (options?.features && typeof options.features[key] === 'boolean') {

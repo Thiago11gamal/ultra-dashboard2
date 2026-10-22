@@ -706,6 +706,13 @@ export const detectProcrastination = (categories, studyLogs) => {
                 severity: 'medium'
             });
         }
+    } else {
+        // FIX: nenhum log recente = padrão irregular severo
+        warnings.push({
+            type: 'irregular_pattern',
+            message: 'Nenhum registro de estudo na última semana',
+            severity: 'high'
+        });
     }
 
     return {
