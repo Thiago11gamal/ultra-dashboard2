@@ -57,13 +57,24 @@ export function removeFlag(key, contestId) {
 
 /** Substitui todas as flags (para rollback). */
 export function replaceFlags(flags, contestId) {
+  // BUG: replaceFlags(undefined) apagava todas as flags antes de validar o payload.
+  if (!flags || typeof flags !== 'object' || Array.isArray(flags)) {
+    return readFlags(contestId);
+  }
+
   const registry = getRegistry(contestId);
-  for (const key of Object.keys(registry)) delete registry[key];
-  if (flags && typeof flags !== 'boolean' && typeof flags === 'object') {
-    for (const [k, v] of Object.entries(flags)) {
-      if (typeof k === 'string' && typeof v === 'boolean') registry[k] = v;
+
+  const next = {};
+
+  for (const [k, v] of Object.entries(flags)) {
+    if (typeof k === 'string' && typeof v === 'boolean') {
+      next[k] = v;
     }
   }
+
+  for (const key of Object.keys(registry)) delete registry[key];
+  Object.assign(registry, next);
+
   return readFlags(contestId);
 }
 

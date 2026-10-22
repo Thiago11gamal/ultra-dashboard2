@@ -178,9 +178,13 @@ export function EvolutionLineChart({
         const requiredSpace = (labels.length - 1) * MIN_PCT_DISTANCE;
         
         // Dynamic compression if too many labels for the space
-        const effectiveDistance = requiredSpace > safeSpace 
-            ? safeSpace / Math.max(1, labels.length - 1) 
-            : MIN_PCT_DISTANCE;
+        // BUG: effectiveDistance podia ser 0 quando safeSpace=0, colando labels.
+        const effectiveDistance = Math.max(
+            0.25,
+            requiredSpace > safeSpace 
+                ? safeSpace / Math.max(1, labels.length - 1) 
+                : MIN_PCT_DISTANCE
+        );
 
         // Iterative relaxation algorithm to spread out colliding labels
         const ITERATIONS = 50;
@@ -217,6 +221,14 @@ export function EvolutionLineChart({
         for (let i = 0; i < labels.length; i++) {
             if (labels[i].yPos > topLimit) labels[i].yPos = topLimit;
             if (labels[i].yPos < bottomLimit) labels[i].yPos = bottomLimit;
+        }
+
+        // BUG: o clamp final podia reintroduzir overlap.
+        for (let i = 1; i < labels.length; i++) {
+            const minAllowed = labels[i - 1].yPos - effectiveDistance;
+            if (labels[i].yPos > minAllowed) {
+                labels[i].yPos = Math.max(bottomLimit, minAllowed);
+            }
         }
 
         const map = {};

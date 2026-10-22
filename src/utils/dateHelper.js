@@ -134,6 +134,24 @@ export const getDateKey = (rawDate) => {
   }
 };
 
+export const getWeekKey = (date) => {
+  const dt = normalizeDate(date);
+  if (!dt || Number.isNaN(dt.getTime())) return null;
+
+  // BUG: a função mutava a data original recebida.
+  const safeDate = new Date(dt.getTime());
+
+  const dayOfWeek = dt.getDay();
+  const diff = safeDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  safeDate.setDate(diff);
+  safeDate.setHours(12, 0, 0, 0);
+
+  const y = safeDate.getFullYear();
+  const m = String(safeDate.getMonth() + 1).padStart(2, '0');
+  const d = String(safeDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export const getLocalMidnight = (date = new Date()) => {
   try {
     const d = new Date(date);

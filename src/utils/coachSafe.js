@@ -15,14 +15,36 @@ export function safeArray(value) {
   return [];
 }
 
+export function safeClone(value) {
+  if (value === null || typeof value !== 'object') return value;
+
+  try {
+    if (typeof structuredClone === 'function') {
+      return structuredClone(value);
+    }
+  } catch {
+    // fallback abaixo
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    if (Array.isArray(value)) return [];
+    return {};
+  }
+}
+
 export function toFiniteNumber(value, fallback = 0) {
   if (value === null || value === undefined || value === '') return fallback;
-  // FIX: tratar strings com vírgula decimal (formato BR: "85,5")
+
+  // BUG: formato BR com vírgula ("85,5") virava NaN.
   if (typeof value === 'string') {
-    if (value.includes(',')) value = value.replace(/\./g, '').replace(',', '.');
+    const cleaned = value.trim();
+    if (!cleaned) return fallback;
+    value = cleaned.replace(/\./g, '').replace(',', '.');
   }
+
   const n = Number(value);
-  // Number.isFinite já rejeita NaN e Infinity
   return Number.isFinite(n) ? n : fallback;
 }
 

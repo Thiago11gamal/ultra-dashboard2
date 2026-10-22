@@ -14,19 +14,39 @@ export const clearUrgencyCache = () => _urgencyCache.clear();
 
 export function cacheGet(cache, key) {
   const entry = cache.get(key);
-  if (!entry) return undefined;
-  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+  if (!entry) return null;
+
+  // BUG: timestamp inválido virava cache eterno.
+  if (!Number.isFinite(entry.timestamp) || Date.now() - entry.timestamp > CACHE_TTL_MS) {
     cache.delete(key);
-    return undefined;
+    return null;
   }
+
+  // LRU: mover para o fim
+  cache.delete(key);
+  cache.set(key, entry);
   return entry.value;
 }
 
 export function cacheSet(cache, maxSize, key, value) {
   if (cache.size >= maxSize) {
-    const oldest = cache.keys().next().value;
-    cache.delete(oldest);
+    const now = Date.now();
+    // BUG: remover chaves durante iteração pode ser instável em alguns engines.
+    const expired = [];
+    for (const [k, v] of cache.entries()) {
+      if (!v || !Number.isFinite(v.timestamp) || now - v.timestamp > CACHE_TTL_MS) {
+        expired.push(k);
+      }
+    }
+    expired.forEach(k => cache.delete(k));
+
+    // Se ainda cheio, remover LRU
+    if (cache.size >= maxSize) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey !== undefined) cache.delete(oldestKey);
+    }
   }
+
   cache.set(key, { value, timestamp: Date.now() });
 }
 

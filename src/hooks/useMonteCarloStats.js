@@ -64,6 +64,30 @@ const SUBJECT_SIM_CACHE = new Map();
 const SUBJECT_SIM_TTL_MS = 60000;
 const SUBJECT_SIM_MAX_SIZE = 100; // G-01 FIX: cap menor e eviction real
 
+function getCachedSubjectSim(key) {
+  const entry = SUBJECT_SIM_CACHE.get(key);
+  if (!entry) return null;
+  if (!Number.isFinite(entry?.timestamp) || Date.now() - entry.timestamp > SUBJECT_SIM_TTL_MS) {
+    SUBJECT_SIM_CACHE.delete(key);
+    return null;
+  }
+  return entry.result;
+}
+
+function setCachedSubjectSim(key, result) {
+  const now = Date.now();
+  for (const [k, v] of SUBJECT_SIM_CACHE.entries()) {
+    if (!Number.isFinite(v?.timestamp) || now - v.timestamp > SUBJECT_SIM_TTL_MS) {
+      SUBJECT_SIM_CACHE.delete(k);
+    }
+  }
+  if (SUBJECT_SIM_CACHE.size >= SUBJECT_SIM_MAX_SIZE) {
+    const oldest = SUBJECT_SIM_CACHE.keys().next().value;
+    if (oldest !== undefined) SUBJECT_SIM_CACHE.delete(oldest);
+  }
+  SUBJECT_SIM_CACHE.set(key, { result, timestamp: now });
+}
+
 export function useMonteCarloStats({
   categories,
   goalDate,
@@ -1078,10 +1102,10 @@ export function useMonteCarloStats({
           rawSimuladoRows?.length || 0
         ].join('|');
 
-        const cachedSim = SUBJECT_SIM_CACHE.get(simKey);
+        const cachedResult = getCachedSubjectSim(simKey);
         let result;
-        if (cachedSim && (Date.now() - cachedSim.timestamp < SUBJECT_SIM_TTL_MS)) {
-          result = cachedSim.result;
+        if (cachedResult) {
+          result = cachedResult;
         } else {
           result = simulateNormalDistribution({
             mean: baseline,
@@ -1096,19 +1120,7 @@ export function useMonteCarloStats({
             historyLength: cat.n || 0,
             bayesianCI: cat.bayesianCI || null
           });
-          // G-01 FIX: Eviction adequada — remover entradas expiradas primeiro,
-          // depois LRU se ainda acima do limite.
-          if (SUBJECT_SIM_CACHE.size > SUBJECT_SIM_MAX_SIZE) {
-            const now = Date.now();
-            for (const [key, entry] of SUBJECT_SIM_CACHE.entries()) {
-              if (now - entry.timestamp > SUBJECT_SIM_TTL_MS) SUBJECT_SIM_CACHE.delete(key);
-            }
-            while (SUBJECT_SIM_CACHE.size > SUBJECT_SIM_MAX_SIZE) {
-              const oldestKey = SUBJECT_SIM_CACHE.keys().next().value;
-              SUBJECT_SIM_CACHE.delete(oldestKey);
-            }
-          }
-          SUBJECT_SIM_CACHE.set(simKey, { result, timestamp: Date.now() });
+          setCachedSubjectSim(simKey, result);
         }
 
         const subjDiag = {

@@ -111,6 +111,9 @@ export const daysUntilGoal = (goalDate, { fallback = 30, min = 1, referenceDate 
   const diffDays = Math.ceil((goal.getTime() - now.getTime()) / 86400000);
   if (!Number.isFinite(diffDays)) return fallback;
 
+  // BUG: datas passadas retornavam min (1), mascarando meta vencida.
+  if (diffDays < 0) return 0;
+
   const safeDays = diffDays >= min ? diffDays : min;
   return Math.min(3650, safeDays);
 };

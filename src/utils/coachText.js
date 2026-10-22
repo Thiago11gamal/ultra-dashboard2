@@ -26,12 +26,12 @@ export function cleanCoachNoise(text) {
   let prev;
   let cur = String(text);
   let iterations = 0;
+  const MAX_ITERATIONS = 25;
   do {
     prev = cur;
     cur = cur.replace(RX_NOISE_ACTION, ' ');
     iterations++;
-    // FIX: guarda contra loop infinito se regex casar vazio por edge-case
-  } while (cur !== prev && iterations < 20);
+  } while (cur !== prev && iterations < MAX_ITERATIONS);
   return cur.replace(/\s{2,}/g, ' ').trim();
 }
 

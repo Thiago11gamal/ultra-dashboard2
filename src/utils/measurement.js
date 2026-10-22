@@ -175,7 +175,10 @@ export function latestByDate(rows, getDate = (row) => row?.date || row?.createdA
   let best = null;
 
   for (const row of safeArray(rows)) {
-    const t = safeTime(getDate(row), NaN);
+    const rawDate = typeof row?.date === 'string' ? row.date.trim() : row?.date;
+    const rawCreated = typeof row?.createdAt === 'string' ? row.createdAt.trim() : row?.createdAt;
+    const dateVal = rawDate || rawCreated || (typeof getDate === 'function' ? getDate(row) : null);
+    const t = safeTime(dateVal, NaN);
     if (!Number.isFinite(t)) continue;
 
     if (!best || t > best.t) {
@@ -537,24 +540,37 @@ export function deduplicateSimulados(simulados, options = {}) {
 
     const dateKey = getDateKey(s?.date || s?.createdAt) || "sem-data";
 
+    // BUG: correct: 0 era colapsado com correct: undefined.
+    const hasTotal = Number.isFinite(Number(s?.total));
+    const hasCorrect = Number.isFinite(Number(s?.correct));
+
     const idPart = s?.id || [
       subjectKey,
       dateKey,
       norm.points.toFixed(2)
     ].join(':');
-    const key = [idPart, subjectKey, dateKey, norm.points.toFixed(2)].join("|");
+    const key = [
+      idPart,
+      subjectKey,
+      dateKey,
+      norm.points.toFixed(2),
+      hasTotal ? Number(s.total) : '',
+      hasCorrect ? Number(s.correct) : '',
+    ].join("|");
 
-    map.set(key, {
-      ...s,
-      total: norm.total,
-      correct: norm.correct,
-      scorePoints: norm.points,
-      scorePct: norm.pct,
-      score: norm.points,
-      scoreUnit: "points",
-      isPercentage: false,
-      originalIsPercentage: Boolean(s?.isPercentage)
-    });
+    if (!map.has(key)) {
+      map.set(key, {
+        ...s,
+        total: norm.total,
+        correct: norm.correct,
+        scorePoints: norm.points,
+        scorePct: norm.pct,
+        score: norm.points,
+        scoreUnit: "points",
+        isPercentage: false,
+        originalIsPercentage: Boolean(s?.isPercentage)
+      });
+    }
   });
 
   return Array.from(map.values());

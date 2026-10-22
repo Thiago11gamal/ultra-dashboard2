@@ -342,6 +342,29 @@ export function buildPolicyReport(selectedActions = [], causalModel = null, opti
   };
 }
 
+/**
+ * Estima uplift causal com IPW estabilizado.
+ */
+export function estimateUplift({ outcome, treatment, propensity, weight = 1 } = {}) {
+  const y = Number(outcome);
+  const t = treatment ? 1 : 0;
+  const p = Number(propensity);
+  const w = Number(weight);
+
+  // BUG: propensity 0/1 causava divisão por zero/Infinity.
+  if (!Number.isFinite(y) || !Number.isFinite(p)) {
+    return 0;
+  }
+
+  const safePropensity = Math.min(0.99, Math.max(0.01, p));
+  const safeWeight = Number.isFinite(w) && w > 0 ? Math.min(10, w) : 1;
+
+  const sign = t === 1 ? 1 : -1;
+  const uplift = sign * ((y * safeWeight) / safePropensity);
+
+  return Number.isFinite(uplift) ? uplift : 0;
+}
+
 export default {
   inferActionType,
   candidatesFromWeakTopics,
@@ -349,5 +372,6 @@ export default {
   scoreCandidatesWithCausal,
   selectPersonalizedActions,
   buildPolicyReport,
+  estimateUplift,
 };
 

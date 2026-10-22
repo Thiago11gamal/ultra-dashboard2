@@ -17,7 +17,7 @@ const EVICTABLE_PREFIXES = [
 
 export function safeSetItem(key, value) {
   const storage = getStorage();
-  if (!storage) return false;
+  if (!storage || typeof key !== 'string' || key.length === 0) return false;
   let serialized;
   try {
     serialized = typeof value === 'string' ? value : JSON.stringify(value);
@@ -44,17 +44,26 @@ export function safeSetItem(key, value) {
           const evictable = coachKeys.filter(k =>
             EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
           );
-          const pickLargest = (keys) => keys.reduce(
-            (biggest, k) => ((storage.getItem(k)?.length || 0) > (storage.getItem(biggest)?.length || 0) ? k : biggest),
-            keys[0]
-          );
-          if (evictable.length === 0) {
-            // Nenhum item evitável — tentar limpar qualquer coach_
-            if (coachKeys.length > 0) evictable.push(coachKeys[0]);
-            else return false;
+
+          // BUG: se evictable vazio, nada era removido e o loop repetia até falhar.
+          const candidates = evictable.length > 0
+            ? evictable
+            : coachKeys.filter(k => k !== key);
+
+          if (candidates.length === 0) return false;
+
+          const pickLargest = (keys) => keys.reduce((biggest, k) => {
+            const biggestSize = storage.getItem(biggest)?.length || 0;
+            const currentSize = storage.getItem(k)?.length || 0;
+            return currentSize > biggestSize ? k : biggest;
+          }, keys[0]);
+
+          const largest = pickLargest(candidates);
+
+          // BUG: o maior item era escolhido, mas nem sempre removido antes do retry.
+          if (largest && largest !== key) {
+            storage.removeItem(largest);
           }
-          const largest = pickLargest(evictable);
-          storage.removeItem(largest);
         } catch {
           return false;
         }

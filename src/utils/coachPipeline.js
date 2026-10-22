@@ -22,9 +22,12 @@ export const clearCoachCaches = _clearCoachCaches;
 export async function coach(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
   const safeOptions = {
-    force: options.force ?? true,
     ...(options && typeof options === 'object' ? options : {}),
   };
+
+  // BUG: force padrão true podia bypassar cache e gerar custo/execuções desnecessárias.
+  safeOptions.force = safeOptions.force === true;
+
   try {
       const result = await runCoachOrchestrator(safeInput, safeOptions);
       if (!result) {
@@ -48,6 +51,7 @@ export async function coach(input = {}, options = {}) {
       // FIX: garantir que errors é sempre array mesmo se meta.errors for corrompido
       if (!Array.isArray(safeMeta.errors)) safeMeta.errors = [];
       if (!safeMeta.modules || typeof safeMeta.modules !== 'object' || Array.isArray(safeMeta.modules)) safeMeta.modules = {};
+      if (!safeMeta.flags || typeof safeMeta.flags !== 'object') safeMeta.flags = {};
 
       return {
         ok: true,
@@ -63,7 +67,7 @@ export async function coach(input = {}, options = {}) {
       console.error('[CoachPipeline] Erro no orquestrador:', err);
       return {
           ok: false,
-          error: err?.message || String(err),
+          error: 'Falha no pipeline do Coach',
           generatedAt: Date.now(),
           focus: null,
           tasks: [],
@@ -71,7 +75,7 @@ export async function coach(input = {}, options = {}) {
           details: {},
           meta: {
             modules: {},
-            errors: [{ step: 'orchestrator', message: err?.message || String(err) }],
+            errors: [{ step: 'coachPipeline', message: err?.message || String(err) }],
             flags: {},
           }
       };

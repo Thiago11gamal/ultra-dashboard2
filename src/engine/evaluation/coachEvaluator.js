@@ -20,6 +20,7 @@ import {
   computeCalibrationDiagnostics,
 } from '../../utils/calibration.js';
 import { toFiniteStrict, clampFiniteStrict } from '../../utils/coachSafe.js';
+import { safeSetItem } from '../../utils/coachStorage.js';
 
 const EVAL_STORAGE_KEY = 'coach_evaluation_results_v1';
 const EVAL_STORAGE_MAX = 500;
@@ -605,25 +606,30 @@ export function buildEvaluationDashboardData(summary = {}) {
  * Salva avaliações no localStorage.
  */
 export function saveEvaluationResult(result) {
-  // FIX: validar shape antes de salvar — resultados corrompidos contaminavam o histórico
-  if (!result || typeof result !== 'object') {
-    return false;
-  }
-  if (!Array.isArray(result) && typeof result.timestamp === 'undefined' && typeof result.generatedAt === 'undefined') {
-    return false;
-  }
-  const storage = getStorage();
-  if (!storage) return false;
   try {
-    const raw = storage.getItem(EVAL_STORAGE_KEY);
-    const parsed = JSON.parse(raw || '[]');
-    const current = Array.isArray(parsed) ? parsed : [];
-    const toAdd = Array.isArray(result) ? result : [result];
-    const next = [...current, ...toAdd]
-      .filter(Boolean)
-      .slice(-EVAL_STORAGE_MAX);
-    storage.setItem(EVAL_STORAGE_KEY, JSON.stringify(next));
-    return true;
+    const existing = loadEvaluationResults();
+
+    if (!result || typeof result !== 'object') return false;
+
+    const items = Array.isArray(result) ? result : [result];
+    const sanitizedItems = items.map(item => {
+      if (!item || typeof item !== 'object') return null;
+      const sanitized = { ...item };
+      if (!Number.isFinite(sanitized.timestamp)) {
+        sanitized.timestamp = Number.isFinite(sanitized.generatedAt) ? sanitized.generatedAt : Date.now();
+      }
+      if (Number.isFinite(sanitized.probability)) {
+        sanitized.probability = Math.max(0, Math.min(100, sanitized.probability));
+      } else {
+        sanitized.probability = null;
+      }
+      return sanitized;
+    }).filter(Boolean);
+
+    if (sanitizedItems.length === 0) return false;
+
+    const updated = [...sanitizedItems, ...existing].slice(0, EVAL_STORAGE_MAX);
+    return safeSetItem(EVAL_STORAGE_KEY, JSON.stringify(updated));
   } catch {
     return false;
   }
@@ -633,12 +639,22 @@ export function saveEvaluationResult(result) {
  * Carrega avaliações salvas.
  */
 export function loadEvaluationResults() {
-  const storage = getStorage();
-  if (!storage) return [];
   try {
+    const storage = getStorage();
+    if (!storage) return [];
+
     const raw = storage.getItem(EVAL_STORAGE_KEY);
-    const parsed = JSON.parse(raw || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    if (!raw) return [];
+
+    // BUG: JSON corrompido quebrava todo o avaliador.
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter(item =>
+      item &&
+      typeof item === 'object' &&
+      Number.isFinite(item.timestamp ?? item.generatedAt)
+    );
   } catch {
     return [];
   }

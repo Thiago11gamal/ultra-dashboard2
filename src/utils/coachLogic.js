@@ -299,22 +299,32 @@ export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, gl
 export function computeRobustVolatilityForCoach(history = [], maxScore = 100, minScore = 0) {
     const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     const safeMin = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMax) : 0;
-    const range = Math.max(1e-9, safeMax - safeMin);
-    const fallbackVol = 0.08 * range;
+    const domain = Math.max(1e-9, safeMax - safeMin);
     const safeHistory = Array.isArray(history) ? history : Object.values(history || {});
-    const n = safeHistory.length;
-    if (n < 2) return fallbackVol;
-    const validScores = safeHistory
+    const scores = safeHistory
         .map(h => getSafeScore(h, safeMax, safeMin))
         .filter(s => Number.isFinite(s));
-    const validN = validScores.length;
-    if (validN < 2) return fallbackVol;
-    const mean = kahanSum(validScores) / validN;
-    const devs = validScores.map(val => Math.pow(val - mean, 2));
-    const variance = kahanSum(devs) / (validN - 1);
-    const empiricalVol = Math.sqrt(Math.max(0, variance));
-    const shrinkFactor = validN / (validN + 4);
-    return empiricalVol * shrinkFactor + fallbackVol * (1 - shrinkFactor);
+
+    if (scores.length === 0) return 0;
+
+    if (scores.length === 1) {
+        // Prior neutro para amostra única.
+        return Math.max(0, Math.min(20, domain * 0.08));
+    }
+
+    const n = scores.length;
+    const mean = kahanSum(scores) / n;
+    const devs = scores.map(val => Math.pow(val - mean, 2));
+    const variance = kahanSum(devs) / (n - 1);
+    const empirical = Math.sqrt(Math.max(0, variance));
+    const prior = domain * 0.08;
+
+    const weight = Math.min(1, n / 8);
+    let vol = (empirical * weight) + (prior * (1 - weight));
+
+    // BUG: volatilidade podia estourar e dominar urgência/MC.
+    if (!Number.isFinite(vol)) return 0;
+    return Math.max(0, Math.min(domain * 0.35, vol));
 }
 
 export const sanitizeNum = (val) => {
@@ -1508,6 +1518,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         normalizedScore: normalized,
         recommendation,
         details: {
+            categoryId: metrics.categoryId || metrics.safeCategory?.id || null,
             averageScore: safeFixedNumber(averageScore),
             globalProjectedMean: globalProjectedMean != null ? safeFixedNumber(globalProjectedMean, 1) : null,
             daysSinceLastStudy,
@@ -1743,7 +1754,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         ]);
         const cacheKey = `urg_${hashString64(cacheKeyRaw)}`;
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
-        if (cachedUrgency) {
+        // BUG: cache podia devolver urgência de outra categoria se hash colidisse ou estado mudasse.
+        if (
+            cachedUrgency &&
+            (!catId || !cachedUrgency?.details?.categoryId || cachedUrgency.details.categoryId === catId || cachedUrgency.details.categoryId === category?.id) &&
+            Number.isFinite(cachedUrgency?.score)
+        ) {
             // ✅ FIX: Validar que o cache não está stale verificando se a categoria ainda existe
             const categoryStillExists = options.allCategories
                 ? options.allCategories.some(c => c && (c.id === catId || c.name === catId))
@@ -2774,7 +2790,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         return true;
     });
 
-    return dedupedTasks;
+    // BUG: testes exigiam máximo de 12 tarefas, mas o generator podia crescer sem limite.
+    const MAX_DAILY_GOALS = 12;
+    return dedupedTasks.slice(0, MAX_DAILY_GOALS);
 };
 
 export const getCognitiveState = (studyLogs = [], options = {}) => {

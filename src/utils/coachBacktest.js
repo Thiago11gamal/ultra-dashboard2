@@ -20,21 +20,39 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
   const safePredicted = safeArray(predicted);
   const safeActual = safeArray(actual);
 
+  // BUG: k <= 0 ou não-finito gerava slice/loop inválido.
+  const topK = Number.isFinite(k) && k > 0 ? Math.floor(k) : 5;
+  if (topK <= 0) return 0;
+
   if (safePredicted.length === 0 || safeActual.length === 0) return 0;
-  const topK = Math.max(1, Math.min(k, safePredicted.length));
 
-  const actualMap = new Map(
-    safeActual.map((x) => [String(x?.id || ''), clampRelevance(x?.relevance)])
-  );
+  const relevanceMap = new Map();
 
-  const dcg = safePredicted.slice(0, topK).reduce((acc, item, idx) => {
-    const rel = actualMap.get(String(item?.id || '')) || 0;
-    return acc + ((Math.pow(2, rel) - 1) / Math.log2(idx + 2));
-  }, 0);
+  safeActual.forEach((item, idx) => {
+    const id = String(item?.id || item?.topic || idx);
+    relevanceMap.set(id, clampRelevance(item?.relevance ?? item?.score ?? 1));
+  });
+
+  let dcg = 0;
+
+  safePredicted.slice(0, topK).forEach((item, idx) => {
+    const id = String(item?.id || item?.topic || idx);
+    const rel = clampRelevance(relevanceMap.get(id) || 0);
+
+    // BUG: relevância alta demais podia estourar Math.pow(2, rel).
+    const safeRel = Math.min(10, Math.max(0, rel));
+    const gain = Math.pow(2, safeRel) - 1;
+    const discount = Math.log2(idx + 2);
+
+    dcg += Number.isFinite(gain) && Number.isFinite(discount) && discount > 0
+      ? gain / discount
+      : 0;
+  });
 
   const ideal = [...safeActual].sort((a, b) => {
     const diff = (Number(b?.relevance) || 0) - (Number(a?.relevance) || 0);
     if (diff !== 0) return diff;
+
     const idA = String(a?.id || '');
     const idB = String(b?.id || '');
     return idA.localeCompare(idB);
@@ -42,10 +60,20 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
 
   const idcg = ideal.slice(0, topK).reduce((acc, item, idx) => {
     const rel = clampRelevance(item?.relevance);
-    return acc + ((Math.pow(2, rel) - 1) / Math.log2(idx + 2));
+    const safeRel = Math.min(10, Math.max(0, rel));
+    const gain = Math.pow(2, safeRel) - 1;
+    const discount = Math.log2(idx + 2);
+
+    return acc + (
+      Number.isFinite(gain) && Number.isFinite(discount) && discount > 0
+        ? gain / discount
+        : 0
+    );
   }, 0);
 
-  if (idcg <= 0) return 0;
+  if (!Number.isFinite(idcg) || idcg <= 0) return 0;
+  if (!Number.isFinite(dcg)) return 0;
+
   return Math.min(1.0, Math.max(0.0, dcg / idcg));
 }
 

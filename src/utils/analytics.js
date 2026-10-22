@@ -62,9 +62,13 @@ export const calculateStudyStreak = (studyLogs) => {
     const daySet = new Set(
         logsArray
             // BUG-FIX: contar flashcards como atividade (getStudyMinutes retorna 0 para flashcards)
-            .filter(log => log && log.date && (getStudyMinutes(log) > 0 || log.type === 'flashcard'))
-            .map(log => getDateKey(log.date))
+            .filter(log => log && (log.date || log.createdAt || log.lastUpdated) && (getStudyMinutes(log) > 0 || log.type === 'flashcard'))
+            .map(log => getDateKey(log.date || log.createdAt || log.lastUpdated))
             .filter(key => key && /^\d{4}-\d{2}-\d{2}$/.test(key))
+            .filter(key => {
+                const d = parseNoonLocal(key);
+                return d && !Number.isNaN(d.getTime());
+            })
     );
     const sortedDays = Array.from(daySet).sort((a, b) =>
         parseNoonLocal(b) - parseNoonLocal(a)
@@ -99,19 +103,34 @@ export const calculateStudyStreak = (studyLogs) => {
         cursor.setUTCDate(cursor.getUTCDate() - 1);
     }
     const longest = calculateLongest(sortedDays);
-    return { current: streak, best: longest, longest, isActive: gapDays <= 1 };
+    return { current: streak, best: Math.max(streak, longest), longest, isActive: gapDays <= 1 };
 };
 
 
 const calculateLongest = (uniqueDays) => {
-    if (!uniqueDays || uniqueDays.length === 0) return 0;
+    if (!Array.isArray(uniqueDays) || uniqueDays.length === 0) return 0;
+
+    const validDays = uniqueDays.filter(day => {
+        const d = parseNoonLocal(day);
+        return d && !Number.isNaN(d.getTime());
+    });
+
+    if (validDays.length === 0) return 0;
+    if (validDays.length === 1) return 1;
+
     let longest = 1;
     let current = 1;
-    // uniqueDays está ordenado DECRESCENTE — iteramos do mais recente ao mais antigo
-    for (let i = 1; i < uniqueDays.length; i++) {
-        const dCurrent = parseNoonLocal(uniqueDays[i]);
-        const dPrev = parseNoonLocal(uniqueDays[i - 1]);
+    // validDays está ordenado DECRESCENTE — iteramos do mais recente ao mais antigo
+    for (let i = 1; i < validDays.length; i++) {
+        const dCurrent = parseNoonLocal(validDays[i]);
+        const dPrev = parseNoonLocal(validDays[i - 1]);
         const diff = Math.round((dPrev - dCurrent) / (1000 * 60 * 60 * 24));
+
+        if (!Number.isFinite(diff)) {
+            current = 1;
+            continue;
+        }
+
         if (diff === 1) {
             current++;
             longest = Math.max(longest, current);

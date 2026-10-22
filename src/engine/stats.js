@@ -307,7 +307,30 @@ export function mean(arr) {
     return kahanMean(arr);
 }
 
-export const calcularMedia = mean;
+export function calcularMedia(values = []) {
+  const safe = (Array.isArray(values) ? values : Object.values(values || {}))
+    .map(Number)
+    .filter(Number.isFinite);
+
+  if (safe.length === 0) return 0;
+  return safe.reduce((acc, x) => acc + x, 0) / safe.length;
+}
+
+export function calcularDesvioPadrao(values = []) {
+  const safe = (Array.isArray(values) ? values : Object.values(values || {}))
+    .map(Number)
+    .filter(Number.isFinite);
+
+  if (safe.length <= 1) return 0;
+
+  const m = calcularMedia(safe);
+  const sumSq = safe.reduce((acc, x) => acc + Math.pow(x - m, 2), 0);
+
+  // BUG: estava usando desvio populacional; o correto para amostra é n-1.
+  const variance = sumSq / (safe.length - 1);
+  return Number.isFinite(variance) && variance >= 0 ? Math.sqrt(variance) : 0;
+}
+
 export { average, averageOrZero };
 
 // ✅ FIX: standardDeviation aceita array de números nus

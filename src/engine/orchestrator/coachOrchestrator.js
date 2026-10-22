@@ -152,19 +152,30 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   );
 
   // FIX (BUG-34): timeout + AbortController
-  const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0
-    ? Number(options.timeoutMs)
-    : DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  // FIX: limpar timeout se a Promise resolver antes do abort.
-  const cleanup = () => clearTimeout(timeoutId);
+  // BUG: timeout podia ficar pendurado mesmo após resolução; abort listener não era limpo.
+  let timeoutId = null;
+  if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  }
+
+  const clearOrchestratorTimeout = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  const onAbort = () => clearOrchestratorTimeout();
+  controller.signal.addEventListener('abort', onAbort, { once: true });
 
   const ensureNotAborted = (stepName) => {
     if (controller.signal.aborted) {
+      const err = new Error(`Coach abortado em ${stepName}`);
+      err.name = 'AbortError';
       meta.errors.push({ step: stepName, message: 'Timeout exceeded' });
-      throw new Error(`Orchestrator aborted at step: ${stepName}`);
+      throw err;
     }
   };
 
@@ -411,9 +422,9 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       if (explanationModule?.enhanceCoachResultWithLLM) {
         let llmTimerId = null;
         try {
-          const llmTimeout = new Promise((_, reject) =>
-            llmTimerId = setTimeout(() => reject(new Error('LLM timeout')), 5000)
-          );
+          const llmTimeout = new Promise((_, reject) => {
+            llmTimerId = setTimeout(() => reject(new Error('LLM timeout')), 5000);
+          });
           const enhanced = await Promise.race([
             explanationModule.enhanceCoachResultWithLLM(
               focus.urgency,
@@ -530,9 +541,8 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       },
     };
   } finally {
-    // FIX (BUG-34): sempre limpar o timer de timeout
-    cleanup();
-    clearTimeout(timeoutId);
+    clearOrchestratorTimeout();
+    controller.signal.removeEventListener('abort', onAbort);
   }
 }
 

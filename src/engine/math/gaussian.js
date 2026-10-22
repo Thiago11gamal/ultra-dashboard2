@@ -274,34 +274,35 @@ export function inverseNormalCDF(p) {
     }
 }
 
-export function sampleTruncatedNormal(mean, sd, min, max, rng, options) {
-    if (!Number.isFinite(mean) || !Number.isFinite(sd) || !Number.isFinite(min) || !Number.isFinite(max)) {
-        const lo = Number.isFinite(min) ? min : 0;
-        const hi = Number.isFinite(max) ? max : lo;
-        return Math.max(lo, Math.min(hi, (lo + hi) / 2));
+export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
+    // BUG: parâmetros inválidos precisam retornar valor determinístico e dentro do range.
+    const rawLo = Number.isFinite(min) ? min : 0;
+    const rawHi = Number.isFinite(max) ? max : 100;
+    const lo = Math.min(rawLo, rawHi);
+    const hi = Math.max(rawLo, rawHi);
+
+    const safeMean = Number.isFinite(mean) ? mean : (lo + hi) / 2;
+    const safeSd = Number.isFinite(sd) && sd > MIN_SD_FLOOR ? sd : MIN_SD_FLOOR;
+
+    if (hi - lo < 1e-12) {
+        return Math.max(lo, Math.min(hi, safeMean));
     }
 
-    if (min > max) {
-        const temp = min;
-        min = max;
-        max = temp;
+    if (safeSd <= MIN_SD_FLOOR) {
+        return Math.max(lo, Math.min(hi, safeMean));
     }
 
-    if (sd <= MIN_SD_FLOOR) return Math.max(min, Math.min(max, mean));
-
-    const alpha = (min - mean) / sd;
-    const beta = (max - mean) / sd;
+    const alpha = (lo - safeMean) / safeSd;
+    const beta = (hi - safeMean) / safeSd;
     let diff;
     let cdfMin;
 
     if (alpha > 0 && beta > 0) {
-        // Evita cancelamento catastrófico na cauda direita usando a Função de Sobrevivência (S)
         const sAlpha = normalCDF_complement(alpha);
         const sBeta = normalCDF_complement(beta);
         diff = sAlpha - sBeta;
         cdfMin = 1 - sAlpha;
     } else if (alpha < 0 && beta < 0) {
-        // Evita cancelamento catastrófico na cauda esquerda usando simetria: Φ(z) = S(-z)
         const sNegBeta = normalCDF_complement(-beta);
         const sNegAlpha = normalCDF_complement(-alpha);
         diff = sNegBeta - sNegAlpha;
@@ -311,52 +312,64 @@ export function sampleTruncatedNormal(mean, sd, min, max, rng, options) {
         const cdfMax = 1 - normalCDF_complement(beta);
         diff = cdfMax - cdfMin;
     }
-    if (diff < 1e-16) {
-        return Math.max(min, Math.min(max, mean));
+
+    // BUG: diff minúsculo em caudas extremas podia gerar p inválido/NaN.
+    if (!Number.isFinite(diff) || diff < 1e-16) {
+        return Math.max(lo, Math.min(hi, safeMean));
     }
 
     const strictDeterminism = options && options.strict === true;
-    if (typeof rng !== 'function') {
+    let effectiveRng = rng;
+    if (typeof effectiveRng !== 'function') {
         if (strictDeterminism) {
             throw new Error('STRICT_DETERMINISM: sampleTruncatedNormal requires a deterministic RNG function');
         }
-        // G-07 FIX: Usar mulberry32 com seed fixo em vez de Math.random
-        // para garantir reprodutibilidade.
         if (!globalThis.__MC_WARNED_FALLBACK_RNG__) {
             console.warn('sampleTruncatedNormal: no RNG provided, using deterministic fallback');
             globalThis.__MC_WARNED_FALLBACK_RNG__ = true;
         }
-        rng = mulberry32(42); // seed fixo para determinismo
+        effectiveRng = mulberry32(42);
     }
-    const sampledU = rng();
-    const u = Number.isFinite(sampledU)
-        ? Math.max(0, Math.min(1, sampledU))
-        : 0.5;
+
+    let sampledU;
+    try {
+        sampledU = effectiveRng();
+    } catch {
+        sampledU = 0.5;
+    }
+
+    const u = Number.isFinite(sampledU) ? Math.max(0, Math.min(1, sampledU)) : 0.5;
     const p = cdfMin + u * diff;
 
-    const zScore = inverseNormalCDF(p);
-    const rawScore = mean + (zScore * sd);
+    // BUG: p exatamente 0/1 pode estourar inverseNormalCDF.
+    const safeP = Math.min(1 - 1e-12, Math.max(1e-12, p));
+    const zScore = inverseNormalCDF(safeP);
 
-    return Math.max(min, Math.min(max, rawScore));
-}
-
-export function truncatedNormalFromUniform(mean, sd, min, max, u) {
-    if (!Number.isFinite(mean) || !Number.isFinite(sd) || !Number.isFinite(min) || !Number.isFinite(max)) {
-        const lo = Number.isFinite(min) ? min : 0;
-        const hi = Number.isFinite(max) ? max : lo;
+    if (!Number.isFinite(zScore)) {
         return Math.max(lo, Math.min(hi, (lo + hi) / 2));
     }
 
-    if (min > max) {
-        const temp = min;
-        min = max;
-        max = temp;
-    }
+    const rawScore = safeMean + (zScore * safeSd);
+    return Math.max(lo, Math.min(hi, rawScore));
+}
 
-    if (sd <= MIN_SD_FLOOR) return Math.max(min, Math.min(max, mean));
+export function truncatedNormalFromUniform(mean, sd, min, max, u) {
+    const rawLo = Number.isFinite(min) ? min : 0;
+    const rawHi = Number.isFinite(max) ? max : 100;
+    const lo = Math.min(rawLo, rawHi);
+    const hi = Math.max(rawLo, rawHi);
 
-    const alpha = (min - mean) / sd;
-    const beta = (max - mean) / sd;
+    const safeMean = Number.isFinite(mean) ? mean : (lo + hi) / 2;
+    const safeSd = Number.isFinite(sd) && sd > MIN_SD_FLOOR ? sd : MIN_SD_FLOOR;
+
+    if (hi - lo < 1e-12) return Math.max(lo, Math.min(hi, safeMean));
+    if (safeSd <= MIN_SD_FLOOR) return Math.max(lo, Math.min(hi, safeMean));
+
+    const safeU = Number.isFinite(u) ? Math.max(0, Math.min(1, u)) : 0.5;
+
+    const alpha = (lo - safeMean) / safeSd;
+    const beta = (hi - safeMean) / safeSd;
+
     let diff;
     let cdfMin;
 
@@ -375,47 +388,72 @@ export function truncatedNormalFromUniform(mean, sd, min, max, u) {
         const cdfMax = 1 - normalCDF_complement(beta);
         diff = cdfMax - cdfMin;
     }
-    if (diff < 1e-16) {
-        return Math.max(min, Math.min(max, mean));
+
+    if (!Number.isFinite(diff) || diff < 1e-16) {
+        return Math.max(lo, Math.min(hi, safeMean));
     }
 
-    const safeU = Number.isFinite(u) ? Math.max(0, Math.min(1, u)) : 0.5;
     const p = cdfMin + safeU * diff;
-    const zScore = inverseNormalCDF(p);
-    const rawScore = mean + (zScore * sd);
+    const safeP = Math.min(1 - 1e-12, Math.max(1e-12, p));
+    const zScore = inverseNormalCDF(safeP);
 
-    return Math.max(min, Math.min(max, rawScore));
+    if (!Number.isFinite(zScore)) {
+        return Math.max(lo, Math.min(hi, (lo + hi) / 2));
+    }
+
+    const rawScore = safeMean + (zScore * safeSd);
+    return Math.max(lo, Math.min(hi, rawScore));
 }
 
 export function ensurePositiveSemiDefinite(matrix, baseJitter = 1e-9) {
-    const n = matrix.length;
-    const cloneBase = matrix.map(row => [...row]);
+    // BUG: matriz inválida podia propagar undefined/NaN para Kalman/covariância.
+    if (!Array.isArray(matrix) || matrix.length === 0) return [];
 
-    let diagMax = 0;
-    for (let i = 0; i < n; i++) {
-        diagMax = Math.max(diagMax, Math.abs(cloneBase[i][i] || 0));
+    const size = matrix.length;
+    const safeMatrix = matrix.map(row => Array.isArray(row) ? row.slice() : []);
+
+    for (let i = 0; i < size; i++) {
+        if (!Array.isArray(safeMatrix[i]) || safeMatrix[i].length !== size) {
+            safeMatrix[i] = new Array(size).fill(0);
+        }
     }
 
-    const maxAttempts = 6;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const factor = attempt === 0 ? 0 : attempt * 10;
-        const jitter = Math.max(baseJitter, (diagMax * 1e-8)) + (baseJitter * factor);
-        const psdMatrix = cloneBase.map((row, i) => row.map((v, j) => (i === j ? (v + jitter) : v)));
+    // Simetrizar e limpar valores não-finitos.
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            const a = Number.isFinite(safeMatrix[i][j]) ? safeMatrix[i][j] : 0;
+            const b = Number.isFinite(safeMatrix[j][i]) ? safeMatrix[j][i] : 0;
+            const v = (a + b) / 2;
+            safeMatrix[i][j] = v;
+            safeMatrix[j][i] = v;
+        }
+    }
+
+    let jitter = Number.isFinite(baseJitter) && baseJitter > 0 ? baseJitter : 1e-9;
+
+    // Reforço diagonal progressivo.
+    for (let attempt = 0; attempt < 6; attempt++) {
+        const candidate = safeMatrix.map((row, idx) =>
+            row.map((v, jdx) => (idx === jdx ? v + jitter : v))
+        );
 
         try {
-            const L = choleskyDecomposition(psdMatrix);
+            const L = choleskyDecomposition(candidate);
             let ok = true;
             for (let k = 0; k < L.length; k++) {
                 if (!Number.isFinite(L[k][k]) || L[k][k] <= 0) { ok = false; break; }
             }
-            if (ok) return psdMatrix;
+            if (ok) return candidate;
         } catch {
             // continue
         }
+        jitter *= 10;
     }
 
-    const fallbackJitter = Math.max(baseJitter, diagMax * 1e-6);
-    return cloneBase.map((row, i) => row.map((v, j) => (i === j ? (v + fallbackJitter) : v)));
+    // Fallback: matriz diagonal com variâncias positivas.
+    return safeMatrix.map((row, idx) =>
+        row.map((v, jdx) => (idx === jdx ? Math.max(Math.abs(v), jitter) : 0))
+    );
 }
 
 export function choleskyDecomposition(matrix) {
