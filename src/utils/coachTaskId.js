@@ -8,6 +8,7 @@ import { hashString } from './coachSafe';
 const _taskIdWeakMap = new WeakMap();
 
 export const ensureCoachTaskId = (task) => {
+  if (!task || typeof task !== 'object') return task;
   // FIX: validar que task.id é string não-vazia.
   // Antes: id=0 ou id="" gerava novo ID a cada call (instabilidade).
   if (task.id && typeof task.id === 'string' && task.id.trim().length > 0) return task;

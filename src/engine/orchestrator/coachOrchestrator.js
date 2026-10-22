@@ -155,6 +155,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   const controller = new AbortController();
 
   // BUG: timeout podia ficar pendurado mesmo após resolução; abort listener não era limpo.
+  const timeoutMs = Number.isFinite(Number(options?.timeoutMs)) ? Number(options.timeoutMs) : DEFAULT_TIMEOUT_MS;
   let timeoutId = null;
   if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
     timeoutId = setTimeout(() => controller.abort(), timeoutMs);

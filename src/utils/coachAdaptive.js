@@ -507,7 +507,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         const hasDiagnostics = Number.isFinite(ece);
         const safeEce = hasDiagnostics ? ece : 0;
         const eceScaled = hasDiagnostics ? Math.max(0, Math.min(1, safeEce / 0.25)) : 0;
-        const mceScaled = Math.max(0, Math.min(1, Number(diagnostics.mce || 0) / 0.4));
+        const _mceScaled = Math.max(0, Math.min(1, Number(diagnostics.mce || 0) / 0.4));
         const penaltyCap = adaptive?.calibrationMaxPenalty ?? safeCfg.MC_CALIBRATION_MAX_PENALTY ?? 0.25;
         const meanLL = rawPreds.length > 0
           ? rawPreds.reduce((acc, p, idx) => acc + computeLogLoss(clampProbForLoss(p), observedSeq[idx]), 0) / rawPreds.length

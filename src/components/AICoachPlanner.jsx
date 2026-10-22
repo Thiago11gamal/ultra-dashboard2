@@ -153,7 +153,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
 
 export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-  const categories = propCategories || activeContest?.categories || [];
+  const rawCategories = propCategories || activeContest?.categories || [];
+  const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
   const defaultCoachPlan = useMemo(() => [], []);
   const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
   const rawCoachPlanner = propPlannerData || activeContest?.coachPlanner || defaultCoachPlanner;
