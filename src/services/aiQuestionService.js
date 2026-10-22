@@ -48,6 +48,12 @@ export function validateAIQuestion(question) {
 
   if (!Array.isArray(question.alternativas) || question.alternativas.length < 2) return null;
 
+  // BUG: texto de IA podia conter HTML/script e entrar em dangerouslySetInnerHTML.
+  const sanitizeInline = (text) => String(text || '')
+    .replace(/<\s*(script|iframe|object|embed|form)[^>]*>.*?<\s*\/\s*\1\s*>/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+
   const seenLetters = new Set();
   const alternativas = question.alternativas
     .map((alt) => {
@@ -57,7 +63,7 @@ export function validateAIQuestion(question) {
         : rawLetra.replace(/[^A-E]/g, '').slice(0, 1);
       return {
         letra: cleanLetra,
-        texto: String(alt?.texto || '').trim(),
+        texto: sanitizeInline(alt?.texto || alt?.label || alt?.text || ''),
       };
     })
     .filter((alt) => {
@@ -74,10 +80,10 @@ export function validateAIQuestion(question) {
 
   return {
     id: String(question.id || safeRandomId()),
-    enunciado: question.enunciado.trim(),
+    enunciado: sanitizeInline(question.enunciado),
     alternativas,
     alternativa_correta: correta,
-    justificativa: typeof question.justificativa === 'string' ? question.justificativa.trim() : '',
+    justificativa: sanitizeInline(question.justificativa),
     materia: typeof question.materia === 'string' ? question.materia.trim() : '',
     assunto: typeof question.assunto === 'string' ? question.assunto.trim() : '',
     dificuldade: ['facil', 'medio', 'dificil', 'expert'].includes(question.dificuldade)

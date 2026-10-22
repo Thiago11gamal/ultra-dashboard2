@@ -364,7 +364,7 @@ export function standardDeviation(arr, maxScore = 100, customMean = null, minSco
   return Math.max(finalSdFloor, Math.sqrt(Math.max(0, adjustedVar)));
 }
 
-export const calcularDesvioPadrao = (arr, isSample = true) => {
+export const calcularDesvioPadrao = (arr, isSample = false) => {
     if (!arr) return 0;
 
     const clean = (Array.isArray(arr) ? arr : Object.values(arr || {}))
@@ -374,7 +374,6 @@ export const calcularDesvioPadrao = (arr, isSample = true) => {
 
     const m = kahanMean(clean);
     const sumSq = clean.map(x => Math.pow(x - m, 2));
-    // BUG: estava usando desvio populacional por padrão; o correto para amostra é n-1.
     const denom = isSample ? (clean.length - 1) : clean.length;
     const v = denom > 0 ? kahanSum(sumSq) / denom : 0;
 

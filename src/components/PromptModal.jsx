@@ -49,7 +49,12 @@ export default function PromptModal({
         if (!value) return;
 
         // ✅ FIX S01: Sanitização do input
-        const cleanValue = DOMPurify.sanitize(value);
+        // BUG: sanitize default podia permitir atributos on* e tags perigosas dependendo do profile.
+        const cleanValue = DOMPurify.sanitize(value, {
+            FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'link', 'meta'],
+            FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+            ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+        });
 
         if (!cleanValue || cleanValue.trim().length === 0) {
             console.warn('[PromptModal] Entrada rejeitada por conter HTML malicioso.');

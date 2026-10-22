@@ -187,6 +187,19 @@ function FactoryResetButton() {
                         'ultra-dashboard-storage-v8',
                         'ultra-dashboard-data-backup-safety'
                     ].forEach(key => localStorage.removeItem(key));
+
+                    // BUG: reset não removia caches do Coach (`coach_*`), mantendo estado stale.
+                    try {
+                        const coachKeys = [];
+                        for (let i = 0; i < localStorage.length; i++) {
+                            const k = localStorage.key(i);
+                            if (k && k.startsWith('coach_')) coachKeys.push(k);
+                        }
+                        coachKeys.forEach(k => localStorage.removeItem(k));
+                    } catch {
+                        // ignore
+                    }
+
                     sessionStorage.clear();
                     try {
                         await idbDel('ultra-dashboard-storage');

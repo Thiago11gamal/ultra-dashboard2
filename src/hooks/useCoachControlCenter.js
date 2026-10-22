@@ -147,10 +147,17 @@ export function useCoachControlCenter({
         }
       );
       // FIX: valida mount E que esta ainda é a execução mais recente
-      if (isMounted.current && runId === orchestratorRunIdRef.current && result) {
-        setOrchestratorResult(result);
-        const dash = buildCoachOrchestratorDashboard(result);
-        if (dash) setDashboard(dash);
+      if (isMounted.current && runId === orchestratorRunIdRef.current) {
+        // BUG: resultado inválido ficava silencioso e UI podia mostrar dashboard stale.
+        if (result && typeof result === 'object') {
+          setOrchestratorResult(result);
+          const dash = buildCoachOrchestratorDashboard(result);
+          if (dash) setDashboard(dash);
+        } else {
+          setOrchestratorResult(null);
+          setDashboard(null);
+          setError('Orquestrador retornou resultado inválido.');
+        }
       }
       if (isMounted.current && runId === orchestratorRunIdRef.current) setLastRunTimestamp(Date.now());
       return result;

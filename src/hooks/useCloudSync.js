@@ -618,7 +618,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           cats.forEach(cat => {
             contentFingerprint += (cat.tasks?.length || 0);
             contentFingerprint += (cat.simuladoStats?.history?.length || 0);
-            contentFingerprint += cat.name ? cat.name.length : 0;
+
+            // BUG: mudanças de status/conclusão não alteravam fingerprint e sync podia ignorar.
+            const tasksList = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+            contentFingerprint += tasksList.filter(t => t?.completed).length * 7;
+            contentFingerprint += tasksList.reduce((acc, t) => {
+              const prio = String(t?.priority || 'medium');
+              return acc + (prio === 'high' ? 11 : prio === 'low' ? 3 : 5);
+            }, 0);
+
+            contentFingerprint += String(cat?.name || '').length;
+            contentFingerprint += Number(cat?.weight || 0);
           });
         }
         contentFingerprint += (c?.simuladoRows?.length || 0) * 7;
@@ -748,6 +758,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           confirmParity();
         }
         return;
+      }
+
+      // BUG: empate de versão ignorava lastUpdated, permitindo overwrite indevido.
+      if (localVersion === cloudVersion) {
+        const localUpdated = new Date(localState?.lastUpdated || 0).getTime();
+        const cloudUpdated = new Date(cloudData?.lastUpdated || 0).getTime();
+
+        if (Number.isFinite(localUpdated) && Number.isFinite(cloudUpdated) && localUpdated >= cloudUpdated) {
+          if (!isParityValidatedRef.current) confirmParity();
+          return;
+        }
       }
 
       const now = Date.now();
