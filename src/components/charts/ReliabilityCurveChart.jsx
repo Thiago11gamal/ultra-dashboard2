@@ -3,12 +3,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Target } from 'lucide-react';
 import { ChartFrame } from './ChartFrame';
 
-// FIX: conversão segura para percentual inteiro (nunca NaN)
+// FIX: conversão segura para percentual inteiro (nunca NaN e compatível com 0..1 e 0..100)
 const toPercentInt = (value, fallback = 0) => {
     if (value === null || value === undefined || value === '') return fallback;
     const n = Number(value);
     if (!Number.isFinite(n)) return fallback;
-    const result = Math.round(n * 100);
+    const pct = Math.abs(n) <= 1 ? n * 100 : n;
+    const result = Math.round(pct);
     return Number.isFinite(result) ? Math.max(0, Math.min(100, result)) : fallback;
 };
 
@@ -72,14 +73,22 @@ const ReliabilityCurveChart = ({ buckets }) => {
                 const hasObs = b?.observedRate !== null && b?.observedRate !== undefined && b?.observedRate !== '' && Number.isFinite(Number(b.observedRate));
                 return count > 0 && hasPred && hasObs;
             })
-            .map(b => ({
-                pred: Number(b.meanPred),
-                obs: Number(b.observedRate),
-                gap: b?.gap !== null && b?.gap !== undefined && b?.gap !== '' && Number.isFinite(Number(b.gap))
-                    ? Number(b.gap)
-                    : Math.abs(Number(b.meanPred) - Number(b.observedRate)),
-                count: Math.max(0, Math.round(Number(b.count)))
-            }))
+            .map(b => {
+                const rawPred = Number(b.meanPred);
+                const rawObs = Number(b.observedRate);
+                const pred = rawPred > 1 ? rawPred / 100 : Math.max(0, Math.min(1, rawPred));
+                const obs = rawObs > 1 ? rawObs / 100 : Math.max(0, Math.min(1, rawObs));
+                const rawGap = b?.gap !== null && b?.gap !== undefined && b?.gap !== '' && Number.isFinite(Number(b.gap))
+                    ? Math.abs(Number(b.gap))
+                    : Math.abs(pred - obs);
+                const gap = rawGap > 1 ? rawGap / 100 : rawGap;
+                return {
+                    pred,
+                    obs,
+                    gap,
+                    count: Math.max(0, Math.round(Number(b.count)))
+                };
+            })
             .sort((a, b) => a.pred - b.pred);
     }, [buckets]);
 

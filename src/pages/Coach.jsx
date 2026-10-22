@@ -30,7 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
-import { formatDateTimePtBR } from '../utils/dateHelper';
+import { formatDateTimePtBR, toDateMs } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 import { isSubjectMatch } from '../utils/normalization';
 
@@ -935,6 +935,15 @@ export function RaioXDashboard({ data }) {
         return Number.isFinite(n) ? n : fallback;
     };
 
+    const toTimestampMs = (value, fallback = 0) => {
+        if (!value) return fallback;
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        const n = Number(value);
+        if (Number.isFinite(n)) return n;
+        const ms = toDateMs(value);
+        return Number.isFinite(ms) ? ms : fallback;
+    };
+
     const categories = useMemo(() => {
         const raw = data?.categories || [];
         return (Array.isArray(raw) ? raw : Object.values(raw || {})).map(c => ({
@@ -964,7 +973,20 @@ export function RaioXDashboard({ data }) {
     const categorySimCounts = useMemo(() => {
         const rawSims = Array.isArray(rawSimulados) ? rawSimulados : (rawSimulados ? Object.values(rawSimulados) : []);
         const rawRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : (rawSimuladoRows ? Object.values(rawSimuladoRows) : []);
-        const allSims = [...rawSims, ...rawRows];
+        
+        // Deduplica itens para evitar contagem dupla se o mesmo registro existir em simulados e simuladoRows
+        const seen = new Set();
+        const allSims = [];
+        [...rawSims, ...rawRows].forEach(s => {
+            if (!s) return;
+            const key = s.id ? `id_${s.id}` : (s.date && (s.subject || s.categoryId)) ? `d_${s.date}_${s.subject || s.categoryId}_${s.score}` : null;
+            if (key) {
+                if (seen.has(key)) return;
+                seen.add(key);
+            }
+            allSims.push(s);
+        });
+
         return categories.map(cat => {
             const catName = cat.name || cat.id || '';
             const count = allSims.filter(s => s && (
@@ -988,7 +1010,7 @@ export function RaioXDashboard({ data }) {
         for (const entries of Object.values(historyByCategory)) {
             if (Array.isArray(entries)) {
                 for (const e of entries) {
-                    const ts = toFiniteNumber(e?.timestamp);
+                    const ts = toTimestampMs(e?.timestamp);
                     if (ts > latestTs) latestTs = ts;
                 }
             }
@@ -1018,7 +1040,7 @@ export function RaioXDashboard({ data }) {
         return Array.from(mergedByCanonical.values())
             .map(({ categoryId, matchedCategory, rows }) => {
                 const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-                const recent = rows.filter(h => toFiniteNumber(h?.timestamp) >= sevenDaysAgo);
+                const recent = rows.filter(h => toTimestampMs(h?.timestamp) >= sevenDaysAgo);
                 const base = recent.length > 0 ? recent : rows;
                 const brierValues = base
                     .filter(h => h?.avgBrier !== null && h?.avgBrier !== undefined && h?.avgBrier !== '')
@@ -1049,7 +1071,7 @@ export function RaioXDashboard({ data }) {
 
     const sortedLogs = useMemo(() => {
         const source = Array.isArray(data?.calibrationAuditLog) ? data.calibrationAuditLog : [];
-        return [...source].sort((a, b) => toFiniteNumber(b?.timestamp) - toFiniteNumber(a?.timestamp));
+        return [...source].sort((a, b) => toTimestampMs(b?.timestamp) - toTimestampMs(a?.timestamp));
     }, [data?.calibrationAuditLog]);
 
     const isLogDegraded = useCallback((log) => {
@@ -1076,7 +1098,7 @@ export function RaioXDashboard({ data }) {
             const ece = toFiniteNumber(log?.ece, null);
             if (brier !== null || ece !== null) {
                 acc[catKey].push({
-                    ts: toFiniteNumber(log?.timestamp),
+                    ts: toTimestampMs(log?.timestamp),
                     brier,
                     ece
                 });
@@ -1108,14 +1130,23 @@ export function RaioXDashboard({ data }) {
     }, [sortedLogs, effectiveCategory, categories]);
 
     const avgEce = useMemo(() => {
-        const targetLogs = effectiveCategory
-            ? sortedLogs.filter(log => displaySubject(log?.categoryName || log?.categoryId, categories) === effectiveCategory)
-            : sortedLogs;
-        const eceValues = (targetLogs.length > 0 ? targetLogs : sortedLogs)
+        if (effectiveCategory) {
+            const targetLogs = sortedLogs.filter(log => displaySubject(log?.categoryName || log?.categoryId, categories) === effectiveCategory);
+            const eceValues = targetLogs
+                .map(log => toFiniteNumber(log?.ece, null))
+                .filter(val => val !== null);
+            if (eceValues.length > 0) {
+                return eceValues.reduce((a, b) => a + b, 0) / eceValues.length;
+            }
+            const activeEce = toFiniteNumber(activeReliabilityLog?.ece, null);
+            if (activeEce !== null) return activeEce;
+            return null;
+        }
+        const eceValues = sortedLogs
             .map(log => toFiniteNumber(log?.ece, null))
             .filter(val => val !== null);
         return eceValues.length ? (eceValues.reduce((a, b) => a + b, 0) / eceValues.length) : null;
-    }, [sortedLogs, effectiveCategory, categories]);
+    }, [sortedLogs, effectiveCategory, categories, activeReliabilityLog]);
 
     return (
         <div className="space-y-12 animate-fade-in">
@@ -1146,7 +1177,7 @@ export function RaioXDashboard({ data }) {
                             const radius = 14;
                             const circ = 2 * Math.PI * radius;
                             const offset = Number.isFinite(circ - (brierPct / 100) * circ) ? circ - (brierPct / 100) * circ : circ;
-                            const colorClass = !hasBrier ? 'text-slate-400' : (avgBrier >= 0.25 ? 'text-rose-500' : (avgBrier > 0.18 ? 'text-amber-500' : 'text-emerald-500'));
+                            const colorClass = isDegraded ? 'text-rose-500' : (!hasBrier ? 'text-slate-400' : (avgBrier >= CRITICAL_BRIER_THRESHOLD ? 'text-rose-500' : (avgBrier >= 0.20 ? 'text-amber-500' : 'text-emerald-500')));
                             
                             return (
                                 <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
@@ -1219,13 +1250,15 @@ export function RaioXDashboard({ data }) {
                     {categorySimCounts.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                             {categorySimCounts.map(item => {
-                                const pct = Math.min(100, Math.round((item.count / item.target) * 100));
-                                const missing = Math.max(0, item.target - item.count);
+                                const count = Math.max(0, Number(item.count) || 0);
+                                const target = Math.max(1, Number(item.target) || 8);
+                                const pct = Math.min(100, Math.round((count / target) * 100));
+                                const missing = Math.max(0, target - count);
                                 return (
                                     <div key={item.id} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/[0.05] flex flex-col gap-2">
                                         <div className="flex justify-between items-center text-[11px]">
                                             <span className="font-bold text-slate-200 truncate">{item.name}</span>
-                                            <span className="font-mono font-black text-indigo-400 shrink-0">{item.count}/{item.target}</span>
+                                            <span className="font-mono font-black text-indigo-400 shrink-0">{count}/{target}</span>
                                         </div>
                                         <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                             <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
@@ -1285,9 +1318,10 @@ export function RaioXDashboard({ data }) {
                                 const brierColor = brierVal === null ? 'text-slate-500' : (brierVal >= 0.25 ? 'text-rose-400' : (brierVal > 0.18 ? 'text-amber-400' : 'text-emerald-400'));
                                 const eceColor = eceVal === null ? 'text-slate-500' : (eceVal > 0.12 ? 'text-amber-400' : 'text-cyan-300');
                                 const isDeg = isLogDegraded(log);
+                                const logTs = toTimestampMs(log?.timestamp);
                                 return (
-                                <tr key={`${toFiniteNumber(log?.timestamp, idx)}-${log?.categoryName || 'cat'}-${idx}`} className="group hover:bg-white/[0.03] transition-colors">
-                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-400 font-mono whitespace-nowrap">{toFiniteNumber(log?.timestamp) > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
+                                <tr key={`${logTs || idx}-${log?.categoryName || log?.categoryId || 'cat'}-${idx}`} className="group hover:bg-white/[0.03] transition-colors">
+                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-400 font-mono whitespace-nowrap">{logTs > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
                                     <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
                                         <div className="flex items-center gap-2">
                                             <span>{displaySubject(log.categoryName || log.categoryId, categories)}</span>
@@ -1332,7 +1366,7 @@ export function RaioXDashboard({ data }) {
                         {activeReliabilityLog && (
                             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
                                 {displaySubject(activeReliabilityLog.categoryName || activeReliabilityLog.categoryId, categories)}
-                                {activeReliabilityLog?.timestamp > 0 ? ` · ${formatDateTimePtBR(activeReliabilityLog.timestamp)}` : ''}
+                                {toTimestampMs(activeReliabilityLog?.timestamp) > 0 ? ` · ${formatDateTimePtBR(activeReliabilityLog.timestamp)}` : ''}
                             </p>
                         )}
                     </div>
@@ -1351,6 +1385,8 @@ export function RaioXDashboard({ data }) {
                     <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
                     {categoryNames.length > 1 ? (
                         <select
+                            id="select-drift-category"
+                            aria-label="Selecionar categoria para análise de Drift Temporal"
                             value={effectiveCategory}
                             onChange={(e) => setSeriesCategory(e.target.value)}
                             className="text-[10px] font-black uppercase tracking-widest text-cyan-300 bg-slate-900/60 border border-white/10 rounded-xl px-3 sm:px-4 py-2 outline-none cursor-pointer hover:bg-slate-800 transition-all backdrop-blur-md max-w-[170px] sm:max-w-[240px] truncate"
@@ -1373,22 +1409,26 @@ export function RaioXDashboard({ data }) {
                             <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-rose-400/80" />Brier (escala 0–0.50)</span>
                             <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-cyan-400/80" />ECE (escala 0–0.30)</span>
                         </div>
-                        {temporalSeries.map((point, idx) => (
-                            <div key={`${point.ts}-${idx}`} className="space-y-1">
-                                <div className="flex justify-between gap-3 text-[9px] text-slate-500 font-mono">
-                                    <span>{point.ts > 0 ? formatDateTimePtBR(point.ts) : '-'}</span>
-                                    <span className="tabular-nums">Brier {point.brier !== null ? point.brier.toFixed(3) : '–'} · ECE {point.ece !== null ? point.ece.toFixed(3) : '–'}</span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                                        <div className="h-full bg-rose-400/80 rounded transition-all duration-500" style={{ width: `${point.brier !== null ? Math.max(0, Math.min(100, (point.brier / 0.5) * 100)) : 0}%` }} />
+                        {temporalSeries.map((point, idx) => {
+                            const brierPct = Number.isFinite(point.brier) ? Math.max(0, Math.min(100, (point.brier / 0.5) * 100)) : 0;
+                            const ecePct = Number.isFinite(point.ece) ? Math.max(0, Math.min(100, (point.ece / 0.3) * 100)) : 0;
+                            return (
+                                <div key={`${point.ts}-${idx}`} className="space-y-1">
+                                    <div className="flex justify-between gap-3 text-[9px] text-slate-500 font-mono">
+                                        <span>{point.ts > 0 ? formatDateTimePtBR(point.ts) : '-'}</span>
+                                        <span className="tabular-nums">Brier {point.brier !== null ? point.brier.toFixed(3) : '–'} · ECE {point.ece !== null ? point.ece.toFixed(3) : '–'}</span>
                                     </div>
-                                    <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                                        <div className="h-full bg-cyan-400/80 rounded transition-all duration-500" style={{ width: `${point.ece !== null ? Math.max(0, Math.min(100, (point.ece / 0.3) * 100)) : 0}%` }} />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
+                                            <div className="h-full bg-rose-400/80 rounded transition-all duration-500" style={{ width: `${brierPct}%` }} />
+                                        </div>
+                                        <div className="h-full bg-cyan-400/80 rounded overflow-hidden">
+                                            <div className="h-full bg-cyan-400/80 rounded transition-all duration-500" style={{ width: `${ecePct}%` }} />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center py-6">Dados temporais insuficientes</p>
