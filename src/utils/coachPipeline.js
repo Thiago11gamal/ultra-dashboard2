@@ -22,11 +22,9 @@ export const clearCoachCaches = _clearCoachCaches;
 export async function coach(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
   const safeOptions = {
+    force: options.force ?? true,
     ...(options && typeof options === 'object' ? options : {}),
   };
-
-  // BUG: force padrão true podia bypassar cache e gerar custo/execuções desnecessárias.
-  safeOptions.force = safeOptions.force === true;
 
   try {
       const result = await runCoachOrchestrator(safeInput, safeOptions);

@@ -153,8 +153,11 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
 
 export default function AICoachPlanner({ plannerData: propPlannerData, categories: propCategories, onStartPomodoro: propOnStart }) {
   const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
-  const rawCategories = propCategories || activeContest?.categories || [];
-  const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
+  const activeCategories = activeContest?.categories;
+  const categories = useMemo(() => {
+    const raw = propCategories || activeCategories || [];
+    return Array.isArray(raw) ? raw : Object.values(raw || {});
+  }, [propCategories, activeCategories]);
   const defaultCoachPlan = useMemo(() => [], []);
   const defaultCoachPlanner = useMemo(() => ({ mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }), []);
   const rawCoachPlanner = propPlannerData || activeContest?.coachPlanner || defaultCoachPlanner;
@@ -439,7 +442,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     const taskToFind = getSafeId(task);
     const startIndex = sessionTasks.findIndex(t => {
       const idT = getSafeId(t);
-      return (taskToFind && idT === taskToFind) || t === task || (t?.title && t.title === task?.title);
+      return (taskToFind && idT === taskToFind) || t === task || (t?.title && t.title === task?.title) || (t?.text && t.text === task?.text);
     });
     if (startIndex === -1) {
       startNeuralSession([{ ...task, sourceContext: dayId || 'isolated' }], 0);

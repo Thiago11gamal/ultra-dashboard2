@@ -30,7 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
-import { formatDatePtBR, formatDateTimePtBR } from '../utils/dateHelper';
+import { formatDateTimePtBR } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 import { isSubjectMatch } from '../utils/normalization';
 
@@ -42,6 +42,7 @@ const CALIBRATION_ALERT_CACHE_MAX = 200;
 const EMPTY_ARRAY = Object.freeze([]);
 
 export default function Coach() {
+    const isMountedRef = useRef(true);
     const topRef = useRef(null);
     const calibrationAlertCacheRef = useRef(new Map());
     const [coachLoading, setCoachLoading] = useState(false);
@@ -60,7 +61,6 @@ export default function Coach() {
         clearTopicsCache();
         // G-03 FIX: Limpar cache de alertas ao trocar de concurso
         calibrationAlertCacheRef.current.clear();
-        setSuggestedFocus(null);
         lastPushedScoreRef.current = null;
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
@@ -71,6 +71,12 @@ export default function Coach() {
             generationTimeoutsRef.current.forEach(clearTimeout);
             generationTimeoutsRef.current = [];
         }
+        const timer = setTimeout(() => {
+            if (isMountedRef.current) {
+                setSuggestedFocus(null);
+            }
+        }, 0);
+        return () => clearTimeout(timer);
     }, [activeId]);
 
     // G-03 FIX: Cleanup periódico do cache de alertas (evita leak)
@@ -165,7 +171,6 @@ export default function Coach() {
 
     const [isAnalyzing, setIsAnalyzing] = useState(true);
     const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
-    const isMountedRef = useRef(true);
 
     useEffect(() => {
         isMountedRef.current = true;
@@ -438,22 +443,6 @@ export default function Coach() {
         };
     }, [suggestedFocus?.globalProjectedMean, suggestedFocus?.globalMcContext, currentMaxScore, currentMinScore]);
 
-    const activeCategoryIds = useMemo(() => {
-        const cats = Array.isArray(data?.categories) ? data.categories : Object.values(data?.categories || {});
-        const set = new Set();
-        cats.forEach(c => {
-            if (c?.id) {
-                set.add(String(c.id));
-                set.add(getSafeId(c.id));
-            }
-            if (c?.name) {
-                set.add(String(c.name));
-                set.add(getSafeId(c.name));
-            }
-        });
-        return set;
-    }, [data?.categories]);
-
     const degradedCount = useMemo(() => {
         const ops = data?.calibrationOps || {};
         const historyByCategory = data?.calibrationHistoryByCategory || {};
@@ -509,9 +498,13 @@ export default function Coach() {
     useEffect(() => {
         if (!isHydrated) return;
         if (!data?.categories || categories.length === 0) {
-            setSuggestedFocus(null);
-            setIsAnalyzing(false);
-            return;
+            const timer = setTimeout(() => {
+                if (isMountedRef.current) {
+                    setSuggestedFocus(null);
+                    setIsAnalyzing(false);
+                }
+            }, 0);
+            return () => clearTimeout(timer);
         }
 
         let metricsTimer = null;
@@ -590,6 +583,7 @@ export default function Coach() {
     // the effect body, so it never needs to be a reactive dependency.
     }, [
         isHydrated,
+        activeId,
         data?.categories,
         categories, 
         combinedHistory, 
@@ -964,9 +958,12 @@ export function RaioXDashboard({ data }) {
         return set;
     }, [categories]);
 
+    const rawSimulados = data?.simulados;
+    const rawSimuladoRows = data?.simuladoRows;
+
     const categorySimCounts = useMemo(() => {
-        const rawSims = Array.isArray(data?.simulados) ? data.simulados : (data?.simulados ? Object.values(data.simulados) : []);
-        const rawRows = Array.isArray(data?.simuladoRows) ? data.simuladoRows : (data?.simuladoRows ? Object.values(data.simuladoRows) : []);
+        const rawSims = Array.isArray(rawSimulados) ? rawSimulados : (rawSimulados ? Object.values(rawSimulados) : []);
+        const rawRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : (rawSimuladoRows ? Object.values(rawSimuladoRows) : []);
         const allSims = [...rawSims, ...rawRows];
         return categories.map(cat => {
             const catName = cat.name || cat.id || '';
@@ -981,10 +978,9 @@ export function RaioXDashboard({ data }) {
                 target: 8
             };
         }).filter(c => c.name);
-    }, [categories, data?.simulados, data?.simuladoRows]);
+    }, [categories, rawSimulados, rawSimuladoRows]);
 
     // BUG-7 FIX: Derive 'now' from latest calibration timestamp to avoid impure Date.now() in useMemo.
-    // Falls back to a coarse epoch bucket (per-minute) only when no timestamps exist.
     const calibrationSummary = useMemo(() => {
         const historyByCategory = data?.calibrationHistoryByCategory || {};
         // Derive 'now' from the data itself: use the newest timestamp across all categories
@@ -997,7 +993,7 @@ export function RaioXDashboard({ data }) {
                 }
             }
         }
-        const now = latestTs > 0 ? latestTs : Math.floor(Date.now() / 60000) * 60000;
+        const now = latestTs;
         const mergedByCanonical = new Map();
         Object.entries(historyByCategory)
             .filter(([categoryId]) => {
@@ -1057,7 +1053,7 @@ export function RaioXDashboard({ data }) {
     }, [data?.calibrationAuditLog]);
 
     const isLogDegraded = useCallback((log) => {
-        if (Boolean(log?.degraded)) return true;
+        if (log?.degraded) return true;
         const brier = toFiniteNumber(log?.avgBrier, null);
         if (brier !== null && brier >= CRITICAL_BRIER_THRESHOLD) return true;
         const penalty = toFiniteNumber(log?.calibrationPenalty, 0);

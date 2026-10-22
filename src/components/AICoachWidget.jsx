@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
+import { getSafeId } from '../utils/idGenerator';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
@@ -203,13 +204,15 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
     // Check if category is degraded from calibrationOps
     const calibrationOps = activeContest?.calibrationOps || {};
     const safeCatId = suggestion.id || suggestion.categoryId || suggestion.name || suggestion.subject;
+    const canonicalSafeId = getSafeId(safeCatId);
     const isDegraded = Boolean(
-        (suggestion.id && calibrationOps[suggestion.id]?.degraded) ||
-        (suggestion.categoryId && calibrationOps[suggestion.categoryId]?.degraded) ||
-        (suggestion.name && calibrationOps[suggestion.name]?.degraded) ||
-        (suggestion.category && calibrationOps[suggestion.category]?.degraded) ||
-        (suggestion.subject && calibrationOps[suggestion.subject]?.degraded) ||
-        (safeCatId && Object.entries(calibrationOps).some(([k, v]) => v?.degraded && (k === safeCatId || k.toLowerCase() === String(safeCatId).toLowerCase())))
+        (suggestion.id && (calibrationOps[suggestion.id]?.degraded || calibrationOps[getSafeId(suggestion.id)]?.degraded)) ||
+        (suggestion.categoryId && (calibrationOps[suggestion.categoryId]?.degraded || calibrationOps[getSafeId(suggestion.categoryId)]?.degraded)) ||
+        (suggestion.name && (calibrationOps[suggestion.name]?.degraded || calibrationOps[getSafeId(suggestion.name)]?.degraded)) ||
+        (suggestion.category && (calibrationOps[suggestion.category]?.degraded || calibrationOps[getSafeId(suggestion.category)]?.degraded)) ||
+        (suggestion.subject && (calibrationOps[suggestion.subject]?.degraded || calibrationOps[getSafeId(suggestion.subject)]?.degraded)) ||
+        (canonicalSafeId && calibrationOps[canonicalSafeId]?.degraded) ||
+        (safeCatId && Object.entries(calibrationOps).some(([k, v]) => v?.degraded && (k === safeCatId || k.toLowerCase() === String(safeCatId).toLowerCase() || k === canonicalSafeId)))
     );
 
     const cfg = getUrgencyConfig(urgencyScore, statusLabel);

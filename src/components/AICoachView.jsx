@@ -31,7 +31,7 @@ function renderBoldText(text) {
 function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, minScore = 0 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const rawText = typeof task?.text === 'string' ? task.text : (task?.title || '');
-    const parsed = parseCoachTask({ ...task, text: rawText });
+    const parsed = parseCoachTask({ ...task, text: rawText }, categories);
 
     const isCompleted = parsed.isCompleted || Boolean(task?.completed) || task?.status === 'completed';
     const subjectPart = parsed.subjectRaw;
