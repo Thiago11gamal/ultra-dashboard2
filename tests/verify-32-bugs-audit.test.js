@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getWeakestTopic, _buildSortedTopics, getSuggestedFocus, getCoachInsight, getCognitiveState } from '../src/utils/coachLogic.js';
+import { _buildSortedTopics, getSuggestedFocus, getCoachInsight, getCognitiveState } from '../src/utils/coachLogic.js';
 import { deriveAdaptiveRiskThresholds } from '../src/utils/coachAdaptive.js';
 import { toFiniteNumber } from '../src/utils/coachSafe.js';
 import { cleanCoachNoise } from '../src/utils/coachText.js';

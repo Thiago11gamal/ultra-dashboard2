@@ -52,15 +52,13 @@ export async function coach(input = {}, options = {}) {
       if (!safeMeta.flags || typeof safeMeta.flags !== 'object') safeMeta.flags = {};
 
       return {
-        // FIX (BUG-09): garantir que ok é sempre booleano explícito
-        ok: result?.ok === false ? false : true,
         generatedAt: Date.now(),
         focus: null,
         tasks: [],
         recommendation: '',
         details: {},
         ...result,
-        // FIX (BUG-09): re-afirmar ok após spread (result.ok pode ser undefined)
+        // FIX (BUG-09): garantir que ok é sempre booleano explícito após o spread
         ok: result?.ok === false ? false : true,
         meta: safeMeta,
       };
