@@ -37,7 +37,8 @@ describe('Coach AI & Raio-X Técnico Data Integrity & Bug Fix Audits', () => {
             expect(degradationChanged).toBe(true);
 
             // When degradation status changes, shouldSkipPersist MUST be overridden
-            const shouldPersist = !false || degradationChanged;
+            const shouldSkipPersist = false;
+            const shouldPersist = !shouldSkipPersist || degradationChanged;
             expect(shouldPersist).toBe(true);
         });
     });
@@ -117,7 +118,7 @@ describe('Coach AI & Raio-X Técnico Data Integrity & Bug Fix Audits', () => {
 
     describe('5. Audit Log Degradation Filter Logic', () => {
         const isLogDegraded = (log) => {
-            if (Boolean(log?.degraded)) return true;
+            if (log?.degraded) return true;
             const brier = Number.isFinite(Number(log?.avgBrier)) ? Number(log.avgBrier) : null;
             if (brier !== null && brier >= CRITICAL_BRIER_THRESHOLD) return true;
             const penalty = Number.isFinite(Number(log?.calibrationPenalty)) ? Number(log.calibrationPenalty) : 0;
