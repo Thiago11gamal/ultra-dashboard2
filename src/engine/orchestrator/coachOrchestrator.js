@@ -171,6 +171,12 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   const onAbort = () => clearOrchestratorTimeout();
   controller.signal.addEventListener('abort', onAbort, { once: true });
 
+  const onExternalAbort = () => controller.abort();
+  if (options?.signal) {
+    if (options.signal.aborted) controller.abort();
+    else options.signal.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
   const ensureNotAborted = (stepName) => {
     if (controller.signal.aborted) {
       const err = new Error(`Coach abortado em ${stepName}`);
@@ -542,8 +548,11 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       },
     };
   } finally {
-    clearOrchestratorTimeout();
+    if (options?.signal) {
+      options.signal.removeEventListener('abort', onExternalAbort);
+    }
     controller.signal.removeEventListener('abort', onAbort);
+    clearOrchestratorTimeout();
   }
 }
 

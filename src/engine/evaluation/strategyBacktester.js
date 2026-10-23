@@ -208,7 +208,9 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
     }))
     .filter(({ simulado }) => {
       if (!simulado) return false;
-      return isSubjectMatch(simulado.subject || '', categoryName);
+      // FIX (BUG-24): verificar também categoryName e materia do simulado, além de matching por ID
+      return isSubjectMatch(simulado.subject || simulado.categoryName || simulado.materia || '', categoryName) ||
+             (category?.id && simulado.categoryId && String(simulado.categoryId) === String(category.id));
     })
     .sort((a, b) => {
       const aFinite = Number.isFinite(a.time);

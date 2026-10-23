@@ -25,6 +25,7 @@ export function cleanCoachNoise(text) {
   if (!text) return '';
   let prev;
   let cur = String(text);
+  const original = cur;
   let iterations = 0;
   const MAX_ITERATIONS = 25;
   do {
@@ -32,7 +33,9 @@ export function cleanCoachNoise(text) {
     cur = cur.replace(RX_NOISE_ACTION, ' ');
     iterations++;
   } while (cur !== prev && iterations < MAX_ITERATIONS);
-  return cur.replace(/\s{2,}/g, ' ').trim();
+  const result = cur.replace(/\s{2,}/g, ' ').trim();
+  // FIX (BUG-07): se a limpeza removeu tudo, retornar o original
+  return result || original.trim();
 }
 
 export function isSystemAlertTask(value) {

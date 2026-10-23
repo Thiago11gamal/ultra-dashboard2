@@ -437,8 +437,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const handleStartTask = useCallback((task, dayId) => {
     if (propOnStart) { propOnStart(task, dayId); return; }
     if (!task) return;
-    // FIX: lê `columns` derivado (nunca ref stale)
-    const sessionTasks = columns[dayId || 'backlog'] || [];
+    // FIX (BUG-05): durante drag ativo, columns é snapshot congelado.
+    // Usar storeColumns (derivado do store real) para a sessão.
+    const effectiveColumns = isDragging ? storeColumns : columns;
+    const sessionTasks = effectiveColumns[dayId || 'backlog'] || [];
     const taskToFind = getSafeId(task);
     const startIndex = sessionTasks.findIndex(t => {
       const idT = getSafeId(t);
@@ -451,7 +453,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     }
     startNeuralSession(sessionTasks.map(t => ({ ...t, sourceContext: dayId })), startIndex);
     navigate('/pomodoro');
-  }, [columns, startNeuralSession, navigate, propOnStart]);
+  }, [columns, isDragging, storeColumns, startNeuralSession, navigate, propOnStart]);
 
   // FIX (BUG-01): contador ao vivo (−1 na origem, +1 no destino durante o drag)
   const liveCount = useCallback((colId, base) => {

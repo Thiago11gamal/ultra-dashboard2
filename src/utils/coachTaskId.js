@@ -13,7 +13,12 @@ export const ensureCoachTaskId = (task) => {
   // Antes: id=0 ou id="" gerava novo ID a cada call (instabilidade).
   if (task.id && typeof task.id === 'string' && task.id.trim().length > 0) return task;
   const cached = _taskIdWeakMap.get(task);
-  if (cached) return cached;
+  // FIX (BUG-19): se o objeto foi mutado (ex: text mudou), o ID cacheado pode ser inválido.
+  // Verificar se o composite key ainda corresponde.
+  if (cached) {
+    const currentKey = [task.title||'', task.text||'', task.categoryId||'', task.subject||'', task.topic||'', task.priority||'', task.date||task.createdAt||''].join('|');
+    if (cached._compositeKey === currentKey) return cached;
+  }
 
   const compositeKey = [
     task.title || '',
@@ -27,7 +32,7 @@ export const ensureCoachTaskId = (task) => {
 
   const stableId = getSafeId(task) ||
     `coach-task-${hashString(compositeKey)}`;
-  const enrichedTask = { ...task, id: stableId };
+  const enrichedTask = { ...task, id: stableId, _compositeKey: compositeKey };
   _taskIdWeakMap.set(task, enrichedTask);
   return enrichedTask;
 };

@@ -295,6 +295,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
 
     const handleStartNeural = (task) => {
         const unallocatedTasks = cardTasks;
+        // FIX (BUG-14): system alerts não estão em cardTasks/coachPlan.
+        // Se a task é um system alert, iniciar sessão isolada.
+        if (isSystemAlertTask(task)) {
+            startNeuralSession([{ ...task, sourceContext: 'system-alert' }], 0);
+            navigate('/pomodoro');
+            return;
+        }
         const matchTask = (t) => {
             const taskSid = getSafeId(ensureCoachTaskId(task));
             const candidateSid = getSafeId(ensureCoachTaskId(t));

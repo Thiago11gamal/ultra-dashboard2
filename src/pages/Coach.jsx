@@ -524,6 +524,7 @@ export default function Coach() {
                     combinedHistory,
                     studyLogs,
                     {
+                        contestId: activeId,
                         user: data?.user,
                         ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
                         maxScore: safeMax,
@@ -624,7 +625,10 @@ export default function Coach() {
 
     const handleGenerateGoals = useCallback(() => {
         if (coachLoading) return;
-        if (!categories.length) {
+        // FIX (BUG-04): ler categories via ref e snapshot do store para evitar dependência em `data`
+        const currentCategories = categoriesRef.current;
+        const currentData = useAppStore.getState().appState?.contests?.[activeId];
+        if (!currentCategories.length) {
             showToastRef.current('Cadastre matérias e registre simulados para o Coach gerar sugestões.', 'info');
             return;
         }
@@ -645,24 +649,27 @@ export default function Coach() {
                 const safeMax = Math.max(1, Number(currentMaxScore) || 100);
                 const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
                 const collectedMetrics = [];
+                const currentCombinedHistory = getCombinedHistory(
+                    currentData?.simuladoRows || [], currentData?.simulados || [], safeMax, safeMin
+                );
 
-                // BUG-1 FIX: Use categories, combinedHistory, studyLogs directly (now in dep array)
                 const newTasks = generateDailyGoals(
-                    categories,
-                    combinedHistory,
-                    studyLogs,
+                    currentCategories,
+                    currentCombinedHistory,
+                    currentData?.studyLogs || [],
                     {
-                        user: data?.user,
+                        contestId: capturedActiveId,
+                        user: currentData?.user,
                         ...(targetScore !== null ? { targetScore } : {}),
                         maxScore: safeMax,
                         minScore: safeMin,
                         calibrationHistoryByCategory: calibrationHistoryRef.current,
                         onCalibrationMetric: (metric) => collectedMetrics.push(metric),
-                        simuladoRows: data?.simuladoRows,
-                        allSimulados: data?.simulados,
+                        simuladoRows: currentData?.simuladoRows,
+                        allSimulados: currentData?.simulados,
                         config: {
                             contestId: capturedActiveId,
-                            MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                            MC_ENABLE_ADAPTIVE_CALIBRATION: currentData?.settings?.adaptiveCalibrationEnabled !== false
                         }
                     }
                 );
@@ -670,23 +677,24 @@ export default function Coach() {
                 // REFRESH-FOCUS: Atualizar também a recomendação principal do topo
                 try {
                     const freshFocus = getSuggestedFocus(
-                        categories,
-                        combinedHistory,
-                        studyLogs,
+                        currentCategories,
+                        currentCombinedHistory,
+                        currentData?.studyLogs || [],
                         {
-                            user: data?.user,
+                            contestId: capturedActiveId,
+                            user: currentData?.user,
                             ...(targetScore !== null ? { targetScore } : {}),
                             maxScore: safeMax,
                             minScore: safeMin,
                             calibrationHistoryByCategory: calibrationHistoryRef.current,
-                            flashcardDecks,
-                            flashcardDue,
+                            flashcardDecks: currentData?.flashcardDecks,
+                            flashcardDue: currentData?.flashcardDue,
                             globalMcStats: mcStatsContextRef.current,
-                            simuladoRows: data?.simuladoRows,
-                            allSimulados: data?.simulados,
+                            simuladoRows: currentData?.simuladoRows,
+                            allSimulados: currentData?.simulados,
                             config: {
                                 contestId: capturedActiveId,
-                                MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                                MC_ENABLE_ADAPTIVE_CALIBRATION: currentData?.settings?.adaptiveCalibrationEnabled !== false
                             }
                         }
                     );
@@ -730,8 +738,7 @@ export default function Coach() {
                 timeoutRef.current = null;
             }
         }, 1500);
-    // BUG-1 FIX: Added categories, combinedHistory, studyLogs to prevent stale closure
-    }, [activeId, data, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore, categories, combinedHistory, studyLogs, flashcardDecks, flashcardDue]);
+    }, [activeId, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore]);
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {

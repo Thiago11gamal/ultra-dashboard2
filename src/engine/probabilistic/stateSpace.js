@@ -291,7 +291,13 @@ export function runStateSpaceModel(scores, options = {}) {
   }
 
   // ✅ CORRIGE BUG-003: usa kahanMean corrigido
-  const initialAbility = kahanMean(validScores) ?? 50; // ✅ FIX #5: fallback para 50 se null
+  // FIX (BUG-11): fallback para midpoint do range, não 50 hardcoded
+  const rawMax = Number(options?.maxScore);
+  const rawMin = Number(options?.minScore);
+  const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
+  const safeMin = Number.isFinite(rawMin) ? rawMin : 0;
+  const fallbackMean = (safeMax + safeMin) / 2;
+  const initialAbility = kahanMean(validScores) ?? fallbackMean;
   const initialStd = kahanStd(validScores, initialAbility);
 
   let ability = initialAbility;

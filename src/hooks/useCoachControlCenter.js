@@ -90,6 +90,7 @@ export function useCoachControlCenter({
   const isMounted = useRef(true);
   // FIX: contador de execução para descartar resultados obsoletos
   const orchestratorRunIdRef = useRef(0);
+  const orchestratorAbortRef = useRef(null);
   const tunerRunIdRef = useRef(0);
   const pendingRunsRef = useRef(0);
   const tunerAbortControllerRef = useRef(null);
@@ -103,9 +104,10 @@ export function useCoachControlCenter({
     return () => { isMounted.current = false; };
   }, []);
 
-  // FIX (M15): aborta AutoTuner pendente no unmount
+  // FIX (M15): aborta AutoTuner e Orquestrador pendentes no unmount
   useEffect(() => () => {
     if (tunerAbortControllerRef.current) tunerAbortControllerRef.current.abort();
+    if (orchestratorAbortRef.current) orchestratorAbortRef.current.abort();
   }, []);
 
   // ==========================================================
@@ -121,6 +123,10 @@ export function useCoachControlCenter({
   const runOrchestrator = useCallback(async (options = {}) => {
     // FIX: registra esta execução; resultados de execuções anteriores são descartados
     const runId = ++orchestratorRunIdRef.current;
+    // FIX (BUG-22): abortar execução anterior
+    if (orchestratorAbortRef.current) orchestratorAbortRef.current.abort();
+    const abortController = new AbortController();
+    orchestratorAbortRef.current = abortController;
     pendingRunsRef.current += 1;
     setLoading(true);
     setError(null);
@@ -144,6 +150,7 @@ export function useCoachControlCenter({
           trainCausalModel: options.trainCausalModel === true,
           saveHealthSnapshots: options.saveHealthSnapshots === true,
           force: options.force === true,
+          signal: abortController.signal,
         }
       );
       // FIX: valida mount E que esta ainda é a execução mais recente
@@ -162,6 +169,7 @@ export function useCoachControlCenter({
       if (isMounted.current && runId === orchestratorRunIdRef.current) setLastRunTimestamp(Date.now());
       return result;
     } catch (err) {
+      if (err?.name === 'AbortError') return null;
       if (isMounted.current && runId === orchestratorRunIdRef.current) {
         const msg = err?.message || String(err);
         setError(msg);

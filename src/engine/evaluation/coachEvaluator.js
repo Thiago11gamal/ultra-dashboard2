@@ -393,7 +393,8 @@ export function summarizeCoachEvaluations(evaluations = [], options = {}) {
   const diagnostics =
     acc.probabilityPairs.length >= 3
       ? computeCalibrationDiagnostics(acc.probabilityPairs, {
-          bins: options.bins ?? 6,
+          // FIX (BUG-08): nunca mais bins que amostras; mínimo 2 bins
+          bins: Math.max(2, Math.min(options.bins ?? 6, acc.probabilityPairs.length)),
         })
       : {
           // FIX: null = "sem dados". Zero exibia falsamente "calibração

@@ -134,7 +134,9 @@ function OverviewPanel({ dashboard }) {
             <div>
               <p className="text-lg font-bold text-white">{dashboard.focus?.name || '—'}</p>
               <p className="text-sm text-slate-400 mt-1">
-                Urgência: <span className="text-indigo-300 font-semibold">{dashboard.focus?.normalizedScore ?? '—'}</span>
+                Urgência: <span className="text-indigo-300 font-semibold">
+                  {Number.isFinite(dashboard.focus?.normalizedScore) ? dashboard.focus.normalizedScore : '—'}
+                </span>
               </p>
               {dashboard.focus?.probability != null && Number.isFinite(Number(dashboard.focus.probability)) && (
                 <p className="text-sm text-slate-400">

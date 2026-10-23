@@ -231,7 +231,9 @@ export function estimateDynamicVolatility(history = [], options = {}) {
       const dt = clampFinite(dts[i], 0.25, 30, 1);
       const centered = winsorizedReturns[i] - returnMean;
       const shock = centered * centered;
-      const betaEffective = Math.pow(beta, dt);
+      // FIX (BUG-12): limitar dt efetivo para evitar underflow extremo
+      const dtEffective = Math.min(dt, 14);
+      const betaEffective = Math.pow(beta, dtEffective);
       const stepScale = (1 - betaEffective) / Math.max(1e-6, 1 - beta);
 
       sigma2Daily =

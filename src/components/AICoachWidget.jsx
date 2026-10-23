@@ -108,6 +108,11 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
     // barra de confiança com largura 0. Normalizar pela escala do concurso.
     const toPct = (value) => {
         const range = Math.max(1e-9, scaleMax - scaleMin);
+        // FIX (BUG-21): se o valor já está em [0, 100] e scaleMax > 100,
+        // provavelmente já é porcentagem — não re-normalizar.
+        if (scaleMax > 100 && value >= 0 && value <= 100) {
+            return Math.min(100, Math.max(0, value));
+        }
         return Math.min(100, Math.max(0, ((value - scaleMin) / range) * 100));
     };
     const hasLow = mc.ci95Low !== null && mc.ci95Low !== undefined && mc.ci95Low !== '' && Number.isFinite(Number(mc.ci95Low));

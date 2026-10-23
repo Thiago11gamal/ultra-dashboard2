@@ -1791,7 +1791,8 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const logsMinutesChecksum = safeLogs
             .reduce((acc, l) => acc + sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration), 0)
             .toFixed(0);
-        const activeId = useAppStore.getState()?.appState?.activeId || 'default';
+        // FIX (BUG-13): activeId deve vir de options prioritariamente para manter pureza
+        const activeId = options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default';
         const weightsHash = simpleHash(
             (options.allCategories || [])
                 .map(c => `${c?.id || c?.name || '?'}:${c?.weight ?? ''}`)
@@ -2031,7 +2032,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const result = {
         ...top,
         urgency: clonedUrgency,
-        weakestTopic: getWeakestTopic(top, simulados, maxScore, minScore) || null
+        weakestTopic: deepClone(getWeakestTopic(top, simulados, maxScore, minScore, options)) || null
     };
     // ✅ FIX: Verificar se options.flashcardDue é número antes de comparar
     if (options && Number.isFinite(Number(options.flashcardDue)) && Number(options.flashcardDue) > 0) {
@@ -2057,7 +2058,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     return result;
 };
 
-function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore = 0) {
+function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore = 0, options = {}) {
     const safeCat = category || {};
     const catId = safeCat.id || safeCat.name || 'unknown';
     const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
@@ -2124,7 +2125,8 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
         fsrst: getCoachFeature(null, 'useFsrsTopicScheduling', false),
     }));
     const hash = `${userId}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${catMax}-${catMin}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
-    const activeId = useAppStore.getState()?.appState?.activeId || 'default';
+    // FIX (BUG-13): activeId deve vir de options prioritariamente
+    const activeId = options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default';
     const cacheKey = `isolate_${activeId}_${catId}_${hash}`;
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
     if (cachedTopics) return deepClone(cachedTopics);
@@ -2163,7 +2165,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
         const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
         let topics = entry.topics;
-        if (!Array.isArray(topics) || topics.length === 0) {
+        if (!Array.isArray(topics) || topics.length === 0 || !topics.some(t => t && (t.name || t.topic || t.assunto || t.subtopic || t.topicName))) {
             const singleTopicName = entry.topic || entry.assunto || entry.subtopic || entry.topicName;
             if (singleTopicName) {
                 topics = [{
@@ -2553,13 +2555,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     return topics;
 };
 
-const getWeakestTopic = (category, simulados = [], maxScore = 100, minScore = 0) => {
-    const topics = _buildSortedTopics(category, simulados, maxScore, minScore);
+const getWeakestTopic = (category, simulados = [], maxScore = 100, minScore = 0, options = {}) => {
+    const topics = _buildSortedTopics(category, simulados, maxScore, minScore, options);
     return (topics && topics.length > 0) ? topics[0] : null;
 };
 
-const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 3, minScore = 0) => {
-    const topics = _buildSortedTopics(category, simulados, maxScore, minScore);
+const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 3, minScore = 0, options = {}) => {
+    const topics = _buildSortedTopics(category, simulados, maxScore, minScore, options);
     return (topics || []).slice(0, limit);
 };
 
@@ -2922,7 +2924,9 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
         if (!hasDate) return false;
         // Data deve ser parseável
         const parsed = normalizeDate(hasDate);
-        return parsed && !Number.isNaN(parsed.getTime());
+        if (!parsed || Number.isNaN(parsed.getTime())) return false;
+        // FIX (BUG-27): exigir minutos válidos (> 0)
+        return sanitizeMinutes(log.minutes ?? log.minutos ?? log.duration) > 0;
     });
 
     let referenceDate = new Date();
@@ -3038,7 +3042,9 @@ export const getCoachInsight = (category, simulados = [], studyLogs = [], option
     
     // FIX: o threshold hardcoded de 15 pts valia só para provas de 100 pts.
     // Em provas de 1000 pts, "alta volatilidade" nunca disparava.
-    const safeMaxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+    // FIX (BUG-26): options pode ser undefined
+    const rawMax = Number(options?.maxScore);
+    const safeMaxScore = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
     if (vol > 15 * (safeMaxScore / 100)) parts.push("alta volatilidade");
     
     return {

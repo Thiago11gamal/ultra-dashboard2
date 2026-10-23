@@ -83,8 +83,11 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
 
   const safeLogs = safeArray(studyLogs)
     .filter((log) => {
-      if (!categoryId) return true;
-      return log?.categoryId === categoryId;
+      // FIX (BUG-15): considerar categoryName e materia se categoryId ausente
+      if (!categoryId && !categoryName) return true;
+      if (categoryId && log?.categoryId === categoryId) return true;
+      if (categoryName && isSubjectMatch(log?.subject || log?.categoryName || log?.materia || '', categoryName)) return true;
+      return false;
     })
     .map((log) => ({
       time: toTime(log?.date ?? log?.createdAt),

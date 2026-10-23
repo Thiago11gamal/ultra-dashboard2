@@ -306,7 +306,8 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
   const sampleTrust =
     sampleSize > 0
       ? Math.min(1, sampleSize / (sampleSize + trustK))
-      : 0.35;
+      // FIX (BUG-20): sem dados, confiança deve ser mínima, não 35%
+      : 0.10;
 
   const baseProbability = clampFinite(input.baseProbability, 0, 100, NaN);
 

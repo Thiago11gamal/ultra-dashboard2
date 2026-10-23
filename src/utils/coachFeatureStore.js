@@ -81,6 +81,8 @@ export function replaceFlags(flags, contestId) {
 /** Lê uma flag com fallback. */
 export function getFlag(key, fallback = false, contestId) {
   if (typeof key !== 'string') return fallback;
+  // FIX (BUG-16): proteger contra prototype pollution
+  if (key === '__proto__' || key === 'constructor' || key === 'prototype') return fallback;
   // FIX: proteger contra registry corrompido (ex: localStorage com JSON inválido)
   let registry;
   try {

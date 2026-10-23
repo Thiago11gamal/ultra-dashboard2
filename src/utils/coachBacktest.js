@@ -30,7 +30,9 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
 
   safeActual.forEach((item, idx) => {
     const id = String(item?.id || item?.topic || idx);
-    relevanceMap.set(id, clampRelevance(item?.relevance ?? item?.score ?? 1));
+    // FIX (BUG-28): manter a MAIOR relevância em caso de duplicata
+    const existing = relevanceMap.get(id) || 0;
+    relevanceMap.set(id, Math.max(existing, clampRelevance(item?.relevance ?? item?.score ?? 1)));
   });
 
   let dcg = 0;

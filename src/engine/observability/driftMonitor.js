@@ -223,7 +223,9 @@ export function detectDriftInSeries(values, options = {}) {
 
   const epsilon = Math.max(
     1e-6,
-    Number(options.epsilon) || Math.abs(baselineMean) * 0.02 || 1
+    // FIX (BUG-18): usar desvio padrão como escala mínima em vez de 1 absoluto
+    Number(options.epsilon) ||
+    Math.max(Math.abs(baselineMean) * 0.02, baselineSd * 0.1, 0.01)
   );
 
   const effectSize = delta / Math.max(epsilon, baselineSd);

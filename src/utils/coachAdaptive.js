@@ -63,7 +63,10 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
       ? Math.max(65, Math.min(97, safeCandidates[0]))
       : fallbackSafe;
 
-    if (safe - danger < 25) safe = Math.min(97, danger + 25);
+    if (safe - danger < 25) {
+      safe = Math.min(97, danger + 25);
+      if (safe - danger < 25) danger = Math.max(15, safe - 25);
+    }
     const shrinkFactor = Math.min(1, cleanPairs.length / 20);
     danger = danger * shrinkFactor + fallbackDanger * (1 - shrinkFactor);
     safe = safe * shrinkFactor + fallbackSafe * (1 - shrinkFactor);
