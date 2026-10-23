@@ -327,6 +327,7 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                 // Fallback: se não estiver no unallocated nem em nenhum dia, usa o coachPlan inteiro
                 sessionTasks = coachPlan;
                 targetIndex = coachPlan.findIndex(matchTask);
+                sourceContext = 'coachPlan';
             }
         }
 

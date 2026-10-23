@@ -237,7 +237,7 @@ export function estimateDynamicVolatility(history = [], options = {}) {
       const stepScale = (1 - betaEffective) / Math.max(1e-6, 1 - beta);
 
       sigma2Daily =
-        (omega + alpha * shock) * stepScale +
+        omega * stepScale + alpha * shock +
         betaEffective * sigma2Daily;
 
       sigma2Daily = clampFinite(sigma2Daily, 1e-12, maxSigma2, sigma2Daily);

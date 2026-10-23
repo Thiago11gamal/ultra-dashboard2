@@ -527,8 +527,10 @@ export function estimateIPTWUplift(events = [], options = {}) {
   const treatedProps = propensity.probabilities.filter((_, i) => safeEvents[i].treated === 1);
   const controlProps = propensity.probabilities.filter((_, i) => safeEvents[i].treated === 0);
   if (treatedProps.length > 0 && controlProps.length > 0) {
-    const overlapMin = Math.max(Math.min(...treatedProps), Math.min(...controlProps));
-    const overlapMax = Math.min(Math.max(...treatedProps), Math.max(...controlProps));
+    const arrMin = (arr) => { let m = Infinity; for (let i = 0; i < arr.length; i++) if (arr[i] < m) m = arr[i]; return m; };
+    const arrMax = (arr) => { let m = -Infinity; for (let i = 0; i < arr.length; i++) if (arr[i] > m) m = arr[i]; return m; };
+    const overlapMin = Math.max(arrMin(treatedProps), arrMin(controlProps));
+    const overlapMax = Math.min(arrMax(treatedProps), arrMax(controlProps));
     if (overlapMin >= overlapMax) {
       // Sem overlap → fallback para naive
       return {

@@ -161,7 +161,10 @@ export function cusumDrift(values, options = {}) {
     sNeg = Math.max(0, sNeg - deviation - k);
 
     if (!alarm && (sPos > h || sNeg > h)) {
-      alarm = sPos > h ? 'up' : 'down';
+      const candidate = sPos > h ? 'up' : 'down';
+      if (!(candidate === 'down' && isImproving)) {
+        alarm = candidate;
+      }
     }
 
     series.push({
@@ -225,7 +228,7 @@ export function detectDriftInSeries(values, options = {}) {
     1e-6,
     // FIX (BUG-18): usar desvio padrão como escala mínima em vez de 1 absoluto
     Number(options.epsilon) ||
-    Math.max(Math.abs(baselineMean) * 0.02, baselineSd * 0.1, 0.01)
+    Math.max(Math.abs(baselineMean) * 0.02, baselineSd * 0.1, Math.abs(baselineMean) * 0.005, 0.01)
   );
 
   const effectSize = delta / Math.max(epsilon, baselineSd);

@@ -44,6 +44,8 @@ export function toFiniteNumber(value, fallback = 0) {
     // FIX (BUG-06): múltiplas vírgulas = formato inválido
     const commaCount = (cleaned.match(/,/g) || []).length;
     if (commaCount > 1) return fallback;
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    if (dotCount > 1 && commaCount === 0) return fallback;
     // FIX (BUG-06): vírgula seguida de exatamente 3 dígitos no final = milhar (ex: "1,234")
     if (/,\d{3}$/.test(cleaned) && !cleaned.includes('.')) {
       value = cleaned.replace(/,/g, '');

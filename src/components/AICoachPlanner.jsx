@@ -402,7 +402,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       const safeSourceIndex = realSourceIndex !== -1
         ? realSourceIndex
         : (source.index >= 0 && source.index < startList.length ? source.index : -1);
-      if (safeSourceIndex === -1) return prev;
+      if (safeSourceIndex === -1) {
+        console.warn('[Planner] draggableId não encontrado no source:', result.draggableId);
+        return prev;
+      }
       
       const [moved] = startList.splice(safeSourceIndex, 1);
       if (!moved) return prev;

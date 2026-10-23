@@ -182,7 +182,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const getDaysDiff = (newer, older) => {
     const d1 = normalizeDate(newer) || new Date(0);
     const d2 = normalizeDate(older) || new Date(0);
-    return Math.max(0, Math.round((d1.getTime() - d2.getTime()) / MS_PER_DAY));
+    return Math.max(0, Math.floor((d1.getTime() - d2.getTime()) / MS_PER_DAY));
 };
 
 /**
@@ -623,9 +623,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             return timeB - timeA;
         });
 
-    const rootActivityDate = (relevantAll.length > 0
-        ? normalizeDate(relevantAll[relevantAll.length - 1].date || relevantAll[relevantAll.length - 1].createdAt)
-        : null) || normalizeDate(referenceDate) || referenceDate;
+    const rootActivityDate = relevantAll.length > 0
+        ? (normalizeDate(relevantAll[relevantAll.length - 1].date || relevantAll[relevantAll.length - 1].createdAt) || normalizeDate(referenceDate) || referenceDate)
+        : null;
 
     const relevantSimulados = relevantAll.length > 50 ? relevantAll.slice(0, 50) : relevantAll;
     const simuladosWithMaxScore = relevantSimulados;
@@ -693,7 +693,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 const sScore = getSafeScore(s, maxScore, minScore);
                 if (!Number.isFinite(sScore)) return;
                 const simDate = normalizeDate(s.date || s.createdAt) || new Date(0);
-                const days = getDaysDiff(today, simDate);
+                const days = Math.max(0, getDaysDiff(today, simDate));
                 let timeWeight = Math.exp(-K * days);
                 if (timeWeight < PESO_MIN) timeWeight = PESO_MIN;
                 const maxReasonableQuestions = 300; // ✅ FIX: limite sensato de questões em vez de maxScore * 2
@@ -731,7 +731,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
             // ✅ PATCH-09: Validar hoursSinceLastSim explicitamente
             const rawHoursSinceLastSim = (referenceNow - mostRecentSimDate) / (1000 * 60 * 60);
-            const hoursSinceLastSim = Number.isFinite(rawHoursSinceLastSim) && rawHoursSinceLastSim >= -24
+            const hoursSinceLastSim = Number.isFinite(rawHoursSinceLastSim)
                 ? Math.max(0, rawHoursSinceLastSim)
                 : Infinity; // ← força o caminho "notaBruta"
 
@@ -918,7 +918,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             const proximalGap = effectiveMCTarget - averageScore;
             const gapRatio = clamp(proximalGap / totalGap, 0, 1);
             effectiveMCDays = daysToExam > 0
-                ? Math.max(1, Math.min(daysToExam, Math.max(7, Math.floor(gapRatio * daysToExam))))
+                ? Math.max(7, Math.min(daysToExam, Math.max(7, Math.floor(gapRatio * daysToExam))))
                 : 0;
         } else {
             effectiveMCDays = 21;
@@ -1196,7 +1196,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     // FIX-I01: floor 0 quando estudou hoje (daysSinceLastStudy === 0).
     // Antes, retenção=100% ainda gerava memoryRisk=2, inflando recency.
     const rawMemoryRisk = 35 * Math.pow(1 - safeRetention / 100, 1.5);
-    const memoryFloor = (!recencyUnknown && daysSinceLastStudy === 0) ? 0 : 2;
+    const memoryFloor = (!recencyUnknown && daysSinceLastStudy <= 1) ? 0 : 2;
     const memoryRisk = !hasData
         ? 8
         : clamp(rawMemoryRisk, memoryFloor, 35);
@@ -1267,7 +1267,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     }
     const instabilityRaw =
         urgencyWeights.instabilityMax *
-        Math.min(1, volatilityRiskPct / 12) *
+        Math.min(1, volatilityRiskPct / 35) *
         trendModifier *
         (backtestWeights?.instabilityWeight ?? 1);
     const instabilityComponent = clamp(instabilityRaw, 0, urgencyWeights.instabilityMax);
@@ -1287,6 +1287,9 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         const haloBoost = Math.min(6, diffPct * 0.2);
         adaptiveRisk.danger = Math.min(99, adaptiveRisk.danger + haloBoost);
         adaptiveRisk.safe = Math.min(99, adaptiveRisk.safe + haloBoost);
+        if (adaptiveRisk.safe - adaptiveRisk.danger < 25) {
+            adaptiveRisk.safe = Math.min(99, adaptiveRisk.danger + 25);
+        }
     }
     if (mcHasData && mcProbability !== null) {
         const continuous = computeContinuousMcBoost(
@@ -1321,7 +1324,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const sortedLogsForBurnout = [...(categoryStudyLogs || [])].sort((a, b) =>
         getLogDate(a).getTime() - getLogDate(b).getTime()
     );
-    const rollingWindowMs = 28 * MS_PER_DAY;
+    const rollingWindowMs = 7 * MS_PER_DAY;
     // ✅ FIX: Verificar se metrics.referenceNow existe antes de usar
     const nowMs = Number.isFinite(metrics.referenceNow) ? metrics.referenceNow : Date.now();
     const recentBaselineLogs = sortedLogsForBurnout.filter(log =>
@@ -1384,7 +1387,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const tolerance = Math.min(0.05, idealShare * 0.3);
     const underAllocation = Math.max(0, idealShare - observedShare - tolerance);
     const balanceBridgeBoost = clamp(
-        Math.min(cfg.EFFICIENCY_MAX, Math.pow(underAllocation * 10, 1.5)),
+        Math.min(cfg.EFFICIENCY_MAX, underAllocation > 0.001 ? Math.pow(underAllocation * 10, 1.5) : 0),
         0,
         cfg.EFFICIENCY_MAX
     );
@@ -1406,12 +1409,12 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     }
     const maxSrsBoost = cfg.SRS_BOOST * 2;
     const currentSrsBoost = clamp(
-        srsBoost * (crunchMultiplier > 1 ? 1.10 : 1),
+        srsBoost * (crunchMultiplier > 1.3 ? 1.10 : 1),
         0,
         maxSrsBoost
     );
     const currentPriorityBoost = clamp(
-        priorityBoost * (crunchMultiplier > 1 ? 1.15 : 1),
+        priorityBoost * (crunchMultiplier > 1.3 ? 1.15 : 1),
         0,
         cfg.PRIORITY_BOOST
     );
@@ -1436,11 +1439,11 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     // FIX-C03: volatilidade removida da rotation penalty.
     // A volatilidade já é penalizada no instabilityComponent.
     // Manter aqui causava dupla contagem (~39 pts para σ=15%).
-    if (exactHoursSinceLast < 24) {
+    if (exactHoursSinceLast <= 24) {
         const recentFatigue = Math.max(0.2, Math.exp(-exactHoursSinceLast / 12));
         rotationPenalty = Math.min(30, 15 * recentFatigue);
         rotationPenalty = Math.max(rotationPenalty, 3);
-    } else if (exactHoursSinceLast >= 24 && exactHoursSinceLast < 48 && !srsLabel) {
+    } else if (exactHoursSinceLast > 24 && exactHoursSinceLast < 48 && !srsLabel) {
         rotationPenalty = 2;
     }
     if (srsBoost > 0) rotationPenalty *= 0.1;
@@ -1564,8 +1567,14 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     });
     const recentHours = recentLogs.reduce((acc, log) => acc + sanitizeMinutes(log?.minutes ?? log?.minutos ?? log?.duration), 0) / 60;
     // FIX: contar dias reais, não timestamps únicos
+    const refTime = (normalizeDate(metrics.referenceDate) || new Date()).getTime();
     const recentStudyDays = new Set(
-        recentLogs.map(log => getDateKey(log?.date || log?.createdAt)).filter(Boolean)
+        recentLogs
+            .filter(log => {
+                const t = (normalizeDate(log?.date || log?.createdAt) || new Date(0)).getTime();
+                return t > 0 && (refTime - t) <= 7 * 24 * 60 * 60 * 1000;
+            })
+            .map(log => getDateKey(log?.date || log?.createdAt)).filter(Boolean)
     ).size;
     const isHighVolume = recentHours > dynamicBurnoutThreshold;
     // FIX: threshold de frequência deve ser proporcional ao período analisado.
@@ -1810,31 +1819,31 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
             : '';
         const featuresHash = simpleHash(JSON.stringify({
-            uss: getCoachFeature(options, 'useStateSpace', false),
-            ussa: getCoachFeature(options, 'useStateSpaceAverage', false),
-            usst: getCoachFeature(options, 'useStateSpaceTrend', false),
-            udv: getCoachFeature(options, 'useDynamicVolatility', false),
-            ugv: getCoachFeature(options, 'useGarchVolatility', false),
-            udvo: getCoachFeature(options, 'useDynamicVolatilityOverride', false),
-            ppm: getCoachFeature(options, 'usePosteriorMonteCarlo', false),
-            ppmo: getCoachFeature(options, 'usePosteriorMonteCarloOverride', false),
-            bt: getCoachFeature(options, 'useBayesianTopics', false),
-            btu: getCoachFeature(options, 'useBayesianTopicsForUrgency', false),
-            du: getCoachFeature(options, 'useDecisionUtility', false),
-            dut: getCoachFeature(options, 'useDecisionUtilityForTopics', false),
-            dubt: getCoachFeature(options, 'useDecisionUtilityForBestTask', false),
-            bp: getCoachFeature(options, 'useBanditPlanner', false),
-            llm: getCoachFeature(options, 'useLLMExplanations', false),
-            kg: getCoachFeature(options, 'useKnowledgeGraph', false),
-            kgt: getCoachFeature(options, 'useKnowledgeGraphForTopics', false),
-            afsrs: getCoachFeature(options, 'useAdvancedFsrs', false),
-            fsrsb: getCoachFeature(options, 'useFsrsForSrsBoost', false),
-            fsrst: getCoachFeature(options, 'useFsrsTopicScheduling', false),
-            eval: getCoachFeature(options, 'useEvaluationTelemetry', false),
-            obs: getCoachFeature(options, 'useObservability', false),
-            drift: getCoachFeature(options, 'useDriftGuard', false),
-            health: getCoachFeature(options, 'useModelHealthTelemetry', false),
-            driftAlerts: getCoachFeature(options, 'useDriftAlerts', false),
+            uss: getCoachFeature(options, 'useStateSpace', false) === true,
+            ussa: getCoachFeature(options, 'useStateSpaceAverage', false) === true,
+            usst: getCoachFeature(options, 'useStateSpaceTrend', false) === true,
+            udv: getCoachFeature(options, 'useDynamicVolatility', false) === true,
+            ugv: getCoachFeature(options, 'useGarchVolatility', false) === true,
+            udvo: getCoachFeature(options, 'useDynamicVolatilityOverride', false) === true,
+            ppm: getCoachFeature(options, 'usePosteriorMonteCarlo', false) === true,
+            ppmo: getCoachFeature(options, 'usePosteriorMonteCarloOverride', false) === true,
+            bt: getCoachFeature(options, 'useBayesianTopics', false) === true,
+            btu: getCoachFeature(options, 'useBayesianTopicsForUrgency', false) === true,
+            du: getCoachFeature(options, 'useDecisionUtility', false) === true,
+            dut: getCoachFeature(options, 'useDecisionUtilityForTopics', false) === true,
+            dubt: getCoachFeature(options, 'useDecisionUtilityForBestTask', false) === true,
+            bp: getCoachFeature(options, 'useBanditPlanner', false) === true,
+            llm: getCoachFeature(options, 'useLLMExplanations', false) === true,
+            kg: getCoachFeature(options, 'useKnowledgeGraph', false) === true,
+            kgt: getCoachFeature(options, 'useKnowledgeGraphForTopics', false) === true,
+            afsrs: getCoachFeature(options, 'useAdvancedFsrs', false) === true,
+            fsrsb: getCoachFeature(options, 'useFsrsForSrsBoost', false) === true,
+            fsrst: getCoachFeature(options, 'useFsrsTopicScheduling', false) === true,
+            eval: getCoachFeature(options, 'useEvaluationTelemetry', false) === true,
+            obs: getCoachFeature(options, 'useObservability', false) === true,
+            drift: getCoachFeature(options, 'useDriftGuard', false) === true,
+            health: getCoachFeature(options, 'useModelHealthTelemetry', false) === true,
+            driftAlerts: getCoachFeature(options, 'useDriftAlerts', false) === true,
         }));
         // ✅ PATCH-13: Incluir hash da config customizada no cache key
         const configHash = options.config
@@ -1846,11 +1855,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const catStatsHash = `${catStatsHistoryLen}_${lastCatStat?.date || lastCatStat?.createdAt || ''}_${lastCatStat?.score ?? ''}`;
 
         // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
+        const minCutoffKey = safeCat.minCutoff ?? 'na';
         const cacheKeyRaw = JSON.stringify([
             activeId, catId, simCount, logCount, scoreChecksum, catStatsHash,
             refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, logsMinutesChecksum, weightsHash, globalHash, calibrationHash,
-            goalKey, featuresHash, configHash,
+            goalKey, featuresHash, configHash, minCutoffKey,
             options.maxScore ?? catMax, options.minScore ?? catMin, options.targetScore ?? 0
         ]);
         const cacheKey = `urg_${hashString64(cacheKeyRaw)}`;
@@ -1935,7 +1945,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
               calibrationPenalty: mcDetails?.calibrationPenalty ?? null,
               volatility: mcDetails?.volatility ?? result.details?.mssdVolatility ?? null,
               sampleSize: mcDetails?.sampleSize ?? null,
-              reliability: Array.isArray(mcDetails?.reliability)
+              reliability: (mcDetails && Array.isArray(mcDetails.reliability))
                 ? mcDetails.reliability
                 : [],
             });
@@ -2032,7 +2042,7 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     const result = {
         ...top,
         urgency: clonedUrgency,
-        weakestTopic: deepClone(getWeakestTopic(top, simulados, maxScore, minScore, options)) || null
+        weakestTopic: getWeakestTopic(top, simulados, maxScore, minScore, options) || null
     };
     // ✅ FIX: Verificar se options.flashcardDue é número antes de comparar
     if (options && Number.isFinite(Number(options.flashcardDue)) && Number(options.flashcardDue) > 0) {
@@ -2219,6 +2229,9 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             topicMap[name].total += (topicTotal * timeWeight);
             topicMap[name].correct += (topicCorrect * timeWeight);
             if (topicTotal > 0) {
+                if (topicMap[name].scores.length >= 20) {
+                    topicMap[name].scores = topicMap[name].scores.slice(-9);
+                }
                 topicMap[name].scores.push({
                     score: (topicCorrect / topicTotal) * 100,
                     total: topicTotal,
@@ -2226,10 +2239,6 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                     // ✅ FIX (BUG-H05): Preservar maxScore no payload para FSRS
                     maxScore: catMax
                 });
-                // ✅ PATCH-28: Limitar crescimento do array interno
-                if (topicMap[name].scores.length > 20) {
-                    topicMap[name].scores = topicMap[name].scores.slice(-10);
-                }
             }
             if (entryDate > topicMap[name].lastSeen) {
                 topicMap[name].lastSeen = entryDate;
@@ -2633,7 +2642,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         if (totalHours > 5 && questionsPerHour < dynamicThreshold && !isFormingBase) {
             return {
                 isTrap: true,
-                msg: `⚠️ Alerta de Método: Estudou ${totalHours.toFixed(1)}h de ${catName || 'matéria'} mas resolveu poucas questões (${questionsPerHour.toFixed(1)}/h). O seu nível atual exige prática >${dynamicThreshold}/h.`
+                msg: `⚠️ Alerta de Método: Estudou ${totalHours.toFixed(1)}h de ${catName || category?.id || 'matéria'} mas resolveu poucas questões (${questionsPerHour.toFixed(1)}/h). O seu nível atual exige prática >${dynamicThreshold}/h.`
             };
         }
         return { isTrap: false };
@@ -2943,13 +2952,13 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
 
     const minutesToday = safeLogs
         .filter(l => getDateKey(getLogDate(l)) === todayKey)
-        .reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0);
+        .reduce((acc, l) => acc + sanitizeMinutes(l.minutes ?? l.minutos ?? l.duration), 0);
 
     const last7DaysLogs = safeLogs.filter(l => {
         const t = (normalizeDate(getLogDate(l)) || new Date(0)).getTime();
         return t > 0 && (nowMs - t) <= 7 * MS_PER_DAY;
     });
-    const hours7d = last7DaysLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes), 0) / 60;
+    const hours7d = last7DaysLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes ?? l.minutos ?? l.duration), 0) / 60;
 
     const dailyLoad = Math.min(1, (minutesToday / 60) / 6);
     const weeklyLoad = Math.min(1, hours7d / 40);
@@ -3096,8 +3105,9 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         const dKey = getDateKey(r.date || r.createdAt);
         if (dKey && !hasSimuladoForDate.has(dKey)) {
             if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
-            const rCorrect = Number(r.correct ?? r.acertos ?? r.correctCount) || 0;
-            const rTotal = Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0;
+            const _toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+            const rCorrect = _toNum(r.correct ?? r.acertos ?? r.correctCount);
+            const rTotal = _toNum(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions);
             rowsByDate[dKey].correct += rCorrect;
             rowsByDate[dKey].total += rTotal;
         }

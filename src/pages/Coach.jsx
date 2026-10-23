@@ -688,7 +688,7 @@ export default function Coach() {
                             minScore: safeMin,
                             calibrationHistoryByCategory: calibrationHistoryRef.current,
                             flashcardDecks: currentData?.flashcardDecks,
-                            flashcardDue: currentData?.flashcardDue,
+                            flashcardDue: getFlashcardDueTodayCount(currentData?.flashcardDecks || []),
                             globalMcStats: mcStatsContextRef.current,
                             simuladoRows: currentData?.simuladoRows,
                             allSimulados: currentData?.simulados,
@@ -1010,7 +1010,7 @@ export function RaioXDashboard({ data }) {
             const catAttempts = new Set();
             catStatsHistory.forEach((h, hIdx) => {
                 if (!h) return;
-                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `h_${getDateKey(h.date || h.createdAt)}_${h.score}_${hIdx}`);
+                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `d_${getDateKey(h.date || h.createdAt)}_${h.score}`);
                 catAttempts.add(dKey);
             });
 
