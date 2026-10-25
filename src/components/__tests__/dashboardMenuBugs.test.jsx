@@ -94,6 +94,19 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(contest.categories[0].tasks).toHaveLength(0);
             expect(mockState.appState.pomodoro.activeSubject).toBeNull();
         });
+
+        it('updates task title and notes via updateTask and syncs activeSubject', () => {
+            taskSlice.updateTask('cat-1', 'task-101', {
+                title: 'Direito Constitucional Avançado',
+                notes: 'Focar em controle de constitucionalidade'
+            });
+
+            const contest = mockState.appState.contests['contest-1'];
+            const task = contest.categories[0].tasks[0];
+            expect(task.title).toBe('Direito Constitucional Avançado');
+            expect(task.notes).toBe('Focar em controle de constitucionalidade');
+            expect(mockState.appState.pomodoro.activeSubject.task).toBe('Direito Constitucional Avançado');
+        });
     });
 
     describe('3. Category Slice: Cache Invalidation, Cascade Renaming & Firebase Object Import', () => {

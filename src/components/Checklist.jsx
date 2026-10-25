@@ -18,7 +18,9 @@ import {
     BookOpen,
     Target,
     CheckCircle2,
-    Check
+    Check,
+    Pencil,
+    StickyNote
 } from 'lucide-react';
 import PromptModal from './PromptModal';
 import CategoryEditor from './CategoryEditor';
@@ -266,25 +268,67 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 const TaskItem = ({
     task,
     onToggle,
+    onUpdate,
     onDelete,
     onTogglePriority,
     onTriggerPlay
 }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const taskTitle = task.title || task.text || 'Tarefa sem nome';
+    const [editTitle, setEditTitle] = useState(taskTitle);
+    const [editNotes, setEditNotes] = useState(task.notes || '');
+    const [showNotesField, setShowNotesField] = useState(Boolean(task.notes));
+
     const safePriority = String(task.priority || 'medium').toLowerCase();
     const priority = priorityColors[safePriority] || priorityColors.medium;
-    const taskTitle = task.title || task.text || 'Tarefa sem nome';
+
+    const handleStartEditing = (e) => {
+        if (e) e.stopPropagation();
+        setEditTitle(taskTitle);
+        setEditNotes(task.notes || '');
+        setShowNotesField(Boolean(task.notes));
+        setIsEditing(true);
+    };
+
+    const handleSave = (e) => {
+        if (e) e.preventDefault();
+        const trimmed = editTitle.trim();
+        if (!trimmed) return;
+        if (typeof onUpdate === 'function') {
+            onUpdate(task.id || task.text || task.title, {
+                title: trimmed,
+                notes: editNotes.trim() || undefined
+            });
+        }
+        setIsEditing(false);
+    };
+
+    const handleCancel = (e) => {
+        if (e) e.stopPropagation();
+        setEditTitle(taskTitle);
+        setEditNotes(task.notes || '');
+        setShowNotesField(Boolean(task.notes));
+        setIsEditing(false);
+    };
 
     return (
         <div
-            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:py-3 sm:px-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-purple-500/30 hover:bg-white/[0.06] transition-all group shadow-sm hover:shadow-md ${task.completed ? 'opacity-40 hover:opacity-75' : ''}`}
+            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:py-3 sm:px-4 rounded-xl bg-white/[0.03] border ${
+                isEditing
+                    ? 'border-purple-500/50 bg-white/[0.07] ring-1 ring-purple-500/30'
+                    : 'border-white/5 hover:border-purple-500/30 hover:bg-white/[0.06]'
+            } transition-all group shadow-sm hover:shadow-md ${task.completed && !isEditing ? 'opacity-40 hover:opacity-75' : ''}`}
         >
-            <div className="flex items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
+            <div className="flex items-start sm:items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
                 <button
                     type="button"
                     role="checkbox"
+                    disabled={isEditing}
                     aria-checked={Boolean(task.completed)}
                     onClick={() => onToggle(task.id || task.text || task.title)}
-                    className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                    className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 mt-1 sm:mt-0 ${
+                        isEditing ? 'opacity-40 cursor-not-allowed border-slate-700' : 'cursor-pointer'
+                    } ${
                         task.completed
                             ? 'bg-gradient-to-tr from-purple-600 to-indigo-500 border-purple-400 text-white shadow-sm shadow-purple-500/40'
                             : 'bg-white/[0.04] border-slate-600 hover:border-purple-400 hover:bg-purple-500/10'
@@ -297,96 +341,197 @@ const TaskItem = ({
                     )}
                 </button>
 
-                <div className="flex-1 min-w-0 pr-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                            type="button"
-                            onClick={() => onToggle(task.id || task.text || task.title)}
-                            className="text-left group/title focus:outline-none cursor-pointer"
-                        >
-                            <p className={`text-sm sm:text-[15px] font-medium leading-snug transition-colors ${
-                                task.completed
-                                    ? 'line-through text-slate-500'
-                                    : 'text-slate-100 group-hover/title:text-purple-300'
-                            }`}>
-                                {taskTitle}
-                            </p>
-                        </button>
+                {isEditing ? (
+                    <form
+                        onSubmit={handleSave}
+                        className="flex-1 flex flex-col gap-2 min-w-0 py-0.5"
+                    >
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                autoFocus
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        handleCancel(e);
+                                    }
+                                }}
+                                className="flex-1 bg-slate-950/90 border border-purple-500/60 rounded-lg px-2.5 py-1 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 shadow-inner"
+                                placeholder="Nome do assunto..."
+                            />
+                            <button
+                                type="submit"
+                                className="h-7 px-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center gap-1 shadow-sm transition-all cursor-pointer"
+                                title="Salvar alterações (Enter)"
+                            >
+                                <Check size={12} strokeWidth={2.5} />
+                                <span>Salvar</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                className="h-7 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-xs transition-all cursor-pointer"
+                                title="Cancelar edição (Esc)"
+                            >
+                                <X size={12} />
+                            </button>
+                        </div>
 
-                        {task.status === 'studying' && !task.completed && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 whitespace-nowrap flex-shrink-0 shadow-sm">
-                                <span className="relative flex h-1.5 w-1.5">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500" />
+                        {showNotesField ? (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={editNotes}
+                                    onChange={(e) => setEditNotes(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Escape') {
+                                            e.preventDefault();
+                                            handleCancel(e);
+                                        }
+                                    }}
+                                    className="flex-1 bg-slate-950/70 border border-white/10 focus:border-purple-500/50 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none"
+                                    placeholder="Anotações / resumo rápido do assunto..."
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditNotes('');
+                                        setShowNotesField(false);
+                                    }}
+                                    className="text-[11px] text-slate-500 hover:text-rose-400 px-1 py-0.5 rounded cursor-pointer"
+                                    title="Remover anotação"
+                                >
+                                    Remover
+                                </button>
+                            </div>
+                        ) : (
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNotesField(true)}
+                                    className="text-[11px] text-purple-400/80 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Plus size={11} />
+                                    <span>Adicionar anotação rápida</span>
+                                </button>
+                            </div>
+                        )}
+                    </form>
+                ) : (
+                    <div className="flex-1 min-w-0 pr-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                                type="button"
+                                onClick={() => onToggle(task.id || task.text || task.title)}
+                                onDoubleClick={handleStartEditing}
+                                className="text-left group/title focus:outline-none cursor-pointer"
+                                title="Clique para alternar ou duplo clique para editar"
+                            >
+                                <p className={`text-sm sm:text-[15px] font-medium leading-snug transition-colors ${
+                                    task.completed
+                                        ? 'line-through text-slate-500'
+                                        : 'text-slate-100 group-hover/title:text-purple-300'
+                                }`}>
+                                    {taskTitle}
+                                </p>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleStartEditing}
+                                className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-slate-500 hover:text-purple-300 transition-all rounded hover:bg-purple-500/10 cursor-pointer"
+                                title="Editar assunto e anotações (duplo clique)"
+                                aria-label={`Editar ${taskTitle}`}
+                            >
+                                <Pencil size={12} />
+                            </button>
+
+                            {task.status === 'studying' && !task.completed && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 whitespace-nowrap flex-shrink-0 shadow-sm">
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500" />
+                                    </span>
+                                    <span>Estudando</span>
                                 </span>
-                                <span>Estudando</span>
-                            </span>
+                            )}
+                        </div>
+
+                        {task.notes && (
+                            <div
+                                onClick={handleStartEditing}
+                                className="group/notes flex items-start gap-1.5 mt-1 cursor-pointer"
+                                title="Clique para editar a anotação"
+                            >
+                                <StickyNote size={11} className="text-purple-400/80 mt-0.5 flex-shrink-0" />
+                                <p className="text-xs text-slate-400 group-hover/notes:text-slate-200 transition-colors break-words line-clamp-3 leading-snug">
+                                    {task.notes}
+                                </p>
+                            </div>
                         )}
                     </div>
-
-                    {task.notes && (
-                        <p className="text-xs text-slate-500 break-words line-clamp-3 mt-1 leading-snug">
-                            {task.notes}
-                        </p>
-                    )}
-                </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 w-full sm:w-auto ml-auto pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0 flex-shrink-0">
-                {task.status === 'studying' && !task.completed ? (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onTriggerPlay();
-                        }}
-                        className="h-8 px-3.5 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-purple-600/30 hover:shadow-purple-500/50 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border border-purple-400/40"
-                        title="Retornar à sessão ativa no Pomodoro"
-                        aria-label={`Retornar à sessão de ${taskTitle}`}
-                    >
-                        <Play size={12} className="fill-white" />
-                        <span>Continuar</span>
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onTriggerPlay();
-                        }}
-                        className="h-8 px-3 flex items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-600 hover:text-white border border-purple-500/20 hover:border-purple-500/50 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
-                        title="Iniciar sessão de estudo para este assunto no Pomodoro"
-                        aria-label={`Estudar agora: ${taskTitle}`}
-                    >
-                        <Play size={12} className="fill-current" />
-                        <span className="hidden sm:inline">Estudar</span>
-                    </button>
                 )}
-
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onTogglePriority(task.id || task.text || task.title);
-                    }}
-                    className={`h-8 px-3 sm:w-20 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 select-none flex items-center justify-center gap-1.5 border ${priority.bg} ${priority.text} ${priority.border}`}
-                    title={`Prioridade: ${priority.label} (clique para alternar para ${priority.next})`}
-                    aria-label={`Alternar prioridade da tarefa: ${taskTitle}. Atual: ${priority.label}`}
-                >
-                    <span className={`w-1.5 h-1.5 rounded-full ${priority.dot} flex-shrink-0`} />
-                    <span>{priority.label}</span>
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => onDelete(task.id || task.text || task.title)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.02] hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 border border-transparent hover:border-rose-500/30 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95"
-                    title="Excluir tarefa"
-                    aria-label={`Excluir tarefa: ${taskTitle}`}
-                >
-                    <Trash2 size={14} />
-                </button>
             </div>
+
+            {!isEditing && (
+                <div className="flex items-center justify-end gap-2 w-full sm:w-auto ml-auto pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0 flex-shrink-0">
+                    {task.status === 'studying' && !task.completed ? (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onTriggerPlay();
+                            }}
+                            className="h-8 px-3.5 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-purple-600/30 hover:shadow-purple-500/50 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border border-purple-400/40"
+                            title="Retornar à sessão ativa no Pomodoro"
+                            aria-label={`Retornar à sessão de ${taskTitle}`}
+                        >
+                            <Play size={12} className="fill-white" />
+                            <span>Continuar</span>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onTriggerPlay();
+                            }}
+                            className="h-8 px-3 flex items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-600 hover:text-white border border-purple-500/20 hover:border-purple-500/50 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
+                            title="Iniciar sessão de estudo para este assunto no Pomodoro"
+                            aria-label={`Estudar agora: ${taskTitle}`}
+                        >
+                            <Play size={12} className="fill-current" />
+                            <span className="hidden sm:inline">Estudar</span>
+                        </button>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onTogglePriority(task.id || task.text || task.title);
+                        }}
+                        className={`h-8 px-3 sm:w-20 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 select-none flex items-center justify-center gap-1.5 border ${priority.bg} ${priority.text} ${priority.border}`}
+                        title={`Prioridade: ${priority.label} (clique para alternar para ${priority.next})`}
+                        aria-label={`Alternar prioridade da tarefa: ${taskTitle}. Atual: ${priority.label}`}
+                    >
+                        <span className={`w-1.5 h-1.5 rounded-full ${priority.dot} flex-shrink-0`} />
+                        <span>{priority.label}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onDelete(task.id || task.text || task.title)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.02] hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 border border-transparent hover:border-rose-500/30 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95"
+                        title="Excluir tarefa"
+                        aria-label={`Excluir tarefa: ${taskTitle}`}
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
@@ -394,6 +539,7 @@ const TaskItem = ({
 const CategoryAccordion = React.memo(({
     category,
     onToggleTask,
+    onUpdateTask,
     onTogglePriority,
     onPlayContext,
     showSimuladoStats,
@@ -577,6 +723,7 @@ const CategoryAccordion = React.memo(({
                                         key={task.id}
                                         task={task}
                                         onToggle={(id) => onToggleTask(category.id, id)}
+                                        onUpdate={(id, updates) => onUpdateTask && onUpdateTask(category.id, id, updates)}
                                         onDelete={() => {
                                             onOpenDeleteTaskModal(category.id, task);
                                         }}
@@ -618,6 +765,7 @@ CategoryAccordion.displayName = 'CategoryAccordion';
 function Checklist({
     categories = [],
     onToggleTask,
+    onUpdateTask,
     onDeleteTask,
     onAddCategory,
     onDeleteCategory,
@@ -949,6 +1097,7 @@ function Checklist({
                                 key={category.id}
                                 category={category}
                                 onToggleTask={onToggleTask}
+                                onUpdateTask={onUpdateTask}
                                 onDeleteTask={onDeleteTask}
                                 onAddTask={handleAddTask}
                                 onTogglePriority={onTogglePriority}

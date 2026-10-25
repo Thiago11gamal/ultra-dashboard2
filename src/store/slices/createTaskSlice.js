@@ -182,6 +182,62 @@ export const createTaskSlice = (set, get) => ({
         }
     }),
 
+    updateTask: (categoryId, taskId, updates) => set((state) => {
+        if (!updates || typeof updates !== 'object') return;
+        const activeData = state.appState?.contests?.[state.appState?.activeId];
+        if (!activeData) return;
+        if (!Array.isArray(activeData.categories)) {
+            activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                ? Object.values(activeData.categories)
+                : [];
+        }
+
+        const category = activeData.categories.find(c => c && (c.id === categoryId || c.name === categoryId));
+        if (!category) return;
+        if (!Array.isArray(category.tasks)) {
+            category.tasks = category.tasks && typeof category.tasks === 'object'
+                ? Object.values(category.tasks)
+                : [];
+        }
+
+        const taskIndex = category.tasks.findIndex(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
+        if (taskIndex === -1) return;
+
+        const currentTask = category.tasks[taskIndex];
+        const newTitle = typeof updates.title === 'string'
+            ? updates.title.trim()
+            : typeof updates.text === 'string'
+                ? updates.text.trim()
+                : (currentTask.title || currentTask.text);
+
+        if (!newTitle) return;
+
+        const newNotes = updates.notes !== undefined
+            ? (typeof updates.notes === 'string' ? updates.notes.trim() : updates.notes)
+            : currentTask.notes;
+
+        category.tasks[taskIndex] = {
+            ...currentTask,
+            title: newTitle,
+            text: newTitle,
+            notes: newNotes || undefined
+        };
+
+        const activeSubject = state.appState.pomodoro?.activeSubject;
+        if (activeSubject && (activeSubject.taskId === taskId || activeSubject.taskId === currentTask.id || activeSubject.task === currentTask.title || activeSubject.task === currentTask.text)) {
+            state.appState.pomodoro.activeSubject = {
+                ...activeSubject,
+                task: newTitle
+            };
+        }
+
+        const nowIso = new Date().toISOString();
+        activeData.lastUpdated = nowIso;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = nowIso;
+        markStorageDirty();
+    }),
+
     deleteTask: (categoryId, taskId) => {
         let pendingXpDeduction = 0;
         set((state) => {

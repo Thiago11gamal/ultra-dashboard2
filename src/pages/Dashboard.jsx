@@ -14,12 +14,13 @@ import { toArray } from '../utils/normalize';
 export default function Dashboard() {
     // P06 PERF FIX: Group store actions with useShallow to prevent re-rendering Dashboard on every store mutation
     const {
-        setData, toggleTask, deleteTask, addCategory,
+        setData, toggleTask, updateTask, deleteTask, addCategory,
         deleteCategory, addTask, togglePriority,
         startPomodoroSession, setDashboardFilter, importCategory
     } = useAppStore(useShallow(state => ({
         setData: state.setData,
         toggleTask: state.toggleTask,
+        updateTask: state.updateTask,
         deleteTask: state.deleteTask,
         addCategory: state.addCategory,
         deleteCategory: state.deleteCategory,
@@ -271,6 +272,7 @@ export default function Dashboard() {
                     <Checklist
                         categories={data.categories}
                         onToggleTask={toggleTask}
+                        onUpdateTask={updateTask}
                         onDeleteTask={deleteTask}
                         onAddCategory={addCategory}
                         onDeleteCategory={deleteCategory}
