@@ -807,23 +807,23 @@ function Checklist({
                             </div>
 
                             {/* Action buttons */}
-                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start w-full sm:w-auto mt-4">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-center lg:justify-start w-full sm:w-auto mt-4">
                                 <button
                                     type="button"
                                     onClick={() => setIsCatModalOpen(true)}
-                                    className="px-6 py-3.5 sm:px-8 sm:py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-sm sm:text-base transition-all duration-200 shadow-lg shadow-purple-900/40 hover:shadow-purple-700/50 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                                    className="px-7 py-3.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-500 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-bold text-sm sm:text-base transition-all duration-200 shadow-xl shadow-purple-900/50 hover:shadow-purple-700/60 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer border border-purple-400/30"
                                 >
-                                    <Plus size={20} />
-                                    <span>Criar Primeira Disciplina</span>
+                                    <Plus size={20} className="stroke-[2.5]" />
+                                    <span>Criar primeira disciplina</span>
                                 </button>
                                 {onAddCategory && (
                                     <button
                                         type="button"
                                         onClick={() => setIsImportModalOpen(true)}
-                                        className="px-6 py-3.5 sm:px-8 sm:py-4 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 hover:border-white/20 rounded-xl font-semibold text-sm sm:text-base transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                                        className="px-4 py-2.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 border border-white/10 hover:border-white/20 rounded-xl text-xs font-medium transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                                     >
-                                        <Download size={20} />
-                                        <span>Importar Disciplina</span>
+                                        <Download size={14} className="text-slate-400" />
+                                        <span>Importar disciplina</span>
                                     </button>
                                 )}
                             </div>
@@ -936,48 +936,50 @@ function Checklist({
                     </div>
 
                     {onAddCategory && filter !== 'completed' && (
-                        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                            <button
-                                type="button"
-                                onClick={() => setIsCatModalOpen(true)}
-                                className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-purple-500/[0.08] via-slate-900/60 to-purple-500/[0.02] border border-purple-500/20 hover:border-purple-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-purple-500/10 text-left flex items-center gap-3.5 cursor-pointer"
-                            >
-                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-md shadow-purple-950/40 group-hover:scale-110 group-hover:from-purple-500/30 group-hover:to-indigo-500/30 transition-all duration-300 flex-shrink-0">
-                                    <Plus size={20} className="text-purple-300 group-hover:rotate-90 transition-transform duration-300" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
-                                        Nova Disciplina
-                                    </span>
-                                    <span className="block text-xs text-purple-300/60 group-hover:text-purple-200/80 transition-colors truncate">
-                                        Adicionar matéria ao edital
-                                    </span>
-                                </div>
-                                <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-purple-500/20 border border-white/5 group-hover:border-purple-500/30 flex items-center justify-center text-slate-400 group-hover:text-purple-200 transition-all flex-shrink-0">
-                                    <span className="text-xs font-black tracking-wider">&rarr;</span>
-                                </div>
-                            </button>
+                        <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-[#151720]/95 border border-purple-500/20 hover:border-purple-500/40 backdrop-blur-xl transition-all duration-300 shadow-xl relative overflow-hidden group">
+                            {/* Ambient background glow */}
+                            <div className="absolute -top-12 -left-12 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-purple-500/20 transition-all duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/[0.03] via-transparent to-indigo-500/[0.03] pointer-events-none" />
 
-                            <button
-                                type="button"
-                                onClick={() => setIsImportModalOpen(true)}
-                                className="relative overflow-hidden group p-4 rounded-2xl bg-gradient-to-br from-blue-500/[0.08] via-slate-900/60 to-cyan-500/[0.02] border border-blue-500/20 hover:border-blue-500/40 backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/10 text-left flex items-center gap-3.5 cursor-pointer"
-                            >
-                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 flex items-center justify-center text-blue-300 shadow-md shadow-blue-950/40 group-hover:scale-110 group-hover:from-blue-500/30 group-hover:to-cyan-500/30 transition-all duration-300 flex-shrink-0">
-                                    <Download size={18} className="text-blue-300 group-hover:-translate-y-0.5 transition-transform duration-300" />
+                            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                    <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-inner shrink-0 group-hover:scale-105 transition-transform duration-300">
+                                        <BookOpen size={20} className="text-purple-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-base font-bold text-white tracking-tight leading-tight truncate">
+                                            Edital e matérias
+                                        </h3>
+                                        <p className="text-xs text-slate-400 mt-0.5 leading-normal">
+                                            Cadastre novas disciplinas e organize os tópicos de estudo do seu concurso.
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <span className="block font-bold text-sm sm:text-base text-slate-100 group-hover:text-white transition-colors tracking-tight">
-                                        Importar Disciplina
-                                    </span>
-                                    <span className="block text-xs text-blue-300/60 group-hover:text-blue-200/80 transition-colors truncate">
-                                        Copiar de outro concurso
-                                    </span>
+
+                                <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0 justify-end">
+                                    {/* Botão Secundário Reduzido: Importar Disciplina */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsImportModalOpen(true)}
+                                        className="px-3.5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 border border-white/10 hover:border-white/20 text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm group/import shrink-0"
+                                        title="Copiar disciplinas de outro concurso cadastrado"
+                                    >
+                                        <Download size={13} className="text-slate-400 group-hover/import:text-cyan-400 transition-colors" />
+                                        <span>Importar</span>
+                                    </button>
+
+                                    {/* Botão em Evidência: Nova Disciplina */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsCatModalOpen(true)}
+                                        className="relative group/btn overflow-hidden px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-purple-900/40 hover:shadow-purple-600/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer border border-purple-400/30"
+                                    >
+                                        <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+                                        <Plus size={16} className="stroke-[2.5] text-white transition-transform duration-300 group-hover/btn:rotate-90" />
+                                        <span>Nova disciplina</span>
+                                    </button>
                                 </div>
-                                <div className="w-7 h-7 rounded-lg bg-white/[0.03] group-hover:bg-blue-500/20 border border-white/5 group-hover:border-blue-500/30 flex items-center justify-center text-slate-400 group-hover:text-blue-200 transition-all flex-shrink-0">
-                                    <span className="text-xs font-black tracking-wider">&rarr;</span>
-                                </div>
-                            </button>
+                            </div>
                         </div>
                     )}
                 </>
