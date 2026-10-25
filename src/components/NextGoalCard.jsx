@@ -246,7 +246,7 @@ function NextGoalCard({
                                     {hasSimuladoData
                                         ? daysSinceLastStudy > 0
                                             ? `${daysSinceLastStudy}d`
-                                            : '0d'
+                                            : 'Hoje'
                                         : 'Nunca'}
                                 </strong>
                             </span>

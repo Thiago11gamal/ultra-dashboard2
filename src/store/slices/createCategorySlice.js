@@ -67,9 +67,14 @@ export const createCategorySlice = (set) => ({
         clearTopicsCache();
         clearMcCache();
         const activeData = state.appState.contests[state.appState.activeId];
-        if (!activeData || !Array.isArray(activeData.categories)) return;
+        if (!activeData) return;
+        if (!Array.isArray(activeData.categories)) {
+            activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                ? Object.values(activeData.categories)
+                : [];
+        }
 
-        const category = activeData.categories.find(c => c.id === id);
+        const category = activeData.categories.find(c => c && (c.id === id || c.name === id));
         if (category) {
             addCategoryTombstones({ id: category.id, name: category.name });
             const normName = category ? normalize(category.name) : null;
@@ -100,10 +105,10 @@ export const createCategorySlice = (set) => ({
                 contestId: state.appState.activeId,
                 data: safeClone({
                     category: category,
-                    studyLogs: (Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {})).filter(l => l && l.categoryId === id),
-                    studySessions: (Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {})).filter(s => s && s.categoryId === id),
+                    studyLogs: (Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {})).filter(l => l && (l.categoryId === id || (normName && normalize(l.subject || l.category || l.categoryName || '') === normName))),
+                    studySessions: (Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {})).filter(s => s && (s.categoryId === id || (normName && normalize(s.subject || s.category || s.categoryName || '') === normName))),
                     simuladoRows: deletedSimuladoRows,
-                    simulados: (Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {})).filter(s => s && s.categoryId === id),
+                    simulados: (Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {})).filter(s => s && (s.categoryId === id || (normName && normalize(s.subject || '') === normName))),
                     mcWeight: activeData.mcWeights?.[id] || activeData.mcWeights?.[category.name],
                     coachPlan: deletedCoachPlan,
                     coachPlanner: deletedCoachPlanner
@@ -113,7 +118,8 @@ export const createCategorySlice = (set) => ({
         }
 
         const name = category?.name;
-        activeData.categories = activeData.categories.filter(c => c.id !== id);
+        const normName = name ? normalize(name) : null;
+        activeData.categories = activeData.categories.filter(c => c && c.id !== id && (!normName || normalize(c.name || '') !== normName));
 
         if (activeData.mcWeights && activeData.mcWeights[id]) {
             delete activeData.mcWeights[id];
@@ -124,15 +130,14 @@ export const createCategorySlice = (set) => ({
 
         if (activeData.studyLogs) {
             const safeLogs = Array.isArray(activeData.studyLogs) ? activeData.studyLogs : Object.values(activeData.studyLogs || {});
-            activeData.studyLogs = safeLogs.filter(l => l.categoryId !== id);
+            activeData.studyLogs = safeLogs.filter(l => l && l.categoryId !== id && (!normName || normalize(l.subject || l.category || l.categoryName || '') !== normName));
         }
         if (activeData.studySessions) {
             const safeSessions = Array.isArray(activeData.studySessions) ? activeData.studySessions : Object.values(activeData.studySessions || {});
-            activeData.studySessions = safeSessions.filter(s => s.categoryId !== id);
+            activeData.studySessions = safeSessions.filter(s => s && s.categoryId !== id && (!normName || normalize(s.subject || s.category || s.categoryName || '') !== normName));
         }
         if (activeData.simuladoRows) {
             const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
-            const normName = category ? normalize(category.name) : null;
             activeData.simuladoRows = safeRows.filter(r => {
                 if (r.categoryId) return r.categoryId !== id;
                 if (normName && r.subject) return normalize(r.subject) !== normName;
@@ -141,11 +146,13 @@ export const createCategorySlice = (set) => ({
         }
         if (activeData.simulados) {
             const safeSimulados = Array.isArray(activeData.simulados) ? activeData.simulados : Object.values(activeData.simulados || {});
-            activeData.simulados = safeSimulados.filter(s => s.categoryId !== id);
+            activeData.simulados = safeSimulados.filter(s => s && s.categoryId !== id && (!normName || normalize(s.subject || '') !== normName));
         }
 
-        if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
+        const activeSub = state.appState.pomodoro?.activeSubject;
+        if (activeSub && (activeSub.categoryId === id || (normName && normalize(activeSub.category || '') === normName))) {
             state.appState.pomodoro.activeSubject = null;
+            state.appState.pomodoro.isRunning = false;
             state.appState.pomodoro.neuralMode = false;
             state.appState.pomodoro.neuralQueue = [];
             try {
@@ -190,6 +197,9 @@ export const createCategorySlice = (set) => ({
         const category = activeData.categories.find(c => c && (c.id === id || c.name === id));
         if (category) {
             const oldName = category.name;
+            if (fields.minCutoff !== undefined && fields.minScore === undefined) {
+                fields.minScore = fields.minCutoff;
+            }
             Object.assign(category, fields);
             if (fields.name) {
                 removeCategoryTombstone(category.id, fields.name);
@@ -214,8 +224,27 @@ export const createCategorySlice = (set) => ({
                             }
                         });
                     }
-                    if (state.appState.pomodoro?.activeSubject?.categoryId === id) {
-                        state.appState.pomodoro.activeSubject.category = fields.name;
+                    if (Array.isArray(activeData.studyLogs)) {
+                        activeData.studyLogs.forEach(l => {
+                            if (l && (l.categoryId === id || normalize(l.subject || l.category || l.categoryName || '') === normalize(oldName))) {
+                                if (l.subject) l.subject = fields.name;
+                                if (l.category) l.category = fields.name;
+                                if (l.categoryName) l.categoryName = fields.name;
+                            }
+                        });
+                    }
+                    if (Array.isArray(activeData.studySessions)) {
+                        activeData.studySessions.forEach(s => {
+                            if (s && (s.categoryId === id || normalize(s.subject || s.category || s.categoryName || '') === normalize(oldName))) {
+                                if (s.subject) s.subject = fields.name;
+                                if (s.category) s.category = fields.name;
+                                if (s.categoryName) s.categoryName = fields.name;
+                            }
+                        });
+                    }
+                    const activeSub = state.appState.pomodoro?.activeSubject;
+                    if (activeSub && (activeSub.categoryId === id || normalize(activeSub.category || '') === normalize(oldName))) {
+                        activeSub.category = fields.name;
                     }
                 }
             }

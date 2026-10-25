@@ -348,7 +348,7 @@ const TaskItem = ({
         if (typeof onUpdate === 'function') {
             onUpdate(task.id || task.text || task.title, {
                 title: trimmed,
-                notes: editNotes.trim() || undefined
+                notes: showNotesField ? editNotes.trim() : ''
             });
         }
         setIsEditing(false);
@@ -662,7 +662,7 @@ const CategoryAccordion = React.memo(({
                         </div>
 
                         <p className="text-xs sm:text-[13px] text-slate-400 mt-0.5 tabular-nums">
-                            {completedCount} de {originalTasks.length} {originalTasks.length === 1 ? 'concluída' : 'concluídas'}
+                            {completedCount} de {originalTasks.length} {completedCount === 1 ? 'concluída' : 'concluídas'}
                         </p>
                     </div>
                 </button>
@@ -685,7 +685,7 @@ const CategoryAccordion = React.memo(({
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
-                            onOpenDeleteCategoryModal(category.id, category.name);
+                            onOpenDeleteCategoryModal(category.id || category.name, category.name);
                         }}
                         className="flex items-center justify-center w-8 h-8 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all transform hover:scale-110 active:scale-95 flex-shrink-0 border border-red-500/20"
                         title="Excluir Disciplina (Mover para Lixeira)"
@@ -753,7 +753,7 @@ const CategoryAccordion = React.memo(({
                                 {filter !== 'completed' && (
                                     <button
                                         type="button"
-                                        onClick={() => onOpenTaskModal(category.id)}
+                                        onClick={() => onOpenTaskModal(category.id || category.name)}
                                         className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/50 hover:to-indigo-600/50 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
                                     >
                                         <Plus size={14} className="text-purple-300" />
@@ -769,17 +769,17 @@ const CategoryAccordion = React.memo(({
                                     Nenhum assunto encontrado para o filtro atual.
                                 </p>
                             ) : (
-                                visibleTasks.map(task => (
+                                visibleTasks.map((task, index) => (
                                     <TaskItem
-                                        key={task.id}
+                                        key={task.id || task.text || task.title || `task-${index}`}
                                         task={task}
-                                        onToggle={(id) => onToggleTask(category.id, id)}
-                                        onUpdate={(id, updates) => onUpdateTask && onUpdateTask(category.id, id, updates)}
+                                        onToggle={(id) => onToggleTask(category.id || category.name, id)}
+                                        onUpdate={(id, updates) => onUpdateTask && onUpdateTask(category.id || category.name, id, updates)}
                                         onDelete={() => {
-                                            onOpenDeleteTaskModal(category.id, task);
+                                            onOpenDeleteTaskModal(category.id || category.name, task);
                                         }}
                                         onTogglePriority={(id) => onTogglePriority(category.id || category.name, id)}
-                                        onTriggerPlay={() => onPlayContext(category.id, task.id || task.text || task.title)}
+                                        onTriggerPlay={() => onPlayContext(category.id || category.name, task.id || task.text || task.title)}
                                     />
                                 ))
                             )}
@@ -787,7 +787,7 @@ const CategoryAccordion = React.memo(({
                             {filter !== 'completed' && (
                                 <button
                                     type="button"
-                                    onClick={() => onOpenTaskModal(category.id)}
+                                    onClick={() => onOpenTaskModal(category.id || category.name)}
                                     className="w-full py-2.5 px-4 rounded-xl bg-purple-500/[0.03] hover:bg-purple-500/[0.08] border border-dashed border-purple-500/25 hover:border-purple-500/45 text-slate-400 hover:text-purple-200 transition-all duration-200 flex items-center justify-center gap-2 group text-xs sm:text-sm font-medium shadow-sm mt-3 cursor-pointer"
                                 >
                                     <div className="w-5 h-5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 border border-purple-500/20 group-hover:border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:text-purple-200 transition-all group-hover:scale-110">
@@ -932,7 +932,7 @@ function Checklist({
             return;
         }
 
-        const category = safeCategories.find(c => c.id === catId);
+        const category = safeCategories.find(c => c && (c.id === catId || c.name === catId));
         if (category) {
             const normNew = normalize(trimmedTitle);
             const alreadyExists = (category.tasks || []).some(t => {
@@ -952,7 +952,10 @@ function Checklist({
             if (typeof setFilter === 'function') setFilter('all');
         }
 
-        const isLastCategory = safeCategories.length > 0 && catId === safeCategories[safeCategories.length - 1].id;
+        const isLastCategory = safeCategories.length > 0 && (
+            catId === safeCategories[safeCategories.length - 1].id ||
+            catId === safeCategories[safeCategories.length - 1].name
+        );
 
         if (isLastCategory) {
             scrollToBottom();

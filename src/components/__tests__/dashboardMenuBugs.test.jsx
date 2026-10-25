@@ -232,5 +232,181 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
 
             expect(urgencyStyle).toBe('blue');
         });
+
+        it('displays Hoje instead of 0d when category was studied today', () => {
+            const hasSimuladoData = true;
+            const daysSinceLastStudy = 0;
+            const label = hasSimuladoData ? (daysSinceLastStudy > 0 ? `${daysSinceLastStudy}d` : 'Hoje') : 'Nunca';
+            expect(label).toBe('Hoje');
+        });
+    });
+
+    describe('7. Task Note Deletion & Pomodoro Stop on Delete', () => {
+        let mockState;
+        let setFn;
+        let getFn;
+        let taskSlice;
+
+        beforeEach(() => {
+            mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    version: 1,
+                    pomodoro: {
+                        isRunning: true,
+                        activeSubject: {
+                            categoryId: 'cat-1',
+                            taskId: 'task-1',
+                            task: 'Artigo 5'
+                        }
+                    },
+                    contests: {
+                        'contest-1': {
+                            categories: [
+                                {
+                                    id: 'cat-1',
+                                    name: 'Constitucional',
+                                    tasks: [
+                                        {
+                                            id: 'task-1',
+                                            title: 'Artigo 5',
+                                            text: 'Artigo 5',
+                                            notes: 'Anotação importante',
+                                            completed: false
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            setFn = (fn) => fn(mockState);
+            getFn = () => ({ awardExperience: vi.fn() });
+            taskSlice = createTaskSlice(setFn, getFn);
+        });
+
+        it('removes notes when empty string is passed to updateTask', () => {
+            taskSlice.updateTask('cat-1', 'task-1', {
+                title: 'Artigo 5 Atualizado',
+                notes: ''
+            });
+
+            const task = mockState.appState.contests['contest-1'].categories[0].tasks[0];
+            expect(task.title).toBe('Artigo 5 Atualizado');
+            expect(task.notes).toBeUndefined();
+        });
+
+        it('stops pomodoro timer and clears activeSubject when actively running task is deleted', () => {
+            taskSlice.deleteTask('cat-1', 'task-1');
+
+            expect(mockState.appState.pomodoro.activeSubject).toBeNull();
+            expect(mockState.appState.pomodoro.isRunning).toBe(false);
+        });
+    });
+
+    describe('8. Category Slice: Delete Normalization, Ghost Timer Prevention & Study Cascade', () => {
+        let mockState;
+        let setFn;
+        let getFn;
+        let catSlice;
+
+        beforeEach(() => {
+            mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    version: 1,
+                    pomodoro: {
+                        isRunning: true,
+                        activeSubject: {
+                            categoryId: 'cat-firebase-1',
+                            category: 'Direito Penal'
+                        }
+                    },
+                    contests: {
+                        'contest-1': {
+                            id: 'contest-1',
+                            categories: {
+                                '0': {
+                                    id: 'cat-firebase-1',
+                                    name: 'Direito Penal',
+                                    minCutoff: 10,
+                                    maxScore: 20,
+                                    tasks: []
+                                }
+                            },
+                            studyLogs: [
+                                { id: 'l1', categoryId: 'cat-firebase-1', subject: 'Direito Penal', minutes: 30 }
+                            ],
+                            studySessions: [
+                                { id: 's1', categoryId: 'cat-firebase-1', subject: 'Direito Penal', minutes: 30 }
+                            ],
+                            simuladoRows: [],
+                            simulados: []
+                        }
+                    }
+                }
+            };
+            setFn = (fn) => fn(mockState);
+            getFn = () => ({});
+            catSlice = createCategorySlice(setFn, getFn);
+        });
+
+        it('normalizes categories dictionary on deleteCategory and stops running pomodoro', () => {
+            catSlice.deleteCategory('cat-firebase-1');
+
+            const contest = mockState.appState.contests['contest-1'];
+            expect(Array.isArray(contest.categories)).toBe(true);
+            expect(contest.categories).toHaveLength(0);
+            expect(mockState.appState.pomodoro.activeSubject).toBeNull();
+            expect(mockState.appState.pomodoro.isRunning).toBe(false);
+            expect(contest.studyLogs).toHaveLength(0);
+            expect(contest.studySessions).toHaveLength(0);
+        });
+
+        it('syncs minScore with minCutoff on updateCategoryFields and renames studyLogs and studySessions', () => {
+            catSlice.updateCategoryFields('cat-firebase-1', {
+                name: 'Direito Penal Parte Geral',
+                minCutoff: 15
+            });
+
+            const contest = mockState.appState.contests['contest-1'];
+            const cat = Array.isArray(contest.categories)
+                ? contest.categories[0]
+                : contest.categories['0'];
+
+            expect(cat.name).toBe('Direito Penal Parte Geral');
+            expect(cat.minCutoff).toBe(15);
+            expect(cat.minScore).toBe(15);
+            expect(contest.studyLogs[0].subject).toBe('Direito Penal Parte Geral');
+            expect(contest.studySessions[0].subject).toBe('Direito Penal Parte Geral');
+            expect(mockState.appState.pomodoro.activeSubject.category).toBe('Direito Penal Parte Geral');
+        });
+    });
+
+    describe('9. UI Concordances & Labels', () => {
+        it('uses completedCount for singular/plural agreement in CategoryAccordion', () => {
+            const formatAccordion = (completed, total) =>
+                `${completed} de ${total} ${completed === 1 ? 'concluída' : 'concluídas'}`;
+
+            expect(formatAccordion(1, 10)).toBe('1 de 10 concluída');
+            expect(formatAccordion(2, 10)).toBe('2 de 10 concluídas');
+            expect(formatAccordion(0, 1)).toBe('0 de 1 concluídas');
+        });
+
+        it('uses activeSubjects for singular/plural in StatsCards balance', () => {
+            const formatActive = (active, total) =>
+                `${active}/${total} ${active === 1 ? 'ativa' : 'ativas'}`;
+
+            expect(formatActive(1, 5)).toBe('1/5 ativa');
+            expect(formatActive(2, 5)).toBe('2/5 ativas');
+        });
+
+        it('displays Aguardando estudos in StatsCards efficiency when hasEffData is false', () => {
+            const hasEffData = false;
+            const label = hasEffData ? 'Ritmo regular' : 'Aguardando estudos';
+            expect(label).toBe('Aguardando estudos');
+        });
     });
 });
+

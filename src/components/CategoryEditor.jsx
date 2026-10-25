@@ -90,7 +90,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             ? color
             : '#3b82f6';
 
-        updateCategoryFields(category.id, {
+        updateCategoryFields(category.id || category.name, {
             name: cleanName,
             color: safeColor,
             minCutoff: Number(safeMin.toFixed(2)),

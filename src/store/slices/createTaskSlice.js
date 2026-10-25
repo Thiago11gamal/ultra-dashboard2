@@ -41,10 +41,14 @@ export const createTaskSlice = (set, get) => ({
                 if (task.status === 'studying') {
                     task.status = null;
                 }
-                const activeTaskId = state.appState.pomodoro?.activeSubject?.taskId;
-                if (activeTaskId && (activeTaskId === taskId || activeTaskId === task.id || activeTaskId === task.text || activeTaskId === task.title)) {
-                    state.appState.pomodoro.activeSubject = null;
-                    state.appState.pomodoro.isRunning = false;
+                const activeSubject = state.appState.pomodoro?.activeSubject;
+                if (activeSubject) {
+                    const isMatchingActiveTask = (activeSubject.taskId && (activeSubject.taskId === taskId || activeSubject.taskId === task.id || activeSubject.taskId === task.text || activeSubject.taskId === task.title)) ||
+                        (activeSubject.task && (activeSubject.task === task.title || activeSubject.task === task.text));
+                    if (isMatchingActiveTask) {
+                        state.appState.pomodoro.activeSubject = null;
+                        state.appState.pomodoro.isRunning = false;
+                    }
                 }
             } else {
                 // ✅ FIX N-03: Ao desmarcar, usar o recibo gravado (não o XP atual da prioridade)
@@ -216,12 +220,16 @@ export const createTaskSlice = (set, get) => ({
             ? (typeof updates.notes === 'string' ? updates.notes.trim() : updates.notes)
             : currentTask.notes;
 
+        const sanitizedNotes = newNotes ? newNotes : undefined;
         category.tasks[taskIndex] = {
             ...currentTask,
             title: newTitle,
             text: newTitle,
-            notes: newNotes || undefined
+            notes: sanitizedNotes
         };
+        if (!sanitizedNotes) {
+            delete category.tasks[taskIndex].notes;
+        }
 
         const activeSubject = state.appState.pomodoro?.activeSubject;
         if (activeSubject && (activeSubject.taskId === taskId || activeSubject.taskId === currentTask.id || activeSubject.task === currentTask.title || activeSubject.task === currentTask.text)) {
@@ -268,9 +276,14 @@ export const createTaskSlice = (set, get) => ({
                         pendingXpDeduction = Math.abs(getTaskXP(task, true));
                     }
                 }
-                const activeSubjectTaskId = state.appState.pomodoro?.activeSubject?.taskId;
-                if (activeSubjectTaskId && (activeSubjectTaskId === taskId || (task && (activeSubjectTaskId === task.id || activeSubjectTaskId === task.text || activeSubjectTaskId === task.title)))) {
-                    state.appState.pomodoro.activeSubject = null;
+                const activeSubject = state.appState.pomodoro?.activeSubject;
+                if (activeSubject) {
+                    const isMatchingActiveTask = (activeSubject.taskId && (activeSubject.taskId === taskId || (task && (activeSubject.taskId === task.id || activeSubject.taskId === task.text || activeSubject.taskId === task.title)))) ||
+                        (task && activeSubject.task && (activeSubject.task === task.title || activeSubject.task === task.text));
+                    if (isMatchingActiveTask) {
+                        state.appState.pomodoro.activeSubject = null;
+                        state.appState.pomodoro.isRunning = false;
+                    }
                 }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
 

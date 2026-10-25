@@ -367,7 +367,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 ~{efficiency.metrics.minutesPerTask} min/tarefa
                             </span>
                         ) : (
-                            <span className="text-slate-500 shrink-0">Ritmo regular</span>
+                            <span className="text-slate-500 shrink-0">{hasEffData ? 'Ritmo regular' : 'Aguardando estudos'}</span>
                         )}
                     </>
                 )}
@@ -408,7 +408,7 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
 
                         {balance?.metrics?.activeSubjects > 0 && (
                             <span className="text-blue-400 font-semibold shrink-0 tabular-nums">
-                                {balance.metrics.activeSubjects}/{balance.metrics.totalSubjects} ativas
+                                {balance.metrics.activeSubjects}/{balance.metrics.totalSubjects} {balance.metrics.activeSubjects === 1 ? 'ativa' : 'ativas'}
                             </span>
                         )}
                     </>

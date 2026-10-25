@@ -161,7 +161,8 @@ export default function Dashboard() {
                     return {
                         ...c,
                         tasks: toArray(c.tasks).map(t => {
-                            if (c.id === cat.id && (t.id === tsk.id || t.id === taskId || (tsk.text && t.text === tsk.text) || (tsk.title && t.title === tsk.title))) {
+                            const isMatchingCategory = (c.id && cat.id) ? c.id === cat.id : c.name === cat.name;
+                            if (isMatchingCategory && (t.id === tsk.id || t.id === taskId || (tsk.text && t.text === tsk.text) || (tsk.title && t.title === tsk.title))) {
                                 return { ...t, status: 'studying' };
                             }
 
@@ -177,7 +178,7 @@ export default function Dashboard() {
         });
 
         startPomodoroSession({
-            categoryId: cat.id,
+            categoryId: cat.id || cat.name,
             taskId: tsk.id || taskId,
             category: cat.name,
             task: tsk.title || tsk.text || 'Estudo',
