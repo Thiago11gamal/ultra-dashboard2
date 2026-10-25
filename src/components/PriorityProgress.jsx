@@ -68,7 +68,7 @@ export default function PriorityProgress({ categories = [] }) {
         return { taskCounts, weightedCounts, totalRealTasks, totalRealCompleted, totalWeightedTasks, totalWeightedCompleted };
     }, [categories]);
 
-    const { taskCounts, weightedCounts, totalRealTasks, totalRealCompleted, totalWeightedTasks, totalWeightedCompleted } = stats;
+    const { taskCounts, totalRealTasks, totalRealCompleted } = stats;
     const priorities = ['high', 'medium', 'low'];
 
     if (totalRealTasks === 0) return null;
@@ -80,7 +80,7 @@ export default function PriorityProgress({ categories = [] }) {
     return (
         <div className="space-y-4">
             {/* Barra de Progresso Global */}
-            <div className="p-6 sm:p-7 rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-xl transition-all duration-500 group shadow-lg relative overflow-visible">
+            <div className="p-5 sm:p-6 rounded-2xl border border-purple-500/20 bg-purple-500/5 backdrop-blur-xl transition-all duration-500 group shadow-lg relative overflow-visible">
                 <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                     <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-500/20 rounded-full blur-[60px] opacity-30 transition-all duration-700 group-hover:bg-purple-400/30" />
                 </div>
@@ -88,15 +88,15 @@ export default function PriorityProgress({ categories = [] }) {
                 <div className="relative z-10 flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 sm:gap-4 px-1">
                         <div className="min-w-0">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 leading-none flex items-center mb-1">
-                                Progresso Global
+                            <span className="text-[13px] font-semibold text-purple-300 leading-none flex items-center mb-1.5">
+                                Progresso global
 
                                 <span
                                     className="relative group/tooltip cursor-help ml-2 inline-flex focus-visible:outline-none rounded"
                                     tabIndex={0}
                                 >
                                     <Info
-                                        size={12}
+                                        size={14}
                                         className="text-purple-400/50 hover:text-purple-400 transition-colors"
                                     />
 
@@ -106,17 +106,17 @@ export default function PriorityProgress({ categories = [] }) {
                                 </span>
                             </span>
 
-                            <h3 className="text-xl font-bold text-white leading-tight">
-                                Conclusão de Assuntos
+                            <h3 className="text-xl font-bold text-white tracking-tight leading-tight">
+                                Conclusão de assuntos
                             </h3>
                         </div>
 
                         <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0">
-                            <span className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
+                            <span className="text-[1.75rem] font-bold leading-none tabular-nums tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
                                 {globalPct}%
                             </span>
 
-                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold sm:mt-1">
+                            <p className="text-[13px] text-slate-400 sm:mt-1.5 tabular-nums">
                                 {totalRealCompleted} de {totalRealTasks} {totalRealCompleted === 1 ? 'concluído' : 'concluídos'}
                             </p>
                         </div>
@@ -128,7 +128,7 @@ export default function PriorityProgress({ categories = [] }) {
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-valuenow={globalPct}
-                        className="w-full h-5 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner p-[2px]"
+                        className="w-full h-4 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner p-[2px]"
                     >
                         {globalPct > 0 ? (
                             <div
@@ -145,7 +145,7 @@ export default function PriorityProgress({ categories = [] }) {
             </div>
 
             {/* Cards por prioridade */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                 {priorities.map(p => {
                     const { total, completed } = taskCounts[p];
                     const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -154,7 +154,7 @@ export default function PriorityProgress({ categories = [] }) {
                     return (
                         <div
                             key={p}
-                            className={`p-6 rounded-2xl border transition-all duration-500 group shadow-lg relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}
+                            className={`p-5 rounded-2xl border transition-all duration-500 group shadow-lg relative ${conf.border} ${conf.bg} backdrop-blur-xl hover:bg-white/[0.07] hover:shadow-2xl hover:-translate-y-1`}
                         >
                             <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
                                 <div className={`absolute -top-12 -left-12 w-32 h-32 rounded-full blur-[50px] opacity-20 transition-all duration-700 group-hover:opacity-40 ${p === 'high'
@@ -165,17 +165,17 @@ export default function PriorityProgress({ categories = [] }) {
                                     }`} />
                             </div>
 
-                            <div className="relative z-10 flex flex-col gap-5">
-                                <div className="flex justify-between items-center px-1">
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${conf.text} leading-none pt-1 flex items-center`}>
-                                        Prioridade {conf.label}
+                            <div className="relative z-10 flex flex-col gap-3">
+                                <div className="flex justify-between items-center">
+                                    <span className={`text-sm font-semibold ${conf.text} leading-none flex items-center`}>
+                                        Prioridade {conf.label.toLowerCase()}
 
                                         <span
                                             className="relative group/tooltip cursor-help ml-1 inline-flex focus-visible:outline-none rounded"
                                             tabIndex={0}
                                         >
                                             <Info
-                                                size={12}
+                                                size={14}
                                                 className={`${conf.text} opacity-50 hover:opacity-100 transition-opacity`}
                                             />
 
@@ -190,7 +190,7 @@ export default function PriorityProgress({ categories = [] }) {
                                         </span>
                                     </span>
 
-                                    <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors tracking-wide">
+                                    <span className="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors tabular-nums">
                                         {completed}/{total}
                                     </span>
                                 </div>
@@ -201,7 +201,7 @@ export default function PriorityProgress({ categories = [] }) {
                                     aria-valuemin={0}
                                     aria-valuemax={100}
                                     aria-valuenow={pct}
-                                    className="w-full h-4 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner relative mt-1"
+                                    className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner relative"
                                 >
                                     {pct > 0 ? (
                                         <div
@@ -220,9 +220,9 @@ export default function PriorityProgress({ categories = [] }) {
                                     )}
                                 </div>
 
-                                <div className="flex justify-end pr-1 mt-1">
-                                    <span className={`text-xs font-black ${conf.text} drop-shadow-md leading-none pt-1`}>
-                                        {pct}% completado
+                                <div className="flex justify-end">
+                                    <span className={`text-[13px] font-semibold ${conf.text} leading-none tabular-nums`}>
+                                        {pct}% concluído
                                     </span>
                                 </div>
                             </div>

@@ -217,11 +217,11 @@ export default function Dashboard() {
                         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
                     </div>
                     <div className="flex flex-col items-center">
-                        <p className="text-indigo-400 font-black uppercase tracking-[0.2em] text-xs">
-                            A Calibrar Motor
+                        <p className="text-indigo-300 font-semibold text-sm">
+                            Calibrando o motor
                         </p>
-                        <p className="text-slate-500 text-[10px] uppercase tracking-widest mt-1">
-                            A carregar perfil de aprendizagem
+                        <p className="text-slate-500 text-xs mt-1">
+                            Carregando seu perfil de aprendizagem
                         </p>
                     </div>
                 </div>
@@ -233,10 +233,10 @@ export default function Dashboard() {
         <PageErrorBoundary pageName="Dashboard">
             <div className="space-y-4 sm:space-y-5 animate-fade-in">
                 {!bannerDismissed && (
-                    <div className="hidden lg:flex items-center justify-between text-[11px] text-teal-400/90 bg-teal-500/10 border border-teal-500/20 px-3 py-1.5 rounded-xl font-medium mb-1 shadow-sm">
+                    <div className="hidden lg:flex items-center justify-between text-[13px] text-teal-300/90 bg-teal-500/10 border border-teal-500/20 px-3.5 py-2 rounded-xl mb-1 shadow-sm">
                         <div className="flex items-center gap-2">
                             <span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
-                            <span><strong className="font-bold text-teal-300">NOVO:</strong> Flashcards e Agenda de Estudos disponíveis no menu</span>
+                            <span><strong className="font-semibold text-teal-200">Novo:</strong> Flashcards e Agenda de Estudos disponíveis no menu</span>
                         </div>
                         <button
                             type="button"

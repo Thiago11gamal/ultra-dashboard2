@@ -112,6 +112,11 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         if (level === 'BAIXO') levelColor = 'text-red-400 bg-red-500/10 border-red-500/20';
     }
 
+    // Exibe o nível em caixa normal ("Alto", "Médio", "Baixo") sem alterar o valor interno
+    const levelLabel = typeof level === 'string' && level.length > 1
+        ? level.charAt(0).toUpperCase() + level.slice(1).toLowerCase()
+        : level;
+
     const avgNum = Number(average);
     const formattedAvg = Number.isFinite(avgNum)
         ? (Number.isInteger(avgNum) ? avgNum : avgNum.toFixed(1))
@@ -141,59 +146,59 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         : null;
 
     return (
-        <div className="relative p-3 mx-3 mb-3 bg-white/[0.02] rounded-xl border border-white/5 group overflow-hidden">
+        <div className="relative p-4 mx-4 mb-3 bg-white/[0.02] rounded-xl border border-white/5 group overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
-            <div className="relative z-10 flex items-center gap-2 mb-2 text-slate-300 text-xs font-bold uppercase tracking-wider leading-relaxed">
-                <BarChart2 size={14} style={{ color: color || '#818cf8' }} />
-                <h3>Média de acerto (Simulados)</h3>
+            <div className="relative z-10 flex items-center gap-2 mb-3 text-slate-200 text-sm font-semibold">
+                <BarChart2 size={16} style={{ color: color || '#818cf8' }} />
+                <h3>Média de acerto nos simulados</h3>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 relative z-10">
-                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-2 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold mb-0.5 tracking-wider">
-                        Média Geral
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 relative z-10">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors px-3 py-2.5 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-xs text-slate-400 font-medium mb-1">
+                        Média geral
                     </span>
-                    <span className="text-xl font-black" style={{ color: color || '#818cf8' }}>
+                    <span className="text-xl font-bold leading-tight tabular-nums" style={{ color: color || '#818cf8' }}>
                         {avgDisplay}
                     </span>
                     {avgPctSub && (
-                        <span className="text-[9px] text-slate-400 font-medium mt-0.5">
+                        <span className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
                             {avgPctSub}
                         </span>
                     )}
                 </div>
 
-                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-2 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold mb-0.5 tracking-wider">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors px-3 py-2.5 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-xs text-slate-400 font-medium mb-1">
                         Última
                     </span>
-                    <span className="text-lg font-mono font-bold text-slate-200">
+                    <span className="text-xl font-bold leading-tight tabular-nums text-slate-200">
                         {lastDisplay}
                     </span>
                     {lastPctSub && (
-                        <span className="text-[9px] text-slate-400 font-medium mt-0.5">
+                        <span className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
                             {lastPctSub}
                         </span>
                     )}
                 </div>
 
-                <div className={`p-2 rounded-lg border flex flex-col items-center justify-center shadow-sm transition-colors ${levelColor}`}>
-                    <span className="text-[10px] uppercase font-bold mb-0.5 opacity-80 tracking-wider">
+                <div className={`px-3 py-2.5 rounded-lg border flex flex-col items-center justify-center text-center shadow-sm transition-colors ${levelColor}`}>
+                    <span className="text-xs font-medium mb-1 opacity-80">
                         Nível
                     </span>
-                    <span className="text-xs font-black">
-                        {hasHistory ? level : '-'}
+                    <span className="text-base font-semibold leading-tight">
+                        {hasHistory ? levelLabel : '-'}
                     </span>
                 </div>
 
-                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors p-2 rounded-lg border border-white/5 flex flex-col items-center justify-center shadow-sm">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold mb-0.5 tracking-wider">
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors px-3 py-2.5 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-xs text-slate-400 font-medium mb-1">
                         Tendência
                     </span>
 
-                    <div className="flex items-center gap-1 mt-0.5">
+                    <div className="flex items-center gap-1.5">
                         {trendIcon}
-                        <span className="text-[10px] text-slate-300 font-bold">
+                        <span className="text-sm text-slate-200 font-semibold">
                             {trendText}
                         </span>
                     </div>
@@ -202,8 +207,8 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 
             {history.length > 1 && (
                 <div className="mt-3 pt-3 border-t border-white/5">
-                    <p className="text-[9px] text-slate-500 uppercase font-bold mb-1.5">
-                        Evolução Recente
+                    <p className="text-xs text-slate-500 font-medium mb-2">
+                        Evolução recente
                     </p>
 
                     <div className="flex items-end h-10 gap-0.5 w-full overflow-visible">
@@ -235,7 +240,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                                         }}
                                     />
 
-                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 group-focus-within/bar:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 group-focus-within/bar:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 tabular-nums">
                                         {labelTooltip}
                                     </div>
                                 </div>
@@ -274,19 +279,19 @@ const TaskItem = ({
 
                 <div className="flex-1 min-w-0 pr-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`text-sm font-bold ${task.completed ? 'line-through text-slate-500' : 'text-white'}`}>
+                        <p className={`text-sm sm:text-[15px] font-medium leading-snug ${task.completed ? 'line-through text-slate-500' : 'text-slate-100'}`}>
                             {taskTitle}
                         </p>
 
                         {task.status === 'studying' && !task.completed && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-gradient-to-r from-purple-500 to-pink-500 text-white animate-pulse shadow-lg shadow-purple-500/20 whitespace-nowrap flex-shrink-0">
+                            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gradient-to-r from-purple-500 to-pink-500 text-white animate-pulse shadow-lg shadow-purple-500/20 whitespace-nowrap flex-shrink-0">
                                 ⚡ Estudando
                             </span>
                         )}
                     </div>
 
                     {task.notes && (
-                        <p className="text-[10px] sm:text-xs text-slate-500 break-words line-clamp-3 mt-0.5 leading-tight">
+                        <p className="text-xs text-slate-500 break-words line-clamp-3 mt-1 leading-snug">
                             {task.notes}
                         </p>
                     )}
@@ -308,8 +313,8 @@ const TaskItem = ({
                         <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-500 rounded-full blur-[4px] opacity-60 transition-all duration-500" />
                         <div className="absolute inset-0 bg-gradient-to-r from-red-700 to-red-500 rounded-full border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />
 
-                        <span className="text-white font-black text-[9px] sm:text-[10px] tracking-widest uppercase drop-shadow-md relative z-10">
-                            PLAY
+                        <span className="text-white font-semibold text-xs drop-shadow-md relative z-10">
+                            Continuar
                         </span>
                     </button>
                 ) : (
@@ -333,7 +338,7 @@ const TaskItem = ({
                         e.stopPropagation();
                         onTogglePriority(task.id || task.text || task.title);
                     }}
-                    className={`px-3 sm:w-20 py-1.5 rounded-lg text-[9px] sm:text-xs font-black uppercase transition-all cursor-pointer hover:scale-105 active:scale-95 select-none ${priority.bg} ${priority.text} ${priority.border} border`}
+                    className={`px-3 sm:w-20 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer hover:scale-105 active:scale-95 select-none ${priority.bg} ${priority.text} ${priority.border} border`}
                     title="Clique para alternar o nível: Baixa → Média → Alta"
                     aria-label={`Alternar prioridade da tarefa: ${taskTitle}`}
                 >
@@ -418,20 +423,20 @@ const CategoryAccordion = React.memo(({
                     <div className="text-left flex-1 min-w-0 mr-2">
                         <div className="flex items-center gap-2 flex-wrap">
                             <h3
-                                className="font-bold text-sm sm:text-lg break-words line-clamp-2"
+                                className="font-semibold text-base sm:text-lg leading-snug tracking-tight break-words line-clamp-2"
                                 style={{ color: category.color }}
                             >
                                 {category.name || 'Sem Nome'}
                             </h3>
 
                             {category.totalMinutes > 0 && (
-                                <span className="text-yellow-400/80 text-[9px] sm:text-[10px] font-black whitespace-nowrap border border-yellow-400/20 px-1 sm:px-1.5 py-0.5 rounded-sm leading-normal">
+                                <span className="text-yellow-400/90 text-[11px] font-semibold tabular-nums whitespace-nowrap border border-yellow-400/20 px-1.5 py-0.5 rounded-md leading-normal">
                                     {formatMinutes(category.totalMinutes)}
                                 </span>
                             )}
                         </div>
 
-                        <p className="text-[10px] sm:text-xs text-slate-500 font-medium">
+                        <p className="text-xs sm:text-[13px] text-slate-400 mt-0.5 tabular-nums">
                             {completedCount} de {originalTasks.length} {originalTasks.length === 1 ? 'concluída' : 'concluídas'}
                         </p>
                     </div>
@@ -477,7 +482,7 @@ const CategoryAccordion = React.memo(({
                     </div>
 
                     <span
-                        className="text-xs sm:text-sm font-mono flex-shrink-0 w-8 sm:w-10 text-right inline-block"
+                        className="text-sm font-semibold tabular-nums flex-shrink-0 w-10 sm:w-11 text-right inline-block"
                         style={{ color: category.color }}
                     >
                         {progress}%
@@ -788,7 +793,7 @@ function Checklist({
 
                             {/* Title & Description */}
                             <div className="flex flex-col items-center lg:items-start gap-3 mt-2">
-                                <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                                <h3 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
                                     Prepare-se para o Topo!
                                 </h3>
 
@@ -866,14 +871,14 @@ function Checklist({
                             <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 animate-pulse shadow-sm shadow-purple-500/50" />
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-base font-bold text-white tracking-tight">
-                                        Disciplinas do Edital
+                                    <h2 className="text-lg font-bold text-white tracking-tight">
+                                        Disciplinas do edital
                                     </h2>
-                                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
+                                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 tabular-nums">
                                         {safeCategories.length} {safeCategories.length === 1 ? 'disciplina' : 'disciplinas'}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-0.5">
+                                <p className="text-[13px] text-slate-400 mt-0.5 tabular-nums">
                                     {taskStats.total} {taskStats.total === 1 ? 'tópico cadastrado' : 'tópicos cadastrados'} • {taskStats.completed} {taskStats.completed === 1 ? 'concluído' : 'concluídos'}
                                 </p>
                             </div>
@@ -889,14 +894,14 @@ function Checklist({
                                         type="button"
                                         onClick={() => setFilter(f.id)}
                                         aria-pressed={isActive}
-                                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
+                                        className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
                                             isActive
                                                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-900/30 font-semibold scale-[1.02]'
                                                 : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                                         }`}
                                     >
                                         <span>{f.label}</span>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                                        <span className={`text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-full leading-none ${
                                             isActive
                                                 ? 'bg-white/20 text-white'
                                                 : 'bg-white/5 text-slate-400'
@@ -1044,8 +1049,8 @@ function Checklist({
                         ) : (
                             <div className="flex flex-col gap-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                                 <div>
-                                    <label className="block text-xs text-slate-400 font-bold uppercase mb-2">
-                                        Selecione o Concurso Origem
+                                    <label className="block text-[13px] text-slate-400 font-medium mb-2">
+                                        Selecione o concurso de origem
                                     </label>
 
                                     <select
@@ -1071,8 +1076,8 @@ function Checklist({
 
                                 {importSourceContest && sourceCategories.length > 0 && (
                                     <div>
-                                        <label className="block text-xs text-slate-400 font-bold uppercase mb-2">
-                                            Disciplinas Disponíveis
+                                        <label className="block text-[13px] text-slate-400 font-medium mb-2">
+                                            Disciplinas disponíveis
                                         </label>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1119,7 +1124,7 @@ function Checklist({
                                                                 {cat.name}
                                                             </div>
 
-                                                            <div className="text-[10px] text-slate-400">
+                                                            <div className="text-xs text-slate-400 tabular-nums">
                                                                 {exists
                                                                     ? 'Já existe'
                                                                     : `${toArray(cat.tasks).length} tarefas`}
@@ -1134,7 +1139,7 @@ function Checklist({
 
                                 {importSourceContest && sourceCategories.length === 0 && (
                                     <div className="text-center p-4 bg-slate-800/30 rounded-xl border border-white/5">
-                                        <p className="text-slate-500 text-xs font-bold uppercase">
+                                        <p className="text-slate-500 text-sm font-medium">
                                             Nenhuma disciplina encontrada
                                         </p>
                                     </div>

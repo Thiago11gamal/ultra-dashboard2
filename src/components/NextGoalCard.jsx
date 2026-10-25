@@ -130,10 +130,10 @@ function NextGoalCard({
                 </div>
 
                 <div className="flex-1">
-                    <h3 className="text-sm font-bold text-green-400">
+                    <h3 className="text-base font-semibold text-green-400">
                         Tudo em dia! 🎉
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-sm text-slate-400">
                         Nenhuma tarefa urgente.
                     </p>
                 </div>
@@ -206,16 +206,16 @@ function NextGoalCard({
 
                 {/* Center: Task Info */}
                 <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
-                    <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
-                            PRÓXIMA MISSÃO
+                    <div className="flex flex-wrap items-center gap-2.5 mb-2">
+                        <span className="text-[13px] font-semibold text-slate-400 flex items-center">
+                            Próxima missão
 
                             <span
                                 className="relative group/tooltip cursor-help ml-2 inline-flex focus-visible:outline-none rounded"
                                 tabIndex={0}
                             >
                                 <Info
-                                    size={12}
+                                    size={14}
                                     className="text-slate-500 hover:text-slate-400 transition-colors"
                                 />
 
@@ -225,7 +225,7 @@ function NextGoalCard({
                             </span>
                         </span>
 
-                        <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-md border tracking-widest leading-none ${urgencyStyle.badge}`}>
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border leading-none ${urgencyStyle.badge}`}>
                             {hasSimuladoData
                                 ? (urgencyScore > 70
                                     ? '🔥 Urgente'
@@ -238,7 +238,7 @@ function NextGoalCard({
 
                     <div className="flex flex-col gap-1 mb-2 min-w-0">
                         <h3
-                            className="text-lg md:text-xl font-black text-white break-words line-clamp-2 min-w-0 block drop-shadow-sm pb-0.5"
+                            className="text-xl font-bold text-white tracking-tight break-words line-clamp-2 min-w-0 block pb-0.5"
                             title={category.name}
                         >
                             {category.name}
@@ -252,7 +252,7 @@ function NextGoalCard({
                                 />
 
                                 <h4
-                                    className="text-xs sm:text-sm font-bold text-slate-300 break-words line-clamp-2 min-w-0 block pb-0.5"
+                                    className="text-sm font-medium text-slate-300 break-words line-clamp-2 min-w-0 block pb-0.5"
                                     title={display.assunto}
                                 >
                                     {display.assunto}
@@ -263,14 +263,14 @@ function NextGoalCard({
 
                     <div className="flex flex-col gap-2 mt-2">
                         <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 text-[11px] text-slate-400 font-medium">
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 text-[13px] text-slate-400">
                                 <Clock
-                                    size={12}
+                                    size={13}
                                     className={urgencyStyle.textHighlight}
                                 />
 
                                 Tempo sem ver:{' '}
-                                <span className="text-white font-bold">
+                                <span className="text-white font-semibold tabular-nums">
                                     {hasSimuladoData
                                         ? daysSinceLastStudy > 0
                                             ? `${daysSinceLastStudy}d`
@@ -286,8 +286,8 @@ function NextGoalCard({
                                     💡
                                 </span>
 
-                                <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                                    <span className="text-white font-bold">
+                                <p className="text-[13px] text-slate-300 leading-relaxed">
+                                    <span className="text-white font-semibold">
                                         Motivo da escolha:{' '}
                                     </span>
                                     {urgency.recommendation}
@@ -303,18 +303,18 @@ function NextGoalCard({
                         type="button"
                         onClick={() => typeof onStartStudying === 'function' && onStartStudying(category.id, task.id || task.text || task.title)}
                         aria-label={`Iniciar sessão de ${category.name}${display.assunto ? `: ${display.assunto}` : ''}`}
-                        className={`relative w-full px-8 py-4 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all transform hover:-translate-y-1 active:scale-95 group/btn overflow-hidden`}
+                        className={`relative w-full px-7 py-3.5 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-semibold text-[15px] flex items-center justify-center gap-2.5 transition-all transform hover:-translate-y-1 active:scale-95 group/btn overflow-hidden`}
                     >
                         <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
 
                         <Play
-                            size={18}
+                            size={17}
                             className="fill-white relative z-10"
                             aria-hidden="true"
                         />
 
                         <span className="relative z-10">
-                            INICIAR SESSÃO
+                            Iniciar sessão
                         </span>
                     </button>
                 </div>
