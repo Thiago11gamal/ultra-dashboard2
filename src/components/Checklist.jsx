@@ -31,6 +31,7 @@ import { useModalAccessibility } from '../hooks/useModalAccessibility';
 import { getContestDisplayName } from './sidebarUtils';
 import { normalize } from '../utils/normalization';
 import { useToast } from '../hooks/useToast';
+import { useNavigate } from 'react-router-dom';
 
 const priorityColors = {
     high: {
@@ -78,6 +79,7 @@ const getHistoryDateLabel = (h) => {
 };
 
 const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
+    const navigate = useNavigate();
     if (!stats) return null;
 
     const {
@@ -92,22 +94,63 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
     const history = toArray(rawHistory);
     const hasHistory = history.length > 0;
 
+    if (!hasHistory) {
+        return (
+            <div className="relative p-3.5 mx-4 mb-3 bg-white/[0.02] rounded-xl border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group">
+                <div className="flex items-center gap-3">
+                    <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-sm flex-shrink-0 border shadow-inner"
+                        style={{
+                            backgroundColor: `${color || '#818cf8'}15`,
+                            borderColor: `${color || '#818cf8'}30`,
+                            color: color || '#818cf8'
+                        }}
+                    >
+                        <BarChart2 size={16} />
+                    </div>
+                    <div>
+                        <h4 className="text-xs sm:text-sm font-semibold text-slate-200">
+                            Desempenho em simulados
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Nenhum simulado ou bateria de questões registrado para esta matéria ainda.
+                        </p>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => navigate('/simulados')}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 cursor-pointer shadow-sm hover:scale-105 active:scale-95 border flex-shrink-0"
+                    style={{
+                        backgroundColor: `${color || '#818cf8'}15`,
+                        borderColor: `${color || '#818cf8'}30`,
+                        color: color || '#818cf8'
+                    }}
+                >
+                    <Plus size={13} className="stroke-[2.5]" />
+                    <span>Registrar simulado</span>
+                </button>
+            </div>
+        );
+    }
+
     let trendIcon = (
         <div className="w-4 h-4 flex items-center justify-center rounded-full bg-slate-500/10">
             <Minus size={12} className="text-slate-400" />
         </div>
     );
 
-    let trendText = hasHistory ? 'Estável' : 'Sem dados';
+    let trendText = 'Estável';
 
-    if (hasHistory && trend === 'up') {
+    if (trend === 'up') {
         trendIcon = (
             <div className="w-4 h-4 flex items-center justify-center rounded-full bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
                 <TrendingUp size={12} className="text-emerald-400" />
             </div>
         );
         trendText = 'Subindo';
-    } else if (hasHistory && trend === 'down') {
+    } else if (trend === 'down') {
         trendIcon = (
             <div className="w-4 h-4 flex items-center justify-center rounded-full bg-rose-500/20 shadow-[0_0_8px_rgba(244,63,94,0.3)]">
                 <TrendingDown size={12} className="text-rose-400" />
@@ -118,11 +161,9 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 
     let levelColor = 'text-slate-400 bg-slate-500/10 border-slate-500/20';
 
-    if (hasHistory) {
-        if (level === 'ALTO') levelColor = 'text-green-400 bg-green-500/10 border-green-500/20';
-        if (level === 'MÉDIO') levelColor = 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
-        if (level === 'BAIXO') levelColor = 'text-red-400 bg-red-500/10 border-red-500/20';
-    }
+    if (level === 'ALTO') levelColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+    if (level === 'MÉDIO') levelColor = 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+    if (level === 'BAIXO') levelColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20';
 
     // Exibe o nível em caixa normal ("Alto", "Médio", "Baixo") sem alterar o valor interno
     const levelLabel = typeof level === 'string' && level.length > 1
@@ -134,12 +175,10 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         ? (Number.isInteger(avgNum) ? avgNum : avgNum.toFixed(1))
         : average;
 
-    const avgDisplay = !hasHistory
-        ? '-'
-        : safeMax === 100
-            ? `${formattedAvg}%`
-            : `${formattedAvg} / ${safeMax} pts`;
-    const avgPctSub = hasHistory && safeMax !== 100 && Number.isFinite(avgNum)
+    const avgDisplay = safeMax === 100
+        ? `${formattedAvg}%`
+        : `${formattedAvg} / ${safeMax} pts`;
+    const avgPctSub = safeMax !== 100 && Number.isFinite(avgNum)
         ? `${Math.round((avgNum / safeMax) * 100)}%`
         : null;
 
@@ -148,21 +187,33 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(1))
         : lastAttempt;
 
-    const lastDisplay = !hasHistory
-        ? '-'
-        : safeMax === 100
-            ? `${formattedLast}%`
-            : `${formattedLast} / ${safeMax} pts`;
-    const lastPctSub = hasHistory && safeMax !== 100 && Number.isFinite(lastNum)
+    const lastDisplay = safeMax === 100
+        ? `${formattedLast}%`
+        : `${formattedLast} / ${safeMax} pts`;
+    const lastPctSub = safeMax !== 100 && Number.isFinite(lastNum)
         ? `${Math.round((lastNum / safeMax) * 100)}%`
         : null;
 
     return (
         <div className="relative p-4 mx-4 mb-3 bg-white/[0.02] rounded-xl border border-white/5 group overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
-            <div className="relative z-10 flex items-center gap-2 mb-3 text-slate-200 text-sm font-semibold">
-                <BarChart2 size={16} style={{ color: color || '#818cf8' }} />
-                <h3>Média de acerto nos simulados</h3>
+            <div className="relative z-10 flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-slate-200 text-sm font-semibold">
+                    <BarChart2 size={16} style={{ color: color || '#818cf8' }} />
+                    <h3>Desempenho em simulados</h3>
+                    <span className="text-[11px] font-normal text-slate-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/5 tabular-nums">
+                        {history.length} {history.length === 1 ? 'registro' : 'registros'}
+                    </span>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => navigate('/simulados')}
+                    className="text-xs font-medium text-slate-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                    <Plus size={12} />
+                    <span>Novo simulado</span>
+                </button>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 relative z-10">
@@ -182,7 +233,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
 
                 <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors px-3 py-2.5 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
                     <span className="text-xs text-slate-400 font-medium mb-1">
-                        Última
+                        Último simulado
                     </span>
                     <span className="text-xl font-bold leading-tight tabular-nums text-slate-200">
                         {lastDisplay}
@@ -199,7 +250,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                         Nível
                     </span>
                     <span className="text-base font-semibold leading-tight">
-                        {hasHistory ? levelLabel : '-'}
+                        {levelLabel}
                     </span>
                 </div>
 
