@@ -17,7 +17,8 @@ import {
     Rocket,
     BookOpen,
     Target,
-    CheckCircle2
+    CheckCircle2,
+    Check
 } from 'lucide-react';
 import PromptModal from './PromptModal';
 import CategoryEditor from './CategoryEditor';
@@ -31,19 +32,28 @@ import { useToast } from '../hooks/useToast';
 
 const priorityColors = {
     high: {
-        bg: 'bg-red-500/20',
-        border: 'border-red-500/50',
-        text: 'text-red-400'
+        bg: 'bg-rose-500/15 hover:bg-rose-500/25',
+        border: 'border-rose-500/40 hover:border-rose-500/60',
+        text: 'text-rose-300',
+        dot: 'bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.6)]',
+        label: 'Alta',
+        next: 'Baixa'
     },
     medium: {
-        bg: 'bg-yellow-500/20',
-        border: 'border-yellow-500/50',
-        text: 'text-yellow-400'
+        bg: 'bg-amber-500/15 hover:bg-amber-500/25',
+        border: 'border-amber-500/40 hover:border-amber-500/60',
+        text: 'text-amber-300',
+        dot: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]',
+        label: 'Média',
+        next: 'Alta'
     },
     low: {
-        bg: 'bg-green-500/20',
-        border: 'border-green-500/50',
-        text: 'text-green-400'
+        bg: 'bg-emerald-500/15 hover:bg-emerald-500/25',
+        border: 'border-emerald-500/40 hover:border-emerald-500/60',
+        text: 'text-emerald-300',
+        dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.6)]',
+        label: 'Baixa',
+        next: 'Média'
     },
 };
 
@@ -266,26 +276,50 @@ const TaskItem = ({
 
     return (
         <div
-            className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 sm:p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-purple-500/30 hover:bg-white/[0.07] transition-all group shadow-sm hover:shadow-md ${task.completed ? 'opacity-40' : ''}`}
+            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:py-3 sm:px-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-purple-500/30 hover:bg-white/[0.06] transition-all group shadow-sm hover:shadow-md ${task.completed ? 'opacity-40 hover:opacity-75' : ''}`}
         >
             <div className="flex items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
-                <input
-                    type="checkbox"
-                    checked={Boolean(task.completed)}
-                    onChange={() => onToggle(task.id || task.text || task.title)}
-                    className="flex-shrink-0 w-5 h-5 cursor-pointer accent-purple-500 hover:scale-110 transition-transform"
+                <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={Boolean(task.completed)}
+                    onClick={() => onToggle(task.id || task.text || task.title)}
+                    className={`flex-shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                        task.completed
+                            ? 'bg-gradient-to-tr from-purple-600 to-indigo-500 border-purple-400 text-white shadow-sm shadow-purple-500/40'
+                            : 'bg-white/[0.04] border-slate-600 hover:border-purple-400 hover:bg-purple-500/10'
+                    }`}
+                    title={task.completed ? 'Marcar como não concluída' : 'Marcar como concluída'}
                     aria-label={`Concluir tarefa: ${taskTitle}`}
-                />
+                >
+                    {task.completed && (
+                        <Check size={13} strokeWidth={3} className="text-white" />
+                    )}
+                </button>
 
                 <div className="flex-1 min-w-0 pr-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <p className={`text-sm sm:text-[15px] font-medium leading-snug ${task.completed ? 'line-through text-slate-500' : 'text-slate-100'}`}>
-                            {taskTitle}
-                        </p>
+                        <button
+                            type="button"
+                            onClick={() => onToggle(task.id || task.text || task.title)}
+                            className="text-left group/title focus:outline-none cursor-pointer"
+                        >
+                            <p className={`text-sm sm:text-[15px] font-medium leading-snug transition-colors ${
+                                task.completed
+                                    ? 'line-through text-slate-500'
+                                    : 'text-slate-100 group-hover/title:text-purple-300'
+                            }`}>
+                                {taskTitle}
+                            </p>
+                        </button>
 
                         {task.status === 'studying' && !task.completed && (
-                            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gradient-to-r from-purple-500 to-pink-500 text-white animate-pulse shadow-lg shadow-purple-500/20 whitespace-nowrap flex-shrink-0">
-                                ⚡ Estudando
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 whitespace-nowrap flex-shrink-0 shadow-sm">
+                                <span className="relative flex h-1.5 w-1.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500" />
+                                </span>
+                                <span>Estudando</span>
                             </span>
                         )}
                     </div>
@@ -298,7 +332,7 @@ const TaskItem = ({
                 </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 w-full sm:w-auto ml-auto pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0">
+            <div className="flex items-center justify-end gap-2 w-full sm:w-auto ml-auto pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0 flex-shrink-0">
                 {task.status === 'studying' && !task.completed ? (
                     <button
                         type="button"
@@ -306,16 +340,12 @@ const TaskItem = ({
                             e.stopPropagation();
                             onTriggerPlay();
                         }}
-                        className="relative px-4 h-8 sm:h-9 flex items-center justify-center gap-2 rounded-full transition-all duration-500 hover:scale-[1.05] active:scale-95 group overflow-visible animate-pulse"
-                        title="Retornar ao Pomodoro"
-                        aria-label="Retornar ao Pomodoro"
+                        className="h-8 px-3.5 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-purple-600/30 hover:shadow-purple-500/50 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border border-purple-400/40"
+                        title="Retornar à sessão ativa no Pomodoro"
+                        aria-label={`Retornar à sessão de ${taskTitle}`}
                     >
-                        <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-500 rounded-full blur-[4px] opacity-60 transition-all duration-500" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-red-700 to-red-500 rounded-full border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]" />
-
-                        <span className="text-white font-semibold text-xs drop-shadow-md relative z-10">
-                            Continuar
-                        </span>
+                        <Play size={12} className="fill-white" />
+                        <span>Continuar</span>
                     </button>
                 ) : (
                     <button
@@ -324,11 +354,12 @@ const TaskItem = ({
                             e.stopPropagation();
                             onTriggerPlay();
                         }}
-                        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl transition-all group/play text-purple-400 bg-purple-500/5 border border-purple-500/20 hover:text-white hover:bg-purple-500/40 hover:scale-110"
-                        title="Estudar agora"
+                        className="h-8 px-3 flex items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-600 hover:text-white border border-purple-500/20 hover:border-purple-500/50 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
+                        title="Iniciar sessão de estudo para este assunto no Pomodoro"
                         aria-label={`Estudar agora: ${taskTitle}`}
                     >
-                        <Play size={15} className="fill-purple-500/20" />
+                        <Play size={12} className="fill-current" />
+                        <span className="hidden sm:inline">Estudar</span>
                     </button>
                 )}
 
@@ -338,21 +369,18 @@ const TaskItem = ({
                         e.stopPropagation();
                         onTogglePriority(task.id || task.text || task.title);
                     }}
-                    className={`px-3 sm:w-20 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer hover:scale-105 active:scale-95 select-none ${priority.bg} ${priority.text} ${priority.border} border`}
-                    title="Clique para alternar o nível: Baixa → Média → Alta"
-                    aria-label={`Alternar prioridade da tarefa: ${taskTitle}`}
+                    className={`h-8 px-3 sm:w-20 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 select-none flex items-center justify-center gap-1.5 border ${priority.bg} ${priority.text} ${priority.border}`}
+                    title={`Prioridade: ${priority.label} (clique para alternar para ${priority.next})`}
+                    aria-label={`Alternar prioridade da tarefa: ${taskTitle}. Atual: ${priority.label}`}
                 >
-                    {safePriority === 'high'
-                        ? 'Alta'
-                        : safePriority === 'medium'
-                            ? 'Média'
-                            : 'Baixa'}
+                    <span className={`w-1.5 h-1.5 rounded-full ${priority.dot} flex-shrink-0`} />
+                    <span>{priority.label}</span>
                 </button>
 
                 <button
                     type="button"
                     onClick={() => onDelete(task.id || task.text || task.title)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/[0.02] hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 border border-transparent hover:border-rose-500/30 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95"
                     title="Excluir tarefa"
                     aria-label={`Excluir tarefa: ${taskTitle}`}
                 >
@@ -562,12 +590,12 @@ const CategoryAccordion = React.memo(({
                                 <button
                                     type="button"
                                     onClick={() => onOpenTaskModal(category.id)}
-                                    className="w-full py-2.5 px-4 rounded-xl bg-white/[0.02] hover:bg-purple-500/[0.06] border border-white/5 hover:border-purple-500/30 text-slate-400 hover:text-purple-200 transition-all duration-200 flex items-center justify-center gap-2 group text-xs font-semibold shadow-sm mt-2"
+                                    className="w-full py-2.5 px-4 rounded-xl bg-purple-500/[0.03] hover:bg-purple-500/[0.08] border border-dashed border-purple-500/25 hover:border-purple-500/45 text-slate-400 hover:text-purple-200 transition-all duration-200 flex items-center justify-center gap-2 group text-xs sm:text-sm font-medium shadow-sm mt-3 cursor-pointer"
                                 >
-                                    <div className="w-5 h-5 rounded-md bg-white/5 group-hover:bg-purple-500/20 border border-white/10 group-hover:border-purple-500/30 flex items-center justify-center text-slate-400 group-hover:text-purple-300 transition-all">
-                                        <Plus size={13} className="group-hover:scale-110 transition-transform" />
+                                    <div className="w-5 h-5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 border border-purple-500/20 group-hover:border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:text-purple-200 transition-all group-hover:scale-110">
+                                        <Plus size={13} className="stroke-[2.5]" />
                                     </div>
-                                    <span>Adicionar Assunto</span>
+                                    <span>Adicionar assunto</span>
                                 </button>
                             )}
                         </div>
