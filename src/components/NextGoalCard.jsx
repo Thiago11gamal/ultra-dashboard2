@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Target, Play, Clock, Info } from 'lucide-react';
+import { Target, Play, Clock, Info, Sparkles } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 import { toArray } from '../utils/normalize';
 
@@ -150,169 +150,158 @@ function NextGoalCard({
     const daysSinceLastStudy = Number(urgency?.details?.daysSinceLastStudy || 0);
 
     let urgencyStyle = {
-        gradient: 'from-blue-500/10 to-transparent',
-        border: 'border-blue-500/20 hover:border-blue-500/40',
-        badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-        buttonGradient: 'from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500',
-        glow: 'shadow-[0_0_20px_rgba(59,130,246,0.2)] hover:shadow-[0_0_30px_rgba(59,130,246,0.4)]',
-        iconBg: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
-        textHighlight: 'text-blue-400'
+        gradient: 'from-blue-500/15 via-blue-500/5 to-transparent',
+        border: 'border-blue-500/30 hover:border-blue-500/50',
+        badge: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+        buttonGradient: 'from-blue-600 via-blue-500 to-cyan-500 hover:from-blue-500 hover:to-cyan-400',
+        glow: 'shadow-[0_0_25px_rgba(59,130,246,0.25)] hover:shadow-[0_0_35px_rgba(59,130,246,0.45)]',
+        iconBg: 'bg-gradient-to-br from-blue-500/20 to-cyan-500/10 border-blue-500/30 text-blue-400',
+        textHighlight: 'text-blue-400',
+        calloutBg: 'bg-blue-500/10 border-blue-500/20'
     };
 
     if (hasSimuladoData && urgencyScore > 70) {
         urgencyStyle = {
-            gradient: 'from-red-500/10 to-transparent',
-            border: 'border-red-500/20 hover:border-red-500/40',
-            badge: 'bg-red-500/10 text-red-500 border-red-500/20',
-            buttonGradient: 'from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500',
-            glow: 'shadow-[0_0_20px_rgba(239,68,68,0.2)] hover:shadow-[0_0_30px_rgba(239,68,68,0.4)]',
-            iconBg: 'bg-red-500/10 border-red-500/20 text-red-500',
-            textHighlight: 'text-red-500'
+            gradient: 'from-red-500/15 via-red-500/5 to-transparent',
+            border: 'border-red-500/30 hover:border-red-500/50',
+            badge: 'bg-red-500/15 text-red-400 border-red-500/30',
+            buttonGradient: 'from-red-600 via-red-500 to-orange-500 hover:from-red-500 hover:to-orange-400',
+            glow: 'shadow-[0_0_25px_rgba(239,68,68,0.25)] hover:shadow-[0_0_35px_rgba(239,68,68,0.45)]',
+            iconBg: 'bg-gradient-to-br from-red-500/20 to-orange-500/10 border-red-500/30 text-red-400',
+            textHighlight: 'text-red-400',
+            calloutBg: 'bg-red-500/10 border-red-500/20'
         };
     } else if (hasSimuladoData && urgencyScore > 50) {
         urgencyStyle = {
-            gradient: 'from-amber-500/10 to-transparent',
-            border: 'border-amber-500/20 hover:border-amber-500/40',
-            badge: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-            buttonGradient: 'from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400',
-            glow: 'shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)]',
-            iconBg: 'bg-amber-500/10 border-amber-500/20 text-amber-500',
-            textHighlight: 'text-amber-500'
+            gradient: 'from-amber-500/15 via-amber-500/5 to-transparent',
+            border: 'border-amber-500/30 hover:border-amber-500/50',
+            badge: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+            buttonGradient: 'from-amber-600 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-400',
+            glow: 'shadow-[0_0_25px_rgba(245,158,11,0.25)] hover:shadow-[0_0_35px_rgba(245,158,11,0.45)]',
+            iconBg: 'bg-gradient-to-br from-amber-500/20 to-orange-500/10 border-amber-500/30 text-amber-400',
+            textHighlight: 'text-amber-400',
+            calloutBg: 'bg-amber-500/10 border-amber-500/20'
         };
     }
 
     return (
         <section
             aria-label="Próxima missão sugerida"
-            className={`relative rounded-2xl border ${urgencyStyle.border} bg-slate-900/85 backdrop-blur-2xl transition-all duration-700 group overflow-visible shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]`}
+            className={`relative rounded-2xl border ${urgencyStyle.border} bg-slate-900/90 backdrop-blur-2xl transition-all duration-500 group overflow-visible shadow-xl hover:shadow-2xl`}
         >
-            {/* Background Layers */}
+            {/* Background Atmosphere */}
             <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-                <div className={`absolute inset-0 bg-gradient-to-br ${urgencyStyle.gradient} opacity-30 group-hover:opacity-50 transition-opacity duration-700`} />
-                <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 blur-[100px] rounded-full group-hover:bg-white/10 transition-all duration-1000" />
-                <div className="absolute inset-0 opacity-[0.03]">
-                    <div className="w-full h-[2px] bg-white animate-scan-fast" />
-                </div>
+                <div className={`absolute inset-0 bg-gradient-to-r ${urgencyStyle.gradient} opacity-40 group-hover:opacity-60 transition-opacity duration-700`} />
+                <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/5 blur-[90px] rounded-full group-hover:bg-white/10 transition-all duration-700" />
             </div>
 
-            <div className="relative z-10 p-4 sm:p-5 md:p-6 flex flex-col md:flex-row items-center gap-4 sm:gap-6">
-                {/* Left: Category Icon */}
-                <div
-                    aria-hidden="true"
-                    className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl flex-shrink-0 border shadow-inner ${urgencyStyle.iconBg}`}
-                >
-                    {category.icon || '📚'}
-                </div>
+            <div className="relative z-10 p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
+                {/* Left: Icon + Content Details */}
+                <div className="flex items-start sm:items-center gap-4 sm:gap-5 flex-1 min-w-0">
+                    {/* Category Icon */}
+                    <div
+                        aria-hidden="true"
+                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl flex-shrink-0 border shadow-md ${urgencyStyle.iconBg} transition-transform duration-300 group-hover:scale-105`}
+                    >
+                        {category.icon || '📚'}
+                    </div>
 
-                {/* Center: Task Info */}
-                <div className="flex-1 min-w-0 w-full flex flex-col justify-center">
-                    <div className="flex flex-wrap items-center gap-2.5 mb-2">
-                        <span className="text-[13px] font-semibold text-slate-400 flex items-center">
-                            Próxima missão
+                    {/* Content Details */}
+                    <div className="flex-1 min-w-0 space-y-2">
+                        {/* Meta Badges Row */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+                                <Sparkles size={13} className={urgencyStyle.textHighlight} />
+                                Próxima missão
 
-                            <span
-                                className="relative group/tooltip cursor-help ml-2 inline-flex focus-visible:outline-none rounded"
-                                tabIndex={0}
-                            >
-                                <Info
-                                    size={14}
-                                    className="text-slate-500 hover:text-slate-400 transition-colors"
-                                />
+                                <span
+                                    className="relative group/tooltip cursor-help inline-flex focus-visible:outline-none"
+                                    tabIndex={0}
+                                >
+                                    <Info
+                                        size={13}
+                                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                                    />
 
-                                <span className="absolute top-full left-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 leading-relaxed font-normal tracking-normal normal-case">
-                                    <strong className="text-white">Por que isso?</strong> O Coach analisou sua frequência, prioridades e tempo sem ver as matérias para sugerir a tarefa de maior impacto.
+                                    <span className="absolute top-full left-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible group-focus-within/tooltip:opacity-100 group-focus-within/tooltip:visible transition-all duration-200 z-[60] pointer-events-none border border-slate-700/80 leading-relaxed font-normal normal-case">
+                                        <strong className="text-white">Por que isso?</strong> O Coach analisou sua frequência, prioridades e tempo sem ver as matérias para sugerir a tarefa de maior impacto.
+                                    </span>
                                 </span>
                             </span>
-                        </span>
 
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border leading-none ${urgencyStyle.badge}`}>
-                            {hasSimuladoData
-                                ? (urgencyScore > 70
-                                    ? '🔥 Urgente'
-                                    : urgencyScore > 50
-                                        ? '⚡ Média'
-                                        : '📋 Normal')
-                                : '🌱 Inicial'}
-                        </span>
-                    </div>
+                            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border leading-tight ${urgencyStyle.badge}`}>
+                                {hasSimuladoData
+                                    ? (urgencyScore > 70
+                                        ? '🔥 Urgente'
+                                        : urgencyScore > 50
+                                            ? '⚡ Média'
+                                            : '📋 Normal')
+                                    : '🌱 Inicial'}
+                            </span>
 
-                    <div className="flex flex-col gap-1 mb-2 min-w-0">
-                        <h3
-                            className="text-xl font-bold text-white tracking-tight break-words line-clamp-2 min-w-0 block pb-0.5"
-                            title={category.name}
-                        >
-                            {category.name}
-                        </h3>
-
-                        {display.assunto && (
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Target
-                                    size={14}
-                                    className={`${urgencyStyle.textHighlight} flex-shrink-0`}
-                                />
-
-                                <h4
-                                    className="text-sm font-medium text-slate-300 break-words line-clamp-2 min-w-0 block pb-0.5"
-                                    title={display.assunto}
-                                >
-                                    {display.assunto}
-                                </h4>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex flex-col gap-2 mt-2">
-                        <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-white/5 text-[13px] text-slate-400">
-                                <Clock
-                                    size={13}
-                                    className={urgencyStyle.textHighlight}
-                                />
-
-                                Tempo sem ver:{' '}
-                                <span className="text-white font-semibold tabular-nums">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-[11px] text-slate-300">
+                                <Clock size={11} className={urgencyStyle.textHighlight} />
+                                <span>Tempo sem ver:</span>
+                                <strong className="text-white font-semibold tabular-nums">
                                     {hasSimuladoData
                                         ? daysSinceLastStudy > 0
                                             ? `${daysSinceLastStudy}d`
                                             : '0d'
                                         : 'Nunca'}
-                                </span>
+                                </strong>
                             </span>
                         </div>
 
-                        {urgency?.recommendation && (
-                            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-                                <span className="text-lg leading-none" aria-hidden="true">
-                                    💡
-                                </span>
+                        {/* Title & Topic */}
+                        <div className="space-y-0.5">
+                            <h3
+                                className="text-lg sm:text-xl font-bold text-white tracking-tight break-words line-clamp-1"
+                                title={category.name}
+                            >
+                                {category.name}
+                            </h3>
 
-                                <p className="text-[13px] text-slate-300 leading-relaxed">
-                                    <span className="text-white font-semibold">
-                                        Motivo da escolha:{' '}
+                            {display.assunto && (
+                                <div className="flex items-center gap-1.5 text-sm font-medium text-slate-300">
+                                    <Target
+                                        size={14}
+                                        className={`${urgencyStyle.textHighlight} flex-shrink-0`}
+                                    />
+                                    <span className="truncate text-slate-200" title={display.assunto}>
+                                        {display.assunto}
                                     </span>
-                                    {urgency.recommendation}
-                                </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Motivo da escolha */}
+                        {urgency?.recommendation && (
+                            <div className="pt-0.5">
+                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs sm:text-[13px] text-slate-300 max-w-2xl ${urgencyStyle.calloutBg}`}>
+                                    <span className="text-sm leading-none flex-shrink-0" aria-hidden="true">💡</span>
+                                    <span className="text-slate-400 font-medium whitespace-nowrap">Motivo da escolha:</span>
+                                    <span className="text-slate-200 truncate sm:whitespace-normal font-normal">
+                                        {urgency.recommendation}
+                                    </span>
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Right: Action Button */}
-                <div className="w-full md:w-auto flex-shrink-0">
+                <div className="w-full lg:w-auto flex-shrink-0 flex items-center justify-end">
                     <button
                         type="button"
                         onClick={() => typeof onStartStudying === 'function' && onStartStudying(category.id, task.id || task.text || task.title)}
                         aria-label={`Iniciar sessão de ${category.name}${display.assunto ? `: ${display.assunto}` : ''}`}
-                        className={`relative w-full px-7 py-3.5 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-semibold text-[15px] flex items-center justify-center gap-2.5 transition-all transform hover:-translate-y-1 active:scale-95 group/btn overflow-hidden`}
+                        className={`w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 group/btn overflow-hidden cursor-pointer`}
                     >
-                        <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-
                         <Play
-                            size={17}
-                            className="fill-white relative z-10"
+                            size={16}
+                            className="fill-white relative z-10 transition-transform duration-300 group-hover/btn:scale-110"
                             aria-hidden="true"
                         />
-
                         <span className="relative z-10">
                             Iniciar sessão
                         </span>
