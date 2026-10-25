@@ -936,50 +936,30 @@ function Checklist({
                     </div>
 
                     {onAddCategory && filter !== 'completed' && (
-                        <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-[#151720]/95 border border-purple-500/20 hover:border-purple-500/40 backdrop-blur-xl transition-all duration-300 shadow-xl relative overflow-hidden group">
-                            {/* Ambient background glow */}
-                            <div className="absolute -top-12 -left-12 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-purple-500/20 transition-all duration-500" />
-                            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/[0.03] via-transparent to-indigo-500/[0.03] pointer-events-none" />
-
-                            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div className="flex items-center gap-3.5 min-w-0">
-                                    <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-300 shadow-inner shrink-0 group-hover:scale-105 transition-transform duration-300">
-                                        <BookOpen size={20} className="text-purple-400" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <h3 className="text-base font-bold text-white tracking-tight leading-tight truncate">
-                                            Edital e matérias
-                                        </h3>
-                                        <p className="text-xs text-slate-400 mt-0.5 leading-normal">
-                                            Cadastre novas disciplinas e organize os tópicos de estudo do seu concurso.
-                                        </p>
-                                    </div>
+                        <div className="mt-6 flex flex-wrap items-center gap-3">
+                            {/* Botão em Evidência: Nova Disciplina */}
+                            <button
+                                type="button"
+                                onClick={() => setIsCatModalOpen(true)}
+                                className="relative group/btn overflow-hidden px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-sm sm:text-base shadow-lg shadow-purple-900/40 hover:shadow-purple-600/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer border border-purple-400/30"
+                            >
+                                <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
+                                <div className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center text-white transition-transform duration-300 group-hover/btn:rotate-90">
+                                    <Plus size={15} className="stroke-[2.5]" />
                                 </div>
+                                <span>Nova disciplina</span>
+                            </button>
 
-                                <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t border-white/5 sm:border-t-0 justify-end">
-                                    {/* Botão Secundário Reduzido: Importar Disciplina */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsImportModalOpen(true)}
-                                        className="px-3.5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 border border-white/10 hover:border-white/20 text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm group/import shrink-0"
-                                        title="Copiar disciplinas de outro concurso cadastrado"
-                                    >
-                                        <Download size={13} className="text-slate-400 group-hover/import:text-cyan-400 transition-colors" />
-                                        <span>Importar</span>
-                                    </button>
-
-                                    {/* Botão em Evidência: Nova Disciplina */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsCatModalOpen(true)}
-                                        className="relative group/btn overflow-hidden px-5 py-2.5 sm:px-6 sm:py-3 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-sm shadow-lg shadow-purple-900/40 hover:shadow-purple-600/40 hover:-translate-y-0.5 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer border border-purple-400/30"
-                                    >
-                                        <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-                                        <Plus size={16} className="stroke-[2.5] text-white transition-transform duration-300 group-hover/btn:rotate-90" />
-                                        <span>Nova disciplina</span>
-                                    </button>
-                                </div>
-                            </div>
+                            {/* Botão Reduzido: Importar Disciplina */}
+                            <button
+                                type="button"
+                                onClick={() => setIsImportModalOpen(true)}
+                                className="px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-slate-400 hover:text-slate-200 border border-white/10 hover:border-white/20 text-xs font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm group/import"
+                                title="Copiar disciplinas de outro concurso cadastrado"
+                            >
+                                <Download size={14} className="text-slate-400 group-hover/import:text-cyan-400 transition-colors" />
+                                <span>Importar disciplina</span>
+                            </button>
                         </div>
                     )}
                 </>
