@@ -57,6 +57,23 @@
   transform: scale(1.08) rotate(-3deg);
 }
 
+.sidebar.collapsed .sidebar-logo {
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(129, 140, 248, 0.08);
+  border: 1px solid rgba(129, 140, 248, 0.18);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: 0 auto;
+}
+
+.sidebar.collapsed .sidebar-logo:hover {
+  background: rgba(129, 140, 248, 0.16);
+  border-color: rgba(129, 140, 248, 0.35);
+  box-shadow: 0 0 16px rgba(129, 140, 248, 0.25);
+}
+
 .sidebar-logo-text {
   display: flex;
   flex-direction: column;
@@ -709,13 +726,39 @@
   min-height: 42px !important;
   padding: 0 !important;
   margin: 4px auto !important;
+  display: flex !important;
   justify-content: center !important;
   align-items: center !important;
   gap: 0 !important;
   border-radius: 12px !important;
 }
 
-.sidebar.collapsed .sidebar-contest-card .sidebar-contest-icon-box,
+.sidebar.collapsed .sidebar-contest-card > div {
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+  gap: 0 !important;
+  flex: none !important;
+}
+
+.sidebar.collapsed .sidebar-contest-card .sidebar-contest-icon-box {
+  width: 32px !important;
+  height: 32px !important;
+  background: rgba(139, 92, 246, 0.15) !important;
+  border: 1px solid rgba(139, 92, 246, 0.25) !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.2) !important;
+}
+
+.sidebar.collapsed .sidebar-contest-card:hover .sidebar-contest-icon-box {
+  background: rgba(139, 92, 246, 0.25) !important;
+  border-color: rgba(139, 92, 246, 0.45) !important;
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.35) !important;
+}
+
 .sidebar.collapsed .sidebar-footer .sidebar-item .sidebar-item-icon-wrapper {
   width: auto !important;
   height: auto !important;
@@ -728,7 +771,6 @@
   justify-content: center !important;
 }
 
-.sidebar.collapsed .sidebar-contest-card:hover .sidebar-contest-icon-box,
 .sidebar.collapsed .sidebar-footer .sidebar-item:hover .sidebar-item-icon-wrapper {
   background: transparent !important;
   border: none !important;

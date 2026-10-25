@@ -52,3 +52,8 @@ export function cacheSet(cache, maxSize, key, value) {
 
 export const _topicsCache = new Map();
 export const clearTopicsCache = () => _topicsCache.clear();
+
+export const clearCoachCaches = () => {
+  clearUrgencyCache();
+  clearTopicsCache();
+};

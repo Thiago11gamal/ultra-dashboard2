@@ -113,6 +113,8 @@ const Sidebar = React.memo(function Sidebar({
     const sidebarRef = useRef(null);
     const contestsFlyoutRef = useRef(null);
     const settingsFlyoutRef = useRef(null);
+    const contestsPopoverRef = useRef(null);
+    const settingsPopoverRef = useRef(null);
     const fileInputRef = useRef(null);
 
     const contestEntries = useMemo(() => Object.entries(contests || {}), [contests]);
@@ -231,7 +233,10 @@ const Sidebar = React.memo(function Sidebar({
         const handleFlyoutClickOutside = (e) => {
             if (contestsFlyoutRef.current && contestsFlyoutRef.current.contains(e.target)) return;
             if (settingsFlyoutRef.current && settingsFlyoutRef.current.contains(e.target)) return;
+            if (contestsPopoverRef.current && contestsPopoverRef.current.contains(e.target)) return;
+            if (settingsPopoverRef.current && settingsPopoverRef.current.contains(e.target)) return;
             setFlyoutMenu(null);
+            setFlyoutAnchorRect(null);
         };
         document.addEventListener('mousedown', handleFlyoutClickOutside);
         return () => document.removeEventListener('mousedown', handleFlyoutClickOutside);
@@ -780,6 +785,7 @@ const Sidebar = React.memo(function Sidebar({
                         aria-hidden="true"
                     />
                     <div 
+                        ref={contestsPopoverRef}
                         className="sidebar-portal-flyout-popover" 
                         role="menu"
                         style={{
@@ -817,7 +823,8 @@ const Sidebar = React.memo(function Sidebar({
                                                 ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
                                                 : 'text-slate-300 hover:bg-white/5 hover:text-white'
                                         }`}
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             if (id !== activeContestId) onSwitchContest(id);
                                             setFlyoutMenu(null);
                                             setFlyoutAnchorRect(null);
@@ -874,6 +881,7 @@ const Sidebar = React.memo(function Sidebar({
                         aria-hidden="true"
                     />
                     <div 
+                        ref={settingsPopoverRef}
                         className="sidebar-portal-flyout-popover" 
                         role="menu"
                         style={{

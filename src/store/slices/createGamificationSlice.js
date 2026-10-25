@@ -82,6 +82,8 @@ export const createGamificationSlice = (set, get) => ({
         if (!activeData) return;
         if (!activeData.user) activeData.user = {};
         activeData.user.name = name;
+        activeData.contestName = name;
+        activeData.name = name;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
         markStorageDirty();

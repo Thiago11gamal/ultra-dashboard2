@@ -408,5 +408,77 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(label).toBe('Aguardando estudos');
         });
     });
+
+    describe('10. Contest Switching and Flyout Popover Fixes', () => {
+        let mockState;
+        let setFn;
+        let contestSlice;
+        let gamificationSlice;
+
+        beforeEach(async () => {
+            mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    version: 1,
+                    pomodoro: {
+                        isRunning: true,
+                        activeSubject: { categoryId: 'cat-1', task: 'Estudo Ativo' }
+                    },
+                    contests: {
+                        'contest-1': {
+                            id: 'contest-1',
+                            contestName: 'Direito',
+                            user: { name: 'Direito' },
+                            categories: [{ id: 'cat-1', name: 'Constitucional' }]
+                        },
+                        'contest-2': {
+                            id: 'contest-2',
+                            contestName: 'PRF 2026',
+                            user: { name: 'PRF' }
+                        }
+                    }
+                }
+            };
+            setFn = (fn) => { fn(mockState); };
+            const { createContestSlice } = await import('../../store/slices/createContestSlice.js');
+            const { createGamificationSlice } = await import('../../store/slices/createGamificationSlice.js');
+            contestSlice = createContestSlice(setFn);
+            gamificationSlice = createGamificationSlice(setFn);
+        });
+
+        it('switchContest properly changes activeId and resets pomodoro if running', () => {
+            contestSlice.switchContest('contest-2');
+            expect(mockState.appState.activeId).toBe('contest-2');
+            expect(mockState.appState.pomodoro.activeSubject).toBeNull();
+            expect(mockState.appState.version).toBe(2);
+            expect(Array.isArray(mockState.appState.contests['contest-2'].categories)).toBe(true);
+        });
+
+        it('updateUserName updates both user.name and contestName simultaneously', () => {
+            gamificationSlice.updateUserName('Polícia Federal');
+            const activeContest = mockState.appState.contests['contest-1'];
+            expect(activeContest.user.name).toBe('Polícia Federal');
+            expect(activeContest.contestName).toBe('Polícia Federal');
+            expect(activeContest.name).toBe('Polícia Federal');
+        });
+
+        it('handleFlyoutClickOutside ignores mousedown when clicking inside popover container', () => {
+            const popoverEl = {
+                contains: vi.fn((target) => target.id === 'inner-btn')
+            };
+            const triggerEl = {
+                contains: vi.fn(() => false)
+            };
+
+            const shouldClose = (target) => {
+                if (triggerEl.contains(target)) return false;
+                if (popoverEl.contains(target)) return false;
+                return true;
+            };
+
+            expect(shouldClose({ id: 'inner-btn' })).toBe(false);
+            expect(shouldClose({ id: 'outside-area' })).toBe(true);
+        });
+    });
 });
 

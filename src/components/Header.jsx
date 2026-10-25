@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RotateCcw, CloudDownload, LayoutDashboard, Menu } from 'lucide-react';
+import { RotateCcw, CloudDownload, LayoutDashboard, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import useClock from '../hooks/useClock';
@@ -153,7 +153,11 @@ const Header = React.memo(function Header({
                             aria-expanded={!sidebarCollapsed} // FIX 5.3f
                             data-sidebar-toggle="true"
                         >
-                            <Menu size={18} aria-hidden="true" />
+                            {sidebarCollapsed ? (
+                                <PanelLeftOpen size={18} aria-hidden="true" />
+                            ) : (
+                                <PanelLeftClose size={18} aria-hidden="true" />
+                            )}
                         </button>
                         <div className="flex items-center gap-3 min-w-0">
                             <DateDisplay clockTime={clockTime} />

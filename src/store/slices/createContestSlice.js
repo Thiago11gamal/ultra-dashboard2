@@ -4,6 +4,7 @@ import { safeClone } from '../../utils/safeClone.js';
 import { current } from 'immer';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { RECOVERED_DIREITO_CONTEST } from '../../data/recoveredContests.js';
+import { clearCoachCaches } from '../../utils/coachCaches.js';
 
 // BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
 // causando crash silencioso no timer quando o concurso era trocado/deletado.
@@ -31,6 +32,7 @@ export const createContestSlice = (set) => ({
             }
 
             state.appState.activeId = targetId;
+            try { clearCoachCaches(); } catch { /* ignore */ }
         }
 
         const activeData = state.appState.contests[targetId];
@@ -46,6 +48,11 @@ export const createContestSlice = (set) => ({
             if (!activeData.coachPlanner) {
                 activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
             }
+            if (!activeData.categories) activeData.categories = [];
+            if (!activeData.simuladoRows) activeData.simuladoRows = [];
+            if (!activeData.simulados) activeData.simulados = [];
+            if (!activeData.studyLogs) activeData.studyLogs = [];
+            if (!activeData.studySessions) activeData.studySessions = [];
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
