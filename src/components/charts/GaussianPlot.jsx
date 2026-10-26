@@ -292,7 +292,8 @@ export const GaussianPlot = ({
     }, [targetPos, meanPos, currentPos, isTargetVisible, isMeanVisible, isCurrentVisible]);
 
     const getLabelTop = (yPercent, level) => {
-        return `calc(${Math.max(12, yPercent)}% - ${34 + level * 28}px)`;
+        const offsetPx = 28 + level * 22;
+        return `calc(${Math.max(16, yPercent)}% - ${offsetPx}px)`;
     };
 
     const getLabelLeft = (pos, id) => {
@@ -341,7 +342,7 @@ export const GaussianPlot = ({
 
     return (
         <div
-            className="relative w-full mt-10 sm:mt-12 mb-2 cursor-crosshair group/chart"
+            className="relative w-full mt-12 sm:mt-14 pt-1 mb-2 cursor-crosshair group/chart"
             onMouseMove={(e) => updateHoverFromClientX(e.clientX, chartAreaRef.current || e.currentTarget)}
             onMouseLeave={clearHover}
             onTouchStart={(e) => {
@@ -433,7 +434,7 @@ export const GaussianPlot = ({
                                 <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(projectedMean ?? mean ?? 0, unit)}</span>
                                 <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                             </div>
-                            <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.mean || 0) * 28}px` }} />
+                            <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${6 + (resolvedLabels.mean || 0) * 22}px` }} />
                         </div>
                     )}
 
@@ -444,7 +445,7 @@ export const GaussianPlot = ({
                                  <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(targetVal, unit)}</span>
                                 <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
                             </div>
-                            <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.target || 0) * 28}px` }} />
+                            <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${6 + (resolvedLabels.target || 0) * 22}px` }} />
                         </div>
                     )}
 
@@ -456,7 +457,7 @@ export const GaussianPlot = ({
                                 {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
                                 {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
                             </div>
-                            <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${10 + (resolvedLabels.today || 0) * 28}px` }} />
+                            <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.today || 0) * 22}px` }} />
                         </div>
                     )}
                 </div>

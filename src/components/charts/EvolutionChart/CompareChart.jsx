@@ -294,7 +294,7 @@ export function CompareChart({
             <ChartFrame minHeight={360} label="Comparando evolução">
                 <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 {/* 🎯 FIX: right: 85 impede que as Labels cortem a borda direita na renderização do MC */}
-                <ComposedChart data={chartData} syncId="evolutionSync" margin={{ top: 20, right: 85, left: 0, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
+                <ComposedChart data={chartData} syncId="evolutionSync" margin={{ top: 20, right: 85, left: 4, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         <linearGradient id={CC.projectionPurpleGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />
@@ -325,13 +325,13 @@ export function CompareChart({
                     />
                     <YAxis 
                         tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} 
-                        dx={-8} 
+                        dx={-2} 
                         axisLine={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} 
                         tickLine={false} 
                         domain={[safeMinScore, safeMaxScore]} 
                         allowDataOverflow={false} 
                         tickFormatter={(v) => `${formatValue(v)}${unit}`} 
-                        width={50} 
+                        width={56} 
                     />
                     
                     <ReferenceArea

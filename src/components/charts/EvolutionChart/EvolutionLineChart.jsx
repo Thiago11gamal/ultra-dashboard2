@@ -335,7 +335,7 @@ export function EvolutionLineChart({
                 <ComposedChart 
                     data={enhancedChartData} 
                     syncId="evolutionSync"
-                    margin={{ top: 20, right: 140, left: 0, bottom: 20 }} 
+                    margin={{ top: 20, right: 140, left: 4, bottom: 20 }} 
                     style={{ outline: 'none', cursor: effectiveHighlightedKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
                     onClick={() => {
@@ -379,13 +379,13 @@ export function EvolutionLineChart({
 
                     <YAxis
                         tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-                        dx={-4}
+                        dx={-2}
                         axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)', strokeWidth: 1 }}
                         tickLine={false}
                         domain={[safeMinScore, safeMaxScore]}
                         allowDataOverflow={false}
                         tickFormatter={(v) => `${formatValue(v)}${unit}`}
-                        width={46}
+                        width={56}
                     />
 
                     <ReferenceArea

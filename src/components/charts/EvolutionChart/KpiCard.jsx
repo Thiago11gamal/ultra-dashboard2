@@ -1,13 +1,13 @@
 import React from 'react';
 import { formatValue } from '../../../utils/scoreHelper';
 
-export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, sub }) {
+export const KpiCard = React.memo(function KpiCard({ value, label, color, icon, sub, className = '' }) {
     const hasSub = sub !== null && sub !== undefined && typeof sub !== 'boolean' && String(sub).trim() !== '';
     const rawSub = hasSub ? Number(sub) : Number.NaN;
     const safeSub = Number.isFinite(rawSub) ? Number(rawSub.toFixed(2)) : Number.NaN;
     return (
         <div 
-            className="relative flex flex-col justify-between rounded-2xl border border-white/5 bg-slate-900/40 backdrop-blur-xl group hover:border-white/10 hover:bg-slate-800/60 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
+            className={`relative flex flex-col justify-between rounded-2xl border border-white/5 bg-slate-900/40 backdrop-blur-xl group hover:border-white/10 hover:bg-slate-800/60 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden ${className}`}
             style={{ padding: '0.75rem 0.875rem', boxShadow: `0 4px 20px -10px ${color}30` }}
         >
             <div className="absolute top-0 right-0 -mt-6 -mr-6 w-20 h-20 rounded-full opacity-20 blur-2xl group-hover:opacity-35 transition-opacity duration-500 pointer-events-none" style={{ backgroundColor: color }} />

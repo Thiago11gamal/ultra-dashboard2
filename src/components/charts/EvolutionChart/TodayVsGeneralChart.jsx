@@ -319,12 +319,12 @@ export function TodayVsGeneralChart({
 
         const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, safeMaxScore, safeMinScore) : null;
         return [
-            { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 70, rOut: 80 },
-            { id: 'month3', label: 'Últimos 90 dias', val: getAcc(buckets.month3), rIn: 82, rOut: 92 },
-            { id: 'month', label: 'Últimos 30 dias', val: getAcc(buckets.month), rIn: 94, rOut: 103 },
-            { id: 'week', label: 'Últimos 7 dias', val: getAcc(buckets.week), rIn: 105, rOut: 113 },
-            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 115, rOut: 122 },
-            { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 124, rOut: 130 }
+            { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 64, rOut: 74 },
+            { id: 'month3', label: 'Últimos 90 dias', val: getAcc(buckets.month3), rIn: 75, rOut: 85 },
+            { id: 'month', label: 'Últimos 30 dias', val: getAcc(buckets.month), rIn: 86, rOut: 95 },
+            { id: 'week', label: 'Últimos 7 dias', val: getAcc(buckets.week), rIn: 96, rOut: 104 },
+            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 105, rOut: 112 },
+            { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 113, rOut: 119 }
         ];
     }, [activeCategories, maxScore, minScore, nowMs, todayKey, simuladoRows]);
 

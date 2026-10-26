@@ -183,7 +183,7 @@ const WeeklyPerformanceChart = ({
                 <ResponsiveContainer width="100%" height="100%" minHeight={250} minWidth={1}>
                     <ComposedChart
                         data={chartData}
-                        margin={{ top: 10, right: 10, left: -15, bottom: 20 }}
+                        margin={{ top: 10, right: 10, left: 2, bottom: 20 }}
                     >
                         <defs>
                             <linearGradient id={barGradId} x1="0" y1="0" x2="0" y2="1">
@@ -218,6 +218,8 @@ const WeeklyPerformanceChart = ({
                             tickFormatter={(v) => v === 0 ? '0h' : formatDuration(v)}
                             domain={[0, 'auto']}
                             allowDecimals={true}
+                            width={50}
+                            dx={-2}
                         />
 
                         <YAxis
@@ -229,6 +231,8 @@ const WeeklyPerformanceChart = ({
                             tickFormatter={(v) => `${formatValue(v)}${safeUnit}`}
                             domain={[safeMinScore, safeMaxScore]}
                             allowDataOverflow={true}
+                            width={48}
+                            dx={2}
                         />
 
                         <Tooltip

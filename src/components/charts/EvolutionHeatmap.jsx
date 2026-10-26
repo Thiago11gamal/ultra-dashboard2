@@ -75,18 +75,25 @@ export const EvolutionHeatmap = ({
     const [windowSize, setWindowSize] = useState('all');
     const [granularity, setGranularity] = useState('daily');
     const [hoveredCell, setHoveredCell] = useState(null);
+    const [isMobile, setIsMobile] = useState(false);
     const scrollDebounceRef = useRef(null);
 
     useEffect(() => {
+        const checkMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
         const handleScroll = () => {
             setHoveredCell(null);
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => {
+            window.removeEventListener('resize', checkMobile);
             window.removeEventListener('scroll', handleScroll);
             if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
         };
     }, []);
+
+    const stickyColWidth = isMobile ? 160 : 250;
 
     const filtered = useMemo(() => {
         if (!Array.isArray(dates) || !Array.isArray(filteredRowsByFocus)) return { dates: [], rows: [] };
@@ -330,11 +337,11 @@ export const EvolutionHeatmap = ({
                     }
                 }}
             >
-                <div style={{ minWidth: `${filteredDates.length * 72 + 260}px` }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: `260px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
+                <div style={{ minWidth: `${filteredDates.length * 72 + stickyColWidth}px` }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
                         <div 
-                            className="sticky left-0 z-30 w-[260px] min-w-[260px] max-w-[260px] self-stretch flex items-center px-3.5 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]" 
-                            style={{ backgroundColor: '#020617' }}
+                            className="sticky left-0 z-30 self-stretch flex items-center px-3.5 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]" 
+                            style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
                         >
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Disciplina</span>
                         </div>
@@ -353,15 +360,15 @@ export const EvolutionHeatmap = ({
 
                     <div className="space-y-2.5">
                         {filteredRows.map(({ cat, cells }) => (
-                            <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `260px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
-                                {/* VIS-FIX: Coluna da matéria 100% opaca, largura fixa de 260px, z-30 e shadow para nada de trás transparecer */}
+                            <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
+                                {/* VIS-FIX: Coluna da matéria 100% opaca, largura responsiva, z-30 e shadow para nada de trás transparecer */}
                                 <div 
-                                    className="sticky left-0 z-30 w-[260px] min-w-[260px] max-w-[260px] self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
-                                    style={{ backgroundColor: '#020617' }}
+                                    className="sticky left-0 z-30 self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
+                                    style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
                                 >
                                     <span className="text-lg shrink-0">{cat.icon}</span>
                                     <span 
-                                        className="text-[12px] sm:text-[13px] font-extrabold leading-tight capitalize min-w-0 line-clamp-2 select-none" 
+                                        className="text-[11px] sm:text-[13px] font-extrabold leading-tight capitalize min-w-0 line-clamp-2 select-none" 
                                         style={{ color: cat.color }} 
                                         title={cat.name}
                                     >

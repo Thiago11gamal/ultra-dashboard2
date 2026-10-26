@@ -789,15 +789,19 @@ export default React.memo(function EvolutionChart({
                     value={`${safeGlobalMetrics.globalAccuracy.toFixed(2)}%`}
                     label="Precisão Global" color="#fb923c" icon="⚡"
                 />
-                {extraKpis.map((status) => (
-                    <KpiCard
-                        key={status.id}
-                        value={status.value}
-                        label={status.label}
-                        color={toneHex[status.tone] || '#94a3b8'}
-                        icon={status.icon}
-                    />
-                ))}
+                {extraKpis.map((status, idx) => {
+                    const isLast = idx === extraKpis.length - 1 && extraKpis.length === 4;
+                    return (
+                        <KpiCard
+                            key={status.id}
+                            value={status.value}
+                            label={status.label}
+                            color={toneHex[status.tone] || '#94a3b8'}
+                            icon={status.icon}
+                            className={isLast ? 'col-span-2 sm:col-span-3 lg:col-span-2 xl:col-span-1' : ''}
+                        />
+                    );
+                })}
             </motion.div>
 
             <motion.div
@@ -839,7 +843,7 @@ export default React.memo(function EvolutionChart({
                 </p>
                 {/* Máscara CSS removida: ela estava causando um gradiente que apagava o início do primeiro card e o fim do último. */}
                 <div className="relative">
-                    <div className="flex overflow-x-auto snap-x gap-3 px-1 py-3 no-scrollbar scroll-smooth">
+                    <div className="flex overflow-x-auto snap-x gap-3 px-1 py-3 custom-scrollbar scroll-smooth">
                         {activeCategories.map(cat => (
                             <div key={cat.id} className={`snap-center shrink-0 w-[210px] sm:w-[240px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
@@ -959,7 +963,7 @@ export default React.memo(function EvolutionChart({
                 {/* Barra de Seleção de Motores: Segmented Pills Compacta */}
                 <div className="relative mb-6 w-full">
                     <div className="p-1.5 rounded-2xl bg-slate-950/70 border border-white/[0.07] backdrop-blur-md shadow-inner">
-                        <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex items-center overflow-x-auto gap-1.5 px-0.5 py-0.5 w-full no-scrollbar scroll-smooth">
+                        <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex items-center overflow-x-auto gap-1.5 px-0.5 py-0.5 w-full custom-scrollbar scroll-smooth">
                             {SECONDARY_ENGINES.map((eng, idx, arr) => {
                                 const active = activeEngine === eng.id;
                                 return (
@@ -1139,9 +1143,11 @@ export default React.memo(function EvolutionChart({
 
             {isMcEngine && focusCategory && (
                 <div className="mt-6 animate-fade-in-up">
-                    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-5 sm:p-6 shadow-2xl relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
-                            <TrendingUp size={120} />
+                    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-xl p-5 sm:p-6 shadow-2xl relative group">
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
+                                <TrendingUp size={120} />
+                            </div>
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-6 items-start relative">
@@ -1234,8 +1240,8 @@ export default React.memo(function EvolutionChart({
                                         {
                                           label: 'Confiança 95%',
                                           val: unit === '%'
-                                            ? `${ciMin.toFixed(2)}-${ciMax.toFixed(2)}${unit}`
-                                            : `${Math.round(ciMin)}-${Math.round(ciMax)}${unit}`,
+                                            ? `${ciMin.toFixed(1)} a ${ciMax.toFixed(1)}%`
+                                            : `${Math.round(ciMin)} a ${Math.round(ciMax)}${unit}`,
                                           icon: <Zap size={14} />,
                                           color: 'text-indigo-400',
                                           bg: 'bg-indigo-500/10'
@@ -1252,7 +1258,7 @@ export default React.memo(function EvolutionChart({
                                             </span>
                                           </div>
                                           <span
-                                            className={`text-base sm:text-lg font-black ${stat.color} tracking-tight break-words w-full block leading-tight`}
+                                            className={`text-sm sm:text-base font-black ${stat.color} tracking-tight whitespace-nowrap overflow-hidden text-ellipsis w-full block leading-tight font-mono`}
                                             title={stat.val}
                                           >
                                             {stat.val}
