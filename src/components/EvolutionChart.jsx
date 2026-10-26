@@ -843,9 +843,9 @@ export default React.memo(function EvolutionChart({
                 </p>
                 {/* Máscara CSS removida: ela estava causando um gradiente que apagava o início do primeiro card e o fim do último. */}
                 <div className="relative">
-                    <div className="flex overflow-x-auto snap-x gap-3 px-1 py-3 custom-scrollbar scroll-smooth">
+                    <div className="flex overflow-x-auto snap-x gap-3 px-1 py-3 no-scrollbar scroll-smooth">
                         {activeCategories.map(cat => (
-                            <div key={cat.id} className={`snap-center shrink-0 w-[210px] sm:w-[240px] transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
+                            <div key={cat.id} className={`snap-center shrink-0 w-[210px] sm:w-[240px] flex flex-col transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
                                     cat={cat}
                                     level={categoryLevels[cat.id]}
