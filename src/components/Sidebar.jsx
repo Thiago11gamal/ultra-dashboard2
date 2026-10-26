@@ -815,27 +815,45 @@ const Sidebar = React.memo(function Sidebar({
                                     : getContestDisplayName(contestData) || "Meu Painel";
                                 const isActive = id === activeContestId;
                                 return (
-                                    <button
-                                        key={id}
-                                        type="button"
-                                        className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${
-                                            isActive 
-                                                ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
-                                                : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                                        }`}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (id !== activeContestId) onSwitchContest(id);
-                                            setFlyoutMenu(null);
-                                            setFlyoutAnchorRect(null);
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-2 truncate">
-                                            <Layers size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
-                                            <span className="truncate">{name}</span>
-                                        </div>
-                                        {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                                    </button>
+                                    <div key={id} className="flex items-center gap-1 group/flyitem">
+                                        <button
+                                            type="button"
+                                            className={`flex-1 flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors min-w-0 ${
+                                                isActive 
+                                                    ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
+                                                    : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                                            }`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (id !== activeContestId) onSwitchContest(id);
+                                                setFlyoutMenu(null);
+                                                setFlyoutAnchorRect(null);
+                                            }}
+                                            title={name}
+                                        >
+                                            <div className="flex items-center gap-2 truncate">
+                                                <Layers size={13} className={isActive ? 'text-violet-400' : 'text-slate-400'} />
+                                                <span className="truncate">{name}</span>
+                                            </div>
+                                            {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />}
+                                        </button>
+                                        {!isSingleContest && (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setContestToDelete({ id, name });
+                                                    setFlyoutMenu(null);
+                                                    setFlyoutAnchorRect(null);
+                                                }}
+                                                title="Mover para lixeira"
+                                                className="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                                                aria-label={`Excluir ${name}`}
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </div>
@@ -865,6 +883,21 @@ const Sidebar = React.memo(function Sidebar({
                             >
                                 <Upload size={13} />
                                 <span>Restaurar Backup</span>
+                            </button>
+                        )}
+
+                        {onExport && (
+                            <button
+                                type="button"
+                                className="w-full mt-1.5 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-300 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                                onClick={() => {
+                                    onExport();
+                                    setFlyoutMenu(null);
+                                    setFlyoutAnchorRect(null);
+                                }}
+                            >
+                                <Download size={13} />
+                                <span>Exportar Backup</span>
                             </button>
                         )}
                     </div>

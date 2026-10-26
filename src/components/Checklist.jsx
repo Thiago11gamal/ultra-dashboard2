@@ -1146,9 +1146,9 @@ function Checklist({
 
                     {/* Category List */}
                     <div className="space-y-4">
-                        {filteredCategories.map(category => (
+                        {filteredCategories.map((category, catIdx) => (
                             <CategoryAccordion
-                                key={category.id}
+                                key={category.id || category.name || `category-${catIdx}`}
                                 category={category}
                                 onToggleTask={onToggleTask}
                                 onUpdateTask={onUpdateTask}

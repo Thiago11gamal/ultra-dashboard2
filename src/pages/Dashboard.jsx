@@ -141,9 +141,12 @@ export default function Dashboard() {
         if (!cat || !tsk) return;
 
         const currentActiveSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
-        const isAlreadyActive = currentActiveSubject &&
-            (currentActiveSubject.taskId === tsk.id || currentActiveSubject.taskId === taskId) &&
-            tsk.status === 'studying';
+        const taskMatchesActive = Boolean(currentActiveSubject && (
+            (tsk.id && currentActiveSubject.taskId === tsk.id) ||
+            (taskId && currentActiveSubject.taskId === taskId) ||
+            (currentActiveSubject.task && (currentActiveSubject.task === tsk.title || currentActiveSubject.task === tsk.text))
+        ));
+        const isAlreadyActive = taskMatchesActive && tsk.status === 'studying';
         if (isAlreadyActive) {
             navigate('/pomodoro');
             return;

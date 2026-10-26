@@ -247,6 +247,13 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
         return `${dd}/${mm}/${yyyy}`;
     }, [user.goalDate]);
 
+    const effectiveMinDate = useMemo(() => {
+        if (dateValue && dateValue < minGoalDate) {
+            return dateValue;
+        }
+        return minGoalDate;
+    }, [dateValue, minGoalDate]);
+
     const openDatePicker = useCallback(() => {
         try {
             const el = dateInputRef.current;
@@ -530,9 +537,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             ref={dateInputRef}
                             type="date"
                             value={dateValue}
-                            min={minGoalDate}
+                            min={effectiveMinDate}
                             onFocus={(e) => {
-                                e.target.min = getTodayDateKey();
+                                const todayKey = getTodayDateKey();
+                                e.target.min = dateValue && dateValue < todayKey ? dateValue : todayKey;
                             }}
                             onClick={(e) => {
                                 e.stopPropagation();

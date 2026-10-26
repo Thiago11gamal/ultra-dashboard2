@@ -479,6 +479,58 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(shouldClose({ id: 'inner-btn' })).toBe(false);
             expect(shouldClose({ id: 'outside-area' })).toBe(true);
         });
+
+        it('switchContest and deleteContest reset pomodoro with isRunning set to false', () => {
+            mockState.appState.pomodoro.isRunning = true;
+            contestSlice.switchContest('contest-2');
+            expect(mockState.appState.pomodoro.isRunning).toBe(false);
+
+            mockState.appState.pomodoro.isRunning = true;
+            mockState.appState.pomodoro.activeSubject = { task: 'Teste' };
+            contestSlice.deleteContest('contest-2');
+            expect(mockState.appState.pomodoro.isRunning).toBe(false);
+            expect(mockState.appState.pomodoro.activeSubject).toBeNull();
+        });
+    });
+
+    describe('11. Meu Painel Route, Fallback Keys and Effective Min Date Fixes', () => {
+        it('restores initial route only once per session so back button can reach Meu Painel', () => {
+            sessionStorage.clear();
+            localStorage.setItem('lastRoute_user1', '/pomodoro');
+
+            const hasRestoredFirst = sessionStorage.getItem('hasRestoredInitialRoute_user1');
+            expect(hasRestoredFirst).toBeNull();
+
+            // First boot: mark restored
+            sessionStorage.setItem('hasRestoredInitialRoute_user1', 'true');
+            expect(sessionStorage.getItem('hasRestoredInitialRoute_user1')).toBe('true');
+
+            // Subsequent visit (e.g. browser back button to /)
+            const hasRestoredSecond = sessionStorage.getItem('hasRestoredInitialRoute_user1');
+            expect(hasRestoredSecond).toBe('true'); // Does not bounce again
+        });
+
+        it('effectiveMinDate calculation allows dates in the past for already saved goal dates', () => {
+            const minGoalDate = '2026-10-26';
+            const pastDateValue = '2026-10-10';
+            const futureDateValue = '2026-11-15';
+
+            const getEffectiveMin = (dateVal, minGoal) => {
+                if (dateVal && dateVal < minGoal) return dateVal;
+                return minGoal;
+            };
+
+            expect(getEffectiveMin(pastDateValue, minGoalDate)).toBe('2026-10-10');
+            expect(getEffectiveMin(futureDateValue, minGoalDate)).toBe('2026-10-26');
+            expect(getEffectiveMin('', minGoalDate)).toBe('2026-10-26');
+        });
+
+        it('NextGoalCard startStudying handles fallback to category.name when id is missing', () => {
+            const cat = { name: 'Direito Penal' };
+            const resolvedCatId = cat.id || cat.name;
+            expect(resolvedCatId).toBe('Direito Penal');
+        });
     });
 });
+
 

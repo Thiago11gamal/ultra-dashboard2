@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RotateCcw, CloudDownload, LayoutDashboard, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { RotateCcw, CloudDownload, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import useClock from '../hooks/useClock';

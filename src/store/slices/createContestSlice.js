@@ -1,7 +1,7 @@
 import { generateId } from '../../utils/idGenerator.js';
 import { INITIAL_DATA } from '../../data/initialData.js';
 import { safeClone } from '../../utils/safeClone.js';
-import { current } from 'immer';
+import { current, isDraft } from 'immer';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { RECOVERED_DIREITO_CONTEST } from '../../data/recoveredContests.js';
 import { clearCoachCaches } from '../../utils/coachCaches.js';
@@ -17,6 +17,7 @@ const RESET_POMODORO = {
     mode: 'work',
     neuralQueue: [],
     neuralMode: false,
+    isRunning: false,
 };
 
 export const createContestSlice = (set) => ({
@@ -86,7 +87,7 @@ export const createContestSlice = (set) => ({
                 id: generateId('trash'),
                 type: 'contest',
                 contestId: contestId,
-                data: safeClone(current(contestData)),
+                data: safeClone(isDraft(contestData) ? current(contestData) : contestData),
                 deletedAt: new Date().toISOString()
             });
         }
@@ -102,17 +103,9 @@ export const createContestSlice = (set) => ({
         }
         
         if (wasActive || remainingIds.length === 0) {
-            state.appState.pomodoro = {
-                activeSubject: null,
-                sessions: 1,
-                targetCycles: 1,
-                completedCycles: 0,
-                accumulatedMinutes: 0,
-                mode: 'work',
-                neuralQueue: [],
-                neuralMode: false,
-            };
+            state.appState.pomodoro = { ...RESET_POMODORO };
             try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
+            try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
         }
         
         state.appState.version = (state.appState.version || 0) + 1;

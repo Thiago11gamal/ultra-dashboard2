@@ -68,6 +68,7 @@ const RootRedirect = () => {
         sessionStorage.removeItem('navigateToDashboard');
         localStorage.removeItem(`lastRoute_${currentUser.uid}`);
       }
+      sessionStorage.setItem(`hasRestoredInitialRoute_${currentUser.uid}`, 'true');
     }
   }, [currentUser]);
 
@@ -77,9 +78,14 @@ const RootRedirect = () => {
     if (intentionalDashboard) {
       return <Dashboard />;
     }
-    const lastRoute = localStorage.getItem(`lastRoute_${currentUser.uid}`);
-    if (lastRoute && lastRoute !== '/') {
-      return <Navigate to={lastRoute} replace />;
+    // Restaura a última rota apenas na inicialização da sessão (não sequestra o botão Voltar do navegador)
+    const hasRestored = sessionStorage.getItem(`hasRestoredInitialRoute_${currentUser.uid}`);
+    if (!hasRestored) {
+      sessionStorage.setItem(`hasRestoredInitialRoute_${currentUser.uid}`, 'true');
+      const lastRoute = localStorage.getItem(`lastRoute_${currentUser.uid}`);
+      if (lastRoute && lastRoute !== '/') {
+        return <Navigate to={lastRoute} replace />;
+      }
     }
   }
   return <Dashboard />;
