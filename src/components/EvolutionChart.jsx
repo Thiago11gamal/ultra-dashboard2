@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from 'react-router-dom';
 import { useChartData } from "../hooks/useChartData";
 import { useEvolutionMC } from "../hooks/useEvolutionMC";
@@ -9,7 +9,7 @@ import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
 import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { pointsToRatio, ratioToPoints } from "../utils/scoreHelper.conversions";
-import { Download, Loader2, Zap, Target, BarChart3, TrendingUp } from "lucide-react";
+import { Download, Loader2, Zap, Target, BarChart3, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { GaussianPlot } from "./charts/GaussianPlot";
 import { useAppStore } from "../store/useAppStore";
 import { downsampleLTTB } from "../utils/downsample";
@@ -450,6 +450,80 @@ export default React.memo(function EvolutionChart({
 
     const engineTabRefs = useRef(new Map());
 
+    const carouselRef = useRef(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+    const isDraggingRef = useRef(false);
+    const startXRef = useRef(0);
+    const scrollLeftRef = useRef(0);
+    const hasDraggedRef = useRef(false);
+
+    const updateCarouselScrollState = useCallback(() => {
+        const el = carouselRef.current;
+        if (!el) return;
+        const { scrollLeft, scrollWidth, clientWidth } = el;
+        setCanScrollLeft(scrollLeft > 6);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 6);
+    }, []);
+
+    useEffect(() => {
+        const el = carouselRef.current;
+        if (!el) return;
+        updateCarouselScrollState();
+        el.addEventListener('scroll', updateCarouselScrollState, { passive: true });
+        window.addEventListener('resize', updateCarouselScrollState);
+        return () => {
+            el.removeEventListener('scroll', updateCarouselScrollState);
+            window.removeEventListener('resize', updateCarouselScrollState);
+        };
+    }, [updateCarouselScrollState, categories]);
+
+    const scrollCarousel = useCallback((direction) => {
+        const el = carouselRef.current;
+        if (!el) return;
+        const scrollAmount = 252 * 2;
+        el.scrollBy({
+            left: direction === 'left' ? -scrollAmount : scrollAmount,
+            behavior: 'smooth'
+        });
+    }, []);
+
+    const handleCarouselWheel = useCallback((e) => {
+        const el = carouselRef.current;
+        if (!el) return;
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) {
+            if ((e.deltaY > 0 && el.scrollLeft < el.scrollWidth - el.clientWidth - 2) || (e.deltaY < 0 && el.scrollLeft > 2)) {
+                el.scrollLeft += e.deltaY;
+            }
+        }
+    }, []);
+
+    const handleCarouselMouseDown = useCallback((e) => {
+        if (e.button !== 0) return;
+        const el = carouselRef.current;
+        if (!el) return;
+        isDraggingRef.current = true;
+        startXRef.current = e.pageX - el.offsetLeft;
+        scrollLeftRef.current = el.scrollLeft;
+        hasDraggedRef.current = false;
+    }, []);
+
+    const handleCarouselMouseMove = useCallback((e) => {
+        if (!isDraggingRef.current) return;
+        const el = carouselRef.current;
+        if (!el) return;
+        const x = e.pageX - el.offsetLeft;
+        const walk = (x - startXRef.current) * 1.2;
+        if (Math.abs(walk) > 5) {
+            hasDraggedRef.current = true;
+        }
+        el.scrollLeft = scrollLeftRef.current - walk;
+    }, []);
+
+    const handleCarouselMouseUpOrLeave = useCallback(() => {
+        isDraggingRef.current = false;
+    }, []);
+
     // FIX-CLEANUP-01: limpar timer de erro e refs de tab ao desmontar.
     useEffect(() => () => {
         isMountedRef.current = false;
@@ -838,12 +912,64 @@ export default React.memo(function EvolutionChart({
             </motion.div>
 
             <motion.div variants={itemVariants} className="relative z-0">
-                <p className="text-[10px] sm:text-xs text-slate-400 uppercase font-black tracking-[0.25em] leading-loose py-1 sm:py-2 mb-1 pl-1">
-                    Nível bayesiano por disciplina • toque para focar
-                </p>
-                {/* Máscara CSS removida: ela estava causando um gradiente que apagava o início do primeiro card e o fim do último. */}
-                <div className="relative">
-                    <div className="flex overflow-x-auto snap-x gap-3 px-1 py-3 no-scrollbar scroll-smooth">
+                <div className="flex items-center justify-between mb-2 pl-1 pr-1">
+                    <p className="text-[10px] sm:text-xs text-slate-400 uppercase font-black tracking-[0.25em]">
+                        Nível bayesiano por disciplina • toque para focar
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-500 font-mono hidden sm:inline mr-1">
+                            {activeCategories.length} matérias
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => scrollCarousel('left')}
+                            disabled={!canScrollLeft}
+                            aria-label="Rolar disciplinas para a esquerda"
+                            className="w-7 h-7 rounded-xl border border-white/10 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none hover:scale-105 active:scale-95 shadow-md"
+                        >
+                            <ChevronLeft size={15} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => scrollCarousel('right')}
+                            disabled={!canScrollRight}
+                            aria-label="Rolar disciplinas para a direita"
+                            className="w-7 h-7 rounded-xl border border-white/10 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-all disabled:opacity-20 disabled:pointer-events-none hover:scale-105 active:scale-95 shadow-md"
+                        >
+                            <ChevronRight size={15} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="relative group/carousel">
+                    {/* Left Fade Mask */}
+                    <div 
+                        className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent pointer-events-none z-10 transition-opacity duration-300 rounded-l-2xl"
+                        style={{ opacity: canScrollLeft ? 1 : 0 }} 
+                    />
+
+                    {/* Left Floating Arrow Button */}
+                    {canScrollLeft && (
+                        <button
+                            type="button"
+                            onClick={() => scrollCarousel('left')}
+                            aria-label="Rolar disciplinas para a esquerda"
+                            className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-slate-950/90 border border-white/20 text-white shadow-2xl flex items-center justify-center hover:bg-indigo-600 hover:border-indigo-400 hover:scale-110 active:scale-95 transition-all backdrop-blur-md hidden sm:flex"
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                    )}
+
+                    {/* Carousel Scroll Track */}
+                    <div 
+                        ref={carouselRef}
+                        onWheel={handleCarouselWheel}
+                        onMouseDown={handleCarouselMouseDown}
+                        onMouseMove={handleCarouselMouseMove}
+                        onMouseUp={handleCarouselMouseUpOrLeave}
+                        onMouseLeave={handleCarouselMouseUpOrLeave}
+                        className="flex overflow-x-auto snap-x gap-3 px-1 py-3 no-scrollbar scroll-smooth cursor-grab active:cursor-grabbing select-none"
+                    >
                         {activeCategories.map(cat => (
                             <div key={cat.id} className={`snap-center shrink-0 w-[210px] sm:w-[240px] flex flex-col transition-all duration-500 ${showOnlyFocus && focusCategory?.id !== cat.id ? 'opacity-85 hover:opacity-100 grayscale-[10%] scale-[0.96]' : 'opacity-100 scale-100'}`}>
                                 <DisciplinaCard
@@ -852,7 +978,11 @@ export default React.memo(function EvolutionChart({
                                     metrics={latestMetricsByCat[cat.id] || null}
                                     target={targetScore}
                                     isFocused={focusCategory?.id === cat.id}
-                                    onClick={() => setFocusSubjectId(cat.id)}
+                                    onClick={() => {
+                                        if (!hasDraggedRef.current) {
+                                            setFocusSubjectId(cat.id);
+                                        }
+                                    }}
                                     unit={unit}
                                     maxScore={maxScore}
                                     minScore={minScore}
@@ -860,6 +990,24 @@ export default React.memo(function EvolutionChart({
                             </div>
                         ))}
                     </div>
+
+                    {/* Right Floating Arrow Button */}
+                    {canScrollRight && (
+                        <button
+                            type="button"
+                            onClick={() => scrollCarousel('right')}
+                            aria-label="Rolar disciplinas para a direita"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-slate-950/90 border border-white/20 text-white shadow-2xl flex items-center justify-center hover:bg-indigo-600 hover:border-indigo-400 hover:scale-110 active:scale-95 transition-all backdrop-blur-md hidden sm:flex"
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                    )}
+
+                    {/* Right Fade Mask */}
+                    <div 
+                        className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-slate-950 via-slate-950/80 to-transparent pointer-events-none z-10 transition-opacity duration-300 rounded-r-2xl"
+                        style={{ opacity: canScrollRight ? 1 : 0 }} 
+                    />
                 </div>
             </motion.div>
 
