@@ -121,7 +121,8 @@ function SubjectStats({ category, maxScore = 100 }) {
         const last = scores[scores.length - 1];
         const trend = scores.length >= 2 ? last - scores[scores.length - 2] : 0;
         const minScore = Number(category?.minScore) || 0;
-        const scoreRange = Math.max(1e-9, maxScore - minScore);
+        const effectiveMax = Number(category?.maxScore || maxScore) || 100;
+        const scoreRange = Math.max(1e-9, effectiveMax - minScore);
         const accuracy = Math.min(100, Math.max(0, ((avg - minScore) / scoreRange) * 100));
 
         return { avg, last, trend, accuracy, count: scores.length };
@@ -286,8 +287,10 @@ function TodayStudyTime({ studyLogs, categoryId, taskId }) {
 
         const safeLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
         const todayLogs = safeLogs.filter(log => {
-            if (!log || !log.date) return false;
-            return getDateKey(log.date) === todayKey;
+            if (!log) return false;
+            const rawDate = log.date || log.createdAt || log.timestamp;
+            if (!rawDate) return false;
+            return getDateKey(rawDate) === todayKey;
         });
 
         const totalMinutes = todayLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
@@ -547,7 +550,10 @@ export function SessionFocusPanel({
 
             {/* Stats da Matéria */}
             {currentCategory && (
-                <SubjectStats category={currentCategory} />
+                <SubjectStats
+                    category={currentCategory}
+                    maxScore={Number(currentCategory?.maxScore || settings?.maxScore) || 100}
+                />
             )}
 
             {/* Tempo de Estudo Hoje */}

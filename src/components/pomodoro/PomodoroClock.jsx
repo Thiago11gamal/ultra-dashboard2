@@ -202,7 +202,9 @@ export function PomodoroClock({
                                 ? currentTheme.statusActive
                                 : (isProtocolInactive
                                     ? 'AGUARDANDO INÍCIO'
-                                    : (totalTime && timeLeft >= totalTime ? 'PRONTO PARA FOCO' : 'SESSÃO PAUSADA'))}
+                                    : (totalTime && timeLeft >= totalTime 
+                                        ? (mode === 'break' || mode === 'long_break' ? 'INTERVALO PRONTO' : 'PRONTO PARA FOCO')
+                                        : 'SESSÃO PAUSADA'))}
                         </span>
                     </div>
                 </div>

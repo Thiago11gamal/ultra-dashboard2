@@ -429,7 +429,7 @@ export const createPomodoroSlice = (set, get) => ({
         const task = safeTasks[startIndex] || safeTasks[0];
 
         const subject = {
-            taskId: task.id || task.text,
+            taskId: task.id || task.text || task.title,
             task: formatTaskName(task),
             category: extractCategoryFromTask(task),
             categoryId: task.categoryId || task.catId || 'default',
@@ -466,7 +466,7 @@ export const createPomodoroSlice = (set, get) => ({
         if (!activeSubject) return false;
 
         const currentIndex = neuralQueue.findIndex(
-            t => (t.id || t.text) === activeSubject?.taskId
+            t => (t.id || t.text || t.title) === activeSubject?.taskId
         );
 
         if (currentIndex === -1 || currentIndex >= neuralQueue.length - 1) {
@@ -489,7 +489,7 @@ export const createPomodoroSlice = (set, get) => ({
         const nextTask = neuralQueue[currentIndex + 1];
 
         const nextSubject = {
-            taskId: nextTask.id || nextTask.text,
+            taskId: nextTask.id || nextTask.text || nextTask.title,
             task: formatTaskName(nextTask),
             category: extractCategoryFromTask(nextTask),
             categoryId: nextTask.categoryId || nextTask.catId || 'default',

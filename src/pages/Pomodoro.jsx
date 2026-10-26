@@ -177,14 +177,26 @@ function AICoachPanel({ activeSubject, _stats, categories = [], studyLogs = [], 
         }
 
         try {
-            const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs);
+            const hasSimulados = (simulados || []).some(s => s && s.categoryScores && s.categoryScores[targetCategory.id] !== undefined);
+            if (!hasSimulados) {
+                return {
+                    title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
+                    text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
+                    color: 'indigo',
+                    iconType: 'Brain'
+                };
+            }
+
+            const safeMaxScore = Number(targetCategory.maxScore || settings?.maxScore) || 100;
+            const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore });
             if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
                 let color = 'indigo';
                 let iconType = 'Brain';
+                const volThreshold = 15 * (safeMaxScore / 100);
                 if (rawInsight.trend > 0.5) {
                     color = 'emerald';
                     iconType = 'Zap';
-                } else if (rawInsight.trend < -0.5 || rawInsight.volatility > 15) {
+                } else if (rawInsight.trend < -0.5 || rawInsight.volatility > volThreshold) {
                     color = 'red';
                     iconType = 'Alert';
                 }
@@ -206,7 +218,7 @@ function AICoachPanel({ activeSubject, _stats, categories = [], studyLogs = [], 
             color: 'indigo',
             iconType: 'Brain'
         };
-    }, [activeSubject, categories, studyLogs, simulados]);
+    }, [activeSubject, categories, studyLogs, simulados, settings]);
     const icons = {
         'Brain': <BrainCircuit size={24} strokeWidth={1.5} />,
         'Zap': <Zap size={24} strokeWidth={1.5} />,
@@ -1125,21 +1137,29 @@ export default function Pomodoro() {
     }, [contest, studyLogs, settings, user]);
 
     useEffect(() => {
-        if (!activeSubject && location.state?.categoryId && location.state?.taskId) {
-            const cat = (categories || []).find(c => c && (c.id === location.state.categoryId || c.name === location.state.categoryId));
-            const rawTasks = cat?.tasks || [];
-            const safeTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
-            const tsk = safeTasks.find(t => t && (t.id === location.state.taskId || t.text === location.state.taskId));
-            if (cat && tsk) {
+        if (location.state?.categoryId && location.state?.taskId) {
+            const isDifferentSubject = !activeSubject ||
+                activeSubject.taskId !== location.state.taskId ||
+                activeSubject.categoryId !== location.state.categoryId;
+
+            if (isDifferentSubject) {
+                const cat = (categories || []).find(c => c && (c.id === location.state.categoryId || c.name === location.state.categoryId));
+                const rawTasks = cat?.tasks || [];
+                const safeTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
+                const tsk = safeTasks.find(t => t && (t.id === location.state.taskId || t.text === location.state.taskId || t.title === location.state.taskId));
+                if (cat && tsk) {
+                    navigate(location.pathname, { replace: true, state: null });
+                    useAppStore.getState().startPomodoroSession({
+                        categoryId: cat.id,
+                        taskId: tsk.id || tsk.text || tsk.title,
+                        category: cat.name,
+                        task: tsk.title || tsk.text || 'Estudo',
+                        priority: tsk.priority,
+                        source: location.state?.from || 'dashboard'
+                    });
+                }
+            } else {
                 navigate(location.pathname, { replace: true, state: null });
-                useAppStore.getState().startPomodoroSession({
-                    categoryId: cat.id,
-                    taskId: tsk.id || tsk.text,
-                    category: cat.name,
-                    task: tsk.title || tsk.text || 'Estudo',
-                    priority: tsk.priority,
-                    source: location.state?.from || 'dashboard'
-                });
             }
         }
     }, [location.state, location.pathname, categories, activeSubject, navigate]);
@@ -1196,7 +1216,7 @@ export default function Pomodoro() {
         const sessionId = forcedSessionId || Date.now().toString();
         const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
         const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
-        const taskId = task?.id || task?.text;
+        const taskId = task?.id || task?.text || task?.title;
         if (!taskId) return;
 
         let catId = task.catId || task.categoryId;
@@ -1205,7 +1225,7 @@ export default function Pomodoro() {
             const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
             const foundCat = safeCats.find(c => {
                 const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
-                return tasks.some(t => (t?.id || t?.text) === taskId);
+                return tasks.some(t => (t?.id || t?.text || t?.title) === taskId);
             });
             if (foundCat) {
                 catId = foundCat.id;
@@ -1219,11 +1239,11 @@ export default function Pomodoro() {
             const highPriority = [];
             categories.forEach(cat => {
                 (cat.tasks || []).filter(t => !t.completed && t.priority === 'high').forEach(t => {
-                    highPriority.push({ ...t, id: t.id || t.text, categoryId: cat.id, catName: cat.name });
+                    highPriority.push({ ...t, id: t.id || t.text || t.title, categoryId: cat.id, catName: cat.name });
                 });
             });
             const queue = [...highPriority];
-            let startIndex = queue.findIndex(t => (t.id || t.text) === taskId);
+            let startIndex = queue.findIndex(t => (t.id || t.text || t.title) === taskId);
             if (startIndex === -1) {
                 queue.unshift({ ...task, id: taskId, categoryId: catId, catName: catName });
                 startIndex = 0;
@@ -1281,8 +1301,18 @@ export default function Pomodoro() {
                 const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
                 const cat = safeCats.find(c => c && c.id === currentSubject.categoryId);
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
-                const task = catTasks.find(t => t && (t.id || t.text) === currentSubject.taskId);
-                if (!task || !task.completed) {
+                const task = catTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
+
+                const coachPlan = activeData?.coachPlan || store.appState?.coachPlan;
+                const coachTasks = Array.isArray(coachPlan)
+                    ? coachPlan
+                    : Array.isArray(coachPlan?.tasks)
+                        ? coachPlan.tasks
+                        : [];
+                const coachTask = coachTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
+                const targetTask = task || coachTask;
+
+                if (!targetTask || !targetTask.completed) {
                     if (typeof store.toggleNeuralTask === 'function') {
                         store.toggleNeuralTask(currentSubject.taskId);
                     }
@@ -1295,7 +1325,7 @@ export default function Pomodoro() {
                 const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
                 const cat = safeCats.find(c => c && c.id === currentSubject.categoryId);
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
-                const task = catTasks.find(t => t && (t.id || t.text) === currentSubject.taskId);
+                const task = catTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
                 if (task && !task.completed) {
                     if (typeof store.toggleTask === 'function') {
                         store.toggleTask(currentSubject.categoryId, currentSubject.taskId);

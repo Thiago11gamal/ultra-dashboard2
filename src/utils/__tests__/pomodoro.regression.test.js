@@ -219,4 +219,43 @@ describe('Pomodoro Regressions - Multi-tab, Speed Recalculation & Structured end
     expect(parseStoredEndsAt(wrongTaskPayload, 'task-1', 'sess-1')).toBeNull();
     expect(parseStoredEndsAt(legacyPayload, 'task-1', 'sess-1')).toBe(1700000000000);
   });
+
+  it('suporta tarefas neurais identificadas apenas por title no start e advance da fila', () => {
+    let state = {
+      appState: {
+        activeId: 'contest-1',
+        pomodoro: {
+          isRunning: false,
+          neuralMode: false,
+          neuralQueue: []
+        }
+      }
+    };
+    const set = (updater) => {
+      if (typeof updater === 'function') updater(state);
+      else Object.assign(state, updater);
+    };
+    const get = () => state;
+    const slice = createPomodoroSlice(set, get);
+
+    const tasks = [
+      { title: 'Revisão de Direito Constitucional', category: 'Direito' },
+      { title: 'Exercícios de Português', category: 'Português' }
+    ];
+
+    slice.startNeuralSession(tasks, 0);
+
+    const p1 = state.appState.pomodoro;
+    expect(p1.neuralMode).toBe(true);
+    expect(p1.activeSubject.taskId).toBe('Revisão de Direito Constitucional');
+    expect(p1.activeSubject.task).toBe('Revisão de Direito Constitucional');
+
+    // Avança para a próxima tarefa
+    const hasNext = slice.advanceNeuralQueue();
+    expect(hasNext).toBe(true);
+    const p2 = state.appState.pomodoro;
+    expect(p2.activeSubject.taskId).toBe('Exercícios de Português');
+    expect(p2.activeSubject.task).toBe('Exercícios de Português');
+  });
 });
+

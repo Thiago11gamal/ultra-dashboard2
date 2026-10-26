@@ -189,25 +189,33 @@ export function usePomodoroSync({
 
                     try {
                         const raw = localStorage.getItem('pomodoroState');
-                        if (!raw) break;
-                        const saved = JSON.parse(raw);
-                        if (!saved || typeof saved !== 'object') break;
+                        let saved = null;
+                        try {
+                            saved = raw ? JSON.parse(raw) : null;
+                        } catch {
+                            saved = null;
+                        }
+                        if (!saved || typeof saved !== 'object') {
+                            saved = {};
+                        }
 
                         const currentTaskId = activeSubjectRef.current?.taskId ?? null;
                         const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
 
+                        const effectiveTaskId = saved?.activeTaskId || data?.taskId;
                         if (
-                            saved?.activeTaskId &&
+                            effectiveTaskId &&
                             currentTaskId &&
-                            saved.activeTaskId !== currentTaskId
+                            effectiveTaskId !== currentTaskId
                         ) {
                             break;
                         }
 
+                        const effectiveSessionId = saved?.sessionInstanceId || data?.sessionInstanceId;
                         if (
-                            saved?.sessionInstanceId &&
+                            effectiveSessionId &&
                             currentSessionId &&
-                            saved.sessionInstanceId !== currentSessionId
+                            effectiveSessionId !== currentSessionId
                         ) {
                             break;
                         }
@@ -223,9 +231,8 @@ export function usePomodoroSync({
                                 : (Number.isFinite(saved.timeLeft) ? saved.timeLeft : undefined);
 
                         const savedTaskMatches =
-                            saved &&
-                            activeSubjectRef.current?.taskId &&
-                            saved.activeTaskId === activeSubjectRef.current.taskId;
+                            Boolean(effectiveTaskId && activeSubjectRef.current?.taskId && effectiveTaskId === activeSubjectRef.current.taskId) ||
+                            Boolean(!effectiveTaskId && !activeSubjectRef.current?.taskId);
 
                         if (targetMode !== undefined || savedTaskMatches) {
                             const newSessions = data.sessions !== undefined ? data.sessions : saved.sessions;

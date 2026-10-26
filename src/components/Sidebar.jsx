@@ -583,7 +583,11 @@ const Sidebar = React.memo(function Sidebar({
                                                 </div>
                                                 <div className="sidebar-item-text">
                                                     <span className="sidebar-item-label">{item.label}</span> {/* ✅ Label único */}
-                                                    {isCronometro && isPomodoroRunning && <span className="cronometro-badge">Em foco</span>}
+                                                    {isCronometro && isPomodoroRunning && (
+                                                        <div className="flex items-center gap-1.5 ml-auto">
+                                                            <span className="cronometro-badge">Em foco</span>
+                                                        </div>
+                                                    )}
                                                     {isMeuPainel && isActive && (
                                                         <span className="meu-painel-badge">Início</span>
                                                     )}
