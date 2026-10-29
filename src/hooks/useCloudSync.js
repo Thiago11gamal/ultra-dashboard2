@@ -1170,8 +1170,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     lastLocalMutationRef.current = 0;
   }, [currentUser?.uid]);
 
+  const currentUid = currentUser?.uid;
   const performEmergencySync = useCallback(async () => {
-    if (isLocalMode || !currentUser?.uid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
+    if (isLocalMode || !currentUid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const currentStateString = stateStringForSync(appStateRef.current);
     if (lastSyncedRef.current === currentStateString) return;
@@ -1210,9 +1211,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       coreEmergency.contestIds = Object.keys(emergencyContests);
       delete coreEmergency.contests;
 
-      batch.set(doc(db, 'backups', currentUser.uid), coreEmergency);
+      batch.set(doc(db, 'backups', currentUid), coreEmergency);
       for (const [cid, cData] of Object.entries(emergencyContests)) {
-        batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+        batch.set(doc(db, 'backups', currentUid, 'contests', cid), cData);
       }
 
       // FIX: Deletar subcoleção apenas se o concurso foi deletado explicitamente pelo usuário (por contestId, nunca por auto-trash)
@@ -1221,7 +1222,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       const currentLocalIds = new Set(Object.keys(emergencyContests));
       for (const oldId of knownCloudIds) {
         if (!currentLocalIds.has(oldId) && explicitDeletedContests.has(oldId)) {
-          batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
+          batch.delete(doc(db, 'backups', currentUid, 'contests', oldId));
         }
       }
 
@@ -1243,17 +1244,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     } catch (e) {
       logger.error("[Sync] Erro na montagem do emergency-save:", e);
     }
-  }, [currentUser?.uid]);
+  }, [currentUid]);
 
   useEffect(() => {
-    if (!currentUser?.uid || !db) return;
+    if (!currentUid || !db) return;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         // C-04 FIX: Disparar sync síncrono via beforeunload-like pattern.
         // performEmergencySync é async; não podemos aguardar aqui, mas
         // podemos marcar dirty para o beforeunload flush.
         if (!isCloudPullRef.current) {
-          try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch {}
+          try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
           performEmergencySync(); // fire-and-forget, mas o dirty flag garante retry
         }
       } else if (document.visibilityState === 'visible') {
@@ -1271,11 +1272,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         }
       } catch (err) { logger.warn('[Sync] State sync error on unload:', err); }
 
-      if (isDirty && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_SYNC_BEACON_URL && currentUser?.uid) {
+      if (isDirty && typeof import.meta.env !== 'undefined' && import.meta.env.VITE_SYNC_BEACON_URL && currentUid) {
         try {
           const appState = appStateRef.current || {};
           const payload = JSON.stringify({
-            uid: currentUser.uid,
+            uid: currentUid,
             lastUpdated: appState.lastUpdated || null,
             version: appState.version || 0,
             activeId: appState.activeId || null,
@@ -1295,7 +1296,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [currentUser?.uid, performEmergencySync]);
+  }, [currentUid, performEmergencySync]);
 
   useEffect(() => {
     if (applyingRemoteRef.current) {

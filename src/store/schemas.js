@@ -97,12 +97,6 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
       : (Number.isFinite(Number(rawData?.minScore)) ? Number(rawData.minScore) : 0);
     const scoreRange = Math.max(1e-9, maxScore - minScore);
 
-    const uniqueDaysInLogs = new Set(
-      myRows
-        .map(r => getDateKey(extractRowDate(r)))
-        .filter(Boolean)
-    ).size;
-
     const currentUniqueDays = new Set(
       currentHistory
         .map(h => getDateKey(h.date))
