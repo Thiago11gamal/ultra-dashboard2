@@ -22,6 +22,21 @@ import { parseTaskDisplay } from '../utils/taskTitleHelper';
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 
+const ALLOWED_RETURN_PATHS = ['/', '/pomodoro', '/simulados', '/revisao', '/desempenho', '/calendario', '/configuracoes'];
+
+const resolveReturnPath = (source, forceDashboard = false) => {
+    if (forceDashboard) return '/';
+    const normalized = String(source || '').replace(/^\/+/, '');
+    if (!normalized || normalized === 'pomodoro' || normalized === 'neural_core' || normalized === 'side_panel') {
+        return '/pomodoro';
+    }
+    if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
+        return '/';
+    }
+    const candidate = `/${normalized}`;
+    return ALLOWED_RETURN_PATHS.includes(candidate) ? candidate : '/pomodoro';
+};
+
 // =====================================================
 // TELEMETRIA EM GRID (CONQUISTAS E TELEMETRIA)
 // =====================================================
@@ -159,66 +174,67 @@ const DEFAULT_INSIGHT = Object.freeze({
     iconType: 'Brain'
 });
 
-function AICoachPanel({ activeSubject, _stats, categories = [], studyLogs = [], simulados = [] }) {
-    const insight = useMemo(() => {
-        if (!activeSubject) return DEFAULT_INSIGHT;
+    function AICoachPanel({ activeSubject, stats, categories = [], studyLogs = [], simulados = [], settings = EMPTY_OBJECT }) {
+        const insight = useMemo(() => {
+            if (!activeSubject) return DEFAULT_INSIGHT;
 
-        const catId = activeSubject.categoryId || activeSubject.catId;
-        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-        const targetCategory = safeCats.find(c => c && (c.id === catId || c.name === activeSubject.category));
+            const catId = activeSubject.categoryId || activeSubject.catId;
+            const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+            const targetCategory = safeCats.find(c => c && (c.id === catId || c.name === activeSubject.category));
 
-        if (!targetCategory) {
-            return {
-                title: activeSubject.category || 'Foco Tático',
-                text: `Mantenha a concentração em **${activeSubject.task || 'sua meta'}**. Ciclos consistentes constroem retenção profunda.`,
-                color: 'indigo',
-                iconType: 'Brain'
-            };
-        }
-
-        try {
-            const hasSimulados = (simulados || []).some(s => s && s.categoryScores && s.categoryScores[targetCategory.id] !== undefined);
-            if (!hasSimulados) {
+            if (!targetCategory) {
                 return {
-                    title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
-                    text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
+                    title: activeSubject.category || 'Foco Tático',
+                    text: `Mantenha a concentração em **${activeSubject.task || 'sua meta'}**. Ciclos consistentes constroem retenção profunda.`,
                     color: 'indigo',
                     iconType: 'Brain'
                 };
             }
 
-            const safeMaxScore = Number(targetCategory.maxScore || settings?.maxScore) || 100;
-            const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore });
-            if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
-                let color = 'indigo';
-                let iconType = 'Brain';
-                const volThreshold = 15 * (safeMaxScore / 100);
-                if (rawInsight.trend > 0.5) {
-                    color = 'emerald';
-                    iconType = 'Zap';
-                } else if (rawInsight.trend < -0.5 || rawInsight.volatility > volThreshold) {
-                    color = 'red';
-                    iconType = 'Alert';
+            try {
+                const hasSimulados = (simulados || []).some(s => s && s.categoryScores && s.categoryScores[targetCategory.id] !== undefined);
+                if (!hasSimulados) {
+                    return {
+                        title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
+                        text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
+                        color: 'indigo',
+                        iconType: 'Brain'
+                    };
                 }
 
-                return {
-                    title: `IA Mentor · ${targetCategory.name || 'Diagnóstico'}`,
-                    text: `Desempenho em ${targetCategory.name}: **${rawInsight.text}**. Foco redobrado nesta etapa.`,
-                    color,
-                    iconType
-                };
-            }
-        } catch {
-            // Silently fallback to default subject advice
-        }
+                const effectiveSettings = settings && settings !== EMPTY_OBJECT ? settings : (stats?.settings || EMPTY_OBJECT);
+                const safeMaxScore = Number(targetCategory.maxScore || effectiveSettings?.maxScore) || 100;
+                const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore });
+                if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
+                    let color = 'indigo';
+                    let iconType = 'Brain';
+                    const volThreshold = 15 * (safeMaxScore / 100);
+                    if (rawInsight.trend > 0.5) {
+                        color = 'emerald';
+                        iconType = 'Zap';
+                    } else if (rawInsight.trend < -0.5 || rawInsight.volatility > volThreshold) {
+                        color = 'red';
+                        iconType = 'Alert';
+                    }
 
-        return {
-            title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
-            text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
-            color: 'indigo',
-            iconType: 'Brain'
-        };
-    }, [activeSubject, categories, studyLogs, simulados, settings]);
+                    return {
+                        title: `IA Mentor · ${targetCategory.name || 'Diagnóstico'}`,
+                        text: `Desempenho em ${targetCategory.name}: **${rawInsight.text}**. Foco redobrado nesta etapa.`,
+                        color,
+                        iconType
+                    };
+                }
+            } catch {
+                // Silently fallback to default subject advice
+            }
+
+            return {
+                title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
+                text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
+                color: 'indigo',
+                iconType: 'Brain'
+            };
+    }, [activeSubject, categories, studyLogs, simulados, settings, stats]);
     const icons = {
         'Brain': <BrainCircuit size={24} strokeWidth={1.5} />,
         'Zap': <Zap size={24} strokeWidth={1.5} />,
@@ -299,7 +315,8 @@ function ActionsAndMentorView({
     neuralMode,
     neuralQueue,
     studyLogs,
-    simulados
+    simulados,
+    settings = EMPTY_OBJECT
 }) {
     const recommendedTask = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -436,6 +453,7 @@ function ActionsAndMentorView({
                 categories={categories}
                 studyLogs={studyLogs}
                 simulados={simulados}
+                settings={settings}
             />
             <DataTriviaPanel studyLogs={studyLogs} simulados={simulados} categories={categories} />
 
@@ -846,6 +864,7 @@ function PomodoroSidePanel({
                                 neuralQueue={neuralQueue}
                                 studyLogs={studyLogs}
                                 simulados={simulados}
+                                settings={settings}
                             />
                         </Motion.div>
                     ) : (
@@ -898,13 +917,12 @@ function PomodoroTopBar({ activeSubject, isRunning }) {
                             <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#2d1a12]/85 truncate">
                                 {activeSubject?.category || 'SISTEMA'}
                             </span>
-                            <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${
-                                activeSubject && isRunning
+                            <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${activeSubject && isRunning
                                     ? 'bg-emerald-700 animate-pulse'
                                     : activeSubject
                                         ? 'bg-amber-700/80'
                                         : 'bg-[#2d1a12]/30'
-                            }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando início'} />
+                                }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando início'} />
                         </div>
                         <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}>
                             {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}
@@ -1025,21 +1043,6 @@ export default function Pomodoro() {
             }
         }
     }, [activeSubject?.taskId, activeSubject?.sessionInstanceId]);
-
-    const ALLOWED_RETURN_PATHS = ['/', '/pomodoro', '/simulados', '/revisao', '/desempenho', '/calendario', '/configuracoes'];
-
-    const resolveReturnPath = (source, forceDashboard = false) => {
-        if (forceDashboard) return '/';
-        const normalized = String(source || '').replace(/^\/+/, '');
-        if (!normalized || normalized === 'pomodoro' || normalized === 'neural_core' || normalized === 'side_panel') {
-            return '/pomodoro';
-        }
-        if (normalized === 'dashboard' || normalized === 'dashboard_selector') {
-            return '/';
-        }
-        const candidate = `/${normalized}`;
-        return ALLOWED_RETURN_PATHS.includes(candidate) ? candidate : '/pomodoro';
-    };
 
     const resolveSessionSource = (subjectSource) => {
         const entry = String(entrySourceRef.current || '').replace(/^\/+/, '');

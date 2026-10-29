@@ -5,17 +5,31 @@
 const AI_BACKEND_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_BACKEND_URL) || '/api';
 const AI_TIMEOUT_MS = Number(typeof import.meta !== 'undefined' && import.meta.env?.VITE_AI_TIMEOUT_MS) || 60_000;
 
+function isValidUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) return true;
+  try {
+    const base = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : undefined;
+    const parsed = base ? new URL(trimmed, base) : new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 // ✅ FIX S02: credentials deve ser 'same-origin' por padrão.
 // Se o backend for cross-origin, o backend deve configurar CORS
 // explicitamente e o frontend deve usar 'include' apenas quando necessário.
 const isSameOrigin = (() => {
-    try {
-        if (typeof window === 'undefined' || !window.location?.origin) return true;
-        const backendUrl = new URL(AI_BACKEND_URL, window.location.origin);
-        return backendUrl.origin === window.location.origin;
-    } catch {
-        return false;
-    }
+  try {
+    if (typeof window === 'undefined' || !window.location?.origin) return true;
+    const backendUrl = new URL(AI_BACKEND_URL, window.location.origin);
+    return backendUrl.origin === window.location.origin;
+  } catch {
+    return false;
+  }
 })();
 
 function safeRandomId() {
