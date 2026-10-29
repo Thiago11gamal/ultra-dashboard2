@@ -1277,10 +1277,14 @@ function Checklist({
 
                                         {Object.entries(contests).map(([id, contest]) => {
                                             if (id === activeId) return null;
+                                            const rawDisplay = getContestDisplayName(contest);
+                                            const optionLabel = (rawDisplay && rawDisplay !== 'Sem nome')
+                                                ? rawDisplay
+                                                : (contest?.user?.name?.trim() || 'Concurso sem nome');
 
                                             return (
                                                 <option key={id} value={id}>
-                                                    {getContestDisplayName(contest, 'Concurso sem nome')}
+                                                    {optionLabel}
                                                 </option>
                                             );
                                         })}

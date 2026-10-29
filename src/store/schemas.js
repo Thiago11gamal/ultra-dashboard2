@@ -370,7 +370,10 @@ export const sanitizeContest = (data, contestId = '') => {
       }
       return [];
     })(),
-    contestName: source.contestName || source.user?.name || "Novo Concurso",
+    contestName: (typeof source.contestName === 'string' && source.contestName.trim())
+      || (typeof source.name === 'string' && source.name.trim())
+      || (typeof source.user?.name === 'string' && source.user.name.trim())
+      || "Novo Concurso",
     lastUpdated: (source.lastUpdated && !isNaN(new Date(source.lastUpdated).getTime())) ? source.lastUpdated : new Date().toISOString(),
   };
 };
@@ -403,22 +406,80 @@ export const validateAppState = (data) => {
     const validatedContests = {};
     const rawContests = (d.contests && typeof d.contests === 'object') ? d.contests : { 'default': INITIAL_DATA };
 
+    const sanitizeContestKey = (key) =>
+      String(key).replace(/[.#$/\\[\]]/g, '').trim() || 'default';
+
     // ✅ PATCH 11 FIX: Sanitização das chaves do dicionário para assegurar formato adequado para Firebase e IndexedDB
     Object.keys(rawContests).forEach((id) => {
         // ✅ Filtrar chaves inválidas ANTES de sanitizar
-        if (id === 'length' || typeof rawContests[id] !== 'object') return;
-        const cleanId = String(id).replace(new RegExp('[.#$/\\\\[\\\\]]', 'g'), '').trim() || 'default';
+        if (id === 'length' || !rawContests[id] || typeof rawContests[id] !== 'object') return;
+        const cleanId = sanitizeContestKey(id);
         const sanitized = sanitizeContest(rawContests[id], cleanId);
         if (sanitized) {
             validatedContests[cleanId] = sanitized;
         }
     });
 
+    const rawTrash = Array.isArray(d.trash)
+      ? d.trash
+      : (d.trash && typeof d.trash === 'object' ? Object.values(d.trash) : []);
+    const rawDeletedContestIds = Array.isArray(d.deletedContestIds) ? d.deletedContestIds : [];
+
+    // Identificar concursos deletados explicitamente pelo usuário (não por auto-trash de sync)
+    const explicitUserDeletedIds = new Set();
+    rawTrash.forEach((item) => {
+      if (item && item.type === 'contest' && item.contestId && item.reason !== 'cloud-sync') {
+        explicitUserDeletedIds.add(sanitizeContestKey(item.contestId));
+      }
+    });
+    rawDeletedContestIds.forEach((entry) => {
+      const cid = typeof entry === 'string' ? entry : entry?.contestId;
+      if (cid) explicitUserDeletedIds.add(sanitizeContestKey(cid));
+    });
+
+    // Resgatar automaticamente concursos que foram movidos indevidamente para a lixeira por 'cloud-sync'
+    const rescuedTrashItemIds = new Set();
+    rawTrash.forEach((item) => {
+      if (!item || item.type !== 'contest' || item.reason !== 'cloud-sync' || !item.data) return;
+      const cleanId = sanitizeContestKey(item.contestId || item.data?.id || generateId('contest'));
+      if (!explicitUserDeletedIds.has(cleanId) && !validatedContests[cleanId]) {
+        const sanitized = sanitizeContest(item.data, cleanId);
+        if (sanitized) {
+          validatedContests[cleanId] = sanitized;
+          if (item.id) rescuedTrashItemIds.add(item.id);
+        }
+      } else if (!explicitUserDeletedIds.has(cleanId) && validatedContests[cleanId]) {
+        // Já existe em contests — remover duplicata fantasma de cloud-sync da lixeira
+        if (item.id) rescuedTrashItemIds.add(item.id);
+      }
+    });
+
+    if (Object.keys(validatedContests).length === 0) {
+      validatedContests['default'] = sanitizeContest(INITIAL_DATA, 'default');
+    }
+
     let activeId = d.activeId || 'default';
 
     // C4 FIX: Removed silent auto-redirect to 'Direito' to prevent unexpected focus loss.
 
     if (!validatedContests[activeId]) activeId = Object.keys(validatedContests)[0] || 'default';
+
+    const dedupDeletedMap = new Map();
+    rawDeletedContestIds.forEach((entry) => {
+      const rawCid = typeof entry === 'string' ? entry : entry?.contestId;
+      if (!rawCid) return;
+      const cid = sanitizeContestKey(rawCid);
+      if (validatedContests[cid]) return; // Concurso ativo não pode permanecer marcado como deletado
+      const deletedAtIso = (entry && typeof entry === 'object' && entry.deletedAt && !isNaN(new Date(entry.deletedAt).getTime()))
+        ? entry.deletedAt
+        : new Date().toISOString();
+      const deletedAtMs = new Date(deletedAtIso).getTime();
+      if ((Date.now() - deletedAtMs) / (1000 * 60 * 60 * 24) > 90) return;
+      const prev = dedupDeletedMap.get(cid);
+      if (!prev || new Date(prev.deletedAt).getTime() < deletedAtMs) {
+        dedupDeletedMap.set(cid, { contestId: cid, deletedAt: deletedAtIso });
+      }
+    });
 
     const finalState = {
       contests: validatedContests,
@@ -438,8 +499,12 @@ export const validateAppState = (data) => {
       },
 
       history: Array.isArray(d.history) ? d.history : [],
-      trash: Array.isArray(d.trash) ? d.trash.filter(item => {
+      trash: rawTrash.filter(item => {
         if (!item) return false;
+        if (item.id && rescuedTrashItemIds.has(item.id)) return false;
+        if (item.type === 'contest' && item.reason === 'cloud-sync' && !explicitUserDeletedIds.has(sanitizeContestKey(item.contestId || ''))) {
+          return false;
+        }
 
         const parsedDeletedAt = item.deletedAt ? new Date(item.deletedAt) : null;
         const deletedAt = parsedDeletedAt && !isNaN(parsedDeletedAt.getTime())
@@ -447,7 +512,8 @@ export const validateAppState = (data) => {
           : new Date();
 
         return (new Date() - deletedAt) / (1000 * 60 * 60 * 24) <= 30;
-      }) : [],
+      }),
+      deletedContestIds: Array.from(dedupDeletedMap.values()).slice(-50),
       hasSeenTour: Boolean(d.hasSeenTour),
       lastSeenTourDate: typeof d.lastSeenTourDate === 'string' ? d.lastSeenTourDate : '',
       lastHistoryTime: Number(d.lastHistoryTime) || 0,

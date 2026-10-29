@@ -97,8 +97,9 @@ export const createStudySlice = (set, get) => ({
         if (startHour >= 23 || startHour < 4) activeData.user.studiedLate = true;
       }
 
+      activeData.lastUpdated = now;
       state.appState.version = (state.appState.version || 0) + 1;
-      state.appState.lastUpdated = new Date().toISOString();
+      state.appState.lastUpdated = now;
       markStorageDirty();
     });
 
@@ -155,8 +156,10 @@ export const createStudySlice = (set, get) => ({
         }
       }
 
+      const now = new Date().toISOString();
+      activeData.lastUpdated = now;
       state.appState.version = (state.appState.version || 0) + 1;
-      state.appState.lastUpdated = new Date().toISOString();
+      state.appState.lastUpdated = now;
       markStorageDirty();
     });
 
@@ -231,8 +234,9 @@ export const createStudySlice = (set, get) => ({
         }
       }
 
+      activeData.lastUpdated = now;
       state.appState.version = (state.appState.version || 0) + 1;
-      state.appState.lastUpdated = new Date().toISOString();
+      state.appState.lastUpdated = now;
       markStorageDirty();
     });
 

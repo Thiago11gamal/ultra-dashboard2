@@ -96,6 +96,664 @@ const safeguardContest = (contest) => {
   };
 };
 
+export const getExplicitDeletedContestMap = (state) => {
+  const deletedMap = new Map();
+  if (!state || typeof state !== 'object') return deletedMap;
+  const activeContests = (state.contests && typeof state.contests === 'object' && !Array.isArray(state.contests))
+    ? state.contests
+    : {};
+
+  const recordDeletion = (cid, deletedAtValue) => {
+    if (!cid || typeof cid !== 'string') return;
+    if (activeContests[cid]) return;
+    const parsedMs = deletedAtValue ? new Date(deletedAtValue).getTime() : 0;
+    const ms = Number.isFinite(parsedMs) ? parsedMs : 0;
+    const prev = deletedMap.get(cid);
+    if (prev === undefined || ms > prev) {
+      deletedMap.set(cid, ms);
+    }
+  };
+
+  const rawTrash = Array.isArray(state.trash)
+    ? state.trash
+    : (Array.isArray(state.trash?.contests)
+      ? state.trash.contests
+      : (state.trash && typeof state.trash === 'object' ? Object.values(state.trash) : []));
+
+  rawTrash.forEach((item) => {
+    if (!item) return;
+    if (typeof item === 'string') {
+      recordDeletion(item, 0);
+      return;
+    }
+    if (typeof item === 'object') {
+      if (item.reason === 'cloud-sync') return;
+      if (item.type && item.type !== 'contest') return;
+      const cid = item.contestId || (
+        typeof item.id === 'string' && !item.id.startsWith('trash-') && !item.id.startsWith('sync-trash-')
+          ? item.id
+          : null
+      );
+      if (cid) recordDeletion(cid, item.deletedAt);
+    }
+  });
+
+  const rawDeletedIds = Array.isArray(state.deletedContestIds) ? state.deletedContestIds : [];
+  rawDeletedIds.forEach((entry) => {
+    if (!entry) return;
+    if (typeof entry === 'string') {
+      recordDeletion(entry, 0);
+    } else if (typeof entry === 'object' && entry.contestId) {
+      recordDeletion(entry.contestId, entry.deletedAt);
+    }
+  });
+
+  return deletedMap;
+};
+
+export const hasAutoTrashedContests = (state) => {
+  if (!state || typeof state !== 'object') return false;
+  const rawTrash = Array.isArray(state.trash)
+    ? state.trash
+    : (state.trash && typeof state.trash === 'object' ? Object.values(state.trash) : []);
+  if (rawTrash.length === 0) return false;
+  const explicitDeleted = getExplicitDeletedContestMap(state);
+  const activeContests = (state.contests && typeof state.contests === 'object') ? state.contests : {};
+  return rawTrash.some((item) =>
+    item &&
+    typeof item === 'object' &&
+    item.type === 'contest' &&
+    item.reason === 'cloud-sync' &&
+    item.contestId &&
+    !activeContests[item.contestId] &&
+    !explicitDeleted.has(item.contestId)
+  );
+};
+
+export const hasMissingCloudContests = (localState, cloudData) => {
+  if (!cloudData?.contests || typeof cloudData.contests !== 'object' || Array.isArray(cloudData.contests)) {
+    return false;
+  }
+  const localContests = (localState?.contests && typeof localState.contests === 'object') ? localState.contests : {};
+  const localExplicitDeleted = getExplicitDeletedContestMap(localState);
+
+  return Object.entries(cloudData.contests).some(([cid, cloudContest]) => {
+    if (!cid || !cloudContest || typeof cloudContest !== 'object') return false;
+    if (localContests[cid]) return false;
+    if (localExplicitDeleted.has(cid)) {
+      const deletedAtMs = localExplicitDeleted.get(cid) || 0;
+      const cloudTimeRaw = new Date(cloudContest.lastUpdated || cloudData.lastUpdated || 0).getTime();
+      const cloudTimeMs = Number.isFinite(cloudTimeRaw) ? cloudTimeRaw : 0;
+      return deletedAtMs > 0 && cloudTimeMs > deletedAtMs;
+    }
+    return true;
+  });
+};
+
+export const stateStringForSync = (state) => {
+  if (!state) return '';
+  const lastUpdated = state.lastUpdated || "0";
+  const version = state.version || 0;
+  let contentFingerprint = 0;
+  const contestSignatures = [];
+
+  if (state.contests && typeof state.contests === 'object') {
+    Object.keys(state.contests).sort().forEach(cid => {
+      const c = state.contests[cid];
+      if (!c || typeof c !== 'object') return;
+      const cats = c?.categories;
+      let catFp = 0;
+      if (Array.isArray(cats)) {
+        catFp += cats.length;
+        // C-05 FIX: incluir mais campos para detectar mudanças que não
+        // alteram contagens (nome, cor, status, histórico).
+        cats.forEach(cat => {
+          catFp += (cat.tasks?.length || 0);
+          catFp += (cat.simuladoStats?.history?.length || 0);
+
+          // BUG: mudanças de status/conclusão não alteravam fingerprint e sync podia ignorar.
+          const tasksList = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+          catFp += tasksList.filter(t => t?.completed).length * 7;
+          catFp += tasksList.reduce((acc, t) => {
+            const prio = String(t?.priority || 'medium');
+            return acc + (prio === 'high' ? 11 : prio === 'low' ? 3 : 5);
+          }, 0);
+
+          catFp += String(cat?.name || '').length;
+          catFp += Number(cat?.weight || 0);
+        });
+      }
+      catFp += (c?.simuladoRows?.length || 0) * 7;
+      catFp += (c?.studyLogs?.length || 0) * 3;
+      catFp += (c?.notes?.length || 0);
+      contentFingerprint += catFp;
+      const title = String(c?.contestName || c?.name || c?.user?.name || '');
+      contestSignatures.push(`${cid}:${title}:${c?.lastUpdated || ''}:${catFp}`);
+    });
+  }
+
+  const trashLen = Array.isArray(state.trash) ? state.trash.length : 0;
+  const deletedLen = Array.isArray(state.deletedContestIds) ? state.deletedContestIds.length : 0;
+  const rawFpString = `${contentFingerprint}|c:[${contestSignatures.join(',')}]|t:${trashLen}|d:${deletedLen}`;
+
+  const hashStr = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(36);
+  };
+  return `${lastUpdated}|v${version}|active:${state.activeId}|n:${contestSignatures.length}|fp:${hashStr(rawFpString)}`;
+};
+
+const deduplicateCategoryNamesPure = (contest) => {
+  const rawCategories = toArray(contest?.categories);
+  if (rawCategories.length === 0) return contest;
+  const nameMap = {};
+  rawCategories.forEach(cat => {
+    const key = normalize(cat.name);
+    const richness = (c) => {
+      const h = c.simuladoStats?.history;
+      const hLen = h ? (Array.isArray(h) ? h.length : Object.values(h).length) : 0;
+      return (c.tasks?.length || 0) + hLen;
+    };
+    if (!nameMap[key]) {
+      nameMap[key] = { ...cat };
+    } else {
+      const winner = richness(cat) > richness(nameMap[key]) ? { ...cat } : { ...nameMap[key] };
+      const loser = richness(cat) > richness(nameMap[key]) ? nameMap[key] : cat;
+      const mergedTasks = [...(winner.tasks || []), ...(loser.tasks || [])];
+      const mergedHistory = [...(winner.simuladoStats?.history || []), ...(loser.simuladoStats?.history || [])];
+      winner.tasks = Array.from(new Map(
+        mergedTasks.map((t) => [t.id || `${t.text || t.title || ''}-${t.priority || ''}`, t])
+      ).values());
+      if (winner.simuladoStats) {
+        const getHistoryKey = (h) => {
+          if (!h || typeof h !== 'object') return null;
+          if (h.id) return `id:${String(h.id)}`;
+          const d = h.date || h.createdAt || '';
+          const topic = h.topic || h.name || (Array.isArray(h.topics) ? h.topics.map(t => t.name).join(',') : '');
+          const score = h.score ?? h.correct ?? '';
+          return `sim:${d}:${topic}:${score}`;
+        };
+        winner.simuladoStats.history = Array.from(
+          new Map(mergedHistory.map(h => [getHistoryKey(h) || JSON.stringify(h), h])).values()
+        ).sort((a, b) => {
+          const timeA = new Date(a?.date || a?.createdAt || 0).getTime();
+          const timeB = new Date(b?.date || b?.createdAt || 0).getTime();
+          return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
+        });
+      }
+      nameMap[key] = winner;
+      logger.warn(`[dedup] Fundindo dados do clone "${cat.name}".`);
+    }
+  });
+  const deduped = Object.values(nameMap);
+  if (Array.isArray(contest?.categories) && deduped.length === contest.categories.length) return contest;
+  return { ...contest, categories: deduped };
+};
+
+const mergeArraysPure = (arr1, arr2, options = {}) => {
+  const { preferCloudBase = false, localContestTime = 0 } = options;
+  const map = new Map();
+
+  const getStableKey = (item, index) => {
+    if (!item || typeof item !== 'object') return null;
+
+    // Prioridade 1: id explícito
+    if (item.id) return `id:${String(item.id)}`;
+
+    // Prioridade 2: task com texto/título (dedup por conteúdo)
+    if (item.text || item.title) {
+      return `task:${String(item.text || item.title).toLowerCase().trim()}`;
+    }
+
+    // Prioridade 3: simulado com subject+date
+    if (item.subject && item.date) {
+      return `sim:${item.date}:${item.subject}:${item.score ?? item.scorePoints ?? ''}`;
+    }
+
+    // Prioridade 4: sessão com date+categoryId+taskId
+    if (item.date || item.startTime) {
+      return `${item.date || item.startTime}-${item.categoryId || ''}-${item.taskId || ''}`;
+    }
+
+    // ✅ FIX T-05: Fallback robusto — usar hash completo do JSON em vez de
+    // slice(0, 50) que causa colisões entre itens diferentes.
+    // hashString64 do coachSafe.js gera hash de 64 bits com colisão mínima.
+    try {
+      const fullJson = JSON.stringify(item);
+      let h1 = 0x811c9dc5;
+      let h2 = 0x01000193;
+      for (let i = 0; i < fullJson.length; i++) {
+        const c = fullJson.charCodeAt(i);
+        h1 = Math.imul(h1 ^ c, 0x01000193);
+        h2 = Math.imul(h2 ^ c, 0x85ebca6b);
+      }
+      // G-19 FIX: Incluir índice para evitar colisão entre itens
+      // diferentes que serializam para o mesmo JSON.
+      return `unknown:${index ?? 'x'}:${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
+    } catch {
+      return `unknown:unserializable-${index ?? 'x'}-${Date.now()}`;
+    }
+  };
+
+  const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
+  const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
+
+  safeArr1.forEach((item, index) => {
+    const key = getStableKey(item, index);
+    if (key && !map.has(key)) map.set(key, item);
+  });
+
+  safeArr2.forEach((item, index) => {
+    const key = getStableKey(item, index);
+    if (key) {
+      const existing = map.get(key);
+      if (!existing) {
+        // Prevenção de zumbis: se o item não existe localmente e o estado local é mais recente
+        // que a criação/atualização do item na nuvem, o item foi deletado localmente.
+        if (!preferCloudBase && localContestTime > 0) {
+          const itemTime = new Date(item.lastUpdated || item.createdAt || item.date || 0).getTime();
+          if (Number.isFinite(itemTime) && itemTime > 0 && itemTime <= localContestTime) {
+            return;
+          }
+        }
+        map.set(key, item);
+      } else {
+        const timeNew = new Date(item.lastUpdated || item.createdAt || 0).getTime();
+        const timeOld = new Date(existing.lastUpdated || existing.createdAt || 0).getTime();
+        const validNew = Number.isFinite(timeNew) ? timeNew : 0;
+        const validOld = Number.isFinite(timeOld) ? timeOld : 0;
+        if (validNew > validOld) {
+          map.set(key, item);
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values()).filter(Boolean);
+};
+
+const mergeMonteCarloHistoryPure = (localMC = [], cloudMC = []) => {
+  const mcMap = new Map();
+  [...localMC, ...cloudMC].filter(Boolean).forEach(item => {
+    if (item?.date) {
+      const sanitized = {
+        ...item,
+        probability: Number.isFinite(item.probability) ? item.probability : 0
+      };
+      const key = `${item.date}|${item.categoryId || 'global'}`;
+      mcMap.set(key, sanitized);
+    }
+  });
+  return Array.from(mcMap.values()).filter(Boolean).sort((a, b) => {
+    const aMs = new Date(a?.date || 0).getTime();
+    const bMs = new Date(b?.date || 0).getTime();
+    return (Number.isFinite(aMs) ? aMs : 0) - (Number.isFinite(bMs) ? bMs : 0);
+  });
+};
+
+const mergeCategoryTasksPure = (localTasks = [], cloudTasks = []) => {
+  const taskMap = new Map();
+  const textToIdMap = new Map();
+
+  const normalizeText = (txt) =>
+    String(txt || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+
+  const taskKey = (t) => {
+    if (t?.id) return `id:${t.id}`;
+
+    const text = normalizeText(t?.text || t?.title);
+    if (text) return `text:${text}`;
+
+    return `fallback:${t?.priority || ''}:${t?.createdAt || ''}`;
+  };
+  const pickWinner = (a, b) => {
+    if (!a) return b;
+    if (!b) return a;
+    if (a.completed && !b.completed) return a;
+    if (b.completed && !a.completed) return b;
+    const aTime = new Date(a.lastStudiedAt || 0).getTime();
+    const bTime = new Date(b.lastStudiedAt || 0).getTime();
+    return (Number.isFinite(aTime) ? aTime : 0) >= (Number.isFinite(bTime) ? bTime : 0) ? a : b;
+  };
+  const safeLocalTasks = Array.isArray(localTasks) ? localTasks : Object.values(localTasks || {});
+  const safeCloudTasks = Array.isArray(cloudTasks) ? cloudTasks : Object.values(cloudTasks || {});
+  [...safeLocalTasks, ...safeCloudTasks].filter(Boolean).forEach(t => {
+    let key = taskKey(t);
+
+    const text = normalizeText(t.text || t.title);
+
+    if (t.id && text) {
+      const previousTextKey = `text:${text}`;
+      const existingByText = taskMap.get(previousTextKey);
+
+      if (existingByText) {
+        taskMap.delete(previousTextKey);
+        key = `id:${t.id}`;
+        taskMap.set(key, pickWinner(existingByText, t));
+        textToIdMap.set(text, key);
+        return;
+      }
+    }
+
+    if (!t.id && text && textToIdMap.has(text)) {
+      key = textToIdMap.get(text);
+    }
+
+    if (key) {
+      taskMap.set(key, pickWinner(taskMap.get(key), t));
+    }
+  });
+  return Array.from(taskMap.values()).filter(Boolean);
+};
+
+const mergeContestCategoriesPure = (localCats = [], cloudCats = [], preferCloudBase = false, localTrash = [], localContestTime = 0) => {
+  const mergedCatsMap = new Map();
+  const toDateMs = (value) => {
+    if (!value) return 0;
+    const ms = new Date(value).getTime();
+    return Number.isFinite(ms) ? ms : 0;
+  };
+  const safeLocalCats = Array.isArray(localCats) ? localCats : Object.values(localCats || {});
+  const safeCloudCats = Array.isArray(cloudCats) ? cloudCats : Object.values(cloudCats || {});
+  safeLocalCats.forEach(c => { if (c?.id) mergedCatsMap.set(c.id, c); });
+  safeCloudCats.forEach(c => {
+    if (!c?.id) return;
+    if (mergedCatsMap.has(c.id)) {
+      const localCat = mergedCatsMap.get(c.id);
+      const baseCat = preferCloudBase ? { ...localCat, ...c } : { ...c, ...localCat };
+      const catMaxScore = Number(c.maxScore ?? localCat.maxScore ?? 100) || 100;
+      const catMinScore = Number(c.minScore ?? localCat.minScore ?? 0) || 0;
+      const historyMap = new Map();
+      const getStableHistoryKey = (h) =>
+        h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}-${h.correct ?? ''}-${h.total ?? ''}`;
+      const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history)
+        ? localCat.simuladoStats.history : Object.values(localCat.simuladoStats?.history || {});
+      const safeCloudHistory = Array.isArray(c.simuladoStats?.history)
+        ? c.simuladoStats.history : Object.values(c.simuladoStats?.history || {});
+      safeLocalHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+      safeCloudHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+      mergedCatsMap.set(c.id, {
+        ...baseCat,
+        tasks: mergeCategoryTasksPure(localCat.tasks, c.tasks),
+        simuladoStats: {
+          ...(localCat.simuladoStats || c.simuladoStats || {}),
+          ...(c.simuladoStats || {}),
+          history: Array.from(historyMap.values())
+            .map(h => ({ ...h, score: getSafeScore(h, catMaxScore, catMinScore) }))
+            .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
+        }
+      });
+    } else {
+      // FIX GHOST-CATEGORY / BUG-07: Evitar que categorias deletadas localmente sejam ressuscitadas pela nuvem
+      const cloudCatTime = toDateMs(c.lastUpdated || c.updatedAt);
+      const isDeletedInTrash = (localTrash || []).some(t => {
+        if (t.type !== 'category') return false;
+        const catData = t.data?.category || t.data;
+        const matches = (catData?.id && catData.id === c.id) ||
+          (catData?.name && c.name && catData.name.trim().toLowerCase() === c.name.trim().toLowerCase());
+        if (!matches) return false;
+        const trashTime = toDateMs(t.deletedAt);
+        return trashTime >= cloudCatTime;
+      });
+
+      const isTombstoned = isCategoryTombstoned(c.id, c.name, cloudCatTime);
+      const isLocallyPruned = !preferCloudBase && localContestTime > 0 && cloudCatTime <= localContestTime;
+
+      if (!isDeletedInTrash && !isTombstoned && !isLocallyPruned) {
+        mergedCatsMap.set(c.id, c);
+      }
+    }
+  });
+  return Array.from(mergedCatsMap.values());
+};
+
+const mergeCoachPlannerPure = (localPlanner, cloudPlanner, arrayOptions = {}) => {
+  if (!localPlanner && !cloudPlanner) return { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+  const local = localPlanner || {};
+  const cloud = cloudPlanner || {};
+  const allDays = new Set([...Object.keys(local), ...Object.keys(cloud)]);
+  const merged = {};
+  allDays.forEach(day => {
+    merged[day] = mergeArraysPure(local[day], cloud[day], arrayOptions);
+  });
+  return merged;
+};
+
+const mergeContestPayloadPure = (localContest, cloudContest, preferCloudBase = false, localTrash = []) => {
+  const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
+  const localContestTime = new Date(localContest?.lastUpdated || 0).getTime();
+  const arrayOptions = { preferCloudBase, localContestTime };
+  return {
+    ...base,
+    categories: mergeContestCategoriesPure(localContest.categories, cloudContest.categories, preferCloudBase, localTrash, localContestTime),
+    studyLogs: mergeArraysPure(localContest.studyLogs, cloudContest.studyLogs, arrayOptions),
+    studySessions: mergeArraysPure(localContest.studySessions, cloudContest.studySessions, arrayOptions),
+    simuladoRows: mergeArraysPure(localContest.simuladoRows, cloudContest.simuladoRows, arrayOptions),
+    simulados: mergeArraysPure(localContest.simulados, cloudContest.simulados, arrayOptions),
+    monteCarloHistory: mergeMonteCarloHistoryPure(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
+    coachPlan: mergeArraysPure(localContest.coachPlan, cloudContest.coachPlan, arrayOptions),
+    coachPlanner: mergeCoachPlannerPure(localContest.coachPlanner, cloudContest.coachPlanner, arrayOptions),
+    flashcardDecks: mergeArraysPure(localContest.flashcardDecks, cloudContest.flashcardDecks, arrayOptions),
+    agenda: mergeArraysPure(localContest.agenda, cloudContest.agenda, arrayOptions),
+    ...(() => {
+      const localTime = new Date(localContest.lastUpdated || 0).getTime();
+      const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
+      const settingsSource = cloudTime > localTime ? cloudContest : localContest;
+      const otherSource = cloudTime > localTime ? localContest : cloudContest;
+      return {
+        settings: { ...(otherSource.settings || {}), ...(settingsSource.settings || {}) },
+        mcWeights: { ...(otherSource.mcWeights || {}), ...(settingsSource.mcWeights || {}) },
+      };
+    })(),
+    historicalCutoffs: mergeArraysPure(localContest.historicalCutoffs, cloudContest.historicalCutoffs, arrayOptions),
+    calibrationEvents: mergeArraysPure(localContest.calibrationEvents, cloudContest.calibrationEvents, arrayOptions),
+  };
+};
+
+const rescueAutoTrashedLocal = (state) => {
+  if (!state?.contests) return state;
+  const explicitDeleted = getExplicitDeletedContestMap(state);
+  const cleanedContests = { ...state.contests };
+  const rawTrash = Array.isArray(state.trash) ? state.trash : [];
+  let rescued = false;
+
+  rawTrash.forEach((item) => {
+    if (!item || item.type !== 'contest' || item.reason !== 'cloud-sync' || !item.contestId || !item.data) return;
+    if (!explicitDeleted.has(item.contestId) && !cleanedContests[item.contestId]) {
+      cleanedContests[item.contestId] = item.data;
+      rescued = true;
+    }
+  });
+
+  Object.keys(cleanedContests).forEach(id => {
+    cleanedContests[id] = deduplicateCategoryNamesPure(cleanedContests[id]);
+  });
+
+  const cleanedTrash = rawTrash.filter((item) => {
+    if (!item) return false;
+    if (item.type === 'contest' && item.reason === 'cloud-sync' && !explicitDeleted.has(item.contestId)) {
+      return false;
+    }
+    return true;
+  });
+
+  return {
+    ...state,
+    contests: cleanedContests,
+    trash: cleanedTrash,
+    ...(rescued ? {
+      version: (Number(state.version) || 0) + 1,
+      lastUpdated: new Date().toISOString()
+    } : {})
+  };
+};
+
+export const mergeAppStatePure = (local, cloud, options = {}) => {
+  if (!cloud || typeof cloud !== 'object') {
+    return rescueAutoTrashedLocal(local);
+  }
+  if (!local) return cloud;
+
+  const cloudHasContestsTree = !!(cloud && cloud.contests && typeof cloud.contests === 'object' && !Array.isArray(cloud.contests));
+  if (!cloudHasContestsTree) {
+    logger.warn('[Sync] Payload da nuvem sem `contests` válido. Mantendo estado local.');
+    return rescueAutoTrashedLocal(local);
+  }
+
+  const localContests = (local.contests && typeof local.contests === 'object' && !Array.isArray(local.contests))
+    ? local.contests
+    : {};
+  const cloudContests = cloud.contests;
+
+  const localExplicitDeleted = getExplicitDeletedContestMap(local);
+  const cloudExplicitDeleted = getExplicitDeletedContestMap(cloud);
+
+  const mergedContests = { ...localContests };
+  const cloudRawTime = new Date(cloud.lastUpdated || 0).getTime();
+  const localRawTime = new Date(local.lastUpdated || 0).getTime();
+  const cloudFullUpdate = Number.isFinite(cloudRawTime) ? cloudRawTime : 0;
+  const localFullUpdate = Number.isFinite(localRawTime) ? localRawTime : 0;
+
+  // Resgatar concursos que tenham sido movidos para a lixeira automaticamente por 'cloud-sync' no passado
+  [...(Array.isArray(local.trash) ? local.trash : []), ...(Array.isArray(cloud.trash) ? cloud.trash : [])].forEach((item) => {
+    if (!item || item.type !== 'contest' || item.reason !== 'cloud-sync' || !item.contestId || !item.data) return;
+    const cid = item.contestId;
+    if (!mergedContests[cid] && !localExplicitDeleted.has(cid) && !cloudExplicitDeleted.has(cid)) {
+      mergedContests[cid] = item.data;
+    }
+  });
+
+  Object.entries(cloudContests).forEach(([id, cloudContest]) => {
+    if (!cloudContest || typeof cloudContest !== 'object') return;
+    const localContest = mergedContests[id];
+    if (!localContest) {
+      if (!localExplicitDeleted.has(id)) {
+        mergedContests[id] = cloudContest;
+      } else {
+        // Só re-adiciona se a nuvem foi atualizada DEPOIS da deleção explícita do usuário
+        const deletedAtMs = localExplicitDeleted.get(id) || 0;
+        const cloudTimeRaw = new Date(cloudContest.lastUpdated || 0).getTime();
+        const cloudTimeMs = Number.isFinite(cloudTimeRaw) ? cloudTimeRaw : 0;
+        if (deletedAtMs > 0 && cloudTimeMs > deletedAtMs) {
+          mergedContests[id] = cloudContest;
+        }
+      }
+    } else {
+      const cloudTime = new Date(cloudContest.lastUpdated || cloud.lastUpdated || 0).getTime();
+      const localTime = new Date(localContest.lastUpdated || local.lastUpdated || 0).getTime();
+      mergedContests[id] = mergeContestPayloadPure(localContest, cloudContest, cloudTime > localTime, local.trash);
+    }
+  });
+
+  // NUNCA auto-deletar concursos locais apenas por diferença de timestamp global.
+  // Um concurso local ausente na nuvem só é removido se houver deleção explícita pelo usuário na nuvem.
+  const localIds = Object.keys(localContests);
+  if (!options.nonDestructive) {
+    localIds.forEach(id => {
+      if (id === 'default') return;
+      if (!cloudContests[id] && cloudExplicitDeleted.has(id)) {
+        const cloudDeletedAt = cloudExplicitDeleted.get(id) || 0;
+        const localTimeRaw = new Date(localContests[id]?.lastUpdated || 0).getTime();
+        const localTime = Number.isFinite(localTimeRaw) ? localTimeRaw : 0;
+        if (cloudDeletedAt === 0 || cloudDeletedAt >= localTime) {
+          delete mergedContests[id];
+        }
+      }
+    });
+  }
+
+  Object.keys(mergedContests).forEach(id => {
+    mergedContests[id] = deduplicateCategoryNamesPure(mergedContests[id]);
+  });
+
+  const mergedContestIds = Object.keys(mergedContests);
+  const isLocalIdValid = !!(local.activeId && mergedContests[local.activeId]);
+  const isCloudIdValid = !!(cloud.activeId && mergedContests[cloud.activeId]);
+  const fallbackActiveId = mergedContestIds[0] || 'default';
+  const activeId = isLocalIdValid ? local.activeId : (isCloudIdValid ? cloud.activeId : fallbackActiveId);
+
+  const preferLocalRoot = Boolean(options.preserveLocalBase) || !(cloudFullUpdate > localFullUpdate);
+  const base = preferLocalRoot ? { ...cloud, ...local } : { ...local, ...cloud };
+
+  const mergedTrash = (() => {
+    const combined = [...(Array.isArray(local.trash) ? local.trash : []), ...(Array.isArray(cloud.trash) ? cloud.trash : [])];
+    const seen = new Set();
+    return combined.filter(item => {
+      if (!item || typeof item !== 'object') return false;
+      // Remover entradas fantasmas de auto-trash ('cloud-sync') e concursos que estão ativos
+      if (item.type === 'contest') {
+        if (item.reason === 'cloud-sync' && !localExplicitDeleted.has(item.contestId) && !cloudExplicitDeleted.has(item.contestId)) {
+          return false;
+        }
+        if (item.contestId && mergedContests[item.contestId]) {
+          return false;
+        }
+      }
+
+      const stableId = item.id || [
+        item.type || 'unknown',
+        item.contestId || 'no-contest',
+        item.deletedAt || 'no-date',
+        JSON.stringify(item.data || {}).length
+      ].join('|');
+
+      if (seen.has(stableId)) return false;
+      seen.add(stableId);
+      return true;
+    });
+  })();
+
+  const mergedDeletedContestIds = (() => {
+    const map = new Map();
+    const addEntry = (cid, deletedAtIso) => {
+      if (!cid || typeof cid !== 'string' || mergedContests[cid]) return;
+      const validIso = (deletedAtIso && !isNaN(new Date(deletedAtIso).getTime()))
+        ? deletedAtIso
+        : new Date().toISOString();
+      const ms = new Date(validIso).getTime();
+      const prev = map.get(cid);
+      if (!prev || new Date(prev.deletedAt).getTime() < ms) {
+        map.set(cid, { contestId: cid, deletedAt: validIso });
+      }
+    };
+    [...(Array.isArray(local.deletedContestIds) ? local.deletedContestIds : []), ...(Array.isArray(cloud.deletedContestIds) ? cloud.deletedContestIds : [])].forEach((entry) => {
+      if (!entry) return;
+      if (typeof entry === 'string') addEntry(entry, null);
+      else if (typeof entry === 'object' && entry.contestId) addEntry(entry.contestId, entry.deletedAt);
+    });
+    mergedTrash.forEach((item) => {
+      if (item?.type === 'contest' && item.contestId && item.reason !== 'cloud-sync') {
+        addEntry(item.contestId, item.deletedAt);
+      }
+    });
+    return Array.from(map.values()).slice(-50);
+  })();
+
+  const rescuedIntoLocal = mergedContestIds.some(id => !localContests[id]);
+  const baseVersion = Math.max(Number(local.version ?? 0), Number(cloud.version ?? 0));
+  const nextVersion = (rescuedIntoLocal && options.preserveLocalBase) ? baseVersion + 1 : baseVersion;
+  const nextLastUpdated = (rescuedIntoLocal && options.preserveLocalBase)
+    ? new Date(Math.max(Date.now(), cloudFullUpdate, localFullUpdate)).toISOString()
+    : new Date(Math.max(cloudFullUpdate, localFullUpdate, 0) || Date.now()).toISOString();
+
+  return {
+    ...base,
+    contests: mergedContests,
+    trash: mergedTrash,
+    deletedContestIds: mergedDeletedContestIds,
+    activeId: activeId || local.activeId || cloud.activeId,
+    version: nextVersion,
+    lastUpdated: nextLastUpdated
+  };
+};
+
 export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const showToastRef = useRef(showToast);
   const applyingRemoteRef = useRef(false);
@@ -146,11 +804,31 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const appStateRef = useRef(useAppStore.getState().appState);
 
   useEffect(() => {
+    let prevVersion = useAppStore.getState().appState?.version;
+    let prevLastUpdated = useAppStore.getState().appState?.lastUpdated;
+    let prevHydrated = Boolean(useAppStore.getState().appState?.isHydrated);
+
     const unsubscribe = useAppStore.subscribe(
       state => {
-        appStateRef.current = state.appState;
+        const nextAppState = state.appState;
+        appStateRef.current = nextAppState;
+
+        const nextHydrated = Boolean(nextAppState?.isHydrated);
+        const nextVersion = nextAppState?.version;
+        const nextLastUpdated = nextAppState?.lastUpdated;
+        const isHydrationTransition = !prevHydrated && nextHydrated;
+        const didMutate = nextVersion !== prevVersion || nextLastUpdated !== prevLastUpdated;
+
+        prevHydrated = nextHydrated;
+        prevVersion = nextVersion;
+        prevLastUpdated = nextLastUpdated;
+
+        if (isHydrationTransition || applyingRemoteRef.current || isCloudPullRef.current || !didMutate) {
+          return;
+        }
+
         const now = Date.now();
-        const stateTime = new Date(state.appState?.lastUpdated || 0).getTime();
+        const stateTime = new Date(nextAppState?.lastUpdated || 0).getTime();
         if (now - stateTime < 10000) {
           lastLocalMutationRef.current = now;
         }
@@ -172,480 +850,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     return () => { isMountedRef.current = false; };
   }, []);
 
-
-  const deduplicateCategoryNames = useCallback((contest) => {
-    const rawCategories = toArray(contest?.categories);
-    if (rawCategories.length === 0) return contest;
-    const nameMap = {};
-    rawCategories.forEach(cat => {
-      const key = normalize(cat.name);
-      const richness = (c) => {
-        const h = c.simuladoStats?.history;
-        const hLen = h ? (Array.isArray(h) ? h.length : Object.values(h).length) : 0;
-        return (c.tasks?.length || 0) + hLen;
-      };
-      if (!nameMap[key]) {
-        nameMap[key] = { ...cat };
-      } else {
-        const winner = richness(cat) > richness(nameMap[key]) ? { ...cat } : { ...nameMap[key] };
-        const loser = richness(cat) > richness(nameMap[key]) ? nameMap[key] : cat;
-        const mergedTasks = [...(winner.tasks || []), ...(loser.tasks || [])];
-        const mergedHistory = [...(winner.simuladoStats?.history || []), ...(loser.simuladoStats?.history || [])];
-        winner.tasks = Array.from(new Map(
-          mergedTasks.map((t) => [t.id || `${t.text || t.title || ''}-${t.priority || ''}`, t])
-        ).values());
-        if (winner.simuladoStats) {
-          const getHistoryKey = (h) => {
-            if (!h || typeof h !== 'object') return null;
-            if (h.id) return `id:${String(h.id)}`;
-            const d = h.date || h.createdAt || '';
-            const topic = h.topic || h.name || (Array.isArray(h.topics) ? h.topics.map(t => t.name).join(',') : '');
-            const score = h.score ?? h.correct ?? '';
-            return `sim:${d}:${topic}:${score}`;
-          };
-          winner.simuladoStats.history = Array.from(
-            new Map(mergedHistory.map(h => [getHistoryKey(h) || JSON.stringify(h), h])).values()
-          ).sort((a, b) => {
-            const timeA = new Date(a?.date || a?.createdAt || 0).getTime();
-            const timeB = new Date(b?.date || b?.createdAt || 0).getTime();
-            return (Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0);
-          });
-        }
-        nameMap[key] = winner;
-        logger.warn(`[dedup] Fundindo dados do clone "${cat.name}".`);
-      }
-    });
-    const deduped = Object.values(nameMap);
-    if (deduped.length === contest.categories.length) return contest;
-    return { ...contest, categories: deduped };
-  }, []);
-
-  const mergeArrays = (arr1, arr2, options = {}) => {
-    const { preferCloudBase = false, localContestTime = 0 } = options;
-    const map = new Map();
-
-    const getStableKey = (item, index) => {
-      if (!item || typeof item !== 'object') return null;
-
-      // Prioridade 1: id explícito
-      if (item.id) return `id:${String(item.id)}`;
-
-      // Prioridade 2: task com texto/título (dedup por conteúdo)
-      if (item.text || item.title) {
-        return `task:${String(item.text || item.title).toLowerCase().trim()}`;
-      }
-
-      // Prioridade 3: simulado com subject+date
-      if (item.subject && item.date) {
-        return `sim:${item.date}:${item.subject}:${item.score ?? item.scorePoints ?? ''}`;
-      }
-
-      // Prioridade 4: sessão com date+categoryId+taskId
-      if (item.date || item.startTime) {
-        return `${item.date || item.startTime}-${item.categoryId || ''}-${item.taskId || ''}`;
-      }
-
-      // ✅ FIX T-05: Fallback robusto — usar hash completo do JSON em vez de
-      // slice(0, 50) que causa colisões entre itens diferentes.
-      // hashString64 do coachSafe.js gera hash de 64 bits com colisão mínima.
-      try {
-        const fullJson = JSON.stringify(item);
-        let h1 = 0x811c9dc5;
-        let h2 = 0x01000193;
-        for (let i = 0; i < fullJson.length; i++) {
-          const c = fullJson.charCodeAt(i);
-          h1 = Math.imul(h1 ^ c, 0x01000193);
-          h2 = Math.imul(h2 ^ c, 0x85ebca6b);
-        }
-        // G-19 FIX: Incluir índice para evitar colisão entre itens
-        // diferentes que serializam para o mesmo JSON.
-        return `unknown:${index ?? 'x'}:${(h1 >>> 0).toString(36)}${(h2 >>> 0).toString(36)}`;
-      } catch {
-        return `unknown:unserializable-${index ?? 'x'}-${Date.now()}`;
-      }
-    };
-
-    const safeArr1 = Array.isArray(arr1) ? arr1 : Object.values(arr1 || {});
-    const safeArr2 = Array.isArray(arr2) ? arr2 : Object.values(arr2 || {});
-
-    safeArr1.forEach((item, index) => {
-      const key = getStableKey(item, index);
-      if (key && !map.has(key)) map.set(key, item);
-    });
-
-    safeArr2.forEach((item, index) => {
-      const key = getStableKey(item, index);
-      if (key) {
-        const existing = map.get(key);
-        if (!existing) {
-          // Prevenção de zumbis: se o item não existe localmente e o estado local é mais recente
-          // que a criação/atualização do item na nuvem, o item foi deletado localmente.
-          if (!preferCloudBase && localContestTime > 0) {
-            const itemTime = new Date(item.lastUpdated || item.createdAt || item.date || 0).getTime();
-            if (Number.isFinite(itemTime) && itemTime > 0 && itemTime <= localContestTime) {
-              return;
-            }
-          }
-          map.set(key, item);
-        } else {
-          const timeNew = new Date(item.lastUpdated || item.createdAt || 0).getTime();
-          const timeOld = new Date(existing.lastUpdated || existing.createdAt || 0).getTime();
-          const validNew = Number.isFinite(timeNew) ? timeNew : 0;
-          const validOld = Number.isFinite(timeOld) ? timeOld : 0;
-          if (validNew > validOld) {
-            map.set(key, item);
-          }
-        }
-      }
-    });
-
-    return Array.from(map.values()).filter(Boolean);
-  };
-
-  const mergeMonteCarloHistory = (localMC = [], cloudMC = []) => {
-    const mcMap = new Map();
-    [...localMC, ...cloudMC].filter(Boolean).forEach(item => {
-      if (item?.date) {
-        const sanitized = {
-          ...item,
-          probability: Number.isFinite(item.probability) ? item.probability : 0
-        };
-        const key = `${item.date}|${item.categoryId || 'global'}`;
-        mcMap.set(key, sanitized);
-      }
-    });
-    return Array.from(mcMap.values()).filter(Boolean).sort((a, b) => {
-      const aMs = new Date(a?.date || 0).getTime();
-      const bMs = new Date(b?.date || 0).getTime();
-      return (Number.isFinite(aMs) ? aMs : 0) - (Number.isFinite(bMs) ? bMs : 0);
-    });
-  };
-
-  const mergeCategoryTasks = (localTasks = [], cloudTasks = []) => {
-    const taskMap = new Map();
-    const textToIdMap = new Map();
-
-    const normalizeText = (txt) =>
-      String(txt || '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, ' ');
-
-    const taskKey = (t) => {
-      if (t?.id) return `id:${t.id}`;
-
-      const text = normalizeText(t?.text || t?.title);
-      if (text) return `text:${text}`;
-
-      return `fallback:${t?.priority || ''}:${t?.createdAt || ''}`;
-    };
-    const pickWinner = (a, b) => {
-      if (!a) return b;
-      if (!b) return a;
-      if (a.completed && !b.completed) return a;
-      if (b.completed && !a.completed) return b;
-      const aTime = new Date(a.lastStudiedAt || 0).getTime();
-      const bTime = new Date(b.lastStudiedAt || 0).getTime();
-      return (Number.isFinite(aTime) ? aTime : 0) >= (Number.isFinite(bTime) ? bTime : 0) ? a : b;
-    };
-    const safeLocalTasks = Array.isArray(localTasks) ? localTasks : Object.values(localTasks || {});
-    const safeCloudTasks = Array.isArray(cloudTasks) ? cloudTasks : Object.values(cloudTasks || {});
-    [...safeLocalTasks, ...safeCloudTasks].filter(Boolean).forEach(t => {
-      let key = taskKey(t);
-
-      const text = normalizeText(t.text || t.title);
-
-      if (t.id && text) {
-        const previousTextKey = `text:${text}`;
-        const existingByText = taskMap.get(previousTextKey);
-
-        if (existingByText) {
-          taskMap.delete(previousTextKey);
-          key = `id:${t.id}`;
-          taskMap.set(key, pickWinner(existingByText, t));
-          textToIdMap.set(text, key);
-          return;
-        }
-      }
-
-      if (!t.id && text && textToIdMap.has(text)) {
-        key = textToIdMap.get(text);
-      }
-
-      if (key) {
-        taskMap.set(key, pickWinner(taskMap.get(key), t));
-      }
-    });
-    return Array.from(taskMap.values()).filter(Boolean);
-  };
-
-  const mergeContestCategories = (localCats = [], cloudCats = [], preferCloudBase = false, localTrash = [], localContestTime = 0) => {
-    const mergedCatsMap = new Map();
-    const toDateMs = (value) => {
-      if (!value) return 0;
-      const ms = new Date(value).getTime();
-      return Number.isFinite(ms) ? ms : 0;
-    };
-    const safeLocalCats = Array.isArray(localCats) ? localCats : Object.values(localCats || {});
-    const safeCloudCats = Array.isArray(cloudCats) ? cloudCats : Object.values(cloudCats || {});
-    safeLocalCats.forEach(c => { if (c?.id) mergedCatsMap.set(c.id, c); });
-    safeCloudCats.forEach(c => {
-      if (!c?.id) return;
-      if (mergedCatsMap.has(c.id)) {
-        const localCat = mergedCatsMap.get(c.id);
-        const baseCat = preferCloudBase ? { ...localCat, ...c } : { ...c, ...localCat };
-        const catMaxScore = Number(c.maxScore ?? localCat.maxScore ?? 100) || 100;
-        const catMinScore = Number(c.minScore ?? localCat.minScore ?? 0) || 0;
-        const historyMap = new Map();
-        const getStableHistoryKey = (h) =>
-          h.id || `${h.date}-${h.taskId || 'geral'}-${h.score}-${h.correct ?? ''}-${h.total ?? ''}`;
-        const safeLocalHistory = Array.isArray(localCat.simuladoStats?.history)
-          ? localCat.simuladoStats.history : Object.values(localCat.simuladoStats?.history || {});
-        const safeCloudHistory = Array.isArray(c.simuladoStats?.history)
-          ? c.simuladoStats.history : Object.values(c.simuladoStats?.history || {});
-        safeLocalHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
-        safeCloudHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
-        mergedCatsMap.set(c.id, {
-          ...baseCat,
-          tasks: mergeCategoryTasks(localCat.tasks, c.tasks),
-          simuladoStats: {
-            ...(localCat.simuladoStats || c.simuladoStats || {}),
-            ...(c.simuladoStats || {}),
-            history: Array.from(historyMap.values())
-              .map(h => ({ ...h, score: getSafeScore(h, catMaxScore, catMinScore) }))
-              .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
-          }
-        });
-      } else {
-        // FIX GHOST-CATEGORY / BUG-07: Evitar que categorias deletadas localmente sejam ressuscitadas pela nuvem
-        const cloudCatTime = toDateMs(c.lastUpdated || c.updatedAt);
-        const isDeletedInTrash = (localTrash || []).some(t => {
-          if (t.type !== 'category') return false;
-          const catData = t.data?.category || t.data;
-          const matches = (catData?.id && catData.id === c.id) ||
-            (catData?.name && c.name && catData.name.trim().toLowerCase() === c.name.trim().toLowerCase());
-          if (!matches) return false;
-          const trashTime = toDateMs(t.deletedAt);
-          return trashTime >= cloudCatTime;
-        });
-
-        const isTombstoned = isCategoryTombstoned(c.id, c.name, cloudCatTime);
-        const isLocallyPruned = !preferCloudBase && localContestTime > 0 && cloudCatTime <= localContestTime;
-
-        if (!isDeletedInTrash && !isTombstoned && !isLocallyPruned) {
-          mergedCatsMap.set(c.id, c);
-        }
-      }
-    });
-    return Array.from(mergedCatsMap.values());
-  };
-
-  const mergeCoachPlanner = (localPlanner, cloudPlanner, arrayOptions = {}) => {
-    if (!localPlanner && !cloudPlanner) return { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-    const local = localPlanner || {};
-    const cloud = cloudPlanner || {};
-    const allDays = new Set([...Object.keys(local), ...Object.keys(cloud)]);
-    const merged = {};
-    allDays.forEach(day => {
-      merged[day] = mergeArrays(local[day], cloud[day], arrayOptions);
-    });
-    return merged;
-  };
-
-  const mergeContestPayload = useCallback((localContest, cloudContest, preferCloudBase = false, localTrash = []) => {
-    const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
-    const localContestTime = new Date(localContest?.lastUpdated || 0).getTime();
-    const arrayOptions = { preferCloudBase, localContestTime };
-    return {
-      ...base,
-      categories: mergeContestCategories(localContest.categories, cloudContest.categories, preferCloudBase, localTrash, localContestTime),
-      studyLogs: mergeArrays(localContest.studyLogs, cloudContest.studyLogs, arrayOptions),
-      studySessions: mergeArrays(localContest.studySessions, cloudContest.studySessions, arrayOptions),
-      simuladoRows: mergeArrays(localContest.simuladoRows, cloudContest.simuladoRows, arrayOptions),
-      simulados: mergeArrays(localContest.simulados, cloudContest.simulados, arrayOptions),
-      monteCarloHistory: mergeMonteCarloHistory(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
-      coachPlan: mergeArrays(localContest.coachPlan, cloudContest.coachPlan, arrayOptions),
-      coachPlanner: mergeCoachPlanner(localContest.coachPlanner, cloudContest.coachPlanner, arrayOptions),
-      flashcardDecks: mergeArrays(localContest.flashcardDecks, cloudContest.flashcardDecks, arrayOptions),
-      agenda: mergeArrays(localContest.agenda, cloudContest.agenda, arrayOptions),
-      ...(() => {
-        const localTime = new Date(localContest.lastUpdated || 0).getTime();
-        const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
-        const settingsSource = cloudTime > localTime ? cloudContest : localContest;
-        const otherSource = cloudTime > localTime ? localContest : cloudContest;
-        return {
-          settings: { ...(otherSource.settings || {}), ...(settingsSource.settings || {}) },
-          mcWeights: { ...(otherSource.mcWeights || {}), ...(settingsSource.mcWeights || {}) },
-        };
-      })(),
-      historicalCutoffs: mergeArrays(localContest.historicalCutoffs, cloudContest.historicalCutoffs, arrayOptions),
-      calibrationEvents: mergeArrays(localContest.calibrationEvents, cloudContest.calibrationEvents, arrayOptions),
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const mergeAppState = useCallback((local, cloud, options = {}) => {
-    if (!cloud || typeof cloud !== 'object') {
-      if (!local?.contests) return local;
-      const cleanedContests = { ...local.contests };
-      Object.keys(cleanedContests).forEach(id => {
-        cleanedContests[id] = deduplicateCategoryNames(cleanedContests[id]);
-      });
-      return { ...local, contests: cleanedContests };
-    }
-    if (!local) return cloud;
-
-    const cloudHasContestsTree = !!(cloud && cloud.contests && typeof cloud.contests === 'object');
-    if (!cloudHasContestsTree) {
-      logger.warn('[Sync] Payload da nuvem sem `contests` válido. Mantendo estado local.');
-      if (!local?.contests) return local;
-      const cleanedContests = { ...local.contests };
-      Object.keys(cleanedContests).forEach(id => {
-        cleanedContests[id] = deduplicateCategoryNames(cleanedContests[id]);
-      });
-      return { ...local, contests: cleanedContests };
-    }
-
-    const localContests = local.contests || {};
-    const cloudContests = cloud.contests || {};
-    // FIX: Validar cloudContests é um objeto
-    if (typeof cloudContests !== 'object' || Array.isArray(cloudContests)) {
-      logger.warn('[Sync] cloudContests inválido. Mantendo estado local.');
-      return local;
-    }
-    const mergedContests = { ...localContests };
-    const newTrashItems = [];
-    const cloudRawTime = new Date(cloud.lastUpdated || 0).getTime();
-    const localRawTime = new Date(local.lastUpdated || 0).getTime();
-    const cloudFullUpdate = Number.isFinite(cloudRawTime) ? cloudRawTime : 0;
-    const localFullUpdate = Number.isFinite(localRawTime) ? localRawTime : 0;
-
-    Object.entries(cloudContests).forEach(([id, cloudContest]) => {
-      const localContest = localContests[id];
-      if (!localContest) {
-        const trashEntry = (local.trash || []).find(t => t.contestId === id);
-        if (!trashEntry) {
-          mergedContests[id] = cloudContest;
-        } else {
-          // Só re-adiciona se a nuvem é mais recente que a deleção local
-          const trashTime = new Date(trashEntry.deletedAt || 0).getTime();
-          const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();
-          if (cloudTime > trashTime) {
-            mergedContests[id] = cloudContest;
-          }
-        }
-      } else {
-        const cloudTime = new Date(cloudContest.lastUpdated || cloud.lastUpdated || 0).getTime();
-        const localTime = new Date(localContest.lastUpdated || local.lastUpdated || 0).getTime();
-        mergedContests[id] = mergeContestPayload(localContest, cloudContest, cloudTime > localTime, local.trash);
-      }
-    });
-
-    const localIds = Object.keys(localContests);
-    if (!options.nonDestructive) localIds.forEach(id => {
-      if (id === 'default') return;
-      if (!cloudContests[id]) {
-        const localTime = new Date(localContests[id]?.lastUpdated || local.lastUpdated || 0).getTime();
-        if (cloudFullUpdate > localTime + 5000) {
-          const alreadyInTrash = (local.trash || []).some(t => t.contestId === id);
-          if (!alreadyInTrash) {
-            newTrashItems.push({
-              id: `sync-trash-${id}-${Date.now()}`,
-              type: 'contest', contestId: id,
-              data: localContests[id],
-              deletedAt: new Date().toISOString(),
-              reason: 'cloud-sync'
-            });
-          }
-          delete mergedContests[id];
-        }
-      }
-    });
-
-    Object.keys(mergedContests).forEach(id => {
-      mergedContests[id] = deduplicateCategoryNames(mergedContests[id]);
-    });
-
-    const mergedContestIds = Object.keys(mergedContests);
-    const isLocalIdValid = !!(local.activeId && mergedContests[local.activeId]);
-    const isCloudIdValid = !!(cloud.activeId && mergedContests[cloud.activeId]);
-    const fallbackActiveId = mergedContestIds[0] || 'default';
-    const activeId = isLocalIdValid ? local.activeId : (isCloudIdValid ? cloud.activeId : fallbackActiveId);
-
-    const isCloudNewer = cloudFullUpdate > localFullUpdate;
-    const base = isCloudNewer ? { ...local, ...cloud } : { ...cloud, ...local };
-
-    return {
-      ...base,
-      contests: mergedContests,
-      // FIX: Deduplicação de trash com fallback de ID virtual
-      trash: (() => {
-        const combined = [...(local.trash || []), ...(cloud.trash || []), ...newTrashItems];
-        const seen = new Set();
-        return combined.filter(item => {
-          if (!item || typeof item !== 'object') return false;
-          
-          const stableId = item.id || [
-            item.type || 'unknown',
-            item.contestId || 'no-contest',
-            item.deletedAt || 'no-date',
-            JSON.stringify(item.data || {}).length
-          ].join('|');
-          
-          if (seen.has(stableId)) return false;
-          seen.add(stableId);
-          return true;
-        });
-      })(),
-      activeId: activeId || local.activeId || cloud.activeId,
-      version: Math.max(local.version ?? 0, cloud.version ?? 0),
-      lastUpdated: new Date(Math.max(cloudFullUpdate, localFullUpdate, 0) || Date.now()).toISOString()
-    };
-  }, [deduplicateCategoryNames, mergeContestPayload]);
-
-  const stateStringForSync = (state) => {
-    if (!state) return '';
-    const lastUpdated = state.lastUpdated || "0";
-    const version = state.version || 0;
-    let contentFingerprint = 0;
-    if (state.contests) {
-      Object.values(state.contests).forEach(c => {
-        const cats = c?.categories;
-        if (Array.isArray(cats)) {
-          contentFingerprint += cats.length;
-          // C-05 FIX: incluir mais campos para detectar mudanças que não
-          // alteram contagens (nome, cor, status, histórico).
-          cats.forEach(cat => {
-            contentFingerprint += (cat.tasks?.length || 0);
-            contentFingerprint += (cat.simuladoStats?.history?.length || 0);
-
-            // BUG: mudanças de status/conclusão não alteravam fingerprint e sync podia ignorar.
-            const tasksList = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
-            contentFingerprint += tasksList.filter(t => t?.completed).length * 7;
-            contentFingerprint += tasksList.reduce((acc, t) => {
-              const prio = String(t?.priority || 'medium');
-              return acc + (prio === 'high' ? 11 : prio === 'low' ? 3 : 5);
-            }, 0);
-
-            contentFingerprint += String(cat?.name || '').length;
-            contentFingerprint += Number(cat?.weight || 0);
-          });
-        }
-        contentFingerprint += (c?.simuladoRows?.length || 0) * 7;
-        contentFingerprint += (c?.studyLogs?.length || 0) * 3;
-        contentFingerprint += (c?.notes?.length || 0);
-      });
-    }
-    const hashStr = (s) => {
-      let h = 0x811c9dc5;
-      for (let i = 0; i < s.length; i++) {
-        h ^= s.charCodeAt(i);
-        h = Math.imul(h, 0x01000193);
-      }
-      return (h >>> 0).toString(36);
-    };
-    return `${lastUpdated}|v${version}|active:${state.activeId}|fp:${hashStr(String(contentFingerprint))}`;
-  };
+    return mergeAppStatePure(local, cloud, options);
+  }, []);
 
   useEffect(() => {
     if (isLocalMode || !currentUser?.uid || !setAppState || !db || db?.app?.options?.projectId === 'config-missing') {
@@ -708,15 +915,28 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       clearTimeout(safetyBootTimeout);
       let cloudData = exists ? docSnap.data() : null;
 
+      let cloudRootMissingSubcollectionIds = false;
       if (cloudData) {
         try {
+          const rawRootContestIds = new Set(Array.isArray(cloudData.contestIds) ? cloudData.contestIds : []);
           const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
           if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
-          cloudData.contests = cloudData.contests || {};
-          const allContestIds = new Set(cloudData.contestIds || []);
+          cloudData.contests = (cloudData.contests && typeof cloudData.contests === 'object' && !Array.isArray(cloudData.contests))
+            ? { ...cloudData.contests }
+            : {};
+          const allContestIds = new Set(rawRootContestIds);
+          const cloudExplicitDeleted = getExplicitDeletedContestMap(cloudData);
           contestsSnap.forEach(cDoc => {
             const cData = cDoc.data();
             if (cData) {
+              allContestIds.add(cDoc.id);
+              if (cloudExplicitDeleted.has(cDoc.id)) {
+                const delMs = cloudExplicitDeleted.get(cDoc.id) || 0;
+                const docMs = new Date(cData.lastUpdated || 0).getTime();
+                if (delMs === 0 || !(Number.isFinite(docMs) && docMs > delMs)) {
+                  return;
+                }
+              }
               if (cDoc.id === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || cData.contestName === 'Direito') {
                 cData.contestName = 'Direito';
                 if (!cData.categories || !Array.isArray(cData.categories) || cData.categories.length === 0) {
@@ -724,8 +944,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                   cData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(cData.user || {}) };
                 }
               }
+              if (!rawRootContestIds.has(cDoc.id)) {
+                cloudRootMissingSubcollectionIds = true;
+              }
               cloudData.contests[cDoc.id] = cData;
-              allContestIds.add(cDoc.id);
             }
           });
           cloudData.contestIds = Array.from(allContestIds);
@@ -739,7 +961,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
       if (!cloudData) {
         if (!isParityValidatedRef.current) {
-          lastSyncedRef.current = stateStringForSync(appStateRef.current);
+          lastSyncedRef.current = null;
           confirmParity();
         }
         return;
@@ -748,87 +970,116 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       const localState = useAppStore.getState().appState;
       const localVersion = Number(localState?.version || 0);
       const cloudVersion = Number(cloudData?.version || 0);
+      const needsContestRescue = hasMissingCloudContests(localState, cloudData) || hasAutoTrashedContests(localState);
 
-      if (localVersion > cloudVersion) {
-        console.warn('[CloudSync] Pull ignorado: estado local é mais novo que nuvem.', {
-          localVersion,
-          cloudVersion
-        });
-        if (!isParityValidatedRef.current) {
-          confirmParity();
-        }
-        return;
-      }
-
-      // BUG: empate de versão ignorava lastUpdated, permitindo overwrite indevido.
-      if (localVersion === cloudVersion) {
-        const localUpdated = new Date(localState?.lastUpdated || 0).getTime();
-        const cloudUpdated = new Date(cloudData?.lastUpdated || 0).getTime();
-
-        if (Number.isFinite(localUpdated) && Number.isFinite(cloudUpdated) && localUpdated >= cloudUpdated) {
-          if (!isParityValidatedRef.current) confirmParity();
+      if (!needsContestRescue) {
+        if (localVersion > cloudVersion) {
+          console.warn('[CloudSync] Pull ignorado: estado local é mais novo que nuvem.', {
+            localVersion,
+            cloudVersion
+          });
+          if (cloudRootMissingSubcollectionIds) {
+            lastSyncedRef.current = null;
+          }
+          if (!isParityValidatedRef.current) {
+            confirmParity();
+          } else if (cloudRootMissingSubcollectionIds) {
+            setParityTick(t => t + 1);
+          }
           return;
+        }
+
+        // BUG: empate de versão ignorava lastUpdated, permitindo overwrite indevido.
+        if (localVersion === cloudVersion) {
+          const localUpdated = new Date(localState?.lastUpdated || 0).getTime();
+          const cloudUpdated = new Date(cloudData?.lastUpdated || 0).getTime();
+
+          if (Number.isFinite(localUpdated) && Number.isFinite(cloudUpdated) && localUpdated >= cloudUpdated) {
+            if (cloudRootMissingSubcollectionIds) {
+              lastSyncedRef.current = null;
+            }
+            if (!isParityValidatedRef.current) {
+              confirmParity();
+            } else if (cloudRootMissingSubcollectionIds) {
+              setParityTick(t => t + 1);
+            }
+            return;
+          }
         }
       }
 
       const now = Date.now();
       const cloudUpdatedRaw = new Date(cloudData.lastUpdated);
       const cloudUpdatedTime = isNaN(cloudUpdatedRaw.getTime()) ? 0 : cloudUpdatedRaw.getTime();
-      const localUpdatedRaw = new Date(appStateRef.current?.lastUpdated);
+      const localUpdatedRaw = new Date(localState?.lastUpdated);
       const localUpdatedTime = isNaN(localUpdatedRaw.getTime()) ? 0 : localUpdatedRaw.getTime();
       const isBootSync = !isParityValidatedRef.current;
       const localWasJustEdited = (now - lastLocalMutationRef.current) < 15000;
 
       let shouldPullCloud = false;
       let mergeMode = "normal";
+      let preserveLocalBase = false;
 
       if (isBootSync) {
-        if (localWasJustEdited) {
-          shouldPullCloud = false;
-        } else {
-          const cloudUpdated = cloudUpdatedTime || 0;
-          const localUpdated = localUpdatedTime;
-          const activeId = appStateRef.current?.activeId;
-          const activeContest = appStateRef.current?.contests?.[activeId];
-          const contestCount = Object.keys(appStateRef.current?.contests || {}).length;
-          const localHasSubstantialContent = contestCount > 1 ||
-            (activeContest?.categories && activeContest.categories.length > 0) ||
-            (activeContest?.user?.name && activeContest.user.name !== "Estudante");
-          const localIsInitial = localUpdated <= 0 || !localHasSubstantialContent;
-          const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) ||
-            (cloudData.contests && Object.values(cloudData.contests).some(c => c.categories && c.categories.length > 0));
-          const cloudContestIds = Object.keys(cloudData.contests || {});
-          const localContestIds = Object.keys(appStateRef.current?.contests || {});
-          const cloudHasMissingLocalContests = cloudContestIds.some(id => !localContestIds.includes(id));
+        const cloudUpdated = cloudUpdatedTime || 0;
+        const localUpdated = localUpdatedTime;
+        const activeId = localState?.activeId;
+        const activeContest = localState?.contests?.[activeId];
+        const contestCount = Object.keys(localState?.contests || {}).length;
+        const localHasSubstantialContent = contestCount > 1 ||
+          (activeContest?.categories && activeContest.categories.length > 0) ||
+          (activeContest?.user?.name && activeContest.user.name !== "Estudante");
+        const localIsInitial = localUpdated <= 0 || !localHasSubstantialContent;
+        const cloudHasContent = (cloudData.categories && cloudData.categories.length > 0) ||
+          (cloudData.contests && Object.values(cloudData.contests).some(c =>
+            (c?.categories && c.categories.length > 0) ||
+            (c?.contestName && c.contestName !== "Novo Concurso") ||
+            (c?.studyLogs && c.studyLogs.length > 0) ||
+            (c?.simuladoRows && c.simuladoRows.length > 0)
+          )) ||
+          Object.keys(cloudData.contests || {}).length > 1;
 
-          if (localIsInitial && cloudHasContent) {
+        if (needsContestRescue) {
+          shouldPullCloud = true;
+          if (localIsInitial && !localWasJustEdited && cloudVersion >= localVersion) {
+            mergeMode = "normal";
+            preserveLocalBase = false;
+          } else {
+            mergeMode = "nonDestructive";
+            preserveLocalBase = (localVersion >= cloudVersion) || localWasJustEdited;
+          }
+        } else if (localWasJustEdited) {
+          shouldPullCloud = false;
+        } else if (localIsInitial && cloudHasContent) {
+          shouldPullCloud = true;
+        } else if (cloudHasContent && (cloudUpdated > localUpdated + 5000 || cloudVersion > localVersion)) {
+          shouldPullCloud = true;
+        } else {
+          shouldPullCloud = false;
+        }
+
+        if (typeof window !== 'undefined' && (window.__ULTRA_RESCUE_SUCCESS || window.__ULTRA_RESCUE_CANDIDATE)) {
+          if (needsContestRescue) {
             shouldPullCloud = true;
-          } else if (cloudHasMissingLocalContests) {
-            if (localIsInitial) {
-              shouldPullCloud = true;
-            } else {
-              shouldPullCloud = true;
-              mergeMode = "nonDestructive";
-            }
-          } else if (cloudHasContent && cloudUpdated > localUpdated + 5000) {
-            shouldPullCloud = true;
+            mergeMode = "nonDestructive";
+            preserveLocalBase = true;
           } else {
             shouldPullCloud = false;
           }
         }
-
-        if (typeof window !== 'undefined' && (window.__ULTRA_RESCUE_SUCCESS || window.__ULTRA_RESCUE_CANDIDATE)) {
-          shouldPullCloud = false;
-        }
       } else {
-        const localState = useAppStore.getState().appState;
         const localUpdated = new Date(localState?.lastUpdated || 0).getTime();
         const cloudUpdated = latestCloudDataRef.current
-            ? new Date(latestCloudDataRef.current.lastUpdated || 0).getTime()
-            : 0;
-        const localWasJustEdited = (Date.now() - lastLocalMutationRef.current) < 15000;
-        shouldPullCloud = !localWasJustEdited && cloudUpdated > localUpdated + 5000;
-        mergeMode = "merge";
+          ? new Date(latestCloudDataRef.current.lastUpdated || 0).getTime()
+          : 0;
+        if (needsContestRescue) {
+          shouldPullCloud = true;
+          mergeMode = "nonDestructive";
+          preserveLocalBase = (localVersion >= cloudVersion) || localWasJustEdited;
+        } else {
+          shouldPullCloud = !localWasJustEdited && (cloudUpdated > localUpdated + 5000 || cloudVersion > localVersion);
+          mergeMode = "merge";
+        }
       }
 
       const wasAlreadyValidated = isParityValidatedRef.current;
@@ -837,18 +1088,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (shouldPullCloud) {
         isCloudPullRef.current = true;
         const pullStartTime = Date.now();
+        const isNonDestructivePull = mergeMode === "nonDestructive";
         if (isMountedRef.current) {
           applyingRemoteRef.current = true;
           try {
             setAppState(() => {
               const freshState = useAppStore.getState().appState;
               const freshUpdated = new Date(freshState?.lastUpdated || 0).getTime();
-              if (freshUpdated > pullStartTime) {
+              if (!isNonDestructivePull && freshUpdated > pullStartTime) {
                 console.warn('[Sync] Mutation local durante pull — preservando dados locais');
                 return freshState;
               }
               return mergeAppState(freshState, cloudData, {
-                nonDestructive: mergeMode === "nonDestructive"
+                nonDestructive: isNonDestructivePull,
+                preserveLocalBase: preserveLocalBase || (isNonDestructivePull && freshUpdated > pullStartTime)
               });
             });
           } catch (pullErr) {
@@ -860,7 +1113,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         } else {
           isCloudPullRef.current = false;
         }
-        lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
+        const shouldHealCloudRoot = needsContestRescue || cloudRootMissingSubcollectionIds;
+        if (shouldHealCloudRoot) {
+          lastSyncedRef.current = null;
+          setParityTick(t => t + 1);
+        } else {
+          lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
+        }
         setHasConflict(false);
         if (!wasAlreadyValidated && showToastRef.current) {
           showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');
@@ -869,7 +1128,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         if (isMountedRef.current) {
           setAppState(() => mergeAppState(useAppStore.getState().appState, null));
         }
-        lastSyncedRef.current = stateStringForSync(appStateRef.current);
+        if (cloudRootMissingSubcollectionIds) {
+          lastSyncedRef.current = null;
+          setParityTick(t => t + 1);
+        } else if (!localWasJustEdited && localVersion === cloudVersion && Math.abs(cloudUpdatedTime - localUpdatedTime) <= 5000) {
+          lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
+        }
         const isCloudSignificantlyAhead = cloudUpdatedTime > localUpdatedTime + 5000;
         
         // Conflito REAL: Cloud está na frente (outro aparelho editou) E localWasJustEdited (nós editamos aqui)
@@ -951,12 +1215,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
       }
 
-      // FIX: Deletar apenas se estiver expressamente na lixeira
-      const trashContestIds = new Set((coreEmergency.trash?.contests || coreEmergency.trash || []).map(t => (typeof t === 'string' ? t : t?.id)).filter(Boolean));
+      // FIX: Deletar subcoleção apenas se o concurso foi deletado explicitamente pelo usuário (por contestId, nunca por auto-trash)
+      const explicitDeletedContests = getExplicitDeletedContestMap(syncState);
       const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
       const currentLocalIds = new Set(Object.keys(emergencyContests));
       for (const oldId of knownCloudIds) {
-        if (!currentLocalIds.has(oldId) && trashContestIds.has(oldId)) {
+        if (!currentLocalIds.has(oldId) && explicitDeletedContests.has(oldId)) {
           batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
         }
       }
@@ -1115,12 +1379,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
           }
 
-          // FIX: Deletar apenas se estiver expressamente na lixeira
-          const trashContestIds = new Set((freshState.trash?.contests || freshState.trash || []).map(t => (typeof t === 'string' ? t : t?.id)).filter(Boolean));
+          // FIX: Deletar subcoleção apenas se o concurso foi deletado explicitamente pelo usuário (por contestId, nunca por auto-trash)
+          const explicitDeletedContests = getExplicitDeletedContestMap(freshState);
           const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
           const currentLocalIds = new Set(Object.keys(contestsToSave));
           for (const oldId of knownCloudIds) {
-            if (!currentLocalIds.has(oldId) && trashContestIds.has(oldId)) {
+            if (!currentLocalIds.has(oldId) && explicitDeletedContests.has(oldId)) {
               batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
             }
           }

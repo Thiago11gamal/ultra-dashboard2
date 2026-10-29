@@ -120,12 +120,20 @@ const Sidebar = React.memo(function Sidebar({
     const contestEntries = useMemo(() => Object.entries(contests || {}), [contests]);
     const isSingleContest = contestEntries.length <= 1;
 
+    const resolveSidebarContestLabel = useCallback((contestData) => {
+        if (typeof contestData === 'string' && contestData.trim()) return contestData.trim();
+        const display = getContestDisplayName(contestData);
+        if (display && display !== 'Sem nome') return display;
+        const legacyUserName = typeof contestData?.user?.name === 'string' ? contestData.user.name.trim() : '';
+        return legacyUserName || display || 'Meu Painel';
+    }, []);
+
     // Concurso ativo atual
     const activeContestName = useMemo(() => {
         if (!activeContestId || !contests) return 'Meu Painel';
         const raw = contests[activeContestId];
-        return (typeof raw === 'string' && raw.trim()) ? raw : getContestDisplayName(raw) || 'Meu Painel';
-    }, [activeContestId, contests]);
+        return resolveSidebarContestLabel(raw);
+    }, [activeContestId, contests, resolveSidebarContestLabel]);
 
     // Fechar popovers e submenus quando recolher/expandir
     useEffect(() => {
@@ -317,14 +325,14 @@ const Sidebar = React.memo(function Sidebar({
     return (
         <>
             {/* Hidden Backup File Input */}
-            <input 
-                ref={fileInputRef} 
-                type="file" 
-                accept=".json" 
-                onChange={onImport} 
-                style={{ display: 'none' }} 
-                tabIndex={-1} 
-                aria-hidden="true" 
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={onImport}
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                aria-hidden="true"
             />
 
             {/* Mobile Overlay com Z-index corrigido (z-125, abaixo da sidebar z-130 e acima do header mobile z-120) */}
@@ -336,8 +344,8 @@ const Sidebar = React.memo(function Sidebar({
                 />
             )}
 
-            <aside 
-                ref={sidebarRef} 
+            <aside
+                ref={sidebarRef}
                 className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${collapsed ? 'collapsed' : ''}`}
                 role="navigation"
                 aria-label="Menu principal de navegação"
@@ -390,7 +398,7 @@ const Sidebar = React.memo(function Sidebar({
                 <div className="sidebar-divider"></div>
 
                 {/* Nav Sections Scrollable Container */}
-                <div 
+                <div
                     className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar"
                     onScroll={() => {
                         setHoveredTooltip(null);
@@ -419,9 +427,19 @@ const Sidebar = React.memo(function Sidebar({
                                     )}
                                 </div>
                                 <div className="sidebar-item-text flex flex-col items-start !justify-center leading-tight truncate">
-                                    <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest leading-none mb-0.5">
-                                        Painel Ativo
-                                    </span>
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        <span className="text-[9px] font-bold text-violet-300/80 uppercase tracking-widest leading-none">
+                                            Painel Ativo
+                                        </span>
+                                        {contestEntries.length > 1 && (
+                                            <span
+                                                className="px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-[9px] font-bold text-violet-300 leading-none"
+                                                title={`${contestEntries.length} painéis disponíveis`}
+                                            >
+                                                {contestEntries.length}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-1.5 w-full">
                                         <span className="font-bold text-slate-100 text-xs truncate">
                                             {activeContestName}
@@ -431,107 +449,109 @@ const Sidebar = React.memo(function Sidebar({
                                 </div>
                             </div>
                             {!collapsed && (
-                                <ChevronDown 
-                                    size={14} 
-                                    className={`transition-transform duration-200 text-slate-400 shrink-0 ml-1 ${contestsExpanded ? 'rotate-180' : ''}`} 
+                                <ChevronDown
+                                    size={14}
+                                    className={`transition-transform duration-200 text-slate-400 shrink-0 ml-1 ${contestsExpanded ? 'rotate-180' : ''}`}
                                 />
                             )}
                         </button>
 
                         {/* Accordion suave baseado em CSS Grid para modo expandido (Zero stutter) */}
                         {!collapsed && (
-                            <div 
-                                id="sidebar-contests-panel" 
+                            <div
+                                id="sidebar-contests-panel"
                                 className={`sidebar-accordion ${contestsExpanded ? 'expanded' : ''}`}
                                 role="region"
                             >
                                 <div className="sidebar-accordion-inner">
-                                    <div className="nested-container sidebar-contests-scroll-list space-y-1">
-                                        {contestEntries.map(([id, contestData]) => {
-                                            const name = (typeof contestData === 'string' && contestData.trim())
-                                                ? contestData
-                                                : getContestDisplayName(contestData) || "Meu Painel";
-                                            const isActive = id === activeContestId;
-                                            return (
-                                                <div
-                                                    key={id}
-                                                    className="group relative w-full flex items-center"
+                                    <div className="nested-container space-y-1">
+                                        <div className="sidebar-contests-scroll-list custom-scrollbar space-y-1">
+                                            {contestEntries.map(([id, contestData]) => {
+                                                const name = resolveSidebarContestLabel(contestData);
+                                                const isActive = id === activeContestId;
+                                                return (
+                                                    <div
+                                                        key={id}
+                                                        className="group relative w-full flex items-center"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            className={`sidebar-item !py-1.5 flex-1 min-w-0 text-left flex items-center ${isActive ? 'active' : ''}`}
+                                                            title={name}
+                                                            onClick={() => {
+                                                                if (id !== activeContestId) onSwitchContest(id);
+                                                                closeMobileSidebar();
+                                                            }}
+                                                        >
+                                                            <div className="nested-item-marker"></div>
+                                                            <Layers size={13} className={isActive ? "text-violet-400 shrink-0" : "text-slate-400 shrink-0"} />
+                                                            <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
+                                                            {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0"></div>}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (!isSingleContest) setContestToDelete({ id, name });
+                                                            }}
+                                                            disabled={isSingleContest}
+                                                            title={isSingleContest ? 'Mantenha ao menos um painel' : 'Mover para lixeira'}
+                                                            className={`p-1 transition-all shrink-0 ${isSingleContest ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
+                                                            aria-label={`Excluir ${name}`}
+                                                        >
+                                                            <Trash2 size={11} />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="pt-1 border-t border-white/5 space-y-1">
+                                            <button
+                                                type="button"
+                                                className="sidebar-item !py-1.5 text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/15 relative border border-emerald-500/20"
+                                                onClick={() => {
+                                                    onCreateContest();
+                                                    closeMobileSidebar();
+                                                }}
+                                                title="Criar Novo Painel"
+                                            >
+                                                <div className="nested-item-marker !bg-emerald-500/20"></div>
+                                                <Plus size={13} className="text-emerald-400 shrink-0" />
+                                                <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo Painel</span>
+                                            </button>
+
+                                            {onImport && (
+                                                <button
+                                                    type="button"
+                                                    className="sidebar-item !py-1.5 text-sky-400/90 hover:text-sky-300 hover:bg-sky-500/15 relative border border-sky-500/20"
+                                                    onClick={() => {
+                                                        fileInputRef.current?.click();
+                                                        closeMobileSidebar();
+                                                    }}
+                                                    title="Importar Backup JSON"
                                                 >
-                                                    <button
-                                                        type="button"
-                                                        className={`sidebar-item !py-1.5 flex-1 min-w-0 text-left flex items-center ${isActive ? 'active' : ''}`}
-                                                        title={name}
-                                                        onClick={() => {
-                                                            if (id !== activeContestId) onSwitchContest(id);
-                                                            closeMobileSidebar();
-                                                        }}
-                                                    >
-                                                        <div className="nested-item-marker"></div>
-                                                        <Layers size={13} className={isActive ? "text-violet-400 shrink-0" : "text-slate-400 shrink-0"} />
-                                                        <span className="flex-1 truncate text-[0.78rem] font-medium">{name}</span>
-                                                        {isActive && <div className="w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-emerald-400/50 shrink-0"></div>}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            if (!isSingleContest) setContestToDelete({ id, name });
-                                                        }}
-                                                        disabled={isSingleContest}
-                                                        title={isSingleContest ? 'Mantenha ao menos um painel' : 'Mover para lixeira'}
-                                                        className={`p-1 transition-all shrink-0 ${isSingleContest ? 'opacity-20 cursor-not-allowed' : 'opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 rounded'}`}
-                                                        aria-label={`Excluir ${name}`}
-                                                    >
-                                                        <Trash2 size={11} />
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-
-                                        <button
-                                            type="button"
-                                            className="sidebar-item !py-1.5 text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/15 relative border border-emerald-500/20"
-                                            onClick={() => {
-                                                onCreateContest();
-                                                closeMobileSidebar();
-                                            }}
-                                            title="Criar Novo Painel"
-                                        >
-                                            <div className="nested-item-marker !bg-emerald-500/20"></div>
-                                            <Plus size={13} className="text-emerald-400 shrink-0" />
-                                            <span className="text-[0.78rem] text-emerald-300 font-semibold truncate">Criar Novo Painel</span>
-                                        </button>
-
-                                        {onImport && (
-                                            <button
-                                                type="button"
-                                                className="sidebar-item !py-1.5 text-sky-400/90 hover:text-sky-300 hover:bg-sky-500/15 relative border border-sky-500/20"
-                                                onClick={() => {
-                                                    fileInputRef.current?.click();
-                                                    closeMobileSidebar();
-                                                }}
-                                                title="Importar Backup JSON"
-                                            >
-                                                <div className="nested-item-marker !bg-sky-500/20"></div>
-                                                <Upload size={13} className="text-sky-400 shrink-0" />
-                                                <span className="text-[0.78rem] text-sky-300 font-semibold truncate">Restaurar Backup (JSON)</span>
-                                            </button>
-                                        )}
-                                        {onExport && (
-                                            <button
-                                                type="button"
-                                                className="sidebar-item !py-1.5 text-slate-400 hover:text-slate-200 hover:bg-white/5 relative"
-                                                onClick={() => {
-                                                    onExport();
-                                                    closeMobileSidebar();
-                                                }}
-                                                title="Exportar Backup JSON"
-                                            >
-                                                <div className="nested-item-marker"></div>
-                                                <Download size={13} className="text-slate-400 shrink-0" />
-                                                <span className="text-[0.78rem] text-slate-300 font-medium truncate">Exportar Backup</span>
-                                            </button>
-                                        )}
+                                                    <div className="nested-item-marker !bg-sky-500/20"></div>
+                                                    <Upload size={13} className="text-sky-400 shrink-0" />
+                                                    <span className="text-[0.78rem] text-sky-300 font-semibold truncate">Restaurar Backup (JSON)</span>
+                                                </button>
+                                            )}
+                                            {onExport && (
+                                                <button
+                                                    type="button"
+                                                    className="sidebar-item !py-1.5 text-slate-400 hover:text-slate-200 hover:bg-white/5 relative"
+                                                    onClick={() => {
+                                                        onExport();
+                                                        closeMobileSidebar();
+                                                    }}
+                                                    title="Exportar Backup JSON"
+                                                >
+                                                    <div className="nested-item-marker"></div>
+                                                    <Download size={13} className="text-slate-400 shrink-0" />
+                                                    <span className="text-[0.78rem] text-slate-300 font-medium truncate">Exportar Backup</span>
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -639,17 +659,17 @@ const Sidebar = React.memo(function Sidebar({
                                 </div>
                                 <div className="sidebar-item-text">
                                     <span className="font-semibold text-sm sidebar-item-label">Configurações</span>
-                                    <ChevronDown 
-                                        size={14} 
-                                        className={`transition-transform duration-200 text-slate-400 ${settingsExpanded ? 'rotate-180' : ''}`} 
+                                    <ChevronDown
+                                        size={14}
+                                        className={`transition-transform duration-200 text-slate-400 ${settingsExpanded ? 'rotate-180' : ''}`}
                                     />
                                 </div>
                             </button>
 
                             {/* Accordion suave baseado em CSS Grid para modo expandido */}
                             {!collapsed && (
-                                <div 
-                                    id="sidebar-settings-panel" 
+                                <div
+                                    id="sidebar-settings-panel"
                                     className={`sidebar-accordion ${settingsExpanded ? 'expanded' : ''}`}
                                     role="region"
                                 >
@@ -783,17 +803,17 @@ const Sidebar = React.memo(function Sidebar({
             {/* PORTAL FIXED FLYOUT POPOVER: CONCURSOS / PAINÉIS (Zero clipping garantido) */}
             {typeof document !== 'undefined' && collapsed && flyoutMenu === 'contests' && flyoutAnchorRect && createPortal(
                 <>
-                    <div 
+                    <div
                         className="sidebar-portal-flyout-overlay"
                         onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
                         aria-hidden="true"
                     />
-                    <div 
+                    <div
                         ref={contestsPopoverRef}
-                        className="sidebar-portal-flyout-popover" 
+                        className="sidebar-portal-flyout-popover"
                         role="menu"
                         style={{
-                            top: `${Math.max(12, Math.min(window.innerHeight - 320, flyoutAnchorRect.top))}px`,
+                            top: `${Math.max(12, Math.min(window.innerHeight - 380, flyoutAnchorRect.top))}px`,
                             left: `${flyoutAnchorRect.right + 12}px`
                         }}
                     >
@@ -801,9 +821,14 @@ const Sidebar = React.memo(function Sidebar({
                             <div className="flex items-center gap-2">
                                 <Layers size={14} className="text-violet-400" />
                                 <span className="text-xs font-bold text-white uppercase tracking-wider">Painéis de Estudo</span>
+                                {contestEntries.length > 1 && (
+                                    <span className="px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-[10px] font-bold text-violet-300 leading-none">
+                                        {contestEntries.length}
+                                    </span>
+                                )}
                             </div>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
                                 className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
                                 aria-label="Fechar painel"
@@ -812,21 +837,18 @@ const Sidebar = React.memo(function Sidebar({
                             </button>
                         </div>
 
-                        <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+                        <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-1 pr-1">
                             {contestEntries.map(([id, contestData]) => {
-                                const name = (typeof contestData === 'string' && contestData.trim())
-                                    ? contestData
-                                    : getContestDisplayName(contestData) || "Meu Painel";
+                                const name = resolveSidebarContestLabel(contestData);
                                 const isActive = id === activeContestId;
                                 return (
                                     <div key={id} className="flex items-center gap-1 group/flyitem">
                                         <button
                                             type="button"
-                                            className={`flex-1 flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors min-w-0 ${
-                                                isActive 
-                                                    ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30' 
+                                            className={`flex-1 flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors min-w-0 ${isActive
+                                                    ? 'bg-violet-500/20 text-white font-bold border border-violet-500/30'
                                                     : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                                            }`}
+                                                }`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (id !== activeContestId) onSwitchContest(id);
@@ -912,14 +934,14 @@ const Sidebar = React.memo(function Sidebar({
             {/* PORTAL FIXED FLYOUT POPOVER: CONFIGURAÇÕES (Zero clipping garantido) */}
             {typeof document !== 'undefined' && collapsed && flyoutMenu === 'settings' && flyoutAnchorRect && createPortal(
                 <>
-                    <div 
+                    <div
                         className="sidebar-portal-flyout-overlay"
                         onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
                         aria-hidden="true"
                     />
-                    <div 
+                    <div
                         ref={settingsPopoverRef}
-                        className="sidebar-portal-flyout-popover" 
+                        className="sidebar-portal-flyout-popover"
                         role="menu"
                         style={{
                             top: `${Math.max(12, Math.min(window.innerHeight - 280, flyoutAnchorRect.bottom - 220))}px`,
@@ -931,8 +953,8 @@ const Sidebar = React.memo(function Sidebar({
                                 <Settings size={14} className="text-slate-400" />
                                 <span className="text-xs font-bold text-white uppercase tracking-wider">Ajustes & Ações</span>
                             </div>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={() => { setFlyoutMenu(null); setFlyoutAnchorRect(null); }}
                                 className="text-slate-400 hover:text-white p-1 rounded hover:bg-white/5"
                                 aria-label="Fechar painel"
@@ -1085,6 +1107,6 @@ const Sidebar = React.memo(function Sidebar({
             />
         </>
     );
-}); 
+});
 
 export default Sidebar;

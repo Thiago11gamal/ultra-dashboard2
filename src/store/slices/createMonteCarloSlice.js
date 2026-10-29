@@ -58,9 +58,11 @@ export const createMonteCarloSlice = (set) => ({
         newHistory = newHistory.slice(-MAX_SNAPSHOTS);
       }
 
+      const nowIso = new Date().toISOString();
       state.appState.contests[activeId].monteCarloHistory = newHistory;
+      state.appState.contests[activeId].lastUpdated = nowIso;
       state.appState.version = (state.appState.version || 0) + 1;
-      state.appState.lastUpdated = new Date().toISOString();
+      state.appState.lastUpdated = nowIso;
       markStorageDirty();
     } catch (e) {
       console.warn('Error saving MC snapshot:', e);
@@ -78,9 +80,11 @@ export const createMonteCarloSlice = (set) => ({
     const activeId = state.appState?.activeId;
     if (!activeId || !state.appState.contests?.[activeId]) return;
     
+    const nowIso = new Date().toISOString();
     state.appState.contests[activeId].historicalCutoffs = safeClone(cutoffs);
+    state.appState.contests[activeId].lastUpdated = nowIso;
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   }),
 
@@ -91,9 +95,11 @@ export const createMonteCarloSlice = (set) => ({
     const newScore = safeNumber(score, currentScore);
     if (Object.is(currentScore, newScore)) return;
     
+    const nowIso = new Date().toISOString();
     state.appState.contests[activeId].coachScore = newScore;
+    state.appState.contests[activeId].lastUpdated = nowIso;
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   }),
 
@@ -103,10 +109,12 @@ export const createMonteCarloSlice = (set) => ({
     const dMin = safeNumber(durationMinutes, 240);
     const tQ = safeNumber(totalQuestions, 100);
     
+    const nowIso = new Date().toISOString();
     state.appState.contests[activeId].examDurationMinutes = dMin;
     state.appState.contests[activeId].examTotalQuestions = tQ;
+    state.appState.contests[activeId].lastUpdated = nowIso;
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   }),
 
@@ -118,18 +126,20 @@ export const createMonteCarloSlice = (set) => ({
     const currentMetrics = activeData.calibrationMetrics || {};
     const history = currentMetrics[categoryId] || [];
     
+    const nowIso = new Date().toISOString();
     const newMetrics = [...history, {
       ...metric,
-      timestamp: new Date().toISOString()
+      timestamp: nowIso
     }].slice(-50);
 
     if (!activeData.calibrationMetrics) {
       activeData.calibrationMetrics = {};
     }
     activeData.calibrationMetrics[categoryId] = newMetrics;
+    activeData.lastUpdated = nowIso;
     
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   })
 });

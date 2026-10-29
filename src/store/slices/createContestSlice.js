@@ -36,6 +36,7 @@ export const createContestSlice = (set) => ({
             try { clearCoachCaches(); } catch { /* ignore */ }
         }
 
+        const nowIso = new Date().toISOString();
         const activeData = state.appState.contests[targetId];
         if (activeData) {
             const isDireito = targetId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || 
@@ -45,6 +46,7 @@ export const createContestSlice = (set) => ({
                 activeData.categories = safeClone(RECOVERED_DIREITO_CONTEST.categories);
                 activeData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(activeData.user || {}) };
                 activeData.contestName = 'Direito';
+                activeData.lastUpdated = nowIso;
             }
             if (!activeData.coachPlanner) {
                 activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
@@ -56,12 +58,13 @@ export const createContestSlice = (set) => ({
             if (!activeData.studySessions) activeData.studySessions = [];
         }
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         markStorageDirty();
     }),
 
     createNewContest: () => set((state) => {
         const newId = generateId('contest');
+        const nowIso = new Date().toISOString();
         const initialClone = safeClone(INITIAL_DATA);
         const newContestData = {
             ...initialClone,
@@ -70,16 +73,18 @@ export const createContestSlice = (set) => ({
             simulados: [],
             categories: [],
             mcWeights: {},
-            historicalCutoffs: []
+            historicalCutoffs: [],
+            lastUpdated: nowIso
         };
         state.appState.contests[newId] = newContestData;
         state.appState.activeId = newId;
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         markStorageDirty();
     }),
 
     deleteContest: (contestId) => set((state) => {
+        const nowIso = new Date().toISOString();
         const contestData = state.appState.contests[contestId];
         if (contestData) {
             if (!state.appState.trash) state.appState.trash = [];
@@ -88,15 +93,22 @@ export const createContestSlice = (set) => ({
                 type: 'contest',
                 contestId: contestId,
                 data: safeClone(isDraft(contestData) ? current(contestData) : contestData),
-                deletedAt: new Date().toISOString()
+                deletedAt: nowIso,
+                reason: 'user-delete'
             });
+        }
+        if (contestId) {
+            const prevDeleted = Array.isArray(state.appState.deletedContestIds)
+                ? state.appState.deletedContestIds.filter(d => (typeof d === 'string' ? d : d?.contestId) !== contestId)
+                : [];
+            state.appState.deletedContestIds = [...prevDeleted, { contestId, deletedAt: nowIso }].slice(-50);
         }
 
         const wasActive = contestId === state.appState.activeId;
         delete state.appState.contests[contestId];
         const remainingIds = Object.keys(state.appState.contests);
         if (remainingIds.length === 0) {
-            state.appState.contests['default'] = safeClone(INITIAL_DATA);
+            state.appState.contests['default'] = { ...safeClone(INITIAL_DATA), lastUpdated: nowIso };
             state.appState.activeId = 'default';
         } else if (wasActive) {
             state.appState.activeId = remainingIds[0];
@@ -109,15 +121,16 @@ export const createContestSlice = (set) => ({
         }
         
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         markStorageDirty();
     }),
 
     setPaineis: (paineis) => set((state) => {
         if (!paineis || typeof paineis !== 'object') return;
+        const nowIso = new Date().toISOString();
         const keys = Object.keys(paineis);
         if (keys.length === 0) {
-            state.appState.contests = { default: safeClone(INITIAL_DATA) };
+            state.appState.contests = { default: { ...safeClone(INITIAL_DATA), lastUpdated: nowIso } };
             state.appState.activeId = 'default';
         } else {
             state.appState.contests = paineis;
@@ -126,7 +139,7 @@ export const createContestSlice = (set) => ({
             }
         }
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         markStorageDirty();
     }),
 
@@ -135,10 +148,12 @@ export const createContestSlice = (set) => ({
         const contest = state.appState.contests[id];
         const trimmed = typeof newName === 'string' ? newName.trim() : '';
         if (!contest || !trimmed) return;
+        const nowIso = new Date().toISOString();
         contest.contestName = trimmed;
-        contest.lastUpdated = new Date().toISOString();
+        contest.name = trimmed;
+        contest.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         markStorageDirty();
     }),
 });

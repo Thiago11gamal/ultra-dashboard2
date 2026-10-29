@@ -19,8 +19,10 @@ const applyDarkModeToggle = (state, mode) => {
     }
   }
 
+  const nowIso = new Date().toISOString();
+  activeData.lastUpdated = nowIso;
   state.appState.version = (state.appState.version || 0) + 1;
-  state.appState.lastUpdated = new Date().toISOString();
+  state.appState.lastUpdated = nowIso;
   markStorageDirty();
 };
 
@@ -53,9 +55,11 @@ export const createSettingsSlice = (set) => ({
     const activeData = state.appState.contests?.[state.appState.activeId];
     if (!activeData) return;
     if (JSON.stringify(activeData.coachPlanner) === JSON.stringify(newPlannerData)) return;
+    const nowIso = new Date().toISOString();
     activeData.coachPlanner = newPlannerData;
+    activeData.lastUpdated = nowIso;
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   }),
   

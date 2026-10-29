@@ -1,20 +1,46 @@
 import { generateId } from './idGenerator';
 import DOMPurify from 'dompurify';
 
+const toCategoriesArray = (rawCategories) => {
+    if (rawCategories === undefined || rawCategories === null) return [];
+    if (Array.isArray(rawCategories)) return rawCategories;
+    if (typeof rawCategories === 'object') return Object.values(rawCategories);
+    return null;
+};
+
+const contestHasUserData = (contest) => {
+    if (!contest || typeof contest !== 'object') return false;
+    const cats = toCategoriesArray(contest.categories);
+    if (Array.isArray(cats) && cats.length > 0) return true;
+    if (Array.isArray(contest.studyLogs) && contest.studyLogs.length > 0) return true;
+    if (Array.isArray(contest.studySessions) && contest.studySessions.length > 0) return true;
+    if (Array.isArray(contest.simuladoRows) && contest.simuladoRows.length > 0) return true;
+    if (Array.isArray(contest.simulados) && contest.simulados.length > 0) return true;
+    if (typeof contest.notes === 'string' && contest.notes.trim().length > 0) return true;
+    const customContestName = typeof contest.contestName === 'string' ? contest.contestName.trim() : '';
+    if (customContestName && customContestName !== 'Novo Concurso' && customContestName !== 'Estudante') return true;
+    const customName = typeof contest.name === 'string' ? contest.name.trim() : '';
+    if (customName && customName !== 'Novo Concurso' && customName !== 'Estudante') return true;
+    const userName = typeof contest.user?.name === 'string' ? contest.user.name.trim() : '';
+    if (userName && userName !== 'Estudante' && userName !== 'Novo Concurso') return true;
+    return false;
+};
+
 const validateFullBackup = (data) => {
-    if (!data || typeof data !== 'object') return false;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
     // Essential root keys
-    if (!data.contests || typeof data.contests !== 'object') return false;
-    if (!data.activeId || typeof data.activeId !== 'string') return false;
+    if (!data.contests || typeof data.contests !== 'object' || Array.isArray(data.contests)) return false;
 
-    // Check if activeId exists in contests
-    if (!data.contests[data.activeId]) return false;
+    const validEntries = Object.entries(data.contests).filter(
+        ([key, val]) => key !== 'length' && val && typeof val === 'object' && !Array.isArray(val)
+    );
+    if (validEntries.length === 0) return false;
 
-    // Validate contest structure (basic)
-    for (const contest of Object.values(data.contests)) {
-        if (!Array.isArray(contest.categories)) return false;
+    // Validate contest structure (tolerating omitted or object-map categories from Firebase/exports)
+    for (const [, contest] of validEntries) {
+        if (toCategoriesArray(contest.categories) === null) return false;
         // User object is optional but should be an object if present
-        if (contest.user && typeof contest.user !== 'object') return false;
+        if (contest.user && (typeof contest.user !== 'object' || Array.isArray(contest.user))) return false;
     }
 
     return true;
@@ -70,11 +96,33 @@ const sanitizeCategory = (cat) => {
     };
 };
 
-const sanitizeContest = (contest) => ({
-    ...contest,
-    user: contest?.user && typeof contest.user === 'object' ? contest.user : {},
-    categories: Array.isArray(contest?.categories) ? contest.categories.map(sanitizeCategory) : [],
-});
+const sanitizeContest = (contest) => {
+    const rawCats = toCategoriesArray(contest?.categories) || [];
+    const cleanContestName = typeof contest?.contestName === 'string'
+        ? DOMPurify.sanitize(contest.contestName).trim()
+        : '';
+    const cleanName = typeof contest?.name === 'string'
+        ? DOMPurify.sanitize(contest.name).trim()
+        : '';
+    return {
+        ...contest,
+        ...(cleanContestName ? { contestName: cleanContestName } : {}),
+        ...(cleanName ? { name: cleanName } : {}),
+        user: contest?.user && typeof contest.user === 'object' && !Array.isArray(contest.user) ? contest.user : {},
+        categories: rawCats.map(sanitizeCategory).filter(Boolean),
+    };
+};
+
+const unwrapBackupPayload = (raw) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+    if (raw.contests || raw.categories || raw.user) return raw;
+    if (raw.state?.appState && typeof raw.state.appState === 'object') return raw.state.appState;
+    if (raw.appState && typeof raw.appState === 'object') return raw.appState;
+    if (raw.state && typeof raw.state === 'object' && (raw.state.contests || raw.state.categories || raw.state.user)) {
+        return raw.state;
+    }
+    return raw;
+};
 
 export const parseImportedData = (content, currentAppState) => {
     try {
@@ -85,67 +133,121 @@ export const parseImportedData = (content, currentAppState) => {
             throw new Error("Arquivo muito grande (máximo 5MB).");
         }
 
-        const imported = JSON.parse(content);
-        if (!imported || typeof imported !== 'object') {
+        const parsedJson = JSON.parse(content);
+        const imported = unwrapBackupPayload(parsedJson);
+        if (!imported || typeof imported !== 'object' || Array.isArray(imported)) {
             throw new Error("Conteúdo JSON inválido.");
         }
+
+        const nowIso = new Date().toISOString();
+        const existingContests = (currentAppState?.contests && typeof currentAppState.contests === 'object')
+            ? currentAppState.contests
+            : {};
+
+        const mergePreservingLocalContests = (importedContests) => {
+            const merged = {};
+            Object.entries(existingContests).forEach(([id, localContest]) => {
+                if (!importedContests[id] && contestHasUserData(localContest)) {
+                    merged[id] = localContest;
+                }
+            });
+            Object.entries(importedContests).forEach(([id, impContest]) => {
+                merged[id] = impContest;
+            });
+            return merged;
+        };
 
         // Strategy 1: Valid Full Backup (New Format)
         if (imported.contests && imported.activeId) {
             if (!validateFullBackup(imported)) {
                 throw new Error("Backup completo corrompido ou inválido.");
             }
-            const sanitizedContests = Object.fromEntries(
-                Object.entries(imported.contests).map(([id, contest]) => [id, sanitizeContest(contest)])
+            const sanitizedImportedContests = Object.fromEntries(
+                Object.entries(imported.contests)
+                    .filter(([id, contest]) => id !== 'length' && contest && typeof contest === 'object' && !Array.isArray(contest))
+                    .map(([id, contest]) => [id, sanitizeContest(contest)])
             );
+            const mergedContests = mergePreservingLocalContests(sanitizedImportedContests);
+            const importedKeys = Object.keys(sanitizedImportedContests);
+            const resolvedActiveId = sanitizedImportedContests[imported.activeId]
+                ? imported.activeId
+                : (importedKeys.find(k => k !== 'default') || importedKeys[0] || 'default');
+
             return {
                 type: 'FULL_RESTORE',
                 data: {
+                    ...currentAppState,
                     ...imported,
-                    contests: sanitizedContests
+                    activeId: resolvedActiveId,
+                    contests: mergedContests,
+                    version: Math.max(Number(currentAppState?.version || 0), Number(imported.version || 0)) + 1,
+                    lastUpdated: nowIso
                 }
             };
         }
 
         // Strategy 2: Single Contest Data (Old Format or Partial Export)
-        if (imported.user || imported.categories) {
-            if (!Array.isArray(imported.categories)) {
+        if (imported.user || imported.categories !== undefined) {
+            const normalizedCats = toCategoriesArray(imported.categories);
+            if (normalizedCats === null) {
                 throw new Error("Formato inválido: 'categories' deve ser um array.");
             }
 
             // RIGOR-RESTORE: Saneamento profundo
-            imported.categories = imported.categories.map(sanitizeCategory);
+            const sanitizedSingle = {
+                ...sanitizeContest({ ...imported, categories: normalizedCats }),
+                lastUpdated: nowIso
+            };
 
-            // Build a new appState wrapping this contest
+            const defaultAlreadyOccupied = contestHasUserData(existingContests['default']);
+            const targetContestId = defaultAlreadyOccupied ? generateId('contest') : 'default';
+            if (defaultAlreadyOccupied && !sanitizedSingle.contestName && !sanitizedSingle.name) {
+                sanitizedSingle.contestName = sanitizedSingle.user?.name && sanitizedSingle.user.name !== 'Estudante'
+                    ? sanitizedSingle.user.name
+                    : 'Concurso Importado';
+            }
+
+            // Build a new appState wrapping this contest without overwriting an occupied 'default' contest
             const newState = {
                 ...currentAppState,
-                activeId: 'default',
+                activeId: targetContestId,
                 contests: {
-                    ...currentAppState.contests,
-                    'default': imported
-                }
+                    ...existingContests,
+                    [targetContestId]: sanitizedSingle
+                },
+                version: Number(currentAppState?.version || 0) + 1,
+                lastUpdated: nowIso
             };
 
             return { type: 'PARTIAL_RESTORE', data: newState };
         }
 
         // Strategy 3: Legacy "Ultra Dashboard" Wrapper or missing activeId
-        if (imported.contests && typeof imported.contests === 'object') {
-            const contestKeys = Object.keys(imported.contests);
-            if (contestKeys.length === 0) throw new Error("Backup não contém concursos.");
+        if (imported.contests && typeof imported.contests === 'object' && !Array.isArray(imported.contests)) {
+            const validEntries = Object.entries(imported.contests)
+                .filter(([id, contest]) => id !== 'length' && contest && typeof contest === 'object' && !Array.isArray(contest));
+            if (validEntries.length === 0) throw new Error("Backup não contém concursos.");
 
-            const fallbackId = imported.activeId || contestKeys.find(k => k !== 'default') || contestKeys[0] || 'default';
+            if (!validateFullBackup(imported)) {
+                throw new Error("Backup corrompido ou com estrutura inválida.");
+            }
+
+            const sanitizedImportedContests = Object.fromEntries(
+                validEntries.map(([id, contest]) => [id, sanitizeContest(contest)])
+            );
+            const contestKeys = Object.keys(sanitizedImportedContests);
+            const fallbackId = (imported.activeId && sanitizedImportedContests[imported.activeId])
+                ? imported.activeId
+                : (contestKeys.find(k => k !== 'default') || contestKeys[0] || 'default');
 
             const newState = {
                 ...currentAppState,
                 ...imported,
                 activeId: fallbackId,
-                contests: imported.contests
+                contests: mergePreservingLocalContests(sanitizedImportedContests),
+                version: Math.max(Number(currentAppState?.version || 0), Number(imported.version || 0)) + 1,
+                lastUpdated: nowIso
             };
-
-            if (!validateFullBackup(newState)) {
-                throw new Error("Backup corrompido ou com estrutura inválida.");
-            }
 
             return { type: 'LEGACY_RESTORE', data: newState };
         }

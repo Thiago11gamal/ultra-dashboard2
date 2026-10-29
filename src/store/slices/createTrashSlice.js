@@ -103,7 +103,9 @@ export const createTrashSlice = (set) => ({
                     }
                 });
             }
+            contest.lastUpdated = new Date().toISOString();
         } else if (item.type === 'contest') {
+            const nowIso = new Date().toISOString();
             let newId = item.contestId;
             if (state.appState.contests[newId]) {
                 newId = generateId('contest');
@@ -111,9 +113,16 @@ export const createTrashSlice = (set) => ({
             const contestPayload = safeClone(item.data) || {};
             if (contestPayload && typeof contestPayload === 'object') {
                 contestPayload.id = newId;
+                contestPayload.lastUpdated = nowIso;
             }
             state.appState.contests[newId] = contestPayload;
             state.appState.activeId = newId;
+            if (Array.isArray(state.appState.deletedContestIds)) {
+                state.appState.deletedContestIds = state.appState.deletedContestIds.filter(d => {
+                    const cid = typeof d === 'string' ? d : d?.contestId;
+                    return cid !== item.contestId && cid !== newId;
+                });
+            }
         }
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;
@@ -122,6 +131,7 @@ export const createTrashSlice = (set) => ({
     }),
 
     emptyTrash: () => set((state) => {
+        const nowIso = new Date().toISOString();
         if (Array.isArray(state.appState.trash)) {
             const catTombstones = state.appState.trash
                 .filter(item => item?.type === 'category')
@@ -132,10 +142,25 @@ export const createTrashSlice = (set) => ({
             if (catTombstones.length > 0) {
                 addCategoryTombstones(catTombstones);
             }
+            const contestDeletions = state.appState.trash
+                .filter(item => item?.type === 'contest' && item?.contestId && item?.reason !== 'cloud-sync');
+            if (contestDeletions.length > 0) {
+                const map = new Map();
+                (Array.isArray(state.appState.deletedContestIds) ? state.appState.deletedContestIds : []).forEach(d => {
+                    const cid = typeof d === 'string' ? d : d?.contestId;
+                    if (cid) map.set(cid, { contestId: cid, deletedAt: d?.deletedAt || nowIso });
+                });
+                contestDeletions.forEach(item => {
+                    if (!state.appState.contests?.[item.contestId]) {
+                        map.set(item.contestId, { contestId: item.contestId, deletedAt: item.deletedAt || nowIso });
+                    }
+                });
+                state.appState.deletedContestIds = Array.from(map.values()).slice(-50);
+            }
         }
         state.appState.trash = [];
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         markStorageDirty();
     }),
 });

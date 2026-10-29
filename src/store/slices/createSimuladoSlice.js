@@ -19,11 +19,13 @@ export const createSimuladoSlice = (set) => ({
       };
     });
 
+    const nowIso = new Date().toISOString();
     activeData.simuladoRows = [];
     activeData.simulados = [];
+    activeData.lastUpdated = nowIso;
 
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   }),
 
@@ -235,8 +237,10 @@ export const createSimuladoSlice = (set) => ({
       });
     }
 
+    const nowIso = new Date().toISOString();
+    activeData.lastUpdated = nowIso;
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   }),
 });

@@ -70,8 +70,11 @@ export const createGamificationSlice = (set, get) => ({
     awardExperience: (xpAmount) => {
         const detail = get().processGamification(xpAmount);
         set((state) => {
+            const nowIso = new Date().toISOString();
+            const activeData = state.appState.contests?.[state.appState.activeId];
+            if (activeData) activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
+            state.appState.lastUpdated = nowIso;
             markStorageDirty();
         });
         if (detail) get().dispatchLevelUp(detail);
@@ -80,12 +83,14 @@ export const createGamificationSlice = (set, get) => ({
     updateUserName: (name) => set((state) => {
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
+        const nowIso = new Date().toISOString();
         if (!activeData.user) activeData.user = {};
         activeData.user.name = name;
         activeData.contestName = name;
         activeData.name = name;
+        activeData.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = new Date().toISOString();
+        state.appState.lastUpdated = nowIso;
         markStorageDirty();
     }),
 });

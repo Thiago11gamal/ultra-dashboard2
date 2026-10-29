@@ -157,6 +157,7 @@ const getFullInitialState = () => ({
   contests: { 'default': safeClone(INITIAL_DATA) },
   activeId: 'default',
   trash: [],
+  deletedContestIds: [],
   version: 0,
   dashboardFilter: 'all',
   hasSeenTour: false,
