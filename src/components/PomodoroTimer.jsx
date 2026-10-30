@@ -405,16 +405,16 @@ function PomodoroTimer({
             }
 
             if (!Number.isFinite(endsAt) || endsAt <= 0) {
-                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
                 return;
             }
 
             if (endsAtTaskId && endsAtTaskId !== activeSubject.taskId) {
-                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
                 return;
             }
             if (endsAtSessionId && endsAtSessionId !== activeSubject.sessionInstanceId) {
-                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
                 return;
             }
 
@@ -433,7 +433,7 @@ function PomodoroTimer({
                 }
             } else {
                 endsAtRef.current = null;
-                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
                 commitTimeLeft(0);
                 handlePhaseEndRef.current?.();
             }
@@ -493,7 +493,7 @@ function PomodoroTimer({
                         taskId: activeSubjectRef.current?.taskId || null,
                         sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
                     }));
-                } catch {}
+                } catch { /* ignore */ }
             }
             postSync({
                 type: 'SPEED_CHANGE',
@@ -1594,17 +1594,20 @@ function PomodoroTimer({
     ]);
 
     const togglePlayRef = useRef(togglePlay);
-    togglePlayRef.current = togglePlay;
     const skipRef = useRef(skip);
-    skipRef.current = skip;
     const resetRef = useRef(reset);
-    resetRef.current = reset;
     const toggleMuteRef = useRef(toggleMute);
-    toggleMuteRef.current = toggleMute;
     const toggleFullscreenRef = useRef(toggleFullscreen);
-    toggleFullscreenRef.current = toggleFullscreen;
     const isProtocolInactiveRef = useRef(isProtocolInactive);
-    isProtocolInactiveRef.current = isProtocolInactive;
+
+    useEffect(() => {
+        togglePlayRef.current = togglePlay;
+        skipRef.current = skip;
+        resetRef.current = reset;
+        toggleMuteRef.current = toggleMute;
+        toggleFullscreenRef.current = toggleFullscreen;
+        isProtocolInactiveRef.current = isProtocolInactive;
+    });
 
     // ✅ ATALHOS DE TECLADO GLOBAIS (Espaço: Play/Pause, S: Skip, R: Reset, M: Mute, F: Fullscreen)
     useEffect(() => {
@@ -1695,9 +1698,16 @@ function PomodoroTimer({
                 </div>
             )}
 
-            {/* Container Principal do Relógio Dark Neo-Core */}
+            {/* Container Principal do Relógio de Madeira (Perfeitamente Enquadrado) */}
             <div
-                className="w-full border border-white/10 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-gradient-to-b from-slate-900/90 via-[#0a0d18]/95 to-slate-950/95 shadow-2xl backdrop-blur-xl"
+                style={{
+                    backgroundColor: '#b08e6b',
+                    backgroundImage: 'url(/wood-texture.png)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
+                }}
+                className="w-full border-[3px] sm:border-4 border-[#3f2e26] p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
             >
 
                 {/* Mostrador SVG, Toolbar e Indicadores */}
