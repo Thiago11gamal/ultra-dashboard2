@@ -1,6 +1,6 @@
 import React, { useId, useMemo } from 'react';
-import { formatTime, SPEED_OPTIONS } from '../../utils/pomodoroHelpers';
-import { Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react';
+import { formatTime, SPEED_OPTIONS, POMODORO_PRESETS } from '../../utils/pomodoroHelpers';
+import { Maximize2, Minimize2, Volume2, VolumeX, Bell, BellOff } from 'lucide-react';
 
 const CLOCK_THEMES = {
     work: {
@@ -46,12 +46,17 @@ export function PomodoroClock({
     isRunning,
     timeLeft,
     totalTime,
+    safeSettings,
     svgCircleRef,
     clockRef,
     isFullscreen,
     toggleFullscreen,
     isMuted,
-    toggleMute
+    toggleMute,
+    isNotifEnabled,
+    toggleNotifications,
+    onSelectPreset,
+    activePresetId
 }) {
     const rawId = useId();
     const gradientId = `timerGradient_${rawId.replace(/:/g, '')}`;
@@ -75,7 +80,32 @@ export function PomodoroClock({
                 </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-2">
-                    {/* Seletor de Velocidade */}
+                    {/* Seletor de Presets Rápidos (Apenas quando pausado para preservar integridade da sessão) */}
+                    {!isRunning && typeof onSelectPreset === 'function' && (
+                        <div className="hidden sm:flex items-center gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title="Cadência de Foco / Pausa">
+                            {POMODORO_PRESETS.map(preset => {
+                                const isCurrent = activePresetId === preset.id ||
+                                    (Number(safeSettings?.pomodoroWork) === preset.work && Number(safeSettings?.pomodoroBreak) === preset.break);
+                                return (
+                                    <button
+                                        key={preset.id}
+                                        type="button"
+                                        onClick={() => onSelectPreset(preset)}
+                                        aria-label={`Preset ${preset.name} ${preset.label}`}
+                                        className={`px-1.5 sm:px-2 h-6 sm:h-7 rounded-md text-[10px] font-black transition-all duration-200 active:scale-95 ${
+                                            isCurrent
+                                                ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black scale-[1.02]'
+                                                : 'text-white/50 hover:text-white hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Seletor de Velocidade (Com indicação de Turbo / Teste) */}
                     <div className="flex gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md">
                         {SPEED_OPTIONS.map(s => (
                             <button
@@ -83,6 +113,7 @@ export function PomodoroClock({
                                 type="button"
                                 onClick={() => setSpeed(s)}
                                 aria-label={`Velocidade ${s}x`}
+                                title={s > 1 ? `Modo Turbo ${s}x (Teste)` : "Velocidade Real (1x)"}
                                 className={`px-2 sm:px-2.5 h-6 sm:h-7 rounded-md text-[11px] font-black transition-all duration-200 active:scale-95 ${speed === s ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black scale-[1.02]' : 'text-white/50 hover:text-white hover:bg-white/10'}`}
                             >
                                 {s}X
@@ -90,13 +121,29 @@ export function PomodoroClock({
                         ))}
                     </div>
 
-                    {/* Botão Tela Cheia */}
+                    {/* Botão Notificações do Navegador */}
+                    {typeof toggleNotifications === 'function' && (
+                        <button
+                            type="button"
+                            onClick={toggleNotifications}
+                            className={`p-1 h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center border active:scale-90 rounded-lg transition-all shadow-sm backdrop-blur-md ${
+                                isNotifEnabled
+                                    ? 'bg-indigo-600/60 border-indigo-400 text-indigo-200 hover:bg-indigo-600'
+                                    : 'bg-black/40 border-white/10 text-slate-400 hover:text-white'
+                            }`}
+                            title={isNotifEnabled ? "Notificações do navegador ativas" : "Ativar notificações na área de trabalho"}
+                        >
+                            {isNotifEnabled ? <Bell size={13} className="text-amber-300" /> : <BellOff size={13} />}
+                        </button>
+                    )}
+
+                    {/* Botão Tela Cheia (Zen Mode) */}
                     {typeof toggleFullscreen === 'function' && (
                         <button
                             type="button"
                             onClick={toggleFullscreen}
                             className="p-1 h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center bg-black/40 border border-white/10 hover:border-white/20 active:scale-90 rounded-lg text-slate-300 hover:text-white transition-all shadow-sm backdrop-blur-md"
-                            title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                            title={isFullscreen ? "Sair da tela cheia (F)" : "Modo Zen / Tela cheia (F)"}
                         >
                             {isFullscreen ? <Minimize2 size={13} className="text-indigo-300" /> : <Maximize2 size={13} />}
                         </button>
@@ -108,7 +155,7 @@ export function PomodoroClock({
                             type="button"
                             onClick={toggleMute}
                             className="p-1 h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center bg-black/40 border border-white/10 hover:border-white/20 active:scale-90 rounded-lg text-slate-300 hover:text-white transition-all shadow-sm backdrop-blur-md"
-                            title={isMuted ? "Ativar som" : "Silenciar alarme"}
+                            title={isMuted ? "Ativar som (M)" : "Silenciar alarme (M)"}
                         >
                             {isMuted ? <VolumeX size={13} className="text-red-400" /> : <Volume2 size={13} className="text-emerald-400" />}
                         </button>

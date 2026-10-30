@@ -2,6 +2,12 @@ export const SPEED_OPTIONS = [1, 10, 100];
 export const MAX_TARGET_CYCLES = 20;
 export const MAX_TIME_LEFT_SECONDS = 24 * 3600;
 
+export const POMODORO_PRESETS = [
+  { id: 'classic', label: '25/5', work: 25, break: 5, longBreak: 15, name: 'Clássico' },
+  { id: 'concurso', label: '50/10', work: 50, break: 10, longBreak: 20, name: 'Concurso' },
+  { id: 'ultradian', label: '90/15', work: 90, break: 15, longBreak: 30, name: 'Ultradiano' }
+];
+
 export const asArray = (value) =>
   Array.isArray(value) ? value : Object.values(value || {});
 
@@ -33,4 +39,3 @@ export function formatTime(seconds) {
   const secs = secsInt % 60;
   return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
-

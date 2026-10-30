@@ -16,8 +16,8 @@ export function PomodoroControls({
                     type="button" 
                     onClick={onReset} 
                     disabled={isProtocolInactive} 
-                    aria-label="Reiniciar cronômetro"
-                    title="Reiniciar"
+                    aria-label="Reiniciar cronômetro (R)"
+                    title="Reiniciar etapa (Atalho: R)"
                     className="w-10 h-10 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800 active:scale-95 transition-all duration-200"
                 >
                     <RotateCcw size={15} />
@@ -30,9 +30,9 @@ export function PomodoroControls({
                 <button
                     type="button"
                     onClick={onTogglePlay}
-                    aria-label={isRunning ? 'Pausar' : 'Iniciar'}
+                    aria-label={isRunning ? 'Pausar (Espaço)' : 'Iniciar (Espaço)'}
                     aria-pressed={isRunning}
-                    title={isRunning ? 'Pausar' : (isProtocolInactive ? 'Iniciar Estudo Livre' : 'Iniciar')}
+                    title={isRunning ? 'Pausar (Atalho: Espaço)' : (isProtocolInactive ? 'Iniciar Estudo Livre (Atalho: Espaço)' : 'Iniciar (Atalho: Espaço)')}
                     className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center border-[3px] transition-all duration-300 active:scale-95 shadow-2xl relative ${
                         isRunning 
                             ? 'bg-stone-100 text-black border-white hover:bg-stone-200 shadow-[0_0_20px_rgba(255,255,255,0.35)]' 
@@ -52,8 +52,8 @@ export function PomodoroControls({
                     type="button" 
                     onClick={onSkip} 
                     disabled={isProtocolInactive} 
-                    aria-label="Pular fase"
-                    title="Pular"
+                    aria-label="Pular fase (S)"
+                    title="Pular para próxima fase (Atalho: S)"
                     className="w-10 h-10 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-b from-stone-800 to-stone-900 border border-white/10 text-white flex items-center justify-center shadow-lg transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:from-stone-700 hover:to-stone-800"
                 >
                     <SkipForward size={15} />

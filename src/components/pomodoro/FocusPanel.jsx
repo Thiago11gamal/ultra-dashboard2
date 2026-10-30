@@ -18,7 +18,8 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import {
     Target, Clock, Trophy, TrendingUp, TrendingDown,
     Minus, Zap, Brain, BookOpen, CheckCircle2,
-    Flame, Award, ChevronDown, ChevronUp, Activity, Coffee
+    Flame, Award, ChevronDown, ChevronUp, Activity, Coffee,
+    Plus, Trash2
 } from 'lucide-react';
 import { calculateStudyStreak } from '../../utils/analytics';
 import { getDateKey } from '../../utils/dateHelper';
@@ -470,6 +471,115 @@ function NextTaskPreview({ categories, currentTaskId }) {
 }
 
 // ============================================================================
+// SUBCOMPONENTE: Painel Anti-Distração (Brain Dump)
+// ============================================================================
+export function BrainDumpNotes() {
+    const [notes, setNotes] = useState(() => {
+        try {
+            const saved = localStorage.getItem('pomodoro_brain_dump');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    });
+    const [inputValue, setInputValue] = useState('');
+
+    const saveNotes = (updated) => {
+        setNotes(updated);
+        try {
+            localStorage.setItem('pomodoro_brain_dump', JSON.stringify(updated));
+        } catch {
+            /* ignore */
+        }
+    };
+
+    const handleAdd = (e) => {
+        if (e) e.preventDefault();
+        const trimmed = inputValue.trim();
+        if (!trimmed) return;
+        const newNotes = [{ id: Date.now(), text: trimmed, completed: false }, ...notes];
+        saveNotes(newNotes);
+        setInputValue('');
+    };
+
+    const toggleNote = (id) => {
+        const newNotes = notes.map(n => n.id === id ? { ...n, completed: !n.completed } : n);
+        saveNotes(newNotes);
+    };
+
+    const deleteNote = (id) => {
+        const newNotes = notes.filter(n => n.id !== id);
+        saveNotes(newNotes);
+    };
+
+    return (
+        <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center text-cyan-400 shrink-0">
+                        <Brain size={13} />
+                    </div>
+                    <div>
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
+                            Anti-Distração (Brain Dump)
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-medium">Capture pensamentos sem parar o foco</span>
+                    </div>
+                </div>
+                {notes.length > 0 && (
+                    <span className="text-[9px] font-bold text-slate-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                        {notes.filter(n => !n.completed).length} pendentes
+                    </span>
+                )}
+            </div>
+            <form onSubmit={handleAdd} className="flex items-center gap-1.5 mb-2">
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Pensamento ou pendência? Anote e aperte Enter..."
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-slate-900/60 border border-white/10 rounded-lg text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                />
+                <button
+                    type="submit"
+                    disabled={!inputValue.trim()}
+                    className="px-2.5 py-1.5 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/30 text-cyan-300 text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    title="Adicionar anotação"
+                >
+                    <Plus size={13} />
+                </button>
+            </form>
+            {notes.length > 0 && (
+                <div className="flex flex-col gap-1 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+                    {notes.slice(0, 8).map((note) => (
+                        <div
+                            key={note.id}
+                            className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-xs group"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => toggleNote(note.id)}
+                                className={`text-left flex-1 min-w-0 truncate text-[11px] ${note.completed ? 'line-through text-slate-500' : 'text-slate-300'}`}
+                            >
+                                {note.text}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => deleteNote(note.id)}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-500 hover:text-red-400 transition-opacity"
+                                title="Remover"
+                            >
+                                <Trash2 size={11} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ============================================================================
 // FOCUS PANEL PRINCIPAL (Visualização de Telemetria e Foco da Sessão)
 // ============================================================================
 export function SessionFocusPanel({
@@ -576,6 +686,9 @@ export function SessionFocusPanel({
                 categories={categories}
                 currentTaskId={activeSubject?.taskId}
             />
+
+            {/* Painel Anti-Distração (Brain Dump) */}
+            <BrainDumpNotes />
 
             {/* Botão para mais stats */}
             <button

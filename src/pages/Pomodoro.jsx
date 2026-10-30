@@ -905,27 +905,27 @@ function PomodoroTopBar({ activeSubject, isRunning }) {
     const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
 
     return (
-        <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/5 pointer-events-none" />
+        <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-slate-900/90 via-[#0d111e]/95 to-slate-900/90 px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group backdrop-blur-xl">
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-transparent to-cyan-500/10 pointer-events-none" />
             <div className="flex items-center justify-between gap-3 relative z-10">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#2d1a12]/10 border border-[#2d1a12]/20 flex items-center justify-center shrink-0 shadow-inner">
-                        {activeSubject ? <Target size={20} className="text-[#2d1a12]" /> : <Zap size={20} className="text-[#2d1a12]" />}
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 shadow-inner">
+                        {activeSubject ? <Target size={20} className="text-cyan-400" /> : <Zap size={20} className="text-indigo-400" />}
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#2d1a12]/85 truncate">
-                                {activeSubject?.category || 'SISTEMA'}
+                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-cyan-400 truncate">
+                                {activeSubject?.category || 'SISTEMA NEURAL'}
                             </span>
                             <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${activeSubject && isRunning
-                                    ? 'bg-emerald-700 animate-pulse'
+                                    ? 'bg-emerald-400 animate-pulse'
                                     : activeSubject
-                                        ? 'bg-amber-700/80'
-                                        : 'bg-[#2d1a12]/30'
+                                        ? 'bg-amber-400/80 shadow-[0_0_6px_rgba(251,191,36,0.6)]'
+                                        : 'bg-white/20'
                                 }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando início'} />
                         </div>
-                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}>
-                            {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}
+                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-white tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando seleção de missão...'}>
+                            {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando seleção de missão...'}
                         </h1>
                     </div>
                 </div>
@@ -971,6 +971,25 @@ export default function Pomodoro() {
     const [clockHeight, setClockHeight] = useState(null);
     const [isDesktop, setIsDesktop] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1280 : true));
     const [liveTimerState, setLiveTimerState] = useState(null);
+
+    const recommendedTask = React.useMemo(() => {
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        if (!safeCats || safeCats.length === 0) return null;
+        return getBestTask(safeCats);
+    }, [categories]);
+
+    const handleStartFreeFocus = useCallback(() => {
+        useAppStore.getState().setPomodoroActiveSubject({
+            categoryId: 'geral',
+            taskId: `estudo_livre_${Date.now()}`,
+            category: 'Geral',
+            task: 'Estudo Livre / Foco Aberto',
+            priority: 'medium',
+            source: 'pomodoro',
+            sessionInstanceId: Date.now().toString()
+        });
+        showToast('Sessão de Foco Livre iniciada! ⏱️', 'info');
+    }, [showToast]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -1182,7 +1201,16 @@ export default function Pomodoro() {
     useEffect(() => { activeSubjectRef.current = activeSubject; }, [activeSubject]);
 
     useEffect(() => {
-        return () => { if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current); };
+        return () => {
+            if (completionTimeoutRef.current) {
+                clearTimeout(completionTimeoutRef.current);
+                completionTimeoutRef.current = null;
+                const p = useAppStore.getState().appState?.pomodoro;
+                if (p?.activeSubject && !p?.isRunning) {
+                    useAppStore.getState().setPomodoroActiveSubject(null);
+                }
+            }
+        };
     }, []);
 
     const handleExit = useCallback((options = {}) => {
@@ -1221,6 +1249,11 @@ export default function Pomodoro() {
         const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
         const taskId = task?.id || task?.text || task?.title;
         if (!taskId) return;
+
+        if (activeSubject && activeSubject.taskId === taskId) {
+            showToast('Esta meta já está em foco! 🎯', 'info');
+            return;
+        }
 
         let catId = task.catId || task.categoryId;
         let catName = task.catName || task.category;
@@ -1364,6 +1397,20 @@ export default function Pomodoro() {
                     } catch {
                         // ignore storage errors
                     }
+                    if (currentSubject) {
+                        setData(prev => {
+                            if (!prev) return prev;
+                            const rawCats = prev.categories || [];
+                            const catsArray = Array.isArray(rawCats) ? rawCats : Object.values(rawCats || {});
+                            return {
+                                ...prev,
+                                categories: catsArray.map(c => c && c.id === currentSubject.categoryId ? {
+                                    ...c,
+                                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t && (t.id === currentSubject.taskId || t.text === currentSubject.taskId) ? { ...t, status: 'idle' } : t)
+                                } : c)
+                            };
+                        });
+                    }
                     setPomodoroActiveSubject(null);
                     return;
                 }
@@ -1375,7 +1422,7 @@ export default function Pomodoro() {
             store.setPomodoroAccumulatedMinutes(0);
             handleExit();
         }
-    }, [activeSubject, handleExit, showToast, setPomodoroActiveSubject]);
+    }, [activeSubject, handleExit, showToast, setPomodoroActiveSubject, setData]);
 
     const handleSessionComplete = useCallback(() => {
         setData(prev => ({
@@ -1423,6 +1470,9 @@ export default function Pomodoro() {
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
                             defaultTargetCycles={1}
+                            recommendedTask={recommendedTask}
+                            onStartRecommended={(task) => handleStartTask(task, null, 'neural_core')}
+                            onStartFreeFocus={handleStartFreeFocus}
                             key={activeSubject?.sessionInstanceId || 'idle'}
                         />
                     </div>

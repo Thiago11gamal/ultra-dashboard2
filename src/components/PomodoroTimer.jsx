@@ -34,7 +34,8 @@ import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { usePomodoroSync } from '../hooks/usePomodoroSync';
 import { playPomodoroAlarm, unlockAudio } from '../utils/audioAlert';
-import { formatTime, toPositiveMinutes, SPEED_OPTIONS } from '../utils/pomodoroHelpers';
+import { formatTime, toPositiveMinutes, SPEED_OPTIONS, POMODORO_PRESETS } from '../utils/pomodoroHelpers';
+import { sendPomodoroNotification, requestNotificationPermission } from '../utils/browserNotifications';
 import { PomodoroProgress } from './pomodoro/PomodoroProgress';
 import { PomodoroControls } from './pomodoro/PomodoroControls';
 import { PomodoroHeader } from './pomodoro/PomodoroHeader';
@@ -105,13 +106,18 @@ class PomodoroErrorBoundary extends React.Component {
 function PomodoroTimer({
     settings = {},
     activeSubject,
-    categories = [],
+    _categories = [],
     onFullCycleComplete,
     onUpdateStudyTime,
     onExit,
     onSessionComplete,
-    onTimerStateChange
+    onTimerStateChange,
+    recommendedTask,
+    onStartRecommended,
+    onStartFreeFocus
 }) {
+    const showToast = useToast();
+    const isProtocolInactive = !activeSubject?.taskId;
     const safeSettings = useMemo(() => Object.freeze({
         ...settings,
         pomodoroWork: toPositiveMinutes(settings?.pomodoroWork, 25),
@@ -136,6 +142,7 @@ function PomodoroTimer({
     const completePomodoroPhase = useAppStore(state => state.completePomodoroPhase);
     const rewindPomodoroPhase = useAppStore(state => state.rewindPomodoroPhase);
     const setPomodoroRunning = useAppStore(state => state.setPomodoroRunning);
+    const updatePomodoroSettings = useAppStore(state => state.updatePomodoroSettings);
 
     const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -240,6 +247,41 @@ function PomodoroTimer({
     const handoffRef = useRef(false);
     const timeRef = useRef(timeLeft);
     const handlePhaseEndRef = useRef(null);
+    const flushedSecondsInPhaseRef = useRef(Number(savedState?.flushedSeconds || 0));
+
+    const [isNotifEnabled, setIsNotifEnabled] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        try {
+            const saved = localStorage.getItem('pomodoro_notifications_enabled');
+            if (saved !== null) return saved === 'true';
+            return typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        } catch {
+            return false;
+        }
+    });
+
+    const toggleNotifications = async () => {
+        if (isNotifEnabled) {
+            setIsNotifEnabled(false);
+            try { localStorage.setItem('pomodoro_notifications_enabled', 'false'); } catch { /* ignore */ }
+            showToast('Notificações de mesa desativadas', 'info');
+        } else {
+            const perm = await requestNotificationPermission();
+            if (perm === 'granted') {
+                setIsNotifEnabled(true);
+                try { localStorage.setItem('pomodoro_notifications_enabled', 'true'); } catch { /* ignore */ }
+                showToast('Notificações do navegador ativadas! 🔔', 'success');
+                sendPomodoroNotification('Ultra Pomodoro Conectado! 🔔', {
+                    body: 'Você receberá avisos quando seus ciclos de foco e pausa terminarem.'
+                });
+            } else if (perm === 'denied') {
+                showToast('Permissão de notificações bloqueada no seu navegador.', 'warning');
+                setIsNotifEnabled(false);
+            } else {
+                showToast('Notificações não suportadas neste ambiente.', 'warning');
+            }
+        }
+    };
 
     // C-07 FIX: stateRefs deve ser definido ANTES de commitTimeLeft.
     const stateRefs = useRef({
@@ -261,6 +303,45 @@ function PomodoroTimer({
         }
         setTimeLeft(safe);
     }, []);
+
+    const [activePresetId, setActivePresetId] = useState(() => {
+        const w = safeSettings.pomodoroWork;
+        const b = safeSettings.pomodoroBreak;
+        const match = POMODORO_PRESETS.find(p => p.work === w && p.break === b);
+        return match ? match.id : 'custom';
+    });
+
+    const handleSelectPreset = useCallback((preset) => {
+        if (isRunning) {
+            showToast('Pause o cronômetro para alterar a cadência.', 'warning');
+            return;
+        }
+
+        setActivePresetId(preset.id);
+        if (typeof updatePomodoroSettings === 'function') {
+            updatePomodoroSettings({
+                pomodoroWork: preset.work,
+                pomodoroBreak: preset.break,
+                pomodoroLongBreak: preset.longBreak
+            });
+        }
+
+        const newSeconds = mode === 'work'
+            ? preset.work * 60
+            : mode === 'long_break'
+                ? preset.longBreak * 60
+                : preset.break * 60;
+
+        commitTimeLeft(newSeconds);
+        if (clockRef.current) {
+            clockRef.current.textContent = formatTime(newSeconds);
+        }
+        if (svgCircleRef.current?.style) {
+            svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE;
+        }
+
+        showToast(`Cadência alterada para ${preset.name} (${preset.label}) ⏱️`, 'info');
+    }, [isRunning, mode, updatePomodoroSettings, commitTimeLeft, showToast]);
 
     useEffect(() => {
         timeRef.current = timeLeft;
@@ -432,7 +513,6 @@ function PomodoroTimer({
     const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
 
-    const showToast = useToast();
     const isMountedRef = useRef(true);
 
     useEffect(() => {
@@ -538,13 +618,16 @@ function PomodoroTimer({
             const safePrevTime = Number.isFinite(rawPrev) && rawPrev >= 0
                 ? rawPrev
                 : totalWorkSeconds;
-            minutes = Math.max(0, totalWorkSeconds - safePrevTime) / 60;
+            const totalElapsedSec = Math.max(0, totalWorkSeconds - safePrevTime);
+            const unflushedSec = Math.max(0, totalElapsedSec - (flushedSecondsInPhaseRef.current || 0));
+            minutes = unflushedSec / 60;
         }
 
         minutes = Number.isFinite(minutes) ? Number(minutes.toFixed(2)) : 0;
 
         if (minutes >= 0.25 && Number.isFinite(minutes)) {
             hasFlushedRef.current = true;
+            flushedSecondsInPhaseRef.current = (flushedSecondsInPhaseRef.current || 0) + (minutes * 60);
             safeOnUpdateStudyTime(
                 subjectSnapshot.categoryId,
                 minutes,
@@ -840,6 +923,7 @@ function PomodoroTimer({
                 targetCycles: current.targetCycles,
                 completedCycles: current.completedCycles,
                 accumulatedMinutes: current.accumulatedMinutes,
+                flushedSeconds: flushedSecondsInPhaseRef.current || 0,
                 speed: speedRef.current,
                 savedAt: Date.now(),
                 ...overrides
@@ -864,10 +948,12 @@ function PomodoroTimer({
             if (currentSub && stateRefs.current.mode === 'work') {
                 const totalWorkSeconds = (safeSettings.pomodoroWork || 25) * 60;
                 const currentTime = Number(timeRef.current ?? stateRefs.current.timeLeft);
-                const elapsedSec = Math.max(0, totalWorkSeconds - currentTime);
-                const elapsedMins = Number((elapsedSec / 60).toFixed(2));
+                const totalElapsedSec = Math.max(0, totalWorkSeconds - currentTime);
+                const unflushedSec = Math.max(0, totalElapsedSec - (flushedSecondsInPhaseRef.current || 0));
+                const elapsedMins = Number((unflushedSec / 60).toFixed(2));
                 if (elapsedMins >= 0.25) {
                     hasFlushedRef.current = true;
+                    flushedSecondsInPhaseRef.current = (flushedSecondsInPhaseRef.current || 0) + (elapsedMins * 60);
                     safeOnUpdateStudyTime(
                         currentSub.categoryId,
                         elapsedMins,
@@ -879,7 +965,11 @@ function PomodoroTimer({
                     }
                 }
             }
-            savePomodoroState({ isRunning: false, timeLeft: stateRefs.current.timeLeft });
+            savePomodoroState({
+                isRunning: false,
+                timeLeft: stateRefs.current.timeLeft,
+                flushedSeconds: flushedSecondsInPhaseRef.current || 0
+            });
             setPomodoroRunning(false);
             endsAtRef.current = null;
             try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
@@ -949,19 +1039,19 @@ function PomodoroTimer({
 
         let sessionMinutes = 0;
         if (completedMode === 'work') {
+            const totalWorkSeconds = safeSettings.pomodoroWork * 60;
             if (!isManual) {
-                sessionMinutes = Number(safeSettings.pomodoroWork.toFixed(2));
+                const unflushedSec = Math.max(0, totalWorkSeconds - (flushedSecondsInPhaseRef.current || 0));
+                sessionMinutes = Number((unflushedSec / 60).toFixed(2));
             } else if (source === 'skip') {
-                const totalWorkSeconds = safeSettings.pomodoroWork * 60;
-                sessionMinutes = Number(
-                    (
-                        Math.max(
-                            0,
-                            totalWorkSeconds - stateRefs.current.timeLeft
-                        ) / 60
-                    ).toFixed(2)
-                );
+                const currentLeft = Number(stateRefs.current.timeLeft) || 0;
+                const totalElapsedSec = Math.max(0, totalWorkSeconds - currentLeft);
+                const unflushedSec = Math.max(0, totalElapsedSec - (flushedSecondsInPhaseRef.current || 0));
+                sessionMinutes = Number((unflushedSec / 60).toFixed(2));
             }
+            flushedSecondsInPhaseRef.current = 0;
+        } else {
+            flushedSecondsInPhaseRef.current = 0;
         }
 
         const targetSubject = activeSubjectRef.current;
@@ -1061,6 +1151,21 @@ function PomodoroTimer({
             setIsTransitioning(false);
             isTransitioningRef.current = false;
             transitionTimeoutRef.current = null;
+
+            // Disparar Notificação Nativa do Sistema / Navegador
+            if (isNotifEnabled) {
+                if (completedMode === 'work') {
+                    const nextBreakMin = (newState.mode === 'long_break' ? safeSettings.pomodoroLongBreak : safeSettings.pomodoroBreak) || 5;
+                    sendPomodoroNotification('Tempo de Foco Concluído! 🏆', {
+                        body: `Excelente trabalho! Descanse por ${nextBreakMin} minutos para recuperar a energia mental.`
+                    });
+                } else if (completedMode === 'break' || completedMode === 'long_break') {
+                    const nextWorkMin = safeSettings.pomodoroWork || 25;
+                    sendPomodoroNotification('Pausa Finalizada! ⚡', {
+                        body: `Sua recuperação foi concluída. Pronto para o próximo bloco de ${nextWorkMin} minutos?`
+                    });
+                }
+            }
 
             if (isEndingCycle) {
                 const liveSettings = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.settings || safeSettings;
@@ -1395,13 +1500,22 @@ function PomodoroTimer({
 
     const togglePlay = useCallback(() => {
         if (!activeSubject) {
-            const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-            const firstCat = safeCats[0];
+            if (recommendedTask && typeof onStartRecommended === 'function') {
+                onStartRecommended(recommendedTask);
+                showToast(`Iniciando alvo recomendado pela IA: "${recommendedTask.title || recommendedTask.text}" ⚡`, 'info');
+                return;
+            }
+
+            if (typeof onStartFreeFocus === 'function') {
+                onStartFreeFocus();
+                return;
+            }
+
             const defaultSubject = {
-                categoryId: firstCat?.id || 'geral',
-                category: firstCat?.name || 'Geral',
-                taskId: 'estudo_livre',
-                task: 'Estudo Livre',
+                categoryId: 'geral',
+                category: 'Geral',
+                taskId: `estudo_livre_${Date.now()}`,
+                task: 'Estudo Livre / Foco Aberto',
                 priority: 'medium',
                 source: 'pomodoro',
                 sessionInstanceId: Date.now().toString()
@@ -1467,19 +1581,64 @@ function PomodoroTimer({
         }
     }, [
         activeSubject,
-        categories,
         isRunning,
         pauseTimer,
         startTimer,
         showToast,
         safeSettings.pomodoroWork,
         targetCycles,
-        syncChannel
+        syncChannel,
+        recommendedTask,
+        onStartRecommended,
+        onStartFreeFocus
     ]);
+
+    const togglePlayRef = useRef(togglePlay);
+    togglePlayRef.current = togglePlay;
+    const skipRef = useRef(skip);
+    skipRef.current = skip;
+    const resetRef = useRef(reset);
+    resetRef.current = reset;
+    const toggleMuteRef = useRef(toggleMute);
+    toggleMuteRef.current = toggleMute;
+    const toggleFullscreenRef = useRef(toggleFullscreen);
+    toggleFullscreenRef.current = toggleFullscreen;
+    const isProtocolInactiveRef = useRef(isProtocolInactive);
+    isProtocolInactiveRef.current = isProtocolInactive;
+
+    // ✅ ATALHOS DE TECLADO GLOBAIS (Espaço: Play/Pause, S: Skip, R: Reset, M: Mute, F: Fullscreen)
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            const tag = e.target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) {
+                return;
+            }
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                togglePlayRef.current?.();
+            } else if (e.code === 'KeyS' && !isProtocolInactiveRef.current) {
+                e.preventDefault();
+                skipRef.current?.();
+            } else if (e.code === 'KeyR' && !isProtocolInactiveRef.current) {
+                e.preventDefault();
+                resetRef.current?.();
+            } else if (e.code === 'KeyM') {
+                e.preventDefault();
+                toggleMuteRef.current?.();
+            } else if (e.code === 'KeyF') {
+                e.preventDefault();
+                toggleFullscreenRef.current?.();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const handleManualExit = useCallback((options = {}) => {
         endsAtRef.current = null;
-        try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+        try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
         if (transitionTimeoutRef.current) {
             clearTimeout(transitionTimeoutRef.current);
             transitionTimeoutRef.current = null;
@@ -1500,8 +1659,6 @@ function PomodoroTimer({
             : mode === 'long_break'
                 ? safeSettings.pomodoroLongBreak * 60
                 : safeSettings.pomodoroBreak * 60;
-
-    const isProtocolInactive = !activeSubject?.taskId;
 
     useEffect(() => {
         if (!isRunning) {
@@ -1531,20 +1688,16 @@ function PomodoroTimer({
                         mode={mode}
                         activeSubject={activeSubject}
                         onManualExit={handleManualExit}
+                        onStartRecommended={onStartRecommended}
+                        recommendedTask={recommendedTask}
+                        onStartFreeFocus={onStartFreeFocus}
                     />
                 </div>
             )}
 
-            {/* Container Principal do Relógio de Madeira (Perfeitamente Enquadrado) */}
+            {/* Container Principal do Relógio Dark Neo-Core */}
             <div
-                style={{
-                    backgroundColor: '#b08e6b',
-                    backgroundImage: 'url(/wood-texture.png)',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)'
-                }}
-                className="w-full border-[3px] sm:border-4 border-[#3f2e26] p-3 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-[#2a1f1a] shadow-2xl"
+                className="w-full border border-white/10 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl relative overflow-hidden flex flex-col items-center bg-gradient-to-b from-slate-900/90 via-[#0a0d18]/95 to-slate-950/95 shadow-2xl backdrop-blur-xl"
             >
 
                 {/* Mostrador SVG, Toolbar e Indicadores */}
@@ -1563,6 +1716,10 @@ function PomodoroTimer({
                     toggleFullscreen={toggleFullscreen}
                     isMuted={isMuted}
                     toggleMute={toggleMute}
+                    isNotifEnabled={isNotifEnabled}
+                    toggleNotifications={toggleNotifications}
+                    onSelectPreset={handleSelectPreset}
+                    activePresetId={activePresetId}
                 />
 
                 {/* Controles Principais (Voltar / Play-Pause / Pular) */}
