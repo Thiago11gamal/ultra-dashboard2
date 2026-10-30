@@ -96,10 +96,8 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
     const alignedRows = Object.values(byDate);
     if (alignedRows.length < 4) return fallback;
 
-    const estimated = estimateInterSubjectCorrelation(alignedRows, categoryNames, fallback);
-    // Blend a little toward prior for stability (never go full data-driven with limited history)
-    const blend = Math.min(1, alignedRows.length / 12);
-    return estimated * blend + fallback * (1 - blend);
+    // estimateInterSubjectCorrelation já aplica shrinkage Empírico-Bayesiano em espaço Fisher-Z
+    return estimateInterSubjectCorrelation(alignedRows, categoryNames, fallback);
   } catch {
     /* ignore */
     return fallback;
@@ -269,16 +267,44 @@ export function estimateInterSubjectCorrelation(
             const n = xs.length;
             if (n < 4) continue;
 
-            const meanX = kahanSum(xs) / n;
-            const meanY = kahanSum(ys) / n;
+            // Para séries com n >= 6, remover tendência linear secular para isolar correlação de choques de prova
+            let seriesX = xs;
+            let seriesY = ys;
+            if (n >= 6) {
+                const tMean = (n - 1) / 2;
+                let sTT = 0, sTX = 0, sTY = 0;
+                const rawMeanX = kahanSum(xs) / n;
+                const rawMeanY = kahanSum(ys) / n;
+                for (let k = 0; k < n; k++) {
+                    const dt = k - tMean;
+                    sTT += dt * dt;
+                    sTX += dt * (xs[k] - rawMeanX);
+                    sTY += dt * (ys[k] - rawMeanY);
+                }
+                if (sTT > 1e-12) {
+                    const betaX = sTX / sTT;
+                    const betaY = sTY / sTT;
+                    const detX = xs.map((v, k) => v - (rawMeanX + betaX * (k - tMean)));
+                    const detY = ys.map((v, k) => v - (rawMeanY + betaY * (k - tMean)));
+                    const detVarX = kahanSum(detX.map(v => v * v));
+                    const detVarY = kahanSum(detY.map(v => v * v));
+                    if (detVarX > 1e-9 && detVarY > 1e-9) {
+                        seriesX = detX;
+                        seriesY = detY;
+                    }
+                }
+            }
+
+            const meanX = kahanSum(seriesX) / n;
+            const meanY = kahanSum(seriesY) / n;
 
             let cov = 0.0, c_cov = 0.0;
             let varX = 0.0, c_x = 0.0;
             let varY = 0.0, c_y = 0.0;
 
             for (let k = 0; k < n; k++) {
-                const dx = xs[k] - meanX;
-                const dy = ys[k] - meanY;
+                const dx = seriesX[k] - meanX;
+                const dy = seriesY[k] - meanY;
                 
                 const y_cov = (dx * dy) - c_cov;
                 const t_cov = cov + y_cov;
@@ -304,12 +330,8 @@ export function estimateInterSubjectCorrelation(
             const denom = Math.sqrt((safeVarX + epsilon) * (safeVarY + epsilon));
             const corr = cov / denom;
 
-            // Mecanismo de Controlo de Effective Sample Size (ESS) para regular o encolhimento de pares com sobreposição fraca (n < 8)
-            const essFloor = 8;
-            const pairShrink = n / (n + essFloor);
-            const robustCorr = (corr * pairShrink) + (fallback * (1 - pairShrink));
-
-            pairwise.push({ corr: robustCorr, n });
+            // Preservar r bruto para ponderação ótima (n - 3) em espaço Fisher-Z + shrinkage Empírico-Bayesiano único
+            pairwise.push({ corr, n });
         }
     }
 

@@ -114,7 +114,8 @@ export function estimateDynamicVolatility(history = [], options = {}) {
         return a.index - b.index;
       }
       if (hasTimeA !== hasTimeB) {
-        return hasTimeA ? -1 : 1;
+        // Entradas legadas sem data ficam no início (passado), nunca como choque mais recente
+        return hasTimeA ? 1 : -1;
       }
 
       return a.index - b.index;
@@ -138,8 +139,8 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     Math.sqrt(Math.max(0, sampleVariance)) * (n / (n + 4)) +
     domain * 0.08 * (4 / (n + 4));
 
-  // Retornos diários aproximados.
-  const returns = [];
+  // Diferenças brutas e intervalos dtDays para remoção consistente do drift diário mu * dt
+  const rawDiffs = [];
   const dts = [];
 
   for (let i = 1; i < observations.length; i++) {
@@ -156,17 +157,22 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     }
 
     const diff = curr.score - prev.score;
-    const dailyReturn = diff / Math.sqrt(dtDays);
-
-    if (Number.isFinite(dailyReturn)) {
-      returns.push(dailyReturn);
+    if (Number.isFinite(diff) && Number.isFinite(dtDays) && dtDays > 0) {
+      rawDiffs.push(diff);
       dts.push(dtDays);
     }
   }
 
-  if (returns.length < 2) {
+  if (rawDiffs.length < 2) {
     return null;
   }
+
+  const totalElapsedDays = Math.max(1e-6, kahanSum(dts));
+  const dailyDriftEstimate = kahanSum(rawDiffs) / totalElapsedDays;
+  const returns = rawDiffs.map((diff, idx) => {
+    const dt = dts[idx];
+    return (diff - dailyDriftEstimate * dt) / Math.sqrt(dt);
+  });
 
   const medianGapDays = clampFinite(median(dts), 0.5, 60, 7);
   const horizonDays = clampFinite(options.horizonDays, 1, 90, medianGapDays);
@@ -227,18 +233,24 @@ export function estimateDynamicVolatility(history = [], options = {}) {
 
     persistence = alpha + beta;
 
+    const sigma2Inf = omega / Math.max(1e-6, 1 - persistence);
+
     for (let i = 0; i < winsorizedReturns.length; i++) {
       const dt = clampFinite(dts[i], 0.25, 30, 1);
       const centered = winsorizedReturns[i] - returnMean;
       const shock = centered * centered;
-      // FIX (BUG-12): limitar dt efetivo para evitar underflow extremo
-      const dtEffective = Math.min(dt, 14);
-      const betaEffective = Math.pow(beta, dtEffective);
-      const stepScale = (1 - betaEffective) / Math.max(1e-6, 1 - beta);
+      const dtEffective = Math.min(dt, 30);
 
-      sigma2Daily =
-        omega * stepScale + alpha * shock +
-        betaEffective * sigma2Daily;
+      // Propagação estacionária exata de GARCH(1,1) em tempo irregular:
+      // E_t[sigma^2_{t+dt}] = sigma^2_inf * (1 - rho^dt) + rho^(dt - 1) * (alpha * shock + beta * sigma^2_t)
+      // Preserva E[sigma^2] === sigma^2_inf para qualquer dt > 0.
+      const oneDayNext = omega + alpha * shock + beta * sigma2Daily;
+      if (dtEffective >= 1) {
+        const rhoDecay = Math.pow(persistence, dtEffective - 1);
+        sigma2Daily = sigma2Inf + rhoDecay * (oneDayNext - sigma2Inf);
+      } else {
+        sigma2Daily = sigma2Daily + dtEffective * (oneDayNext - sigma2Daily);
+      }
 
       sigma2Daily = clampFinite(sigma2Daily, 1e-12, maxSigma2, sigma2Daily);
     }
@@ -269,16 +281,18 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     0
   );
 
-  // Converte volatilidade diária em volatilidade esperada para o intervalo típico.
+  // Converte volatilidade diária e fallback (por prova típica) para a mesma escala temporal horizonDays
   const modelVolatility =
     dailyVolatility * Math.sqrt(Math.max(1, horizonDays));
+  const scaledFallbackVolatility =
+    fallbackVolatility * Math.sqrt(Math.max(1, horizonDays) / Math.max(1, medianGapDays));
 
-  // Shrinkage bayesiano simples por tamanho amostral.
+  // Shrinkage bayesiano simples por tamanho amostral na mesma unidade de horizonte.
   const sampleTrust = Math.min(1, returns.length / (returns.length + 8));
 
   const blendedVolatility =
     sampleTrust * modelVolatility +
-    (1 - sampleTrust) * fallbackVolatility;
+    (1 - sampleTrust) * scaledFallbackVolatility;
 
   const rawVolatility = override ? modelVolatility : blendedVolatility;
 

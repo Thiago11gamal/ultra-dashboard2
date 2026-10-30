@@ -105,7 +105,7 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
   let safe = Math.max(75, Math.min(95, q(0.75) * 1.08));
 
   if (Number.isFinite(volatility)) {
-    const highVol = Number(cfg.MC_VOLATILITY_HIGH) || 8;
+    const highVol = (Number(cfg.MC_VOLATILITY_HIGH) || 8) * (safeRange / 100);
     if (volatility > highVol * 0.9) { danger = Math.min(50, danger + 4); safe = Math.min(97, safe + 2); }
     else if (volatility < highVol * 0.45) { danger = Math.max(12, danger - 3); safe = Math.max(72, safe - 2); }
   }
@@ -252,23 +252,27 @@ export function clearMcCache() {
   clearEngineMcCache();
 }
 
-export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}) {
-  const n = history.length;
+export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}, minScore = 0) {
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMax) : 0;
+  const safeRange = Math.max(1e-9, safeMax - safeMin);
+  const scores = safeArray(history).map(h => Number(h?.score)).filter(Number.isFinite);
+  const n = scores.length;
   if (n === 0) {
-    return { decayK: 0.07, minWeight: 0.03, scoreClampDelta: maxScore * 0.3, mcSimulations: cfg.MC_SIMULATIONS || 800 };
+    return { decayK: 0.07, minWeight: 0.03, scoreClampDelta: safeRange * 0.3, mcSimulations: cfg.MC_SIMULATIONS || 800 };
   }
 
-  const scores = history.map(h => Number(h.score) || 0);
   const mean = kahanSum(scores) / n;
   const devs = scores.map(s => (s - mean) ** 2);
   const variance = n > 1 ? kahanSum(devs) / (n - 1) : 0;
   const sd = Math.sqrt(Math.max(0, variance));
-  const cv = mean > 0 ? Math.min(2, sd / mean) : 1;
+  const denom = Math.max(10, safeRange * 0.35, Math.abs(mean));
+  const cv = Math.min(2, sd / denom);
 
   let medianGapDays = 7;
-  if (n >= 2) {
+  if (history.length >= 2) {
     const sortedDates = history
-      .map(h => h.date ? (safeDateParse(h.date)?.getTime() || 0) : 0)
+      .map(h => h?.date ? (safeDateParse(h.date)?.getTime() || 0) : 0)
       .filter(t => t > 0)
       .sort((a, b) => a - b);
 
@@ -288,7 +292,7 @@ export function deriveCoachAdaptiveParams(history = [], maxScore = 100, cfg = {}
   const gapFactor = Math.max(0.7, Math.min(1.4, 0.8 + 0.6 * (1 - Math.exp(-medianGapDays / 14))));
   const decayK = Math.max(0.03, Math.min(0.12, 0.07 * coverageFactor * gapFactor));
   const minWeight = Math.max(0.01, Math.min(0.08, 0.015 + (cv * 0.02)));
-  const scoreClampDelta = Math.max(maxScore * 0.12, Math.min(maxScore * 0.45, (0.2 + cv * 0.15) * maxScore));
+  const scoreClampDelta = Math.max(safeRange * 0.12, Math.min(safeRange * 0.45, (0.2 + cv * 0.15) * safeRange));
   const mcSimulations = Math.round(Math.max(400, Math.min(2500, (cfg.MC_SIMULATIONS || 800) * (0.8 + cv * 0.7) * coverageFactor)));
 
   return { decayK, minWeight, scoreClampDelta, mcSimulations, medianGapDays };
@@ -346,11 +350,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const dataIssues = anomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
   const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
   const lowSampleThreshold = Math.max(Number(safeCfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (safeCfg.MC_MIN_DATA_POINTS || 5) + 2);
-   const neutralPct = toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50);
-  // FIX: a âncora de shrinkage deve respeitar o midpoint da escala do concurso.
-  // Antes: hardcoded 50% enviesava provas com escala 0-1000 ou 200-1000.
-  const shrinkAnchorPct = safeMinScore + (safeMaxScore - safeMinScore) * 0.5;
-  const _shrinkAnchorNormalized = ((shrinkAnchorPct - safeMinScore) / Math.max(1e-9, safeMaxScore - safeMinScore)) * 100;
+  const neutralPct = Math.max(0, Math.min(100, toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50)));
+  // FIX CRÍTICO DE DOMÍNIO: shrinkProbabilityToNeutral opera em probabilidade [0, 100]%,
+  // jamais em pontos brutos de prova (ex: ENEM 600 pts ou Cebraspe 0 pts).
+  const shrinkAnchorPct = neutralPct;
   const maxAppliedPenalty = toFiniteNumber(safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
 
   const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore, safeMinScore);
@@ -441,8 +444,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       const horizon = isLowPerformance ? Math.min(3, defaultHorizon) : defaultHorizon;
       const brierScores = [];
 
-
-      for (let i = 1; i <= horizon; i += 1) {
+      // Walk-forward estritamente cronológico: do holdout mais antigo (horizon) ao mais recente (1)
+      for (let i = horizon; i >= 1; i -= 1) {
         const train = history.slice(0, history.length - i);
         const observedRecord = history[history.length - i];
         const observed = Number(observedRecord.score) >= safeTargetScore ? 1 : 0;
@@ -533,13 +536,39 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
     let isotonicModel = [];
     let stackingWeights = [0.34, 0.33, 0.33];
+    let conformalPairs = predObsPairs;
 
     if (predObsPairs.length >= 4) {
       isotonicModel = fitIsotonicCalibration(predObsPairs);
-      const isotonicSeries = rawPreds.map(p => predictIsotonicProbability(p, isotonicModel));
-      const bbqSeries = rawPreds.map(p => calibrateWithBBQ(p, predObsPairs));
-      stackingWeights = computeStackingWeights([rawPreds, isotonicSeries, bbqSeries], observedSeq,
-        [0, Math.max(1, isotonicModel.length), 6]);
+      // Avaliação Out-of-Fold (Leave-One-Out) para evitar sobreajuste in-sample no stacking e no intervalo conformal
+      const looIsotonicSeries = [];
+      const looBbqSeries = [];
+      for (let j = 0; j < predObsPairs.length; j += 1) {
+        const foldPairs = predObsPairs.filter((_, idx) => idx !== j);
+        const foldIso = fitIsotonicCalibration(foldPairs);
+        looIsotonicSeries.push(predictIsotonicProbability(rawPreds[j], foldIso));
+        if (foldPairs.length >= 4) {
+          looBbqSeries.push(calibrateWithBBQ(rawPreds[j], foldPairs));
+        } else {
+          const foldSucc = kahanSum(foldPairs.map(x => x.observed));
+          looBbqSeries.push((foldSucc + 0.5) / (foldPairs.length + 1));
+        }
+      }
+
+      stackingWeights = computeStackingWeights(
+        [rawPreds, looIsotonicSeries, looBbqSeries],
+        observedSeq,
+        [0, Math.max(1, Math.min(3, isotonicModel.length)), 2]
+      );
+
+      conformalPairs = predObsPairs.map((pair, j) => ({
+        probability: Math.max(0, Math.min(1,
+          (stackingWeights[0] || 0) * rawPreds[j] +
+          (stackingWeights[1] || 0) * looIsotonicSeries[j] +
+          (stackingWeights[2] || 0) * looBbqSeries[j]
+        )),
+        observed: pair.observed
+      }));
     }
 
     const rawProb = Math.max(0, Math.min(100, Number(result.probability) || 0));
@@ -572,7 +601,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     // FIX: usar safeMaxScore (validado) em vez de maxScore bruto
     const widenedCiHigh = Math.min(safeMaxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
 
-    const conformal = conformalizedCalibrationInterval(stackedProb01, predObsPairs, 0.1);
+    const conformal = conformalizedCalibrationInterval(stackedProb01, conformalPairs, 0.1);
     const rawVolatility = Number(result.volatility) || 0;
 
     const finalResult = {
@@ -632,4 +661,3 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     return null;
   }
 }
-

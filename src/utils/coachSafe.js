@@ -34,24 +34,59 @@ export function safeClone(value) {
   }
 }
 
-export function toFiniteNumber(value, fallback = 0) {
-  if (value === null || value === undefined || value === '') return fallback;
+function normalizeNumericString(raw) {
+  const cleaned = raw.trim();
+  if (!cleaned || cleaned === '-' || cleaned === '+') return null;
 
-  // BUG: formato BR com vírgula ("85,5") virava NaN.
-  if (typeof value === 'string') {
-    const cleaned = value.trim();
-    if (!cleaned) return fallback;
-    // FIX (BUG-06): múltiplas vírgulas = formato inválido
-    const commaCount = (cleaned.match(/,/g) || []).length;
-    if (commaCount > 1) return fallback;
-    const dotCount = (cleaned.match(/\./g) || []).length;
-    if (dotCount > 1 && commaCount === 0) return fallback;
-    // FIX (BUG-06): vírgula seguida de exatamente 3 dígitos no final = milhar (ex: "1,234")
-    if (/,\d{3}$/.test(cleaned) && !cleaned.includes('.')) {
-      value = cleaned.replace(/,/g, '');
-    } else {
-      value = cleaned.replace(/\./g, '').replace(',', '.');
+  const commaCount = (cleaned.match(/,/g) || []).length;
+  const dotCount = (cleaned.match(/\./g) || []).length;
+
+  if (commaCount > 0 && dotCount > 0) {
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      // Formato BR com milhar e decimal: "1.234,56"
+      return cleaned.replace(/\./g, '').replace(',', '.');
     }
+    // Formato US com milhar e decimal: "1,234.56"
+    return cleaned.replace(/,/g, '');
+  }
+
+  if (commaCount === 1) {
+    // FIX (BUG-06): vírgula seguida de exatamente 3 dígitos no final = milhar US (ex: "1,234")
+    if (/^-?\d{1,3},\d{3}$/.test(cleaned)) {
+      return cleaned.replace(/,/g, '');
+    }
+    return cleaned.replace(',', '.');
+  }
+
+  if (commaCount > 1) {
+    if (/^-?\d{1,3}(,\d{3})+$/.test(cleaned)) {
+      return cleaned.replace(/,/g, '');
+    }
+    return null;
+  }
+
+  // commaCount === 0: preservar decimais padrão com ponto ("85.5", "0.25", "-12.5")
+  if (dotCount <= 1) {
+    return cleaned;
+  }
+
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    return cleaned.replace(/\./g, '');
+  }
+
+  return null;
+}
+
+export function toFiniteNumber(value, fallback = 0) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
+
+  // BUG: formato BR com vírgula ("85,5") virava NaN e decimais padrão ("85.5") perdiam o ponto.
+  if (typeof value === 'string') {
+    const normalized = normalizeNumericString(value);
+    if (normalized === null) return fallback;
+    value = normalized;
   }
 
   const n = Number(value);
@@ -69,7 +104,7 @@ export function clampFinite(value, min, max, fallback = min) {
     safeMin = safeMax;
     safeMax = tmp;
   }
-  const n = Number(value);
+  const n = toFiniteNumber(value, NaN);
   if (!Number.isFinite(n)) {
     const fb = Number(fallback);
     return Number.isFinite(fb)
@@ -83,14 +118,22 @@ export function getCalibrationKey(id) {
   return String(id ?? '').trim().toLowerCase();
 }
 
+function safeStringifyForHash(str) {
+  if (str === null || str === undefined) return '';
+  if (typeof str === 'object') {
+    try {
+      return JSON.stringify(str);
+    } catch {
+      return '[UnserializableObject]';
+    }
+  }
+  return String(str);
+}
+
 // PATCH: normalização NFC para caracteres acentuados
 export function hashString(str) {
   let h = 0x811c9dc5;
-  const s = str === null || str === undefined
-    ? ''
-    : typeof str === 'object'
-      ? JSON.stringify(str)
-      : String(str);
+  const s = safeStringifyForHash(str);
   const normalized = s.normalize('NFC');
   for (let i = 0; i < normalized.length; i++) {
     h ^= normalized.charCodeAt(i);
@@ -103,11 +146,7 @@ export function hashString(str) {
 export function hashString64(str) {
   let h1 = 0x811c9dc5;
   let h2 = 0x01000193;
-  const s = str === null || str === undefined
-    ? ''
-    : typeof str === 'object'
-      ? JSON.stringify(str)
-      : String(str);
+  const s = safeStringifyForHash(str);
   const normalized = s.normalize('NFC');
   for (let i = 0; i < normalized.length; i++) {
     const c = normalized.charCodeAt(i);
@@ -124,18 +163,26 @@ export function hashString64(str) {
 // (semântica exigida pelo coachEvaluator — antes duplicada localmente).
 export function toFiniteStrict(value, fallback = null) {
   if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
-  // FIX: tratar string com vírgula decimal
   if (typeof value === 'string') {
-    const cleaned = (value.includes(',') ? value.trim().replace(/\./g, '').replace(',', '.') : value.trim());
-    if (cleaned === '' || cleaned === '-') return fallback;
-    value = cleaned;
+    const normalized = normalizeNumericString(value);
+    if (normalized === null) return fallback;
+    value = normalized;
   }
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 
 export function clampFiniteStrict(value, min, max, fallback = min) {
+  let safeMin = Number(min);
+  let safeMax = Number(max);
+  if (!Number.isFinite(safeMin)) safeMin = 0;
+  if (!Number.isFinite(safeMax)) safeMax = safeMin;
+  if (safeMin > safeMax) {
+    const tmp = safeMin;
+    safeMin = safeMax;
+    safeMax = tmp;
+  }
   const n = toFiniteStrict(value, null);
   if (n === null) return fallback;
-  return Math.min(max, Math.max(min, n));
+  return Math.min(safeMax, Math.max(safeMin, n));
 }

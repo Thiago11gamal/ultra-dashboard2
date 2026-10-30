@@ -5,16 +5,38 @@
  */
 import { safeArray } from './coachSafe.js';
 
+function toStrictNumber(value) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return NaN;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 function clampRelevance(value) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return 0;
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return 0;
   return Math.min(10, n);
 }
 
+function extractTopicKey(item, fallbackPrefix, idx) {
+  if (typeof item === 'string' || typeof item === 'number') {
+    const trimmed = String(item).trim();
+    if (trimmed) return trimmed;
+  }
+  const raw = item?.id ?? item?.topic ?? item?.name;
+  if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+    return String(raw).trim();
+  }
+  return `${fallbackPrefix}_${idx}`;
+}
+
 /**
  * Calcula NDCG@K.
  * FIX (BUG-40 & BUG-08): proteção contra divisão por zero (idcg <= 0),
- * overflow exponencial (2 ** rel) e validação via safeArray.
+ * overflow exponencial (2 ** rel), suporte a item.name, deduplicação de predições
+ * e IDCG calculado exatamente sobre os ganhos deduplicados do relevanceMap.
  */
 export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
   const safePredicted = safeArray(predicted);
@@ -29,17 +51,22 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
   const relevanceMap = new Map();
 
   safeActual.forEach((item, idx) => {
-    const id = String(item?.id || item?.topic || idx);
+    const id = extractTopicKey(item, '__actual', idx);
     // FIX (BUG-28): manter a MAIOR relevância em caso de duplicata
+    const rawRel = typeof item === 'string' ? 1 : (item?.relevance ?? item?.score ?? 1);
     const existing = relevanceMap.get(id) || 0;
-    relevanceMap.set(id, Math.max(existing, clampRelevance(item?.relevance ?? item?.score ?? 1)));
+    relevanceMap.set(id, Math.max(existing, clampRelevance(rawRel)));
   });
 
   let dcg = 0;
+  const seenPredicted = new Set();
 
   safePredicted.slice(0, topK).forEach((item, idx) => {
-    const id = String(item?.id || item?.topic || idx);
-    const rel = clampRelevance(relevanceMap.get(id) || 0);
+    const id = extractTopicKey(item, '__pred', idx);
+    // Predições duplicadas não acumulam ganho extra em ranks subsequentes
+    const isDuplicate = seenPredicted.has(id);
+    seenPredicted.add(id);
+    const rel = isDuplicate ? 0 : clampRelevance(relevanceMap.get(id) || 0);
 
     // BUG: relevância alta demais podia estourar Math.pow(2, rel).
     const safeRel = Math.min(10, Math.max(0, rel));
@@ -51,17 +78,11 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
       : 0;
   });
 
-  const ideal = [...safeActual].sort((a, b) => {
-    const diff = (Number(b?.relevance) || 0) - (Number(a?.relevance) || 0);
-    if (diff !== 0) return diff;
+  const idealGains = Array.from(relevanceMap.values())
+    .filter((rel) => rel > 0)
+    .sort((a, b) => b - a);
 
-    const idA = String(a?.id || '');
-    const idB = String(b?.id || '');
-    return idA.localeCompare(idB);
-  });
-
-  const idcg = ideal.slice(0, topK).reduce((acc, item, idx) => {
-    const rel = clampRelevance(item?.relevance);
+  const idcg = idealGains.slice(0, topK).reduce((acc, rel, idx) => {
     const safeRel = Math.min(10, Math.max(0, rel));
     const gain = Math.pow(2, safeRel) - 1;
     const discount = Math.log2(idx + 2);
@@ -83,8 +104,8 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
  * Calcula uplift: média(treatment) − média(control).
  */
 export function computeUplift(control = [], treatment = []) {
-  const safeControl = safeArray(control).map(Number).filter(Number.isFinite);
-  const safeTreatment = safeArray(treatment).map(Number).filter(Number.isFinite);
+  const safeControl = safeArray(control).map(toStrictNumber).filter(Number.isFinite);
+  const safeTreatment = safeArray(treatment).map(toStrictNumber).filter(Number.isFinite);
 
   if (safeControl.length === 0 || safeTreatment.length === 0) return null;
 
@@ -97,16 +118,23 @@ export function computeUplift(control = [], treatment = []) {
  * Calcula erro calibrado entre probabilidade prevista e resultado binário.
  */
 export function computeCalibratedError(probability, actual, scale = 'auto') {
-  const rawP = Number(probability);
+  const rawP = toStrictNumber(probability);
   if (!Number.isFinite(rawP)) return null;
+  if (actual === null || actual === undefined || actual === '') return null;
 
   const normalizedP =
     scale === 'pct' || (scale === 'auto' && rawP > 1)
       ? rawP / 100
       : rawP;
   const p = Math.max(0, Math.min(1, normalizedP));
-  const yRaw = Number(actual);
-  const y = Number.isFinite(yRaw) ? (yRaw >= 0.5 ? 1 : 0) : (actual === true ? 1 : 0);
+  let y;
+  if (typeof actual === 'boolean') {
+    y = actual ? 1 : 0;
+  } else {
+    const yRaw = toStrictNumber(actual);
+    if (!Number.isFinite(yRaw)) return null;
+    y = yRaw >= 0.5 ? 1 : 0;
+  }
   return Math.abs(p - y);
 }
 

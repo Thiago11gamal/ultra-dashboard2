@@ -10,9 +10,12 @@ function getStorage() {
 const EVICTABLE_PREFIXES = [
   'coach_calibration_events',
   'coach_health_snapshots',
+  'coach_model_health',
   'coach_evaluation_results',
   'coach_tuner_history',
-  'coach_backtest_report'
+  'coach_auto_tuner_history',
+  'coach_backtest_report',
+  'coach_strategy_backtest'
 ];
 
 export function safeSetItem(key, value) {
@@ -42,7 +45,7 @@ export function safeSetItem(key, value) {
             if (k && k.startsWith('coach_')) coachKeys.push(k);
           }
           const evictable = coachKeys.filter(k =>
-            EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
+            k !== key && EVICTABLE_PREFIXES.some(prefix => k.startsWith(prefix))
           );
 
           // BUG: se evictable vazio, nada era removido e o loop repetia até falhar.
@@ -101,4 +104,3 @@ export function safeRemoveItem(key) {
   if (!storage) return;
   try { storage.removeItem(key); } catch { /* ignore */ }
 }
-

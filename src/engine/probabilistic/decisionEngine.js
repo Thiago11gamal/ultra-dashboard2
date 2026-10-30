@@ -10,7 +10,12 @@
  * - criar base para aprendizado futuro com recompensas.
  */
 
+import { safeGetItem, safeSetItem, safeRemoveItem } from '../../utils/coachStorage.js';
+
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return fallback;
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
@@ -73,42 +78,56 @@ function createGaussianSampler(rng) {
 }
 
 /**
- * Amostra aproximada de uma distribuição Beta.
- * Usa aproximação normal, suficiente para exploração leve.
+ * Amostragem Gamma exata via Marsaglia & Tsang (2000) com boost para shape < 1.
+ */
+function sampleGamma(shape, rng, gaussian) {
+  const k = Math.max(1e-4, Number(shape) || 1);
+  if (k < 1) {
+    const u = Math.max(1e-15, rng());
+    return sampleGamma(k + 1, rng, gaussian) * Math.pow(u, 1 / k);
+  }
+  const d = k - 1 / 3;
+  const c = 1 / Math.sqrt(9 * d);
+  for (let iter = 0; iter < 64; iter++) {
+    const x = gaussian();
+    const vBase = 1 + c * x;
+    if (vBase <= 0) continue;
+    const v = vBase * vBase * vBase;
+    const u = Math.max(1e-15, rng());
+    if (u < 1 - 0.0331 * (x * x) * (x * x)) {
+      return d * v;
+    }
+    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) {
+      return d * v;
+    }
+  }
+  return k;
+}
+
+/**
+ * Amostra exata de uma distribuição Beta(alpha, beta) via razão de Gammas independentes.
  */
 function sampleBeta(alpha, beta, rng, gaussianSampler) {
-  const a = Math.max(1e-6, Number(alpha) || 1);
-  const b = Math.max(1e-6, Number(beta) || 1);
-
+  const a = Math.max(1e-4, Number(alpha) || 1);
+  const b = Math.max(1e-4, Number(beta) || 1);
   const mean = a / (a + b);
-  const variance = (a * b) / ((a + b) ** 2 * (a + b + 1));
-  const sd = Math.sqrt(Math.max(0, variance));
-  if (!Number.isFinite(sd) || sd <= 0) return mean;
 
   const gaussian = typeof gaussianSampler === 'function'
     ? gaussianSampler
     : createGaussianSampler(rng);
 
-  const sampled = mean + gaussian() * sd;
-  return clampFinite(sampled, 0, 1, mean);
-}
-
-function getStorage() {
-  try {
-    return globalThis?.localStorage || null;
-  } catch {
-    return null;
-  }
+  const ga = sampleGamma(a, rng, gaussian);
+  const gb = sampleGamma(b, rng, gaussian);
+  const denom = ga + gb;
+  if (!Number.isFinite(denom) || denom <= 0) return mean;
+  return clampFinite(ga / denom, 0, 1, mean);
 }
 
 const BANDIT_STORAGE_KEY = 'coach_decision_bandit_v1';
 
 function loadBanditState() {
-  const storage = getStorage();
-  if (!storage) return {};
-
   try {
-    const raw = storage.getItem(BANDIT_STORAGE_KEY);
+    const raw = safeGetItem(BANDIT_STORAGE_KEY);
     const parsed = JSON.parse(raw || '{}');
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
@@ -117,14 +136,7 @@ function loadBanditState() {
 }
 
 function saveBanditState(state) {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.setItem(BANDIT_STORAGE_KEY, JSON.stringify(state || {}));
-  } catch {
-    // ignore storage errors
-  }
+  safeSetItem(BANDIT_STORAGE_KEY, JSON.stringify(state || {}));
 }
 
 /**
@@ -272,8 +284,17 @@ export function recordDecisionOutcome(actionId, reward, options = {}) {
 
   const maxCount = clampFinite(options.maxCount, 10, 1000, 300);
 
-  entry.alpha = Math.min(maxCount, (entry.alpha || 0) + normalizedReward);
-  entry.beta = Math.min(maxCount, (entry.beta || 0) + (1 - normalizedReward));
+  let nextAlpha = Math.max(0, (Number(entry.alpha) || 0) + normalizedReward);
+  let nextBeta = Math.max(0, (Number(entry.beta) || 0) + (1 - normalizedReward));
+  const totalPseudoCounts = nextAlpha + nextBeta;
+  if (totalPseudoCounts > maxCount && totalPseudoCounts > 0) {
+    const discount = maxCount / totalPseudoCounts;
+    nextAlpha *= discount;
+    nextBeta *= discount;
+  }
+
+  entry.alpha = Number(nextAlpha.toFixed(6));
+  entry.beta = Number(nextBeta.toFixed(6));
   entry.trials = (entry.trials || 0) + 1;
   entry.updatedAt = Date.now();
 
@@ -287,14 +308,7 @@ export function recordDecisionOutcome(actionId, reward, options = {}) {
  * Limpa memória do bandit.
  */
 export function clearDecisionBandit() {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.removeItem(BANDIT_STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  safeRemoveItem(BANDIT_STORAGE_KEY);
 }
 
 /**

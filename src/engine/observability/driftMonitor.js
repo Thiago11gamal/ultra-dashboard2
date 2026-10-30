@@ -28,9 +28,17 @@ function clampFinite(value, min, max, fallback = min) {
   return Math.min(max, Math.max(min, n));
 }
 
+function toStrictMetric(value) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return NaN;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : NaN;
+}
+
 function finiteSeries(values) {
   return (Array.isArray(values) ? values : [])
-    .map((value) => Number(value))
+    .map(toStrictMetric)
     .filter((value) => Number.isFinite(value));
 }
 
@@ -150,20 +158,22 @@ export function cusumDrift(values, options = {}) {
 
   let sPos = 0;
   let sNeg = 0;
-  let alarm = null;
 
   const series = [];
+  const activeTailStart = Math.max(0, safe.length - Math.max(3, Math.ceil(safe.length * 0.25)));
+  let recentTailAlarm = null;
 
-  for (const value of safe) {
+  for (let idx = 0; idx < safe.length; idx++) {
+    const value = safe[idx];
     const deviation = value - target;
 
     sPos = Math.max(0, sPos + deviation - k);
     sNeg = Math.max(0, sNeg - deviation - k);
 
-    if (!alarm && (sPos > h || sNeg > h)) {
-      const candidate = sPos > h ? 'up' : 'down';
+    if (idx >= activeTailStart && (sPos > h || sNeg > h)) {
+      const candidate = sPos >= sNeg ? 'up' : 'down';
       if (!(candidate === 'down' && isImproving)) {
-        alarm = candidate;
+        recentTailAlarm = candidate;
       }
     }
 
@@ -172,6 +182,19 @@ export function cusumDrift(values, options = {}) {
       sPos: Number(sPos.toFixed(6)),
       sNeg: Number(sNeg.toFixed(6)),
     });
+  }
+
+  // O alarme só permanece ativo se a excursão ainda não retornou à linha de base no estado atual
+  let alarm = null;
+  if (sPos > h || sNeg > h) {
+    const candidate = sPos >= sNeg ? 'up' : 'down';
+    if (!(candidate === 'down' && isImproving)) {
+      alarm = candidate;
+    }
+  } else if (recentTailAlarm === 'up' && sPos > k) {
+    alarm = 'up';
+  } else if (recentTailAlarm === 'down' && sNeg > k) {
+    alarm = 'down';
   }
 
   return {
@@ -205,12 +228,18 @@ export function detectDriftInSeries(values, options = {}) {
     return null;
   }
 
-  const recent = safe.slice(-recentWindow);
-
-  const baseline = safe.slice(
-    0,
-    Math.max(3, safe.length - recent.length)
+  const effectiveRecentSize = Math.min(
+    recentWindow,
+    Math.max(2, safe.length - 3)
   );
+  const recentStart = safe.length - effectiveRecentSize;
+  const maxBaselineSize = Math.round(
+    clampFinite(options.baselineWindow, 3, 1000, recentStart)
+  );
+  const baselineStart = Math.max(0, recentStart - maxBaselineSize);
+
+  const recent = safe.slice(recentStart);
+  const baseline = safe.slice(baselineStart, recentStart);
 
   if (baseline.length < 3 || recent.length < 2) {
     return null;
@@ -332,15 +361,22 @@ export function detectCalibrationDrift(events = [], options = {}) {
     .filter(Boolean)
     .filter(
       (event) =>
-        Number.isFinite(Number(event?.avgBrier)) ||
-        Number.isFinite(Number(event?.ece)) ||
-        Number.isFinite(Number(event?.calibrationPenalty))
+        Number.isFinite(toStrictMetric(event?.avgBrier)) ||
+        Number.isFinite(toStrictMetric(event?.ece)) ||
+        Number.isFinite(toStrictMetric(event?.calibrationPenalty))
     )
+    .map((event, _idx) => ({ event, _idx }))
     .sort((a, b) => {
-      const timeA = Number(a?.timestamp) || 0;
-      const timeB = Number(b?.timestamp) || 0;
-      return timeA - timeB;
-    });
+      const timeA = toStrictMetric(a.event?.timestamp);
+      const timeB = toStrictMetric(b.event?.timestamp);
+      const aValid = Number.isFinite(timeA) && timeA > 0;
+      const bValid = Number.isFinite(timeB) && timeB > 0;
+      if (aValid && bValid && timeA !== timeB) return timeA - timeB;
+      if (!aValid && bValid) return -1;
+      if (aValid && !bValid) return 1;
+      return a._idx - b._idx;
+    })
+    .map((item) => item.event);
 
   if (safeEvents.length < 6) {
     return null;
@@ -348,7 +384,7 @@ export function detectCalibrationDrift(events = [], options = {}) {
 
   const extract = (key) =>
     safeEvents
-      .map((event) => Number(event?.[key]))
+      .map((event) => toStrictMetric(event?.[key]))
       .filter((value) => Number.isFinite(value));
 
   const brierSeries = extract('avgBrier');
@@ -421,21 +457,32 @@ export function detectCalibrationDrift(events = [], options = {}) {
  */
 export function detectProbabilityCalibrationDrift(pairs = [], options = {}) {
   const safePairs = (Array.isArray(pairs) ? pairs : [])
-    .map((pair) => ({
-      probability: clampFinite(pair?.probability, 0, 1, NaN),
-      observed: clampFinite(pair?.observed, 0, 1, NaN),
-      timestamp: Number(pair?.timestamp) || 0,
-    }))
+    .map((pair, _idx) => {
+      const rawP = toStrictMetric(pair?.probability);
+      const normP = Number.isFinite(rawP) && rawP > 1 && rawP <= 100 ? rawP / 100 : rawP;
+      const rawObs = typeof pair?.observed === 'boolean' ? (pair.observed ? 1 : 0) : toStrictMetric(pair?.observed);
+      const ts = toStrictMetric(pair?.timestamp);
+      return {
+        probability: clampFinite(normP, 0, 1, NaN),
+        observed: clampFinite(rawObs, 0, 1, NaN),
+        timestamp: Number.isFinite(ts) && ts > 0 ? ts : 0,
+        _idx,
+      };
+    })
     .filter(
       (pair) =>
         Number.isFinite(pair.probability) &&
         Number.isFinite(pair.observed)
     )
     .sort((a, b) => {
-      if (a.timestamp !== b.timestamp && a.timestamp > 0 && b.timestamp > 0) {
+      const aDated = a.timestamp > 0;
+      const bDated = b.timestamp > 0;
+      if (aDated && bDated && a.timestamp !== b.timestamp) {
         return a.timestamp - b.timestamp;
       }
-      return 0;
+      if (!aDated && bDated) return -1;
+      if (aDated && !bDated) return 1;
+      return a._idx - b._idx;
     });
 
   if (safePairs.length < 8) {

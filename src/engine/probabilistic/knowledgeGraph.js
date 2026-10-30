@@ -40,8 +40,20 @@ export function normalizeGraphName(name) {
 /**
  * Retorna o grafo configurado para uma categoria.
  */
-export function getKnowledgeGraphForCategory(categoryName) {
+export function getKnowledgeGraphForCategory(categoryName, category = null) {
   try {
+    if (category && typeof category === 'object') {
+      if (category.knowledgeGraph && typeof category.knowledgeGraph === 'object') {
+        return category.knowledgeGraph;
+      }
+      if (category.prerequisites && typeof category.prerequisites === 'object') {
+        return { prerequisites: category.prerequisites };
+      }
+      if (Array.isArray(category.graphEdges) && category.graphEdges.length > 0) {
+        return { edges: category.graphEdges };
+      }
+    }
+
     const root = globalThis.__COACH_KNOWLEDGE_GRAPH__;
     if (!root || typeof root !== 'object') return null;
 
@@ -199,8 +211,16 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
   let pageRank = new Map(nodes.map((node) => [node, 1 / nodes.length]));
 
   for (let i = 0; i < iterations; i++) {
+    // Redistribuição estocástica uniforme da massa dos nós-raiz (sem pré-requisitos: inWeight === 0)
+    let sinkMass = 0;
+    nodes.forEach((u) => {
+      if ((inWeight.get(u) || 0) <= 0) {
+        sinkMass += pageRank.get(u) || 0;
+      }
+    });
+    const baseMass = ((1 - damping) + damping * sinkMass) / nodes.length;
     const next = new Map(
-      nodes.map((node) => [node, (1 - damping) / nodes.length])
+      nodes.map((node) => [node, baseMass])
     );
 
     nodes.forEach((node) => {

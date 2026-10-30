@@ -13,6 +13,8 @@
  * - bootstrap opcional para intervalo de confiança.
  */
 
+import { safeSetItem, safeGetJSON, safeRemoveItem } from '../../utils/coachStorage.js';
+
 const CAUSAL_MODEL_KEY = 'coach_causal_model_v1';
 
 export const DEFAULT_CAUSAL_COVARIATES = [
@@ -44,7 +46,7 @@ function safeArray(value) {
 
 function meanValues(values) {
   const finite = safeArray(values)
-    .map((v) => Number(v))
+    .map((v) => toFinite(v, NaN))
     .filter((v) => Number.isFinite(v));
 
   if (finite.length === 0) return 0;
@@ -54,7 +56,7 @@ function meanValues(values) {
 
 function sdValues(values) {
   const finite = safeArray(values)
-    .map((v) => Number(v))
+    .map((v) => toFinite(v, NaN))
     .filter((v) => Number.isFinite(v));
 
   if (finite.length < 2) return 0;
@@ -242,6 +244,8 @@ export function prepareCausalEvents(events = [], options = {}) {
     : DEFAULT_CAUSAL_COVARIATES;
 
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
+  const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
+  const maxDeltaSpan = Math.max(maxScore, maxScore - minScore);
 
   const rawEvents = safeArray(events)
     .map((event, index) => {
@@ -268,7 +272,7 @@ export function prepareCausalEvents(events = [], options = {}) {
         id: event?.id || `causal-event-${index}`,
         timestamp: toFinite(event?.timestamp, Date.now()),
         treated,
-        outcomeDelta: clampFinite(outcomeDelta, -maxScore, maxScore, 0),
+        outcomeDelta: clampFinite(outcomeDelta, -maxDeltaSpan, maxDeltaSpan, 0),
         actionType: String(event?.actionType || event?.type || 'global'),
       };
 
@@ -439,6 +443,8 @@ function fitPropensityScores(events, standardizers, options = {}) {
 
   const p = standardizers.length;
   const weights = new Array(p + 1).fill(0);
+  const pClipped = clampFinite(pTreat, 0.05, 0.95, 0.5);
+  weights[0] = Math.log(pClipped / (1 - pClipped));
 
   const iterations = Math.round(clampFinite(options.iterations, 20, 1000, 220));
   const learningRate = clampFinite(options.learningRate, 1e-4, 1, 0.05);
@@ -601,11 +607,14 @@ export function estimateDoublyRobustUplift(events = [], options = {}) {
     ? options.covariates
     : DEFAULT_CAUSAL_COVARIATES;
 
+  const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
+  const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
+  const domainSpan = Math.max(maxScore, maxScore - minScore);
   const maxOutcome = clampFinite(
-    options.maxOutcome ?? options.maxScore,
+    options.maxOutcome ?? domainSpan,
     1,
-    1_000_000,
-    100
+    2_000_000,
+    domainSpan
   );
 
   const naive = estimateNaiveUplift(safeEvents);
@@ -621,19 +630,39 @@ export function estimateDoublyRobustUplift(events = [], options = {}) {
 
   const propensity = fitPropensityScores(safeEvents, standardizers, options);
 
+  const ridge = options.ridge ?? 1e-3;
   const X = safeEvents.map((event) => [
     1,
     event.treated,
     ...covariateVector(event, standardizers),
   ]);
-
   const y = safeEvents.map((event) => event.outcomeDelta);
 
-  const outcomeCoefficients = fitLinearRegression(
-    X,
-    y,
-    options.ridge ?? 1e-3
-  );
+  const pooledCoefficients = fitLinearRegression(X, y, ridge);
+
+  // T-Learner outcome regressions separadas para tratados (mu1) e controles (mu0)
+  // capturando heterogeneidade real do efeito causal tau(X) = mu1(X) - mu0(X).
+  const minArmForSeparateModel = Math.max(6, covariates.length + 2);
+  const treatedEvents = safeEvents.filter((e) => e.treated === 1);
+  const controlEvents = safeEvents.filter((e) => e.treated === 0);
+
+  const coef1 =
+    treatedEvents.length >= minArmForSeparateModel
+      ? fitLinearRegression(
+          treatedEvents.map((ev) => [1, ...covariateVector(ev, standardizers)]),
+          treatedEvents.map((ev) => ev.outcomeDelta),
+          Math.max(ridge, 1e-2)
+        )
+      : [(pooledCoefficients[0] || 0) + (pooledCoefficients[1] || 0), ...pooledCoefficients.slice(2)];
+
+  const coef0 =
+    controlEvents.length >= minArmForSeparateModel
+      ? fitLinearRegression(
+          controlEvents.map((ev) => [1, ...covariateVector(ev, standardizers)]),
+          controlEvents.map((ev) => ev.outcomeDelta),
+          Math.max(ridge, 1e-2)
+        )
+      : [pooledCoefficients[0] || 0, ...pooledCoefficients.slice(2)];
 
   let sumDR = 0;
 
@@ -642,8 +671,8 @@ export function estimateDoublyRobustUplift(events = [], options = {}) {
 
     const covariatesRow = covariateVector(event, standardizers);
 
-    const mu1 = predictLinear(outcomeCoefficients, [1, 1, ...covariatesRow]);
-    const mu0 = predictLinear(outcomeCoefficients, [1, 0, ...covariatesRow]);
+    const mu1 = predictLinear(coef1, [1, ...covariatesRow]);
+    const mu0 = predictLinear(coef0, [1, ...covariatesRow]);
 
     const observed = event.outcomeDelta;
 
@@ -750,13 +779,25 @@ export function estimateCausalUplift(events = [], options = {}) {
     const rng = mulberry32(hashSeed(seed));
 
     const bootstrapEstimates = [];
+    const treatedPool = safeEvents.filter((e) => e.treated === 1);
+    const controlPool = safeEvents.filter((e) => e.treated === 0);
+    const useStratified = treatedPool.length > 0 && controlPool.length > 0;
 
     for (let i = 0; i < bootstrapIterations; i++) {
       const sample = [];
 
-      for (let j = 0; j < safeEvents.length; j++) {
-        const idx = Math.floor(rng() * safeEvents.length);
-        sample.push(safeEvents[idx]);
+      if (useStratified) {
+        for (let j = 0; j < treatedPool.length; j++) {
+          sample.push(treatedPool[Math.floor(rng() * treatedPool.length)]);
+        }
+        for (let j = 0; j < controlPool.length; j++) {
+          sample.push(controlPool[Math.floor(rng() * controlPool.length)]);
+        }
+      } else {
+        for (let j = 0; j < safeEvents.length; j++) {
+          const idx = Math.floor(rng() * safeEvents.length);
+          sample.push(safeEvents[idx]);
+        }
       }
 
       try {
@@ -864,11 +905,13 @@ export function estimateUpliftByAction(events = [], options = {}) {
 /**
  * Normaliza uplift para escala de decisão.
  */
-export function normalizeCausalUplift(uplift, maxScore = 100) {
+export function normalizeCausalUplift(uplift, maxScore = 100, minScore = 0) {
   const safeMaxScore = clampFinite(maxScore, 1, 1_000_000, 100);
+  const safeMinScore = clampFinite(minScore, -1_000_000, safeMaxScore - 1e-6, 0);
+  const domain = Math.max(1, safeMaxScore - safeMinScore);
   const safeUplift = toFinite(uplift, 0);
 
-  const scale = safeMaxScore * 0.15;
+  const scale = domain * 0.15;
 
   return clampFinite(0.5 + safeUplift / scale, 0, 1, 0.5);
 }
@@ -877,36 +920,22 @@ export function normalizeCausalUplift(uplift, maxScore = 100) {
  * Salva modelo causal.
  */
 export function saveCausalModel(model) {
-  try {
-    localStorage.setItem(CAUSAL_MODEL_KEY, JSON.stringify(model || {}));
-    return true;
-  } catch {
-    return false;
-  }
+  return safeSetItem(CAUSAL_MODEL_KEY, model || {});
 }
 
 /**
  * Carrega modelo causal.
  */
 export function loadCausalModel() {
-  try {
-    const raw = localStorage.getItem(CAUSAL_MODEL_KEY);
-    const parsed = JSON.parse(raw || 'null');
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
+  const parsed = safeGetJSON(CAUSAL_MODEL_KEY, null);
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
 }
 
 /**
  * Limpa modelo causal.
  */
 export function clearCausalModel() {
-  try {
-    localStorage.removeItem(CAUSAL_MODEL_KEY);
-  } catch {
-    // ignore
-  }
+  safeRemoveItem(CAUSAL_MODEL_KEY);
 }
 
 export default {

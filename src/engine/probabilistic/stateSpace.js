@@ -141,30 +141,34 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
 
   const scores = obs.map((entry) => entry.score);
 
-  const initialAbility = clampNumber(
-    kahanMean(scores.slice(0, Math.min(3, scores.length))) ?? scores[0],
-    minScore,
-    maxScore
-  );
-
+  // Ruído de medição estimado por diferenças sucessivas detrendadas:
+  // Var((y_t - y_{t-1}) - drift) ≈ 2 * sigma_eps^2, isolando ruído observacional da evolução real.
   let observationVariance = Math.pow(domain * 0.08, 2);
 
   if (scores.length >= 3) {
-    const mean = kahanMean(scores);
-    const variance =
-      scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0) /
-      Math.max(1, scores.length - 1);
+    const diffs = [];
+    for (let i = 1; i < scores.length; i++) {
+      diffs.push(scores[i] - scores[i - 1]);
+    }
+    const meanDiff = kahanMean(diffs) ?? 0;
+    const diffVar =
+      diffs.reduce((acc, d) => acc + Math.pow(d - meanDiff, 2), 0) /
+      Math.max(1, diffs.length - 1);
+    const estMeasurementVar = 0.5 * diffVar;
 
     observationVariance = Math.max(
       Math.pow(domain * 0.04, 2),
-      Math.min(Math.pow(domain * 0.25, 2), (variance * 0.75) + Math.pow(domain * 0.03, 2))
+      Math.min(Math.pow(domain * 0.25, 2), estMeasurementVar + Math.pow(domain * 0.02, 2))
     );
   }
 
+  // Prior difuso centrado no ponto médio da escala antes de observar i = 0
+  // (elimina look-ahead em y_1, y_2 e dupla contagem de y_0).
+  const initialAbility = minScore + domain * 0.5;
   let ability = initialAbility;
   let trend = 0;
 
-  let P00 = Math.max(observationVariance, Math.pow(domain * 0.12, 2));
+  let P00 = Math.max(observationVariance * 4, Math.pow(domain * 0.35, 2));
   let P01 = 0;
   let P11 = Math.pow(domain * 0.01, 2);
 
@@ -187,9 +191,12 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
 
       ability = clampNumber(ability + trend * dtDays, minScore, maxScore);
 
+      // Matriz Q(dt) integrada em tempo contínuo para modelo local linear trend
+      const dt2 = dtDays * dtDays;
+      const dt3 = dt2 * dtDays;
       const nextP00 =
-        P00 + 2 * dtDays * P01 + dtDays * dtDays * P11 + qAbility * dtDays;
-      const nextP01 = P01 + dtDays * P11;
+        P00 + 2 * dtDays * P01 + dt2 * P11 + qAbility * dtDays + (qTrend * dt3) / 3;
+      const nextP01 = P01 + dtDays * P11 + 0.5 * qTrend * dt2;
       const nextP11 = P11 + qTrend * dtDays;
 
       P00 = Math.max(1e-12, nextP00);
@@ -255,6 +262,7 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
     trendPerMonth,
     abilitySd: Math.sqrt(Math.max(0, P00)),
     trendSd: Math.sqrt(Math.max(0, P11)),
+    abilityTrendCov: P01,
     observationVariance,
     processNoise: {
       ability: qAbility,
@@ -297,11 +305,9 @@ export function runStateSpaceModel(scores, options = {}) {
   const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
   const safeMin = Number.isFinite(rawMin) ? rawMin : 0;
   const fallbackMean = (safeMax + safeMin) / 2;
-  const initialAbility = kahanMean(validScores) ?? fallbackMean;
-  const initialStd = kahanStd(validScores, initialAbility);
-
-  let ability = initialAbility;
-  let variance = Math.max(initialVariance, initialStd ** 2);
+  // Inicialização causal sem usar média futura da série inteira como prior
+  let ability = fallbackMean;
+  let variance = Math.max(initialVariance, Math.pow((safeMax - safeMin) * 0.35, 2));
 
   let trendSum = 0;
   let trendCount = 0;

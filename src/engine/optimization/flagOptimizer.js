@@ -15,6 +15,7 @@ const OPTIMIZER_STATE_KEY = 'coach_flag_optimizer_state_v1';
 const ACTIVE_FLAGS_KEY = 'coach_active_flags_v1';
 
 import { writeFlags, readFlags } from '../../utils/coachFeatureStore.js';
+import { safeSetItem, safeGetJSON, safeRemoveItem } from '../../utils/coachStorage.js';
 
 export const EXPERIMENTAL_MATH_FLAGS = [
   'useStateSpace',
@@ -49,42 +50,28 @@ export const EXPERIMENTAL_MATH_FLAGS = [
 ];
 
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return fallback;
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
 }
 
-function getStorage() {
-  try {
-    return globalThis?.localStorage || null;
-  } catch {
-    return null;
+function resolveActiveFlagsKey(contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${ACTIVE_FLAGS_KEY}:${contestId}`;
   }
+  return ACTIVE_FLAGS_KEY;
 }
 
 function loadJson(key, fallback = null) {
-  const storage = getStorage();
-  if (!storage) return fallback;
-
-  try {
-    const raw = storage.getItem(key);
-    const parsed = JSON.parse(raw);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
+  const parsed = safeGetJSON(key, fallback);
+  return parsed ?? fallback;
 }
 
 function saveJson(key, value) {
-  const storage = getStorage();
-  if (!storage) return false;
-
-  try {
-    storage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
+  return safeSetItem(key, value);
 }
 
 function hashSeed(str) {
@@ -113,30 +100,46 @@ function mulberry32(seed) {
   };
 }
 
+function sampleStandardNormal(rng) {
+  let u = rng();
+  let v = rng();
+  let attemptsU = 0;
+  while (u <= 0 && attemptsU < 100) { u = rng(); attemptsU++; }
+  if (u <= 0) u = 1e-15;
+  let attemptsV = 0;
+  while (v <= 0 && attemptsV < 100) { v = rng(); attemptsV++; }
+  if (v <= 0) v = 1e-15;
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function sampleGamma(shape, rng) {
+  const k = Math.max(1e-6, Number(shape) || 1);
+  if (k < 1) {
+    const u = Math.max(1e-15, rng());
+    return sampleGamma(k + 1, rng) * Math.pow(u, 1 / k);
+  }
+  const d = k - 1 / 3;
+  const c = 1 / Math.sqrt(9 * d);
+  for (let iter = 0; iter < 256; iter++) {
+    const x = sampleStandardNormal(rng);
+    const vBase = 1 + c * x;
+    if (vBase <= 0) continue;
+    const v = vBase * vBase * vBase;
+    const u = Math.max(1e-15, rng());
+    if (u < 1 - 0.0331 * (x * x) * (x * x)) return d * v;
+    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+  }
+  return k;
+}
+
 function sampleBeta(alpha, beta, rng) {
   const a = Math.max(1e-6, Number(alpha) || 1);
   const b = Math.max(1e-6, Number(beta) || 1);
-
-  const mean = a / (a + b);
-  const variance = (a * b) / ((a + b) ** 2 * (a + b + 1));
-  const sd = Math.sqrt(Math.max(0, variance));
-
-  const gaussian = () => {
-    let u = rng();
-    let v = rng();
-
-    let attemptsU = 0;
-    while (u === 0 && attemptsU < 100) { u = rng(); attemptsU++; }
-    if (u <= 0) u = 1e-15;
-
-    let attemptsV = 0;
-    while (v === 0 && attemptsV < 100) { v = rng(); attemptsV++; }
-    if (v <= 0) v = 1e-15;
-
-    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-  };
-
-  return clampFinite(mean + gaussian() * sd, 0, 1, mean);
+  const ga = sampleGamma(a, rng);
+  const gb = sampleGamma(b, rng);
+  const denom = ga + gb;
+  if (!Number.isFinite(denom) || denom <= 0) return a / (a + b);
+  return clampFinite(ga / denom, 0, 1, a / (a + b));
 }
 
 /**
@@ -155,21 +158,25 @@ export function getSafeBaselineFeatures() {
 /**
  * Carrega flags persistidas e aplica no globalThis.__COACH_FEATURES__.
  */
-export function loadPersistedCoachFlags() {
-  const persisted = loadJson(ACTIVE_FLAGS_KEY, null);
-
-  if (persisted && typeof persisted === 'object') {
-    writeFlags(persisted);
+export function loadPersistedCoachFlags(contestId) {
+  const scopedKey = resolveActiveFlagsKey(contestId);
+  let persisted = loadJson(scopedKey, null);
+  if (persisted === null && scopedKey !== ACTIVE_FLAGS_KEY) {
+    persisted = loadJson(ACTIVE_FLAGS_KEY, null);
   }
 
-  return readFlags();
+  if (persisted && typeof persisted === 'object') {
+    writeFlags(persisted, contestId);
+  }
+
+  return readFlags(contestId);
 }
 
 /**
  * Persiste flags ativas.
  */
-export function persistCoachFlags(flags) {
-  return saveJson(ACTIVE_FLAGS_KEY, flags || {});
+export function persistCoachFlags(flags, contestId) {
+  return saveJson(resolveActiveFlagsKey(contestId), flags || {});
 }
 
 /**
@@ -308,20 +315,18 @@ export function getStrategySpace() {
  */
 export function scoreStrategyEvaluation(summary = {}, latestHealth = null, options = {}) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
+  const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
+  const domain = Math.max(1, maxScore - minScore);
 
   const count = Math.max(0, Math.round(Number(summary?.count) || 0));
 
   const brier = clampFinite(summary?.probability?.avgBrier, 0, 1, NaN);
+  // FIX: não usar avgAbsoluteError (|p - y|) como substituto de ECE — para p=0.5 perfeitamente calibrado, |p-y|=0.50!
+  const calibrationError = clampFinite(summary?.probability?.ece, 0, 1, NaN);
 
-  const calibrationError = Number.isFinite(summary?.probability?.ece)
-    ? summary.probability.ece
-    : Number.isFinite(summary?.probability?.avgAbsoluteError)
-      ? summary.probability.avgAbsoluteError
-      : NaN;
-
-  const mae = clampFinite(summary?.score?.mae, 0, maxScore, NaN);
+  const mae = clampFinite(summary?.score?.mae, 0, domain, NaN);
   const ndcg = clampFinite(summary?.topics?.avgNdcg, 0, 1, NaN);
-  const uplift = clampFinite(summary?.tasks?.avgUplift, -maxScore, maxScore, NaN);
+  const uplift = clampFinite(summary?.tasks?.avgUplift, -domain, domain, NaN);
 
   // Scores normalizados.
   const brierScore = Number.isFinite(brier)
@@ -333,7 +338,7 @@ export function scoreStrategyEvaluation(summary = {}, latestHealth = null, optio
     : 0.35;
 
   const maeScore = Number.isFinite(mae)
-    ? 1 - clampFinite(mae / (maxScore * 0.10), 0, 1, 1)
+    ? 1 - clampFinite(mae / (domain * 0.10), 0, 1, 1)
     : 0.35;
 
   const ndcgScore = Number.isFinite(ndcg)
@@ -341,7 +346,7 @@ export function scoreStrategyEvaluation(summary = {}, latestHealth = null, optio
     : 0.35;
 
   const upliftScore = Number.isFinite(uplift)
-    ? 0.5 + clampFinite(uplift / (maxScore * 0.10), -0.5, 0.5, 0)
+    ? 0.5 + clampFinite(uplift / (domain * 0.10), -0.5, 0.5, 0)
     : 0.5;
 
   // FIX-M07: NDCG de tópicos (que mede se o sistema identifica os
@@ -429,14 +434,7 @@ export function saveOptimizerState(state) {
 }
 
 export function clearOptimizerState() {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.removeItem(OPTIMIZER_STATE_KEY);
-  } catch {
-    // ignore
-  }
+  safeRemoveItem(OPTIMIZER_STATE_KEY);
 }
 
 /**
@@ -463,9 +461,17 @@ export function recordStrategyOutcome(strategyId, reward, options = {}) {
   };
 
   const maxCount = clampFinite(options.maxCount, 10, 1000, 300);
+  let nextAlpha = (entry.alpha || 0) + normalizedReward;
+  let nextBeta = (entry.beta || 0) + (1 - normalizedReward);
+  const totalEvidence = nextAlpha + nextBeta;
+  if (totalEvidence > maxCount) {
+    const scale = maxCount / totalEvidence;
+    nextAlpha *= scale;
+    nextBeta *= scale;
+  }
 
-  entry.alpha = Math.min(maxCount, (entry.alpha || 0) + normalizedReward);
-  entry.beta = Math.min(maxCount, (entry.beta || 0) + (1 - normalizedReward));
+  entry.alpha = nextAlpha;
+  entry.beta = nextBeta;
   entry.trials = (entry.trials || 0) + 1;
   entry.updatedAt = Date.now();
 
@@ -582,6 +588,34 @@ export function recommendFlagConfig(input = {}) {
   const baselineScore = baseline?.score ?? 0;
 
   if (best.id === 'baseline') {
+    const activeExperimentalNames = EXPERIMENTAL_MATH_FLAGS.filter(
+      (flag) => currentFeatures?.[flag] === true
+    );
+    if (activeExperimentalNames.length > 0 && input.allowRollback !== false) {
+      const matchedActive = ranked.find((strategy) => {
+        if (strategy.id === 'baseline') return false;
+        const stratTrueFlags = EXPERIMENTAL_MATH_FLAGS.filter(
+          (flag) => strategy.features?.[flag] === true
+        );
+        return (
+          stratTrueFlags.length === activeExperimentalNames.length &&
+          stratTrueFlags.every((flag) => currentFeatures?.[flag] === true)
+        );
+      });
+      const activeScore = matchedActive?.hasEvidence ? matchedActive.score : -Infinity;
+      if (best.score >= activeScore + minImprovement) {
+        return {
+          action: 'rollback',
+          strategyId: 'baseline',
+          features: getSafeBaselineFeatures(),
+          reason:
+            'O baseline supera as flags experimentais ativas com margem suficiente. Recomendação: rollback seguro.',
+          score: best.score,
+          baselineScore,
+          ranked: ranked.slice(0, 5),
+        };
+      }
+    }
     return {
       action: 'keep',
       strategyId: 'baseline',
@@ -662,8 +696,8 @@ export function applyRecommendedFlags(recommendation, options = {}) {
     return false;
   }
 
-  writeFlags(next);
-  persistCoachFlags(next);
+  writeFlags(next, options.contestId);
+  persistCoachFlags(next, options.contestId);
 
   return true;
 }

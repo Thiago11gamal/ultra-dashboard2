@@ -92,44 +92,91 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
     .map((log) => ({
       time: toTime(log?.date ?? log?.createdAt),
       minutes: Math.min(720, Math.max(0, Number(log?.minutes) || 0)),
+      subjectLabel: String(log?.subject || log?.categoryName || log?.materia || log?.disciplina || '').trim(),
+      categoryId: log?.categoryId || null,
     }))
     // FIX: descarta logs com timestamp inválido/futuro
     .filter((entry) => Number.isFinite(entry.time) && isReasonableTime(entry.time));
 
+  // Agrupar simulados por disciplina quando categoryName não for especificado,
+  // evitando subtrair notas de matérias diferentes adjacentes no tempo.
+  const simGroups = new Map();
+  safeSimulados.forEach((entry) => {
+    const rawSubject = categoryName
+      ? '__filtered__'
+      : String(
+          entry.simulado?.subject ||
+          entry.simulado?.categoryName ||
+          entry.simulado?.materia ||
+          entry.simulado?.disciplina ||
+          entry.simulado?.categoryId ||
+          ''
+        ).trim().toLowerCase() || '__global__';
+    if (!simGroups.has(rawSubject)) {
+      simGroups.set(rawSubject, []);
+    }
+    simGroups.get(rawSubject).push(entry);
+  });
+
   const events = [];
-  const scores = safeSimulados.map((entry) => entry.score);
 
-  for (let i = 1; i < safeSimulados.length; i++) {
-    const prev = safeSimulados[i - 1];
-    const curr = safeSimulados[i];
-    if (curr.time <= prev.time) continue;
+  for (const [groupKey, groupSims] of simGroups.entries()) {
+    if (groupSims.length < 2) continue;
+    const scores = groupSims.map((entry) => entry.score);
+    const groupSubjectName =
+      groupKey !== '__filtered__' && groupKey !== '__global__'
+        ? String(
+            groupSims[0]?.simulado?.subject ||
+            groupSims[0]?.simulado?.categoryName ||
+            groupSims[0]?.simulado?.materia ||
+            groupSims[0]?.simulado?.disciplina ||
+            ''
+          ).trim()
+        : '';
+    const groupCategoryId = groupSims[0]?.simulado?.categoryId || null;
 
-    const outcomeDelta = curr.score - prev.score;
-    const baselineScore = prev.score;
-    const daysSince = (curr.time - prev.time) / 86400000;
+    for (let i = 1; i < groupSims.length; i++) {
+      const prev = groupSims[i - 1];
+      const curr = groupSims[i];
+      if (curr.time <= prev.time) continue;
 
-    const intervalLogs = safeLogs.filter(
-      (log) => log.time > prev.time && log.time <= curr.time
-    );
-    const totalMinutes = intervalLogs.reduce(
-      (acc, log) => acc + log.minutes,
-      0
-    );
-    const treated = totalMinutes >= minTreatmentMinutes ? 1 : 0;
-    const volatility = rollingSd(scores.slice(0, i), 5);
+      const outcomeDelta = curr.score - prev.score;
+      const baselineScore = prev.score;
+      const daysSince = (curr.time - prev.time) / 86400000;
 
-    events.push({
-      id: `study-volume-${prev.index}-${curr.index}`,
-      timestamp: curr.time,
-      treated,
-      outcomeDelta,
-      baselineScore,
-      volatility,
-      daysSince,
-      weight: Number(options.weight) || 5,
-      uncertainty: 0.4,
-      actionType: treated ? 'study_volume' : 'no_study_volume',
-    });
+      const intervalLogs = safeLogs.filter((log) => {
+        if (log.time <= prev.time || log.time > curr.time) return false;
+        if (categoryName || categoryId || groupKey === '__global__') return true;
+        if (groupCategoryId && log.categoryId) {
+          return String(log.categoryId) === String(groupCategoryId);
+        }
+        if (groupSubjectName && log.subjectLabel) {
+          return isSubjectMatch(log.subjectLabel, groupSubjectName);
+        }
+        return true;
+      });
+      const totalMinutes = intervalLogs.reduce(
+        (acc, log) => acc + log.minutes,
+        0
+      );
+      const treated = totalMinutes >= minTreatmentMinutes ? 1 : 0;
+      const volatility = rollingSd(scores.slice(0, i), 5);
+      // Incerteza empírica pré-tratamento idêntica entre tratados e controles (zero target leakage)
+      const preUncertainty = Number(Math.min(0.9, Math.max(0.1, 4 / (i + 4))).toFixed(4));
+
+      events.push({
+        id: `study-volume-${prev.index}-${curr.index}`,
+        timestamp: curr.time,
+        treated,
+        outcomeDelta,
+        baselineScore,
+        volatility,
+        daysSince,
+        weight: Number(options.weight) || 5,
+        uncertainty: preUncertainty,
+        actionType: treated ? 'study_volume' : 'no_study_volume',
+      });
+    }
   }
 
   return events;
@@ -190,11 +237,14 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
     // Eventos tratados: tarefa concluída entre dois simulados.
     taskTimes.forEach(({ task, time }, taskIndex) => {
       let prevSim = null;
+      let prevPos = -1;
       let nextSim = null;
 
-      for (const sim of categorySimulados) {
+      for (let sIdx = 0; sIdx < categorySimulados.length; sIdx++) {
+        const sim = categorySimulados[sIdx];
         if (sim.time <= time) {
           prevSim = sim;
+          prevPos = sIdx;
         }
       }
       for (const sim of categorySimulados) {
@@ -204,7 +254,7 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
         }
       }
 
-      if (!prevSim || !nextSim) return;
+      if (!prevSim || !nextSim || prevPos < 0) return;
 
       const horizonDays = (nextSim.time - prevSim.time) / 86400000;
       if (Number.isNaN(horizonDays) || horizonDays > maxHorizonDays) return;
@@ -212,7 +262,11 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       const outcomeDelta = nextSim.score - prevSim.score;
       const baselineScore = prevSim.score;
       const daysSince = (time - prevSim.time) / 86400000;
-      const volatility = rollingSd(scores.slice(0, prevSim.index + 1), 5);
+      const preSampleCount = prevPos + 1;
+      // FIX: fatiar pela posição pós-ordenação cronológica (prevPos + 1), nunca pelo índice bruto pré-sort
+      const volatility = rollingSd(scores.slice(0, preSampleCount), 5);
+      // FIX: mesma função pré-tratamento para tratados e controles (elimina target leakage determinístico 0.45 vs 0.50)
+      const preUncertainty = Number(Math.min(0.9, Math.max(0.1, 4 / (preSampleCount + 4))).toFixed(4));
 
       events.push({
         id: `task-${categoryId}-${task?.id || taskIndex}`,
@@ -223,7 +277,7 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
         volatility,
         daysSince,
         weight: Number(category?.weight) || 5,
-        uncertainty: 0.45,
+        uncertainty: preUncertainty,
         actionType: inferActionType(task?.text || task?.topicName || ''),
       });
     });
@@ -246,7 +300,9 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       const outcomeDelta = curr.score - prev.score;
       const baselineScore = prev.score;
       const daysSince = (curr.time - prev.time) / 86400000;
-      const volatility = rollingSd(scores.slice(0, i), 5);
+      const preSampleCount = i;
+      const volatility = rollingSd(scores.slice(0, preSampleCount), 5);
+      const preUncertainty = Number(Math.min(0.9, Math.max(0.1, 4 / (preSampleCount + 4))).toFixed(4));
 
       events.push({
         id: `no-task-${categoryId}-${prev.index}-${curr.index}`,
@@ -257,7 +313,7 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
         volatility,
         daysSince,
         weight: Number(category?.weight) || 5,
-        uncertainty: 0.5,
+        uncertainty: preUncertainty,
         actionType: 'no_task',
       });
     }
@@ -299,6 +355,7 @@ export function trainCausalModel(events = [], options = {}) {
   const estimates = estimateUpliftByAction(safeEvents, {
     method: options.method || 'auto',
     maxScore: options.maxScore ?? 100,
+    minScore: options.minScore ?? 0,
     bootstrapIterations:
       options.useBootstrap === true
         ? options.bootstrapIterations ?? 100
@@ -310,6 +367,7 @@ export function trainCausalModel(events = [], options = {}) {
   const model = {
     generatedAt: Date.now(),
     maxScore: options.maxScore ?? 100,
+    minScore: options.minScore ?? 0,
     method: options.method || 'auto',
     sampleSize: safeEvents.length,
     global: estimates.global,
@@ -352,6 +410,7 @@ export function runCausalPolicyCycle(input = {}) {
 
   const selectedActions = selectPersonalizedActions(candidates, model, {
     maxScore: input.options?.maxScore ?? 100,
+    minScore: input.options?.minScore ?? 0,
     topK: input.options?.topK ?? 5,
     healthStatus: input.health?.status || null,
     causalWeight: input.options?.causalWeight ?? 0.35,
@@ -403,6 +462,7 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
 
   const ranked = selectPersonalizedActions(candidates, causalModel, {
     maxScore: options.maxScore ?? 100,
+    minScore: options.minScore ?? 0,
     topK: safeTasks.length,
     healthStatus: options.healthStatus || null,
     causalWeight: options.causalWeight ?? 0.35,

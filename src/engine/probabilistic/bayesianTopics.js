@@ -223,10 +223,11 @@ export function estimateTopicProficiencies(topics = [], options = {}) {
     Math.sqrt(Math.max(0, globalTotal)) * 0.12 +
     topicsWithData.length * 0.25;
 
-  // Empirical Bayes: prior mais fraco quando tópicos variam muito
+  // Empirical Bayes bidirecional: pooling forte quando tópicos são homogêneos (tau^2 pequeno)
+  // e prior fraco quando há alta heterogeneidade real entre tópicos (tau^2 grande).
   if (topicsWithData.length >= 3) {
     const topicRates = topicsWithData.map((t) => t.correct / t.total);
-    const rateMean = meanValues(topicRates);
+    const rateMean = clampFinite(meanValues(topicRates), 0.02, 0.98, globalMean);
     const rateVariance = varianceValues(topicRates);
     const averageBinomialNoise = meanValues(
       topicsWithData.map((t) => {
@@ -234,14 +235,17 @@ export function estimateTopicProficiencies(topics = [], options = {}) {
         return (rateMean * (1 - rateMean)) / n;
       })
     );
-    const tau2 = Math.max(0, rateVariance - averageBinomialNoise);
-    if (tau2 > 1e-6) {
-      const momentK = (rateMean * (1 - rateMean)) / tau2 - 1;
-      priorStrength = Math.min(
-        priorStrength,
-        clampFinite(momentK, minPriorStrength, maxPriorStrength, priorStrength)
-      );
-    }
+    const bernoulliScale = Math.max(1e-4, rateMean * (1 - rateMean));
+    const minTau2 = bernoulliScale / (maxPriorStrength + 1);
+    const tau2 = Math.max(minTau2, rateVariance - averageBinomialNoise);
+    const momentK = clampFinite(
+      bernoulliScale / tau2 - 1,
+      minPriorStrength,
+      maxPriorStrength,
+      priorStrength
+    );
+    const ebTrust = topicsWithData.length / (topicsWithData.length + 4);
+    priorStrength = (1 - ebTrust) * priorStrength + ebTrust * momentK;
   }
 
   priorStrength = clampFinite(

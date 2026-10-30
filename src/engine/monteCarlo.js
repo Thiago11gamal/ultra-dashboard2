@@ -186,34 +186,41 @@ export function simulateNormalDistribution(
     let safeSD = Number.isFinite(sdNum) && sdNum > 0 ? sdNum : 0;
 
     if (bayesianCI) {
-        let high = bayesianCI.unclampedHigh !== undefined ? bayesianCI.unclampedHigh : bayesianCI.ciHigh;
-        let low = bayesianCI.unclampedLow !== undefined ? bayesianCI.unclampedLow : bayesianCI.ciLow;
+        const directBayesianSD = toFiniteNumber(bayesianCI.sd, NaN);
+        if (Number.isFinite(directBayesianSD) && directBayesianSD > 0) {
+            safeSD = directBayesianSD;
+        } else {
+            const hasUnclampedBounds = bayesianCI.unclampedHigh !== undefined && bayesianCI.unclampedLow !== undefined;
+            let high = bayesianCI.unclampedHigh !== undefined ? bayesianCI.unclampedHigh : bayesianCI.ciHigh;
+            let low = bayesianCI.unclampedLow !== undefined ? bayesianCI.unclampedLow : bayesianCI.ciLow;
 
-        high = toFiniteNumber(high, NaN);
-        low = toFiniteNumber(low, NaN);
+            high = toFiniteNumber(high, NaN);
+            low = toFiniteNumber(low, NaN);
 
-        if (Number.isFinite(high) && Number.isFinite(low) && high < low) {
-            const tmp = high;
-            high = low;
-            low = tmp;
-        }
-
-        if (Number.isFinite(high) && Number.isFinite(low)) {
-            const effectiveN = Math.max(1, toFiniteNumber(bayesianCI.n, historyLength || 1));
-            const tMultiplier = getConfidenceMultiplier(effectiveN, { allowFractional: true });
-
-            let inferredSD = (high - low) / (tMultiplier * 2);
-            const distToBoundary = Math.min(safeMean - minScore, maxScore - safeMean);
-
-            if (Number.isFinite(inferredSD) && inferredSD >= 1e-10) {
-                if (distToBoundary < inferredSD * 1.5) {
-                    const correctionFactor = 1 + (1 - distToBoundary / (inferredSD * 1.5));
-                    inferredSD *= Math.min(1.5, correctionFactor);
-                }
+            if (Number.isFinite(high) && Number.isFinite(low) && high < low) {
+                const tmp = high;
+                high = low;
+                low = tmp;
             }
 
-            if (Number.isFinite(inferredSD) && inferredSD > 0) {
-                safeSD = inferredSD;
+            if (Number.isFinite(high) && Number.isFinite(low)) {
+                const effectiveN = Math.max(1, toFiniteNumber(bayesianCI.n, historyLength || 1));
+                const tMultiplier = getConfidenceMultiplier(effectiveN, { allowFractional: true });
+
+                let inferredSD = (high - low) / (tMultiplier * 2);
+                const distToBoundary = Math.min(safeMean - minScore, maxScore - safeMean);
+
+                // Só compensar truncamento de borda se os limites vieram truncados (sem unclampedLow/unclampedHigh)
+                if (!hasUnclampedBounds && Number.isFinite(inferredSD) && inferredSD >= 1e-10) {
+                    if (distToBoundary < inferredSD * 1.5) {
+                        const correctionFactor = 1 + (1 - distToBoundary / (inferredSD * 1.5));
+                        inferredSD *= Math.min(1.5, correctionFactor);
+                    }
+                }
+
+                if (Number.isFinite(inferredSD) && inferredSD > 0) {
+                    safeSD = inferredSD;
+                }
             }
         }
     }
@@ -398,8 +405,22 @@ export function simulateNormalDistribution(
         // Previne singularidades na multiplicação downstream que arruínam as simulações
         if (subjectCholesky) {
             for (let i = 0; i < subjectCholesky.length; i++) {
+                let modifiedRow = false;
                 if (!Number.isFinite(subjectCholesky[i][i]) || subjectCholesky[i][i] < 1e-8) {
                     subjectCholesky[i][i] = 1e-8;
+                    modifiedRow = true;
+                }
+                if (modifiedRow) {
+                    let rowSq = 0;
+                    for (let k = 0; k <= i; k++) {
+                        const v = Number.isFinite(subjectCholesky[i][k]) ? subjectCholesky[i][k] : 0;
+                        subjectCholesky[i][k] = v;
+                        rowSq += v * v;
+                    }
+                    const rowNorm = Math.sqrt(rowSq);
+                    if (rowNorm > 1e-12) {
+                        for (let k = 0; k <= i; k++) subjectCholesky[i][k] /= rowNorm;
+                    }
                 }
             }
         }
@@ -626,7 +647,10 @@ export function simulateNormalDistribution(
     const uncertaintyScaledGap = empiricalVsAnalyticalGap / Math.max(1, empiricalStdErr * 2.2);
     const disagreementPenalty = Math.max(0.35, 1 - (uncertaintyScaledGap / 6));
 
-    const analyticalWeight = Math.min(0.9, Math.max(0, (1 - empiricalConfidence) * truncationPenalty * disagreementPenalty));
+    // Quando há notas de corte por disciplina (hasCutoffs) ou composição multivariada de matérias,
+    // a CDF normal univariada ignora eliminações conjuntas e truncamentos heterogêneos.
+    const analyticalCap = hasCutoffs ? 0 : (subjectParams.length > 0 ? 0.25 : 0.9);
+    const analyticalWeight = Math.min(analyticalCap, Math.max(0, (1 - empiricalConfidence) * truncationPenalty * disagreementPenalty));
 
     const blendedProbability = (finiteAnalyticalProbability * analyticalWeight)
         + (finiteEmpiricalProbability * (1 - analyticalWeight));
@@ -650,8 +674,8 @@ export function simulateNormalDistribution(
         },
         convergence: {
             targetSE: TARGET_PROB_SE,
-            achievedSE: Number(empiricalStdErr.toFixed(4)),
-            sufficient: empiricalStdErr < TARGET_PROB_SE * 1.5
+            achievedSE: Number((empiricalStdErr / 100).toFixed(4)),
+            sufficient: (empiricalStdErr / 100) < TARGET_PROB_SE * 1.5
         },
         policy: lowSimulation ? 'low_sample' : (highTruncationStress ? 'truncated' : 'standard'),
         flashcardImmunityApplied: safeFlashcardImmunity < 1.0 ? Number(safeFlashcardImmunity.toFixed(3)) : null
@@ -798,17 +822,19 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
     const safeDates = dates || [];
     const safeValues = values || [];
 
+    const syntheticNowMs = Date.now();
     const history = safeValues
         .map((score, index) => {
             const rawScore = extractScore(score);
             const isNuloOuVazio = rawScore === null || rawScore === undefined || String(rawScore).trim() === '';
             
             const baseObj = (typeof score === 'object' && score !== null) ? score : {};
+            const syntheticDate = getDateKey(new Date(syntheticNowMs - (Math.max(1, safeValues.length) - 1 - index) * 7 * 86400000));
 
             return {
                 ...baseObj,
                 score: isNuloOuVazio ? NaN : Number(rawScore),
-                date: safeDates[index] || baseObj.date || getDateKey(new Date())
+                date: safeDates[index] || baseObj.date || syntheticDate
             };
         })
         .filter(row => Number.isFinite(row.score));

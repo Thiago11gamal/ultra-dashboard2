@@ -18,6 +18,8 @@ import {
 } from '../engine/observability/driftMonitor.js';
 import { getSafeScore } from './scoreHelper.js';
 import { normalizeDate } from './dateHelper.js';
+import { safeGetJSON } from './coachStorage.js';
+import { loadEvaluationResults } from '../engine/evaluation/coachEvaluator.js';
 
 const CALIBRATION_TELEMETRY_KEY = 'coach_calibration_events_v1';
 
@@ -36,13 +38,8 @@ function toTime(value) {
  * Carrega eventos de telemetria de calibração salvos pelo calibrationTelemetry.js.
  */
 export function loadCalibrationTelemetryEvents() {
-  try {
-    const raw = localStorage.getItem(CALIBRATION_TELEMETRY_KEY);
-    const parsed = JSON.parse(raw || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  const parsed = safeGetJSON(CALIBRATION_TELEMETRY_KEY, []);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 /**
@@ -66,6 +63,14 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
     // `a._idx`, que nunca era criado (código morto).
     .map((simulado, _idx) => ({
       simulado,
+      subjectKey: String(
+        simulado?.subject ||
+        simulado?.categoryName ||
+        simulado?.materia ||
+        simulado?.disciplina ||
+        simulado?.categoryId ||
+        ''
+      ).trim().toLowerCase(),
       time: toTime(simulado?.date ?? simulado?.createdAt),
       score: getSafeScore(simulado, maxScore, minScore),
       _idx,
@@ -86,7 +91,27 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
       return (a._idx || 0) - (b._idx || 0);
     });
 
-  const scores = sorted.map((entry) => entry.score);
+  // Quando há múltiplas disciplinas misturadas, remove o efeito fixo entre matérias
+  // preservando a média global da escala (evita falso drift por rotação de disciplina).
+  const subjectStats = new Map();
+  sorted.forEach((entry) => {
+    if (!entry.subjectKey) return;
+    const prev = subjectStats.get(entry.subjectKey) || { sum: 0, count: 0 };
+    prev.sum += entry.score;
+    prev.count += 1;
+    subjectStats.set(entry.subjectKey, prev);
+  });
+
+  let scores = sorted.map((entry) => entry.score);
+  if (options.demeanBySubject !== false && subjectStats.size >= 2 && scores.length >= 4) {
+    const globalMean = scores.reduce((acc, s) => acc + s, 0) / scores.length;
+    scores = sorted.map((entry) => {
+      const stat = entry.subjectKey ? subjectStats.get(entry.subjectKey) : null;
+      if (!stat || stat.count < 2) return entry.score;
+      const subjectMean = stat.sum / stat.count;
+      return Math.min(maxScore, Math.max(minScore, entry.score - subjectMean + globalMean));
+    });
+  }
   const volatilities = [];
 
   // FIX: early return genérico para a janela configurada
@@ -153,9 +178,27 @@ export function runCoachDriftGuard(options = {}) {
   const volatilities = Array.isArray(options.volatilities)
     ? options.volatilities
     : [];
-  const probabilityPairs = Array.isArray(options.probabilityPairs)
+  let probabilityPairs = Array.isArray(options.probabilityPairs)
     ? options.probabilityPairs
     : [];
+
+  if (probabilityPairs.length === 0 && options.probabilityPairs === undefined) {
+    const evalResults = loadEvaluationResults();
+    probabilityPairs = evalResults
+      .map((ev) => {
+        const probEval = ev?.probabilityEvaluation;
+        if (!probEval) return null;
+        const p = probEval.predictedProbability01;
+        const y = probEval.observed;
+        if (!Number.isFinite(p) || !Number.isFinite(y)) return null;
+        return {
+          probability: p,
+          observed: y,
+          timestamp: Number(ev.timestamp) || 0,
+        };
+      })
+      .filter(Boolean);
+  }
 
   const lastTelemetryTimestamp =
     Number(options.lastTelemetryTimestamp) ||

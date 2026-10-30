@@ -16,47 +16,27 @@ import {
   applyRecommendedFlags,
   loadPersistedCoachFlags,
 } from './flagOptimizer.js';
+import { computeCalibrationDiagnostics } from '../../utils/calibration.js';
+import { safeSetItem, safeGetJSON } from '../../utils/coachStorage.js';
+import { readFlags } from '../../utils/coachFeatureStore.js';
 
 const TUNER_HISTORY_KEY = 'coach_auto_tuner_history_v1';
 const BACKTEST_REPORT_KEY = 'coach_strategy_backtest_v1';
 const EVALUATION_RESULTS_KEY = 'coach_evaluation_results_v1';
 const MODEL_HEALTH_KEY = 'coach_model_health_v1';
 
-function getStorage() {
-  try {
-    return globalThis?.localStorage || null;
-  } catch {
-    return null;
-  }
-}
-
 function loadJson(key, fallback = null) {
-  const storage = getStorage();
-  if (!storage) return fallback;
-
-  try {
-    const raw = storage.getItem(key);
-    const parsed = JSON.parse(raw);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
+  const parsed = safeGetJSON(key, fallback);
+  return parsed ?? fallback;
 }
 
 function saveJson(key, value) {
-  const storage = getStorage();
-  if (!storage) return false;
-
-  try {
-    storage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
+  return safeSetItem(key, value);
 }
 
 function meanValues(values) {
   const finite = (Array.isArray(values) ? values : [])
+    .filter((v) => v !== null && v !== undefined && v !== '' && typeof v !== 'boolean')
     .map((v) => Number(v))
     .filter((v) => Number.isFinite(v));
 
@@ -110,6 +90,7 @@ export function summarizeEvaluationsByStrategy(evaluations = []) {
 
     if (!groups[strategyId]) {
       groups[strategyId] = {
+        probabilityPairs: [],
         brier: [],
         logLoss: [],
         probabilityAbsoluteError: [],
@@ -124,6 +105,16 @@ export function summarizeEvaluationsByStrategy(evaluations = []) {
     const probability = evaluation?.probabilityEvaluation;
 
     if (probability) {
+      if (
+        Number.isFinite(probability.predictedProbability01) &&
+        Number.isFinite(probability.observed)
+      ) {
+        group.probabilityPairs.push({
+          probability: probability.predictedProbability01,
+          observed: probability.observed,
+        });
+      }
+
       if (Number.isFinite(probability.brier)) {
         group.brier.push(probability.brier);
       }
@@ -167,12 +158,21 @@ export function summarizeEvaluationsByStrategy(evaluations = []) {
       0
     );
 
+    const diagnostics =
+      group.probabilityPairs.length >= 3
+        ? computeCalibrationDiagnostics(group.probabilityPairs, {
+            bins: Math.max(2, Math.min(6, group.probabilityPairs.length)),
+          })
+        : null;
+
     summaries[strategyId] = {
       count,
       probability: {
+        count: group.probabilityPairs.length,
         avgBrier: meanValues(group.brier),
         avgLogLoss: meanValues(group.logLoss),
         avgAbsoluteError: meanValues(group.probabilityAbsoluteError),
+        ece: diagnostics && Number.isFinite(diagnostics.ece) ? Number(diagnostics.ece.toFixed(6)) : null,
       },
       score: {
         mae: meanValues(group.mae),
@@ -213,7 +213,8 @@ export function loadTunerHistory() {
  * Executa um ciclo completo de auto-tuning.
  */
 export function runAutoTunerCycle(options = {}) {
-  const persistedFlags = loadPersistedCoachFlags();
+  const contestId = options.contestId;
+  const persistedFlags = loadPersistedCoachFlags(contestId);
 
   const evaluations = Array.isArray(options.evaluations)
     ? options.evaluations
@@ -248,13 +249,22 @@ export function runAutoTunerCycle(options = {}) {
 
   const ranked = rankStrategies(summaries, latestHealth, {
     maxScore: options.maxScore ?? 100,
+    minScore: options.minScore ?? 0,
     strategySpace: options.strategySpace,
   });
+
+  const activeStoreFlags = readFlags(contestId);
+  const currentFeatures =
+    options.currentFeatures ||
+    (Object.keys(activeStoreFlags).length > 0 ? activeStoreFlags : null) ||
+    globalThis.__COACH_FEATURES__ ||
+    persistedFlags ||
+    {};
 
   const recommendation = recommendFlagConfig({
     ranked,
     latestHealth,
-    currentFeatures: options.currentFeatures || globalThis.__COACH_FEATURES__ || persistedFlags || {},
+    currentFeatures,
     minImprovement: options.minImprovement ?? 0.02,
     allowRollback: options.allowRollback !== false,
     exploration: options.exploration === true,
@@ -266,6 +276,7 @@ export function runAutoTunerCycle(options = {}) {
   if (options.autoApply === true) {
     applied = applyRecommendedFlags(recommendation, {
       force: options.forceApply === true,
+      contestId,
     });
   }
 

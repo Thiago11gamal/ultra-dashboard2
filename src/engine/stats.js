@@ -197,6 +197,8 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     let sumW2 = 0, cW2 = 0;
     let sumWX = 0, cWX = 0;
     let sumWXX = 0, cWXX = 0;
+    let sumW2X = 0, cW2X = 0;
+    let sumW2XX = 0, cW2XX = 0;
     let rss = 0, cRSS = 0;
 
     for (let i = 0; i < sorted.length; i++) {
@@ -211,13 +213,14 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
         const t = Math.max(0, (now - timeMs) / 86400000);
         const EPSILON_WEIGHT = 1e-10;
         const w = Math.max(EPSILON_WEIGHT, Math.exp(-lambda * t));
+        const w2 = w * w;
         const pred = intercept + slope * x;
         const residualSq = Math.pow(y - pred, 2);
 
         const valW = w;
         const yW = valW - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
 
-        const valW2 = w * w;
+        const valW2 = w2;
         const yW2 = valW2 - cW2; const tW2 = sumW2 + yW2; cW2 = (tW2 - sumW2) - yW2; sumW2 = tW2;
 
         const valWX = w * x;
@@ -226,6 +229,12 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
         const valWXX = w * x * x;
         const yWXX = valWXX - cWXX; const tWXX = sumWXX + yWXX; cWXX = (tWXX - sumWXX) - yWXX; sumWXX = tWXX;
 
+        const valW2X = w2 * x;
+        const yW2X = valW2X - cW2X; const tW2X = sumW2X + yW2X; cW2X = (tW2X - sumW2X) - yW2X; sumW2X = tW2X;
+
+        const valW2XX = w2 * x * x;
+        const yW2XX = valW2XX - cW2XX; const tW2XX = sumW2XX + yW2XX; cW2XX = (tW2XX - sumW2XX) - yW2XX; sumW2XX = tW2XX;
+
         const valRSS = w * residualSq;
         const yRSS = valRSS - cRSS; const tRSS = rss + yRSS; cRSS = (tRSS - rss) - yRSS; rss = tRSS;
     }
@@ -233,21 +242,25 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
     const scaleFactorFallback = Math.max(1e-6, (maxScore - minScore) / 100);
     const defaultSlopeStdError = 0.05 * scaleFactorFallback;
 
-    if (sumW2 <= 1e-15) return defaultSlopeStdError;
+    if (sumW2 <= 1e-15 || sumW <= 1e-15) return defaultSlopeStdError;
 
     const effectiveN = (sumW * sumW) / sumW2;
 
     if (effectiveN <= 2.1) return defaultSlopeStdError;
 
     const variance = (rss / sumW) * (effectiveN / (effectiveN - 2));
-    const varX = (sumWXX - (sumWX * sumWX) / sumW) / sumW;
+    const meanX = sumWX / sumW;
+    const ssXw = sumWXX - (sumWX * sumWX) / sumW;
+    const varX = ssXw / sumW;
 
-    if (varX <= 1e-8) {
+    if (varX <= 1e-8 || ssXw <= 1e-12) {
         return Math.sqrt(Math.max(0, rss / sumW)) / Math.sqrt(effectiveN);
     }
 
-    const det = sumW * sumWXX - sumWX * sumWX;
-    const calculatedStdError = Math.sqrt(Math.max(0, (variance * sumW) / det));
+    // Variância sandwich invariante à escala absoluta dos pesos exponenciais:
+    // Var(beta_WLS) = sigma^2 * sum(w_i^2 (x_i - x_bar_w)^2) / (sum(w_i (x_i - x_bar_w)^2))^2
+    const sumW2Dx2 = Math.max(0, sumW2XX - 2 * meanX * sumW2X + meanX * meanX * sumW2);
+    const calculatedStdError = Math.sqrt(Math.max(0, (variance * sumW2Dx2) / (ssXw * ssXw)));
     const maxSlopeSe = 0.04 * (maxScore - minScore);
     return Math.min(maxSlopeSe, calculatedStdError);
 }
@@ -430,7 +443,8 @@ export function computeBayesianLevel(
         options = arg4 || {};
     } else {
         history = [];
-        singleScore = Math.max(0, Number(historyOrScore) || 0);
+        const parsedSingle = Number(historyOrScore);
+        singleScore = Number.isFinite(parsedSingle) ? parsedSingle : 0;
         const nEffArg = Number(arg1);
         singleNEff = Number.isFinite(nEffArg) && nEffArg >= 0 ? nEffArg : 1;
         safeMaxScore = safeMaxScoreValue(arg2, 100);
@@ -506,6 +520,10 @@ export function computeBayesianLevel(
 
     // M-08 FIX: Reutilizar buffer se possível (evitar alocação a cada chamada)
     // Nota: em produção, considerar um pool de buffers.
+    // Quando safeMinScore < 0 (ex: Cebraspe -120..120), (sScore - safeMinScore) / safeRange
+    // já mapeia [minScore, maxScore] linearmente para [0, 1]. O shift legado (rawPct + 1) / 2
+    // só se aplica quando o chamador sinaliza isPenalizedFormat sem fornecer minScore negativo.
+    const useLegacyZeroFloorPenalizedShift = Boolean(options?.isPenalizedFormat) && safeMinScore >= 0;
     const runningPriors = new Float64Array(historyToProcess.length);
     if (historyToProcess.length > 0) {
         let priorSum = 0, priorC = 0, priorCount = 0;
@@ -513,7 +531,7 @@ export function computeBayesianLevel(
             const sScore = getSafeScore(historyToProcess[j], safeMaxScore, safeMinScore);
             if (Number.isFinite(sScore)) {
                 let rawPct = (sScore - safeMinScore) / safeRange;
-                rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
+                rawPct = useLegacyZeroFloorPenalizedShift ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
                 const validPct = Math.min(1, rawPct);
                 const y = validPct - priorC;
                 const t = priorSum + y;
@@ -551,7 +569,7 @@ export function computeBayesianLevel(
             const isPurePercentage = !hasTotal;
 
             let rawPct = (normalizedScore - safeMinScore) / safeRange;
-            rawPct = options.isPenalizedFormat ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
+            rawPct = useLegacyZeroFloorPenalizedShift ? Math.max(0.05, (rawPct + 1) / 2) : Math.max(0, rawPct);
             const pct = Math.min(1, rawPct);
 
             const timeEntry = itemsToProcess[i].time;
@@ -759,20 +777,10 @@ export function computeBayesianLevel(
     const marginOfError = tMultiplier * effectiveSd * safeRange;
     const adjustedMarginOfError = Number.isFinite(marginOfError) ? marginOfError : 0;
 
-    // ✅ FIX BUG-16 & BUG-22: Desfaz transformação de prova penalizada e respeita [minScore, maxScore]
-    const effectiveRatioCenter = options?.isPenalizedFormat && safeMinScore < 0
-      ? (2 * p_tilde - 1)
-      : p_tilde;
-    const centerForCI = options?.isPenalizedFormat && safeMinScore < 0
-      ? effectiveRatioCenter * safeMaxScore
-      : safeMinScore + p_tilde * safeRange;
-
-    const effectiveRatio = options?.isPenalizedFormat && safeMinScore < 0
-      ? (2 * p - 1) // Inverte (ratio + 1) / 2 de volta para [-1, 1]
-      : p;
-    const trueMean = options?.isPenalizedFormat && safeMinScore < 0
-      ? Math.max(safeMinScore, Math.min(safeMaxScore, effectiveRatio * safeMaxScore))
-      : safeMinScore + p * safeRange;
+    // ✅ FIX BUG-16 & BUG-22: Inversão linear exata de [0, 1] → [safeMinScore, safeMaxScore]
+    // (funciona para domínios simétricos [-120, 120], assimétricos [-30, 100] e positivos [200, 1000])
+    const centerForCI = Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + p_tilde * safeRange));
+    const trueMean = Math.max(safeMinScore, Math.min(safeMaxScore, safeMinScore + p * safeRange));
 
     let ciLow = centerForCI - adjustedMarginOfError;
     let ciHigh = centerForCI + adjustedMarginOfError;
@@ -897,6 +905,8 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const mad = Number.isFinite(rawMad) && rawMad > 0 ? rawMad * 1.4826 : 0.001 * safeMaxScore;
         const clampLimit = 3.5 * mad;
 
+        const robustSamples = [];
+        let robustWeightedSum = 0;
         validHistoryForMean.forEach(h => {
             const totalWeight = Number(h?.total);
             if (!Number.isFinite(totalWeight) || totalWeight <= 0) return;
@@ -912,10 +922,17 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             const difficultyWeight = Number.isFinite(rawDiff) && rawDiff >= 0 ? Math.max(0.001, rawDiff) : 1.0;
             const effectiveWeight = totalWeight * difficultyWeight;
 
-            wVarSum += effectiveWeight * Math.pow(robustScore - m, 2);
+            robustSamples.push({ robustScore, effectiveWeight });
+            robustWeightedSum += robustScore * effectiveWeight;
             sumW += effectiveWeight;
             sumW2 += Math.pow(effectiveWeight, 2);
         });
+
+        const mRobust = sumW > 0 ? (robustWeightedSum / sumW) : m;
+        for (let idx = 0; idx < robustSamples.length; idx++) {
+            const sample = robustSamples[idx];
+            wVarSum += sample.effectiveWeight * Math.pow(sample.robustScore - mRobust, 2);
+        }
 
         const kishDifference = sumW - (sumW > 0 ? (sumW2 / sumW) : 0);
         const kishDenom = kishDifference > 1e-4 ? kishDifference : Math.max(1e-4, sumW);

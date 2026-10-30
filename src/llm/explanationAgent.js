@@ -18,6 +18,7 @@ import {
   buildCoachExplanationPrompt,
 } from './llmPrompts.js';
 import { generateStructuredLLM, getLLMProvider } from './llmClient.js';
+import { getCoachFeature } from '../utils/coachFeatures.js';
 
 const explanationCache = new Map();
 const CACHE_MAX_SIZE = 60;
@@ -28,7 +29,9 @@ function getFeature(options, key, fallback = false) {
     if (options?.features && typeof options.features[key] === 'boolean') {
       return options.features[key];
     }
-
+    if (options && typeof options[key] === 'boolean') {
+      return options[key];
+    }
     if (
       typeof globalThis !== 'undefined' &&
       globalThis.__COACH_FEATURES__ &&
@@ -36,8 +39,7 @@ function getFeature(options, key, fallback = false) {
     ) {
       return globalThis.__COACH_FEATURES__[key];
     }
-
-    return fallback;
+    return getCoachFeature(options, key, fallback);
   } catch {
     return fallback;
   }
@@ -134,7 +136,9 @@ export function normalizeCoachExplanationInput(coachResult = {}, context = {}) {
  * Explicação determinística de fallback.
  */
 export function deterministicCoachExplanation(data = {}) {
-  const maxScore = clamp(data.maxScore, 1, 100000, 100);
+  const maxScore = clamp(data.maxScore, 1, 1_000_000, 100);
+  const minScore = clamp(data.minScore, -1_000_000, maxScore - 1e-6, 0);
+  const domain = Math.max(1, maxScore - minScore);
 
   const probability = toFinite(data.probability, null);
   const volatility = toFinite(data.volatility, null);
@@ -154,15 +158,18 @@ export function deterministicCoachExplanation(data = {}) {
     }
   }
 
-  if (volatility !== null && volatility > maxScore * 0.08) {
+  if (volatility !== null && volatility > domain * 0.08) {
     causes.push('Alta instabilidade nas notas recentes.');
   }
 
-  if (trend !== null && trend < -Math.max(1, maxScore * 0.02)) {
+  const trendThreshold = Math.max(0.5 * (domain / 100), domain * 0.02);
+  const severeTrendThreshold = Math.max(1.0 * (domain / 100), domain * 0.03);
+
+  if (trend !== null && trend < -trendThreshold) {
     causes.push('Tendência de queda no desempenho recente.');
   }
 
-  if (trend !== null && trend > Math.max(1, maxScore * 0.02)) {
+  if (trend !== null && trend > trendThreshold) {
     causes.push('Tendência de melhora no desempenho recente.');
   }
 
@@ -191,13 +198,13 @@ export function deterministicCoachExplanation(data = {}) {
     severity = 'critical';
   } else if (
     (probability !== null && probability < 45) ||
-    (trend !== null && trend < -Math.max(2, maxScore * 0.03)) ||
+    (trend !== null && trend < -severeTrendThreshold) ||
     normalizedScore >= 80
   ) {
     severity = 'high';
   } else if (
     (probability !== null && probability < 70) ||
-    (volatility !== null && volatility > maxScore * 0.10) ||
+    (volatility !== null && volatility > domain * 0.10) ||
     (daysSince !== null && daysSince > 10)
   ) {
     severity = 'medium';

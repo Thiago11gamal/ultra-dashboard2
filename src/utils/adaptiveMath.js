@@ -54,8 +54,6 @@ export function getConfidenceMultiplier(sampleSize, options = {}) {
     const n = Math.max(1, allowFractional ? nBase : Math.round(nBase));
     const df = Math.max(allowFractional ? 0.1 : 1, n - 1);
 
-
-
     if (df <= 30) {
         const lowDf = Math.max(1, Math.floor(df)); 
         const highDf = Math.ceil(df);
@@ -128,7 +126,19 @@ export function deriveAdaptiveConfig(scores = []) {
     const mean = kahanMean(finiteScores);
     const variance = n > 1 ? kahanSum(finiteScores.map(s => Math.pow(s - mean, 2))) / (n - 1) : 0;
     const sd = Math.sqrt(Math.max(0, variance));
-    const cv = mean !== 0 ? Math.min(2, Math.abs(sd / mean)) : 1;
+    let spread = 0;
+    if (n > 1) {
+        let minVal = Infinity;
+        let maxVal = -Infinity;
+        for (let i = 0; i < n; i++) {
+            if (finiteScores[i] < minVal) minVal = finiteScores[i];
+            if (finiteScores[i] > maxVal) maxVal = finiteScores[i];
+        }
+        spread = Math.max(0, maxVal - minVal);
+    }
+    // Dispersão invariante a escalas centradas em zero (ex: Cebraspe -120..120 onde mean ≈ 0)
+    const denom = Math.max(10, spread, Math.abs(mean));
+    const cv = n > 1 ? Math.min(2, sd / denom) : 0;
 
     // Meia-vida dinâmica baseada em n e volatilidade
     const halfLife = Math.max(2, Math.round(Math.min(14, Math.sqrt(Math.max(1, n)) * (1 + cv))));
@@ -183,7 +193,7 @@ export const calcSlopeWithSignificance = (dados) => {
     const Xs = rawXs.map(x => x - minX);
 
     if (n >= 5) {
-        // WLS com decaimento exponencial (meia-vida de 30 dias)
+        // WLS com decaimento exponencial (meia-vida de 30 dias) e SE sandwich invariante à escala dos pesos
         const isMs = maxX > 1e11;
         const lambda = Math.LN2 / 30; // ~0.0231
         const weights = rawXs.map((rx) => {
@@ -192,7 +202,9 @@ export const calcSlopeWithSignificance = (dados) => {
         });
 
         const sumW = kahanSum(weights);
-        if (sumW > 1e-9) {
+        const sumW2 = kahanSum(weights.map(w => w * w));
+        const nEff = sumW2 > 1e-12 ? (sumW * sumW) / sumW2 : n;
+        if (sumW > 1e-9 && nEff > 2.05) {
             const meanX_w = kahanSum(Xs.map((x, i) => weights[i] * x)) / sumW;
             const meanY_w = kahanSum(Ys.map((y, i) => weights[i] * y)) / sumW;
             const covXY = kahanSum(Xs.map((x, i) => weights[i] * (x - meanX_w) * (Ys[i] - meanY_w)));
@@ -203,9 +215,10 @@ export const calcSlopeWithSignificance = (dados) => {
                 const intercept = meanY_w - slope * meanX_w;
                 const predYs = Xs.map((x) => intercept + slope * x);
                 const ssRes = kahanSum(Ys.map((y, i) => weights[i] * Math.pow(y - predYs[i], 2)));
-                const effectiveDf = Math.max(1, sumW - 2);
-                const varRes = ssRes / effectiveDf;
-                const seSlope = Math.sqrt(varRes / varX);
+                const effectiveDf = Math.max(1, nEff - 2);
+                const sigma2 = (ssRes / sumW) * (nEff / effectiveDf);
+                const sumW2Dx2 = kahanSum(Xs.map((x, i) => (weights[i] * weights[i]) * Math.pow(x - meanX_w, 2)));
+                const seSlope = Math.sqrt(Math.max(0, (sigma2 * sumW2Dx2) / (varX * varX)));
                 const tStat = seSlope > 0 ? slope / seSlope : 0;
                 return { slope, se: seSlope, tStat };
             }
@@ -238,18 +251,26 @@ export const calcSlopeWithSignificance = (dados) => {
 export function computeAdaptiveSignal(historyOrScores = []) {
     const isObjectHistory = historyOrScores.length > 0 && typeof historyOrScores[0] === 'object' && historyOrScores[0] !== null;
     
-    // Extrai scores e datas
+    // Extrai scores e datas sem fabricar 0 quando score/value estiver ausente ou nulo
     const parsedData = historyOrScores.map((item, i) => {
         if (isObjectHistory) {
+            if (!item || typeof item !== 'object') return { score: NaN, time: NaN };
+            const rawScore = item.score ?? item.value;
+            const numScore = (rawScore === null || rawScore === undefined || rawScore === '' || typeof rawScore === 'boolean')
+                ? NaN
+                : Number(rawScore);
             const rawDate = safeDateParse(item.date || item.createdAt);
             const rawTime = rawDate ? rawDate.getTime() : NaN;
             return {
-                score: Number(item.score ?? item.value ?? 0),
+                score: numScore,
                 time: Number.isFinite(rawTime) ? rawTime : Date.now() - (historyOrScores.length - i) * 86400000
             };
         }
         // Fallback legado se enviarem apenas o array de números
-        return { score: Number(item), time: Date.now() - (historyOrScores.length - i) * 86400000 }; 
+        const numScore = (item === null || item === undefined || item === '' || typeof item === 'boolean')
+            ? NaN
+            : Number(item);
+        return { score: numScore, time: Date.now() - (historyOrScores.length - i) * 86400000 }; 
     }).filter(d => Number.isFinite(d.score));
     
     // ADAPT-SORT: Força ordenação cronológica para garantir que ages (referenceNow - time) sejam sempre >= 0.
@@ -280,17 +301,12 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     const weightsCollapsed = sumW < 1e-6; // ✅ FIX: flag única p/ média E variância
 
     // ✅ FIX: Se os pesos decaíram para zero, fazer fallback para média simples.
-    // Isso evita que a média ponderada colapse para 0 quando todos os
-    // dados são "antigos" demais para o lambda configurado.
     let effectiveN;
     let weightedMean;
 
     if (weightsCollapsed) {
-      // Fallback: pesos decaíram completamente → média simples com N real
       effectiveN = finiteScores.length;
       weightedMean = kahanMean(finiteScores);
-      // ✅ FIX: Marcar explicitamente que NÃO houve ponderação
-      // para que consumidores downstream saibam que é fallback
     } else {
       const rawEffN = (sumW * sumW) / Math.max(1e-9, sumW2);
       effectiveN = Number.isFinite(rawEffN) ? Math.max(1, rawEffN) : 1;
@@ -325,7 +341,6 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         }));
         weightedVariance = num / denom;
     } else {
-        // Denominador correto: wSum - (w2Sum / wSum) já incorpora a correção amostral (Bessel)
         const denom = sumW - (sumW2 / Math.max(1e-9, sumW));
         const safeDenom = denom > 1e-6 ? denom : sumW;
         const weightedVarNumerator = kahanSum(finiteScores.map((s, i) => {
@@ -336,42 +351,48 @@ export function computeAdaptiveSignal(historyOrScores = []) {
         weightedVariance = weightedVarNumerator / Math.max(1e-9, safeDenom);
     }
 
-    // NÃO aplicar Bessel separadamente — já está incorporado no denominador
     const sd = Math.sqrt(Math.max(0, weightedVariance));
-    
-    // MATEMÁTICA COMPLEXA: Em vez de linear trend clampada, usamos Bootstrapping 
-    // para medir se o momento positivo é estatisticamente significativo ou só sorte.
+
+    // Passo temporal típico (mediana de dias entre avaliações) para unificar unidades de N<5 e N>=5
+    let medianStepDays = 1;
+    if (parsedData.length >= 2) {
+        const stepDays = [];
+        for (let i = 1; i < parsedData.length; i++) {
+            stepDays.push(Math.max(0.5, (parsedData[i].time - parsedData[i - 1].time) / 86400000));
+        }
+        stepDays.sort((a, b) => a - b);
+        medianStepDays = stepDays.length % 2 === 0
+            ? (stepDays[stepDays.length / 2 - 1] + stepDays[stepDays.length / 2]) / 2
+            : stepDays[Math.floor(stepDays.length / 2)];
+    }
 
     let trueTrendStrength = 0;
     let isPlateau = false;
 
     if (finiteScores.length >= 5) {
-        // Reamostragem de Monte Carlo (Bootstrap) com os deltas mais recentes
-        const recentScores = finiteScores.slice(-8);
+        const recentItems = parsedData.slice(-8);
         const recentDeltas = [];
-        for (let i = 1; i < recentScores.length; i++) {
-            recentDeltas.push(recentScores[i] - recentScores[i - 1]);
+        for (let i = 1; i < recentItems.length; i++) {
+            const dtDays = Math.max(0.5, (recentItems[i].time - recentItems[i - 1].time) / 86400000);
+            const normalizedDelta = ((recentItems[i].score - recentItems[i - 1].score) / dtDays) * medianStepDays;
+            recentDeltas.push(normalizedDelta);
         }
         
-        // Pede o Intervalo de Confiança (CI) a 95% para a média dos deltas
-        const momentumCI = bootstrapCI(recentDeltas, (arr) => arr.reduce((a,b)=>a+b,0)/arr.length, { iterations: 500 });
-        
-        // Diagnóstico de Estagnação (Platô): Se a ponta alta for positiva, mas a baixa negativa,
-        // E houver variância real (não é apenas uma série de zeros exatos),
-        // significa que a variação é apenas ruído estocástico.
+        const momentumCI = bootstrapCI(recentDeltas, (arr) => arr.reduce((a, b) => a + b, 0) / arr.length, { iterations: 500 });
         const amplitudeCI = momentumCI.high - momentumCI.low;
         
         if (momentumCI.low <= 0 && momentumCI.high >= 0 && amplitudeCI > 1e-6) {
             isPlateau = true;
-            trueTrendStrength = 0; // Zera a tendência, forçando o motor a focar no baseline histórico
+            trueTrendStrength = 0;
         } else {
             trueTrendStrength = Math.abs(momentumCI.estimate) / (sd > 0 ? sd : 1);
         }
-    } else {
-       // Fallback matemático rigoroso para micro-amostras (N<5)
-       const slopeData = finiteScores.map((score, i) => ({ x: parsedData[i].time / 86400000, y: score }));
-       const { slope: shortSlope } = calcSlopeWithSignificance(slopeData);
-       trueTrendStrength = sd > 1e-9 ? Math.min(3.0, Math.abs(shortSlope) / sd) : 0;
+    } else if (finiteScores.length >= 3) {
+        // Fallback em unidades consistentes (variação por avaliação típica / SD)
+        const slopeData = finiteScores.map((score, i) => ({ x: parsedData[i].time / 86400000, y: score }));
+        const { slope: shortSlopePerDay } = calcSlopeWithSignificance(slopeData);
+        const shortSlopePerExam = shortSlopePerDay * medianStepDays;
+        trueTrendStrength = sd > 1e-9 ? Math.min(3.0, Math.abs(shortSlopePerExam) / sd) : 0;
     }
 
     const ciInflationRaw = 1 + (trueTrendStrength * cfg.trendSensitivity);
@@ -386,19 +407,8 @@ export function computeAdaptiveSignal(historyOrScores = []) {
     };
 }
 
-// NOTE: deriveCoachAdaptiveParams lives in coachAdaptive.js (canonical version).
-// This file previously had a duplicate with a slightly different signature.
-// Removed to avoid confusion and dead code.
-
 // ─────────────────────────────────────────────────────────────────
 // ADAPT-03: Unified Adaptive Confidence Shrinkage
-// Substitui os 3 padrões diferentes de shrinkage espalhados pelo codebase:
-//   1. shrinkProbabilityToNeutral (calibration.js) — penalidade de calibração
-//   2. extraLowSampleShrink (coachAdaptive.js:278) — amostra pequena
-//   3. POPULATION_SD prior (stats.js:44) — prior Bayesiano
-//
-// Esta função unifica o conceito: dado um estimador (probabilidade, média, etc.),
-// qual é o fator de shrinkage adequado considerando TODOS os sinais de incerteza?
 // ─────────────────────────────────────────────────────────────────
 export function adaptiveConfidenceShrinkage(options = {}) {
     const {
@@ -413,32 +423,22 @@ export function adaptiveConfidenceShrinkage(options = {}) {
     const calPen = Math.max(0, Math.min(1, Number(calibrationPenalty) || 0));
     const trend = Math.max(0, Math.min(5, Number(trendStrength) || 0));
 
-    // Componente 1: Sample size shrinkage (1/√n decay)
-    // n<5: forte shrinkage (~0.45), n=15: moderado (~0.26), n>30: mínimo (~0.18)
     const sampleShrink = Math.max(0, 1 / Math.sqrt(n));
-
-    // Componente 2: Calibração (quanto pior a calibração, mais puxamos para o neutro)
-    const calibShrink = calPen * 0.8; // escalar para não dominar
-
-    // Componente 3: Trend uncertainty (tendência forte = mais incerteza no futuro, não no presente)
-    // FIX: Usar índice bruto de penalidade (0 a 1) para evitar dupla supressão de peso.
+    const calibShrink = calPen * 0.8;
     const trendPenaltyFactor = Math.min(1.0, trend * 0.25); 
 
-    // FIX BUG 4: Incluir a incerteza da tendência no cálculo final de contração
-    // Redistribuir os pesos para incluir a incerteza da tendência (15%)
     const rawShrink = (sampleShrink * 0.50) + (calibShrink * 0.35) + (trendPenaltyFactor * 0.15); 
     const safeMaxShrink = Number.isFinite(Number(maxShrink)) ? Number(maxShrink) : 0.6;
     const finalShrink = Math.max(0, Math.min(safeMaxShrink, rawShrink));
 
     return {
         shrinkFactor: Number(finalShrink.toFixed(4)),
-        trendUncertaintyPenalty: Number(trendPenaltyFactor.toFixed(4)), // Exporta para o Monte Carlo inflar o desvio padrão
+        trendUncertaintyPenalty: Number(trendPenaltyFactor.toFixed(4)),
         components: {
             sampleShrink: Number(sampleShrink.toFixed(4)),
             calibShrink: Number(calibShrink.toFixed(4)),
             trendShrink: Number(trendPenaltyFactor.toFixed(4))
         },
-        // Helper: aplica o shrinkage a um valor
         apply: (value) => {
             const v = Number(value);
             if (!Number.isFinite(v)) return neutralValue;
@@ -449,16 +449,12 @@ export function adaptiveConfidenceShrinkage(options = {}) {
 
 // ─────────────────────────────────────────────────────────────────
 // IMP-MATH-07: Ponte entre computeAdaptiveSignal e o pipeline do Coach
-// Exporta um peso consolidado que indica quanta confiança o motor deve
-// depositar nas previsões atuais vs. recuar para priors conservadores.
 // ─────────────────────────────────────────────────────────────────
 export function computeAdaptiveCoachWeight(scores = []) {
     const signal = computeAdaptiveSignal(scores);
     
-    // CORREÇÃO MATH: Se o tamanho da amostra (efetiva) for irrisório, 
-    // a confiança matemática na tendência empírica DEVE colapsar para 0 estrito.
-    // O sistema não pode dar 30% de credibilidade cega ao Vazio.
-    if (signal.effectiveN < 1.5) {
+    // Rampa contínua C⁰ a partir de effectiveN = 1 (elimina salto 0 → 0.37 em effectiveN = 1.5)
+    if (signal.effectiveN <= 1.05) {
         return {
             confidenceWeight: 0,
             effectiveN: Number(signal.effectiveN.toFixed(2)),
@@ -468,12 +464,12 @@ export function computeAdaptiveCoachWeight(scores = []) {
         };
     }
 
+    const sampleOnsetGate = Math.min(1, Math.max(0, (signal.effectiveN - 1) / 1.5));
     const nConfidence = Math.min(1, signal.effectiveN / 15);
     const trendUncertainty = Math.min(1, signal.trendStrength / 2.5); 
     
-    const confidenceWeight = Math.max(0, Math.min(1, 
-        nConfidence * 0.7 + (1 - trendUncertainty) * 0.3
-    ));
+    const rawWeight = nConfidence * 0.7 + (1 - trendUncertainty) * 0.3;
+    const confidenceWeight = Math.max(0, Math.min(1, rawWeight * sampleOnsetGate));
 
     return {
         confidenceWeight: Number(confidenceWeight.toFixed(4)),
@@ -485,12 +481,6 @@ export function computeAdaptiveCoachWeight(scores = []) {
 }
 /**
  * Calcula a retenção real usando o algoritmo FSRS (Free Spaced Repetition Scheduler).
- * Substitui o modelo clássico de Ebbinghaus por uma matriz de Estabilidade e Recuperabilidade.
- * 
- * @param {number} horasDesdeEstudo - Tempo (t) em horas.
- * @param {number} forcaMemoria - Força do traço de memória (S) baseada em revisões (0 a 10).
- * @param {number} dificuldade - Fator de dificuldade do item (0.1 a 1.0).
- * @returns {number} Percentual de Retenção (0.20 a 1.0)
  */
 export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificuldade = 0.5) => {
     const baseline = 0.2;
@@ -513,4 +503,3 @@ export const calculateSafeRetention = (horasDesdeEstudo, forcaMemoria, dificulda
     
     return clamp(finalRetention, baseline, 1.0);
 };
-

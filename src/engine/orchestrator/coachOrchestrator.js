@@ -23,7 +23,7 @@ import {
   clearTopicsCache,
   clearMcCache,
 } from '../../utils/coachLogic.js';
-import { writeFlags, readFlags } from '../../utils/coachFeatureStore.js';
+import { writeFlags, readFlags, replaceFlags } from '../../utils/coachFeatureStore.js';
 import { isValidFeatureKey } from '../../utils/coachFeatures.js';
 
 const ORCHESTRATOR_VERSION = '12.0.0';
@@ -33,11 +33,13 @@ const DEFAULT_TIMEOUT_MS = 30000;
 import * as coachOptimizerMod from '../../utils/coachOptimizer.js';
 import * as coachObservabilityMod from '../../utils/coachObservability.js';
 import * as coachCausalMod from '../../utils/coachCausal.js';
+import * as explanationAgentMod from '../../llm/explanationAgent.js';
 
 const STATIC_MODULES = {
   coachOptimizer: coachOptimizerMod,
   coachObservability: coachObservabilityMod,
   coachCausal: coachCausalMod,
+  explanationAgent: explanationAgentMod,
 };
 
 function safeArray(value) {
@@ -47,6 +49,9 @@ function safeArray(value) {
 }
 
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return fallback;
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   const safeMin = Math.min(min, max);
@@ -116,6 +121,7 @@ export function clearCoachCaches() {
   }
   // FIX: limpar também cache de explicações LLM para evitar stale data
   try {
+    explanationAgentMod.clearLLMExplanationCache?.();
     if (typeof globalThis.__COACH_LLM_CACHE__?.clear === 'function') {
       globalThis.__COACH_LLM_CACHE__.clear();
     }
@@ -143,12 +149,13 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   const simulados = safeArray(safeInput.simulados);
   const studyLogs = safeArray(safeInput.studyLogs);
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-  const minScore = clampFinite(options.minScore, 0, maxScore, 0);
+  const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
+  const domain = Math.max(1e-6, maxScore - minScore);
   const targetScore = clampFinite(
     options.targetScore,
-    0,
+    minScore,
     maxScore,
-    maxScore * 0.8
+    minScore + domain * 0.8
   );
 
   // FIX (BUG-34): timeout + AbortController
@@ -186,15 +193,21 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     }
   };
 
+  const contestId = options.contestId;
+  let flagsToRestore = readFlags(contestId);
+  let tunerAppliedFlags = false;
+  const hasTransientOptionFeatures = Boolean(
+    options.features && typeof options.features === 'object' && Object.keys(options.features).length > 0
+  );
+
   try {
-    // Flags iniciais.
+    // Flags iniciais (não vaza overrides transitórios de options.features para fora da execução).
     let features = {};
-    const baseFeatures = readFlags();
+    const baseFeatures = flagsToRestore;
     const optionFeatures = options.features || {};
     for (const [k, v] of Object.entries({ ...baseFeatures, ...optionFeatures })) {
       if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
     }
-    writeFlags(features);
 
     const orchestratorEnabled =
       options.force === true ||
@@ -219,19 +232,22 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       options.loadPersistedFlags !== false
     ) {
       try {
-        optimizerModule.bootstrapCoachFlags();
-        const updatedBase = readFlags();
+        optimizerModule.bootstrapCoachFlags(contestId);
+        const updatedBase = readFlags(contestId);
+        flagsToRestore = updatedBase;
         features = {};
         for (const [k, v] of Object.entries({ ...updatedBase, ...optionFeatures })) {
           if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
         }
-        writeFlags(features);
       } catch (err) {
         meta.errors.push({
           step: 'bootstrapCoachFlags',
           message: err?.message || String(err),
         });
       }
+    }
+    if (hasTransientOptionFeatures) {
+      writeFlags(features, contestId);
     }
     meta.flags = features;
 
@@ -307,6 +323,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
               studyLogs,
               {
                 maxScore,
+                minScore,
                 minTreatmentMinutes: options.minTreatmentMinutes ?? 60,
                 maxHorizonDays: options.maxHorizonDays ?? 45,
               }
@@ -314,6 +331,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
             if (Array.isArray(events) && events.length > 0) {
               causalModel = causalModule.trainCausalModel?.(events, {
                 maxScore,
+                minScore,
                 method: options.causalMethod || 'auto',
                 useBootstrap: getFeature(features, 'useCausalBootstrap', false),
                 bootstrapIterations: options.causalBootstrapIterations ?? 100,
@@ -371,7 +389,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
 
     try {
       ensureNotAborted('getBestTask');
-      bestTask = getBestTask(categories, options.excludeTaskId ?? null);
+      bestTask = getBestTask(categories, options.excludeTaskId ?? null, coachOptions);
     } catch (err) {
       if (controller.signal.aborted) throw err;
       meta.errors.push({
@@ -384,7 +402,10 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     // 5. Reordenação causal de tarefas
     // ==========================================================
     if (
-      getFeature(features, 'useCausalTaskSelection', false) &&
+      (
+        getFeature(features, 'useCausalTaskSelection', false) ||
+        getFeature(features, 'usePersonalizedPolicy', false)
+      ) &&
       causalModule?.rerankCoachTasksWithCausalPolicy &&
       causalModel &&
       Array.isArray(tasks) &&
@@ -397,6 +418,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
           causalModel,
           {
             maxScore,
+            minScore,
             healthStatus: health?.status || null,
             causalWeight: options.causalWeight ?? 0.35,
           }
@@ -440,6 +462,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
                 context: {
                   categoryName: focus.name || focus.categoryName || null,
                   maxScore,
+                  minScore,
                   targetScore,
                 },
               }
@@ -480,6 +503,8 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
         try {
           tuner = await tunerModule.runCoachAutoTuner({
             maxScore,
+            minScore,
+            contestId,
             force: true,
             autoApply: options.autoApplyTuner === true,
             forceApply: options.forceApplyTuner === true,
@@ -487,6 +512,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
             exploration: options.exploration === true,
           });
           if (tuner?.applied) {
+            tunerAppliedFlags = true;
             clearCoachCaches();
           }
         } catch (err) {
@@ -548,6 +574,13 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       },
     };
   } finally {
+    if (hasTransientOptionFeatures && !tunerAppliedFlags) {
+      try {
+        replaceFlags(flagsToRestore, contestId);
+      } catch {
+        // ignore restore errors
+      }
+    }
     if (options?.signal) {
       options.signal.removeEventListener('abort', onExternalAbort);
     }

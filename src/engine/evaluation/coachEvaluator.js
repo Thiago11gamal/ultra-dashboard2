@@ -20,7 +20,7 @@ import {
   computeCalibrationDiagnostics,
 } from '../../utils/calibration.js';
 import { toFiniteStrict, clampFiniteStrict } from '../../utils/coachSafe.js';
-import { safeSetItem } from '../../utils/coachStorage.js';
+import { safeSetItem, safeGetJSON, safeRemoveItem } from '../../utils/coachStorage.js';
 
 const EVAL_STORAGE_KEY = 'coach_evaluation_results_v1';
 const EVAL_STORAGE_MAX = 500;
@@ -46,18 +46,10 @@ function normalizeName(value) {
 
 function meanValues(values) {
   const finite = (Array.isArray(values) ? values : [])
-    .map((v) => Number(v))
+    .map((v) => toFinite(v, NaN))
     .filter((v) => Number.isFinite(v));
   if (finite.length === 0) return null;
   return finite.reduce((acc, val) => acc + val, 0) / finite.length;
-}
-
-function getStorage() {
-  try {
-    return globalThis?.localStorage || null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -68,7 +60,7 @@ export function evaluateProbabilityPrediction(
   observedSuccess,
   _options = {}
 ) {
-  const predictedPct = clampFinite(Number(predictedProbabilityPct), 0, 100, 50);
+  const predictedPct = clampFinite(predictedProbabilityPct, 0, 100, 50);
   const predictedProbability01 = predictedPct / 100;
   const observed = observedSuccess ? 1 : 0;
   const brier = computeBrierScore(predictedProbability01, observed);
@@ -98,8 +90,10 @@ export function evaluateScorePrediction(
   options = {}
 ) {
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-  const predicted = clampFinite(predictedScore, 0, maxScore, null);
-  const observed = clampFinite(observedScore, 0, maxScore, null);
+  const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
+  const domain = Math.max(1e-6, maxScore - minScore);
+  const predicted = clampFinite(predictedScore, minScore, maxScore, null);
+  const observed = clampFinite(observedScore, minScore, maxScore, null);
 
   if (predicted === null || observed === null) {
     return null;
@@ -107,7 +101,7 @@ export function evaluateScorePrediction(
 
   const error = observed - predicted;
   const absoluteError = Math.abs(error);
-  const normalizedError = absoluteError / maxScore;
+  const normalizedError = absoluteError / domain;
 
   return {
     predicted: Number(predicted.toFixed(2)),
@@ -116,6 +110,7 @@ export function evaluateScorePrediction(
     absoluteError: Number(absoluteError.toFixed(2)),
     normalizedError: Number(normalizedError.toFixed(6)),
     maxScore,
+    minScore,
   };
 }
 
@@ -206,10 +201,13 @@ export function evaluateTopicRanking(
   }));
   const ndcg = computeNDCGAtK(ndcgPredicted, ndcgActual, k);
 
+  const relevantIds = new Set(
+    safeActual.filter((item) => item.relevance > 0).map((item) => item.id)
+  );
   const topK = safePredicted.slice(0, k);
-  const hits = topK.filter((topic) => actualMap.has(topic.id)).length;
+  const hits = topK.filter((topic) => relevantIds.has(topic.id)).length;
   const precisionAtK = topK.length > 0 ? hits / topK.length : 0;
-  const recallAtK = actualMap.size > 0 ? hits / actualMap.size : 0;
+  const recallAtK = relevantIds.size > 0 ? hits / relevantIds.size : 0;
 
   return {
     k,
@@ -266,8 +264,15 @@ export function evaluateTaskUplift(events = [], _options = {}) {
  * Avalia um snapshot do Coach contra um resultado futuro.
  */
 export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {}) {
-  const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-  const targetScore = clampFinite(options.targetScore, 0, maxScore, maxScore * 0.8);
+  const maxScore = clampFinite(options.maxScore ?? snapshot?.maxScore, 1, 1_000_000, 100);
+  const minScore = clampFinite(options.minScore ?? snapshot?.minScore, -1_000_000, maxScore - 1e-6, 0);
+  const domain = Math.max(1e-6, maxScore - minScore);
+  const targetScore = clampFinite(
+    options.targetScore ?? snapshot?.targetScore,
+    minScore,
+    maxScore,
+    minScore + domain * 0.8
+  );
   const predictedProbability = toFinite(snapshot?.probability, null);
 
   let observedSuccess = outcome?.success;
@@ -279,14 +284,14 @@ export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {})
   }
 
   const probabilityEvaluation =
-    predictedProbability !== null && observedSuccess !== null
+    predictedProbability !== null && observedSuccess !== null && observedSuccess !== undefined
       ? evaluateProbabilityPrediction(predictedProbability, observedSuccess)
       : null;
 
   const scoreEvaluation = evaluateScorePrediction(
     snapshot?.predictedMean,
     outcome?.score,
-    { maxScore }
+    { maxScore, minScore }
   );
 
   let topicEvaluation = null;
@@ -317,6 +322,7 @@ export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {})
     normalizedScore: toFinite(snapshot?.normalizedScore, null),
     targetScore,
     maxScore,
+    minScore,
     probabilityEvaluation,
     scoreEvaluation,
     topicEvaluation,
@@ -475,31 +481,56 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
   const baseTopics = baseline?.topics || {};
   const candTopics = candidate?.topics || {};
 
-  const deltaBrier =
-    toFinite(candProbability.avgBrier, 0) - toFinite(baseProbability.avgBrier, 0);
-  const deltaLogLoss =
-    toFinite(candProbability.avgLogLoss, 0) -
-    toFinite(baseProbability.avgLogLoss, 0);
-  const deltaEce =
-    toFinite(candProbability.ece, 0) - toFinite(baseProbability.ece, 0);
-  const deltaMae =
-    toFinite(candScore.mae, 0) - toFinite(baseScore.mae, 0);
-  const deltaNdcg =
-    toFinite(candTopics.avgNdcg, 0) - toFinite(baseTopics.avgNdcg, 0);
-  const deltaPrecision =
-    toFinite(candTopics.avgPrecisionAtK, 0) -
-    toFinite(baseTopics.avgPrecisionAtK, 0);
+  // Só calcula delta quando AMBOS os sumários possuem a métrica observada
+  // (evita tratar null como 0.000 — ex.: Brier/ECE perfeitos fictícios).
+  const pairDelta = (candVal, baseVal) => {
+    const c = toFinite(candVal, null);
+    const b = toFinite(baseVal, null);
+    return c !== null && b !== null ? c - b : null;
+  };
 
-  const normBrier = deltaBrier / Math.max(0.001, Math.abs(toFinite(baseProbability.avgBrier, 0.2)));
-  const normNdcg = deltaNdcg / Math.max(0.001, Math.abs(toFinite(baseTopics.avgNdcg, 0.5)));
-  const normEce = deltaEce / Math.max(0.001, Math.abs(toFinite(baseProbability.ece, 0.15)));
+  const rawDeltaBrier = pairDelta(candProbability.avgBrier, baseProbability.avgBrier);
+  const rawDeltaLogLoss = pairDelta(candProbability.avgLogLoss, baseProbability.avgLogLoss);
+  const rawDeltaEce = pairDelta(candProbability.ece, baseProbability.ece);
+  const rawDeltaMae = pairDelta(candScore.mae, baseScore.mae);
+  const rawDeltaNdcg = pairDelta(candTopics.avgNdcg, baseTopics.avgNdcg);
+  const rawDeltaPrecision = pairDelta(candTopics.avgPrecisionAtK, baseTopics.avgPrecisionAtK);
 
-  // FIX: clamp [-1, 1]
-  const heuristicScore = Math.max(-1, Math.min(1,
-    -normBrier * 0.40 +
-    -normEce * 0.25 +
-    normNdcg * 0.35
-  ));
+  const deltaBrier = rawDeltaBrier ?? 0;
+  const deltaLogLoss = rawDeltaLogLoss ?? 0;
+  const deltaEce = rawDeltaEce ?? 0;
+  const deltaMae = rawDeltaMae ?? 0;
+  const deltaNdcg = rawDeltaNdcg ?? 0;
+  const deltaPrecision = rawDeltaPrecision ?? 0;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  if (rawDeltaBrier !== null) {
+    const normBrier = rawDeltaBrier / Math.max(0.001, Math.abs(toFinite(baseProbability.avgBrier, 0.2)));
+    weightedSum += -normBrier * 0.40;
+    totalWeight += 0.40;
+  }
+  if (rawDeltaEce !== null) {
+    const normEce = rawDeltaEce / Math.max(0.001, Math.abs(toFinite(baseProbability.ece, 0.15)));
+    weightedSum += -normEce * 0.25;
+    totalWeight += 0.25;
+  }
+  if (rawDeltaNdcg !== null) {
+    const normNdcg = rawDeltaNdcg / Math.max(0.001, Math.abs(toFinite(baseTopics.avgNdcg, 0.5)));
+    weightedSum += normNdcg * 0.35;
+    totalWeight += 0.35;
+  }
+  if (rawDeltaMae !== null && totalWeight < 0.65) {
+    const normMae = rawDeltaMae / Math.max(0.01, Math.abs(toFinite(baseScore.mae, 5)));
+    weightedSum += -normMae * 0.20;
+    totalWeight += 0.20;
+  }
+
+  // FIX: renormaliza pelos pesos efetivamente disponíveis e limita em [-1, 1]
+  const heuristicScore = totalWeight > 0
+    ? Math.max(-1, Math.min(1, weightedSum / totalWeight))
+    : 0;
 
   let winner = 'tie';
   if (heuristicScore > 0.001) {
@@ -640,38 +671,21 @@ export function saveEvaluationResult(result) {
  * Carrega avaliações salvas.
  */
 export function loadEvaluationResults() {
-  try {
-    const storage = getStorage();
-    if (!storage) return [];
+  const parsed = safeGetJSON(EVAL_STORAGE_KEY, []);
+  if (!Array.isArray(parsed)) return [];
 
-    const raw = storage.getItem(EVAL_STORAGE_KEY);
-    if (!raw) return [];
-
-    // BUG: JSON corrompido quebrava todo o avaliador.
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(item =>
-      item &&
-      typeof item === 'object' &&
-      Number.isFinite(item.timestamp ?? item.generatedAt)
-    );
-  } catch {
-    return [];
-  }
+  return parsed.filter(item =>
+    item &&
+    typeof item === 'object' &&
+    Number.isFinite(item.timestamp ?? item.generatedAt)
+  );
 }
 
 /**
  * Limpa avaliações salvas.
  */
 export function clearEvaluationResults() {
-  const storage = getStorage();
-  if (!storage) return;
-  try {
-    storage.removeItem(EVAL_STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  safeRemoveItem(EVAL_STORAGE_KEY);
 }
 
 export default {

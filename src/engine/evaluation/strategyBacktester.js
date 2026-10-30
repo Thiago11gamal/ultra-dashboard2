@@ -10,7 +10,9 @@
 import {
   calculateUrgency,
   getSuggestedFocus,
+  getWeakestTopicsList,
   clearUrgencyCache,
+  clearTopicsCache,
   clearMcCache,
 } from '../../utils/coachLogic.js';
 
@@ -189,10 +191,23 @@ export function getGranularCoachStrategies() {
  * Constrói splits temporais para uma categoria.
  */
 export function buildCategorySplits(category, simulados = [], options = {}) {
-  const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
-  const targetScore = Number.isFinite(Number(options.targetScore))
-    ? Number(options.targetScore)
-    : maxScore * 0.8;
+  const maxScore =
+    Number(category?.maxScore) > 0
+      ? Number(category.maxScore)
+      : Number(options.maxScore) > 0
+        ? Number(options.maxScore)
+        : 100;
+  const rawMin = category?.minScore ?? options.minScore;
+  const minScore =
+    rawMin !== null && rawMin !== undefined && rawMin !== '' && Number.isFinite(Number(rawMin))
+      ? Math.min(Number(rawMin), maxScore)
+      : 0;
+  const domain = Math.max(1e-6, maxScore - minScore);
+  const rawTarget = options.targetScore;
+  const targetScore =
+    rawTarget !== null && rawTarget !== undefined && rawTarget !== '' && Number.isFinite(Number(rawTarget))
+      ? Number(rawTarget)
+      : minScore + domain * 0.8;
 
   const minTrain = Math.max(3, Math.round(Number(options.minTrain) || 5));
   const maxSplits = Math.max(1, Math.round(Number(options.maxSplits) || 8));
@@ -231,8 +246,14 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
   // FIX-M03: horizon adaptativo baseado no gap mediano entre simulados.
   // Alunos que fazem simulados semanais: horizon=2.
   // Alunos que fazem a cada 3 dias: horizon=5.
-  let horizon = Math.max(1, Math.round(Number(options.horizon) || 1));
-  if (!Number.isFinite(Number(options.horizon))) {
+  const hasExplicitHorizon =
+    options.horizon !== undefined &&
+    options.horizon !== null &&
+    options.horizon !== '' &&
+    Number.isFinite(Number(options.horizon)) &&
+    Number(options.horizon) >= 1;
+  let horizon = hasExplicitHorizon ? Math.max(1, Math.round(Number(options.horizon))) : 1;
+  if (!hasExplicitHorizon) {
     // Auto-detectar a partir dos gaps temporais
     const times = categorySimulados
       .map(s => toTime(s?.date ?? s?.createdAt))
@@ -258,7 +279,7 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
     if (future.length === 0) break;
 
     const observedScores = future
-      .map((simulado) => getSafeScore(simulado, maxScore))
+      .map((simulado) => getSafeScore(simulado, maxScore, minScore))
       .filter((score) => Number.isFinite(score));
 
     if (observedScores.length === 0) continue;
@@ -273,6 +294,10 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
     splits.push({
       categoryId,
       categoryName,
+      maxScore,
+      minScore,
+      targetScore,
+      horizon,
       train,
       future,
       trainLastDate,
@@ -295,10 +320,22 @@ export function runCoachStrategyBacktest(config = {}) {
   const studyLogs = safeArray(config.studyLogs);
 
   const maxScore = Number(config.maxScore) > 0 ? Number(config.maxScore) : 100;
+  const minScore =
+    config.minScore !== null &&
+    config.minScore !== undefined &&
+    config.minScore !== '' &&
+    Number.isFinite(Number(config.minScore))
+      ? Math.min(Number(config.minScore), maxScore)
+      : 0;
+  const domain = Math.max(1e-6, maxScore - minScore);
 
-  const targetScore = Number.isFinite(Number(config.targetScore))
-    ? Number(config.targetScore)
-    : maxScore * 0.8;
+  const targetScore =
+    config.targetScore !== null &&
+    config.targetScore !== undefined &&
+    config.targetScore !== '' &&
+    Number.isFinite(Number(config.targetScore))
+      ? Number(config.targetScore)
+      : minScore + domain * 0.8;
 
   const strategies =
     Array.isArray(config.strategies) && config.strategies.length > 0
@@ -306,8 +343,17 @@ export function runCoachStrategyBacktest(config = {}) {
       : getDefaultCoachStrategies();
 
   const minTrain = Math.max(3, Math.round(Number(config.minTrain) || 5));
-  const horizon = Math.max(1, Math.round(Number(config.horizon) || 1));
+  const hasExplicitHorizon =
+    config.horizon !== undefined &&
+    config.horizon !== null &&
+    config.horizon !== '' &&
+    Number.isFinite(Number(config.horizon)) &&
+    Number(config.horizon) >= 1;
+  const explicitHorizon = hasExplicitHorizon
+    ? Math.max(1, Math.round(Number(config.horizon)))
+    : undefined;
   const maxSplits = Math.max(1, Math.round(Number(config.maxSplits) || 6));
+  const topicK = Math.max(1, Math.round(Number(config.topicK) || 5));
 
   const includeTopics = config.includeTopics === true;
   const clearCaches = config.clearCaches !== false;
@@ -318,22 +364,32 @@ export function runCoachStrategyBacktest(config = {}) {
     rawByStrategy[strategy.id] = [];
   });
 
+  let resolvedHorizon = explicitHorizon ?? null;
+
   categories.forEach((category) => {
     const splits = buildCategorySplits(category, simulados, {
       maxScore,
-      targetScore,
+      minScore,
+      targetScore: config.targetScore,
       minTrain,
-      horizon,
+      horizon: explicitHorizon,
       maxSplits,
     });
+    if (resolvedHorizon === null && splits.length > 0 && Number.isFinite(splits[0].horizon)) {
+      resolvedHorizon = splits[0].horizon;
+    }
 
     splits.forEach((split) => {
       const logsBefore = filterLogsBefore(studyLogs, split.trainLastDate);
+      const splitMaxScore = split.maxScore ?? maxScore;
+      const splitMinScore = split.minScore ?? minScore;
+      const splitTargetScore = split.targetScore ?? targetScore;
 
       strategies.forEach((strategy) => {
         if (clearCaches) {
           try {
             clearUrgencyCache();
+            clearTopicsCache();
             clearMcCache();
           } catch {
             // ignore
@@ -343,8 +399,9 @@ export function runCoachStrategyBacktest(config = {}) {
         try {
           const runOptions = {
             ...(config.options || {}),
-            maxScore,
-            targetScore,
+            maxScore: splitMaxScore,
+            minScore: splitMinScore,
+            targetScore: splitTargetScore,
             now: split.trainLastDate,
             features: {
               ...(config.baseFeatures || {}),
@@ -365,7 +422,20 @@ export function runCoachStrategyBacktest(config = {}) {
             );
 
             urgency = focus?.urgency || null;
-            weakTopics = focus?.weakestTopic ? [focus.weakestTopic] : [];
+            const topTopics = getWeakestTopicsList(
+              category,
+              split.train,
+              splitMaxScore,
+              topicK,
+              splitMinScore,
+              runOptions
+            );
+            weakTopics =
+              Array.isArray(topTopics) && topTopics.length > 0
+                ? topTopics
+                : focus?.weakestTopic
+                  ? [focus.weakestTopic]
+                  : [];
           } else {
             urgency = calculateUrgency(
               category,
@@ -374,6 +444,13 @@ export function runCoachStrategyBacktest(config = {}) {
               runOptions
             );
           }
+
+          // Alinha o evento binário observado com o alvo efetivo do Monte Carlo (ex.: stepping-stone target)
+          const effectiveMCTarget = urgency?.details?.monteCarlo?.effectiveMCTarget;
+          const evalTargetScore = Number.isFinite(effectiveMCTarget)
+            ? effectiveMCTarget
+            : splitTargetScore;
+          const observedSuccess = split.observedScore >= evalTargetScore;
 
           const snapshot = {
             strategyId: strategy.id,
@@ -388,6 +465,9 @@ export function runCoachStrategyBacktest(config = {}) {
               urgency?.details?.monteCarlo?.meanProjected ??
               urgency?.details?.averageScore ??
               null,
+            maxScore: splitMaxScore,
+            minScore: splitMinScore,
+            targetScore: evalTargetScore,
             weakTopics,
           };
 
@@ -398,14 +478,15 @@ export function runCoachStrategyBacktest(config = {}) {
 
           const outcome = {
             score: split.observedScore,
-            success: split.observedSuccess,
+            success: observedSuccess,
             relevantTopics: Array.isArray(outcomeTopics) ? outcomeTopics : [],
           };
 
           const evaluation = evaluateCoachSnapshot(snapshot, outcome, {
-            maxScore,
-            targetScore,
-            k: config.topicK ?? 5,
+            maxScore: splitMaxScore,
+            minScore: splitMinScore,
+            targetScore: evalTargetScore,
+            k: topicK,
             evaluateTopics: includeTopics,
           });
 
@@ -445,9 +526,10 @@ export function runCoachStrategyBacktest(config = {}) {
     generatedAt: Date.now(),
     config: {
       maxScore,
+      minScore,
       targetScore,
       minTrain,
-      horizon,
+      horizon: resolvedHorizon ?? explicitHorizon ?? 1,
       maxSplits,
       includeTopics,
       clearCaches,

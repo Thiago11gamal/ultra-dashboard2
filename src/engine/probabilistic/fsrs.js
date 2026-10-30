@@ -90,14 +90,16 @@ export function estimateTopicFsrs(topic, options = {}) {
   const metaMaxScore = toFiniteNumber(topic.maxScore, null);
   const maxScoreSeen = Math.max(...scores);
 
+  const optMaxScore = toFiniteNumber(options.scoreScale ?? options.maxScore, null);
   const scoreScale = Math.max(
     1,
-    options.scoreScale ??
-      (Number.isFinite(metaMaxScore) && metaMaxScore > 0
-        ? metaMaxScore
-        : maxScoreSeen <= 1
-          ? 1
-          : 100)
+    Number.isFinite(optMaxScore) && optMaxScore > 0
+      ? optMaxScore
+      : (Number.isFinite(metaMaxScore) && metaMaxScore > 0
+          ? metaMaxScore
+          : maxScoreSeen <= 1
+            ? 1
+            : 100)
   );
 
   const metaMinScore = toFiniteNumber(topic.minScore ?? options.minScore, 0);
@@ -190,10 +192,17 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
 
   const consistencyFactor = Math.max(0.1, 1 - (sd / domain));
   const performanceFactor = Math.max(0.1, (mean - minScore) / domain);
-  const reviewFactor = Math.min(1, scores.length / 5);
-  // FIX-C01: mesmo multiplicador e difficultyFactor do estimateTopicFsrs
+  const reviewFactor = Math.min(1, Math.log1p(scores.length) / Math.log1p(20));
+  // FIX-C01: mesmo multiplicador e mapeamento de dificuldade do estimateTopicFsrs
   const FSRS_STABILITY_MULTIPLIER = 14;
-  const difficulty = clamp(rawDifficulty / 2, 0, 1);
+  let difficulty;
+  if (rawDifficulty > 2) {
+    difficulty = clamp((rawDifficulty - 1) / 9, 0, 1);
+  } else if (rawDifficulty >= 0.6 && rawDifficulty <= 2.0) {
+    difficulty = clamp(((rawDifficulty - 0.7) / (1.6 - 0.7)) * 0.7 + 0.2, 0.1, 0.95);
+  } else {
+    difficulty = clamp(rawDifficulty / 2, 0, 1);
+  }
   const difficultyFactor = 1 - (difficulty * 0.35);
   const baseStability = (3 + (FSRS_STABILITY_MULTIPLIER * consistencyFactor * performanceFactor * reviewFactor)) * difficultyFactor;
 
@@ -202,9 +211,12 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
   const retentionPct = retention * 100;
   const optimalIntervalDays = fsrsIntervalForRetention(stability, desiredRetention);
   const nextReviewInDays = Math.max(0, optimalIntervalDays - daysSince);
+  const triggerPct = options.desiredRetention != null
+    ? clamp(desiredRetention * 100 - 10, 50, 90)
+    : 75;
 
-  if (retentionPct < 75) {
-    const intensity = Math.pow((75 - retentionPct) / 75, 1.2);
+  if (retentionPct < triggerPct) {
+    const intensity = Math.pow((triggerPct - retentionPct) / triggerPct, 1.2);
     const boost = (Number(cfg.SRS_BOOST) || 16) * 2.0 * intensity;
     let label;
     if (retentionPct < 30) {

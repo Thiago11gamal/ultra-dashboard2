@@ -25,6 +25,9 @@
  */
 
 function clampFinite(value, min, max, fallback = min) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
+    return fallback;
+  }
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
@@ -223,8 +226,25 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
     trendSd * effectiveTrendDays * 0.6
   );
 
-  const baseNoiseSd =
-    dailyVolatility * Math.sqrt(Math.max(0, horizonDays));
+  // Inclui ruído observacional do dia da prova para que horizonDays = 0 não colapse o ruído aleatório a zero
+  const observationSd = clampFinite(
+    input.observationSd,
+    0,
+    domain * 0.25,
+    dailyVolatility
+  );
+  const baseNoiseSd = Math.sqrt(
+    observationSd * observationSd +
+    dailyVolatility * dailyVolatility * Math.max(0, horizonDays)
+  );
+  const rawCov = Number(input.abilityTrendCov);
+  const maxCov = abilitySd * trendSd * 0.95;
+  const abilityTrendCov = Number.isFinite(rawCov) && maxCov > 0
+    ? clampFinite(rawCov, -maxCov, maxCov, 0)
+    : 0;
+  const corrAbilityTrend = (abilitySd > 1e-9 && trendSd > 1e-9)
+    ? clampFinite(abilityTrendCov / (abilitySd * trendSd), -0.95, 0.95, 0)
+    : 0;
 
   // Casos extremos.
   if (targetScore <= minScore) {
@@ -262,18 +282,25 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
   const samples = new Array(simulations);
   let successCount = 0;
 
+  // Fator RMS analítico sqrt(E[U^2] * E[J^2]) = sqrt((1 + 0.16/12) * (0.93 + 0.07 * 1.65^2)) ≈ 1.0656
+  // Preserva caudas pesadas sem inflar artificialmente o segundo momento E[M^2] = 1.
+  const VOL_MULT_RMS = 1.065604;
+
   for (let i = 0; i < simulations; i++) {
-    const sampledAbility = ability + gaussian() * abilitySd;
+    const zAbility = gaussian();
+    const zIndep = gaussian();
+    const zTrend = corrAbilityTrend * zAbility + Math.sqrt(Math.max(0, 1 - corrAbilityTrend * corrAbilityTrend)) * zIndep;
 
-    const sampledTrendShift =
-      meanTrendShift + gaussian() * trendShiftSd;
+    const sampledAbility = ability + zAbility * abilitySd;
+    const sampledTrendShift = meanTrendShift + zTrend * trendShiftSd;
 
-    // Volatilidade heteroscedástica leve + cauda pesada ocasional.
+    // Volatilidade heteroscedástica leve + cauda pesada ocasional (normalizada p/ E[M^2] = 1).
     let volatilityMultiplier = 0.8 + 0.4 * rng();
 
     if (rng() < 0.07) {
       volatilityMultiplier *= 1.65;
     }
+    volatilityMultiplier /= VOL_MULT_RMS;
 
     const noise = gaussian() * baseNoiseSd * volatilityMultiplier;
 
@@ -302,7 +329,8 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
   // +8 era arbitrário; para n=3, trust=0.27 (73% do peso ia pro MC legado).
   // Agora: trust = n / (n + K) onde K = max(3, domain * 0.03).
   // Para domain=100: K=3 → n=3: trust=0.50; n=10: trust=0.77; n=30: trust=0.91.
-  const trustK = Math.max(3, domain * 0.03);
+  // Constante de credibilidade amostral adimensional (invariante à escala de pontos 0..10 vs 200..1000)
+  const trustK = clampFinite(options.trustK, 1, 30, 4);
   const sampleTrust =
     sampleSize > 0
       ? Math.min(1, sampleSize / (sampleSize + trustK))

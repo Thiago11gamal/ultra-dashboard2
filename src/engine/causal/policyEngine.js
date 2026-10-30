@@ -33,7 +33,7 @@ export function inferActionType(text = '') {
     return 'mock_exam';
   }
 
-  if (/revisão geral|revisao geral|geral|manutenção|manutencao/.test(s)) {
+  if (/revisão geral|revisao geral|manutenção|manutencao/.test(s)) {
     return 'general_review';
   }
 
@@ -217,6 +217,7 @@ export function scoreCandidatesWithCausal(candidates = [], causalModel = null, o
   const safeCandidates = Array.isArray(candidates) ? candidates : [];
 
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
+  const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
 
   const baseCausalWeight = clampFinite(options.causalWeight, 0, 0.85, 0.35);
 
@@ -240,7 +241,7 @@ export function scoreCandidatesWithCausal(candidates = [], causalModel = null, o
       const effectiveCausalWeight =
         baseCausalWeight * (0.25 + 0.75 * evidenceFactor);
 
-      const causalScore = normalizeCausalUplift(uplift, maxScore) * 100;
+      const causalScore = normalizeCausalUplift(uplift, maxScore, minScore) * 100;
 
       const baseUtility = clampFinite(candidate.decisionUtility, 0, 100, 40);
 
@@ -359,8 +360,9 @@ export function estimateUplift({ outcome, treatment, propensity, weight = 1 } = 
   const safePropensity = Math.min(0.99, Math.max(0.01, p));
   const safeWeight = Number.isFinite(w) && w > 0 ? Math.min(10, w) : 1;
 
+  const denom = t === 1 ? safePropensity : (1 - safePropensity);
   const sign = t === 1 ? 1 : -1;
-  const uplift = sign * ((y * safeWeight) / safePropensity);
+  const uplift = sign * ((y * safeWeight) / denom);
 
   return Number.isFinite(uplift) ? uplift : 0;
 }

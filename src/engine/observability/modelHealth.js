@@ -23,6 +23,7 @@ import {
 import {
   computeCalibrationDiagnostics,
 } from '../../utils/calibration.js';
+import { safeSetItem, safeGetJSON, safeRemoveItem } from '../../utils/coachStorage.js';
 
 const HEALTH_STORAGE_KEY = 'coach_model_health_v1';
 const HEALTH_STORAGE_MAX = 100;
@@ -32,14 +33,6 @@ function clampFinite(value, min, max, fallback = min) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
-}
-
-function getStorage() {
-  try {
-    return globalThis?.localStorage || null;
-  } catch {
-    return null;
-  }
 }
 
 function createAlert({
@@ -85,6 +78,8 @@ export function evaluateModelHealth(input = {}, options = {}) {
     ? input.features
     : {};
 
+  let calibrationDeduction = 0;
+
   // ==================== CALIBRATION DRIFT ====================
   const calibrationDrift = detectCalibrationDrift(
     calibrationEvents,
@@ -97,7 +92,7 @@ export function evaluateModelHealth(input = {}, options = {}) {
     const severity = calibrationDrift.worstSeverity;
 
     if (severity === 'high') {
-      healthScore -= 25;
+      calibrationDeduction += 25;
 
       alerts.push(
         createAlert({
@@ -110,7 +105,7 @@ export function evaluateModelHealth(input = {}, options = {}) {
         })
       );
     } else if (severity === 'medium') {
-      healthScore -= 12;
+      calibrationDeduction += 12;
 
       alerts.push(
         createAlert({
@@ -123,7 +118,7 @@ export function evaluateModelHealth(input = {}, options = {}) {
         })
       );
     } else if (severity === 'low') {
-      healthScore -= 5;
+      calibrationDeduction += 5;
 
       alerts.push(
         createAlert({
@@ -147,7 +142,7 @@ export function evaluateModelHealth(input = {}, options = {}) {
 
   if (probabilityCalibrationDrift?.isBadDrift) {
     if (probabilityCalibrationDrift.severity === 'high') {
-      healthScore -= 20;
+      calibrationDeduction += 20;
 
       alerts.push(
         createAlert({
@@ -160,7 +155,7 @@ export function evaluateModelHealth(input = {}, options = {}) {
         })
       );
     } else if (probabilityCalibrationDrift.severity === 'medium') {
-      healthScore -= 10;
+      calibrationDeduction += 10;
 
       alerts.push(
         createAlert({
@@ -173,29 +168,29 @@ export function evaluateModelHealth(input = {}, options = {}) {
         })
       );
     } else {
-      healthScore -= 4;
+      calibrationDeduction += 4;
     }
   }
 
   // ==================== CURRENT CALIBRATION QUALITY ====================
   if (probabilityPairs.length >= 5) {
     const diagnostics = computeCalibrationDiagnostics(probabilityPairs, {
-      bins: options.bins ?? 6,
+      bins: Math.max(2, Math.min(options.bins ?? 6, probabilityPairs.length)),
     });
     const currentEce = Number.isFinite(diagnostics.ece)
       ? Number(diagnostics.ece.toFixed(6))
-      : 0;
+      : null;
 
     metrics.currentCalibration = {
       count: probabilityPairs.length,
       ece: currentEce,
-      mce: Number.isFinite(diagnostics.mce) ? Number(diagnostics.mce.toFixed(6)) : 0,
+      mce: Number.isFinite(diagnostics.mce) ? Number(diagnostics.mce.toFixed(6)) : null,
       reliability: diagnostics.reliability || [],
       brierDecomposition: diagnostics.brierDecomposition || null,
     };
 
-    if (currentEce > 0.15) {
-      healthScore -= 15;
+    if (currentEce !== null && currentEce > 0.15) {
+      calibrationDeduction += 15;
 
       alerts.push(
         createAlert({
@@ -206,8 +201,8 @@ export function evaluateModelHealth(input = {}, options = {}) {
           metric: 'ece',
         })
       );
-    } else if (currentEce > 0.10) {
-      healthScore -= 8;
+    } else if (currentEce !== null && currentEce > 0.10) {
+      calibrationDeduction += 8;
 
       alerts.push(
         createAlert({
@@ -222,9 +217,14 @@ export function evaluateModelHealth(input = {}, options = {}) {
   } else {
     metrics.currentCalibration = {
       count: probabilityPairs.length,
+      ece: null,
+      mce: null,
       status: 'insufficient_data',
     };
   }
+
+  // Limita penalização conjunta de métricas de calibração correlacionadas (evita tripla contagem Brier/ECE/Drift)
+  healthScore -= Math.min(35, calibrationDeduction);
 
   // ==================== SCORE DRIFT ====================
   const scoreDrift = detectScoreDrift(scores, options.score || {});
@@ -510,53 +510,28 @@ export function generateHealthDashboard(health = {}) {
  * Salva snapshot de saúde.
  */
 export function saveModelHealthSnapshot(snapshot) {
-  const storage = getStorage();
-  if (!storage) return false;
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  const current = loadModelHealthSnapshots();
+  const next = [...current, snapshot]
+    .filter(Boolean)
+    .slice(-HEALTH_STORAGE_MAX);
 
-  try {
-    const raw = storage.getItem(HEALTH_STORAGE_KEY);
-    const parsed = JSON.parse(raw || '[]');
-    const current = Array.isArray(parsed) ? parsed : [];
-
-    const next = [...current, snapshot]
-      .filter(Boolean)
-      .slice(-HEALTH_STORAGE_MAX);
-
-    storage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(next));
-    return true;
-  } catch {
-    return false;
-  }
+  return safeSetItem(HEALTH_STORAGE_KEY, next);
 }
 
 /**
  * Carrega snapshots de saúde.
  */
 export function loadModelHealthSnapshots() {
-  const storage = getStorage();
-  if (!storage) return [];
-
-  try {
-    const raw = storage.getItem(HEALTH_STORAGE_KEY);
-    const parsed = JSON.parse(raw || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  const parsed = safeGetJSON(HEALTH_STORAGE_KEY, []);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 /**
  * Limpa snapshots de saúde.
  */
 export function clearModelHealthSnapshots() {
-  const storage = getStorage();
-  if (!storage) return;
-
-  try {
-    storage.removeItem(HEALTH_STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  safeRemoveItem(HEALTH_STORAGE_KEY);
 }
 
 export default {

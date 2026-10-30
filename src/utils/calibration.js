@@ -6,6 +6,36 @@ import { generateId } from './idGenerator.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 
+const LANCZOS_COEFFS = [
+  676.5203681218851,
+  -1259.1392167224028,
+  771.32342877765313,
+  -176.61502916214059,
+  12.507343278686905,
+  -0.13857109526572012,
+  9.9843695780195716e-6,
+  1.5056327351493116e-7
+];
+
+function logGamma(z) {
+  const x = Number(z);
+  if (!Number.isFinite(x) || x <= 0) return 0;
+  if (x < 0.5) {
+    return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
+  }
+  const shifted = x - 1;
+  let acc = 0.99999999999980993;
+  for (let i = 0; i < LANCZOS_COEFFS.length; i++) {
+    acc += LANCZOS_COEFFS[i] / (shifted + i + 1);
+  }
+  const t = shifted + LANCZOS_COEFFS.length - 0.5;
+  return 0.5 * Math.log(2 * Math.PI) + (shifted + 0.5) * Math.log(t) - t + Math.log(acc);
+}
+
+function logBeta(a, b) {
+  return logGamma(a) + logGamma(b) - logGamma(a + b);
+}
+
 // [LOTE 5] PAV extraído para reuso com restrição de bloco mínimo
 function pavBlocks(blocks) {
   let i = 0;
@@ -409,6 +439,12 @@ export function predictIsotonicProbability(probability01, model = []) {
   return clamp01(last.value);
 }
 
+/**
+ * Bayesian Binning into Quantiles (BBQ - Naeini, Cooper & Hauskrecht 2015).
+ * Realiza Bayesian Model Averaging sobre múltiplas partições por quantis,
+ * ponderadas pela verossimilhança marginal Beta-Binomial e blindadas contra
+ * empates nas fronteiras de probabilidade.
+ */
 export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
   const p = clamp01(probability01);
   const clean = (pairs || [])
@@ -417,24 +453,72 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
     .map(x => ({ probability: clamp01(x.probability), observed: clamp01(x.observed) }));
   if (clean.length < 4) return p;
   const sorted = [...clean].sort((a, b) => a.probability - b.probability);
-  const bins = Math.max(2, Math.min(10, Number(options.bins) || Math.round(Math.sqrt(sorted.length))));
   const alpha0 = Math.max(0.1, Number(options.alpha0) || 0.5);
   const beta0 = Math.max(0.1, Number(options.beta0) || 0.5);
-  for (let i = 0; i < bins; i++) {
-    const start = Math.floor(i * sorted.length / bins);
-    const end = Math.floor((i + 1) * sorted.length / bins);
-    const slice = sorted.slice(start, end);
-    if (slice.length === 0) continue;
-    const isFirstBin = (i === 0);
-    const isLastBin = (i === bins - 1);
-    const lo = isFirstBin ? -0.01 : sorted[start].probability;
-    const hi = isLastBin ? 1.01 : sorted[end].probability;
-    if (!(p >= lo && (p < hi || isLastBin))) continue;
-    const succ = kahanSum(slice.map(x => x.observed));
-    const n = slice.length;
-    return (succ + alpha0) / (n + alpha0 + beta0);
+  const priorLogBeta = logBeta(alpha0, beta0);
+
+  const explicitBins = Number(options.bins);
+  const schemeCounts = Number.isFinite(explicitBins) && explicitBins >= 2
+    ? [Math.max(2, Math.min(10, Math.round(explicitBins)))]
+    : (() => {
+        const maxBins = Math.min(8, Math.max(2, Math.floor(sorted.length / 2)));
+        const list = [];
+        for (let b = 2; b <= maxBins; b++) list.push(b);
+        return list;
+      })();
+
+  const seenEdgeSignatures = new Set();
+  const models = [];
+
+  for (const bins of schemeCounts) {
+    const rawCuts = [];
+    for (let i = 1; i < bins; i++) {
+      const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor((i * sorted.length) / bins)));
+      rawCuts.push(Number(sorted[idx].probability.toFixed(8)));
+    }
+    const uniqueCuts = [...new Set(rawCuts)].sort((a, b) => a - b);
+    const edges = [-0.01, ...uniqueCuts, 1.01];
+    const sig = edges.join('|');
+    if (seenEdgeSignatures.has(sig)) continue;
+    seenEdgeSignatures.add(sig);
+
+    let logMarginal = 0;
+    let predForScheme = p;
+    let matchedBin = false;
+
+    for (let i = 0; i < edges.length - 1; i++) {
+      const lo = edges[i];
+      const hi = edges[i + 1];
+      const isLastBin = i === edges.length - 2;
+      const slice = sorted.filter(x => x.probability >= lo && (isLastBin ? x.probability <= hi : x.probability < hi));
+      if (slice.length === 0) continue;
+
+      const succ = Math.max(0, Math.min(slice.length, kahanSum(slice.map(x => x.observed))));
+      const fail = Math.max(0, slice.length - succ);
+      logMarginal += logBeta(succ + alpha0, fail + beta0) - priorLogBeta;
+
+      if (!matchedBin && p >= lo && (isLastBin ? p <= hi : p < hi)) {
+        predForScheme = (succ + alpha0) / (slice.length + alpha0 + beta0);
+        matchedBin = true;
+      }
+    }
+
+    if (matchedBin && Number.isFinite(logMarginal)) {
+      models.push({ logMarginal, prediction: clamp01(predForScheme) });
+    }
   }
-  return p;
+
+  if (models.length === 0) return p;
+  if (models.length === 1) return models[0].prediction;
+
+  const maxLog = Math.max(...models.map(m => m.logMarginal));
+  const rawWeights = models.map(m => Math.exp(m.logMarginal - maxLog));
+  const weightSum = kahanSum(rawWeights) || 1;
+  let blended = 0;
+  for (let i = 0; i < models.length; i++) {
+    blended += (rawWeights[i] / weightSum) * models[i].prediction;
+  }
+  return clamp01(blended);
 }
 
 // FIX F4: conformal real (resíduos) + teto 0.35 + piso = ruído amostral
@@ -580,4 +664,3 @@ export function computeContinuousMcBoost(mcProbability, danger, safe, _options =
 
   return Math.max(-8, Math.min(8, boost));
 }
-

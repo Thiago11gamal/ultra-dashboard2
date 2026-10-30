@@ -20,8 +20,8 @@ import { analyzeProgressState } from './ProgressStateEngine.js';
  * Usa um modelo simplificado de probabilidades de transição baseado na
  * frequência histórica de mudanças de estado + indicadores de velocidade.
  * 
- * @param {number[]} scores - Série de scores do aluno (mais antigo → mais recente)
- * @param {Object} options - { maxScore, windowSize, minHistory }
+ * @param {Array<number|{score:number,date?:string}>} scores - Série de scores do aluno (mais antigo → mais recente)
+ * @param {Object} options - { maxScore, minScore, windowSize, minHistory }
  * @returns {Object} { currentState, transitionRisk, flags, velocity }
  */
 export function detectRegimeTransition(scores = [], options = {}) {
@@ -46,27 +46,44 @@ export function detectRegimeTransition(scores = [], options = {}) {
 
     if (!Array.isArray(scores)) return noData;
 
-    const normalizedScores = scores
-        .map(score => {
-            const raw = typeof score === 'object' && score !== null ? (score.score ?? score.scorePoints) : score;
-            const n = Number(raw);
+    const normalizedEntries = scores
+        .map(entry => {
+            if (typeof entry === 'object' && entry !== null) {
+                const raw = entry.score ?? entry.scorePoints;
+                const n = Number(raw);
+                if (!Number.isFinite(n)) return null;
+                return entry.date ? { score: n, date: entry.date } : n;
+            }
+            const n = Number(entry);
             return Number.isFinite(n) ? n : null;
         })
-        .filter(v => v !== null && Number.isFinite(v));
+        .filter(v => v !== null);
 
-    const effectiveMinHistory = Number.isFinite(Number(minHistory)) ? Number(minHistory) : 4;
-    if (normalizedScores.length < effectiveMinHistory) return noData;
+    const effectiveMinHistory = Math.max(4, Number.isFinite(Number(minHistory)) ? Number(minHistory) : 4);
+    if (normalizedEntries.length < effectiveMinHistory) return noData;
     
-    // BUG-ADAPT-01 FIX: Janela Dinâmica
-    // Se scores.length < windowSize * 1.5, a janela de 10 itens impede a geração 
-    // de 2 estados (necessários para a derivada). Ajustamos para scores.length/2.
-    const actualWindowSize = Math.min(windowSize, Math.max(2, Math.floor(normalizedScores.length / 2)));
+    // BUG-ADAPT-01 FIX: Janela Dinâmica compatível com ProgressStateEngine (mínimo 3 pontos por janela)
+    const maxFeasibleWindow = Math.max(3, normalizedEntries.length - 1);
+    const actualWindowSize = Math.min(
+        Math.max(3, Number(windowSize) || 10),
+        maxFeasibleWindow,
+        Math.max(3, Math.floor(normalizedEntries.length / 2))
+    );
 
-    // 1. Calcular estados em janelas deslizantes
+    // 1. Calcular estados em janelas deslizantes garantindo inclusão do sufixo mais recente
     const states = [];
-    const stepSize = Math.max(1, Math.floor(actualWindowSize / 2)); // 50% overlap
-    for (let end = actualWindowSize; end <= normalizedScores.length; end += stepSize) {
-        const window = normalizedScores.slice(end - actualWindowSize, end);
+    const maxStep = Math.max(1, normalizedEntries.length - actualWindowSize);
+    const stepSize = Math.max(1, Math.min(maxStep, Math.floor(actualWindowSize / 2)));
+    const windowEnds = [];
+    for (let end = actualWindowSize; end <= normalizedEntries.length; end += stepSize) {
+        windowEnds.push(end);
+    }
+    if (windowEnds[windowEnds.length - 1] !== normalizedEntries.length) {
+        windowEnds.push(normalizedEntries.length);
+    }
+
+    for (const end of windowEnds) {
+        const window = normalizedEntries.slice(end - actualWindowSize, end);
         const result = analyzeProgressState(window, { maxScore: safeMax, minScore: safeMin, window_size: actualWindowSize });
         if (result && result.state !== 'insufficient_data') {
             states.push({
@@ -186,4 +203,3 @@ export function detectRegimeTransition(scores = [], options = {}) {
 }
 
 export default { detectRegimeTransition };
-
