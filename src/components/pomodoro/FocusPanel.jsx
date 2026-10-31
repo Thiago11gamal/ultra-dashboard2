@@ -878,6 +878,9 @@ export function SessionFocusPanel({
                                 {activeModeBadge.label === 'Edital' && 'Construa a base teórica inicial deste novo tópico e anote os pontos-chave no material.'}
                                 {activeModeBadge.label === 'Flashcards' && 'Zere os cartões de repetição espaçada para fixar conceitos e fórmulas essenciais.'}
                                 {activeModeBadge.label === 'Síntese' && 'Estudo profundo: elabore mapas conceituais, fichamento ou faça auto-explicação dos tópicos densos.'}
+                                {activeModeBadge.label === 'Livre' && 'Sessão livre de estudo: mantenha foco contínuo e anote os tópicos abordados ao concluir.'}
+                                {activeModeBadge.label === 'Rápida' && 'Revisão expressa: passe os olhos em mnemônicos, fórmulas e conceitos-chave com velocidade.'}
+                                {activeModeBadge.label === 'Manutenção' && 'Manutenção de retenção: consolide os pontos críticos para evitar a curva do esquecimento.'}
                             </span>
                         </div>
                     )}

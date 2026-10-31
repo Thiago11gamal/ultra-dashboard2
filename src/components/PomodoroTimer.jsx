@@ -36,6 +36,7 @@ import { usePomodoroSync } from '../hooks/usePomodoroSync';
 import { playPomodoroAlarm, unlockAudio } from '../utils/audioAlert';
 import { formatTime, toPositiveMinutes, SPEED_OPTIONS, POMODORO_PRESETS } from '../utils/pomodoroHelpers';
 import { sendPomodoroNotification, requestNotificationPermission } from '../utils/browserNotifications';
+import { cleanTaskTitle } from '../utils/taskTitleHelper';
 import { PomodoroProgress } from './pomodoro/PomodoroProgress';
 import { PomodoroControls } from './pomodoro/PomodoroControls';
 import { PomodoroHeader } from './pomodoro/PomodoroHeader';
@@ -151,9 +152,10 @@ function PomodoroTimer({
         try {
             const saved = JSON.parse(localStorage.getItem('pomodoroState'));
             if (!saved || typeof saved !== 'object') return null;
+            const currentActiveId = activeSubject?.taskId || activeSubject?.id;
             const matchesTask =
-                activeSubject?.taskId &&
-                saved?.activeTaskId === activeSubject.taskId;
+                currentActiveId &&
+                saved?.activeTaskId === currentActiveId;
             const matchesMode =
                 saved?.mode === mode;
             const matchesSession =
@@ -173,10 +175,11 @@ function PomodoroTimer({
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            if (activeSubject?.taskId) {
+            const currentActiveId = activeSubject?.taskId || activeSubject?.id;
+            if (currentActiveId) {
                 try {
                     const saved = JSON.parse(localStorage.getItem('pomodoroState'));
-                    const matchesTask = saved?.activeTaskId === activeSubject.taskId;
+                    const matchesTask = saved?.activeTaskId === currentActiveId;
                     const matchesMode = saved?.mode === mode;
                     const matchesSession = !activeSubject.sessionInstanceId || 
                         saved?.sessionInstanceId === activeSubject.sessionInstanceId;
@@ -910,11 +913,12 @@ function PomodoroTimer({
     });
 
     const savePomodoroState = useCallback((overrides = {}) => {
-        if (!activeSubject?.taskId) return;
+        const activeId = activeSubject?.taskId || activeSubject?.id;
+        if (!activeId) return;
         try {
             const current = stateRefs.current;
             const stateToSave = {
-                activeTaskId: activeSubject.taskId,
+                activeTaskId: activeId,
                 sessionInstanceId: activeSubject.sessionInstanceId || null,
                 mode: current.mode,
                 timeLeft: current.timeLeft,
@@ -1154,15 +1158,21 @@ function PomodoroTimer({
 
             // Disparar Notificação Nativa do Sistema / Navegador
             if (isNotifEnabled) {
+                const currentSub = activeSubjectRef.current;
+                const cleanTopic = currentSub?.task ? cleanTaskTitle(currentSub.task, currentSub.category) : '';
                 if (completedMode === 'work') {
                     const nextBreakMin = (newState.mode === 'long_break' ? safeSettings.pomodoroLongBreak : safeSettings.pomodoroBreak) || 5;
                     sendPomodoroNotification('Tempo de Foco Concluído! 🏆', {
-                        body: `Excelente trabalho! Descanse por ${nextBreakMin} minutos para recuperar a energia mental.`
+                        body: cleanTopic
+                            ? `Concluído: "${cleanTopic}". Descanse por ${nextBreakMin} minutos para recuperar a energia mental.`
+                            : `Excelente trabalho! Descanse por ${nextBreakMin} minutos para recuperar a energia mental.`
                     });
                 } else if (completedMode === 'break' || completedMode === 'long_break') {
                     const nextWorkMin = safeSettings.pomodoroWork || 25;
                     sendPomodoroNotification('Pausa Finalizada! ⚡', {
-                        body: `Sua recuperação foi concluída. Pronto para o próximo bloco de ${nextWorkMin} minutos?`
+                        body: cleanTopic
+                            ? `Recuperação concluída. Pronto para retornar ao tópico: "${cleanTopic}"?`
+                            : `Sua recuperação foi concluída. Pronto para o próximo bloco de ${nextWorkMin} minutos?`
                     });
                 }
             }
@@ -1613,7 +1623,7 @@ function PomodoroTimer({
     useEffect(() => {
         const handleKeyDown = (e) => {
             const tag = e.target?.tagName?.toLowerCase();
-            if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) {
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) {
                 return;
             }
 
@@ -1671,7 +1681,11 @@ function PomodoroTimer({
 
         const updateDocTitle = () => {
             const currentT = Number(timeRef.current ?? stateRefs.current.timeLeft);
-            document.title = `${formatTime(currentT)} - Pomodoro`;
+            const cleanTopic = activeSubject?.task ? cleanTaskTitle(activeSubject.task, activeSubject.category) : '';
+            const prefix = mode === 'work' ? '🎯' : '☕';
+            document.title = cleanTopic
+                ? `${prefix} ${formatTime(currentT)} | ${cleanTopic}`
+                : `${prefix} ${formatTime(currentT)} - Pomodoro`;
         };
 
         updateDocTitle();
@@ -1680,7 +1694,7 @@ function PomodoroTimer({
             clearInterval(id);
             document.title = 'Pomodoro | Ultra Dashboard';
         };
-    }, [isRunning]);
+    }, [isRunning, mode, activeSubject?.task, activeSubject?.category]);
 
     return (
         <div className={`w-full relative flex flex-col items-center gap-1 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>

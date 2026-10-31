@@ -617,10 +617,11 @@ function ActionsAndMentorView({
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {visibleTasks.filter(Boolean).map((task, idx) => {
-                            const taskId = task.id || task.text || `fallback-task-${idx}`;
+                            const taskId = task.id || task.text || task.title || `fallback-task-${idx}`;
                             const categoryName = safeCatName(task.catName || task.category);
-                            const isActive = activeSubject?.taskId === taskId;
-                            const { displayTopic, secondaryText } = cleanTaskText(task.text || task.title, categoryName);
+                            const currentActiveId = activeSubject?.taskId || activeSubject?.id;
+                            const isActive = currentActiveId === taskId || (task.id && currentActiveId === task.id);
+                            const { displayTopic, secondaryText, alertBadge } = cleanTaskText(task.text || task.title, categoryName);
                             return (
                                 <Motion.button
                                     key={`task-${taskId}-${idx}`}
@@ -644,11 +645,17 @@ function ActionsAndMentorView({
                                         <p className={`text-xs font-semibold truncate tracking-tight ${isActive ? 'text-amber-400' : 'text-slate-300 group-hover:text-white transition-colors'}`}>
                                             {displayTopic || 'Missão em Aberto'}
                                         </p>
-                                        {secondaryText && (
+                                        {secondaryText && secondaryText.trim().toLowerCase() !== categoryName.trim().toLowerCase() && (
                                             <p className="text-[9px] text-slate-500 truncate mt-0.5 font-medium">{secondaryText}</p>
                                         )}
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-[8px] text-slate-500/80 font-medium uppercase tracking-widest">{categoryName}</p>
+                                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                            <p className="text-[8.5px] text-slate-400 font-bold uppercase tracking-wider">{categoryName}</p>
+                                            {alertBadge && (
+                                                <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-white/10 text-slate-300 border border-white/10 flex items-center gap-0.5">
+                                                    <span>{alertBadge.icon}</span>
+                                                    <span>{alertBadge.label}</span>
+                                                </span>
+                                            )}
                                             <p className={`text-[8px] font-bold uppercase tracking-widest ${isActive ? 'text-amber-500/80' : 'text-slate-600'}`}>• {isActive ? 'Em foco agora' : `Ação #${idx + 1}`}</p>
                                         </div>
                                     </div>
@@ -1367,24 +1374,28 @@ export default function Pomodoro() {
 
         let catId = task.catId || task.categoryId;
         let catName = task.catName || task.category;
-        if (!catId) {
-            const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        if (!catId || !catName) {
             const foundCat = safeCats.find(c => {
+                if (!c) return false;
+                if (catId && c.id === catId) return true;
                 const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
-                return tasks.some(t => (t?.id || t?.text || t?.title) === taskId);
+                return tasks.some(t => t && (t?.id || t?.text || t?.title) === taskId);
             });
             if (foundCat) {
-                catId = foundCat.id;
+                if (!catId) catId = foundCat.id;
                 if (!catName) catName = foundCat.name;
             }
         }
 
         catId = catId || 'geral';
+        catName = catName || 'Geral';
 
         if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
             const highPriority = [];
-            categories.forEach(cat => {
-                (cat.tasks || []).filter(t => !t.completed && t.priority === 'high').forEach(t => {
+            safeCats.forEach(cat => {
+                const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
+                catTasks.filter(t => t && !t.completed && t.priority === 'high').forEach(t => {
                     highPriority.push({ ...t, id: t.id || t.text || t.title, categoryId: cat.id, catName: cat.name });
                 });
             });
