@@ -148,7 +148,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
 
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
-        const logDate = normalizeDate(log.date);
+        const logDate = normalizeDate(log.date || log.createdAt);
         if (!logDate || Number.isNaN(logDate.getTime())) return;
 
         const logFullKey = getFullKey(logDate);

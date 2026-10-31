@@ -5,8 +5,7 @@ import WeeklyAnalysis from '../../components/WeeklyAnalysis';
 import {
     isInternalId,
     extractTopicFromInternalId,
-    resolveHumanTaskTitle,
-    cleanTaskTitle
+    resolveHumanTaskTitle
 } from '../taskTitleHelper';
 import { createStudySlice } from '../../store/slices/createStudySlice';
 

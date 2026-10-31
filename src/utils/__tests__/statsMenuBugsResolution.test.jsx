@@ -80,7 +80,7 @@ describe('Stats Menu Bug Fixes Resolution Verification', () => {
 
             // Check that every day dateLabel matches dateKey MM/DD
             result.forecast.forEach(item => {
-                const [y, m, d] = item.dateKey.split('-');
+                const [, m, d] = item.dateKey.split('-');
                 expect(item.dateLabel).toBe(`${d}/${m}`);
             });
         });

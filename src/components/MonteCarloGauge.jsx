@@ -53,7 +53,7 @@ const MonteCarloGaugeBase = ({
                 const safeHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
                 safeHistory.forEach(h => {
                     if (!h) return;
-                    const normalized = normalizeDate(h.date);
+                    const normalized = normalizeDate(h.date || h.createdAt);
                     const dk = normalized ? getDateKey(normalized) : null;
                     if (dk) dates.add(dk);
                 });
@@ -91,8 +91,6 @@ const MonteCarloGaugeBase = ({
     // (sem onSimulateTodayChange). No modo controlado, resolvedSimulateToday lê a
     // prop diretamente e este estado é apenas fallback. Sem useEffect espelho.
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
-
-    const activeId = useAppStore(state => state.appState?.activeId);
     // ✅ LOTE-02 FIX (A1): `|| {}` criava objeto NOVO a cada snapshot da store →
     // Object.is sempre divergia → gauge re-renderizava em qualquer mudança global.
     const weights = useAppStore(state => {

@@ -36,7 +36,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
     const categoriesArray = useMemo(() => {
         const list = Array.isArray(categories) ? categories : Object.values(categories || {});
         return list.filter(Boolean).map(c => {
-            const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
+            const tasks = getTasksArray(c);
             return {
                 ...c,
                 tasks: tasks.filter(Boolean)
@@ -126,7 +126,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
             if (category) {
                 return {
                     category,
-                    id: category.id,
+                    id: category.id || `cat-name:${category.name || 'unnamed'}`,
                     name: category.name,
                     color: category.color || '#a855f7'
                 };
@@ -144,7 +144,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         // Filtrar apenas logs com tempo positivo e data válida para alinhar KPIs do cabeçalho com a timeline
         const validStudyLogs = logsArray.filter(log => {
             if (getLogMinutes(log) <= 0) return false;
-            const d = normalizeDate(log?.date);
+            const d = normalizeDate(log?.date || log?.createdAt);
             return d !== null && !Number.isNaN(d.getTime());
         });
         const totalMinutes = validStudyLogs.reduce((acc, log) => acc + getLogMinutes(log), 0);
@@ -164,7 +164,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         const logsWithTime = [];
         for (let i = 0; i < validStudyLogs.length; i++) {
             const log = validStudyLogs[i];
-            const dateObj = normalizeDate(log?.date);
+            const dateObj = normalizeDate(log?.date || log?.createdAt);
             const time = (dateObj && !Number.isNaN(dateObj.getTime())) ? dateObj.getTime() : 0;
             logsWithTime.push({ log, dateObj, time });
         }
@@ -399,7 +399,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
                             {/* Categories List */}
                             <div className="p-2 space-y-2 bg-black/20">
                                 {dayGroup.categories.map((cat) => (
-                                    <div key={cat.id} className="relative group rounded-xl bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors">
+                                    <div key={cat.id || cat.name} className="relative group rounded-xl bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors">
                                         <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: cat.color }}></div>
 
                                         {/* Category Summary Row */}

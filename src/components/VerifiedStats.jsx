@@ -126,14 +126,14 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
     </div>
 ));
 
-const ConsistencyCard = React.memo(({ consistency }) => {
+const ConsistencyCard = React.memo(({ consistency = {} }) => {
     const isInsufficient = ['Dados Insuficientes', 'SEM DADOS', 'Sem Dados'].includes(consistency?.status);
 
     return (
-    <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl ${consistency.bgBorder}`}>
+    <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl ${consistency?.bgBorder || 'border-slate-500'}`}>
         <div className="flex justify-between items-start mb-3 relative z-10">
             <div className="flex items-center gap-2.5">
-                <div className={`w-9 h-9 rounded-xl border ${getColorClasses(consistency.color).bg20} ${consistency.bgBorder} flex items-center justify-center shadow-lg`}>
+                <div className={`w-9 h-9 rounded-xl border ${getColorClasses(consistency?.color).bg20} ${consistency?.bgBorder || 'border-slate-500'} flex items-center justify-center shadow-lg`}>
                     <Activity size={18} className={consistency.color} />
                 </div>
                 <div>
@@ -143,8 +143,8 @@ const ConsistencyCard = React.memo(({ consistency }) => {
             </div>
         </div>
         <div className="text-center my-3 relative z-10">
-            <h2 className={`text-lg sm:text-xl md:text-2xl font-black leading-tight tracking-tight ${consistency.color} drop-shadow-md`}>
-                {consistency.status}
+            <h2 className={`text-lg sm:text-xl md:text-2xl font-black leading-tight tracking-tight ${consistency?.color || 'text-slate-400'} drop-shadow-md`}>
+                {consistency?.status || 'Sem Dados'}
             </h2>
         </div>
         <div className="grid grid-cols-2 gap-2.5 w-full mb-3">
@@ -165,7 +165,7 @@ const ConsistencyCard = React.memo(({ consistency }) => {
         </div>
         <div className="mt-auto pt-2.5 border-t border-white/10">
             <p className="text-[10.5px] text-slate-300 text-center leading-relaxed font-medium">
-                {consistency.message}
+                {consistency?.message || ''}
             </p>
         </div>
     </div>
@@ -283,8 +283,8 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100, m
                     { color: 'bg-orange-500', label: `SD ≤ ${0.15 * scoreRange < 1 ? (0.15 * scoreRange).toFixed(1) : (0.15 * scoreRange).toFixed(0)}` },
                     { color: 'bg-red-400', label: `SD ≤ ${0.25 * scoreRange < 1 ? (0.25 * scoreRange).toFixed(1) : (0.25 * scoreRange).toFixed(0)}` },
                     { color: 'bg-red-600', label: `SD > ${0.25 * scoreRange < 1 ? (0.25 * scoreRange).toFixed(1) : (0.25 * scoreRange).toFixed(0)}` }
-                ].map(l => (
-                    <div key={l.label} className="flex items-center gap-1.5">
+                ].map((l, lIdx) => (
+                    <div key={`${l.color}-${lIdx}`} className="flex items-center gap-1.5">
                         <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
                         <span className="text-[9px] text-slate-500 font-medium">{l.label}</span>
                     </div>
@@ -580,7 +580,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     // ✅ LOTE-02 FIX (C3): minScore calculado ANTES e propagado ao getSafeScore
                     const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
                     const safeScore = getSafeScore(h, catMaxScore, catMinScore);
-                    const parsedDate = normalizeDate(h.date);
+                    const parsedDate = normalizeDate(h.date || h.createdAt);
                     // ✅ LOTE-02 FIX (C2): `>= 0` aceitava o NaN→0 do getSafeScore antigo
                     // e qualquer zero falso. Number.isFinite é o filtro correto.
                     if (parsedDate && Number.isFinite(safeScore)) {
@@ -899,14 +899,15 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             // 0s Bug Filter: Proteção contra Corrupção de Dados sincronizada com baseHistoryStats
             const validHistory = hArray
                 .filter(h => {
-                    if (!h || !h.date || normalizeDate(h.date) === null) return false;
+                    const dateVal = h?.date || h?.createdAt;
+                    if (!h || !dateVal || normalizeDate(dateVal) === null) return false;
                     const safeScore = getSafeScore(h, catMaxScore, catMinScore2);
                     if (!Number.isFinite(safeScore)) return false;
                     const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
                     if (tTs !== null && tTs <= 0 && safeScore === 0) return false;
                     return true;
                 })
-                .sort((a, b) => (normalizeDate(a.date)?.getTime() ?? 0) - (normalizeDate(b.date)?.getTime() ?? 0));
+                .sort((a, b) => (normalizeDate(a.date || a.createdAt)?.getTime() ?? 0) - (normalizeDate(b.date || b.createdAt)?.getTime() ?? 0));
 
             if (validHistory.length >= 3) {
                 const sortedHistory = validHistory;
@@ -915,7 +916,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     const ratio = Math.max(0, Math.min(1, (s - catMinScore2) / catRange2));
                     return {
                         score: minScore + ratio * globalRange,
-                        date: normalizeDate(h.date)?.getTime() ?? Date.now()
+                        date: normalizeDate(h.date || h.createdAt)?.getTime() ?? Date.now()
                     };
                 });
 
@@ -1050,7 +1051,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         void dayTick;
         return { hasEnoughData, trend, trendValue, prediction, predictionStatus, predictionSubtext, confidenceData, totalQuestionsGlobal, consistency, categoryBreakdown, targetScore: statsTarget };
         // ✅ LOTE-02 FIX (A4): minScore agora é usado internamente (targetPct, normalizações)
-    }, [baseHistoryStats, statsTarget, maxScore, minScore, dayTick]);
+    }, [baseHistoryStats, statsTarget, maxScore, minScore, gaugeUnit, dayTick]);
 
     return (
         <div className="flex flex-col gap-4 animate-fade-in-down">
