@@ -30,16 +30,32 @@ export function cleanTaskTitle(rawText, categoryName = '') {
     if (!rawText) return '';
     let text = String(rawText).trim();
 
+    // Decode HTML entities
+    text = text
+        .replace(/&mdash;/gi, '—')
+        .replace(/&ndash;/gi, '–')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'");
+
     // Remove system tags
     text = text
         .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/gi, '')
         .replace(/\[ALERTA MESTRE\]\s*/gi, '')
-        .replace(/^\[(.*?)\]\s*/gi, '$1 ')
         .trim();
+
+    // Remove outer brackets
+    if (text.startsWith('[') && text.endsWith(']')) {
+        text = text.slice(1, -1).trim();
+    }
 
     const sepIdx = text.indexOf(':');
     if (sepIdx !== -1) {
         let action = text.slice(sepIdx + 1).trim();
+        if (action.startsWith('[') && action.endsWith(']')) {
+            action = action.slice(1, -1).trim();
+        }
         if (categoryName && action.toLowerCase() === String(categoryName).trim().toLowerCase()) {
             return 'Revisão Geral';
         }
@@ -47,8 +63,18 @@ export function cleanTaskTitle(rawText, categoryName = '') {
             if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(action)) {
                 return text.slice(0, sepIdx).trim() || 'Revisão Geral';
             }
+            // Strip alert prefixes like "Consolidação Teórica — Tópico" or "Revisão por Recência — Tópico"
+            const alertClean = action.replace(/^(Revisão por Recência|Avanço de Edital|SRS Blitz|Consolidação Teórica|Bateria Ativa|Estudo Ativo|Revisão Expressa|Treino Rápido|Treino de Agilidade|Manutenção)\s*[-—–:]\s*/i, '').trim();
+            if (alertClean && alertClean !== action) {
+                return alertClean;
+            }
             return action;
         }
+    }
+
+    const alertClean = text.replace(/^(Revisão por Recência|Avanço de Edital|SRS Blitz|Consolidação Teórica|Bateria Ativa|Estudo Ativo|Revisão Expressa|Treino Rápido|Treino de Agilidade|Manutenção)\s*[-—–:]\s*/i, '').trim();
+    if (alertClean && alertClean !== text) {
+        text = alertClean;
     }
 
     if (categoryName && text.toLowerCase() === String(categoryName).trim().toLowerCase()) {
@@ -159,7 +185,23 @@ export function resolveHumanTaskTitle(rawTitle, taskId, category = null, allCate
 
 export function parseTaskDisplay(rawText, categoryName = '', categoryObj = null) {
     if (!rawText) return { displayTopic: '', secondaryText: '', alertBadge: null, isPriority: false };
-    const fullText = String(rawText).trim();
+    let fullText = String(rawText).trim()
+        .replace(/&mdash;/gi, '—')
+        .replace(/&ndash;/gi, '–')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'");
+
+    if (/estudo livre|foco livre|foco aberto/i.test(fullText)) {
+        return {
+            displayTopic: 'Estudo Livre / Foco Aberto',
+            secondaryText: 'Geral',
+            alertBadge: { label: 'Livre', icon: '⏱️', type: 'free', text: 'Foco Livre', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+            isPriority: false
+        };
+    }
+
     const isPriority = /\[PROTOCOLO PRIORITÁRIO\]|\[ALERTA MESTRE\]/i.test(fullText);
 
     const parts = fullText.split(':');

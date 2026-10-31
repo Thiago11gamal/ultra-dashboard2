@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
-import { parseTaskDisplay } from '../utils/taskTitleHelper';
+import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
@@ -1026,7 +1026,7 @@ function PomodoroTopBar({
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#2d1a12]/15 border border-[#2d1a12]/25 shadow-inner">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${
                             isRunning
-                                ? 'bg-emerald-800 animate-ping'
+                                ? 'bg-emerald-800 animate-pulse'
                                 : (activeSubject ? 'bg-amber-700' : 'bg-[#2d1a12]/40')
                         }`} />
                         <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#2d1a12]">
@@ -1458,13 +1458,15 @@ export default function Pomodoro() {
                 const coachTask = coachTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
                 const targetTask = task || coachTask;
 
+                const humanSubjectTitle = cleanTaskTitle(currentSubject.task, currentSubject.category) || 'Meta';
+
                 if (!targetTask || !targetTask.completed) {
                     if (typeof store.toggleNeuralTask === 'function') {
                         store.toggleNeuralTask(currentSubject.taskId);
                     }
-                    showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
+                    showToast(`Status: "${humanSubjectTitle}" concluído! ✅`, 'success');
                 } else {
-                    showToast(`Sessão finalizada: "${currentSubject.task}"! ✅`, 'info');
+                    showToast(`Sessão finalizada: "${humanSubjectTitle}"! ✅`, 'info');
                 }
             } else {
                 const rawCats = activeData?.categories || [];
@@ -1472,14 +1474,15 @@ export default function Pomodoro() {
                 const cat = safeCats.find(c => c && c.id === currentSubject.categoryId);
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
                 const task = catTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
+                const humanSubjectTitle = cleanTaskTitle(task?.title || task?.text || currentSubject.task, currentSubject.category) || 'Meta';
                 if (task && !task.completed) {
                     if (typeof store.toggleTask === 'function') {
                         store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
                     }
-                    showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
+                    showToast(`Status: "${humanSubjectTitle}" concluído! ✅`, 'success');
                 } else if (typeof store.toggleNeuralTask === 'function') {
                     store.toggleNeuralTask(currentSubject.taskId);
-                    showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
+                    showToast(`Status: "${humanSubjectTitle}" concluído! ✅`, 'success');
                 }
             }
 

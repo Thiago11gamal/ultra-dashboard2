@@ -301,7 +301,7 @@ describe('generateDailyGoals — limites', () => {
       expect(tasks.length).toBeGreaterThan(0);
       const synthesisTask = tasks.find(t => t.text.includes('Consolidação Teórica') || t.topicName?.includes('Consolidação Teórica'));
       expect(synthesisTask).toBeDefined();
-      expect(synthesisTask.text).toContain('Síntese e Mapeamento');
+      expect(synthesisTask.text).toMatch(/Impostos Federais|Síntese e Mapeamento/);
       expect(synthesisTask.analysis?.reason).toContain('Consolidação Teórica / Síntese');
     });
   });

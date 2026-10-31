@@ -2745,9 +2745,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 }
             });
         } else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
+            const trapTopicCandidate = allCategoryTopics[0]?.name ||
+                                       (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => t && !t.completed && (t.text || t.title))?.text;
+            const trapTopic = trapTopicCandidate ? ` — ${trapTopicCandidate}` : '';
             allGeneratedTasks.push({
                 id: `${cat.id}-trap-trap`,
-                text: `${cat.name}: [Estudo Ativo & Auto-Explicação]`,
+                text: `${cat.name}: [Estudo Ativo & Auto-Explicação${trapTopic}]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',
@@ -2755,7 +2758,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
-                topicName: 'Estudo Ativo & Auto-Explicação',
+                topicName: trapTopicCandidate || 'Estudo Ativo & Auto-Explicação',
                 analysis: {
                     reason: "Otimização de Estudo",
                     details: "Alta carga horária teórica acumulada — hora de elevar a densidade cognitiva.",
@@ -2776,10 +2779,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const targetSeconds = 120;
         const isAgilityProblem = (avgSeconds > targetSeconds + 30) && (cat.urgency?.normalizedScore >= 75);
         if (isAgilityProblem) {
+            const agilityTopicCandidate = allCategoryTopics[0]?.name ||
+                                          (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => t && !t.completed && (t.text || t.title))?.text;
+            const agilityTopicSuffix = agilityTopicCandidate ? ` — ${agilityTopicCandidate}` : ' — Fórmulas & Prazos';
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido avgSeconds do ID para manter estabilidade no Planner
                 id: `${cat.id}-agility`,
-                text: `${cat.name}: [Revisão Expressa — Fórmulas & Prazos]`,
+                text: `${cat.name}: [Revisão Expressa${agilityTopicSuffix}]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',
@@ -2787,7 +2793,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
-                topicName: 'Revisão Expressa — Fórmulas e Prazos',
+                topicName: agilityTopicCandidate || 'Revisão Expressa — Fórmulas e Prazos',
                 analysis: {
                     reason: "Agilidade Cognitiva AI",
                     details: `Identificada oportunidade de acelerar a retenção de conceitos de ${cat.name}.`,
@@ -2998,9 +3004,24 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 // NÍVEL 4: Consolidação Teórica / Síntese & Mapeamento (Estudo aprofundado)
                 if (!activeTask) {
                     const reviewPriority = 'low';
+                    const availableTopicObj = allCategoryTopics.find(t => t?.name && !assignedTopicNames.has(t.name.trim().toLowerCase())) ||
+                                              allCategoryTopics.find(t => t?.name);
+                    const catTasksList = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).filter(Boolean);
+                    const uncompletedTask = catTasksList.find(t => !t.completed && (t.text || t.title || t.name));
+                    const firstTask = catTasksList.find(t => (t.text || t.title || t.name));
+                    
+                    const resolvedTopicName = availableTopicObj?.name ||
+                                              (uncompletedTask ? (uncompletedTask.text || uncompletedTask.title || uncompletedTask.name).trim() : null) ||
+                                              (firstTask ? (firstTask.text || firstTask.title || firstTask.name).trim() : null) ||
+                                              'Síntese e Mapeamento';
+                    
+                    if (availableTopicObj?.name) {
+                        assignedTopicNames.add(availableTopicObj.name.trim().toLowerCase());
+                    }
+
                     activeTask = {
                         id: `${cat.id}-synthesis-${i}-${hashString(`${cat.id}|synthesis|${i}`)}`,
-                        text: `${cat.name}: ${getPriorityLabel(reviewPriority)}[Consolidação Teórica — Síntese e Mapeamento]`,
+                        text: `${cat.name}: ${getPriorityLabel(reviewPriority)}[Consolidação Teórica — ${resolvedTopicName}]`,
                         completed: false,
                         status: 'pending',
                         priority: reviewPriority,
@@ -3008,13 +3029,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         category: cat.name,
                         catName: cat.name,
                         subjectName: cat.name,
-                        topicName: `Consolidação Teórica — ${cat.name}`,
+                        topicName: `Consolidação Teórica — ${resolvedTopicName}`,
                         analysis: {
                             reason: "Consolidação Teórica / Síntese",
-                            details: "Estudo integrado e estruturação de conhecimento para reforçar conexões neurais da disciplina.",
+                            details: `Estudo integrado e estruturação de conhecimento de ${resolvedTopicName} para reforçar conexões neurais da disciplina.`,
                             metrics: cat.urgency?.details?.humanReadable || {},
                             monteCarlo: mc || null,
-                            verdict: `Dedique este bloco ao estudo aprofundado de ${cat.name}: estruture mapas conceituais, resumos ou elabore auto-explicação dos tópicos densos.`
+                            verdict: `Dedique este bloco ao estudo aprofundado de ${resolvedTopicName} (${cat.name}): estruture mapas conceituais, resumos ou elabore auto-explicação dos tópicos densos.`
                         }
                     };
                 }

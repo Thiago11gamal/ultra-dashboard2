@@ -53,7 +53,7 @@ export function PomodoroHeader({
         );
     }
 
-    if (typeof activeSubject !== 'object' || !activeSubject.taskId) {
+    if (typeof activeSubject !== 'object' || (!activeSubject.taskId && !activeSubject.id && !activeSubject.task)) {
         return (
             <div className="w-full bg-red-950/30 border border-dashed border-red-500/40 rounded-2xl py-2 px-4 flex items-center justify-center gap-2 shadow-sm">
                 <AlertCircle size={16} className="text-red-400 shrink-0" />

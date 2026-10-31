@@ -87,5 +87,23 @@ describe('taskTitleHelper - parseTaskDisplay', () => {
             label: 'Síntese'
         }));
     });
+
+    it('identifica corretamente Estudo Livre / Foco Aberto com badge próprio', () => {
+        const raw = 'Estudo Livre / Foco Aberto';
+        const parsed = parseTaskDisplay(raw, 'Geral');
+
+        expect(parsed.displayTopic).toBe('Estudo Livre / Foco Aberto');
+        expect(parsed.alertBadge).toEqual(expect.objectContaining({
+            label: 'Livre',
+            icon: '⏱️'
+        }));
+    });
+
+    it('decodifica entidades HTML e limpa prefixos de alerta em cleanTaskTitle', () => {
+        const raw = 'Direito Civil: [Avanço de Edital &mdash; Teoria Geral do Negócio Jurídico]';
+        const cleaned = cleanTaskTitle(raw, 'Direito Civil');
+
+        expect(cleaned).toBe('Teoria Geral do Negócio Jurídico');
+    });
 });
 
