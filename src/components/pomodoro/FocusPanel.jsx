@@ -25,11 +25,12 @@ import { calculateStudyStreak } from '../../utils/analytics';
 import { getDateKey } from '../../utils/dateHelper';
 import { parseTaskDisplay } from '../../utils/taskTitleHelper';
 import { getXPProgress } from '../../utils/gamification';
+import { calculateETA, SPEED_OPTIONS } from '../../utils/pomodoroHelpers';
 
 // ============================================================================
 // SUBCOMPONENTE: Status da Sessão Atual & Previsões em Tempo Real
 // ============================================================================
-function SessionStatus({
+const SessionStatus = React.memo(function SessionStatus({
     isRunning,
     timeLeft,
     totalTime,
@@ -37,7 +38,8 @@ function SessionStatus({
     targetCycles = 1,
     completedCycles = 0,
     settings = {},
-    activeSubject = null
+    activeSubject = null,
+    speed = 1
 }) {
     const safeTotal = Number.isFinite(totalTime) && totalTime > 0 ? totalTime : 25 * 60;
     const safeLeft = Number.isFinite(timeLeft) && timeLeft >= 0 ? timeLeft : safeTotal;
@@ -73,12 +75,11 @@ function SessionStatus({
     const config = statusConfig[mode] || statusConfig.work;
     const IconComponent = config.icon;
 
-    // Previsão de término do bloco atual (hora de relógio)
+    // Previsão de término do bloco atual (hora de relógio precisa com velocidade)
     const blockEndTime = useMemo(() => {
         if (!isRunning || !Number.isFinite(safeLeft) || safeLeft <= 0) return null;
-        const d = new Date(Date.now() + safeLeft * 1000);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }, [isRunning, safeLeft]);
+        return calculateETA(safeLeft, speed);
+    }, [isRunning, safeLeft, speed]);
 
     // Previsão da série completa e contagem de ciclos
     const seriesForecast = useMemo(() => {
@@ -87,13 +88,22 @@ function SessionStatus({
 
         const workSec = (Number(settings?.pomodoroWork) || 25) * 60;
         const breakSec = (Number(settings?.pomodoroBreak) || 5) * 60;
+        const longBreakSec = (Number(settings?.pomodoroLongBreak) || 15) * 60;
+        const longBreakInterval = Number(settings?.longBreakAfter) || 4;
 
         let totalSec = safeLeft;
         if (mode === 'work') {
-            const currentWillHaveBreak = safeCompleted + 1 < safeTarget;
-            if (currentWillHaveBreak) totalSec += breakSec;
-            const subsequentCycles = Math.max(0, safeTarget - (safeCompleted + 1));
-            totalSec += subsequentCycles * (workSec + breakSec);
+            const nextCycleIndex = safeCompleted + 1;
+            const currentWillHaveBreak = nextCycleIndex < safeTarget;
+            if (currentWillHaveBreak) {
+                totalSec += (nextCycleIndex % longBreakInterval === 0 ? longBreakSec : breakSec);
+            }
+            for (let c = nextCycleIndex + 1; c <= safeTarget; c++) {
+                totalSec += workSec;
+                if (c < safeTarget) {
+                    totalSec += (c % longBreakInterval === 0 ? longBreakSec : breakSec);
+                }
+            }
         } else {
             const futureWorkCycles = Math.max(0, safeTarget - safeCompleted);
             totalSec += futureWorkCycles * workSec;
@@ -101,9 +111,10 @@ function SessionStatus({
             totalSec += futureBreakCycles * breakSec;
         }
 
-        const seriesEndDate = new Date(Date.now() + totalSec * 1000);
+        const safeSpeed = SPEED_OPTIONS.includes(Number(speed)) ? Number(speed) : 1;
+        const seriesEndDate = new Date(Date.now() + (totalSec * 1000) / safeSpeed);
         const seriesEndStr = seriesEndDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const totalRemainingMinutes = Math.max(1, Math.round(totalSec / 60));
+        const totalRemainingMinutes = Math.max(1, Math.round(totalSec / (60 * safeSpeed)));
         const isFinalCycle = safeCompleted + 1 >= safeTarget;
         const remainingWorkBlocks = Math.max(0, safeTarget - safeCompleted - (mode === 'work' ? 1 : 0));
 
@@ -115,7 +126,7 @@ function SessionStatus({
             isFinalCycle,
             remainingWorkBlocks
         };
-    }, [targetCycles, completedCycles, safeLeft, mode, settings]);
+    }, [targetCycles, completedCycles, safeLeft, mode, settings, speed]);
 
     // Previsão do que acontece na próxima etapa (transição imediata)
     const nextPhase = useMemo(() => {
@@ -270,12 +281,12 @@ function SessionStatus({
             </div>
         </div>
     );
-}
+});
 
 // ============================================================================
 // SUBCOMPONENTE: Estatísticas da Matéria
 // ============================================================================
-function SubjectStats({ category, maxScore = 100, simulados = [] }) {
+const SubjectStats = React.memo(function SubjectStats({ category, maxScore = 100, simulados = [] }) {
     const stats = useMemo(() => {
         let scores = [];
         if (category?.simuladoStats?.history) {
@@ -295,6 +306,9 @@ function SubjectStats({ category, maxScore = 100, simulados = [] }) {
                     scores.push(Number(sub.score ?? sub.accuracy));
                 } else if (sim?.categoryScores?.[category.id] !== undefined) {
                     const sc = Number(sim.categoryScores[category.id]);
+                    if (Number.isFinite(sc)) scores.push(sc);
+                } else if (category.name && sim?.categoryScores?.[category.name] !== undefined) {
+                    const sc = Number(sim.categoryScores[category.name]);
                     if (Number.isFinite(sc)) scores.push(sc);
                 }
             });
@@ -355,12 +369,12 @@ function SubjectStats({ category, maxScore = 100, simulados = [] }) {
             </div>
         </div>
     );
-}
+});
 
 // ============================================================================
 // SUBCOMPONENTE: Streak e Consistência
 // ============================================================================
-function StreakDisplay({ studyLogs }) {
+const StreakDisplay = React.memo(function StreakDisplay({ studyLogs }) {
     const streak = useMemo(() => {
         try {
             const res = calculateStudyStreak(studyLogs || []);
@@ -406,12 +420,12 @@ function StreakDisplay({ studyLogs }) {
             </div>
         </div>
     );
-}
+});
 
 // ============================================================================
 // SUBCOMPONENTE: Progresso do Ciclo Pomodoro
 // ============================================================================
-function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
+const PomodoroCycleProgress = React.memo(function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
     const safeTarget = Math.min(20, Math.max(1, Number(targetCycles) || 1));
     const safeCompleted = Math.max(0, Math.min(safeTarget, Number(completedCycles) || 0));
     const currentCycleNumber = Math.min(safeTarget, safeCompleted + (mode === 'work' ? 1 : 0));
@@ -478,12 +492,12 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
             </div>
         </div>
     );
-}
+});
 
 // ============================================================================
 // SUBCOMPONENTE: Tempo de Estudo Hoje & Previsão de Impacto
 // ============================================================================
-function TodayStudyTime({ studyLogs, categoryId, taskId, isRunning, mode, nominalWorkMinutes = 25 }) {
+const TodayStudyTime = React.memo(function TodayStudyTime({ studyLogs, categoryId, taskId, isRunning, mode, nominalWorkMinutes = 25 }) {
     const todayData = useMemo(() => {
         const todayKey = getDateKey(new Date());
 
@@ -555,12 +569,12 @@ function TodayStudyTime({ studyLogs, categoryId, taskId, isRunning, mode, nomina
             </div>
         </div>
     );
-}
+});
 
 // ============================================================================
 // SUBCOMPONENTE: XP e Nível
 // ============================================================================
-function SessionXP({ user }) {
+const SessionXP = React.memo(function SessionXP({ user }) {
     const xpProgress = useMemo(() => {
         if (!user) return null;
         const rawProgress = getXPProgress(user.xp);
@@ -604,12 +618,12 @@ function SessionXP({ user }) {
             </div>
         </div>
     );
-}
+});
 
 // ============================================================================
 // SUBCOMPONENTE: Próxima Tarefa
 // ============================================================================
-function NextTaskPreview({ categories, currentTaskId }) {
+const NextTaskPreview = React.memo(function NextTaskPreview({ categories, currentTaskId }) {
     const nextTask = useMemo(() => {
         if (!categories) return null;
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories);
@@ -668,7 +682,7 @@ function NextTaskPreview({ categories, currentTaskId }) {
             </div>
         </div>
     );
-}
+});
 
 // ============================================================================
 // SUBCOMPONENTE: Painel Anti-Distração (Brain Dump)
@@ -697,7 +711,8 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
         if (e) e.preventDefault();
         const trimmed = inputValue.trim();
         if (!trimmed) return;
-        const newNotes = [{ id: Date.now(), text: trimmed, completed: false }, ...notes];
+        const noteId = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const newNotes = [{ id: noteId, text: trimmed, completed: false }, ...notes];
         saveNotes(newNotes);
         setInputValue('');
     };
@@ -751,7 +766,7 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
             </form>
             {notes.length > 0 && (
                 <div className="flex flex-col gap-1 max-h-28 overflow-y-auto custom-scrollbar pr-1">
-                    {notes.slice(0, 8).map((note) => (
+                    {notes.map((note) => (
                         <div
                             key={note.id}
                             className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-xs group"
@@ -782,7 +797,7 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
 // ============================================================================
 // FOCUS PANEL PRINCIPAL (Visualização de Telemetria e Foco da Sessão)
 // ============================================================================
-export function SessionFocusPanel({
+export const SessionFocusPanel = React.memo(function SessionFocusPanel({
     activeSubject,
     categories,
     studyLogs,
@@ -794,7 +809,8 @@ export function SessionFocusPanel({
     totalTime,
     targetCycles,
     completedCycles,
-    settings
+    settings,
+    speed = 1
 }) {
     const [showMoreStats, setShowMoreStats] = useState(false);
 
@@ -927,6 +943,7 @@ export function SessionFocusPanel({
                 completedCycles={completedCycles}
                 settings={settings}
                 activeSubject={activeSubject}
+                speed={speed}
             />
 
             {/* Progresso do Ciclo */}
@@ -1020,6 +1037,6 @@ export function SessionFocusPanel({
             </AnimatePresence>
         </div>
     );
-}
+});
 
 export default SessionFocusPanel;

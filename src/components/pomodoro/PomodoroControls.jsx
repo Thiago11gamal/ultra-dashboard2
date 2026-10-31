@@ -1,7 +1,7 @@
 import React from 'react';
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react';
 
-export function PomodoroControls({
+export const PomodoroControls = React.memo(function PomodoroControls({
     isProtocolInactive,
     isRunning,
     onReset,
@@ -62,6 +62,6 @@ export function PomodoroControls({
             </div>
         </div>
     );
-}
+});
 
 export default PomodoroControls;

@@ -35,34 +35,43 @@ export function playPomodoroAlarm(options = {}) {
         const ctx = getAudioContext();
         if (!ctx) return;
 
-        const now = ctx.currentTime;
-        const notes = options.notes || [587.33, 880, 1174.66]; // D5, A5, D6 harmonic chime
-        const duration = options.duration || 0.35;
-        const interval = options.interval || 0.12;
+        const playChime = () => {
+            const now = ctx.currentTime;
+            const notes = options.notes || [587.33, 880, 1174.66]; // D5, A5, D6 harmonic chime
+            const duration = options.duration || 0.35;
+            const interval = options.interval || 0.12;
 
-        notes.forEach((freq, index) => {
-            const startTime = now + (index * interval);
-            const stopTime = startTime + duration;
+            notes.forEach((freq, index) => {
+                const startTime = now + (index * interval);
+                const stopTime = startTime + duration;
 
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
 
-            osc.type = options.waveType || 'sine';
-            osc.frequency.setValueAtTime(freq, startTime);
+                osc.type = options.waveType || 'sine';
+                osc.frequency.setValueAtTime(freq, startTime);
 
-            // Envelope: Attack, sustain, smooth exponential decay
-            gain.gain.setValueAtTime(0.001, startTime);
-            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.03);
-            gain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
+                // Envelope: Attack, sustain, smooth exponential decay
+                gain.gain.setValueAtTime(0.001, startTime);
+                gain.gain.linearRampToValueAtTime(0.3, startTime + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.0001, stopTime);
 
-            osc.connect(gain);
-            gain.connect(ctx.destination);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
 
-            osc.start(startTime);
-            osc.stop(stopTime);
-        });
+                osc.start(startTime);
+                osc.stop(stopTime);
+            });
+        };
+
+        if (ctx.state === 'suspended') {
+            ctx.resume().then(playChime).catch((err) => {
+                console.warn('[AudioAlert] Falha ao retomar áudio:', err);
+            });
+        } else {
+            playChime();
+        }
     } catch (err) {
         console.warn('[AudioAlert] Web Audio playback failed:', err);
     }
 }
-

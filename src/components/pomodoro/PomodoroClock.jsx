@@ -1,5 +1,5 @@
 import React, { useId, useMemo } from 'react';
-import { formatTime, SPEED_OPTIONS, POMODORO_PRESETS } from '../../utils/pomodoroHelpers';
+import { formatTime, calculateETA, SPEED_OPTIONS, POMODORO_PRESETS } from '../../utils/pomodoroHelpers';
 import { Maximize2, Minimize2, Volume2, VolumeX, Bell, BellOff } from 'lucide-react';
 
 const CLOCK_THEMES = {
@@ -38,7 +38,7 @@ const CLOCK_THEMES = {
     }
 };
 
-export function PomodoroClock({
+export const PomodoroClock = React.memo(function PomodoroClock({
     speed,
     setSpeed,
     isProtocolInactive,
@@ -67,9 +67,8 @@ export function PomodoroClock({
 
     const etaString = useMemo(() => {
         if (!isRunning || !Number.isFinite(timeLeft) || timeLeft <= 0) return null;
-        const end = new Date(Date.now() + timeLeft * 1000);
-        return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }, [isRunning, timeLeft]);
+        return calculateETA(timeLeft, speed);
+    }, [isRunning, timeLeft, speed]);
 
     const statusLabel = useMemo(() => {
         if (isRunning) {
@@ -268,7 +267,7 @@ export function PomodoroClock({
                                 isProtocolInactive ? 'bg-white/30' : 'bg-amber-400/80 shadow-[0_0_6px_rgba(251,191,36,0.5)]'
                             }`} />
                         )}
-                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] sm:tracking-[0.18em] text-white/90 drop-shadow text-center whitespace-nowrap px-0.5">
+                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] sm:tracking-[0.18em] text-white/90 drop-shadow text-center max-w-[130px] sm:max-w-[155px] truncate px-0.5">
                             {statusLabel}
                         </span>
                     </div>
@@ -276,6 +275,6 @@ export function PomodoroClock({
             </div>
         </div>
     );
-}
+});
 
 export default PomodoroClock;

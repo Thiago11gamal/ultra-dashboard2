@@ -59,11 +59,13 @@ export function usePomodoroSync({
             if (tabId === STABLE_TAB_ID) return;
 
             if (SESSION_SCOPED_TYPES.includes(type)) {
-                const currentTaskId = activeSubjectRef.current?.taskId ?? null;
-                const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
+                const currentTaskId = activeSubjectRef.current?.taskId != null ? String(activeSubjectRef.current.taskId) : null;
+                const currentSessionId = activeSubjectRef.current?.sessionInstanceId != null ? String(activeSubjectRef.current.sessionInstanceId) : null;
+                const msgTaskId = taskId != null ? String(taskId) : null;
+                const msgSessionId = sessionInstanceId != null ? String(sessionInstanceId) : null;
 
                 // Se a mensagem tem taskId E nós temos taskId, devem bater
-                if (taskId != null && currentTaskId != null && taskId !== currentTaskId) {
+                if (msgTaskId != null && currentTaskId != null && msgTaskId !== currentTaskId) {
                     return;
                 }
                 // G-09 FIX: Se a mensagem tem sessionInstanceId, validar.
@@ -71,13 +73,13 @@ export function usePomodoroSync({
                 // (mensagem de aba que não trackeia sessions).
                 // Se a mensagem TEM sessionId mas NÓS NÃO temos, rejeitar
                 // (excepto START_SESSION que notifica ativação).
-                if (sessionInstanceId != null && currentSessionId != null &&
-                    sessionInstanceId !== currentSessionId) {
+                if (msgSessionId != null && currentSessionId != null &&
+                    msgSessionId !== currentSessionId) {
                     return;
                 }
                 // G-09 FIX: Se a mensagem TEM sessionId mas nós NÃO temos,
                 // só aceitar START_SESSION (ativação inicial).
-                if (type !== 'START_SESSION' && sessionInstanceId != null && currentSessionId == null) {
+                if (type !== 'START_SESSION' && msgSessionId != null && currentSessionId == null) {
                     return;
                 }
             }
@@ -212,10 +214,10 @@ export function usePomodoroSync({
                             saved = {};
                         }
 
-                        const currentTaskId = activeSubjectRef.current?.taskId ?? null;
-                        const currentSessionId = activeSubjectRef.current?.sessionInstanceId ?? null;
+                        const currentTaskId = activeSubjectRef.current?.taskId != null ? String(activeSubjectRef.current.taskId) : null;
+                        const currentSessionId = activeSubjectRef.current?.sessionInstanceId != null ? String(activeSubjectRef.current.sessionInstanceId) : null;
 
-                        const effectiveTaskId = saved?.activeTaskId || data?.taskId;
+                        const effectiveTaskId = (saved?.activeTaskId != null ? String(saved.activeTaskId) : null) || (data?.taskId != null ? String(data.taskId) : null);
                         if (
                             effectiveTaskId &&
                             currentTaskId &&
@@ -224,7 +226,7 @@ export function usePomodoroSync({
                             break;
                         }
 
-                        const effectiveSessionId = saved?.sessionInstanceId || data?.sessionInstanceId;
+                        const effectiveSessionId = (saved?.sessionInstanceId != null ? String(saved.sessionInstanceId) : null) || (data?.sessionInstanceId != null ? String(data.sessionInstanceId) : null);
                         if (
                             effectiveSessionId &&
                             currentSessionId &&

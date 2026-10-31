@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Minus, Plus, Layers } from 'lucide-react';
 import { MAX_TARGET_CYCLES } from '../../utils/pomodoroHelpers';
 
-export function PomodoroProgress({
+export const PomodoroProgress = React.memo(function PomodoroProgress({
     targetCycles,
     completedCycles,
     setTargetCycles,
@@ -17,6 +17,19 @@ export function PomodoroProgress({
 }) {
     const safeTargetCycles = Math.min(MAX_TARGET_CYCLES, Math.max(1, Math.round(Number(targetCycles) || 1)));
     const safeCompletedCycles = Math.min(safeTargetCycles, Math.max(0, Math.round(Number(completedCycles) || 0)));
+
+    const persistTargetCycles = (newTarget) => {
+        try {
+            const raw = localStorage.getItem('pomodoroState');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') {
+                    parsed.targetCycles = newTarget;
+                    localStorage.setItem('pomodoroState', JSON.stringify(parsed));
+                }
+            }
+        } catch { /* ignore */ }
+    };
 
     useEffect(() => {
         if (workFillsRef?.current && Array.isArray(workFillsRef.current)) {
@@ -50,6 +63,7 @@ export function PomodoroProgress({
                                 if (typeof setTargetCycles === 'function') {
                                     setTargetCycles(newTarget);
                                 }
+                                persistTargetCycles(newTarget);
                                 try {
                                     if (syncChannel && typeof syncChannel.postMessage === 'function') {
                                         syncChannel.postMessage({
@@ -90,6 +104,7 @@ export function PomodoroProgress({
                                 if (typeof setTargetCycles === 'function') {
                                     setTargetCycles(newTarget);
                                 }
+                                persistTargetCycles(newTarget);
                                 try {
                                     if (syncChannel && typeof syncChannel.postMessage === 'function') {
                                         syncChannel.postMessage({
@@ -185,6 +200,6 @@ export function PomodoroProgress({
             </div>
         </div>
     );
-}
+});
 
 export default PomodoroProgress;

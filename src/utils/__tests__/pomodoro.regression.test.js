@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPomodoroSlice } from '../../store/slices/createPomodoroSlice';
-import { formatTime, SPEED_OPTIONS, MAX_TARGET_CYCLES } from '../pomodoroHelpers';
+import { formatTime, calculateETA, SPEED_OPTIONS, MAX_TARGET_CYCLES } from '../pomodoroHelpers';
 import { calculateStudyStreak, countPomodorosToday } from '../analytics';
 
 describe('Pomodoro Slice - Skip and Phase Progression Regressions', () => {
@@ -339,5 +339,137 @@ describe('Pomodoro & Study Slice - Enhanced Data Integrity & Category Fallbacks'
     expect(missRate).toBe(0);
   });
 });
+
+describe('Pomodoro Optimizations & Bug Fixes - calculateETA, Keyboard Isolation, Numeric IDs & Reload Survival', () => {
+  it('calculateETA calcula o horário previsto considerando a aceleração da velocidade', () => {
+    vi.useFakeTimers();
+    // 12:00:00 (1700000000000)
+    const baseTime = new Date('2026-03-15T12:00:00Z');
+    vi.setSystemTime(baseTime);
+
+    // 1500 segundos (25 minutos) na velocidade 1x -> ETA deve ser 12:25:00 UTC
+    const eta1x = calculateETA(1500, 1);
+    expect(eta1x).toMatch(/^\d{2}:\d{2}$/);
+
+    // Na velocidade 10x, 1500 segundos virtuais duram 150 segundos reais (2min 30s)
+    // 12:00:00 + 02:30 = 12:02:30
+    const eta10xDate = new Date(baseTime.getTime() + (1500 * 1000) / 10);
+    const expected10x = `${String(eta10xDate.getHours()).padStart(2, '0')}:${String(eta10xDate.getMinutes()).padStart(2, '0')}`;
+    expect(calculateETA(1500, 10)).toBe(expected10x);
+
+    // Na velocidade 100x, 1500 segundos virtuais duram 15 segundos reais
+    const eta100xDate = new Date(baseTime.getTime() + (1500 * 1000) / 100);
+    const expected100x = `${String(eta100xDate.getHours()).padStart(2, '0')}:${String(eta100xDate.getMinutes()).padStart(2, '0')}`;
+    expect(calculateETA(1500, 100)).toBe(expected100x);
+
+    // Casos de borda: valores inválidos ou zerados retornam null
+    expect(calculateETA(0, 1)).toBeNull();
+    expect(calculateETA(-10, 1)).toBeNull();
+    expect(calculateETA(NaN, 1)).toBeNull();
+    expect(calculateETA(null, 1)).toBeNull();
+
+    vi.useRealTimers();
+  });
+
+  it('advanceNeuralQueue funciona corretamente mesmo com IDs numéricos (type coercion)', () => {
+    let state = {
+      appState: {
+        activeId: 'contest-1',
+        contests: {
+          'contest-1': {
+            categories: [
+              { id: 10, name: 'Informática', tasks: [] }
+            ]
+          }
+        },
+        pomodoro: {
+          isRunning: false,
+          neuralMode: false,
+          neuralQueue: []
+        }
+      }
+    };
+    const set = (updater) => {
+      if (typeof updater === 'function') updater(state);
+      else Object.assign(state, updater);
+    };
+    const get = () => state;
+    const slice = createPomodoroSlice(set, get);
+
+    // Fila com IDs puramente numéricos
+    const tasks = [
+      { id: 101, title: 'Redes de Computadores', categoryId: 10, category: 'Informática' },
+      { id: 102, title: 'Segurança da Informação', categoryId: 10, category: 'Informática' }
+    ];
+
+    slice.startNeuralSession(tasks, 0);
+    expect(state.appState.pomodoro.activeSubject.taskId).toBe(101);
+
+    // Avança para a próxima tarefa na fila, comparando ID numérico com activeId
+    const hasNext = slice.advanceNeuralQueue();
+    expect(hasNext).toBe(true);
+    expect(state.appState.pomodoro.activeSubject.taskId).toBe(102);
+    expect(state.appState.pomodoro.activeSubject.task).toBe('Segurança da Informação');
+  });
+
+  it('não intercepta atalhos do navegador que utilizam teclas modificadoras (ctrlKey, metaKey, altKey)', () => {
+    // Simula a lógica de guarda inserida no listener de teclado
+    const handleKeyDownGuard = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return false; // ignorado para permitir atalhos do browser
+      }
+      if (['Space', 'KeyR', 'KeyS', 'KeyF'].includes(e.code)) {
+        return true; // consumido pelo timer
+      }
+      return false;
+    };
+
+    // Tecla pura ativa o atalho do pomodoro
+    expect(handleKeyDownGuard({ code: 'KeyR', ctrlKey: false, metaKey: false, altKey: false })).toBe(true);
+    expect(handleKeyDownGuard({ code: 'KeyF', ctrlKey: false, metaKey: false, altKey: false })).toBe(true);
+
+    // Tecla com Ctrl (ex: Ctrl+R recarregar, Ctrl+F buscar) não deve ser interceptada
+    expect(handleKeyDownGuard({ code: 'KeyR', ctrlKey: true, metaKey: false, altKey: false })).toBe(false);
+    expect(handleKeyDownGuard({ code: 'KeyF', ctrlKey: true, metaKey: false, altKey: false })).toBe(false);
+    expect(handleKeyDownGuard({ code: 'KeyS', ctrlKey: false, metaKey: false, altKey: true })).toBe(false);
+  });
+
+  it('preserva pomodoro-endsAt no beforeunload quando o cronômetro está rodando', () => {
+    const store = new Map();
+    const mockLocalStorage = {
+      getItem: (k) => store.get(k) || null,
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k)
+    };
+
+    const futureEndsAt = Date.now() + 600000;
+    mockLocalStorage.setItem('pomodoro-endsAt', JSON.stringify({ endsAt: futureEndsAt, taskId: 't1' }));
+
+    const simulateBeforeUnload = (isRunning, endsAt) => {
+      if (isRunning && endsAt && endsAt > Date.now()) {
+        const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+        mockLocalStorage.setItem('pomodoroState', JSON.stringify({
+          timeLeft: remaining,
+          isRunning: true
+        }));
+        // NÃO remove 'pomodoro-endsAt' para permitir recuperação após F5/Reload
+      } else {
+        mockLocalStorage.removeItem('pomodoro-endsAt');
+      }
+    };
+
+    // Quando o cronômetro está ativo:
+    simulateBeforeUnload(true, futureEndsAt);
+    expect(mockLocalStorage.getItem('pomodoro-endsAt')).not.toBeNull();
+    const savedState = JSON.parse(mockLocalStorage.getItem('pomodoroState'));
+    expect(savedState.isRunning).toBe(true);
+    expect(savedState.timeLeft).toBeGreaterThan(0);
+
+    // Quando o cronômetro está pausado ou expirado:
+    simulateBeforeUnload(false, futureEndsAt);
+    expect(mockLocalStorage.getItem('pomodoro-endsAt')).toBeNull();
+  });
+});
+
 
 

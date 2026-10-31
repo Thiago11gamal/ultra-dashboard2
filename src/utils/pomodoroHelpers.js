@@ -39,3 +39,12 @@ export function formatTime(seconds) {
   const secs = secsInt % 60;
   return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
+
+export function calculateETA(timeLeft, speed = 1) {
+  const safeTime = Number(timeLeft);
+  if (!Number.isFinite(safeTime) || safeTime <= 0) return null;
+  const safeSpeed = SPEED_OPTIONS.includes(Number(speed)) ? Number(speed) : 1;
+  const msRemaining = (safeTime * 1000) / safeSpeed;
+  const d = new Date(Date.now() + msRemaining);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}

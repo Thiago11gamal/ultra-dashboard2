@@ -17,6 +17,7 @@ import {
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
+import { calculateETA } from '../utils/pomodoroHelpers';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
@@ -40,7 +41,7 @@ const resolveReturnPath = (source, forceDashboard = false) => {
 // =====================================================
 // TELEMETRIA EM GRID (CONQUISTAS E TELEMETRIA)
 // =====================================================
-function DataTriviaPanel({ studyLogs, simulados, categories }) {
+const DataTriviaPanel = React.memo(function DataTriviaPanel({ studyLogs, simulados, categories }) {
     const stats = useMemo(() => {
         const startOfToday = getLocalMidnight().getTime();
         const todayDate = new Date();
@@ -163,7 +164,7 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             </div>
         </div>
     );
-}
+});
 
 // =====================================================
 // PAINEL DO MENTOR IA
@@ -175,7 +176,7 @@ const DEFAULT_INSIGHT = Object.freeze({
     iconType: 'Brain'
 });
 
-    function AICoachPanel({ activeSubject, stats, categories = [], studyLogs = [], simulados = [], settings = EMPTY_OBJECT }) {
+const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, stats, categories = [], studyLogs = [], simulados = [], settings = EMPTY_OBJECT }) {
         const insight = useMemo(() => {
             if (!activeSubject) return DEFAULT_INSIGHT;
 
@@ -306,12 +307,12 @@ const DEFAULT_INSIGHT = Object.freeze({
             </div>
         </Motion.div>
     );
-}
+});
 
 // =====================================================
 // OPÇÃO 1: CENTRAL DE MISSÕES, MENTOR E PRÓXIMAS AÇÕES
 // =====================================================
-function ActionsAndMentorView({
+const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
     categories,
     activeSubject,
     onStartTask,
@@ -325,7 +326,8 @@ function ActionsAndMentorView({
     mode = 'work',
     timeLeft = 0,
     targetCycles = 1,
-    completedCycles = 0
+    completedCycles = 0,
+    speed = 1
 }) {
     const recommendedTask = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -335,16 +337,16 @@ function ActionsAndMentorView({
 
     const highPriorityTasks = useMemo(() => {
         const tasks = [];
-        const recommendedId = (!activeSubject && recommendedTask) ? (recommendedTask.id || recommendedTask.text) : null;
-        const currentTaskId = activeSubject?.taskId;
+        const recommendedId = (!activeSubject && recommendedTask) ? String(recommendedTask.id || recommendedTask.text || recommendedTask.title || '') : null;
+        const currentTaskId = activeSubject?.taskId ? String(activeSubject.taskId) : null;
         if (neuralMode && neuralQueue && neuralQueue.length > 0) {
             const safeQueue = Array.isArray(neuralQueue) ? neuralQueue : Object.values(neuralQueue || {});
             const normalizedQueue = safeQueue.filter(Boolean);
-            const currentIndex = normalizedQueue.findIndex(t => (t.id || t.text) === currentTaskId);
+            const currentIndex = normalizedQueue.findIndex(t => String(t.id || t.text || t.title) === currentTaskId);
             const pendingQueue = currentIndex >= 0 ? normalizedQueue.slice(currentIndex) : normalizedQueue;
             return pendingQueue.map(t => ({
                 ...t,
-                id: t.id || t.text,
+                id: t.id || t.text || t.title,
                 catName: t.catName || t.category || 'Neural',
                 catColor: t.catColor || '#6366f1',
                 catIcon: t.catIcon || '⚡'
@@ -352,32 +354,41 @@ function ActionsAndMentorView({
         }
         (categories || []).filter(Boolean).forEach(cat => {
             const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
-            safeTasks.filter(t => t && !t.completed && t.priority === 'high' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
-                tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
+            safeTasks.filter(t => {
+                if (!t || t.completed || t.priority !== 'high') return false;
+                const tid = String(t.id || t.text || t.title);
+                return tid !== recommendedId && tid !== currentTaskId;
+            }).forEach(t => {
+                tasks.push({ ...t, id: t.id || t.text || t.title, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
             });
         });
         if (tasks.length === 0) {
             (categories || []).filter(Boolean).forEach(cat => {
                 const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
-                safeTasks.filter(t => t && !t.completed && t.priority === 'medium' && (t.id || t.text) !== recommendedId && (t.id || t.text) !== currentTaskId).forEach(t => {
-                    tasks.push({ ...t, id: t.id || t.text, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
+                safeTasks.filter(t => {
+                    if (!t || t.completed || t.priority !== 'medium') return false;
+                    const tid = String(t.id || t.text || t.title);
+                    return tid !== recommendedId && tid !== currentTaskId;
+                }).forEach(t => {
+                    tasks.push({ ...t, id: t.id || t.text || t.title, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
                 });
             });
         }
         return tasks;
     }, [categories, recommendedTask, activeSubject, neuralMode, neuralQueue]);
 
-    const pendingCount = highPriorityTasks.filter(t => (t.id || t.text) !== activeSubject?.taskId).length;
+    const pendingCount = highPriorityTasks.filter(t => String(t.id || t.text || t.title) !== String(activeSubject?.taskId)).length;
 
     const visibleTasks = useMemo(() => {
         const base = [...highPriorityTasks];
-        const seen = new Set(base.map(t => t?.id || t?.text).filter(Boolean));
+        const seen = new Set(base.map(t => String(t?.id || t?.text || t?.title || '')).filter(Boolean));
+        const currentActiveTaskId = activeSubject?.taskId ? String(activeSubject.taskId) : null;
         if (base.length < 6) {
             (categories || []).filter(Boolean).forEach(cat => {
                 const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
                 safeTasks.filter(t => t && !t.completed).forEach(t => {
-                    const normalizedId = t.id || t.text;
-                    if (!normalizedId || seen.has(normalizedId) || base.length >= 6 || normalizedId === activeSubject?.taskId) return;
+                    const normalizedId = String(t.id || t.text || t.title || '');
+                    if (!normalizedId || seen.has(normalizedId) || base.length >= 6 || normalizedId === currentActiveTaskId) return;
                     base.push({ ...t, id: normalizedId, catName: cat.name, catColor: cat.color, catId: cat.id, catIcon: cat.icon });
                     seen.add(normalizedId);
                 });
@@ -504,7 +515,7 @@ function ActionsAndMentorView({
                                 <span>Término previsto do bloco:</span>
                             </span>
                             <span className="font-mono font-black text-emerald-300">
-                                {new Date(Date.now() + timeLeft * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {calculateETA(timeLeft, speed) || '--:--'}
                             </span>
                         </div>
                     )}
@@ -624,7 +635,7 @@ function ActionsAndMentorView({
                             const taskId = task.id || task.text || task.title || `fallback-task-${idx}`;
                             const categoryName = safeCatName(task.catName || task.category);
                             const currentActiveId = activeSubject?.taskId || activeSubject?.id;
-                            const isActive = currentActiveId === taskId || (task.id && currentActiveId === task.id);
+                            const isActive = String(currentActiveId) === String(taskId) || (task.id && String(currentActiveId) === String(task.id));
                             const { displayTopic, secondaryText, alertBadge } = cleanTaskText(task.text || task.title, categoryName);
                             return (
                                 <Motion.button
@@ -680,12 +691,12 @@ function ActionsAndMentorView({
             </div>
         </div>
     );
-}
+});
 
 // =====================================================
 // PAINEL LATERAL UNIFICADO COM AS DUAS OPÇÕES DE VISUALIZAÇÃO
 // =====================================================
-function PomodoroSidePanel({
+const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
     clockHeight,
     activeTab,
     setActiveTab,
@@ -706,7 +717,8 @@ function PomodoroSidePanel({
     completedCycles,
     isLayoutLocked,
     onToggleLock,
-    settings
+    settings,
+    speed = 1
 }) {
     const [uiPosition, setUiPosition] = useState(() => {
         try {
@@ -748,8 +760,26 @@ function PomodoroSidePanel({
                 }
             }
         };
+
+        const handleStorage = (e) => {
+            if (e.key === 'focusPanelPosition') {
+                try {
+                    const parsed = JSON.parse(e.newValue);
+                    if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+                        setUiPosition(parsed);
+                    } else {
+                        setUiPosition({ x: 0, y: 0 });
+                    }
+                } catch { setUiPosition({ x: 0, y: 0 }); }
+            }
+        };
+
         window.addEventListener('resize', checkPos);
-        return () => window.removeEventListener('resize', checkPos);
+        window.addEventListener('storage', handleStorage);
+        return () => {
+            window.removeEventListener('resize', checkPos);
+            window.removeEventListener('storage', handleStorage);
+        };
     }, []);
 
     const handleDragEnd = (_, info) => {
@@ -908,6 +938,7 @@ function PomodoroSidePanel({
                                 timeLeft={timeLeft}
                                 targetCycles={targetCycles}
                                 completedCycles={completedCycles}
+                                speed={speed}
                             />
                         </Motion.div>
                     ) : (
@@ -932,6 +963,7 @@ function PomodoroSidePanel({
                                 completedCycles={completedCycles}
                                 settings={settings}
                                 simulados={simulados}
+                                speed={speed}
                             />
                         </Motion.div>
                     )}
@@ -939,20 +971,21 @@ function PomodoroSidePanel({
             </div>
         </Motion.div>
     );
-}
+});
 
 // =====================================================
 // =====================================================
 // BARRA SUPERIOR DO CRONÔMETRO (COMPACTA, ELEGANTE E PERFEITAMENTE ENQUADRADA)
 // =====================================================
-function PomodoroTopBar({
+const PomodoroTopBar = React.memo(function PomodoroTopBar({
     activeSubject,
     categories = [],
     isRunning,
     mode = 'work',
     timeLeft = 0,
     targetCycles = 1,
-    completedCycles = 0
+    completedCycles = 0,
+    speed = 1
 }) {
     const currentCategory = useMemo(() => {
         if (!activeSubject) return null;
@@ -973,11 +1006,10 @@ function PomodoroTopBar({
 
     const etaString = useMemo(() => {
         if (!isRunning || !Number.isFinite(timeLeft) || timeLeft <= 0) return null;
-        const d = new Date(Date.now() + timeLeft * 1000);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }, [isRunning, timeLeft]);
+        return calculateETA(timeLeft, speed);
+    }, [isRunning, timeLeft, speed]);
 
-    const currentCycleDisplay = Math.min(targetCycles, completedCycles + (mode === 'work' ? 1 : 0));
+    const currentCycleDisplay = Math.max(1, Math.min(targetCycles, completedCycles + (mode === 'work' ? 1 : 0)));
 
     return (
         <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">
@@ -1054,7 +1086,7 @@ function PomodoroTopBar({
             </div>
         </div>
     );
-}
+});
 
 // =====================================================
 // COMPONENTE PRINCIPAL POMODORO
@@ -1063,10 +1095,13 @@ export default function Pomodoro() {
     const activeId = useAppStore(state => state.appState?.activeId);
     const contest = useActiveContest() || EMPTY_OBJECT;
     const rawCategories = contest.categories || EMPTY_ARRAY;
-    const categories = React.useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
-        ...c,
-        tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
-    })), [rawCategories]);
+    const categories = React.useMemo(() => {
+        const list = Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {});
+        return list.filter(Boolean).map(c => ({
+            ...c,
+            tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {})
+        }));
+    }, [rawCategories]);
     const settings = contest.settings || EMPTY_OBJECT;
     const rawStudyLogs = contest.studyLogs || EMPTY_ARRAY;
     const studyLogs = React.useMemo(() => Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {}), [rawStudyLogs]);
@@ -1348,7 +1383,7 @@ export default function Pomodoro() {
                     ...prev,
                     categories: catsArray.map(c => c && c.id === subjectSnapshot.categoryId ? {
                         ...c,
-                        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t && (t.id === subjectSnapshot.taskId || t.text === subjectSnapshot.taskId) ? { ...t, status: 'idle' } : t)
+                        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t && (String(t.id) === String(subjectSnapshot.taskId) || String(t.text) === String(subjectSnapshot.taskId) || String(t.title) === String(subjectSnapshot.taskId)) ? { ...t, status: 'idle' } : t)
                     } : c)
                 };
             });
@@ -1372,7 +1407,7 @@ export default function Pomodoro() {
         const taskId = task?.id || task?.text || task?.title;
         if (!taskId) return;
 
-        if (activeSubject && activeSubject.taskId === taskId) {
+        if (activeSubject && String(activeSubject.taskId) === String(taskId)) {
             showToast('Esta meta já está em foco! 🎯', 'info');
             return;
         }
@@ -1385,7 +1420,7 @@ export default function Pomodoro() {
                 if (!c) return false;
                 if (catId && c.id === catId) return true;
                 const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
-                return tasks.some(t => t && (t?.id || t?.text || t?.title) === taskId);
+                return tasks.some(t => t && (String(t?.id) === String(taskId) || String(t?.text) === String(taskId) || String(t?.title) === String(taskId)));
             });
             if (foundCat) {
                 if (!catId) catId = foundCat.id;
@@ -1405,7 +1440,7 @@ export default function Pomodoro() {
                 });
             });
             const queue = [...highPriority];
-            let startIndex = queue.findIndex(t => (t.id || t.text || t.title) === taskId);
+            let startIndex = queue.findIndex(t => String(t.id || t.text || t.title) === String(taskId));
             if (startIndex === -1) {
                 queue.unshift({ ...task, id: taskId, categoryId: catId, catName: catName });
                 startIndex = 0;
@@ -1463,7 +1498,7 @@ export default function Pomodoro() {
                 const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
                 const cat = safeCats.find(c => c && c.id === currentSubject.categoryId);
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
-                const task = catTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
+                const task = catTasks.find(t => t && (String(t.id) === String(currentSubject.taskId) || String(t.text) === String(currentSubject.taskId) || String(t.title) === String(currentSubject.taskId)));
 
                 const coachPlan = activeData?.coachPlan || store.appState?.coachPlan;
                 const coachTasks = Array.isArray(coachPlan)
@@ -1471,7 +1506,7 @@ export default function Pomodoro() {
                     : Array.isArray(coachPlan?.tasks)
                         ? coachPlan.tasks
                         : [];
-                const coachTask = coachTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
+                const coachTask = coachTasks.find(t => t && (String(t.id) === String(currentSubject.taskId) || String(t.text) === String(currentSubject.taskId) || String(t.title) === String(currentSubject.taskId)));
                 const targetTask = task || coachTask;
 
                 const humanSubjectTitle = cleanTaskTitle(currentSubject.task, currentSubject.category) || 'Meta';
@@ -1489,7 +1524,7 @@ export default function Pomodoro() {
                 const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
                 const cat = safeCats.find(c => c && c.id === currentSubject.categoryId);
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
-                const task = catTasks.find(t => t && (t.id || t.text || t.title) === currentSubject.taskId);
+                const task = catTasks.find(t => t && (String(t.id) === String(currentSubject.taskId) || String(t.text) === String(currentSubject.taskId) || String(t.title) === String(currentSubject.taskId)));
                 const humanSubjectTitle = cleanTaskTitle(task?.title || task?.text || currentSubject.task, currentSubject.category) || 'Meta';
                 if (task && !task.completed) {
                     if (typeof store.toggleTask === 'function') {
@@ -1538,7 +1573,7 @@ export default function Pomodoro() {
                                 ...prev,
                                 categories: catsArray.map(c => c && c.id === currentSubject.categoryId ? {
                                     ...c,
-                                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t && (t.id === currentSubject.taskId || t.text === currentSubject.taskId) ? { ...t, status: 'idle' } : t)
+                                    tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).map(t => t && (String(t.id) === String(currentSubject.taskId) || String(t.text) === String(currentSubject.taskId) || String(t.title) === String(currentSubject.taskId)) ? { ...t, status: 'idle' } : t)
                                 } : c)
                             };
                         });
@@ -1594,6 +1629,7 @@ export default function Pomodoro() {
                             timeLeft={liveTimerState !== null ? liveTimerState.timeLeft : (pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60)}
                             targetCycles={liveTimerState?.targetCycles || pomodoroState.targetCycles || 1}
                             completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
+                            speed={pomodoroState.speed || 1}
                         />
                         <PomodoroTimer
                             settings={settings}
@@ -1647,6 +1683,7 @@ export default function Pomodoro() {
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
                             settings={settings}
+                            speed={pomodoroState.speed || 1}
                         />
                     </div>
                 </div>

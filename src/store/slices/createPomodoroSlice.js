@@ -465,9 +465,12 @@ export const createPomodoroSlice = (set, get) => ({
         if (!neuralQueue || neuralQueue.length === 0) return false;
         if (!activeSubject) return false;
 
-        const currentIndex = neuralQueue.findIndex(
-            t => (t.id || t.text || t.title) === activeSubject?.taskId
-        );
+        const activeIdStr = String(activeSubject?.taskId ?? '');
+        const currentIndex = neuralQueue.findIndex(t => {
+            if (!t) return false;
+            const tid = String(t.id ?? t.text ?? t.title ?? '');
+            return tid && tid === activeIdStr;
+        });
 
         if (currentIndex === -1 || currentIndex >= neuralQueue.length - 1) {
             clearPomodoroStorage();
@@ -498,7 +501,11 @@ export const createPomodoroSlice = (set, get) => ({
                 if (!c) return false;
                 if (c.name && taskCategoryName && c.name.toLowerCase() === taskCategoryName.toLowerCase()) return true;
                 const tasks = Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {});
-                return tasks.some(t => t && (t.id === nextTask.id || t.text === nextTask.text || t.title === nextTask.title));
+                return tasks.some(t => t && (
+                    String(t.id) === String(nextTask.id) ||
+                    t.text === nextTask.text ||
+                    t.title === nextTask.title
+                ));
             });
             if (foundCat?.id) {
                 resolvedCatId = foundCat.id;

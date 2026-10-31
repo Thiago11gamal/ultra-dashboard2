@@ -2,7 +2,7 @@ import React from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Zap, AlertCircle, Target, Sparkles, BookOpen } from 'lucide-react';
 
-export function PomodoroHeader({
+export const PomodoroHeader = React.memo(function PomodoroHeader({
     mode,
     activeSubject,
     onStartRecommended,
@@ -86,6 +86,6 @@ export function PomodoroHeader({
     }
 
     return null;
-}
+});
 
 export default PomodoroHeader;

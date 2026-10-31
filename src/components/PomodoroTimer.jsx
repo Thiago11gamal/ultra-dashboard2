@@ -346,6 +346,9 @@ function PomodoroTimer({
                 : preset.break * 60;
 
         commitTimeLeft(newSeconds);
+        if (stateRefs.current) {
+            stateRefs.current.lastTotalTime = newSeconds;
+        }
         if (clockRef.current) {
             clockRef.current.textContent = formatTime(newSeconds);
         }
@@ -1006,15 +1009,21 @@ function PomodoroTimer({
 
     useEffect(() => {
         const handleBeforeUnload = () => {
-            savePomodoroState({ isRunning: false, timeLeft: stateRefs.current.timeLeft });
-            setPomodoroRunning(false);
-            try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+            if (stateRefs.current?.isRunning && endsAtRef.current && endsAtRef.current > Date.now()) {
+                const currentSpeed = speedRef.current || 1;
+                const remaining = Math.max(0, Math.ceil(((endsAtRef.current - Date.now()) * currentSpeed) / 1000));
+                savePomodoroState({ isRunning: true, timeLeft: remaining });
+            } else {
+                savePomodoroState({ isRunning: false, timeLeft: stateRefs.current?.timeLeft ?? timeLeft });
+                setPomodoroRunning(false);
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+            }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => {
             window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, [savePomodoroState, setPomodoroRunning]);
+    }, [savePomodoroState, setPomodoroRunning, timeLeft]);
 
     const transitionSession = useCallback((completedMode, source = 'natural') => {
         if (isTransitioningRef.current) return;
@@ -1243,15 +1252,17 @@ function PomodoroTimer({
     }, [transitionSession]);
     handlePhaseEndRef.current = handlePhaseEnd;
 
-    // ✅ TIMER SEM DRIFT (Sobrevive a abas em background e reload)
+    // ✅ TIMER SEM DRIFT (Sobrevive a abas em background e reload com verificação de mudança)
     useEffect(() => {
         if (!isRunning || !endsAtRef.current) return;
         const id = setInterval(() => {
             const currentSpeed = speedRef.current || 1;
             const next = Math.max(0, Math.ceil(((endsAtRef.current - Date.now()) * currentSpeed) / 1000));
-            stateRefs.current.timeLeft = next;
-            timeRef.current = next;
-            setTimeLeft(next);
+            if (next !== timeRef.current) {
+                stateRefs.current.timeLeft = next;
+                timeRef.current = next;
+                setTimeLeft(next);
+            }
             if (next <= 0) {
                 clearInterval(id);
                 handlePhaseEnd();
@@ -1666,6 +1677,11 @@ function PomodoroTimer({
 
             const tag = e.target?.tagName?.toLowerCase();
             if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) {
+                return;
+            }
+
+            // Não interceptar combinações do navegador como Ctrl+R, Ctrl+F, Ctrl+S, Alt+Tab, etc.
+            if (e.ctrlKey || e.metaKey || e.altKey) {
                 return;
             }
 
