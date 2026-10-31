@@ -32,6 +32,7 @@ import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } f
 import { displaySubject } from '../utils/displaySubject';
 import { formatDateTimePtBR, toDateMs, getDateKey } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
+import { ensureCoachTaskId } from '../utils/coachTaskId';
 import { isSubjectMatch } from '../utils/normalization';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
@@ -45,10 +46,7 @@ export default function Coach() {
     const isMountedRef = useRef(true);
     const topRef = useRef(null);
     const calibrationAlertCacheRef = useRef(new Map());
-    const [coachLoading, setCoachLoading] = useState(false);
     const [suggestedFocus, setSuggestedFocus] = useState(null);
-    const timeoutRef = useRef(null);
-    const generationTimeoutsRef = useRef([]);
     const lastPushedScoreRef = useRef(null);
     const activeId = useAppStore(state => state.appState.activeId);
 
@@ -62,15 +60,7 @@ export default function Coach() {
         // G-03 FIX: Limpar cache de alertas ao trocar de concurso
         calibrationAlertCacheRef.current.clear();
         lastPushedScoreRef.current = null;
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-            setCoachLoading(false);
-        }
-        if (generationTimeoutsRef.current.length > 0) {
-            generationTimeoutsRef.current.forEach(clearTimeout);
-            generationTimeoutsRef.current = [];
-        }
+        
         const timer = setTimeout(() => {
             if (isMountedRef.current) {
                 setSuggestedFocus(null);
@@ -174,13 +164,7 @@ export default function Coach() {
 
     useEffect(() => {
         isMountedRef.current = true;
-        return () => { 
-            isMountedRef.current = false; 
-            if (generationTimeoutsRef.current && generationTimeoutsRef.current.length > 0) {
-                generationTimeoutsRef.current.forEach(clearTimeout);
-                generationTimeoutsRef.current = [];
-            }
-        };
+        return () => { isMountedRef.current = false; };
     }, []);
 
     useEffect(() => {
@@ -495,6 +479,28 @@ export default function Coach() {
     const mcStatsContextRef = useRef(mcStatsContext);
     useEffect(() => { mcStatsContextRef.current = mcStatsContext; }, [mcStatsContext]);
 
+    // Sincroniza projeção global quando o cálculo do Monte Carlo conclui a simulação
+    useEffect(() => {
+        if (mcStats?.projectedMean == null) return;
+        const projectedVal = Number(mcStats.projectedMean.toFixed(1));
+        const probVal = mcStats.probability != null ? Number(mcStats.probability.toFixed(1)) : null;
+        setSuggestedFocus(prev => {
+            if (!prev) return prev;
+            if (prev.globalProjectedMean === projectedVal && prev.globalMcContext?.probability === probVal) {
+                return prev;
+            }
+            return {
+                ...prev,
+                globalProjectedMean: projectedVal,
+                globalMcContext: {
+                    projectedMean: projectedVal,
+                    probability: probVal,
+                    source: 'useMonteCarloStats'
+                }
+            };
+        });
+    }, [mcStats?.projectedMean, mcStats?.probability]);
+
     useEffect(() => {
         if (!isHydrated) return;
         if (!data?.categories || categories.length === 0) {
@@ -557,6 +563,103 @@ export default function Coach() {
                     };
                 }
                 setSuggestedFocus(result);
+
+                // GERAÇÃO AUTOMÁTICA DO PLANO DE METAS DO COACH (coachPlan)
+                try {
+                    const newTasks = generateDailyGoals(
+                        categories,
+                        combinedHistory,
+                        studyLogs,
+                        {
+                            contestId: activeId,
+                            user: data?.user,
+                            ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
+                            maxScore: safeMax,
+                            minScore: safeMin,
+                            calibrationHistoryByCategory: calibrationHistoryRef.current,
+                            onCalibrationMetric: (metric) => collectedMetrics.push(metric),
+                            simuladoRows: data?.simuladoRows,
+                            allSimulados: data?.simulados,
+                            flashcardDecks: flashcardDecks,
+                            config: {
+                                contestId: activeId,
+                                MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                            }
+                        }
+                    );
+
+                    if (Array.isArray(newTasks) && newTasks.length > 0 && isMountedRef.current) {
+                        const currentData = useAppStore.getState().appState?.contests?.[activeId];
+                        const existingPlan = Array.isArray(currentData?.coachPlan) ? currentData.coachPlan : Object.values(currentData?.coachPlan || {});
+                        const existingPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
+                            ? currentData.coachPlanner
+                            : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+
+                        // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
+                        const assignedTasks = [];
+                        const assignedIds = new Set();
+                        Object.values(existingPlanner).forEach(dayArr => {
+                            if (Array.isArray(dayArr)) {
+                                dayArr.forEach(t => {
+                                    if (t) {
+                                        const sid = getSafeId(ensureCoachTaskId(t));
+                                        if (sid) {
+                                            assignedIds.add(sid);
+                                            assignedTasks.push(t);
+                                        }
+                                    }
+                                });
+                            }
+                        });
+
+                        // Preservar status de tarefas previamente concluídas no backlog
+                        const existingCompletedMap = new Map();
+                        existingPlan.forEach(t => {
+                            if (t && t.completed) {
+                                const sid = getSafeId(ensureCoachTaskId(t));
+                                if (sid) existingCompletedMap.set(sid, t);
+                            }
+                        });
+
+                        const nextPlan = [
+                            ...assignedTasks,
+                            ...newTasks
+                                .filter(t => {
+                                    const sid = getSafeId(ensureCoachTaskId(t));
+                                    return sid && !assignedIds.has(sid);
+                                })
+                                .map(t => {
+                                    const sid = getSafeId(ensureCoachTaskId(t));
+                                    const prevCompleted = sid ? existingCompletedMap.get(sid) : null;
+                                    if (prevCompleted) {
+                                        return { ...t, completed: true, completedAt: prevCompleted.completedAt };
+                                    }
+                                    return t;
+                                })
+                        ];
+
+                        const hasPlanChanged = existingPlan.length !== nextPlan.length ||
+                            existingPlan.some((t, i) => {
+                                const next = nextPlan[i];
+                                if (!next) return true;
+                                const sid1 = getSafeId(ensureCoachTaskId(t));
+                                const sid2 = getSafeId(ensureCoachTaskId(next));
+                                return sid1 !== sid2 ||
+                                    t.text !== next.text ||
+                                    t.priority !== next.priority ||
+                                    Boolean(t.completed) !== Boolean(next.completed);
+                            });
+
+                        if (hasPlanChanged || !currentData?.coachPlanner) {
+                            setData(() => ({
+                                coachPlan: nextPlan,
+                                coachPlanner: existingPlanner
+                            }));
+                        }
+                    }
+                } catch (errGoals) {
+                    console.warn('[Coach] Erro ao gerar metas do coach automaticamente:', errGoals);
+                }
 
                 if (collectedMetrics.length > 0) {
                     metricsTimer = setTimeout(() => {
@@ -623,123 +726,7 @@ export default function Coach() {
         setActiveTab(tab === 'analytics' ? 'analytics' : 'insights');
     }, []);
 
-    const handleGenerateGoals = useCallback(() => {
-        if (coachLoading) return;
-        // FIX (BUG-04): ler categories via ref e snapshot do store para evitar dependência em `data`
-        const currentCategories = categoriesRef.current;
-        const currentData = useAppStore.getState().appState?.contests?.[activeId];
-        if (!currentCategories.length) {
-            showToastRef.current('Cadastre matérias e registre simulados para o Coach gerar sugestões.', 'info');
-            return;
-        }
-        setCoachLoading(true);
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        
-        if (generationTimeoutsRef.current.length > 0) {
-            generationTimeoutsRef.current.forEach(clearTimeout);
-            generationTimeoutsRef.current = [];
-        }
-
-        const capturedActiveId = activeId;
-        timeoutRef.current = setTimeout(() => {
-            if (!isMountedRef.current || capturedActiveId !== activeId) return;
-
-            try {
-                const targetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
-                const safeMax = Math.max(1, Number(currentMaxScore) || 100);
-                const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
-                const collectedMetrics = [];
-                const currentCombinedHistory = getCombinedHistory(
-                    currentData?.simuladoRows || [], currentData?.simulados || [], safeMax, safeMin
-                );
-
-                const newTasks = generateDailyGoals(
-                    currentCategories,
-                    currentCombinedHistory,
-                    currentData?.studyLogs || [],
-                    {
-                        contestId: capturedActiveId,
-                        user: currentData?.user,
-                        ...(targetScore !== null ? { targetScore } : {}),
-                        maxScore: safeMax,
-                        minScore: safeMin,
-                        calibrationHistoryByCategory: calibrationHistoryRef.current,
-                        onCalibrationMetric: (metric) => collectedMetrics.push(metric),
-                        simuladoRows: currentData?.simuladoRows,
-                        allSimulados: currentData?.simulados,
-                        flashcardDecks: currentData?.flashcardDecks,
-                        config: {
-                            contestId: capturedActiveId,
-                            MC_ENABLE_ADAPTIVE_CALIBRATION: currentData?.settings?.adaptiveCalibrationEnabled !== false
-                        }
-                    }
-                );
-
-                // REFRESH-FOCUS: Atualizar também a recomendação principal do topo
-                try {
-                    const freshFocus = getSuggestedFocus(
-                        currentCategories,
-                        currentCombinedHistory,
-                        currentData?.studyLogs || [],
-                        {
-                            contestId: capturedActiveId,
-                            user: currentData?.user,
-                            ...(targetScore !== null ? { targetScore } : {}),
-                            maxScore: safeMax,
-                            minScore: safeMin,
-                            calibrationHistoryByCategory: calibrationHistoryRef.current,
-                            flashcardDecks: currentData?.flashcardDecks,
-                            flashcardDue: getFlashcardDueTodayCount(currentData?.flashcardDecks || []),
-                            globalMcStats: mcStatsContextRef.current,
-                            simuladoRows: currentData?.simuladoRows,
-                            allSimulados: currentData?.simulados,
-                            config: {
-                                contestId: capturedActiveId,
-                                MC_ENABLE_ADAPTIVE_CALIBRATION: currentData?.settings?.adaptiveCalibrationEnabled !== false
-                            }
-                        }
-                    );
-                    const _mcCtx = mcStatsContextRef.current;
-                    if (freshFocus && _mcCtx && _mcCtx.projectedMean != null) {
-                        const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
-                        freshFocus.globalProjectedMean = projectedVal;
-                        freshFocus.globalMcContext = {
-                            projectedMean: projectedVal,
-                            probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
-                            source: 'useMonteCarloStats'
-                        };
-                    }
-                    if (freshFocus) setSuggestedFocus(freshFocus);
-                } catch (errFocus) {
-                    console.warn('[Coach] Erro ao sincronizar suggestedFocus:', errFocus);
-                }
-                
-                if (newTasks.length) {
-                    setData(() => ({
-                        coachPlan: newTasks,
-                        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-                    }));
-                    showToastRef.current('Sugestões geradas!', 'success');
-                } else {
-                    showToastRef.current('Nenhuma sugestão necessária.', 'info');
-                }
-
-                collectedMetrics.forEach((metric, i) => {
-                    const t = setTimeout(() => {
-                        if (!isMountedRef.current) return;
-                        persistCalibrationMetric(metric);
-                    }, i * 600);
-                    generationTimeoutsRef.current.push(t);
-                });
-            } catch (err) {
-                console.error('[Coach] Erro ao gerar metas do Coach:', err);
-                showToastRef.current('Erro ao calcular recomendações do Coach.', 'error');
-            } finally {
-                setCoachLoading(false);
-                timeoutRef.current = null;
-            }
-        }, 1500);
-    }, [activeId, coachLoading, setData, persistCalibrationMetric, targetScorePoints, currentMaxScore, currentMinScore]);
+    
 
     // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
     const handleClearHistory = useCallback(() => {
@@ -752,18 +739,7 @@ export default function Coach() {
         }));
     }, [setData]);
 
-    useEffect(() => {
-        return () => {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
-            if (generationTimeoutsRef.current) {
-                generationTimeoutsRef.current.forEach(clearTimeout);
-                generationTimeoutsRef.current = [];
-            }
-        };
-    }, []);
+    
 
     // BUG-FIX: antes, se o concurso não tinha `categories` (usuário novo), o efeito de
     // análise retornava cedo, isAnalyzing nunca virava false e o loader girava para sempre.
@@ -867,12 +843,7 @@ export default function Coach() {
                                                     )}
                                                 </div>
                                             )}
-                                            <AICoachView 
-                                                suggestedFocus={suggestedFocus}
-                                                onGenerateGoals={handleGenerateGoals}
-                                                loading={coachLoading}
-                                                onClearHistory={handleClearHistory}
-                                            />
+                                            <AICoachView suggestedFocus={suggestedFocus} onClearHistory={handleClearHistory} />
                                         </>
                                     ) : (
                                         <RaioXDashboard data={data} />

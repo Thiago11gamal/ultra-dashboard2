@@ -220,7 +220,7 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
     );
 }
 
-export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, onClearHistory }) {
+export default function AICoachView({ suggestedFocus, onClearHistory }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
     const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -403,29 +403,6 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                                     Pendências
                                 </button>
                             </div>
-
-                            {/* Recalcular Estratégia */}
-                            <button
-                                type="button"
-                                onClick={onGenerateGoals}
-                                disabled={loading}
-                                aria-busy={loading}
-                                className="group relative overflow-hidden h-8 sm:h-9 px-3 sm:px-4 rounded-xl font-black text-[9.5px] sm:text-[10px] tracking-[0.1em] uppercase transition-all duration-200 flex items-center justify-center gap-1.5 border border-indigo-400/30 bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_4px_16px_-4px_rgba(99,102,241,0.5)] hover:brightness-110 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
-                            >
-                                <div className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg] pointer-events-none opacity-0 group-hover:opacity-100 group-hover:left-full transition-all duration-700 ease-out" />
-                                {loading ? (
-                                    <>
-                                        <Loader2 size={13} className="animate-spin shrink-0" />
-                                        <span>Calculando...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <BrainCircuit size={13} className="shrink-0" />
-                                        <span className="hidden min-[480px]:inline">Recalcular Estratégia</span>
-                                        <span className="min-[480px]:hidden">Recalcular</span>
-                                    </>
-                                )}
-                            </button>
                             
                             <div className="flex items-center gap-1.5">
                                 <button
@@ -526,13 +503,13 @@ export default function AICoachView({ suggestedFocus, onGenerateGoals, loading, 
                     {suggestedFocus ? (
                         <div className="w-full">
                             {/* UX-FIX: sem onGenerateGoals aqui — havia dois botões de recalcular ("Recalcular Estratégia" e "Recalcular") a poucos px de distância */}
-                            <AICoachWidget suggestion={suggestedFocus} loading={loading} />
+                            <AICoachWidget suggestion={suggestedFocus} />
                         </div>
                     ) : (
                         <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-6 text-center">
                             <AlertCircle size={18} className="mx-auto mb-2 text-slate-600" />
                             <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Recalcule a estratégia após novos simulados.</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">As recomendações são atualizadas automaticamente conforme novos simulados forem registrados.</p>
                         </div>
                     )}
                         </div>

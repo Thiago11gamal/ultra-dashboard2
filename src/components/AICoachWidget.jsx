@@ -4,7 +4,7 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import {
     BrainCircuit, Zap, Target, Sparkles,
     ChevronDown, AlertTriangle, TrendingDown,
-    Clock, CheckCircle2, Database, Flame, Loader2
+    Clock, CheckCircle2, Database, Flame
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
@@ -191,7 +191,7 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
     );
 }
 
-export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) {
+export default function AICoachWidget({ suggestion }) {
     const [showMatrix, setShowMatrix] = useState(false);
     const activeContest = useAppStore(state => state.appState?.contests?.[state.appState?.activeId] || null);
 
@@ -274,17 +274,6 @@ export default function AICoachWidget({ suggestion, onGenerateGoals, loading }) 
                             <TierIcon size={12} className="shrink-0" />
                             <span className="whitespace-nowrap">{tier}</span>
                         </div>
-                        {onGenerateGoals && (
-                            <button 
-                                type="button"
-                                onClick={onGenerateGoals}
-                                disabled={loading}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
-                            >
-                                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flame className="w-3.5 h-3.5" />}
-                                {loading ? 'Calculando...' : 'Recalcular'}
-                            </button>
-                        )}
                     </div>
                 </div>
 
