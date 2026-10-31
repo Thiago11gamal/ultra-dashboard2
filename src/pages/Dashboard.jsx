@@ -1,6 +1,6 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, ArrowRight } from 'lucide-react';
 import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
 import PriorityProgress from '../components/PriorityProgress';
@@ -241,17 +241,47 @@ export default function Dashboard() {
                     <div className="hidden lg:flex items-center justify-between text-[13px] text-teal-300/90 bg-teal-500/10 border border-teal-500/20 px-3.5 py-2 rounded-xl mb-1 shadow-sm">
                         <div className="flex items-center gap-2">
                             <span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
-                            <span><strong className="font-semibold text-teal-200">Novo:</strong> Flashcards e Agenda de Estudos disponíveis no menu</span>
+                            <span>
+                                <strong className="font-semibold text-teal-200">Novo:</strong>{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/flashcards')}
+                                    className="font-semibold text-teal-200 hover:text-white underline underline-offset-2 decoration-teal-400/50 hover:decoration-white transition-colors cursor-pointer"
+                                    title="Acessar Flashcards"
+                                >
+                                    Flashcards
+                                </button>
+                                {' '}e{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/agenda')}
+                                    className="font-semibold text-teal-200 hover:text-white underline underline-offset-2 decoration-teal-400/50 hover:decoration-white transition-colors cursor-pointer"
+                                    title="Acessar Agenda de Estudos"
+                                >
+                                    Agenda de Estudos
+                                </button>
+                                {' '}disponíveis no menu
+                            </span>
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleDismissBanner}
-                            className="text-teal-400/60 hover:text-teal-200 p-0.5 rounded-md hover:bg-teal-500/20 transition-colors cursor-pointer"
-                            title="Dispensar aviso"
-                            aria-label="Dispensar aviso"
-                        >
-                            <X size={14} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/flashcards')}
+                                className="text-xs text-teal-200 hover:text-white bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium flex items-center gap-1.5"
+                            >
+                                <span>Acessar Flashcards</span>
+                                <ArrowRight size={13} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDismissBanner}
+                                className="text-teal-400/60 hover:text-teal-200 p-0.5 rounded-md hover:bg-teal-500/20 transition-colors cursor-pointer"
+                                title="Dispensar aviso"
+                                aria-label="Dispensar aviso"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
                     </div>
                 )}
 
