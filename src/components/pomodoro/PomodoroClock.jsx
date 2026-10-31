@@ -65,6 +65,30 @@ export function PomodoroClock({
         return CLOCK_THEMES[mode] || CLOCK_THEMES.work;
     }, [mode]);
 
+    const etaString = useMemo(() => {
+        if (!isRunning || !Number.isFinite(timeLeft) || timeLeft <= 0) return null;
+        const end = new Date(Date.now() + timeLeft * 1000);
+        return end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, [isRunning, timeLeft]);
+
+    const statusLabel = useMemo(() => {
+        if (isRunning) {
+            if (etaString) {
+                if (mode === 'work') return `FOCO • ATÉ ${etaString}`;
+                if (mode === 'long_break') return `PAUSA LONGA • ATÉ ${etaString}`;
+                return `PAUSA • ATÉ ${etaString}`;
+            }
+            return currentTheme.statusActive;
+        }
+        if (isProtocolInactive) {
+            return 'AGUARDANDO INÍCIO';
+        }
+        if (totalTime && timeLeft >= totalTime) {
+            return (mode === 'break' || mode === 'long_break') ? 'INTERVALO PRONTO' : 'PRONTO PARA FOCO';
+        }
+        return `PAUSADO • ${formatTime(timeLeft)}`;
+    }, [isRunning, etaString, mode, currentTheme.statusActive, isProtocolInactive, totalTime, timeLeft]);
+
     return (
         <div className="w-full flex flex-col items-center select-none">
             {/* Barra superior de controles do relógio */}
@@ -232,8 +256,8 @@ export function PomodoroClock({
                         {formatTime(timeLeft)}
                     </span>
 
-                    {/* Badge fluida de status com indicador respiratório */}
-                    <div className="flex items-center gap-1.5 mt-1.5 px-2.5 py-0.5 rounded-full bg-black/50 border border-white/10 shadow-sm backdrop-blur-sm transition-all duration-300">
+                    {/* Badge fluida de status com indicador respiratório e previsão em tempo real */}
+                    <div className="flex items-center gap-1.5 mt-1.5 px-2.5 py-0.5 rounded-full bg-black/60 border border-white/10 shadow-sm backdrop-blur-sm transition-all duration-300">
                         {isRunning ? (
                             <span className="relative flex h-2 w-2 shrink-0">
                                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${currentTheme.pulsePingClass}`} />
@@ -244,14 +268,8 @@ export function PomodoroClock({
                                 isProtocolInactive ? 'bg-white/30' : 'bg-amber-400/80 shadow-[0_0_6px_rgba(251,191,36,0.5)]'
                             }`} />
                         )}
-                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.22em] text-white/90 drop-shadow text-center">
-                            {isRunning
-                                ? currentTheme.statusActive
-                                : (isProtocolInactive
-                                    ? 'AGUARDANDO INÍCIO'
-                                    : (totalTime && timeLeft >= totalTime 
-                                        ? (mode === 'break' || mode === 'long_break' ? 'INTERVALO PRONTO' : 'PRONTO PARA FOCO')
-                                        : 'SESSÃO PAUSADA'))}
+                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em] sm:tracking-[0.18em] text-white/90 drop-shadow text-center whitespace-nowrap px-0.5">
+                            {statusLabel}
                         </span>
                     </div>
                 </div>

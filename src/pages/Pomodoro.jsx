@@ -316,7 +316,12 @@ function ActionsAndMentorView({
     neuralQueue,
     studyLogs,
     simulados,
-    settings = EMPTY_OBJECT
+    settings = EMPTY_OBJECT,
+    isRunning = false,
+    mode = 'work',
+    timeLeft = 0,
+    targetCycles = 1,
+    completedCycles = 0
 }) {
     const recommendedTask = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -465,9 +470,18 @@ function ActionsAndMentorView({
                             <Target size={12} className="shrink-0" />
                             <span className="truncate">Matéria: {activeTaskStats.categoryName}</span>
                         </p>
-                        <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md shrink-0">
-                            {activeTaskStats.completionPct}% Completo
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${
+                                isRunning
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            }`}>
+                                {isRunning ? (mode === 'work' ? 'Sessão Ativa' : 'Em Intervalo') : 'Pausado'}
+                            </span>
+                            <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md shrink-0">
+                                {activeTaskStats.completionPct}% Completo
+                            </span>
+                        </div>
                     </div>
                     <div className="w-full h-1.5 bg-cyan-950 rounded-full mb-3 overflow-hidden">
                         <div
@@ -477,6 +491,17 @@ function ActionsAndMentorView({
                             <div className="absolute inset-0 bg-white/20 animate-pulse" />
                         </div>
                     </div>
+                    {isRunning && Number.isFinite(timeLeft) && timeLeft > 0 && (
+                        <div className="mb-3 px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/5 flex items-center justify-between text-[10.5px]">
+                            <span className="text-slate-300 flex items-center gap-1.5 font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                <span>Término previsto do bloco:</span>
+                            </span>
+                            <span className="font-mono font-black text-emerald-300">
+                                {new Date(Date.now() + timeLeft * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        </div>
+                    )}
                     <p className="text-xs text-slate-200 leading-relaxed relative z-10">
                         <span className="block mb-1">
                             <strong className="text-cyan-300">Assunto atual:</strong> {cleanTaskText(activeTaskStats.topic, activeTaskStats.categoryName).displayTopic || 'Missão em Aberto'}
@@ -865,6 +890,11 @@ function PomodoroSidePanel({
                                 studyLogs={studyLogs}
                                 simulados={simulados}
                                 settings={settings}
+                                isRunning={isRunning}
+                                mode={mode}
+                                timeLeft={timeLeft}
+                                targetCycles={targetCycles}
+                                completedCycles={completedCycles}
                             />
                         </Motion.div>
                     ) : (
@@ -901,8 +931,23 @@ function PomodoroSidePanel({
 // =====================================================
 // BARRA SUPERIOR DO CRONÔMETRO (COMPACTA, ELEGANTE E PERFEITAMENTE ENQUADRADA)
 // =====================================================
-function PomodoroTopBar({ activeSubject, isRunning }) {
+function PomodoroTopBar({
+    activeSubject,
+    isRunning,
+    mode = 'work',
+    timeLeft = 0,
+    targetCycles = 1,
+    completedCycles = 0
+}) {
     const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
+
+    const etaString = useMemo(() => {
+        if (!isRunning || !Number.isFinite(timeLeft) || timeLeft <= 0) return null;
+        const d = new Date(Date.now() + timeLeft * 1000);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, [isRunning, timeLeft]);
+
+    const currentCycleDisplay = Math.min(targetCycles, completedCycles + (mode === 'work' ? 1 : 0));
 
     return (
         <div className="w-full rounded-2xl border-2 border-[#94785a] bg-[#b08e6b] px-4 sm:px-5 py-2.5 sm:py-3 shadow-xl relative overflow-hidden group">
@@ -928,6 +973,25 @@ function PomodoroTopBar({ activeSubject, isRunning }) {
                             {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}
                         </h1>
                     </div>
+                </div>
+
+                {/* Previsão & Status Operacional do Pomodoro */}
+                <div className="flex flex-col items-end shrink-0 text-right">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#2d1a12]/15 border border-[#2d1a12]/25 shadow-inner">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                            isRunning
+                                ? 'bg-emerald-800 animate-ping'
+                                : (activeSubject ? 'bg-amber-700' : 'bg-[#2d1a12]/40')
+                        }`} />
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#2d1a12]">
+                            {isRunning
+                                ? (mode === 'work' ? (etaString ? `FOCO • ATÉ ${etaString}` : 'EM FOCO') : (etaString ? `PAUSA • ATÉ ${etaString}` : 'PAUSA ATIVA'))
+                                : (activeSubject ? 'PAUSADO' : 'AGUARDANDO')}
+                        </span>
+                    </div>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-[#2d1a12]/80 mt-0.5 tracking-tight">
+                        Ciclo {currentCycleDisplay} de {targetCycles}
+                    </span>
                 </div>
             </div>
         </div>
@@ -1460,6 +1524,10 @@ export default function Pomodoro() {
                         <PomodoroTopBar
                             activeSubject={activeSubject}
                             isRunning={liveTimerState !== null ? liveTimerState.isRunning : (pomodoroState.isRunning || false)}
+                            mode={liveTimerState?.mode || pomodoroState.mode || 'work'}
+                            timeLeft={liveTimerState !== null ? liveTimerState.timeLeft : (pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60)}
+                            targetCycles={liveTimerState?.targetCycles || pomodoroState.targetCycles || 1}
+                            completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
                         />
                         <PomodoroTimer
                             settings={settings}

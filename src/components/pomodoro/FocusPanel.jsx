@@ -26,9 +26,18 @@ import { getDateKey } from '../../utils/dateHelper';
 import { parseTaskDisplay } from '../../utils/taskTitleHelper';
 
 // ============================================================================
-// SUBCOMPONENTE: Status da Sessão Atual
+// SUBCOMPONENTE: Status da Sessão Atual & Previsões em Tempo Real
 // ============================================================================
-function SessionStatus({ isRunning, timeLeft, totalTime, mode }) {
+function SessionStatus({
+    isRunning,
+    timeLeft,
+    totalTime,
+    mode,
+    targetCycles = 1,
+    completedCycles = 0,
+    settings = {},
+    activeSubject = null
+}) {
     const safeTotal = Number.isFinite(totalTime) && totalTime > 0 ? totalTime : 25 * 60;
     const safeLeft = Number.isFinite(timeLeft) && timeLeft >= 0 ? timeLeft : safeTotal;
     const progress = Math.max(0, Math.min(100, ((safeTotal - safeLeft) / safeTotal) * 100));
@@ -38,18 +47,24 @@ function SessionStatus({ isRunning, timeLeft, totalTime, mode }) {
             dotClass: 'bg-emerald-400',
             barClass: 'bg-emerald-500',
             label: 'Em Foco',
+            activeState: 'Sessão Ativa (Cronômetro Rodando)',
+            pausedState: 'Foco Pausado',
             icon: Brain
         },
         break: {
             dotClass: 'bg-amber-400',
             barClass: 'bg-amber-500',
             label: 'Pausa Curta',
+            activeState: 'Intervalo em Andamento',
+            pausedState: 'Pausa Interrompida',
             icon: Coffee
         },
         long_break: {
             dotClass: 'bg-violet-400',
             barClass: 'bg-violet-500',
             label: 'Pausa Longa',
+            activeState: 'Recuperação Profunda Ativa',
+            pausedState: 'Pausa Interrompida',
             icon: Coffee
         }
     };
@@ -57,43 +72,200 @@ function SessionStatus({ isRunning, timeLeft, totalTime, mode }) {
     const config = statusConfig[mode] || statusConfig.work;
     const IconComponent = config.icon;
 
+    // Previsão de término do bloco atual (hora de relógio)
+    const blockEndTime = useMemo(() => {
+        if (!isRunning || !Number.isFinite(safeLeft) || safeLeft <= 0) return null;
+        const d = new Date(Date.now() + safeLeft * 1000);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, [isRunning, safeLeft]);
+
+    // Previsão da série completa e contagem de ciclos
+    const seriesForecast = useMemo(() => {
+        const safeTarget = Math.min(20, Math.max(1, Number(targetCycles) || 1));
+        const safeCompleted = Math.max(0, Math.min(safeTarget, Number(completedCycles) || 0));
+
+        const workSec = (Number(settings?.pomodoroWork) || 25) * 60;
+        const breakSec = (Number(settings?.pomodoroBreak) || 5) * 60;
+
+        let totalSec = safeLeft;
+        if (mode === 'work') {
+            const currentWillHaveBreak = safeCompleted + 1 < safeTarget;
+            if (currentWillHaveBreak) totalSec += breakSec;
+            const subsequentCycles = Math.max(0, safeTarget - (safeCompleted + 1));
+            totalSec += subsequentCycles * (workSec + breakSec);
+        } else {
+            const futureWorkCycles = Math.max(0, safeTarget - safeCompleted);
+            totalSec += futureWorkCycles * workSec;
+            const futureBreakCycles = Math.max(0, futureWorkCycles - 1);
+            totalSec += futureBreakCycles * breakSec;
+        }
+
+        const seriesEndDate = new Date(Date.now() + totalSec * 1000);
+        const seriesEndStr = seriesEndDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const totalRemainingMinutes = Math.max(1, Math.round(totalSec / 60));
+        const isFinalCycle = safeCompleted + 1 >= safeTarget;
+        const remainingWorkBlocks = Math.max(0, safeTarget - safeCompleted - (mode === 'work' ? 1 : 0));
+
+        return {
+            safeTarget,
+            safeCompleted,
+            totalRemainingMinutes,
+            seriesEndStr,
+            isFinalCycle,
+            remainingWorkBlocks
+        };
+    }, [targetCycles, completedCycles, safeLeft, mode, settings]);
+
+    // Previsão do que acontece na próxima etapa (transição imediata)
+    const nextPhase = useMemo(() => {
+        const safeWorkMin = Number(settings?.pomodoroWork) || 25;
+        const safeBreakMin = Number(settings?.pomodoroBreak) || 5;
+        const safeLongBreakMin = Number(settings?.pomodoroLongBreak) || 15;
+        const longBreakInterval = Number(settings?.longBreakAfter) || 4;
+
+        if (mode === 'work') {
+            if (seriesForecast.isFinalCycle) {
+                return {
+                    title: 'Conclusão da Série e Registro de XP',
+                    desc: 'Ao soar o gongo, o ciclo será registrado, o XP creditado e a missão finalizada.',
+                    badge: 'Fim da Meta 🎉'
+                };
+            }
+            const isLongBreakNext = (seriesForecast.safeCompleted + 1) % longBreakInterval === 0;
+            return {
+                title: isLongBreakNext ? `Pausa Longa (${safeLongBreakMin} min)` : `Pausa Curta (${safeBreakMin} min)`,
+                desc: isLongBreakNext ? 'Recuperação cognitiva profunda antes do próximo ciclo.' : 'Momento para hidratação, postura e descanso dos olhos.',
+                badge: 'Intervalo ☕'
+            };
+        } else {
+            return {
+                title: `Bloco de Foco #${seriesForecast.safeCompleted + 1} (${safeWorkMin} min)`,
+                desc: activeSubject?.task ? `Retorno imediato ao tópico: ${activeSubject.task}` : 'Concentração total no próximo bloco da série.',
+                badge: 'Retorno ao Foco 🎯'
+            };
+        }
+    }, [mode, seriesForecast, settings, activeSubject]);
+
+    const formatSecs = (seconds) => {
+        const s = Math.max(0, Math.round(seconds));
+        const mins = Math.floor(s / 60);
+        const secs = s % 60;
+        return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+    };
+
     return (
-        <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl p-3.5 sm:p-4 border border-white/5 shadow-md">
-            <div className="flex items-center justify-between mb-3">
+        <div className="bg-gradient-to-br from-slate-800/90 via-slate-850 to-slate-900/90 rounded-2xl p-3.5 sm:p-4 border border-white/10 shadow-lg flex flex-col gap-3">
+            {/* Cabeçalho de Status Operacional */}
+            <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border shadow-sm ${
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm ${
                         mode === 'work'
                             ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400'
                             : mode === 'long_break'
                                 ? 'bg-violet-500/15 border-violet-500/25 text-violet-400'
                                 : 'bg-amber-500/15 border-amber-500/25 text-amber-400'
                     }`}>
-                        <IconComponent size={14} />
+                        <IconComponent size={16} />
                     </div>
                     <div>
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-white uppercase tracking-wider">
                                 {config.label}
                             </span>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? `${config.dotClass} animate-pulse` : 'bg-slate-500'}`} />
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider border ${
+                                isRunning
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            }`}>
+                                {isRunning ? 'Ao Vivo' : 'Pausado'}
+                            </span>
                         </div>
-                        <span className="text-[9px] text-slate-400 font-medium">Estado da sessão</span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                            {isRunning ? config.activeState : config.pausedState}
+                        </span>
                     </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded-md shadow-sm">
-                    {Math.round(progress)}%
-                </span>
+
+                <div className="text-right">
+                    <span className="text-xs font-mono font-black text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-lg shadow-inner">
+                        {Math.round(progress)}%
+                    </span>
+                    <span className="block text-[9px] text-slate-400 mt-0.5">do bloco atual</span>
+                </div>
             </div>
-            <div className="h-2 bg-slate-700/50 rounded-full overflow-hidden">
-                <Motion.div
-                    className={`h-full rounded-full ${config.barClass}`}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 0.4 }}
-                />
+
+            {/* Barra de Progresso com Glow */}
+            <div className="w-full flex flex-col gap-1.5">
+                <div className="h-2.5 bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-white/5 shadow-inner">
+                    <Motion.div
+                        className={`h-full rounded-full ${config.barClass} shadow-[0_0_12px_rgba(16,185,129,0.5)]`}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 0.35, ease: 'easeOut' }}
+                    />
+                </div>
+                <div className="flex justify-between items-center text-[10px] font-semibold text-slate-400 px-0.5">
+                    <span>Decorrido: <strong className="text-slate-200">{formatSecs(safeTotal - safeLeft)}</strong></span>
+                    <span>Restante: <strong className="text-cyan-300">{formatSecs(safeLeft)}</strong></span>
+                </div>
             </div>
-            <div className="flex justify-between mt-2 text-[10px] font-medium text-slate-400">
-                <span>Início da etapa</span>
-                <span>{Math.round(100 - progress)}% restante</span>
+
+            {/* Painel Duplo de Previsões em Tempo Real */}
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
+                {/* Previsão 1: Fim do Bloco Atual */}
+                <div className="bg-slate-900/60 rounded-xl p-2.5 border border-white/5 flex flex-col justify-between">
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                        <Clock size={11} className="text-emerald-400 shrink-0" />
+                        <span className="text-[9px] font-bold uppercase tracking-wider truncate">
+                            Fim deste bloco
+                        </span>
+                    </div>
+                    <div className="text-sm sm:text-base font-black text-white tracking-tight">
+                        {isRunning ? (blockEndTime || '--:--') : 'Em Pausa'}
+                    </div>
+                    <span className="text-[9px] text-slate-400 mt-0.5 truncate">
+                        {isRunning
+                            ? (mode === 'work' ? `${Math.ceil(safeLeft / 60)} min para pausa` : `${Math.ceil(safeLeft / 60)} min para foco`)
+                            : 'Cronômetro parado'}
+                    </span>
+                </div>
+
+                {/* Previsão 2: Fim da Série Completa */}
+                <div className="bg-slate-900/60 rounded-xl p-2.5 border border-white/5 flex flex-col justify-between">
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                        <Target size={11} className="text-cyan-400 shrink-0" />
+                        <span className="text-[9px] font-bold uppercase tracking-wider truncate">
+                            Fim da Série ({seriesForecast.safeCompleted}/{seriesForecast.safeTarget})
+                        </span>
+                    </div>
+                    <div className="text-sm sm:text-base font-black text-cyan-300 tracking-tight">
+                        {isRunning ? `~${seriesForecast.seriesEndStr}` : `~${seriesForecast.totalRemainingMinutes} min`}
+                    </div>
+                    <span className="text-[9px] text-slate-400 mt-0.5 truncate">
+                        {seriesForecast.isFinalCycle
+                            ? 'Ciclo final em andamento'
+                            : `Restam ${seriesForecast.remainingWorkBlocks} bloco(s) de foco`}
+                    </span>
+                </div>
+            </div>
+
+            {/* Banner da Próxima Etapa (Forecast de Transição) */}
+            <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors rounded-xl p-2.5 border border-white/5 flex items-center justify-between gap-2.5">
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                            Próxima Etapa
+                        </span>
+                        <span className="text-[9px] font-bold text-indigo-300 bg-indigo-500/15 border border-indigo-500/25 px-1.5 py-0.2 rounded">
+                            {nextPhase.badge}
+                        </span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-200 truncate">
+                        {nextPhase.title}
+                    </p>
+                    <p className="text-[9.5px] text-slate-400 truncate mt-0.5">
+                        {nextPhase.desc}
+                    </p>
+                </div>
             </div>
         </div>
     );
@@ -231,6 +403,8 @@ function StreakDisplay({ studyLogs }) {
 function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
     const safeTarget = Math.min(20, Math.max(1, Number(targetCycles) || 1));
     const safeCompleted = Math.max(0, Math.min(safeTarget, Number(completedCycles) || 0));
+    const currentCycleNumber = Math.min(safeTarget, safeCompleted + (mode === 'work' ? 1 : 0));
+    const remainingCycles = Math.max(0, safeTarget - currentCycleNumber);
 
     return (
         <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
@@ -243,7 +417,11 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
                         <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
                             Ciclo Pomodoro
                         </span>
-                        <span className="text-[9px] text-slate-500 font-medium">Progresso de blocos</span>
+                        <span className="text-[9px] text-slate-400 font-medium">
+                            {mode === 'work'
+                                ? `Executando Ciclo ${currentCycleNumber} de ${safeTarget}`
+                                : `Intervalo do Ciclo ${safeCompleted} de ${safeTarget}`}
+                        </span>
                     </div>
                 </div>
                 <span className="text-xs font-mono font-bold text-blue-300 bg-blue-950/40 border border-blue-500/20 px-2 py-0.5 rounded-md shadow-sm">
@@ -264,26 +442,37 @@ function PomodoroCycleProgress({ targetCycles, completedCycles, mode }) {
                     />
                 ))}
             </div>
-            {mode === 'break' && (
-                <div className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
-                    <Coffee size={11} />
-                    Pausa ativa — respire e descanse!
-                </div>
-            )}
-            {mode === 'long_break' && (
-                <div className="mt-2 flex items-center gap-1.5 text-[10px] text-violet-400 font-medium">
-                    <Coffee size={11} />
-                    Pausa longa — recuperação profunda
-                </div>
-            )}
+            <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between font-medium">
+                {mode === 'break' && (
+                    <span className="flex items-center gap-1.5 text-emerald-400">
+                        <Coffee size={11} />
+                        Pausa ativa — respire e descanse!
+                    </span>
+                )}
+                {mode === 'long_break' && (
+                    <span className="flex items-center gap-1.5 text-violet-400">
+                        <Coffee size={11} />
+                        Pausa longa — recuperação profunda
+                    </span>
+                )}
+                {mode === 'work' && (
+                    <span className="flex items-center gap-1.5 text-blue-300">
+                        <Zap size={11} />
+                        Foco ativo — elimine distrações
+                    </span>
+                )}
+                <span className="text-slate-500 text-[9px]">
+                    {remainingCycles === 0 ? 'Ciclo final da série' : `${remainingCycles} ciclo(s) restante(s)`}
+                </span>
+            </div>
         </div>
     );
 }
 
 // ============================================================================
-// SUBCOMPONENTE: Tempo de Estudo Hoje
+// SUBCOMPONENTE: Tempo de Estudo Hoje & Previsão de Impacto
 // ============================================================================
-function TodayStudyTime({ studyLogs, categoryId, taskId }) {
+function TodayStudyTime({ studyLogs, categoryId, taskId, isRunning, mode, nominalWorkMinutes = 25 }) {
     const todayData = useMemo(() => {
         const todayKey = getDateKey(new Date());
 
@@ -342,9 +531,16 @@ function TodayStudyTime({ studyLogs, categoryId, taskId }) {
                     <div className="text-[9px] text-slate-400 uppercase font-semibold">Total geral</div>
                 </div>
             </div>
-            <div className="mt-2 text-[10px] text-slate-500 font-medium flex items-center gap-1.5">
-                <CheckCircle2 size={11} className="text-cyan-500/70" />
-                <span>{todayData.sessionCount} {todayData.sessionCount === 1 ? 'sessão registrada hoje' : 'sessões registradas hoje'}</span>
+            <div className="mt-2 text-[10px] text-slate-500 font-medium flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                    <CheckCircle2 size={11} className="text-cyan-500/70" />
+                    <span>{todayData.sessionCount} {todayData.sessionCount === 1 ? 'sessão registrada hoje' : 'sessões registradas hoje'}</span>
+                </div>
+                {isRunning && mode === 'work' && (
+                    <span className="text-emerald-400 font-bold text-[9.5px]">
+                        +{nominalWorkMinutes}m ao concluir
+                    </span>
+                )}
             </div>
         </div>
     );
@@ -672,6 +868,19 @@ export function SessionFocusPanel({
                             </span>
                         </div>
                     )}
+
+                    {/* Linha de Status Operacional e Previsão de Impacto */}
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-0.5">
+                        <span className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                            <span>{isRunning ? 'Sessão Ativa: Tempo contabilizado para o tópico' : 'Sessão em Espera: Inicie o relógio para progredir'}</span>
+                        </span>
+                        {isRunning && mode === 'work' && (
+                            <span className="font-semibold text-emerald-400">
+                                +{(Number(settings?.pomodoroWork) || 25)} min de retenção
+                            </span>
+                        )}
+                    </div>
                 </div>
             ) : (
                 <div className="p-3.5 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-center gap-3">
@@ -688,12 +897,16 @@ export function SessionFocusPanel({
                 </div>
             )}
 
-            {/* Status da Sessão */}
+            {/* Status da Sessão & Previsões em Tempo Real */}
             <SessionStatus
                 isRunning={isRunning}
                 timeLeft={timeLeft}
                 totalTime={totalTime}
                 mode={mode}
+                targetCycles={targetCycles}
+                completedCycles={completedCycles}
+                settings={settings}
+                activeSubject={activeSubject}
             />
 
             {/* Progresso do Ciclo */}
@@ -716,6 +929,9 @@ export function SessionFocusPanel({
                 studyLogs={studyLogs || []}
                 categoryId={activeSubject?.categoryId || currentCategory?.id}
                 taskId={activeSubject?.taskId}
+                isRunning={isRunning}
+                mode={mode}
+                nominalWorkMinutes={Number(settings?.pomodoroWork) || 25}
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
