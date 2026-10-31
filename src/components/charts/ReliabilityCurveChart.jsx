@@ -112,28 +112,33 @@ const ReliabilityCurveChart = ({ buckets }) => {
                 <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                     data={chartData}
-                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    margin={{ top: 16, right: 20, left: 6, bottom: 8 }}
                 >
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis
                         dataKey="pred"
                         type="number"
                         domain={[0, 1]}
+                        ticks={[0, 0.25, 0.5, 0.75, 1]}
                         tickFormatter={(val) => `${Math.round(val * 100)}%`}
                         stroke="rgba(255,255,255,0.2)"
                         tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 700 }}
                         tickLine={false}
                         axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                        minTickGap={20}
+                        minTickGap={16}
+                        dy={4}
                     />
                     <YAxis
                         type="number"
                         domain={[0, 1]}
+                        ticks={[0, 0.25, 0.5, 0.75, 1]}
                         tickFormatter={(val) => `${Math.round(val * 100)}%`}
                         stroke="rgba(255,255,255,0.2)"
                         tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: 700, fontFamily: 'monospace' }}
                         tickLine={false}
                         axisLine={false}
+                        width={40}
+                        dx={-2}
                     />
                     <Tooltip
                         content={<CustomTooltip />}
@@ -142,19 +147,20 @@ const ReliabilityCurveChart = ({ buckets }) => {
                     {/* Linha de Calibração Perfeita (y = x) */}
                     <ReferenceLine
                         segment={[{ x: 0, y: 0 }, { x: 1, y: 1 }]}
-                        stroke="rgba(255,255,255,0.15)"
+                        stroke="rgba(255,255,255,0.18)"
                         strokeDasharray="4 4"
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                     />
                     {/* Curva de Calibração Real */}
                     <Line
-                        type="monotone"
+                        type="linear"
                         dataKey="obs"
                         stroke="#2dd4bf" /* cyan-400 */
-                        strokeWidth={3}
-                        dot={{ r: 4, fill: '#0a0c14', stroke: '#2dd4bf', strokeWidth: 2 }}
-                        activeDot={{ r: 6, fill: '#2dd4bf', stroke: '#fff', strokeWidth: 2 }}
-                        animationDuration={1000}
+                        strokeWidth={2.5}
+                        dot={{ r: 4.5, fill: '#090d16', stroke: '#2dd4bf', strokeWidth: 2 }}
+                        activeDot={{ r: 6.5, fill: '#2dd4bf', stroke: '#ffffff', strokeWidth: 2 }}
+                        isAnimationActive={false}
+                        connectNulls={true}
                     />
                 </LineChart>
                 </ResponsiveContainer>
