@@ -15,7 +15,7 @@ export function isInternalId(val) {
     if (/^(cat|task|id|log|session|temp)-[0-9a-zA-Z_-]+/i.test(s)) return true;
 
     // Contains coach/system synthetic tags
-    if (/-(geral|general|topic|weaktopic)-/i.test(s)) return true;
+    if (/-(geral|general|topic|weaktopic|decay|syllabus|srsblitz|drill)-/i.test(s)) return true;
 
     // UUID v4 format
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
@@ -62,19 +62,25 @@ export function extractTopicFromInternalId(id, category = null, allCategories = 
     if (!id || typeof id !== 'string') return null;
     const str = id.trim();
 
-    // 1. General review pattern
+    // 1. General review & drill patterns
     if (/-(geral|general)-/i.test(str)) {
         return 'Revisão Geral';
     }
+    if (/-(drill)-/i.test(str)) {
+        return 'Bateria Ativa';
+    }
+    if (/-(srsblitz)-/i.test(str)) {
+        return 'SRS Blitz';
+    }
 
-    // 2. Topic pattern: e.g. cat-1772560345316-opevcca-topic-c1-0
-    const markerIdx = str.search(/-(topic|weaktopic)-/i);
+    // 2. Topic pattern: e.g. cat-1772560345316-opevcca-topic-c1-0, decay, syllabus
+    const markerIdx = str.search(/-(topic|weaktopic|decay|syllabus)-/i);
     if (markerIdx !== -1) {
-        const markerMatch = str.slice(markerIdx).match(/^-(topic|weaktopic)-/i);
+        const markerMatch = str.slice(markerIdx).match(/^-(topic|weaktopic|decay|syllabus)-/i);
         if (markerMatch) {
             let topicPart = str.slice(markerIdx + markerMatch[0].length);
-            // Remove trailing index suffix like -0, -1, -2 if present
-            topicPart = topicPart.replace(/-\d+$/, '').trim();
+            // Remove trailing index and hash suffix like -0, -1-abc123
+            topicPart = topicPart.replace(/-\d+(-[a-zA-Z0-9]+)?$/, '').replace(/-\d+$/, '').trim();
 
             if (topicPart) {
                 // Try to find matching task in category

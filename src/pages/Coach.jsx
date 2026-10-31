@@ -667,6 +667,7 @@ export default function Coach() {
                         onCalibrationMetric: (metric) => collectedMetrics.push(metric),
                         simuladoRows: currentData?.simuladoRows,
                         allSimulados: currentData?.simulados,
+                        flashcardDecks: currentData?.flashcardDecks,
                         config: {
                             contestId: capturedActiveId,
                             MC_ENABLE_ADAPTIVE_CALIBRATION: currentData?.settings?.adaptiveCalibrationEnabled !== false

@@ -188,6 +188,123 @@ describe('generateDailyGoals — limites', () => {
     const uniqueIds = new Set(ids);
     expect(uniqueIds.size).toBe(ids.length);
   });
+
+  describe('Cascata de Revisão Ativa (Substituição de Revisão Geral)', () => {
+    it('Nível 1: Gera Revisão por Recência quando há tópico dormente (>= 14 dias sem contato)', () => {
+      const now = new Date('2026-03-30');
+      const categories = [
+        {
+          id: 'dir-const',
+          name: 'Direito Constitucional',
+          weight: 10,
+          tasks: [],
+          simuladoStats: {
+            history: [
+              {
+                date: '2026-03-01', // 29 dias atrás
+                topic: 'Poder Judiciário',
+                total: 20,
+                correct: 18,
+                score: 90
+              }
+            ]
+          }
+        }
+      ];
+
+      const tasks = generateDailyGoals(categories, [], [], { maxScore: 100, now });
+      expect(tasks.length).toBeGreaterThan(0);
+      const recencyTask = tasks.find(t => t.text.includes('Revisão por Recência') || t.topicName?.includes('Revisão por Recência'));
+      expect(recencyTask).toBeDefined();
+      expect(recencyTask.text).toContain('Poder Judiciário');
+      expect(recencyTask.analysis?.reason).toContain('Curva de Esquecimento / Recência');
+    });
+
+    it('Nível 2: Gera Avanço de Edital quando há tarefas pendentes da disciplina', () => {
+      const now = new Date('2026-03-30');
+      const categories = [
+        {
+          id: 'dir-adm',
+          name: 'Direito Administrativo',
+          weight: 10,
+          tasks: [
+            { id: 't1', text: 'Atos Administrativos', completed: false }
+          ],
+          simuladoStats: { history: [] }
+        }
+      ];
+
+      const tasks = generateDailyGoals(categories, [], [], { maxScore: 100, now });
+      expect(tasks.length).toBeGreaterThan(0);
+      const editalTask = tasks.find(t => t.text.includes('Avanço de Edital') || t.topicName?.includes('Avanço de Edital'));
+      expect(editalTask).toBeDefined();
+      expect(editalTask.text).toContain('Atos Administrativos');
+      expect(editalTask.analysis?.reason).toContain('Cobertura de Edital');
+    });
+
+    it('Nível 3: Gera SRS Blitz quando há flashcards vencidos da disciplina', () => {
+      const now = new Date('2026-03-30');
+      const categories = [
+        {
+          id: 'dir-penal',
+          name: 'Direito Penal',
+          weight: 10,
+          tasks: [],
+          simuladoStats: { history: [] }
+        }
+      ];
+
+      const flashcardDecks = [
+        {
+          id: 'deck-1',
+          subject: 'Direito Penal',
+          cards: [
+            { id: 'c1', nextReview: '2026-03-20' }, // Vencido
+            { id: 'c2', nextReview: '2026-03-25' }  // Vencido
+          ]
+        }
+      ];
+
+      const tasks = generateDailyGoals(categories, [], [], { maxScore: 100, now, flashcardDecks });
+      expect(tasks.length).toBeGreaterThan(0);
+      const srsTask = tasks.find(t => t.text.includes('SRS Blitz') || t.topicName?.includes('SRS Blitz'));
+      expect(srsTask).toBeDefined();
+      expect(srsTask.text).toContain('2 Flashcards');
+      expect(srsTask.analysis?.reason).toContain('Repetição Espaçada');
+    });
+
+    it('Nível 4: Gera Bateria Ativa quando não há pendências nem tópicos frios', () => {
+      const now = new Date('2026-03-30');
+      const categories = [
+        {
+          id: 'dir-trib',
+          name: 'Direito Tributário',
+          weight: 10,
+          tasks: [
+            { id: 't1', text: 'Impostos Federais', completed: true }
+          ],
+          simuladoStats: {
+            history: [
+              {
+                date: '2026-03-28', // Estudado há 2 dias (fresco)
+                topic: 'Impostos Federais',
+                total: 20,
+                correct: 19,
+                score: 95
+              }
+            ]
+          }
+        }
+      ];
+
+      const tasks = generateDailyGoals(categories, [], [], { maxScore: 100, now });
+      expect(tasks.length).toBeGreaterThan(0);
+      const drillTask = tasks.find(t => t.text.includes('Bateria Ativa') || t.topicName?.includes('Bateria Ativa'));
+      expect(drillTask).toBeDefined();
+      expect(drillTask.text).toContain('15 Questões Mistas');
+      expect(drillTask.analysis?.reason).toContain('Prática Intercalada / Retenção');
+    });
+  });
 });
 
 describe('getCombinedHistory — deduplicação', () => {

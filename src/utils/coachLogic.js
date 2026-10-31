@@ -2639,11 +2639,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
         const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : minScore;
         const catRange = Math.max(1e-9, catMax - catMin);
-        const weakTopics = getWeakestTopicsList(cat, safeSimulados, catMax, tasksPerCategory, catMin, options);
+        const allCategoryTopics = _buildSortedTopics(cat, safeSimulados, catMax, catMin, options) || [];
+        const weakTopics = allCategoryTopics.slice(0, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
         const iterations = tasksPerCategory;
-        const getPriorityLabel = () => {
-            if (localPriorityCounter < 3) {
+        const assignedTopicNames = new Set();
+        const getPriorityLabel = (priority = 'high') => {
+            if (priority === 'high' || (priority === 'medium' && localPriorityCounter === 0)) {
                 localPriorityCounter++;
                 return '[PROTOCOLO PRIORITÁRIO] ';
             }
@@ -2798,31 +2800,49 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         let topicCursor = 0;
         for (let i = 0; i < iterations; i++) {
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
-            const topicLabel = weakTopic
-                ? `${getPriorityLabel()}[${weakTopic.name}]`
-                : `${getPriorityLabel()}[Revisão Geral Complementar]`;
             // FIX (LOGIC): Removido weakTopic.total do ID para evitar que a tarefa suma do planner ao fazer exercícios
             const uniqueIdSuffix = weakTopic
                 ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${i}`)
                 : `geral-${i}`;
             if (weakTopic) {
+                assignedTopicNames.add(weakTopic.name.trim().toLowerCase());
                 let reasonStr = "";
                 let topicPriority = 'medium';
-                if (weakTopic.isUntested) {
-                    reasonStr = "Tópico Novo / Não Testado";
-                    topicPriority = 'medium';
-                } else if (weakTopic.percentage < 40) {
+                let actionPrefix = "";
+                let customTopicName = weakTopic.name;
+
+                if (weakTopic.percentage > 0 && weakTopic.percentage < 40) {
                     reasonStr = "Vetor Crítico de Erros";
                     topicPriority = 'high';
-                } else if (weakTopic.percentage < 60) {
+                } else if (weakTopic.percentage > 0 && weakTopic.percentage < 60) {
                     reasonStr = "Lacuna de Conhecimento";
                     topicPriority = 'medium';
                 } else if (weakTopic.trend < -2) {
                     reasonStr = "Degradação Recente";
                     topicPriority = 'medium';
+                } else if (weakTopic.daysSince >= 14 && weakTopic.total > 0) {
+                    reasonStr = "Curva de Esquecimento / Recência";
+                    const isSevereDecay = weakTopic.daysSince >= 45 || (weakTopic.daysSince >= 30 && Number(cat?.weight || 5) >= 7);
+                    topicPriority = isSevereDecay ? 'high' : (weakTopic.daysSince >= 21 ? 'medium' : 'low');
+                    actionPrefix = "Revisão por Recência — ";
+                    customTopicName = `Revisão por Recência — ${weakTopic.name}`;
+                } else if (weakTopic.isUntested) {
+                    reasonStr = "Cobertura de Edital";
+                    topicPriority = 'medium';
+                    actionPrefix = "Avanço de Edital — ";
+                    customTopicName = `Avanço de Edital — ${weakTopic.name}`;
                 } else {
                     reasonStr = "Consolidação Estratégica";
                     topicPriority = 'low';
+                }
+
+                const displayLabel = actionPrefix ? `${actionPrefix}${weakTopic.name}` : weakTopic.name;
+                const topicLabel = `${getPriorityLabel(topicPriority)}[${displayLabel}]`;
+                let verdictStr = `Priorize ${weakTopic.name} — ${reasonStr}.`;
+                if (actionPrefix.startsWith("Revisão por Recência")) {
+                    verdictStr = `Faça uma bateria de 10 a 15 questões ou revise os grifos principais de ${weakTopic.name} para reativar a memória de longo prazo.`;
+                } else if (actionPrefix.startsWith("Avanço de Edital")) {
+                    verdictStr = `Estude os conceitos fundamentais de ${weakTopic.name} e resolva as primeiras questões de fixação.`;
                 }
 
                 allGeneratedTasks.push({
@@ -2835,37 +2855,172 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     category: cat.name,
                     catName: cat.name,
                     subjectName: cat.name,
-                    topicName: weakTopic.name,
+                    topicName: customTopicName,
                     analysis: {
                         reason: reasonStr,
                         details: `Aproveitamento: ${Number(weakTopic.percentage || 0).toFixed(0)}% | Última visita: ${weakTopic.daysSince ?? 0} dias | Tendência: ${Number(weakTopic.trend || 0) > 0 ? '+' : ''}${Number(weakTopic.trend || 0).toFixed(1)}`,
                         metrics: cat.urgency?.details?.humanReadable || {},
                         monteCarlo: mc || null,
-                        verdict: `Priorize ${weakTopic.name} — ${reasonStr}.`
+                        verdict: verdictStr
                     }
                 });
 
             } else {
-                allGeneratedTasks.push({
-                    id: `${cat.id}-geral-${i}-${hashString(`${cat.id}|geral|${i}`)}`,
-                    text: `${cat.name}: ${getPriorityLabel()}[Revisão Geral Complementar]`,
-                    completed: false,
-                    status: 'pending',
-                    priority: 'low',
-                    categoryId: cat.id,
-                    category: cat.name,
-                    catName: cat.name,
-                    subjectName: cat.name,
-                    topicName: 'Revisão Geral Complementar',
-                    analysis: {
-                        reason: "Cobertura Geral",
-                        details: "Sem tópico fraco específico — mantenha a revisão geral em dia.",
-                        metrics: cat.urgency?.details?.humanReadable || {},
-                        monteCarlo: mc || null,
-                        verdict: "Revisão geral leve para manutenção."
-                    }
-                });
+                // ====================================================================
+                // CASCATA DE REVISÃO ATIVA (Substituição Inteligente de Revisão Geral)
+                // ====================================================================
+                let activeTask = null;
 
+                // NÍVEL 1: Tópico Dormente / Recência (daysSince >= 14)
+                const dormantCandidates = allCategoryTopics.filter(t => {
+                    if (!t || !t.name) return false;
+                    const norm = t.name.trim().toLowerCase();
+                    if (assignedTopicNames.has(norm)) return false;
+                    return t.total > 0 && t.daysSince >= 14;
+                }).sort((a, b) => b.daysSince - a.daysSince);
+
+                if (dormantCandidates.length > 0) {
+                    const dormant = dormantCandidates[0];
+                    assignedTopicNames.add(dormant.name.trim().toLowerCase());
+                    const safeDays = Math.round(dormant.daysSince);
+                    const safePct = Math.round(Number(dormant.percentage || 0));
+                    const safeSlug = dormant.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '');
+                    const isSevereDecay = safeDays >= 45 || (safeDays >= 30 && Number(cat?.weight || 5) >= 7);
+                    const dormantPriority = isSevereDecay ? 'high' : (safeDays >= 21 ? 'medium' : 'low');
+
+                    activeTask = {
+                        id: `${cat.id}-decay-${safeSlug}-${i}-${hashString(`${cat.id}|decay|${dormant.name}|${i}`)}`,
+                        text: `${cat.name}: ${getPriorityLabel(dormantPriority)}[Revisão por Recência — ${dormant.name}]`,
+                        completed: false,
+                        status: 'pending',
+                        priority: dormantPriority,
+                        categoryId: cat.id,
+                        category: cat.name,
+                        catName: cat.name,
+                        subjectName: cat.name,
+                        topicName: `Revisão por Recência — ${dormant.name}`,
+                        analysis: {
+                            reason: "Curva de Esquecimento / Recência",
+                            details: `Sem contato há ${safeDays} dias (Aproveitamento anterior: ${safePct}%). Risco de perda de retenção de longo prazo.`,
+                            metrics: cat.urgency?.details?.humanReadable || {},
+                            monteCarlo: mc || null,
+                            verdict: `Faça uma bateria de 10 a 15 questões ou revise os grifos principais de ${dormant.name} para reativar a memória.`
+                        }
+                    };
+                }
+
+                // NÍVEL 2: Avanço de Edital (Tópicos cadastrados na matéria ainda não concluídos)
+                if (!activeTask) {
+                    const catTasksList = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).filter(Boolean);
+                    const uncompletedSyllabusTasks = catTasksList.filter(t => {
+                        if (!t || t.completed === true) return false;
+                        if (String(t.status || '').toLowerCase() === 'completed') return false;
+                        const title = (t.text || t.title || t.name || '').trim();
+                        if (!title) return false;
+                        return !assignedTopicNames.has(title.toLowerCase());
+                    });
+
+                    if (uncompletedSyllabusTasks.length > 0) {
+                        const syllabusTask = uncompletedSyllabusTasks[0];
+                        const title = (syllabusTask.text || syllabusTask.title || syllabusTask.name || '').trim();
+                        assignedTopicNames.add(title.toLowerCase());
+                        const safeSlug = title.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '');
+                        const syllabusPriority = syllabusTask.priority || 'medium';
+
+                        activeTask = {
+                            id: `${cat.id}-syllabus-${safeSlug}-${i}-${hashString(`${cat.id}|syllabus|${title}|${i}`)}`,
+                            text: `${cat.name}: ${getPriorityLabel(syllabusPriority)}[Avanço de Edital — ${title}]`,
+                            completed: false,
+                            status: 'pending',
+                            priority: syllabusPriority,
+                            categoryId: cat.id,
+                            category: cat.name,
+                            catName: cat.name,
+                            subjectName: cat.name,
+                            topicName: `Avanço de Edital — ${title}`,
+                            analysis: {
+                                reason: "Cobertura de Edital",
+                                details: "Tópico pendente no plano de estudos da disciplina.",
+                                metrics: cat.urgency?.details?.humanReadable || {},
+                                monteCarlo: mc || null,
+                                verdict: `Estude os conceitos fundamentais de ${title} e resolva as primeiras questões de fixação.`
+                            }
+                        };
+                    }
+                }
+
+                // NÍVEL 3: Flashcards SRS (Cartões com revisão vencida da disciplina)
+                if (!activeTask) {
+                    const flashcardDecks = Array.isArray(options?.flashcardDecks) ? options.flashcardDecks : Object.values(options?.flashcardDecks || {});
+                    if (flashcardDecks.length > 0) {
+                        const nowMs = (options.now ? (normalizeDate(options.now) || new Date()) : new Date()).getTime();
+                        const matchingDeck = flashcardDecks.find(d => {
+                            if (!d) return false;
+                            const matchId = d.categoryId && (d.categoryId === cat.id || String(d.categoryId) === String(cat.id));
+                            const matchName = (d.subject || d.name) && isSubjectMatch(d.subject || d.name, cat.name);
+                            return matchId || matchName;
+                        });
+
+                        if (matchingDeck) {
+                            const rawCards = Array.isArray(matchingDeck.cards) ? matchingDeck.cards : Object.values(matchingDeck.cards || {});
+                            const dueCards = rawCards.filter(c => {
+                                if (!c) return false;
+                                const nextReviewMs = (normalizeDate(c.nextReview || c.dueDate) || new Date(0)).getTime();
+                                return nextReviewMs <= nowMs;
+                            });
+
+                            if (dueCards.length > 0) {
+                                const srsPriority = dueCards.length >= 15 ? 'high' : (dueCards.length >= 5 ? 'medium' : 'low');
+                                activeTask = {
+                                    id: `${cat.id}-srsblitz-${i}-${hashString(`${cat.id}|srs|${i}`)}`,
+                                    text: `${cat.name}: ${getPriorityLabel(srsPriority)}[SRS Blitz — Zerar ${dueCards.length} Flashcards]`,
+                                    completed: false,
+                                    status: 'pending',
+                                    priority: srsPriority,
+                                    categoryId: cat.id,
+                                    category: cat.name,
+                                    catName: cat.name,
+                                    subjectName: cat.name,
+                                    topicName: `SRS Blitz — ${cat.name}`,
+                                    analysis: {
+                                        reason: "Repetição Espaçada (SRS)",
+                                        details: `${dueCards.length} cartões de memória atingiram a data limite de retenção.`,
+                                        metrics: cat.urgency?.details?.humanReadable || {},
+                                        monteCarlo: mc || null,
+                                        verdict: "Zere os flashcards pendentes para fixar conceitos essenciais e termos técnicos."
+                                    }
+                                };
+                            }
+                        }
+                    }
+                }
+
+                // NÍVEL 4: Bateria Ativa / Simulado Misto (Desafio quantitativo e prática intercalada)
+                if (!activeTask) {
+                    const drillQuestions = 15;
+                    const drillPriority = 'low';
+                    activeTask = {
+                        id: `${cat.id}-drill-${i}-${hashString(`${cat.id}|drill|${i}`)}`,
+                        text: `${cat.name}: ${getPriorityLabel(drillPriority)}[Bateria Ativa — ${drillQuestions} Questões Mistas]`,
+                        completed: false,
+                        status: 'pending',
+                        priority: drillPriority,
+                        categoryId: cat.id,
+                        category: cat.name,
+                        catName: cat.name,
+                        subjectName: cat.name,
+                        topicName: `Bateria Ativa — ${drillQuestions} Questões Mistas`,
+                        analysis: {
+                            reason: "Prática Intercalada / Retenção",
+                            details: "Sem tópico fraco ou pendente imediato — consolide a prontidão com prática mista.",
+                            metrics: cat.urgency?.details?.humanReadable || {},
+                            monteCarlo: mc || null,
+                            verdict: "Resolva 15 questões mistas da matéria para exercitar agilidade e fixar conteúdo."
+                        }
+                    };
+                }
+
+                allGeneratedTasks.push(activeTask);
             }
         }
     });

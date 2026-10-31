@@ -1367,6 +1367,9 @@ export default function Pomodoro() {
                         store.toggleTask(currentSubject.categoryId, currentSubject.taskId);
                     }
                     showToast(`Status: "${task.title || task.text}" concluído! ✅`, 'success');
+                } else if (typeof store.toggleNeuralTask === 'function') {
+                    store.toggleNeuralTask(currentSubject.taskId);
+                    showToast(`Status: "${currentSubject.task}" concluído! ✅`, 'success');
                 }
             }
 

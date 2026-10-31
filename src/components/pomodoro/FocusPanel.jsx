@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { calculateStudyStreak } from '../../utils/analytics';
 import { getDateKey } from '../../utils/dateHelper';
+import { parseTaskDisplay } from '../../utils/taskTitleHelper';
 
 // ============================================================================
 // SUBCOMPONENTE: Status da Sessão Atual
@@ -600,32 +601,76 @@ export function SessionFocusPanel({
     const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
     const currentCategory = activeSubject ? safeCats.find(c => c && (c.id === activeSubject.categoryId || (activeSubject.category && c.name === activeSubject.category))) : null;
 
+    const parsedTask = useMemo(() => {
+        return parseTaskDisplay(activeSubject?.task, activeSubject?.category);
+    }, [activeSubject?.task, activeSubject?.category]);
+
+    const activeModeBadge = useMemo(() => {
+        const text = String(activeSubject?.task || '');
+        if (/Revisão por Recência/i.test(text)) {
+            return { label: 'Recência', icon: '🧊', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' };
+        }
+        if (/Avanço de Edital/i.test(text)) {
+            return { label: 'Edital', icon: '📖', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' };
+        }
+        if (/SRS Blitz/i.test(text)) {
+            return { label: 'Flashcards', icon: '⚡', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
+        }
+        if (/Bateria Ativa/i.test(text)) {
+            return { label: 'Questões', icon: '🎯', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' };
+        }
+        return null;
+    }, [activeSubject?.task]);
+
     return (
         <div className="w-full flex flex-col gap-3.5" role="complementary" aria-label="Painel de telemetria da sessão">
             {/* Header do Foco Ativo */}
             {activeSubject ? (
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/5">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
-                            <Zap size={16} className="text-indigo-400" />
+                <div className="flex flex-col gap-2 pb-2.5 border-b border-white/5">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0">
+                                <Zap size={16} className="text-indigo-400" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="text-xs sm:text-sm font-black text-white truncate" title={parsedTask.displayTopic || activeSubject.task || 'Sessão de Estudo'}>
+                                    {parsedTask.displayTopic || activeSubject.task || 'Sessão de Estudo'}
+                                </h3>
+                                <p className="text-[10px] text-slate-400 font-medium truncate">{activeSubject.category || 'Geral'}</p>
+                            </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <h3 className="text-xs sm:text-sm font-black text-white truncate" title={activeSubject.task || 'Sessão de Estudo'}>
-                                {activeSubject.task || 'Sessão de Estudo'}
-                            </h3>
-                            <p className="text-[10px] text-slate-400 font-medium truncate">{activeSubject.category || 'Geral'}</p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            {activeModeBadge && (
+                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border flex items-center gap-1 ${activeModeBadge.color}`}>
+                                    <span>{activeModeBadge.icon}</span>
+                                    <span>{activeModeBadge.label}</span>
+                                </span>
+                            )}
+                            {activeSubject.priority && (
+                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                                    activeSubject.priority === 'high'
+                                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                        : activeSubject.priority === 'medium'
+                                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                }`}>
+                                    {activeSubject.priority === 'high' ? 'Alta' : activeSubject.priority === 'medium' ? 'Média' : 'Baixa'}
+                                </span>
+                            )}
                         </div>
                     </div>
-                    {activeSubject.priority && (
-                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider shrink-0 ${
-                            activeSubject.priority === 'high'
-                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                : activeSubject.priority === 'medium'
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        }`}>
-                            {activeSubject.priority === 'high' ? 'Alta' : activeSubject.priority === 'medium' ? 'Média' : 'Baixa'}
-                        </span>
+
+                    {/* Dica de Ação Estratégica da Sessão */}
+                    {activeModeBadge && (
+                        <div className="px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-center gap-2 text-[10.5px] text-slate-300">
+                            <span className="shrink-0">{activeModeBadge.icon}</span>
+                            <span className="truncate">
+                                {activeModeBadge.label === 'Recência' && 'Reative a memória de longo prazo resolvendo 10 a 15 questões ou revendo resumos.'}
+                                {activeModeBadge.label === 'Edital' && 'Construa a base teórica inicial deste novo tópico e anote os pontos-chave.'}
+                                {activeModeBadge.label === 'Flashcards' && 'Zere os cartões de repetição espaçada para fixar conceitos e fórmulas essenciais.'}
+                                {activeModeBadge.label === 'Questões' && 'Treino de prontidão real: 15 questões mistas com o cronômetro Pomodoro ativo.'}
+                            </span>
+                        </div>
                     )}
                 </div>
             ) : (
