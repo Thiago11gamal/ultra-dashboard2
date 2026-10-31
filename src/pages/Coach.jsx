@@ -1050,20 +1050,35 @@ export function RaioXDashboard({ data }) {
                     .filter(h => h?.avgBrier !== null && h?.avgBrier !== undefined && h?.avgBrier !== '')
                     .map(h => Number(h.avgBrier))
                     .filter(Number.isFinite);
+                const eceValues = base
+                    .filter(h => h?.ece !== null && h?.ece !== undefined && h?.ece !== '')
+                    .map(h => Number(h.ece))
+                    .filter(Number.isFinite);
                 const penaltyValues = base
                     .filter(h => h?.calibrationPenalty !== null && h?.calibrationPenalty !== undefined && h?.calibrationPenalty !== '')
                     .map(h => Number(h.calibrationPenalty))
                     .filter(Number.isFinite);
                 // FIX: If no brier values exist yet, return null (never a fake 0.00 "perfect" error)
                 const avgBrier = brierValues.length > 0 ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length : null;
+                const avgEce = eceValues.length > 0 ? eceValues.reduce((acc, val) => acc + val, 0) / eceValues.length : null;
                 const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : null;
                 const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;
                 if (validCount === 0) return null;
                 const label = matchedCategory?.name || rows[rows.length - 1]?.categoryName || categoryId;
-                return { categoryId, label, count: validCount, avgBrier, avgPenalty };
+                const matchedSim = categorySimCounts.find(c => c && (
+                    c.id === categoryId ||
+                    c.name === label ||
+                    getSafeId(c.id) === getSafeId(categoryId) ||
+                    getSafeId(c.name) === getSafeId(label)
+                ));
+                const latestSampleSize = Number.isFinite(Number(rows[rows.length - 1]?.sampleSize))
+                    ? Number(rows[rows.length - 1].sampleSize)
+                    : null;
+                const simCount = matchedSim?.count ?? latestSampleSize;
+                return { categoryId, label, count: validCount, simCount, avgBrier, avgEce, avgPenalty };
             })
             .filter(Boolean);
-    }, [data?.calibrationHistoryByCategory, activeCategoryIds, categories]);
+    }, [data?.calibrationHistoryByCategory, activeCategoryIds, categories, categorySimCounts]);
 
     const toPercentLabel = (value) => {
         if (value === null || value === undefined || value === '') return '-';
@@ -1181,7 +1196,7 @@ export function RaioXDashboard({ data }) {
                             const radius = 14;
                             const circ = 2 * Math.PI * radius;
                             const offset = Number.isFinite(circ - (brierPct / 100) * circ) ? circ - (brierPct / 100) * circ : circ;
-                            const colorClass = isDegraded ? 'text-rose-500' : (!hasBrier ? 'text-slate-400' : (avgBrier >= CRITICAL_BRIER_THRESHOLD ? 'text-rose-500' : (avgBrier >= 0.20 ? 'text-amber-500' : 'text-emerald-500')));
+                            const colorClass = isDegraded ? 'text-rose-500' : (!hasBrier ? 'text-slate-400' : (avgBrier >= CRITICAL_BRIER_THRESHOLD ? 'text-rose-500' : (avgBrier > 0.18 || penVal > 0.001 ? 'text-amber-500' : 'text-emerald-500')));
                             
                             return (
                                 <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
@@ -1195,7 +1210,7 @@ export function RaioXDashboard({ data }) {
                                                     <div className={`w-1.5 h-1.5 rounded-full ${isDegraded ? 'bg-rose-400' : 'bg-emerald-400'} animate-pulse shadow-[0_0_8px_currentColor]`} />
                                                     {isDegraded ? 'Degradado' : 'Estável'}
                                                 </div>
-                                                <span className="text-[9px] font-mono text-slate-500 font-bold bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded-md" title={`${row.count} eventos de calibração analisados`}>n={row.count}</span>
+                                                <span className="text-[9px] font-mono text-slate-500 font-bold bg-white/[0.03] border border-white/[0.05] px-1.5 py-0.5 rounded-md" title={`${row.simCount ? `${row.simCount} simulados na amostra técnica · ` : ''}${row.count} auditoria(s) registrada(s)`}>n={row.simCount ?? row.count}</span>
                                             </div>
                                         </div>
 
@@ -1213,25 +1228,31 @@ export function RaioXDashboard({ data }) {
                                             </svg>
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 <span className={`text-[10px] font-black font-mono tracking-tighter ${colorClass}`}>
-                                                    {hasBrier ? avgBrier.toFixed(2) : '-'}
+                                                    {hasBrier ? avgBrier.toFixed(3) : '-'}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
                                 
-                                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto">
-                                        <div className="group/tooltip relative flex items-center gap-1 cursor-help">
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600">Desvio (Brier)</span>
-                                            <div className="absolute bottom-full left-0 mb-2 w-48 p-2.5 bg-[#0a0c14] text-[10px] font-medium text-slate-300 rounded-lg shadow-2xl border border-white/10 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
-                                                <strong className="text-white font-black block mb-1">Score de Brier</strong>
-                                                Mede a precisão das projeções Monte Carlo. Quanto menor o valor (verde), mais assertivo está o motor.
+                                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto gap-2">
+                                        <div className="group/tooltip relative flex items-center gap-1.5 cursor-help min-w-0">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600 shrink-0">Brier</span>
+                                            <span className="text-[10px] font-mono font-bold text-slate-400">{hasBrier ? avgBrier.toFixed(3) : '-'}</span>
+                                            {row.avgEce !== null && (
+                                                <span className="text-[9px] font-mono text-cyan-400/80 font-bold ml-1 border-l border-white/10 pl-1.5 truncate">
+                                                    ECE: {row.avgEce.toFixed(3)}
+                                                </span>
+                                            )}
+                                            <div className="absolute bottom-full left-0 mb-2 w-52 p-2.5 bg-[#0a0c14] text-[10px] font-medium text-slate-300 rounded-lg shadow-2xl border border-white/10 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50">
+                                                <strong className="text-white font-black block mb-1">Score de Brier & ECE</strong>
+                                                Brier Score mede o erro quadrático das projeções (ideal &lt; 0.18). ECE mede o desvio médio de confiabilidade.
                                             </div>
                                         </div>
                                     
                                         {(() => {
                                             if (penVal <= 0.001) return null;
                                             return (
-                                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10">
+                                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10 shrink-0">
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Pena: <span className="font-mono">-{Math.round(penVal * 100)}%</span></span>
                                                 </div>
                                             );
