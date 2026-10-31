@@ -273,7 +273,7 @@ describe('generateDailyGoals — limites', () => {
       expect(srsTask.analysis?.reason).toContain('Repetição Espaçada');
     });
 
-    it('Nível 4: Gera Bateria Ativa quando não há pendências nem tópicos frios', () => {
+    it('Nível 4: Gera Consolidação Teórica / Síntese quando não há pendências nem tópicos frios', () => {
       const now = new Date('2026-03-30');
       const categories = [
         {
@@ -299,10 +299,10 @@ describe('generateDailyGoals — limites', () => {
 
       const tasks = generateDailyGoals(categories, [], [], { maxScore: 100, now });
       expect(tasks.length).toBeGreaterThan(0);
-      const drillTask = tasks.find(t => t.text.includes('Bateria Ativa') || t.topicName?.includes('Bateria Ativa'));
-      expect(drillTask).toBeDefined();
-      expect(drillTask.text).toContain('15 Questões Mistas');
-      expect(drillTask.analysis?.reason).toContain('Prática Intercalada / Retenção');
+      const synthesisTask = tasks.find(t => t.text.includes('Consolidação Teórica') || t.topicName?.includes('Consolidação Teórica'));
+      expect(synthesisTask).toBeDefined();
+      expect(synthesisTask.text).toContain('Síntese e Mapeamento');
+      expect(synthesisTask.analysis?.reason).toContain('Consolidação Teórica / Síntese');
     });
   });
 });

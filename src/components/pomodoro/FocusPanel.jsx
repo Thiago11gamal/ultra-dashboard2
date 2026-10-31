@@ -798,10 +798,11 @@ export function SessionFocusPanel({
     const currentCategory = activeSubject ? safeCats.find(c => c && (c.id === activeSubject.categoryId || (activeSubject.category && c.name === activeSubject.category))) : null;
 
     const parsedTask = useMemo(() => {
-        return parseTaskDisplay(activeSubject?.task, activeSubject?.category);
-    }, [activeSubject?.task, activeSubject?.category]);
+        return parseTaskDisplay(activeSubject?.task, activeSubject?.category, currentCategory || safeCats);
+    }, [activeSubject?.task, activeSubject?.category, currentCategory, safeCats]);
 
     const activeModeBadge = useMemo(() => {
+        if (parsedTask.alertBadge) return parsedTask.alertBadge;
         const text = String(activeSubject?.task || '');
         if (/Revisão por Recência/i.test(text)) {
             return { label: 'Recência', icon: '🧊', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' };
@@ -812,11 +813,17 @@ export function SessionFocusPanel({
         if (/SRS Blitz/i.test(text)) {
             return { label: 'Flashcards', icon: '⚡', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
         }
-        if (/Bateria Ativa/i.test(text)) {
-            return { label: 'Questões', icon: '🎯', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' };
+        if (/Consolidação/i.test(text) || /Síntese/i.test(text) || /Bateria Ativa/i.test(text)) {
+            return { label: 'Síntese', icon: '🧠', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' };
+        }
+        if (/Revisão Expressa/i.test(text) || /Treino Rápido/i.test(text) || /Treino de Agilidade/i.test(text)) {
+            return { label: 'Rápida', icon: '⚡', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' };
+        }
+        if (/Manutenção/i.test(text)) {
+            return { label: 'Manutenção', icon: '🛡️', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
         }
         return null;
-    }, [activeSubject?.task]);
+    }, [activeSubject?.task, parsedTask.alertBadge]);
 
     return (
         <div className="w-full flex flex-col gap-3.5" role="complementary" aria-label="Painel de telemetria da sessão">
@@ -829,10 +836,16 @@ export function SessionFocusPanel({
                                 <Zap size={16} className="text-indigo-400" />
                             </div>
                             <div className="min-w-0 flex-1">
-                                <h3 className="text-xs sm:text-sm font-black text-white truncate" title={parsedTask.displayTopic || activeSubject.task || 'Sessão de Estudo'}>
-                                    {parsedTask.displayTopic || activeSubject.task || 'Sessão de Estudo'}
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Disciplina:</span>
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300 truncate" title={activeSubject.category || currentCategory?.name || 'Geral'}>
+                                        {activeSubject.category || currentCategory?.name || 'Geral'}
+                                    </span>
+                                </div>
+                                <h3 className="text-xs sm:text-sm font-black text-white truncate flex items-baseline gap-1" title={parsedTask.displayTopic || 'Teoria Geral e Fundamentos'}>
+                                    <span className="text-[11px] font-bold text-slate-400 shrink-0">Assunto:</span>
+                                    <span className="truncate">{parsedTask.displayTopic || 'Teoria Geral e Fundamentos'}</span>
                                 </h3>
-                                <p className="text-[10px] text-slate-400 font-medium truncate">{activeSubject.category || 'Geral'}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -856,15 +869,15 @@ export function SessionFocusPanel({
                         </div>
                     </div>
 
-                    {/* Dica de Ação Estratégica da Sessão */}
+                    {/* Dica de Ação Estratégica da Sessão (100% Exclusiva para Estudo) */}
                     {activeModeBadge && (
                         <div className="px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/5 flex items-center gap-2 text-[10.5px] text-slate-300">
                             <span className="shrink-0">{activeModeBadge.icon}</span>
                             <span className="truncate">
-                                {activeModeBadge.label === 'Recência' && 'Reative a memória de longo prazo resolvendo 10 a 15 questões ou revendo resumos.'}
-                                {activeModeBadge.label === 'Edital' && 'Construa a base teórica inicial deste novo tópico e anote os pontos-chave.'}
+                                {activeModeBadge.label === 'Recência' && 'Reative a memória de longo prazo revisando grifos, notas e resumos estruturados.'}
+                                {activeModeBadge.label === 'Edital' && 'Construa a base teórica inicial deste novo tópico e anote os pontos-chave no material.'}
                                 {activeModeBadge.label === 'Flashcards' && 'Zere os cartões de repetição espaçada para fixar conceitos e fórmulas essenciais.'}
-                                {activeModeBadge.label === 'Questões' && 'Treino de prontidão real: 15 questões mistas com o cronômetro Pomodoro ativo.'}
+                                {activeModeBadge.label === 'Síntese' && 'Estudo profundo: elabore mapas conceituais, fichamento ou faça auto-explicação dos tópicos densos.'}
                             </span>
                         </div>
                     )}

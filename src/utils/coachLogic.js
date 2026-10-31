@@ -2747,7 +2747,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (performDeepCheck(cat, cat.urgency?.details?.averageScore).isTrap) {
             allGeneratedTasks.push({
                 id: `${cat.id}-trap-trap`,
-                text: `${cat.name}: [Prática Intensiva de Questões]`,
+                text: `${cat.name}: [Estudo Ativo & Auto-Explicação]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',
@@ -2755,13 +2755,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
-                topicName: 'Prática Intensiva de Questões',
+                topicName: 'Estudo Ativo & Auto-Explicação',
                 analysis: {
-                    reason: "Detector de Pseudo-Estudo",
-                    details: "Alta carga horária com baixíssimo volume de exercícios.",
+                    reason: "Otimização de Estudo",
+                    details: "Alta carga horária teórica acumulada — hora de elevar a densidade cognitiva.",
                     metrics: cat.urgency?.details?.humanReadable || {},
                     monteCarlo: mc || null,
-                    verdict: "Volume excessivo de teoria detectado. Troque leitura por questões agora."
+                    verdict: "Substitua a leitura passiva por auto-explicação ativa, síntese e estruturação de esquemas mentais."
                 }
             });
         }
@@ -2779,7 +2779,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido avgSeconds do ID para manter estabilidade no Planner
                 id: `${cat.id}-agility`,
-                text: `${cat.name}: [Treino de Agilidade - Cronômetro]`,
+                text: `${cat.name}: [Revisão Expressa — Fórmulas & Prazos]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',
@@ -2787,13 +2787,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
-                topicName: 'Treino de Agilidade — Cronômetro',
+                topicName: 'Revisão Expressa — Fórmulas e Prazos',
                 analysis: {
-                    reason: "Motor de Agilidade AI",
-                    details: `Seu tempo médio (${avgSeconds}s/questão) está alto, embora sua taxa de acertos seja excelente.`,
+                    reason: "Agilidade Cognitiva AI",
+                    details: `Identificada oportunidade de acelerar a retenção de conceitos de ${cat.name}.`,
                     metrics: cat.urgency?.details?.humanReadable || {},
                     monteCarlo: mc || null,
-                    verdict: `Faça baterias curtas com cronômetro para reduzir o seu tempo de ${avgSeconds}s para a meta de ${targetSeconds}s por questão.`
+                    verdict: "Sessão rápida de estudo: revise resumos de alta densidade, mnemônicos e fórmulas para agilizar a recuperação de memória."
                 }
             });
         }
@@ -2840,9 +2840,9 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 const topicLabel = `${getPriorityLabel(topicPriority)}[${displayLabel}]`;
                 let verdictStr = `Priorize ${weakTopic.name} — ${reasonStr}.`;
                 if (actionPrefix.startsWith("Revisão por Recência")) {
-                    verdictStr = `Faça uma bateria de 10 a 15 questões ou revise os grifos principais de ${weakTopic.name} para reativar a memória de longo prazo.`;
+                    verdictStr = `Revise os grifos, notas e esquemas conceituais de ${weakTopic.name} para reativar a memória de longo prazo.`;
                 } else if (actionPrefix.startsWith("Avanço de Edital")) {
-                    verdictStr = `Estude os conceitos fundamentais de ${weakTopic.name} e resolva as primeiras questões de fixação.`;
+                    verdictStr = `Estude a base teórica e conceitos fundamentais de ${weakTopic.name}, anotando os pontos-chave no material.`;
                 }
 
                 allGeneratedTasks.push({
@@ -2904,7 +2904,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                             details: `Sem contato há ${safeDays} dias (Aproveitamento anterior: ${safePct}%). Risco de perda de retenção de longo prazo.`,
                             metrics: cat.urgency?.details?.humanReadable || {},
                             monteCarlo: mc || null,
-                            verdict: `Faça uma bateria de 10 a 15 questões ou revise os grifos principais de ${dormant.name} para reativar a memória.`
+                            verdict: `Revise os grifos principais, notas e esquemas conceituais de ${dormant.name} para reativar a memória e proteger a retenção.`
                         }
                     };
                 }
@@ -2943,7 +2943,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                                 details: "Tópico pendente no plano de estudos da disciplina.",
                                 metrics: cat.urgency?.details?.humanReadable || {},
                                 monteCarlo: mc || null,
-                                verdict: `Estude os conceitos fundamentais de ${title} e resolva as primeiras questões de fixação.`
+                                verdict: `Estude a base teórica e conceitos fundamentais de ${title}, consolidando os pontos essenciais no material.`
                             }
                         };
                     }
@@ -2995,27 +2995,26 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
                 }
 
-                // NÍVEL 4: Bateria Ativa / Simulado Misto (Desafio quantitativo e prática intercalada)
+                // NÍVEL 4: Consolidação Teórica / Síntese & Mapeamento (Estudo aprofundado)
                 if (!activeTask) {
-                    const drillQuestions = 15;
-                    const drillPriority = 'low';
+                    const reviewPriority = 'low';
                     activeTask = {
-                        id: `${cat.id}-drill-${i}-${hashString(`${cat.id}|drill|${i}`)}`,
-                        text: `${cat.name}: ${getPriorityLabel(drillPriority)}[Bateria Ativa — ${drillQuestions} Questões Mistas]`,
+                        id: `${cat.id}-synthesis-${i}-${hashString(`${cat.id}|synthesis|${i}`)}`,
+                        text: `${cat.name}: ${getPriorityLabel(reviewPriority)}[Consolidação Teórica — Síntese e Mapeamento]`,
                         completed: false,
                         status: 'pending',
-                        priority: drillPriority,
+                        priority: reviewPriority,
                         categoryId: cat.id,
                         category: cat.name,
                         catName: cat.name,
                         subjectName: cat.name,
-                        topicName: `Bateria Ativa — ${drillQuestions} Questões Mistas`,
+                        topicName: `Consolidação Teórica — ${cat.name}`,
                         analysis: {
-                            reason: "Prática Intercalada / Retenção",
-                            details: "Sem tópico fraco ou pendente imediato — consolide a prontidão com prática mista.",
+                            reason: "Consolidação Teórica / Síntese",
+                            details: "Estudo integrado e estruturação de conhecimento para reforçar conexões neurais da disciplina.",
                             metrics: cat.urgency?.details?.humanReadable || {},
                             monteCarlo: mc || null,
-                            verdict: "Resolva 15 questões mistas da matéria para exercitar agilidade e fixar conteúdo."
+                            verdict: `Dedique este bloco ao estudo aprofundado de ${cat.name}: estruture mapas conceituais, resumos ou elabore auto-explicação dos tópicos densos.`
                         }
                     };
                 }

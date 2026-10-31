@@ -15,7 +15,7 @@ export function isInternalId(val) {
     if (/^(cat|task|id|log|session|temp)-[0-9a-zA-Z_-]+/i.test(s)) return true;
 
     // Contains coach/system synthetic tags
-    if (/-(geral|general|topic|weaktopic|decay|syllabus|srsblitz|drill)-/i.test(s)) return true;
+    if (/-(geral|general|topic|weaktopic|decay|syllabus|srsblitz|drill|synthesis)-/i.test(s)) return true;
 
     // UUID v4 format
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
@@ -66,15 +66,15 @@ export function extractTopicFromInternalId(id, category = null, allCategories = 
     if (/-(geral|general)-/i.test(str)) {
         return 'Revisão Geral';
     }
-    if (/-(drill)-/i.test(str)) {
-        return 'Bateria Ativa';
+    if (/-(drill|synthesis)-/i.test(str)) {
+        return 'Consolidação Teórica';
     }
     if (/-(srsblitz)-/i.test(str)) {
         return 'SRS Blitz';
     }
 
-    // 2. Topic pattern: e.g. cat-1772560345316-opevcca-topic-c1-0, decay, syllabus
-    const markerIdx = str.search(/-(topic|weaktopic|decay|syllabus)-/i);
+    // 2. Topic pattern: e.g. cat-1772560345316-opevcca-topic-c1-0, decay, syllabus, synthesis
+    const markerIdx = str.search(/-(topic|weaktopic|decay|syllabus|synthesis)-/i);
     if (markerIdx !== -1) {
         const markerMatch = str.slice(markerIdx).match(/^-(topic|weaktopic|decay|syllabus)-/i);
         if (markerMatch) {
@@ -157,34 +157,154 @@ export function resolveHumanTaskTitle(rawTitle, taskId, category = null, allCate
     return 'Sessão de Estudo';
 }
 
-export function parseTaskDisplay(rawText, categoryName = '') {
-    if (!rawText) return { displayTopic: '', secondaryText: '' };
+export function parseTaskDisplay(rawText, categoryName = '', categoryObj = null) {
+    if (!rawText) return { displayTopic: '', secondaryText: '', alertBadge: null, isPriority: false };
     const fullText = String(rawText).trim();
+    const isPriority = /\[PROTOCOLO PRIORITÁRIO\]|\[ALERTA MESTRE\]/i.test(fullText);
+
     const parts = fullText.split(':');
     let actionPart = parts.length > 1 ? parts.slice(1).join(':').trim() : fullText;
+    let categoryPart = parts.length > 1 ? parts[0].trim() : (categoryName || '');
 
-    actionPart = actionPart
-        .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-        .replace(/\[ALERTA MESTRE\]\s*/i, '')
-        .replace(/^\[(.*?)\]/i, '$1')
-        .trim();
-
-    let topicPart = (parts[0] || '')
-        .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '')
-        .replace(/\[ALERTA MESTRE\]\s*/i, '')
-        .replace(/^\[(.*?)\]/i, '$1')
-        .trim();
-    if (categoryName && actionPart.toLowerCase() === String(categoryName).trim().toLowerCase()) {
-        actionPart = 'Revisão Geral';
+    // Resolve category object if an array was passed or categoryObj is provided
+    let targetCategory = categoryObj;
+    if (Array.isArray(categoryObj)) {
+        targetCategory = categoryObj.find(c => {
+            if (!c) return false;
+            const cName = String(c.name || '').trim().toLowerCase();
+            const cId = String(c.id || '').trim();
+            const matchName1 = String(categoryName || '').trim().toLowerCase();
+            const matchName2 = String(categoryPart || '').trim().toLowerCase();
+            return (matchName1 && cName === matchName1) ||
+                   (matchName2 && cName === matchName2) ||
+                   (cId && (cId === categoryName || cId === categoryPart));
+        }) || null;
     }
 
-    const displayTopic = actionPart || topicPart || '';
-    let secondaryText = (topicPart && actionPart !== topicPart && actionPart !== 'Revisão Geral') ? topicPart : '';
+    // Limpa tags de prioridade
+    let cleanText = actionPart
+        .replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/gi, '')
+        .replace(/\[ALERTA MESTRE\]\s*/gi, '')
+        .trim();
 
-    if (/CRUZEIRO SEGURO|Revisão Necessária|ANOMALIA|TREINO RÁPIDO|\(Novo\)\.|\(Prioridade\)\.|% de acerto\)\./i.test(secondaryText)) {
-        secondaryText = '';
+    // Remove colchetes externos se envolver toda a ação: "[...]"
+    if (cleanText.startsWith('[') && cleanText.endsWith(']')) {
+        cleanText = cleanText.slice(1, -1).trim();
     }
 
-    return { displayTopic, secondaryText };
+    let alertBadge = null;
+
+    // 1. Detecta modalidade se estiver entre colchetes no início, ex: "[Bateria Ativa] 15 Questões" ou "[Consolidação Teórica] Tópico"
+    const bracketMatch = cleanText.match(/^\[([^\]]+)\]\s*(.*)$/);
+    if (bracketMatch) {
+        const bracketTag = bracketMatch[1].trim();
+        const remainder = bracketMatch[2].trim();
+        if (/Revisão por Recência/i.test(bracketTag)) {
+            alertBadge = { label: 'Recência', icon: '🧊', type: 'decay', text: 'Revisão por Recência', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' };
+            cleanText = remainder;
+        } else if (/Avanço de Edital/i.test(bracketTag)) {
+            alertBadge = { label: 'Edital', icon: '📖', type: 'syllabus', text: 'Avanço de Edital', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' };
+            cleanText = remainder;
+        } else if (/SRS Blitz/i.test(bracketTag)) {
+            alertBadge = { label: 'Flashcards', icon: '⚡', type: 'srs', text: 'SRS Blitz', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
+            cleanText = remainder;
+        } else if (/Consolidação Teórica|Bateria Ativa|Estudo Ativo|Síntese/i.test(bracketTag)) {
+            alertBadge = { label: 'Síntese', icon: '🧠', type: 'synthesis', text: 'Consolidação Teórica', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' };
+            cleanText = remainder;
+        } else if (/Revisão Expressa|Treino Rápido|Treino de Agilidade/i.test(bracketTag)) {
+            alertBadge = { label: 'Rápida', icon: '⚡', type: 'quick', text: 'Revisão Expressa', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' };
+            cleanText = remainder;
+        } else if (/Manutenção/i.test(bracketTag)) {
+            alertBadge = { label: 'Manutenção', icon: '🛡️', type: 'maintenance', text: 'Manutenção', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
+            cleanText = remainder;
+        }
+    }
+
+    // 2. Detecta alerta / modalidade com separador ou no início
+    if (!alertBadge) {
+        if (/^Revisão por Recência(\s*[-—–:]\s*|\s*$)/i.test(cleanText)) {
+            alertBadge = { label: 'Recência', icon: '🧊', type: 'decay', text: 'Revisão por Recência', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' };
+            cleanText = cleanText.replace(/^Revisão por Recência(\s*[-—–:]\s*|\s*$)/i, '').trim();
+        } else if (/^Avanço de Edital(\s*[-—–:]\s*|\s*$)/i.test(cleanText)) {
+            alertBadge = { label: 'Edital', icon: '📖', type: 'syllabus', text: 'Avanço de Edital', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' };
+            cleanText = cleanText.replace(/^Avanço de Edital(\s*[-—–:]\s*|\s*$)/i, '').trim();
+        } else if (/^SRS Blitz(\s*[-—–:]\s*|\s*$)/i.test(cleanText)) {
+            alertBadge = { label: 'Flashcards', icon: '⚡', type: 'srs', text: 'SRS Blitz', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
+            cleanText = cleanText.replace(/^SRS Blitz(\s*[-—–:]\s*|\s*$)/i, '').trim();
+        } else if (/^(Consolidação Teórica|Bateria Ativa|Estudo Ativo)(\s*[-—–:]\s*|\s*$)/i.test(cleanText)) {
+            alertBadge = { label: 'Síntese', icon: '🧠', type: 'synthesis', text: 'Consolidação Teórica', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' };
+            cleanText = cleanText.replace(/^(Consolidação Teórica|Bateria Ativa|Estudo Ativo)(\s*[-—–:]\s*|\s*$)/i, '').trim();
+        } else if (/^(Revisão Expressa|Treino Rápido|Treino de Agilidade)(\s*[-—–:]\s*|\s*$)/i.test(cleanText)) {
+            alertBadge = { label: 'Rápida', icon: '⚡', type: 'quick', text: 'Revisão Expressa', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' };
+            cleanText = cleanText.replace(/^(Revisão Expressa|Treino Rápido|Treino de Agilidade)(\s*[-—–:]\s*|\s*$)/i, '').trim();
+        } else if (/^Manutenção(\s*[-—–:]\s*|\s*$)/i.test(cleanText)) {
+            alertBadge = { label: 'Manutenção', icon: '🛡️', type: 'maintenance', text: 'Manutenção', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
+            cleanText = cleanText.replace(/^Manutenção(\s*[-—–:]\s*|\s*$)/i, '').trim();
+        }
+    }
+
+    // Se o cleanText for apenas um placeholder genérico (como "15 Questões Mistas", "Síntese e Mapeamento", "Revisão Geral" ou o nome da disciplina)
+    const isGeneric = (str) => {
+        if (!str || !str.trim()) return true;
+        const lower = str.trim().toLowerCase();
+        const catLower = String(categoryName || categoryPart || (targetCategory?.name || '')).trim().toLowerCase();
+        return (
+            lower === catLower ||
+            lower === 'revisão geral' ||
+            lower === 'revisao geral' ||
+            lower === 'estudo' ||
+            lower === 'estudo livre' ||
+            lower === 'foco livre' ||
+            lower === 'sessão de estudo' ||
+            lower === 'sessao de estudo' ||
+            lower === 'missão ativa' ||
+            lower === 'missao ativa' ||
+            lower === '15 questões mistas' ||
+            lower === '15 questoes mistas' ||
+            lower === 'questões mistas' ||
+            lower === 'questoes mistas' ||
+            lower === 'bateria ativa' ||
+            lower === 'consolidação teórica' ||
+            lower === 'consolidacao teorica' ||
+            lower === 'síntese e mapeamento' ||
+            lower === 'sintese e mapeamento' ||
+            lower.includes('questões mistas') ||
+            lower.includes('questoes mistas') ||
+            (lower.startsWith('zerar ') && lower.includes('flashcard'))
+        );
+    };
+
+    if (isGeneric(cleanText)) {
+        // Tenta buscar o assunto específico cadastrado na matéria
+        if (targetCategory) {
+            const rawTasks = Array.isArray(targetCategory.tasks) ? targetCategory.tasks : Object.values(targetCategory.tasks || {});
+            const uncompleted = rawTasks.find(t => t && !t.completed && (t.text || t.title || t.name));
+            if (uncompleted) {
+                cleanText = cleanTaskTitle(uncompleted.text || uncompleted.title || uncompleted.name, targetCategory.name);
+            } else {
+                const firstTask = rawTasks.find(t => t && (t.text || t.title || t.name));
+                if (firstTask) {
+                    cleanText = cleanTaskTitle(firstTask.text || firstTask.title || firstTask.name, targetCategory.name);
+                } else {
+                    const history = Array.isArray(targetCategory.simuladoStats?.history)
+                        ? targetCategory.simuladoStats.history
+                        : Object.values(targetCategory.simuladoStats?.history || {});
+                    const histTopic = history.find(h => h && (h.topic || h.assunto))?.topic || history.find(h => h && (h.topic || h.assunto))?.assunto;
+                    cleanText = histTopic ? cleanTaskTitle(histTopic, targetCategory.name) : 'Teoria Geral e Fundamentos';
+                }
+            }
+        } else {
+            cleanText = 'Teoria Geral e Fundamentos';
+        }
+    }
+
+    if (isGeneric(cleanText)) {
+        cleanText = 'Teoria Geral e Fundamentos';
+    }
+
+    const displayTopic = cleanText || 'Teoria Geral e Fundamentos';
+    const secondaryText = (categoryPart && categoryPart.toLowerCase() !== displayTopic.toLowerCase()) ? categoryPart : (targetCategory?.name || '');
+
+    return { displayTopic, secondaryText, alertBadge, isPriority };
 }
 

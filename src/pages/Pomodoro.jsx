@@ -434,10 +434,12 @@ function ActionsAndMentorView({
     }, [activeSubject, categories]);
 
     const cleanTaskText = (rawText, catName) => {
-        const result = parseTaskDisplay(rawText, catName);
+        const result = parseTaskDisplay(rawText, catName, categories);
         return {
-            displayTopic: result.displayTopic || 'Revisão Geral',
-            secondaryText: result.secondaryText || ''
+            displayTopic: result.displayTopic || 'Teoria Geral e Fundamentos',
+            secondaryText: result.secondaryText || '',
+            alertBadge: result.alertBadge,
+            isPriority: result.isPriority
         };
     };
 
@@ -933,13 +935,29 @@ function PomodoroSidePanel({
 // =====================================================
 function PomodoroTopBar({
     activeSubject,
+    categories = [],
     isRunning,
     mode = 'work',
     timeLeft = 0,
     targetCycles = 1,
     completedCycles = 0
 }) {
-    const cleanText = (text) => parseTaskDisplay(text, activeSubject?.category);
+    const currentCategory = useMemo(() => {
+        if (!activeSubject) return null;
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const catId = activeSubject.categoryId || activeSubject.catId;
+        return safeCats.find(c => c && (
+            (catId && c.id === catId) ||
+            (activeSubject.category && c.name && c.name.toLowerCase() === String(activeSubject.category).toLowerCase())
+        )) || null;
+    }, [categories, activeSubject]);
+
+    const { displayTopic, alertBadge, isPriority } = useMemo(() => {
+        return parseTaskDisplay(activeSubject?.task, activeSubject?.category, currentCategory || categories);
+    }, [activeSubject?.task, activeSubject?.category, currentCategory, categories]);
+
+    const disciplineName = activeSubject?.category || currentCategory?.name || 'SISTEMA';
+    const concreteTopic = activeSubject ? (displayTopic || 'Teoria Geral e Fundamentos') : 'Aguardando início...';
 
     const etaString = useMemo(() => {
         if (!isRunning || !Number.isFinite(timeLeft) || timeLeft <= 0) return null;
@@ -958,19 +976,47 @@ function PomodoroTopBar({
                         {activeSubject ? <Target size={20} className="text-[#2d1a12]" /> : <Zap size={20} className="text-[#2d1a12]" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#2d1a12]/85 truncate">
-                                {activeSubject?.category || 'SISTEMA'}
-                            </span>
-                            <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${activeSubject && isRunning
-                                    ? 'bg-emerald-700 animate-pulse'
-                                    : activeSubject
-                                        ? 'bg-amber-700/80'
-                                        : 'bg-[#2d1a12]/30'
+                        {/* Linha Superior: Disciplina + Alertas / Modalidades ao lado */}
+                        <div className="flex items-center flex-wrap gap-2 mb-1">
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[9.5px] sm:text-[10px] font-bold uppercase tracking-wider text-[#2d1a12]/70">
+                                    Disciplina:
+                                </span>
+                                <span className="text-[10.5px] sm:text-xs font-black uppercase tracking-[0.15em] text-[#2d1a12] max-w-[180px] sm:max-w-xs truncate" title={disciplineName}>
+                                    {disciplineName}
+                                </span>
+                                <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${
+                                    activeSubject && isRunning
+                                        ? 'bg-emerald-700 animate-pulse'
+                                        : activeSubject
+                                            ? 'bg-amber-700/80'
+                                            : 'bg-[#2d1a12]/30'
                                 }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando início'} />
+                            </div>
+
+                            {/* Alertas posicionados ao lado da disciplina */}
+                            {alertBadge && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] sm:text-[9.5px] font-black uppercase tracking-wider bg-[#2d1a12]/15 text-[#2d1a12] border border-[#2d1a12]/25 shadow-xs">
+                                    <span>{alertBadge.icon}</span>
+                                    <span>{alertBadge.text || alertBadge.label}</span>
+                                </span>
+                            )}
+                            {(isPriority || activeSubject?.priority === 'high') && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider bg-rose-950/20 text-rose-950 border border-rose-900/30 shadow-xs">
+                                    <span>🔥</span>
+                                    <span>Prioritário</span>
+                                </span>
+                            )}
                         </div>
-                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate" title={activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}>
-                            {activeSubject ? (cleanText(activeSubject.task)?.displayTopic || 'Missão Ativa') : 'Aguardando início...'}
+
+                        {/* Linha Principal: Assunto Concreto */}
+                        <h1 className="text-sm sm:text-base lg:text-lg font-black text-[#2d1a12] tracking-tight leading-tight truncate flex items-baseline gap-1.5" title={concreteTopic}>
+                            <span className="text-xs sm:text-sm font-bold text-[#2d1a12]/70 shrink-0">
+                                Assunto:
+                            </span>
+                            <span className="truncate">
+                                {concreteTopic}
+                            </span>
                         </h1>
                     </div>
                 </div>
@@ -1523,6 +1569,7 @@ export default function Pomodoro() {
                     >
                         <PomodoroTopBar
                             activeSubject={activeSubject}
+                            categories={categories || []}
                             isRunning={liveTimerState !== null ? liveTimerState.isRunning : (pomodoroState.isRunning || false)}
                             mode={liveTimerState?.mode || pomodoroState.mode || 'work'}
                             timeLeft={liveTimerState !== null ? liveTimerState.timeLeft : (pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60)}
