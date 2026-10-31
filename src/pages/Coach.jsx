@@ -1106,25 +1106,46 @@ export function RaioXDashboard({ data }) {
         .filter(log => filter === 'all' || (filter === 'degraded' && isLogDegraded(log)))
         .slice(0, 50)), [sortedLogs, filter, isLogDegraded]);
 
-    // FIX: Canonical category grouping for temporal drift chart using displaySubject
+    // FIX: Canonical category grouping for temporal drift chart using displaySubject and historical telemetry
     const categorySeriesMap = useMemo(() => {
-        return sortedLogs.reduce((acc, log) => {
-            const rawCat = log?.categoryName || log?.categoryId;
-            if (!rawCat) return acc;
+        const historyByCategory = data?.calibrationHistoryByCategory || {};
+        const acc = {};
+
+        const addPoint = (rawCat, point) => {
+            if (!rawCat || !point) return;
             const catKey = displaySubject(rawCat, categories) || String(rawCat).trim();
             if (!acc[catKey]) acc[catKey] = [];
-            const brier = toFiniteNumber(log?.avgBrier, null);
-            const ece = toFiniteNumber(log?.ece, null);
-            if (brier !== null || ece !== null) {
-                acc[catKey].push({
-                    ts: toTimestampMs(log?.timestamp),
-                    brier,
-                    ece
-                });
+            const ts = toTimestampMs(point.timestamp || point.ts);
+            const brier = toFiniteNumber(point.avgBrier ?? point.brier, null);
+            const ece = toFiniteNumber(point.ece, null);
+            if (ts > 0 && (brier !== null || ece !== null)) {
+                const existing = acc[catKey].find(p => Math.abs(p.ts - ts) < 1000);
+                if (!existing) {
+                    acc[catKey].push({ ts, brier, ece });
+                }
             }
-            return acc;
-        }, {});
-    }, [sortedLogs, categories]);
+        };
+
+        // 1. Ingest from sortedLogs (audit log)
+        sortedLogs.forEach(log => {
+            const rawCat = log?.categoryName || log?.categoryId;
+            addPoint(rawCat, log);
+        });
+
+        // 2. Ingest from calibrationHistoryByCategory
+        Object.entries(historyByCategory).forEach(([rawCat, history]) => {
+            if (Array.isArray(history)) {
+                history.forEach(item => addPoint(rawCat, item));
+            }
+        });
+
+        // Sort ascending by timestamp
+        Object.keys(acc).forEach(key => {
+            acc[key].sort((a, b) => a.ts - b.ts);
+        });
+
+        return acc;
+    }, [sortedLogs, data?.calibrationHistoryByCategory, categories]);
 
     const categoryNames = useMemo(() => Object.keys(categorySeriesMap), [categorySeriesMap]);
     const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');
@@ -1135,6 +1156,22 @@ export function RaioXDashboard({ data }) {
         if (!effectiveCategory || !categorySeriesMap[effectiveCategory]) return [];
         return [...categorySeriesMap[effectiveCategory]].sort((a, b) => a.ts - b.ts).slice(-12);
     }, [effectiveCategory, categorySeriesMap]);
+
+    const driftTrend = useMemo(() => {
+        if (temporalSeries.length < 2) return null;
+        const validPoints = temporalSeries.filter(p => p.brier !== null);
+        if (validPoints.length < 2) return null;
+        const first = validPoints[0];
+        const latest = validPoints[validPoints.length - 1];
+        const delta = latest.brier - first.brier;
+        if (delta <= -0.015) {
+            return { label: 'Melhorando (Erro em queda)', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' };
+        }
+        if (delta >= 0.02) {
+            return { label: 'Degradando (Erro em alta)', color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/20' };
+        }
+        return { label: 'Estável no Tempo', color: 'text-cyan-300', bg: 'bg-cyan-500/10 border-cyan-500/20' };
+    }, [temporalSeries]);
 
     // FIX: Prefer reliability diagram for the selected category, fall back to newest with reliability
     const activeReliabilityLog = useMemo(() => {
@@ -1406,8 +1443,20 @@ export function RaioXDashboard({ data }) {
                 )}
             </div>
             <div className="p-4 sm:p-6 rounded-2xl border border-white/5 bg-slate-900/40">
-                <div className="flex items-center justify-between mb-5 gap-3">
-                    <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Drift Temporal (Brier/ECE)</h3>
+                        {driftTrend && (
+                            <span className={`px-2 py-0.5 rounded-md text-[8.5px] font-black uppercase tracking-wider border ${driftTrend.bg} ${driftTrend.color}`}>
+                                {driftTrend.label}
+                            </span>
+                        )}
+                        {temporalSeries.length === 1 && (
+                            <span className="px-2 py-0.5 rounded-md text-[8.5px] font-black uppercase tracking-wider border bg-indigo-500/10 border-indigo-500/20 text-indigo-300">
+                                Linha de Base (1/2 auditorias)
+                            </span>
+                        )}
+                    </div>
                     {categoryNames.length > 1 ? (
                         <select
                             id="select-drift-category"
@@ -1427,33 +1476,40 @@ export function RaioXDashboard({ data }) {
                     )}
                 </div>
 
-                {temporalSeries.length > 1 ? (
-                    <div className="space-y-2">
+                {temporalSeries.length > 0 ? (
+                    <div className="space-y-3">
                         {/* VIS-FIX: legenda + escala realista */}
                         <div className="flex flex-wrap items-center gap-4 pb-2 text-[9px] font-black uppercase tracking-widest text-slate-500">
                             <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-rose-400/80" />Brier (escala 0–0.50)</span>
                             <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-cyan-400/80" />ECE (escala 0–0.30)</span>
                         </div>
-                        {temporalSeries.map((point, idx) => {
-                            const brierPct = Number.isFinite(point.brier) ? Math.max(0, Math.min(100, (point.brier / 0.5) * 100)) : 0;
-                            const ecePct = Number.isFinite(point.ece) ? Math.max(0, Math.min(100, (point.ece / 0.3) * 100)) : 0;
-                            return (
-                                <div key={`${point.ts}-${idx}`} className="space-y-1">
-                                    <div className="flex justify-between gap-3 text-[9px] text-slate-500 font-mono">
-                                        <span>{point.ts > 0 ? formatDateTimePtBR(point.ts) : '-'}</span>
-                                        <span className="tabular-nums">Brier {point.brier !== null ? point.brier.toFixed(3) : '–'} · ECE {point.ece !== null ? point.ece.toFixed(3) : '–'}</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
-                                            <div className="h-full bg-rose-400/80 rounded transition-all duration-500" style={{ width: `${brierPct}%` }} />
+                        <div className="space-y-2.5">
+                            {temporalSeries.map((point, idx) => {
+                                const brierPct = Number.isFinite(point.brier) ? Math.max(0, Math.min(100, (point.brier / 0.5) * 100)) : 0;
+                                const ecePct = Number.isFinite(point.ece) ? Math.max(0, Math.min(100, (point.ece / 0.3) * 100)) : 0;
+                                return (
+                                    <div key={`${point.ts}-${idx}`} className="space-y-1">
+                                        <div className="flex justify-between gap-3 text-[9px] text-slate-500 font-mono">
+                                            <span>{point.ts > 0 ? formatDateTimePtBR(point.ts) : '-'}</span>
+                                            <span className="tabular-nums">Brier {point.brier !== null ? point.brier.toFixed(3) : '–'} · ECE {point.ece !== null ? point.ece.toFixed(3) : '–'}</span>
                                         </div>
-                                        <div className="h-full bg-cyan-400/80 rounded overflow-hidden">
-                                            <div className="h-full bg-cyan-400/80 rounded transition-all duration-500" style={{ width: `${ecePct}%` }} />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
+                                                <div className="h-full bg-rose-400/80 rounded transition-all duration-500" style={{ width: `${brierPct}%` }} />
+                                            </div>
+                                            <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
+                                                <div className="h-full bg-cyan-400/80 rounded transition-all duration-500" style={{ width: `${ecePct}%` }} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
+                        {temporalSeries.length === 1 && (
+                            <p className="text-[9.5px] text-slate-400 font-medium pt-2 border-t border-white/5 leading-relaxed">
+                                💡 <strong>Ponto basal registrado.</strong> O cálculo da taxa de drift (evolução e tendência temporal do modelo) será traçado a partir da 2ª auditoria desta disciplina.
+                            </p>
+                        )}
                     </div>
                 ) : (
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest text-center py-6">Dados temporais insuficientes</p>
