@@ -24,6 +24,7 @@ import {
 import { calculateStudyStreak } from '../../utils/analytics';
 import { getDateKey } from '../../utils/dateHelper';
 import { parseTaskDisplay } from '../../utils/taskTitleHelper';
+import { getXPProgress } from '../../utils/gamification';
 
 // ============================================================================
 // SUBCOMPONENTE: Status da Sessão Atual & Previsões em Tempo Real
@@ -274,20 +275,30 @@ function SessionStatus({
 // ============================================================================
 // SUBCOMPONENTE: Estatísticas da Matéria
 // ============================================================================
-function SubjectStats({ category, maxScore = 100 }) {
+function SubjectStats({ category, maxScore = 100, simulados = [] }) {
     const stats = useMemo(() => {
-        if (!category?.simuladoStats?.history) return null;
+        let scores = [];
+        if (category?.simuladoStats?.history) {
+            const rawHistory = category.simuladoStats.history;
+            const history = Array.isArray(rawHistory)
+                ? rawHistory
+                : Object.values(rawHistory || {});
+            scores = history
+                .map(h => Number(h?.score ?? h?.accuracy))
+                .filter(s => Number.isFinite(s));
+        }
 
-        const rawHistory = category.simuladoStats.history;
-        const history = Array.isArray(rawHistory)
-            ? rawHistory
-            : Object.values(rawHistory || {});
-
-        if (!history.length) return null;
-
-        const scores = history
-            .map(h => Number(h?.score ?? h?.accuracy))
-            .filter(s => Number.isFinite(s));
+        if (!scores.length && Array.isArray(simulados) && simulados.length > 0 && category) {
+            simulados.forEach(sim => {
+                const sub = sim?.subjects?.find(s => s && (s.id === category.id || s.name === category.name || s.categoryId === category.id));
+                if (sub && Number.isFinite(Number(sub.score ?? sub.accuracy))) {
+                    scores.push(Number(sub.score ?? sub.accuracy));
+                } else if (sim?.categoryScores?.[category.id] !== undefined) {
+                    const sc = Number(sim.categoryScores[category.id]);
+                    if (Number.isFinite(sc)) scores.push(sc);
+                }
+            });
+        }
 
         if (!scores.length) return null;
 
@@ -300,7 +311,7 @@ function SubjectStats({ category, maxScore = 100 }) {
         const accuracy = Math.min(100, Math.max(0, ((avg - minScore) / scoreRange) * 100));
 
         return { avg, last, trend, accuracy, count: scores.length };
-    }, [category, maxScore]);
+    }, [category, maxScore, simulados]);
 
     if (!stats) return null;
 
@@ -552,15 +563,12 @@ function TodayStudyTime({ studyLogs, categoryId, taskId, isRunning, mode, nomina
 function SessionXP({ user }) {
     const xpProgress = useMemo(() => {
         if (!user) return null;
-        const xp = Math.max(0, Number(user.xp) || 0);
-        const level = Math.floor(Math.sqrt(xp / 100)) + 1;
-        const currentLevelXP = Math.pow(level - 1, 2) * 100;
-        const nextLevelXP = Math.pow(level, 2) * 100;
-        const diff = nextLevelXP - currentLevelXP;
-        const progress = diff > 0
-            ? ((xp - currentLevelXP) / diff) * 100
-            : 0;
-        return { level, progress: Math.min(100, Math.max(0, progress)), xp };
+        const rawProgress = getXPProgress(user.xp);
+        return {
+            level: rawProgress.level,
+            progress: rawProgress.percentage,
+            xp: rawProgress.xp
+        };
     }, [user]);
 
     if (!xpProgress) return null;
@@ -602,8 +610,8 @@ function SessionXP({ user }) {
 // SUBCOMPONENTE: Próxima Tarefa
 // ============================================================================
 function NextTaskPreview({ categories, currentTaskId }) {
-    let nextTask = null;
-    if (categories) {
+    const nextTask = useMemo(() => {
+        if (!categories) return null;
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories);
         // Prioridade 1: Tarefas de alta prioridade não concluídas
         for (const cat of safeCats) {
@@ -611,28 +619,23 @@ function NextTaskPreview({ categories, currentTaskId }) {
             const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
             for (const task of tasks) {
                 if (task && !task.completed && (task.id || task.text) !== currentTaskId && task.priority === 'high') {
-                    nextTask = { ...task, catName: cat.name };
-                    break;
+                    return { ...task, catName: cat.name };
                 }
             }
-            if (nextTask) break;
         }
 
         // Prioridade 2: Tarefas de média prioridade não concluídas caso não haja alta
-        if (!nextTask) {
-            for (const cat of safeCats) {
-                if (!cat) continue;
-                const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
-                for (const task of tasks) {
-                    if (task && !task.completed && (task.id || task.text) !== currentTaskId && task.priority === 'medium') {
-                        nextTask = { ...task, catName: cat.name };
-                        break;
-                    }
+        for (const cat of safeCats) {
+            if (!cat) continue;
+            const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+            for (const task of tasks) {
+                if (task && !task.completed && (task.id || task.text) !== currentTaskId && task.priority === 'medium') {
+                    return { ...task, catName: cat.name };
                 }
-                if (nextTask) break;
             }
         }
-    }
+        return null;
+    }, [categories, currentTaskId]);
 
     if (!nextTask) return null;
 
@@ -670,7 +673,7 @@ function NextTaskPreview({ categories, currentTaskId }) {
 // ============================================================================
 // SUBCOMPONENTE: Painel Anti-Distração (Brain Dump)
 // ============================================================================
-export function BrainDumpNotes() {
+export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
     const [notes, setNotes] = useState(() => {
         try {
             const saved = localStorage.getItem('pomodoro_brain_dump');
@@ -774,7 +777,7 @@ export function BrainDumpNotes() {
             )}
         </div>
     );
-}
+});
 
 // ============================================================================
 // FOCUS PANEL PRINCIPAL (Visualização de Telemetria e Foco da Sessão)
@@ -783,6 +786,7 @@ export function SessionFocusPanel({
     activeSubject,
     categories,
     studyLogs,
+    simulados = [],
     user,
     mode,
     isRunning,
@@ -936,6 +940,7 @@ export function SessionFocusPanel({
             {currentCategory && (
                 <SubjectStats
                     category={currentCategory}
+                    simulados={simulados}
                     maxScore={Number(currentCategory?.maxScore || settings?.maxScore) || 100}
                 />
             )}

@@ -27,11 +27,19 @@ export const createStudySlice = (set, get) => ({
       const logId = generateId('log');
       const sessionId = generateId('session');
 
-      const category = activeData?.categories?.find(c => c.id === categoryId);
+      const category = activeData?.categories?.find(c =>
+        c && (
+          c.id === categoryId ||
+          (categoryId === 'geral' && c.name?.toLowerCase() === 'geral') ||
+          (categoryId && typeof categoryId === 'string' && c.name?.toLowerCase() === categoryId.toLowerCase())
+        )
+      );
+
+      const resolvedSubject = category?.name || (categoryId === 'geral' || !categoryId ? 'Geral' : String(categoryId));
 
       let initialTitle = '';
       if (taskTitleOverride && typeof taskTitleOverride === 'string') {
-        initialTitle = cleanTaskTitle(taskTitleOverride, category?.name || '');
+        initialTitle = cleanTaskTitle(taskTitleOverride, resolvedSubject);
       }
 
       const taskTitle = resolveHumanTaskTitle(
@@ -44,9 +52,9 @@ export const createStudySlice = (set, get) => ({
       const newLog = {
         id: logId,
         date: now,
-        categoryId,
-        subject: category?.name || '',
-        categoryName: category?.name || '',
+        categoryId: category?.id || categoryId || 'geral',
+        subject: resolvedSubject,
+        categoryName: resolvedSubject,
         taskId,
         minutes: safeMinutes,
         taskTitle
@@ -61,9 +69,9 @@ export const createStudySlice = (set, get) => ({
         id: sessionId,
         startTime: now,
         duration: safeMinutes,
-        categoryId,
-        subject: category?.name || '',
-        categoryName: category?.name || '',
+        categoryId: category?.id || categoryId || 'geral',
+        subject: resolvedSubject,
+        categoryName: resolvedSubject,
         taskId,
         taskTitle,
         logReferenceId: logId,

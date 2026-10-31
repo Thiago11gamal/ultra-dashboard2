@@ -92,8 +92,8 @@ export function PomodoroClock({
     return (
         <div className="w-full flex flex-col items-center select-none">
             {/* Barra superior de controles do relógio */}
-            <div className="w-full flex items-center justify-between gap-2 mb-1 sm:mb-1.5 relative z-30">
-                <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-full flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-1 sm:mb-1.5 relative z-30">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <span className={`text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] transition-all duration-300 ${mode === 'work' ? 'text-blue-300 font-extrabold drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'text-white/40'}`}>
                         FOCO
                     </span>
@@ -103,10 +103,10 @@ export function PomodoroClock({
                     </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center flex-wrap gap-1 sm:gap-2">
                     {/* Seletor de Presets Rápidos (Apenas quando pausado para preservar integridade da sessão) */}
                     {!isRunning && typeof onSelectPreset === 'function' && (
-                        <div className="hidden sm:flex items-center gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title="Cadência de Foco / Pausa">
+                        <div className="flex items-center gap-0.5 sm:gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title="Cadência de Foco / Pausa">
                             {POMODORO_PRESETS.map(preset => {
                                 const isCurrent = activePresetId === preset.id ||
                                     (Number(safeSettings?.pomodoroWork) === preset.work && Number(safeSettings?.pomodoroBreak) === preset.break);
@@ -116,7 +116,7 @@ export function PomodoroClock({
                                         type="button"
                                         onClick={() => onSelectPreset(preset)}
                                         aria-label={`Preset ${preset.name} ${preset.label}`}
-                                        className={`px-1.5 sm:px-2 h-6 sm:h-7 rounded-md text-[10px] font-black transition-all duration-200 active:scale-95 ${
+                                        className={`px-1.5 sm:px-2 h-6 sm:h-7 rounded-md text-[9px] sm:text-[10px] font-black transition-all duration-200 active:scale-95 ${
                                             isCurrent
                                                 ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black scale-[1.02]'
                                                 : 'text-white/50 hover:text-white hover:bg-white/10'

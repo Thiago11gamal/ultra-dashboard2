@@ -114,11 +114,12 @@ export function PomodoroProgress({
                     </div>
                 </div>
 
-                {/* Progress Indicators Track - Barras e Bolinhas Maiores */}
-                <div className="flex items-center gap-1.5 sm:gap-2 pt-0.5">
+                {/* Progress Indicators Track - Barras e Bolinhas Maiores (com escala dinâmica para metas longas) */}
+                <div className="flex items-center gap-1 sm:gap-1.5 pt-0.5 overflow-x-auto custom-scrollbar pb-0.5">
                     {Array.from({ length: safeTargetCycles }).map((_, i) => {
                         let workWidth = '0%';
                         let breakHeight = '0%';
+                        const isCompact = safeTargetCycles > 6;
 
                         const progressPct = (Number.isFinite(totalTime) && totalTime > 0)
                             ? Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100))
@@ -151,7 +152,7 @@ export function PomodoroProgress({
                         return (
                             <React.Fragment key={i}>
                                 {/* Barra de Progresso do Foco (Maior e com mais destaque) */}
-                                <div className="flex-1 h-3.5 sm:h-4 bg-[#2d1a12]/20 rounded-full overflow-hidden border-2 border-[#2d1a12]/25 shadow-inner">
+                                <div className={`flex-1 min-w-[12px] ${isCompact ? 'h-3 sm:h-3.5' : 'h-3.5 sm:h-4'} bg-[#2d1a12]/20 rounded-full overflow-hidden border-2 border-[#2d1a12]/25 shadow-inner`}>
                                     <div
                                         ref={el => {
                                             if (workFillsRef?.current && Array.isArray(workFillsRef.current)) {
@@ -165,7 +166,7 @@ export function PomodoroProgress({
 
                                 {/* Bolinha Verde de Pausa (Maior e com Glow) */}
                                 {i < safeTargetCycles - 1 && (
-                                    <div className="relative w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#2d1a12]/20 border-2 border-[#2d1a12]/35 overflow-hidden shrink-0 shadow-md">
+                                    <div className={`relative ${isCompact ? 'w-4 h-4 sm:w-4.5 sm:h-4.5' : 'w-5 h-5 sm:w-6 sm:h-6'} rounded-full bg-[#2d1a12]/20 border-2 border-[#2d1a12]/35 overflow-hidden shrink-0 shadow-md`}>
                                         <div
                                             ref={el => {
                                                 if (breakBallsRef?.current && Array.isArray(breakBallsRef.current)) {

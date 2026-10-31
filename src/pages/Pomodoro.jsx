@@ -60,13 +60,14 @@ function DataTriviaPanel({ studyLogs, simulados, categories }) {
             if (!log) return;
             const logDate = log.date || log.createdAt || log.timestamp;
             if (!logDate) return;
-            const parsed = parseNoonLocal(logDate) || normalizeDate(logDate);
-            const t = parsed ? parsed.getTime() : new Date(logDate).getTime();
+            const parsedDate = new Date(logDate);
+            const t = Number.isFinite(parsedDate.getTime()) ? parsedDate.getTime() : (normalizeDate(logDate)?.getTime() || NaN);
             if (Number.isNaN(t)) return;
             const mins = Number(log.minutes) || 0;
             if (t >= startOfWeek) weekMins += mins;
             if (t >= startOfMonth) monthMins += mins;
-            daysStudied.add(getDateKey(logDate) || (parsed ? getDateKey(parsed) : new Date(t).toISOString().split('T')[0]));
+            const dayKey = getDateKey(logDate) || getDateKey(new Date(t));
+            if (dayKey) daysStudied.add(dayKey);
         });
 
         (simulados || []).forEach(s => {
@@ -192,7 +193,10 @@ const DEFAULT_INSIGHT = Object.freeze({
             }
 
             try {
-                const hasSimulados = (simulados || []).some(s => s && s.categoryScores && s.categoryScores[targetCategory.id] !== undefined);
+                const hasSimulados = (simulados || []).some(s => s && s.categoryScores && (
+                    s.categoryScores[targetCategory.id] !== undefined ||
+                    (targetCategory.name && s.categoryScores[targetCategory.name] !== undefined)
+                ));
                 if (!hasSimulados) {
                     return {
                         title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
@@ -398,7 +402,7 @@ function ActionsAndMentorView({
         const gainIfComplete = (total > 0 && !isCurrentCompleted) ? Number((100 / total).toFixed(1)) : 0;
         const quality = completionPct >= 80 ? 'Maestria' : completionPct >= 40 ? 'Evolução' : 'Fase Inicial';
         const hitRate = completionPct;
-        const missRate = Math.max(0, 100 - completionPct);
+        const missRate = total > 0 ? Math.max(0, 100 - completionPct) : 0;
         const highPriorityCount = categoryTasks.filter(t => t.priority === 'high' && !t.completed).length;
         const whySelected = isCurrentCompleted
             ? 'necessidade de retenção de memória (Revisão Espaçada)'
@@ -927,6 +931,7 @@ function PomodoroSidePanel({
                                 targetCycles={targetCycles}
                                 completedCycles={completedCycles}
                                 settings={settings}
+                                simulados={simulados}
                             />
                         </Motion.div>
                     )}
@@ -1122,7 +1127,7 @@ export default function Pomodoro() {
             if (clockColRef.current) {
                 const h = clockColRef.current.offsetHeight;
                 if (h > 0) {
-                    setClockHeight(h);
+                    setClockHeight(prev => (prev === h ? prev : h));
                 }
             }
         };
@@ -1241,8 +1246,8 @@ export default function Pomodoro() {
                 if (!log) return null;
                 const rawDate = log.date || log.createdAt || log.timestamp;
                 if (!rawDate) return null;
-                const parsed = parseNoonLocal(rawDate) || normalizeDate(rawDate);
-                const t = parsed ? parsed.getTime() : new Date(rawDate).getTime();
+                const parsedDate = new Date(rawDate);
+                const t = Number.isFinite(parsedDate.getTime()) ? parsedDate.getTime() : (normalizeDate(rawDate)?.getTime() || NaN);
                 return Number.isFinite(t) ? { ...log, _parsedTime: t } : null;
             })
             .filter(log => log && log._parsedTime >= startOfToday)
@@ -1277,28 +1282,28 @@ export default function Pomodoro() {
 
     useEffect(() => {
         if (location.state?.categoryId && location.state?.taskId) {
+            const incomingState = location.state;
+            navigate(location.pathname, { replace: true, state: null });
+
             const isDifferentSubject = !activeSubject ||
-                activeSubject.taskId !== location.state.taskId ||
-                activeSubject.categoryId !== location.state.categoryId;
+                activeSubject.taskId !== incomingState.taskId ||
+                activeSubject.categoryId !== incomingState.categoryId;
 
             if (isDifferentSubject) {
-                const cat = (categories || []).find(c => c && (c.id === location.state.categoryId || c.name === location.state.categoryId));
+                const cat = (categories || []).find(c => c && (c.id === incomingState.categoryId || c.name === incomingState.categoryId));
                 const rawTasks = cat?.tasks || [];
                 const safeTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
-                const tsk = safeTasks.find(t => t && (t.id === location.state.taskId || t.text === location.state.taskId || t.title === location.state.taskId));
+                const tsk = safeTasks.find(t => t && (t.id === incomingState.taskId || t.text === incomingState.taskId || t.title === incomingState.taskId));
                 if (cat && tsk) {
-                    navigate(location.pathname, { replace: true, state: null });
                     useAppStore.getState().startPomodoroSession({
                         categoryId: cat.id,
                         taskId: tsk.id || tsk.text || tsk.title,
                         category: cat.name,
                         task: tsk.title || tsk.text || 'Estudo',
                         priority: tsk.priority,
-                        source: location.state?.from || 'dashboard'
+                        source: incomingState?.from || 'dashboard'
                     });
                 }
-            } else {
-                navigate(location.pathname, { replace: true, state: null });
             }
         }
     }, [location.state, location.pathname, categories, activeSubject, navigate]);

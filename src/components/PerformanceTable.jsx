@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash } from 'l
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope, getSortedHistory } from '../engine';
 
-const PerformanceTable = ({ categories = [] }) => {
+const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
     const [sortColumn, setSortColumn] = useState('balance');
     const [sortDirection, setSortDirection] = useState('desc');
     const [focusedRow, setFocusedRow] = useState(-1);
@@ -19,8 +19,8 @@ const PerformanceTable = ({ categories = [] }) => {
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
 
             let correct = 0, totalQuestions = 0;
-            const ms = cat.maxScore ?? 100;
-            const minS = cat.minScore ?? 0;
+            const ms = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(maxScore) || 100);
+            const minS = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
             const range = Math.max(1e-9, ms - minS);
 
             for (let i = 0; i < history.length; i++) {
@@ -28,7 +28,7 @@ const PerformanceTable = ({ categories = [] }) => {
                 const parsedTotal = parseInt(h?.total, 10);
                 const altTotal = Math.max(0, (Number(h?.correct) || 0) + (Number(h?.wrong) || 0));
                 const t = (Number.isFinite(parsedTotal) && parsedTotal > 0) ? parsedTotal : altTotal;
-                
+
                 const rawC = Number(h?.correct);
                 let c = (Number.isFinite(rawC) && !h?.isPercentage) ? rawC : NaN;
                 if (!Number.isFinite(c)) {
@@ -41,7 +41,7 @@ const PerformanceTable = ({ categories = [] }) => {
                 correct += c;
                 totalQuestions += t;
             }
-            
+
             // Proteger contra inconsistências de arredondamento
             const safeCorrect = Math.max(0, Math.min(totalQuestions, Math.round(correct)));
             const safeWrong = Math.max(0, totalQuestions - safeCorrect);
@@ -101,6 +101,15 @@ const PerformanceTable = ({ categories = [] }) => {
         }
     };
 
+    React.useEffect(() => {
+        if (focusedRow >= 0 && tableRef.current) {
+            const rowEl = tableRef.current.querySelector(`tr[data-row-index="${focusedRow}"]`);
+            if (rowEl) {
+                rowEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+    }, [focusedRow]);
+
     const handleSort = (column) => {
         if (!column || typeof column !== 'string') return;
         if (sortColumn === column) {
@@ -113,7 +122,7 @@ const PerformanceTable = ({ categories = [] }) => {
 
     // FIX 5.6c: Cabeçalho acessível com aria-sort
     const renderSortableHeader = (column, children, className) => (
-        <th 
+        <th
             className={`p-5 cursor-pointer hover:bg-white/5 transition-colors select-none ${className}`}
             role="columnheader"
             aria-sort={sortColumn === column ? (sortDirection === 'desc' ? 'descending' : 'ascending') : 'none'}
@@ -133,7 +142,7 @@ const PerformanceTable = ({ categories = [] }) => {
     );
 
     return (
-        <div 
+        <div
             className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8"
             ref={tableRef}
             onKeyDown={handleKeyDown}
@@ -175,9 +184,10 @@ const PerformanceTable = ({ categories = [] }) => {
                             if (currentTrend === 'down') trendIcon = <TrendingDown size={18} className="text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]" />;
 
                             return (
-                                <tr 
+                                <tr
                                     key={category.id}
                                     role="row"
+                                    data-row-index={index}
                                     className={`group hover:bg-white/[0.02] transition-all duration-300 
                                                ${focusedRow === index ? 'bg-indigo-500/10 outline outline-2 outline-indigo-400' : ''}`}
                                     tabIndex={focusedRow === index ? 0 : -1}

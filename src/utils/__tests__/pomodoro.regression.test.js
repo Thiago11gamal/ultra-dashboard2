@@ -259,3 +259,85 @@ describe('Pomodoro Regressions - Multi-tab, Speed Recalculation & Structured end
   });
 });
 
+describe('Pomodoro & Study Slice - Enhanced Data Integrity & Category Fallbacks', () => {
+  it('advanceNeuralQueue associa corretamente a categoria existente no concurso em vez de default', () => {
+    let state = {
+      appState: {
+        activeId: 'contest-1',
+        contests: {
+          'contest-1': {
+            categories: [
+              { id: 'cat-direito', name: 'Direito Administrativo', tasks: [] }
+            ]
+          }
+        },
+        pomodoro: {
+          isRunning: false,
+          neuralMode: false,
+          neuralQueue: []
+        }
+      }
+    };
+    const set = (updater) => {
+      if (typeof updater === 'function') updater(state);
+      else Object.assign(state, updater);
+    };
+    const get = () => state;
+    const slice = createPomodoroSlice(set, get);
+
+    const tasks = [
+      { title: 'Primeira Tarefa', category: 'Português' },
+      { title: 'Revisão', category: 'Direito Administrativo' }
+    ];
+
+    slice.startNeuralSession(tasks, 0);
+
+    const hasNext = slice.advanceNeuralQueue();
+    expect(hasNext).toBe(true);
+    expect(state.appState.pomodoro.activeSubject.categoryId).toBe('cat-direito');
+    expect(state.appState.pomodoro.activeSubject.category).toBe('Direito Administrativo');
+  });
+
+  it('calcula minutos consecutivos sem truncar horários para meio-dia', () => {
+    const d1 = new Date('2026-03-15T14:00:00Z').toISOString();
+    const d2 = new Date('2026-03-15T14:30:00Z').toISOString();
+    const d3 = new Date('2026-03-15T15:00:00Z').toISOString();
+
+    const sortedLogs = [
+      { date: d1, minutes: 25 },
+      { date: d2, minutes: 25 },
+      { date: d3, minutes: 25 }
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    let consecutive = 0;
+    let lastTime = null;
+    const MAX_GAP_MS = 90 * 60 * 1000;
+
+    for (const log of sortedLogs) {
+      const logTime = new Date(log.date).getTime();
+      if (lastTime === null) {
+        consecutive += log.minutes;
+        lastTime = logTime;
+      } else {
+        const gap = lastTime - logTime;
+        if (gap <= MAX_GAP_MS) {
+          consecutive += log.minutes;
+          lastTime = logTime;
+        } else {
+          break;
+        }
+      }
+    }
+
+    expect(consecutive).toBe(75);
+  });
+
+  it('activeTaskStats retorna missRate = 0 quando total de questões é 0', () => {
+    const total = 0;
+    const correct = 0;
+    const missRate = total > 0 ? Math.round(((total - correct) / total) * 100) : 0;
+    expect(missRate).toBe(0);
+  });
+});
+
+

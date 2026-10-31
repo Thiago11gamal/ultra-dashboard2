@@ -174,6 +174,19 @@ export function usePomodoroSync({
                         );
 
                         syncPomodoroState({ targetCycles: safeTarget });
+                        if (stateRefs?.current) {
+                            stateRefs.current.targetCycles = safeTarget;
+                        }
+                        try {
+                            const raw = localStorage.getItem('pomodoroState');
+                            if (raw) {
+                                const parsed = JSON.parse(raw);
+                                if (parsed && typeof parsed === 'object') {
+                                    parsed.targetCycles = safeTarget;
+                                    localStorage.setItem('pomodoroState', JSON.stringify(parsed));
+                                }
+                            }
+                        } catch { /* ignore */ }
                     }
                     break;
                 }

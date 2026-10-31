@@ -74,9 +74,12 @@ const SECTIONS = [
     }
 ];
 
-const getSidebarExtra = ({ isMeuPainel, isCronometro, isCoach, isAi, isPomodoroRunning }) => {
+const getSidebarExtra = ({ isMeuPainel, isCronometro, isCoach, isAi, isPomodoroRunning, pomodoroMode }) => {
     if (isMeuPainel) return '(Início)';
-    if (isCronometro) return isPomodoroRunning ? '(Em Foco ⏱️)' : '(Timer)';
+    if (isCronometro) {
+        if (!isPomodoroRunning) return '(Timer)';
+        return (pomodoroMode === 'break' || pomodoroMode === 'long_break') ? '(Em Pausa ☕)' : '(Em Foco ⏱️)';
+    }
     if (isCoach) return '(Mentor IA 🧠)';
     if (isAi) return '(IA)';
     return null;
@@ -109,6 +112,7 @@ const Sidebar = React.memo(function Sidebar({
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const isPomodoroRunning = useAppStore(state => state.appState?.pomodoro?.isRunning || false);
+    const pomodoroMode = useAppStore(state => state.appState?.pomodoro?.mode || 'work');
 
     const sidebarRef = useRef(null);
     const contestsFlyoutRef = useRef(null);
@@ -590,7 +594,7 @@ const Sidebar = React.memo(function Sidebar({
                                                     closeMobileSidebar();
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                    const extra = getSidebarExtra({ isMeuPainel, isCronometro, isCoach, isAi: item.isAi, isPomodoroRunning });
+                                                    const extra = getSidebarExtra({ isMeuPainel, isCronometro, isCoach, isAi: item.isAi, isPomodoroRunning, pomodoroMode });
                                                     handleTooltipEnter(e, item, extra); // ✅ Chamada única
                                                 }}
                                                 onMouseLeave={handleTooltipLeave}
@@ -598,14 +602,21 @@ const Sidebar = React.memo(function Sidebar({
                                                 <div className="sidebar-item-icon-wrapper relative">
                                                     <Icon aria-hidden="true" size={16} />
                                                     {isCronometro && isPomodoroRunning && (
-                                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#05070f] animate-pulse" title="Sessão em andamento" />
+                                                        <span
+                                                            className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full ring-2 ring-[#05070f] animate-pulse ${
+                                                                pomodoroMode === 'break' || pomodoroMode === 'long_break' ? 'bg-amber-400' : 'bg-emerald-400'
+                                                            }`}
+                                                            title={pomodoroMode === 'break' || pomodoroMode === 'long_break' ? 'Pausa em andamento' : 'Sessão em andamento'}
+                                                        />
                                                     )}
                                                 </div>
                                                 <div className="sidebar-item-text">
                                                     <span className="sidebar-item-label">{item.label}</span> {/* ✅ Label único */}
                                                     {isCronometro && isPomodoroRunning && (
                                                         <div className="flex items-center gap-1.5 ml-auto">
-                                                            <span className="cronometro-badge">Em foco</span>
+                                                            <span className="cronometro-badge">
+                                                                {pomodoroMode === 'break' || pomodoroMode === 'long_break' ? 'Em pausa' : 'Em foco'}
+                                                            </span>
                                                         </div>
                                                     )}
                                                     {isMeuPainel && isActive && (

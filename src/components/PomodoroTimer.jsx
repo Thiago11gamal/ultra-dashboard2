@@ -314,6 +314,16 @@ function PomodoroTimer({
         return match ? match.id : 'custom';
     });
 
+    const savePomodoroStateRef = useRef(null);
+    const postSyncRef = useRef(null);
+
+    useEffect(() => {
+        const w = safeSettings.pomodoroWork;
+        const b = safeSettings.pomodoroBreak;
+        const match = POMODORO_PRESETS.find(p => p.work === w && p.break === b);
+        setActivePresetId(match ? match.id : 'custom');
+    }, [safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
+
     const handleSelectPreset = useCallback((preset) => {
         if (isRunning) {
             showToast('Pause o cronômetro para alterar a cadência.', 'warning');
@@ -342,6 +352,16 @@ function PomodoroTimer({
         if (svgCircleRef.current?.style) {
             svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE;
         }
+
+        savePomodoroStateRef.current?.({
+            timeLeft: newSeconds,
+            isRunning: false
+        });
+
+        postSyncRef.current?.({
+            type: 'TIMER_RESET',
+            timeLeft: newSeconds
+        });
 
         showToast(`Cadência alterada para ${preset.name} (${preset.label}) ⏱️`, 'info');
     }, [isRunning, mode, updatePomodoroSettings, commitTimeLeft, showToast]);
@@ -425,7 +445,7 @@ function PomodoroTimer({
             const now = Date.now();
             if (endsAt > now) {
                 endsAtRef.current = endsAt;
-                const remaining = Math.max(0, Math.round(((endsAt - now) * currentSpeed) / 1000));
+                const remaining = Math.max(0, Math.ceil(((endsAt - now) * currentSpeed) / 1000));
                 commitTimeLeft(remaining);
                 if (stateRefs.current) {
                     stateRefs.current.isRunning = true;
@@ -483,6 +503,7 @@ function PomodoroTimer({
             console.warn('[PomodoroSync] Failed to post message:', error);
         }
     }, [syncChannel]);
+    postSyncRef.current = postSync;
 
     useEffect(() => {
         if (speedRef.current !== speed) {
@@ -676,17 +697,19 @@ function PomodoroTimer({
         const prev = prevTaskStateRef.current;
         if (prev.subject && activeSubject?.taskId !== prev.subject.taskId) {
             let lostMinutes = 0;
-            if (prev.mode === 'work') {
+            if (prev.mode === 'work' && !hasFlushedRef.current && !isTransitioningRef.current) {
                 const totalWorkSeconds = safeSettings.pomodoroWork * 60;
                 const currentLeft = Number(timeRef.current ?? stateRefs.current.timeLeft);
                 const safePrevTime = Number.isFinite(currentLeft) && currentLeft >= 0
                     ? currentLeft
                     : totalWorkSeconds;
-                lostMinutes = Number(
-                    (Math.max(0, totalWorkSeconds - safePrevTime) / 60).toFixed(2)
-                );
+                const totalElapsedSec = Math.max(0, totalWorkSeconds - safePrevTime);
+                const unflushedSec = Math.max(0, totalElapsedSec - (flushedSecondsInPhaseRef.current || 0));
+                lostMinutes = Number((unflushedSec / 60).toFixed(2));
             }
             if (lostMinutes >= 0.25 && !Number.isNaN(lostMinutes)) {
+                hasFlushedRef.current = true;
+                flushedSecondsInPhaseRef.current = (flushedSecondsInPhaseRef.current || 0) + (lostMinutes * 60);
                 safeOnUpdateStudyTime(
                     prev.subject.categoryId,
                     lostMinutes,
@@ -937,6 +960,7 @@ function PomodoroTimer({
             console.error('Failed to save pomodoroState:', error);
         }
     }, [activeSubject]);
+    savePomodoroStateRef.current = savePomodoroState;
 
     useEffect(() => {
         return () => {
@@ -1224,7 +1248,7 @@ function PomodoroTimer({
         if (!isRunning || !endsAtRef.current) return;
         const id = setInterval(() => {
             const currentSpeed = speedRef.current || 1;
-            const next = Math.max(0, Math.round(((endsAtRef.current - Date.now()) * currentSpeed) / 1000));
+            const next = Math.max(0, Math.ceil(((endsAtRef.current - Date.now()) * currentSpeed) / 1000));
             stateRefs.current.timeLeft = next;
             timeRef.current = next;
             setTimeLeft(next);
@@ -1493,7 +1517,7 @@ function PomodoroTimer({
     const pauseTimer = useCallback(() => {
         const currentSpeed = speedRef.current || 1;
         const remaining = endsAtRef.current
-            ? Math.max(0, Math.round(((endsAtRef.current - Date.now()) * currentSpeed) / 1000))
+            ? Math.max(0, Math.ceil(((endsAtRef.current - Date.now()) * currentSpeed) / 1000))
             : stateRefs.current.timeLeft;
         endsAtRef.current = null;
         try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
@@ -1609,6 +1633,8 @@ function PomodoroTimer({
     const toggleMuteRef = useRef(toggleMute);
     const toggleFullscreenRef = useRef(toggleFullscreen);
     const isProtocolInactiveRef = useRef(isProtocolInactive);
+    const showAbandonConfirmRef = useRef(showAbandonConfirm);
+    const isFullscreenRef = useRef(isFullscreen);
 
     useEffect(() => {
         togglePlayRef.current = togglePlay;
@@ -1617,11 +1643,27 @@ function PomodoroTimer({
         toggleMuteRef.current = toggleMute;
         toggleFullscreenRef.current = toggleFullscreen;
         isProtocolInactiveRef.current = isProtocolInactive;
+        showAbandonConfirmRef.current = showAbandonConfirm;
+        isFullscreenRef.current = isFullscreen;
     });
 
-    // ✅ ATALHOS DE TECLADO GLOBAIS (Espaço: Play/Pause, S: Skip, R: Reset, M: Mute, F: Fullscreen)
+    // ✅ ATALHOS DE TECLADO GLOBAIS (Espaço: Play/Pause, S: Skip, R: Reset, M: Mute, F: Fullscreen, Esc: Sair Fullscreen/Modal)
     useEffect(() => {
         const handleKeyDown = (e) => {
+            if (showAbandonConfirmRef.current) {
+                if (e.code === 'Escape') {
+                    e.preventDefault();
+                    setShowAbandonConfirm(false);
+                }
+                return;
+            }
+
+            if (e.code === 'Escape' && isFullscreenRef.current) {
+                e.preventDefault();
+                toggleFullscreenRef.current?.();
+                return;
+            }
+
             const tag = e.target?.tagName?.toLowerCase();
             if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) {
                 return;
