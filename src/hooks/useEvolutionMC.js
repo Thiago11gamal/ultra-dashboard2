@@ -130,7 +130,7 @@ export function useEvolutionMC({
             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
             const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
               ? t.timedQuestoes
-              : Number(t.total) || 0;
+              : Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0;
             if (tTs !== null && tTs > 0 && tTot > 0) {
               topicsTs += tTs;
               topicsTimedQ += tTot;
@@ -155,9 +155,14 @@ export function useEvolutionMC({
         if (hasTopicWithTime) {
           totalTimeSpent += topicsTs;
           totalTimedQuestions += topicsTimedQ;
-        } else if (rawH.timeSpent != null && rawH.timedQuestoes != null) {
-          totalTimeSpent += Number(rawH.timeSpent);
-          totalTimedQuestions += Number(rawH.timedQuestoes);
+        } else if (rawH.timeSpent != null) {
+          const rawHQ = typeof rawH.timedQuestoes === 'number' && rawH.timedQuestoes > 0
+            ? rawH.timedQuestoes
+            : (Number(rawH.total ?? rawH.questoes ?? rawH.totalQuestoes ?? rawH.questions) || 0);
+          if (rawHQ > 0) {
+            totalTimeSpent += Number(rawH.timeSpent) || 0;
+            totalTimedQuestions += rawHQ;
+          }
         }
       });
       const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;

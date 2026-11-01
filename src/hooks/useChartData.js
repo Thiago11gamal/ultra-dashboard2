@@ -304,13 +304,19 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
-                const rawTotal = Math.max(0, Number(h.total) || 0);
-                const rawC = Math.max(0, Math.min(rawTotal, Number(h.correct) || 0));
+                const rawTotal = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
+                const hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
+                                  (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
+                                  (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
+                const parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
+                const rawC = hasCorrect && Number.isFinite(parsedCorrect)
+                    ? Math.max(0, Math.min(rawTotal > 0 ? rawTotal : Infinity, parsedCorrect))
+                    : 0;
                 const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) return;
                 let corrNorm;
                 if (rawTotal > 0) {
-                    corrNorm = (!h.isPercentage && Number.isFinite(Number(h.correct)))
+                    corrNorm = (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect))
                         ? rawC
                         : Math.max(0, Math.min(rawTotal, Math.round(toCatRatio(score) * rawTotal)));
                 } else {
@@ -402,15 +408,19 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
-                let tot = Math.max(0, Number(h.total) || 0);
-                const raw = Math.max(0, Number(h.correct) || 0);
+                let tot = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
+                const hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
+                                  (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
+                                  (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
+                const parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
+                const raw = hasCorrect && Number.isFinite(parsedCorrect) ? Math.max(0, parsedCorrect) : 0;
                 let corrNorm;
                 const score = getSafeScore(h, catMax, catMin);
                 if (!Number.isFinite(score)) return;
                 if (h.score != null && tot === 0) {
                     tot = getSyntheticTotal(catMax);
                     corrNorm = Math.round(toCatRatio(score) * tot);
-                } else if (!h.isPercentage && Number.isFinite(Number(h.correct))) {
+                } else if (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect)) {
                     corrNorm = Math.max(0, Math.min(tot, raw));
                 } else {
                     corrNorm = tot > 0 ? Math.round(toCatRatio(score) * tot) : raw;

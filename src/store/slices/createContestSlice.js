@@ -20,16 +20,23 @@ const RESET_POMODORO = {
     isRunning: false,
 };
 
+const resetPomodoroState = (state) => {
+    state.appState.pomodoro = {
+        ...RESET_POMODORO,
+        targetCycles: state.appState.pomodoro?.targetCycles || 1
+    };
+    try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
+    try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+};
+
 export const createContestSlice = (set) => ({
     switchContest: (contestId) => set((state) => {
         const prevId = state.appState.activeId;
         const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
 
         if (prevId !== targetId) {
-            if (state.appState.pomodoro?.activeSubject) {
-                state.appState.pomodoro = { ...RESET_POMODORO };
-                try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
-                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+            if (state.appState.pomodoro?.activeSubject || state.appState.pomodoro?.isRunning || (state.appState.pomodoro?.accumulatedMinutes || 0) > 0) {
+                resetPomodoroState(state);
             }
 
             state.appState.activeId = targetId;
@@ -78,6 +85,10 @@ export const createContestSlice = (set) => ({
         };
         state.appState.contests[newId] = newContestData;
         state.appState.activeId = newId;
+        if (state.appState.pomodoro?.activeSubject || state.appState.pomodoro?.isRunning || (state.appState.pomodoro?.accumulatedMinutes || 0) > 0) {
+            resetPomodoroState(state);
+        }
+        try { clearCoachCaches(); } catch { /* ignore */ }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
         markStorageDirty();
@@ -115,9 +126,8 @@ export const createContestSlice = (set) => ({
         }
         
         if (wasActive || remainingIds.length === 0) {
-            state.appState.pomodoro = { ...RESET_POMODORO };
-            try { localStorage.removeItem('pomodoroState'); } catch { /* ignore */ }
-            try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+            resetPomodoroState(state);
+            try { clearCoachCaches(); } catch { /* ignore */ }
         }
         
         state.appState.version = (state.appState.version || 0) + 1;

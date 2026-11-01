@@ -19,7 +19,8 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const lowerBound = Math.min(safeMinScore, safeMaxScore);
   const upperBound = Math.max(safeMinScore, safeMaxScore);
-  const meanBias = (cfg.meanBiasFactor || 0) * safeMaxScore;
+  const range = Math.max(1e-9, upperBound - lowerBound);
+  const meanBias = (cfg.meanBiasFactor || 0) * range;
   const probMult = (cfg.probMultFactor || 0) * 100;
 
   return (data || []).map((d) => {

@@ -752,9 +752,9 @@ export default React.memo(function EvolutionChart({
         focus: '#a855f7'
     };
 
-    const extraKpis = ['current', 'trend', 'probability', 'consistency']
+    const extraKpis = useMemo(() => ['current', 'trend', 'probability', 'consistency']
         .map((id) => statusList.find((s) => s.id === id))
-        .filter(Boolean);
+        .filter(Boolean), [statusList]);
     const engine = ENGINES_WITH_GUIDE.find((e) => e.id === activeEngine) || ENGINES_WITH_GUIDE[0];
 
     const accountHasData = timeline.length >= 1;
@@ -766,7 +766,10 @@ export default React.memo(function EvolutionChart({
         setExportError(false);
 
         try {
-            await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
+            const ok = await exportComponentAsPDF('evolution-chart-container', 'RaioX_Evolucao_Dashboard.pdf', 'landscape');
+            if (!ok) {
+                throw new Error('Falha ao exportar PDF');
+            }
         } catch (err) {
             console.error('[EvolutionChart] Falha ao exportar PDF:', err);
             if (!isMountedRef.current) return;

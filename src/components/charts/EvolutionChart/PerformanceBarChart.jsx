@@ -22,13 +22,15 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
         ? safeSubjectAggData.filter(d => d.id === focusCategory.id)
         : safeSubjectAggData;
 
-    const chartData = filteredAggData.map((d) => {
-        const questoes = sanitizeCount(d.questoes);
-        const acertosBrutos = sanitizeCount(d.acertos);
-        const acertos = Math.min(questoes, acertosBrutos);
-        const erros = Math.max(0, questoes - acertos);
-        return { ...d, fullName: d.fullName || d.name || d.id, questoes, acertos, erros, errosRaw: erros };
-    });
+    const chartData = useMemo(() => {
+        return filteredAggData.map((d) => {
+            const questoes = sanitizeCount(d.questoes);
+            const acertosBrutos = sanitizeCount(d.acertos);
+            const acertos = Math.min(questoes, acertosBrutos);
+            const erros = Math.max(0, questoes - acertos);
+            return { ...d, fullName: d.fullName || d.name || d.id, questoes, acertos, erros, errosRaw: erros };
+        });
+    }, [filteredAggData]);
     
     const totals = useMemo(() => {
         const totalQ = chartData.reduce((acc, curr) => acc + curr.questoes, 0);
