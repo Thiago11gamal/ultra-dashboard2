@@ -1,3 +1,7 @@
+import { computeCalibrationPenalty, generateAnalyticsStats } from '../../engine/analyticsStats.js';
+import { conformalPredictionInterval } from '../../engine/math/bootstrap.js';
+import { computeHierarchicalAdjustment } from '../../engine/stats.js';
+import { compareEvaluationSummaries } from '../../engine/evaluation/coachEvaluator.js';
 import { deriveAdaptiveRiskThresholds } from '../coachAdaptive.js';
 import { calculateTimeWeightedEMA } from '../../engine/stats.js';
 import { projectScore } from '../../engine/projection.js';
@@ -304,5 +308,154 @@ describe('Auditoria Matemática - Fixes Cirúrgicos Verificados', () => {
     };
     const corrs = computeCategoryCorrelation(catHistories, 1000, 200);
     expect(Array.isArray(corrs)).toBe(true);
+  });
+
+  it('19. analyticsStats: computeCalibrationPenalty processa objetos com scorePct e suporta cutoffs <= 0', () => {
+    const mcHistory = [
+      { date: '2026-01-01', projectedMean: 60, target: 50, probability: 70 },
+      { date: '2026-01-05', projectedMean: 65, target: 50, probability: 80 },
+      { date: '2026-01-10', projectedMean: 70, target: 50, probability: 90 },
+      { date: '2026-01-15', projectedMean: 72, target: 50, probability: 85 },
+      { date: '2026-01-20', projectedMean: 75, target: 50, probability: 95 }
+    ];
+    const globalHistory = [
+      { date: '2026-01-02', scorePct: 55 },
+      { date: '2026-01-06', scorePct: 62 },
+      { date: '2026-01-11', scorePct: 68 },
+      { date: '2026-01-16', scorePct: 70 },
+      { date: '2026-01-21', scorePct: 72 }
+    ];
+    const penalty = computeCalibrationPenalty(mcHistory, globalHistory, null, 100, 0);
+    expect(Number.isFinite(penalty)).toBe(true);
+    expect(penalty).toBeGreaterThanOrEqual(0);
+    expect(penalty).toBeLessThanOrEqual(0.15);
+  });
+
+  it('20. analyticsStats: generateAnalyticsStats calcula avgCV relativo sem colapsar a zero em escala 0-1', () => {
+    const categories = [
+      {
+        id: 'math',
+        name: 'Matemática',
+        maxScore: 1,
+        minScore: 0,
+        simuladoStats: {
+          history: [
+            { score: 0.70, date: '2026-01-01' },
+            { score: 0.80, date: '2026-01-08' },
+            { score: 0.75, date: '2026-01-15' }
+          ]
+        }
+      }
+    ];
+    const result = generateAnalyticsStats({
+      categories,
+      debouncedWeights: { math: 1 },
+      timeIndex: 0,
+      timelineDates: ['2026-01-15'],
+      minScore: 0,
+      maxScore: 1
+    });
+    expect(result).not.toBeNull();
+    expect(result.consistencyScore).toBeGreaterThan(0);
+    expect(result.consistencyScore).toBeLessThanOrEqual(100);
+  });
+
+  it('21. stateSpace: runStateSpaceModel escala o ruído de processo e observação proporcionalmente ao domínio', () => {
+    const scores = [0.6, 0.7, 0.65, 0.8];
+    const resUnit = runStateSpaceModel(scores, { maxScore: 1, minScore: 0 });
+    expect(resUnit.ability).toBeGreaterThan(0);
+    expect(resUnit.ability).toBeLessThanOrEqual(1.0);
+    expect(resUnit.variance).toBeLessThan(1.0);
+  });
+
+  it('22. bootstrap: conformalPredictionInterval escala fallback margin de acordo com opções de escala', () => {
+    const res = conformalPredictionInterval([0.02, -0.01], 0.05, 0.75, { maxScore: 1, minScore: 0 });
+    expect(res.lower).toBeGreaterThanOrEqual(0.5);
+    expect(res.upper).toBeLessThanOrEqual(1.0);
+  });
+
+  it('23. coachLogic: calculateUrgencyScore normaliza dimensionalmente totalPain para manter escala invariante', () => {
+    const metricsEnem = {
+      subject: 'Física',
+      averageScore: 600,
+      targetScore: 800,
+      maxScore: 1000,
+      minScore: 0,
+      rawWeight: 5,
+      daysSinceLastStudy: 5,
+      mssdVolatility: 20,
+      hasData: true,
+      categoryStudyLogs: []
+    };
+    const resEnem = calculateUrgencyScore(metricsEnem);
+    expect(resEnem.totalPain).toBeLessThanOrEqual(105);
+    expect(resEnem.totalPain).toBeGreaterThan(0);
+
+    const metricsUnit = {
+      subject: 'Física',
+      averageScore: 0.60,
+      targetScore: 0.80,
+      maxScore: 1.0,
+      minScore: 0,
+      rawWeight: 5,
+      daysSinceLastStudy: 5,
+      mssdVolatility: 0.02,
+      hasData: true,
+      categoryStudyLogs: []
+    };
+    const resUnit = calculateUrgencyScore(metricsUnit);
+    expect(resUnit.totalPain).toBeLessThanOrEqual(105);
+    expect(Math.abs(resEnem.totalPain - resUnit.totalPain)).toBeLessThan(5);
+  });
+
+  it('24. diagnostics: computeLearningVelocity usa derivada analítica exata e roomToGrow relativo ao domínio', () => {
+    const history = [
+      { score: 600, date: '2026-01-01' },
+      { score: 650, date: '2026-01-10' },
+      { score: 690, date: '2026-01-20' },
+      { score: 720, date: '2026-01-30' }
+    ];
+    const vel = computeLearningVelocity(history, 1000, 500);
+    expect(vel.velocity).toBeGreaterThan(0);
+    expect(vel.plateau).toBeGreaterThan(500);
+    expect(vel.plateau).toBeLessThanOrEqual(1000);
+  });
+
+  it('25. diagnostics: computeStudyEfficiency lê minutes e minutos de logs de sessão', () => {
+    const studySessions = [
+      { minutes: 45, categoryId: 'bio' },
+      { minutos: 45, categoryId: 'bio' }
+    ];
+    const simulados = [
+      { total: 30, correct: 24, categoryId: 'bio' }
+    ];
+    const eff = computeStudyEfficiency(studySessions, simulados, 100, 'bio');
+    expect(eff.totalMinutes).toBe(90);
+    expect(eff.questionsPerHour).toBe(20);
+  });
+
+  it('26. stats: computeHierarchicalAdjustment preserva pooledSD = 0 sem substituir por 15', () => {
+    const cats = [
+      { mean: 75, sd: 5, n: 10, weight: 1 },
+      { mean: 75, sd: 5, n: 10, weight: 1 }
+    ];
+    const adjusted = computeHierarchicalAdjustment(cats, 0);
+    expect(adjusted[0].bayesianSd).toBeLessThan(10);
+  });
+
+  it('27. coachEvaluator: compareEvaluationSummaries evita explosão em baseline de erro próximo de zero', () => {
+    const baseline = {
+      probability: { avgBrier: 0.001, ece: 0.001 },
+      score: { mae: 0.1 },
+      topics: { avgNdcg: 0.9 }
+    };
+    const candidate = {
+      probability: { avgBrier: 0.05, ece: 0.02 },
+      score: { mae: 0.15 },
+      topics: { avgNdcg: 0.88 }
+    };
+    const comp = compareEvaluationSummaries(baseline, candidate);
+    expect(comp.heuristicScore).toBeGreaterThanOrEqual(-1);
+    expect(comp.heuristicScore).toBeLessThanOrEqual(1);
   });
 });

@@ -279,16 +279,27 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
  * Filtro de Kalman simplificado para estimativa de habilidade.
  */
 export function runStateSpaceModel(scores, options = {}) {
-  const {
-    processNoise = 0.1,
-    observationNoise = 1.0,
-    initialVariance = 100,
-  } = options;
-
   const rawMax = Number(options?.maxScore);
   const rawMin = Number(options?.minScore);
   const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
   const safeMin = Number.isFinite(rawMin) ? rawMin : 0;
+  const domain = Math.max(1e-6, safeMax - safeMin);
+
+  // Default parameters scaled to domain to ensure scale invariance
+  const defaultProcessNoise = Math.pow(domain * 0.01, 2);
+  const defaultObservationNoise = Math.pow(domain * 0.10, 2);
+  const defaultInitialVariance = Math.pow(domain * 0.35, 2);
+
+  const processNoise = Number.isFinite(Number(options.processNoise))
+    ? Number(options.processNoise)
+    : defaultProcessNoise;
+  const observationNoise = Number.isFinite(Number(options.observationNoise))
+    ? Number(options.observationNoise)
+    : defaultObservationNoise;
+  const initialVariance = Number.isFinite(Number(options.initialVariance))
+    ? Number(options.initialVariance)
+    : defaultInitialVariance;
+
   const fallbackMean = (safeMax + safeMin) / 2;
 
   const validScores = (Array.isArray(scores) ? scores : [])
@@ -322,9 +333,9 @@ export function runStateSpaceModel(scores, options = {}) {
     // Inovação
     const innovation = score - ability;
 
-    // Atualização de estado
-    ability = ability + gain * innovation;
-    variance = (1 - gain) * predictedVariance;
+    // Atualização de estado (clampado nos limites seguros)
+    ability = clampNumber(ability + gain * innovation, safeMin, safeMax);
+    variance = Math.max(1e-9, (1 - gain) * predictedVariance);
 
     // Trend
     if (trendCount > 0) {

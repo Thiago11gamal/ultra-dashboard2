@@ -507,22 +507,22 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
   let totalWeight = 0;
 
   if (rawDeltaBrier !== null) {
-    const normBrier = rawDeltaBrier / Math.max(0.001, Math.abs(toFinite(baseProbability.avgBrier, 0.2)));
+    const normBrier = clampFinite(rawDeltaBrier / Math.max(0.05, Math.abs(toFinite(baseProbability.avgBrier, 0.2))), -2, 2, 0);
     weightedSum += -normBrier * 0.40;
     totalWeight += 0.40;
   }
   if (rawDeltaEce !== null) {
-    const normEce = rawDeltaEce / Math.max(0.001, Math.abs(toFinite(baseProbability.ece, 0.15)));
+    const normEce = clampFinite(rawDeltaEce / Math.max(0.05, Math.abs(toFinite(baseProbability.ece, 0.15))), -2, 2, 0);
     weightedSum += -normEce * 0.25;
     totalWeight += 0.25;
   }
   if (rawDeltaNdcg !== null) {
-    const normNdcg = rawDeltaNdcg / Math.max(0.001, Math.abs(toFinite(baseTopics.avgNdcg, 0.5)));
+    const normNdcg = clampFinite(rawDeltaNdcg / Math.max(0.10, Math.abs(toFinite(baseTopics.avgNdcg, 0.5))), -2, 2, 0);
     weightedSum += normNdcg * 0.35;
     totalWeight += 0.35;
   }
   if (rawDeltaMae !== null && totalWeight < 0.65) {
-    const normMae = rawDeltaMae / Math.max(0.01, Math.abs(toFinite(baseScore.mae, 5)));
+    const normMae = clampFinite(rawDeltaMae / Math.max(1.0, Math.abs(toFinite(baseScore.mae, 5))), -2, 2, 0);
     weightedSum += -normMae * 0.20;
     totalWeight += 0.20;
   }

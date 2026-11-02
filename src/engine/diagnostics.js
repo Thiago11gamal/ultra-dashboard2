@@ -440,7 +440,8 @@ export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
   const k = Stt > 1e-15 ? Math.max(1e-4, -Sty / Stt) : 1e-3;
 
   const tNow = data[data.length - 1].t;
-  const velocity = plateauEst * k * Math.exp(-k * tNow);
+  // Derivada analítica exata: d/dt [minScore + effectiveRange*(1 - exp(-k*t))] = effectiveRange * k * exp(-k*t)
+  const velocity = effectiveRange * k * Math.exp(-k * tNow);
 
   const timeToPlateauDays = tNow < 1 ? null : Math.max(0, Math.round(Math.log(0.1) / -k) - tNow);
 
@@ -448,7 +449,7 @@ export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
   const vPerMonth = velocity * 30;
 
   const currentScore = data[data.length - 1].y;
-  const roomToGrow = Math.max(1, plateauEst - currentScore);
+  const roomToGrow = Math.max(domain * 0.01, plateauEst - currentScore);
   const relativeVelocity = vPerMonth / roomToGrow;
 
   if (relativeVelocity > 0.15) velocityLabel = `Acelerado (Alta Tração Logística)`;
@@ -500,7 +501,7 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
   const _noData = { efficiency: 0, questionsPerHour: 0, accuracyRate: 0, totalMinutes: 0, totalQuestions: 0, label: 'Sem dados' };
 
   const sessions = (studySessions || []).filter((s) => !categoryId || s?.categoryId === categoryId);
-  const totalMinutes = sessions.reduce((acc, s) => acc + (Number(s?.duration) || 0), 0);
+  const totalMinutes = sessions.reduce((acc, s) => acc + (Number(s?.duration ?? s?.minutes ?? s?.minutos) || 0), 0);
 
   const _normalize = typeof normalizeSubject === 'function'
     ? normalizeSubject
@@ -687,7 +688,7 @@ export function computeCategoryDiagnostics({
     .map((h) => getSafeScore(h, maxScore, minScore))
     .filter(Number.isFinite);
 
-  const diagnostic = generateMathDiagnostic(safeHistory, maxScore);
+  const diagnostic = generateMathDiagnostic(safeHistory, maxScore, minScore);
   const hurst = diagnostic.hurstData;
   // ✅ LOTE-01 FIX (C5): diagnostic.mssd não existia (generateMathDiagnostic
   // não retorna esse campo) → mssdVolatility era sempre undefined.
@@ -699,11 +700,12 @@ export function computeCategoryDiagnostics({
 
   let klToTarget = null;
   if (bayesianStats && targetScore !== null) {
+    const domain = Math.max(1e-6, maxScore - minScore);
     const targetMu = Number(targetScore);
-    const targetSd = maxScore * 0.05;
+    const targetSd = domain * 0.05;
     klToTarget = computeKLDivergenceNormal(
       bayesianStats.mean ?? 0,
-      bayesianStats.sd ?? maxScore * 0.1,
+      bayesianStats.sd ?? domain * 0.1,
       targetMu,
       targetSd,
     );
@@ -715,9 +717,10 @@ export function computeCategoryDiagnostics({
     maxScore,
     categoryId,
     normalizeSubject,
+    minScore
   );
 
-  const dataAnomalies = detectDataAnomalies(safeHistory, maxScore);
+  const dataAnomalies = detectDataAnomalies(safeHistory, maxScore, minScore);
   const dataErrorCount = dataAnomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
 
   const flags = [];

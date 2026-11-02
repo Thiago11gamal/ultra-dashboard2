@@ -1137,13 +1137,14 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
             return { ...cat, bayesianMean: cat.mean, bayesianSd: cat.sd };
         }
 
-        const localSD = Number.isFinite(cat.sd) ? cat.sd : (pooledSD || 15);
+        const safePooled = Number.isFinite(pooledSD) && pooledSD >= 0 ? pooledSD : 15;
+        const localSD = Number.isFinite(cat.sd) ? cat.sd : safePooled;
         const localVar = Math.pow(localSD, 2) / Math.max(1, cat.n);
         const denom = localVar + tau2;
         const B = denom > 1e-15 ? localVar / denom : 0;
 
         const bayesianMean = B * globalMean + (1 - B) * cat.mean;
-        const popVar = Math.pow(pooledSD || 15, 2);
+        const popVar = Math.pow(safePooled, 2);
         const bayesianSd = Math.sqrt(Math.max(0, B * popVar + (1 - B) * Math.pow(localSD, 2)));
 
         return {

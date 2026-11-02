@@ -92,13 +92,15 @@ export function bootstrapCI(samples, statFn, {
  * CORREÇÃO: usa resíduos ABSOLUTOS |y - ŷ|, não resíduos com sinal.
  * O quantil conformal é o ceil((n+1)(1-α))-ésimo menor resíduo absoluto.
  */
-export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointEstimate = 0) {
+export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointEstimate = 0, options = {}) {
   const clean = extractFiniteNumbers(residuals);
   const p = Number.isFinite(Number(pointEstimate)) ? Number(pointEstimate) : 0;
   const a = Math.max(0.001, Math.min(0.5, Number(alpha) || 0.05));
 
   if (clean.length < 3) {
-    const fallbackMargin = Math.max(1, Math.abs(p) * 0.08 || 8);
+    const domain = options?.domain ?? (Number.isFinite(options?.maxScore) ? options.maxScore - (options.minScore ?? 0) : null);
+    const scaleUnit = domain ? domain * 0.08 : (Math.abs(p) <= 1.0 && p !== 0 ? 0.08 : 8);
+    const fallbackMargin = Math.max(scaleUnit * 0.1, Math.abs(p) * 0.08 || scaleUnit);
     return {
       lower: p - fallbackMargin,
       upper: p + fallbackMargin,

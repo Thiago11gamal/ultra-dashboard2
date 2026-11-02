@@ -151,8 +151,8 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
 
         if (!actual) return;
 
-        // FIX: blindagem contra resultado real inválido
-        const actualScore = Number(actual.score);
+        // FIX: blindagem contra resultado real inválido (suporte a scorePct, value, correct/total)
+        const actualScore = getSafeScore(actual, safeMaxScore, safeMinScore);
         if (!Number.isFinite(actualScore)) return;
 
         const age = Math.max(0, now - snapTime);
@@ -161,10 +161,11 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
         // FIX: calibrar contra a PREVISÃO REALMENTE FEITA (projectedMean),
         // não contra a média corrente do dia do snapshot.
         // O campo mean era "onde estou", projectedMean era "onde projetei chegar".
-        const meanPrediction = Number(snapshot.projectedMean ?? snapshot.mean) || 0;
+        const rawMeanPred = snapshot.projectedMean ?? snapshot.mean;
+        const meanPrediction = Number.isFinite(Number(rawMeanPred)) ? Number(rawMeanPred) : NaN;
 
         const targetVal = Number(snapshot.target);
-        if (meanPrediction > 0 && safeMaxScore > 0 && Number.isFinite(targetVal) && targetVal > 0) {
+        if (Number.isFinite(meanPrediction) && meanPrediction >= safeMinScore && Number.isFinite(targetVal) && targetVal >= safeMinScore && globalDomain > 0) {
             const err = Math.abs(meanPrediction - actualScore) / globalDomain;
             residualSum += err * weight;
             residualWeightSum += weight;
@@ -172,9 +173,9 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
 
         const rawProb = Number(snapshot.probability);
         const p = Number.isFinite(rawProb) ? Math.max(0, Math.min(1, rawProb / 100)) : 0;
-        const target = Number(snapshot.target) || 0;
+        const target = Number(snapshot.target);
 
-        if (target > 0) {
+        if (Number.isFinite(target) && target >= safeMinScore) {
             const observed = actualScore >= target ? 1 : 0;
             const brierScore = (p - observed) ** 2;
             brierSum += brierScore * weight;
@@ -487,7 +488,13 @@ export function generateAnalyticsStats({
     const dailySD = temporalVolatility > 0 ? temporalVolatility : pooledSD;
 
     const avgCV = totalWeight > 0
-        ? categoryStats.reduce((acc, cat) => acc + ((cat.mean > 1 ? (cat.sd / cat.mean) * 100 : 0) * (cat.weight / totalWeight)), 0)
+        ? categoryStats.reduce((acc, cat) => {
+            const domain = Math.max(1e-6, (cat.maxScore ?? safeMaxScore) - (cat.minScore ?? safeMinScore));
+            const meanAboveMin = (cat.mean ?? safeMinScore) - (cat.minScore ?? safeMinScore);
+            const relativeMean = meanAboveMin > 0.05 * domain ? meanAboveMin : domain * 0.5;
+            const cv = (cat.sd / relativeMean) * 100;
+            return acc + (cv * (cat.weight / totalWeight));
+        }, 0)
         : 0;
 
     const hLen = robustGlobalHistory.length;

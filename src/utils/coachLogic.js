@@ -1475,7 +1475,7 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         performanceDeficit,
         memoryRisk,
         volatilityRisk: volatilityRiskPct,
-        totalPain: performanceDeficit + memoryRisk + volatilityRiskPct,
+        totalPain: (domain > 0 ? clamp((performanceDeficit / domain) * 35, 0, 35) : 0) + memoryRisk + volatilityRiskPct,
         dynamicScoreMax: urgencyWeights.scoreMax,
         dynamicRecencyMax: urgencyWeights.recencyMax,
         dynamicInstabilityMax: urgencyWeights.instabilityMax,
