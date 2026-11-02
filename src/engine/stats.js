@@ -1066,9 +1066,6 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05, maxScore =
     const safeMax = safeMaxScoreValue(maxScore, 100);
     const safeMin = safeMinScoreValue(minScore, 0);
 
-    const safeMax = safeMaxScoreValue(maxScore, 100);
-    const safeMin = safeMinScoreValue(minScore, 0);
-
     const getTime = (d) => {
         if (d?.timestamp != null && Number.isFinite(Number(d.timestamp))) return Number(d.timestamp);
 
