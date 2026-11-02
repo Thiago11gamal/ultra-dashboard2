@@ -250,8 +250,8 @@ function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, 
  * - reduz o Efeito Halo
  */
 export const computeBayesianProficiency = (acertos, total, mediaGlobal = 0.5, globalTotal = 0) => {
-    const rawAcertos = Number(acertos) || 0;
-    const rawTotal = Number(total) || 0;
+    const rawTotal = Math.max(0, Number(total) || 0);
+    const rawAcertos = Math.max(0, Math.min(rawTotal, Number(acertos) || 0));
     const safeMedia = Number.isFinite(mediaGlobal) ? Math.max(0, Math.min(1, mediaGlobal)) : 0.5;
     const safeGlobalTotal = Number.isFinite(globalTotal) ? Math.max(0, globalTotal) : 0;
     const K = Math.max(3, Math.min(15, Math.log10(safeGlobalTotal + 1) * 3));
@@ -1118,9 +1118,10 @@ export function deriveUrgencyWeights(mcResult, volatility, sampleSize, cfg = {},
     };
 }
 
-export const calculateUrgencyScore = (metrics, options = {}) => {
+export const calculateUrgencyScore = (metrics = {}, options = {}) => {
+    const rawCfg = metrics.cfg || options.config || {};
+    const cfg = { ...DEFAULT_CONFIG, ...rawCfg };
     const {
-        cfg,
         safeCategory,
         boundedWeight,
         daysToExam,
@@ -1152,7 +1153,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         maxScore,
         averageScore,
         mssdVolatility,
-        backtestWeights?.effectiveN || simuladosWithMaxScore.length,
+        backtestWeights?.effectiveN || (simuladosWithMaxScore?.length || 0),
         recencyUnknown ? null : daysSinceLastStudy,
         0,
         minScore
@@ -1184,7 +1185,9 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
     const safeTasksArray = Array.isArray(safeCategory?.tasks)
         ? safeCategory.tasks
         : Object.values(safeCategory?.tasks || {});
-    const hasHighPriorityTasks = safeTasksArray.some(t => t && !t.completed && t.priority === 'high');
+    const hasHighPriorityTasks = metrics.hasHighPriorityTasks !== undefined
+        ? Boolean(metrics.hasHighPriorityTasks)
+        : safeTasksArray.some(t => t && !t.completed && t.priority === 'high');
     const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
     const totalTasks = safeTasksArray.length;
     const completedTasks = safeTasksArray.filter(t => t?.completed).length;
@@ -1372,7 +1375,7 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
             maxScore,
             cfg,
             mssdVolatility,
-            backtestWeights?.effectiveN || simuladosWithMaxScore.length,
+            backtestWeights?.effectiveN || (simuladosWithMaxScore?.length || 0),
             minScore,
             options
         );
@@ -1385,15 +1388,19 @@ export const calculateUrgencyScore = (metrics, options = {}) => {
         0,
         maxSrsBoost
     );
+    const maxPriorityBoost = cfg.PRIORITY_BOOST * 1.15;
     const currentPriorityBoost = clamp(
         priorityBoost * (crunchMultiplier > 1.3 ? 1.15 : 1),
         0,
-        cfg.PRIORITY_BOOST
+        maxPriorityBoost
     );
     // Rotation penalty corrigida: menos dependente da nota e mais dependente de recência/volatilidade
     let exactLastTime = 0;
     if (Array.isArray(simuladosWithMaxScore) && simuladosWithMaxScore.length > 0) {
-        exactLastTime = (normalizeDate(simuladosWithMaxScore[0].date || simuladosWithMaxScore[0].createdAt) || new Date(0)).getTime();
+        for (const s of simuladosWithMaxScore) {
+            const t = (normalizeDate(s?.date || s?.createdAt) || new Date(0)).getTime();
+            if (t > exactLastTime) exactLastTime = t;
+        }
     }
     if (Array.isArray(validStudyLogs) && validStudyLogs.length > 0) {
         const logsOrdenados = [...validStudyLogs].sort((a, b) =>

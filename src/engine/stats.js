@@ -172,7 +172,8 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     }
 
     let slope = covXY / regularizedDenominator;
-    const maxSlopeLimit = effectiveMaxScore * 0.05;
+    const scoreRange = Math.max(1e-6, effectiveMaxScore - minScore);
+    const maxSlopeLimit = scoreRange * 0.05;
     slope = Math.max(-maxSlopeLimit, Math.min(maxSlopeLimit, slope));
 
     const intercept = (sumWY - slope * sumWX) / safeSumW;

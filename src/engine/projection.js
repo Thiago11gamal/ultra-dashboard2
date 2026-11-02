@@ -605,7 +605,8 @@ export function monteCarloSimulation(
     const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;   // ✅ LOTE-03
     // ✅ LOTE-06 FIX (SCENARIO-1): meanBiasFactor é percentual do maxScore, não do range.
     // Com minScore > 0, usar range distorcia o bias (ex: 2.5% de 800 em vez de 2.5% de 1000).
-    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * maxScore)));
+        const biasScale = (maxScore > 0 && minScore >= 0) ? maxScore : range;
+    baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * biasScale)));
 
     // FEAT: Time Penalty (Simulação de Prova Real)
     let timePenaltyApplied = false;
