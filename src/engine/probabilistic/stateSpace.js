@@ -235,12 +235,12 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
       K0 * observationVariance * K0;
 
     const newP01 =
-      AP00 * A01 +
+      AP00 * A10 +
       AP01 * A11 +
       K0 * observationVariance * K1;
 
     const newP11 =
-      AP10 * A01 +
+      AP10 * A10 +
       AP11 * A11 +
       K1 * observationVariance * K1;
 

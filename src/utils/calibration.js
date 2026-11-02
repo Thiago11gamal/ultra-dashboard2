@@ -658,7 +658,7 @@ export function computeContinuousMcBoost(mcProbability, danger, safe, _options =
   const _safeSafe = Math.max(0, Math.min(99, s));
 
   const neutral = 50;
-  const boost = (safeProbability - neutral) * 0.12;
+  const boost = (neutral - safeProbability) * 0.12;
 
   if (!Number.isFinite(boost)) return 0;
 

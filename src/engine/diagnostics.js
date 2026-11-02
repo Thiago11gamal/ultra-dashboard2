@@ -410,8 +410,9 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
   return { risk, retentionPct, stabilityDays: stability, optimalIntervalDays, daysSinceLast: Number(daysSinceLast.toFixed(1)) };
 }
 
-export function computeLearningVelocity(history, maxScore = 100) {
-  const fallback = { velocity: 0, velocityLabel: 'Dados insuficientes', plateau: maxScore * 0.7, timeToPlateauDays: null };
+export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
+  const domain = Math.max(1, maxScore - minScore);
+  const fallback = { velocity: 0, velocityLabel: 'Dados insuficientes', plateau: minScore + domain * 0.7, timeToPlateauDays: null };
   if (!Array.isArray(history) || history.length < 4) return fallback;
 
   const validHistory = history.filter(h => _getEntryDate(h) !== null);
@@ -421,16 +422,17 @@ export function computeLearningVelocity(history, maxScore = 100) {
   const t0 = _getEntryDate(sorted[0]).getTime();
   const data = sorted.map((h, idx) => ({
     t: Math.max(0.001 * idx, (_getEntryDate(h).getTime() - t0) / 86400000),
-    y: Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore))),
+    y: Math.max(minScore, Math.min(maxScore, getSafeScore(h, maxScore, minScore))),
   })).filter(d => Number.isFinite(d.y));
 
   const lastThree = data.slice(-3).map((d) => d.y);
-  const plateauEst = Math.min(maxScore, Math.max(maxScore * 0.5, Math.max(...lastThree) * 1.1));
+  const plateauEst = Math.min(maxScore, Math.max(minScore + domain * 0.5, Math.max(...lastThree) + domain * 0.05));
 
-  const linearPts = data.filter((d) => d.y < plateauEst * 0.98 && d.y > 0);
+  const linearPts = data.filter((d) => d.y < plateauEst * 0.98 && d.y > minScore);
   if (linearPts.length < 3) return { ...fallback, plateau: plateauEst };
 
-  const ys = linearPts.map((d) => Math.log(Math.max(1e-6, 1 - d.y / plateauEst)));
+  const effectiveRange = Math.max(1e-6, plateauEst - minScore);
+  const ys = linearPts.map((d) => Math.log(Math.max(1e-6, 1 - (d.y - minScore) / effectiveRange)));
   const ts = linearPts.map((d) => d.t);
 
   const Sty = kahanSum(ts.map((t, i) => t * ys[i]));
@@ -462,7 +464,7 @@ export function computeLearningVelocity(history, maxScore = 100) {
   };
 }
 
-export function computeConsistencyIndex(history, maxScore = 100) {
+export function computeConsistencyIndex(history, maxScore = 100, minScore = 0) {
   const fallback = { index: 0.5, label: 'Dados insuficientes' };
   if (!Array.isArray(history) || history.length < 4) return fallback;
 
@@ -470,7 +472,7 @@ export function computeConsistencyIndex(history, maxScore = 100) {
 
   if (sorted.length < 4) return fallback;
 
-  const scores = sorted.map((h) => Math.max(0, Math.min(maxScore, getSafeScore(h, maxScore)))).filter(Number.isFinite);
+  const scores = sorted.map((h) => Math.max(minScore, Math.min(maxScore, getSafeScore(h, maxScore, minScore)))).filter(Number.isFinite);
   if (scores.length < 4) return fallback;
   const mu = _mean(scores);
 
@@ -478,7 +480,8 @@ export function computeConsistencyIndex(history, maxScore = 100) {
   const mad = _median(scores.map((s) => Math.abs(s - med)));
   const robustSD = 1.4826 * mad;
 
-  const referenceScale = Math.max(1, mu);
+  const domain = Math.max(1, maxScore - minScore);
+  const referenceScale = Math.max(domain * 0.1, mu - minScore);
   const cv = robustSD / referenceScale;
 
   const index = Math.max(0, 1 - Math.tanh(cv * 1.5));
@@ -669,6 +672,7 @@ export function computeCategoryDiagnostics({
   studySessions = [],
   simulados = [],
   maxScore = 100,
+  minScore = 0,
   categoryId = null,
   targetScore = null,
   bayesianStats = null,
@@ -679,7 +683,7 @@ export function computeCategoryDiagnostics({
   const safeHistory = histArray.length > 2500 ? pruneHistoryForMemory(histArray, 1500) : histArray;
 
   const _scores = safeHistory
-    .map((h) => getSafeScore(h, maxScore))
+    .map((h) => getSafeScore(h, maxScore, minScore))
     .filter(Number.isFinite);
 
   const diagnostic = generateMathDiagnostic(safeHistory, maxScore);
@@ -687,10 +691,10 @@ export function computeCategoryDiagnostics({
   // ✅ LOTE-01 FIX (C5): diagnostic.mssd não existia (generateMathDiagnostic
   // não retorna esse campo) → mssdVolatility era sempre undefined.
   // Calculamos o MSSD real em unidades de desvio padrão
-  const mssdSD = calculateMSSD(safeHistory, maxScore);
-  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, mssdSD, safeHistory.length);
-  const consistency = computeConsistencyIndex(safeHistory, maxScore);
-  const velocity = computeLearningVelocity(safeHistory, maxScore);
+  const mssdSD = calculateMSSD(safeHistory, maxScore, minScore);
+  const forgetting = computeForgettingRisk(safeHistory, maxScore, null, mssdSD, safeHistory.length, null, 0, minScore);
+  const consistency = computeConsistencyIndex(safeHistory, maxScore, minScore);
+  const velocity = computeLearningVelocity(safeHistory, maxScore, minScore);
 
   let klToTarget = null;
   if (bayesianStats && targetScore !== null) {

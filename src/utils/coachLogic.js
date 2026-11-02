@@ -651,7 +651,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     let averageScore = 0;
 
     if (relevantSimulados.length > 0) {
-        const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore, minScore), maxScore, cfg);
+        const coachAdaptive = deriveCoachAdaptiveParams(simuladosToHistory(relevantSimulados, maxScore, minScore), maxScore, cfg, minScore);
         const today = normalizeDate(referenceDate) || referenceDate;
         const K = coachAdaptive.decayK;
         const PESO_MIN = coachAdaptive.minWeight;
@@ -866,7 +866,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     }
 
     const mcAdaptive = {
-        ...deriveCoachAdaptiveParams(mcHistory, maxScore, cfg),
+        ...deriveCoachAdaptiveParams(mcHistory, maxScore, cfg, minScore),
         calibrationBaseline: rollingCalibration.baseline,
         calibrationMaxPenalty: rollingCalibration.maxPenalty
     };
@@ -1382,7 +1382,7 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         srsBoost = srsData.boost;
         srsLabel = srsData.label;
     }
-    const maxSrsBoost = cfg.SRS_BOOST * 2;
+    const maxSrsBoost = cfg.SRS_BOOST * 2 * 1.10;
     const currentSrsBoost = clamp(
         srsBoost * (crunchMultiplier > 1.3 ? 1.10 : 1),
         0,
@@ -1991,7 +1991,7 @@ export function analisarDesempenhoHistorico(historico) {
         const timestamp = Date.now() - (diasValidos * 86400000);
         const safeDate = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
         const total = Math.max(1, Number(h.total) || 100);
-        const acertos = Math.max(0, Number(h.acertos) || 0);
+        const acertos = Math.min(total, Math.max(0, Number(h.acertos) || 0));
         return {
             score: (acertos / total) * 100,
             total: total,
@@ -2414,8 +2414,8 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
           topic.decisionComponents = decisionItem.decision?.components ?? null;
           if (getCoachFeature(options, 'useDecisionUtilityForTopics', false)) {
             topic.urgencyScore =
-              topic.urgencyScore * 0.75 +
-              topic.decisionUtility * 0.45;
+              topic.urgencyScore * 0.70 +
+              topic.decisionUtility * 0.30;
           }
         });
       } catch (err) {
@@ -2517,13 +2517,9 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
       // ✅ FIX: Validar urgencyScore antes de usar
       let aBase = Number.isFinite(a.urgencyScore) ? a.urgencyScore : 0;
       let bBase = Number.isFinite(b.urgencyScore) ? b.urgencyScore : 0;
-      if (
-        useDecisionSort &&
-        Number.isFinite(a.decisionScore) &&
-        Number.isFinite(b.decisionScore)
-      ) {
-        aBase = (aBase * 0.55) + (a.decisionScore * 0.45);
-        bBase = (bBase * 0.55) + (b.decisionScore * 0.45);
+      if (useDecisionSort) {
+        if (Number.isFinite(a.decisionExploration)) aBase += a.decisionExploration;
+        if (Number.isFinite(b.decisionExploration)) bBase += b.decisionExploration;
       }
       let aScore = aBase + (aNeedsAction ? 50 : 0);
       let bScore = bBase + (bNeedsAction ? 50 : 0);
@@ -2541,12 +2537,6 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
       } else {
         if (a.total === 0) aScore -= 25;
         if (b.total === 0) bScore -= 25;
-      }
-      if (useDecisionSort) {
-        const aDecision = Number.isFinite(a.decisionUtility) ? a.decisionUtility : 0;
-        const bDecision = Number.isFinite(b.decisionUtility) ? b.decisionUtility : 0;
-        aScore += aDecision * 0.20;
-        bScore += bDecision * 0.20;
       }
       // ✅ FIX: Garantir que scores não são NaN/Infinity
       const finalAScore = Number.isFinite(aScore) ? aScore : 0;
@@ -3123,7 +3113,7 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
 
     const last7DaysLogs = safeLogs.filter(l => {
         const t = (normalizeDate(getLogDate(l)) || new Date(0)).getTime();
-        return t > 0 && (nowMs - t) <= 7 * MS_PER_DAY;
+        return t > 0 && (nowMs - t) >= -MS_PER_DAY && (nowMs - t) <= 7 * MS_PER_DAY;
     });
     const hours7d = last7DaysLogs.reduce((acc, l) => acc + sanitizeMinutes(l.minutes ?? l.minutos ?? l.duration), 0) / 60;
 

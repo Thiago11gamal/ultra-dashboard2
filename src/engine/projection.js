@@ -284,6 +284,7 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
   if (Array.isArray(trendOrHistory)) {
     const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
     const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
+    const minScore = Number.isFinite(opts?.minScore) ? Number(opts.minScore) : 0;
     
     const normalizedHistory = trendOrHistory
       .filter(item => item != null)
@@ -292,7 +293,7 @@ export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options 
         return { score: item, date: null };
       }
       if (item && typeof item === 'object') {
-        const score = Number(item.score ?? item.value);
+        const score = getSafeScore(item, maxScore, minScore);
         return {
           score: Number.isFinite(score) ? score : NaN,
           date: item.date || item.createdAt || null

@@ -798,7 +798,7 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
     const safeHistoricalCutoffs = objHistoricalCutoffs === undefined
         ? undefined
         : (Array.isArray(objHistoricalCutoffs)
-            ? objHistoricalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
+            ? objHistoricalCutoffs.map(Number).filter(n => Number.isFinite(n) && n >= domainMin && n <= domainMax)
             : []);
 
     const mergedOptions = {

@@ -372,13 +372,15 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     score = safeMin + (Math.max(0, Math.min(100, Number(row.scorePct))) / 100) * range;
   } else if (row.score != null) {
     score = parseNum(row.score);
-    if (row.isPercentage && Number.isFinite(score)) {
-      score = safeMin + (score / 100) * range;
+    const isPct = Boolean(row.isPercentage || row.unit === 'pct' || row.unit === 'percentage' || row.scoreUnit === 'pct');
+    if (isPct && Number.isFinite(score)) {
+      score = safeMin + (Math.max(0, Math.min(100, score)) / 100) * range;
     }
   } else if (row.value != null && row.value !== '') {
     score = parseNum(row.value);
-    if (row.isPercentage && Number.isFinite(score)) {
-      score = safeMin + (score / 100) * range;
+    const isPct = Boolean(row.isPercentage || row.unit === 'pct' || row.unit === 'percentage' || row.scoreUnit === 'pct');
+    if (isPct && Number.isFinite(score)) {
+      score = safeMin + (Math.max(0, Math.min(100, score)) / 100) * range;
     }
   } else if ((row.correct != null || row.acertos != null || row.correctCount != null) && (row.total != null || row.questoes != null || row.totalQuestoes != null || row.questions != null)) {
     const total = Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions);
