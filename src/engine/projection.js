@@ -449,16 +449,13 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
             let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);
             
-            // PSEUDO-TRI: Rebalanceamento por dificuldade global
-            if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0) {
-                const globalMean = (options.globalBaselinePct / 100) * maxScore;
-                if (globalMean > 0) {
-                    // Se o aluno tira 80 e a média global é 50, a nota "efetiva" puxa o EMA para cima
-                    // Limitado a um bônus/punição máximo de 5% para não distorcer a realidade
-                    const difficultyDiff = (currentPoint - globalMean) / maxScore;
-                    currentPoint = currentPoint + (difficultyDiff * maxScore * 0.05); 
-                    currentPoint = Math.max(minScore, Math.min(maxScore, currentPoint));
-                }
+            // PSEUDO-TRI: Rebalanceamento por dificuldade global invariante a [minScore, maxScore]
+            if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0 && Number.isFinite(currentPoint)) {
+                const triRange = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
+                const globalMean = minScore + (options.globalBaselinePct / 100) * triRange;
+                const difficultyDiff = (currentPoint - globalMean) / Math.max(1e-9, triRange);
+                currentPoint = currentPoint + (difficultyDiff * triRange * 0.05);
+                currentPoint = Math.max(minScore, Math.min(maxScore, currentPoint));
             }
 
             if (!Number.isNaN(currentPoint)) {
@@ -788,7 +785,8 @@ export function monteCarloSimulation(
     const maxVolSqClamp = Math.pow(rangeVolClamp * 0.2, 2);
 
     // FIX #3: Prepare Cholesky for correlated subject minCutoffs (disciplines with minCutoff)
-    const cutoffSubjects = (options.subjects || []).filter(s => s && Number(s.minCutoff) > 0);
+    const hasValidMinCutoff = (s) => s != null && s.minCutoff !== undefined && s.minCutoff !== null && s.minCutoff !== '' && Number.isFinite(Number(s.minCutoff)) && (minScore < 0 ? Number(s.minCutoff) >= minScore : Number(s.minCutoff) > 0);
+    const cutoffSubjects = (options.subjects || []).filter(hasValidMinCutoff);
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => ({

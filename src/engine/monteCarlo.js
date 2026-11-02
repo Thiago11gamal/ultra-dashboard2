@@ -1,3 +1,4 @@
+import { getSafeScore } from '../utils/scoreHelper.js';
 import { mulberry32 } from './random.js';
 import {
     normalCDF_complement,
@@ -60,7 +61,8 @@ function sanitizeSubjects(subjects) {
     return subjects.filter(Boolean).map(s => {
         const safeMean = toFiniteNumber(s?.mean, 0);
         const safeSd = Math.max(1e-6, toFiniteNumber(s?.sd, 1));
-        const safeMinCutoff = toFiniteNumber(s?.minCutoff, 0);
+        const hasMinCutoff = s?.minCutoff !== undefined && s?.minCutoff !== null && s?.minCutoff !== '';
+        const safeMinCutoff = hasMinCutoff ? toFiniteNumber(s.minCutoff, 0) : null;
         const safeMinScore = toFiniteNumber(s?.minScore, DEFAULT_DOMAIN_MIN);
         const safeMaxScore = toFiniteNumber(s?.maxScore, DEFAULT_DOMAIN_MAX);
         const safeImmunity = toFiniteNumber(s?.immunityFactor, 1.0);
@@ -70,6 +72,7 @@ function sanitizeSubjects(subjects) {
             ...s,
             mean: safeMean,
             sd: safeSd,
+            hasMinCutoff,
             minCutoff: safeMinCutoff,
             minScore: safeMinScore,
             maxScore: safeMaxScore,
@@ -439,6 +442,7 @@ export function simulateNormalDistribution(
         sd: Math.max(1e-6, toFiniteNumber(s.sd, 1)),
         minScore: clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore),
         maxScore: clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore),
+        hasMinCutoff: s.hasMinCutoff ?? (s?.minCutoff !== undefined && s?.minCutoff !== null && s?.minCutoff !== ''),
         minCutoff: toFiniteNumber(s.minCutoff, 0),
         weight: Math.max(1e-6, toFiniteNumber(s.weight, 1)),
         immunityFactor: toFiniteNumber(s.immunityFactor, 1.0)
@@ -488,7 +492,7 @@ export function simulateNormalDistribution(
                     subjectSum += subjScore * sp.weight;
                     weightSum += sp.weight;
                     // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
-                    if (!Number.isFinite(subjScore) || (sp.minCutoff > 0 && subjScore < sp.minCutoff)) {
+                    if (!Number.isFinite(subjScore) || (sp.hasMinCutoff && sp.minCutoff !== null && subjScore < sp.minCutoff)) {
                         passedMins = false;
                     }
                 }
@@ -501,7 +505,7 @@ export function simulateNormalDistribution(
                     subjectSum += sScore * sp.weight;
                     weightSum += sp.weight;
                     // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
-                    if (!Number.isFinite(sScore) || (sp.minCutoff > 0 && sScore < sp.minCutoff)) {
+                    if (!Number.isFinite(sScore) || (sp.hasMinCutoff && sp.minCutoff !== null && sScore < sp.minCutoff)) {
                         passedMins = false;
                     }
                 }
@@ -813,10 +817,11 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
     };
 
     const extractScore = (value) => {
+        if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
         if (value && typeof value === 'object') {
-            return value.score ?? value.value;
+            return getSafeScore(value, domainMax, domainMin);
         }
-        return value;
+        return Number(value);
     };
 
     const safeDates = dates || [];

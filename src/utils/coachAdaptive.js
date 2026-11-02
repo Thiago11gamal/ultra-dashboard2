@@ -96,7 +96,7 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 
   if (isZeroVariance) {
     const danger = Math.max(15, Math.min(70, median - 12.5));
-    const safe = Math.min(95, Math.max(danger + 25, median + 12.5));
+    const safe = Math.max(75, Math.min(95, Math.max(danger + 25, median + 12.5)));
     return { danger, safe };
   }
 
@@ -590,8 +590,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       ? shrinkProbabilityToNeutral(stackedProb01 * 100, totalShrink, shrinkAnchorPct, maxAppliedPenalty)
       : (stackedProb01 * 100);
 
-    let ciLow = Number(result.ci95Low) || 0;
-    let ciHigh = Number(result.ci95High) || 0;
+    let ciLow = Number.isFinite(Number(result.ci95Low)) ? Number(result.ci95Low) : safeMinScore;
+    let ciHigh = Number.isFinite(Number(result.ci95High)) ? Number(result.ci95High) : safeMaxScore;
+    ciLow = Math.max(safeMinScore, Math.min(safeMaxScore, ciLow));
+    ciHigh = Math.max(safeMinScore, Math.min(safeMaxScore, ciHigh));
     if (ciLow > ciHigh) [ciLow, ciHigh] = [ciHigh, ciLow];
 
     const ciMid = (ciLow + ciHigh) / 2;

@@ -285,26 +285,25 @@ export function runStateSpaceModel(scores, options = {}) {
     initialVariance = 100,
   } = options;
 
-  const validScores = Array.isArray(scores)
-    ? scores.map(Number).filter(Number.isFinite)
-    : [];
+  const rawMax = Number(options?.maxScore);
+  const rawMin = Number(options?.minScore);
+  const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
+  const safeMin = Number.isFinite(rawMin) ? rawMin : 0;
+  const fallbackMean = (safeMax + safeMin) / 2;
+
+  const validScores = (Array.isArray(scores) ? scores : [])
+    .map(s => typeof s === 'number' ? s : getSafeScore(s, safeMax, safeMin))
+    .filter(Number.isFinite);
 
   if (validScores.length === 0) {
     return {
-      ability: 0,
+      ability: fallbackMean,
       variance: initialVariance,
       trend: 0,
       insufficientData: true,
     };
   }
 
-  // ✅ CORRIGE BUG-003: usa kahanMean corrigido
-  // FIX (BUG-11): fallback para midpoint do range, não 50 hardcoded
-  const rawMax = Number(options?.maxScore);
-  const rawMin = Number(options?.minScore);
-  const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
-  const safeMin = Number.isFinite(rawMin) ? rawMin : 0;
-  const fallbackMean = (safeMax + safeMin) / 2;
   // Inicialização causal sem usar média futura da série inteira como prior
   let ability = fallbackMean;
   let variance = Math.max(initialVariance, Math.pow((safeMax - safeMin) * 0.35, 2));

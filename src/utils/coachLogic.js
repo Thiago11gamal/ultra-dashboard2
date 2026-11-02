@@ -1231,7 +1231,7 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
     const recencyComponent = clamp(recencyRaw, 0, urgencyWeights.recencyMax * 1.2);
     // INSTABILITY: baseada em % do domínio, filtro de ruído e peso adaptativo
     const lastNCount = Math.max(2, (lastNScores || []).length || 2);
-    const trendNoise = 0.75 * (mssdVolatility / Math.sqrt(lastNCount));
+    const trendNoise = 0.75 * (safeMssdVolatility / Math.sqrt(lastNCount));
     const trendThreshold = Math.max(getDynamicTrendThreshold(averageScore, maxScore, minScore), trendNoise);
     let trendModifier = 1;
     if (trend > trendThreshold) {
@@ -1301,9 +1301,10 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
     const rollingWindowMs = 7 * MS_PER_DAY;
     // ✅ FIX: Verificar se metrics.referenceNow existe antes de usar
     const nowMs = Number.isFinite(metrics.referenceNow) ? metrics.referenceNow : Date.now();
-    const recentBaselineLogs = sortedLogsForBurnout.filter(log =>
-        (nowMs - getLogDate(log).getTime()) <= rollingWindowMs
-    );
+    const recentBaselineLogs = sortedLogsForBurnout.filter(log => {
+        const diff = nowMs - getLogDate(log).getTime();
+        return diff >= -MS_PER_DAY && diff <= rollingWindowMs;
+    });
     const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + getLogMinutes(log), 0) / 60;
     const firstLogTime = sortedLogsForBurnout.length > 0
         ? getLogDate(sortedLogsForBurnout[0]).getTime()
@@ -1326,9 +1327,10 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
     const safeGlobalLogs = Array.isArray(safeGlobalLogsInput)
         ? safeGlobalLogsInput
         : Object.values(safeGlobalLogsInput || {});
-    const recentAllLogs = safeGlobalLogs.filter(log =>
-        getLogDate(log).getTime() >= windowStart
-    );
+    const recentAllLogs = safeGlobalLogs.filter(log => {
+        const t = getLogDate(log).getTime();
+        return t >= windowStart && (nowMs - t) >= -MS_PER_DAY;
+    });
     const catNameForMatch = safeCategory?.name || safeCategory?.id || '';
     const totalRecentMinutesAll = recentAllLogs.reduce((acc, log) => acc + getLogMinutes(log), 0);
     const totalRecentMinutesCat = recentAllLogs
@@ -1352,8 +1354,13 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
         return acc + w;
     }, 0);
+    const safeRawWeight = Number.isFinite(Number(metrics.rawWeight))
+        ? Number(metrics.rawWeight)
+        : (Number.isFinite(Number(metrics.boundedWeight))
+            ? Number(metrics.boundedWeight)
+            : (Number.isFinite(Number(metrics.weight)) ? Number(metrics.weight) : 5));
     const idealShare = totalSyllabusWeight > 0
-        ? metrics.rawWeight / totalSyllabusWeight
+        ? safeRawWeight / totalSyllabusWeight
         : (1 / activeCount);
     // FIX-C04: tolerance relativa (30% do ideal ou 5%, o que for menor).
     // Antes, tolerance=0.05 fixo impedia boost para idealShare < 0.05
@@ -3294,25 +3301,37 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     safeArray(history).forEach(r => {
         const dKey = getDateKey(r.date || r.createdAt);
         if (dKey && !hasSimuladoForDate.has(dKey)) {
-            if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0 };
+            if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0, directScores: [] };
             const _toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
             const rCorrect = _toNum(r.correct ?? r.acertos ?? r.correctCount);
             const rTotal = _toNum(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions);
-            rowsByDate[dKey].correct += rCorrect;
-            rowsByDate[dKey].total += rTotal;
+            if (rTotal > 0) {
+                rowsByDate[dKey].correct += Math.min(rTotal, Math.max(0, rCorrect));
+                rowsByDate[dKey].total += rTotal;
+            } else {
+                const s = getSafeScore(r, maxScore, minScore);
+                if (Number.isFinite(s)) {
+                    rowsByDate[dKey].directScores.push(s);
+                }
+            }
         }
     });
 
     Object.entries(rowsByDate).forEach(([dKey, stats]) => {
+        let score = null;
         if (stats.total > 0) {
-            const score = minScore + (stats.correct / stats.total) * (maxScore - minScore);
-            const safeScoreStr = Number.isFinite(score) ? String(Math.round(score * 100)) : '0';
+            score = minScore + (stats.correct / stats.total) * (maxScore - minScore);
+        } else if (stats.directScores && stats.directScores.length > 0) {
+            score = kahanSum(stats.directScores) / stats.directScores.length;
+        }
+        if (score !== null && Number.isFinite(score)) {
+            const safeScoreStr = String(Math.round(score * 100));
             const key = `legacy-${dKey}|${dKey}|${safeScoreStr}`;
             if (!deduplicatedMap.has(key)) {
                 deduplicatedMap.set(key, {
                     id: `legacy-${dKey}`,
                     date: dKey,
-                    score: Number.isFinite(score) ? score : minScore,
+                    score,
                     type: 'simulado'
                 });
             }

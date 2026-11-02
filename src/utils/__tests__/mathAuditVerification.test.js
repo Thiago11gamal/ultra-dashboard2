@@ -1,3 +1,8 @@
+import { deriveAdaptiveRiskThresholds } from '../coachAdaptive.js';
+import { calculateTimeWeightedEMA } from '../../engine/stats.js';
+import { projectScore } from '../../engine/projection.js';
+import { runStateSpaceModel } from '../../engine/probabilistic/stateSpace.js';
+import { computeStudyEfficiency, computeCategoryCorrelation } from '../../engine/diagnostics.js';
 import { describe, it, expect } from 'vitest';
 import {
   computeBayesianProficiency,
@@ -220,5 +225,84 @@ describe('Auditoria Matemática - Fixes Cirúrgicos Verificados', () => {
     const cons = computeConsistencyIndex(history, 1000, 200);
     expect(cons.index).toBeGreaterThan(0);
     expect(cons.index).toBeLessThanOrEqual(1.0);
+  });
+  it('13. deriveAdaptiveThresholds em zero variância com notas baixas mantém safe >= 75', () => {
+    // Aluno tirou quatro notas 20 em simulados
+    const scores = [20, 20, 20, 20];
+    const params = deriveAdaptiveRiskThresholds(scores, 5, {}, 100, [], 0);
+    expect(params.safe).toBeGreaterThanOrEqual(75);
+    expect(params.danger).toBeLessThan(params.safe);
+  });
+
+  it('14. calculateTimeWeightedEMA processa objetos com score/date e preserva escalas com minScore', () => {
+    const history = [
+      { score: 500, date: '2026-01-01' },
+      { score: 600, date: '2026-01-15' },
+      { score: 700, date: '2026-02-01' }
+    ];
+    // Escala ENEM 200..1000
+    const ema = calculateTimeWeightedEMA(history, 0.05, 1000, 200);
+    expect(ema).toBeGreaterThan(500);
+    expect(ema).toBeLessThanOrEqual(700);
+  });
+
+  it('15. projectScore rebalanceia baseline global com proporcionalidade exata ao minScore', () => {
+    const history = [
+      { score: 600, date: '2026-01-01' },
+      { score: 650, date: '2026-01-15' }
+    ];
+    // ENEM 200..1000, globalBaselinePct = 50% (que equivale a 600 pontos)
+    const res = projectScore(history, 30, 200, 1000, { globalBaselinePct: 50 });
+    expect(res.projected).toBeGreaterThanOrEqual(200);
+    expect(res.projected).toBeLessThanOrEqual(1000);
+  });
+
+  it('16. runStateSpaceModel aceita objetos de simulados e respeita fallback com minScore', () => {
+    const history = [
+      { score: 600, date: '2026-01-01' },
+      { score: 700, date: '2026-01-15' }
+    ];
+    const res = runStateSpaceModel(history, { maxScore: 1000, minScore: 200 });
+    expect(res.ability).toBeGreaterThan(200);
+    expect(res.ability).toBeLessThan(1000);
+
+    const emptyRes = runStateSpaceModel([], { maxScore: 1000, minScore: 200 });
+    expect(emptyRes.ability).toBe(600); // (200 + 1000) / 2
+  });
+
+  it('17. runMonteCarloAnalysis extrai scores de objetos formatados com getSafeScore (scorePct)', () => {
+    const res = runMonteCarloAnalysis({
+      values: [
+        { scorePct: 70, date: '2026-01-01' },
+        { scorePct: 75, date: '2026-01-08' },
+        { scorePct: 80, date: '2026-01-15' }
+      ],
+      targetScore: 75,
+      simulations: 1000,
+      minScore: 0,
+      maxScore: 100
+    });
+    expect(res.mean).toBeGreaterThan(65);
+    expect(res.mean).toBeLessThanOrEqual(100);
+    expect(res.probability).toBeGreaterThan(0);
+  });
+
+  it('18. computeStudyEfficiency e computeCategoryCorrelation utilizam minScore e normalizam corretamente', () => {
+    const simulados = [
+      { score: 600, total: 50, correct: 30, categoryId: 'cat1' }
+    ];
+    const sessions = [
+      { duration: 60, categoryId: 'cat1' }
+    ];
+    const eff = computeStudyEfficiency(sessions, simulados, 1000, 'cat1', null, 200);
+    expect(eff.accuracyRate).toBeGreaterThan(0);
+    expect(eff.accuracyRate).toBeLessThanOrEqual(1);
+
+    const catHistories = {
+      c1: [{ score: 600, date: '2026-01-01' }, { score: 700, date: '2026-02-01' }, { score: 650, date: '2026-03-01' }, { score: 800, date: '2026-04-01' }],
+      c2: [{ score: 550, date: '2026-01-01' }, { score: 680, date: '2026-02-01' }, { score: 620, date: '2026-03-01' }, { score: 790, date: '2026-04-01' }]
+    };
+    const corrs = computeCategoryCorrelation(catHistories, 1000, 200);
+    expect(Array.isArray(corrs)).toBe(true);
   });
 });

@@ -820,6 +820,8 @@ export function computeBayesianLevel(
 export function computeCategoryStats(history, weight, _daysValue = 60, maxScore = 100, minScore = 0) {
     const safeHistory = toHistoryArray(history);
     if (!safeHistory.length) return null;
+    const safeMax = safeMaxScoreValue(maxScore, 100);
+    const safeMin = safeMinScoreValue(minScore, 0);
 
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
     const safeMinScore = safeMinScoreValue(minScore, 0);
@@ -1058,18 +1060,17 @@ export const calculateEMA = (scores, alpha = 0.25, maxScore = 100, minScore = 0)
     return Number.isFinite(ema) ? ema : 0;
 };
 
-export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
+export const calculateTimeWeightedEMA = (historicData, lambda = 0.05, maxScore = 100, minScore = 0) => {
     const safeHistory = toHistoryArray(historicData);
     if (!safeHistory.length) return null;
+    const safeMax = safeMaxScoreValue(maxScore, 100);
+    const safeMin = safeMinScoreValue(minScore, 0);
 
-    const validData = safeHistory.filter(d =>
-        Number.isFinite(d?.score) && (d?.timestamp != null || d?.date != null)
-    );
-
-    if (!validData.length) return null;
+    const safeMax = safeMaxScoreValue(maxScore, 100);
+    const safeMin = safeMinScoreValue(minScore, 0);
 
     const getTime = (d) => {
-        if (d?.timestamp != null && Number.isFinite(d.timestamp)) return d.timestamp;
+        if (d?.timestamp != null && Number.isFinite(Number(d.timestamp))) return Number(d.timestamp);
 
         if (d?.date != null) {
             const ms = new Date(d.date).getTime();
@@ -1079,14 +1080,24 @@ export const calculateTimeWeightedEMA = (historicData, lambda = 0.05) => {
         return NaN;
     };
 
-    validData.sort((a, b) => getTime(a) - getTime(b));
+    const validData = safeHistory
+        .map(d => {
+            const score = typeof d === 'number' ? d : getSafeScore(d, safeMax, safeMin);
+            const time = getTime(d);
+            return { score, time };
+        })
+        .filter(d => Number.isFinite(d.score) && Number.isFinite(d.time));
+
+    if (!validData.length) return null;
+
+    validData.sort((a, b) => a.time - b.time);
 
     let ema = validData[0].score;
-    let lastTime = getTime(validData[0]);
+    let lastTime = validData[0].time;
 
     for (let i = 1; i < validData.length; i++) {
         const currentItem = validData[i];
-        const currentTime = getTime(currentItem);
+        const currentTime = currentItem.time;
 
         if (!Number.isFinite(currentTime) || !Number.isFinite(lastTime)) continue;
 

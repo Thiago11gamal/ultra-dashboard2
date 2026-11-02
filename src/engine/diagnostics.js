@@ -264,8 +264,8 @@ export function computeHurstExponent(scores) {
   };
 }
 
-export function generateMathDiagnostic(history, maxScore = 100) {
-  const scores = history.map(h => getSafeScore(h, maxScore));
+export function generateMathDiagnostic(history, maxScore = 100, minScore = 0) {
+  const scores = (history || []).map(h => getSafeScore(h, maxScore, minScore));
   const hurst = computeHurstExponent(scores);
 
   const optimalLambda = hurst.H < 0.45 ? 0.12 : hurst.H > 0.65 ? 0.04 : 0.08;
@@ -496,7 +496,7 @@ export function computeConsistencyIndex(history, maxScore = 100, minScore = 0) {
   return { index: Number(index.toFixed(3)), label };
 }
 
-export function computeStudyEfficiency(studySessions, simulados, maxScore = 100, categoryId = null, normalizeSubject = null) {
+export function computeStudyEfficiency(studySessions, simulados, maxScore = 100, categoryId = null, normalizeSubject = null, minScore = 0) {
   const _noData = { efficiency: 0, questionsPerHour: 0, accuracyRate: 0, totalMinutes: 0, totalQuestions: 0, label: 'Sem dados' };
 
   const sessions = (studySessions || []).filter((s) => !categoryId || s?.categoryId === categoryId);
@@ -516,9 +516,10 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
     if (total === 0) return acc;
     if (s?.correct != null) {
       const correctNum = Number(s.correct);
-      if (Number.isFinite(correctNum)) return acc + correctNum;
+      if (Number.isFinite(correctNum)) return acc + Math.min(total, Math.max(0, correctNum));
     }
-    const score = Math.min(1, Math.max(0, (Number(s?.score) || 0) / maxScore));
+    const safeVal = getSafeScore(s, maxScore, minScore);
+    const score = Math.min(1, Math.max(0, (safeVal - minScore) / Math.max(1e-6, maxScore - minScore)));
     return acc + score * total;
   }, 0);
 
@@ -604,7 +605,7 @@ export function computeAR1Coefficient(residuals) {
   };
 }
 
-export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
+export function computeCategoryCorrelation(categoryHistories, maxScore = 100, minScore = 0) {
   if (!categoryHistories || typeof categoryHistories !== 'object') return [];
 
   const ids = Object.keys(categoryHistories);
@@ -621,7 +622,7 @@ export function computeCategoryCorrelation(categoryHistories, maxScore = 100) {
       if (!fullKey) continue;
       const key = fullKey.slice(0, 7);
 
-      const s = getSafeScore(h, maxScore) / maxScore;
+      const s = (getSafeScore(h, maxScore, minScore) - minScore) / Math.max(1e-6, maxScore - minScore);
 
       if (Number.isFinite(s)) {
         if (!byMonth[key]) byMonth[key] = [];
