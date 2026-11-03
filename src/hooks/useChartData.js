@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
-import { computeCategoryStats, computeBayesianLevel, BAYESIAN_DECAY_FACTOR } from '../engine/stats';
+import { computeCategoryStats, computeBayesianLevel } from '../engine/stats';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 
 const EMPTY_OBJECT = Object.freeze({});
@@ -103,14 +103,17 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
     // ── PASSO 2: varrer sortedDates com índice incremental ─────────
     // Cada entrada do histórico agregado é consumida UMA ÚNICA VEZ.
     const dateToStats = {};
-    let accumulated = [];
+    const accumulated = [];
     let histIdx = 0;
-    let bayAlpha = 1;
-    let bayBeta = 1;
-    let maxAlphaEver = 1;
-    const DECAY_FACTOR = BAYESIAN_DECAY_FACTOR || 0.985;
     let cachedStats = null;
     let lastAccumulatedLen = 0;
+    const aggTotals = {
+        realTotal: 0,
+        realCorrect: 0,
+        compTotal: 0,
+        compCorrect: 0,
+        hasSynthetic: false
+    };
 
     for (let i = 0; i < sortedDates.length; i++) {
         const date = sortedDates[i];
@@ -122,51 +125,11 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
             histIdx++;
             if (!entry) continue;
 
-            const entryDate = normalizeDate(entry.date);
-            const prevDate = histIdx > 1 ? normalizeDate(sortedKeys[histIdx - 2]) : entryDate;
-            const gapDays = Math.max(
-                1,
-                Math.floor(((entryDate?.getTime() ?? 0) - (prevDate?.getTime() ?? 0)) / 86400000)
-            );
-
-            // Decaimento bayesiano entre eventos
-            if (histIdx > 1) {
-                const entryDecay = Math.pow(DECAY_FACTOR, gapDays);
-                // ✅ FIX L05: bayAlpha e bayBeta nunca podem ser negativos.
-                // Adicionadas verificações de sanidade após cada operação.
-                if (entryDecay < 1.0) {
-                    const currentN = bayAlpha + bayBeta;
-                    if (currentN > 0) {
-                        const currentP = Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN));
-                        const newN = Math.max(2, currentN * entryDecay);
-                        bayAlpha = Math.max(0.000001, newN * currentP);
-                        bayBeta = Math.max(0.000001, newN * (1 - currentP));
-                    }
-                }
-                
-                const retentionFloor = Math.max(3, maxAlphaEver * 0.3);
-                if (bayAlpha < retentionFloor) {
-                    const currentN = bayAlpha + bayBeta;
-                    const currentP = currentN > 0 && bayAlpha > 0
-                        ? Math.max(0.000001, Math.min(0.999999, bayAlpha / currentN))
-                        : 0.5;
-                    bayAlpha = retentionFloor;
-                    bayBeta = Math.max(0.000001, retentionFloor * ((1 - currentP) / currentP));
-                }
-                
-                // ✅ FIX: Garantia final de sanidade
-                if (!Number.isFinite(bayAlpha) || bayAlpha < 0) bayAlpha = 1;
-                if (!Number.isFinite(bayBeta) || bayBeta < 0) bayBeta = 1;
-            }
-
-            const total = entry.compTotal > 0 ? entry.compTotal : 0;
-            const correct = entry.compCorrect > 0 ? entry.compCorrect : 0;
-
-            if (total >= 1) {
-                bayAlpha += Number(correct);
-                bayBeta += Number(total) - Number(correct);
-                if (bayAlpha > maxAlphaEver) maxAlphaEver = bayAlpha;
-            }
+            aggTotals.realTotal += (entry.realTotal ?? 0);
+            aggTotals.realCorrect += (entry.realCorrect ?? 0);
+            aggTotals.compTotal += (entry.compTotal ?? 0);
+            aggTotals.compCorrect += (entry.compCorrect ?? 0);
+            if (entry.hasSynthetic) aggTotals.hasSynthetic = true;
 
             accumulated.push(entry);
         }
@@ -183,14 +146,6 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
                 lastEventDate: lastEntry ? lastEntry.date : null,
                 minScore: safeMin,
             });
-            const aggTotals = accumulated.reduce((acc, e) => {
-                acc.realTotal += (e.realTotal ?? 0);
-                acc.realCorrect += (e.realCorrect ?? 0);
-                acc.compTotal += (e.compTotal ?? 0);
-                acc.compCorrect += (e.compCorrect ?? 0);
-                if (e.hasSynthetic) acc.hasSynthetic = true;
-                return acc;
-            }, { realTotal: 0, realCorrect: 0, compTotal: 0, compCorrect: 0, hasSynthetic: false });
 
             dateToStats[date] = {
                 stats: cachedStats ? {
@@ -224,19 +179,34 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     const categoriesVersion = useMemo(() => categories.map((cat) => {
         const history = getHistoryArray(cat);
         const tasks = Array.isArray(cat?.tasks) ? cat.tasks : EMPTY_ARRAY;
-        // M-02 FIX: Usar hash numérico em vez de string gigante
         let hash = 0;
+        const mix = (val) => {
+            hash = ((hash << 5) - hash + (val | 0)) | 0;
+        };
         history.forEach((h) => {
-            hash = ((hash << 5) - hash + Number(h?.score ?? 0)) | 0;
-            hash = ((hash << 5) - hash + Number(h?.total ?? 0)) | 0;
+            mix(Math.round(Number(h?.score ?? h?.scorePoints ?? 0) * 100));
+            mix(Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions ?? 0));
+            mix(Number(h?.correct ?? h?.acertos ?? h?.correctCount ?? 0));
+            mix(Number(h?.timeSpent ?? 0));
+            const dStr = String(h?.date || h?.createdAt || '');
+            for (let i = 0; i < dStr.length; i++) {
+                mix(dStr.charCodeAt(i));
+            }
         });
-        return `${cat?.id || ''}|${tasks.length}|${history.length}|${hash}`;
+        return `${cat?.id || ''}|${cat?.maxScore ?? ''}|${cat?.minScore ?? ''}|${cat?.minCutoff ?? ''}|${tasks.length}|${history.length}|${hash}`;
     }).join('||'), [categories]);
 
     const activeCategories = useMemo(() => {
-        let valid = categories.filter(c => {
-            const hist = c?.simuladoStats?.history;
-            return Object.values(hist || {}).some(entry => {
+        const getVol = (h) => {
+            const t = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
+            if (t > 0) return t;
+            if (h?.score != null) return getSyntheticTotal(safeMax);
+            return 0;
+        };
+        const volMap = new Map();
+        const valid = categories.filter(c => {
+            const history = getHistoryArray(c);
+            const hasValidEntry = history.some(entry => {
                 if (!entry || typeof entry !== 'object') return false;
                 const hasScore = Number.isFinite(Number(entry.score ?? entry.scorePoints));
                 const entryTot = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
@@ -244,20 +214,12 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 const hasCorrect = Number.isFinite(Number(entry.correct ?? entry.acertos ?? entry.correctCount));
                 return hasScore || hasTotal || hasCorrect;
             });
+            if (hasValidEntry) {
+                volMap.set(c, history.reduce((sum, h) => sum + getVol(h), 0));
+            }
+            return hasValidEntry;
         });
-        const getVol = (h) => {
-            const t = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
-            if (t > 0) return t;
-            if (h?.score != null) return getSyntheticTotal(safeMax);
-            return 0;
-        };
-        valid.sort((a, b) => {
-            const historyA = getHistoryArray(a);
-            const historyB = getHistoryArray(b);
-            const volA = historyA.reduce((sum, h) => sum + getVol(h), 0);
-            const volB = historyB.reduce((sum, h) => sum + getVol(h), 0);
-            return volB - volA;
-        });
+        valid.sort((a, b) => (volMap.get(b) || 0) - (volMap.get(a) || 0));
         return valid;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categories, categoriesVersion, safeMax]);
@@ -265,8 +227,11 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     const timeline = useMemo(() => {
         if (!activeCategories.length) return [];
         const allDatesSet = new Set();
+        const historyByCat = new Map();
         activeCategories.forEach(cat => {
-            getHistoryArray(cat).forEach(h => {
+            const hist = getHistoryArray(cat);
+            historyByCat.set(cat, hist);
+            hist.forEach(h => {
                 const dateKey = getDateKey(getHistoryDate(h));
                 if (dateKey) allDatesSet.add(dateKey);
             });
@@ -280,7 +245,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         });
 
         activeCategories.forEach(cat => {
-            const history = [...getHistoryArray(cat)].sort((a, b) => {
+            const rawHist = historyByCat.get(cat) || EMPTY_ARRAY;
+            const history = [...rawHist].sort((a, b) => {
                 const dA = normalizeDate(getHistoryDate(a));
                 const dB = normalizeDate(getHistoryDate(b));
                 return (dA?.getTime() || 0) - (dB?.getTime() || 0);
@@ -372,8 +338,11 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         if (!activeCategories.length) return { dates: [], rows: [] };
         const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         const allDatesSet = new Set();
+        const historyByCat = new Map();
         activeCategories.forEach(cat => {
-            getHistoryArray(cat).forEach(h => {
+            const hist = getHistoryArray(cat);
+            historyByCat.set(cat, hist);
+            hist.forEach(h => {
                 const dateKey = getDateKey(getHistoryDate(h));
                 if (dateKey) allDatesSet.add(dateKey);
             });
@@ -404,7 +373,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 return Math.max(0, Math.min(1, (n - catMin) / catRange));
             };
             const dayMap = {};
-            getHistoryArray(cat).forEach(h => {
+            const hist = historyByCat.get(cat) || EMPTY_ARRAY;
+            hist.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
                 if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
@@ -505,7 +475,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         return {
             totalQuestions: Number.isFinite(totalQuestions) ? totalQuestions : 0,
             totalCorrect: Number.isFinite(totalCorrect) ? totalCorrect : 0,
-            syntheticQuestions: Number.isFinite(syntheticQuestions) ? syntheticQuestions : 0,
+            syntheticQuestions: Number.isFinite(syntheticQuestions) ? totalQuestions === 0 ? syntheticQuestions : syntheticQuestions : 0,
             syntheticCorrect: Number.isFinite(syntheticCorrect) ? syntheticCorrect : 0,
             globalAccuracy: Number.isFinite(globalAccuracy) ? globalAccuracy : 0
         };
@@ -513,4 +483,3 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
 
     return { activeCategories, timeline, heatmapData, globalMetrics };
 }
-

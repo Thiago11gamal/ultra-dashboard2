@@ -2,7 +2,7 @@ import React, { useId, useState, useRef, useMemo, useEffect, useCallback } from 
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
-   LabelList, Brush, ReferenceArea
+    LabelList, Brush, ReferenceArea
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
@@ -16,18 +16,13 @@ const CustomActiveDot = (props) => {
         <g onClick={onClick} style={{ cursor: onClick ? 'pointer' : 'default', pointerEvents: 'all' }}>
             {!isDimmed && (
                 <>
-                    <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
-                        <animate attributeName="r" from="6" to="16" dur="1s" repeatCount="indefinite" />
-                        <animate attributeName="opacity" from="0.6" to="0" dur="1s" repeatCount="indefinite" />
-                    </circle>
+                    <circle cx={cx} cy={cy} r={11} fill={fill} opacity={0.22} />
                     <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
                 </>
             )}
-            {/* Dimmed dot - no glow, just a static smaller dot */}
             {isDimmed && (
                 <>
                     <circle cx={cx} cy={cy} r={4} fill={fill} opacity={0.5} stroke={stroke || "#ffffff"} strokeWidth={1} strokeOpacity={0.5} />
-                    {/* Invisible larger target for easy clicking when dimmed */}
                     <circle cx={cx} cy={cy} r={15} fill="rgba(255,255,255,0.01)" stroke="transparent" />
                 </>
             )}
@@ -41,7 +36,7 @@ const CustomActiveDot = (props) => {
  * A premium analytical chart showing performance evolution with Bayesian confidence bands,
  * focus highlighting, and adaptive label anti-collision.
  */
-export function EvolutionLineChart({
+export const EvolutionLineChart = React.memo(function EvolutionLineChart({
     filteredChartData = [],
     activeCategories = [],
     engine,
@@ -83,7 +78,7 @@ export function EvolutionLineChart({
     const safeActiveCategories = useMemo(() => Array.isArray(activeCategories) ? activeCategories : [], [activeCategories]);
     const safeChartData = useMemo(() => Array.isArray(filteredChartData) ? filteredChartData : [], [filteredChartData]);
 
-    const handleLegendClick = (e) => {
+    const handleLegendClick = useCallback((e) => {
         if (!e || typeof e !== 'object') return;
 
         if (e.domEvent && typeof e.domEvent.stopPropagation === 'function') {
@@ -92,7 +87,6 @@ export function EvolutionLineChart({
             e.stopPropagation();
         }
 
-        // Find the category ID from the clicked legend item (it usually passes payload)
         let catId = e.payload?.id || e.id;
         if (!catId && typeof e.dataKey === 'string') {
             catId = e.dataKey.replace(/^(bay_ci_low|bay_ci_high|raw|bay|stats|trend|band)_/, '');
@@ -104,13 +98,12 @@ export function EvolutionLineChart({
         if (catId && typeof catId === 'string' && catId.trim() !== '') {
             setHighlightedDataKey(prev => prev === catId ? null : catId);
         }
-    };
+    }, []);
 
     // Refined chart data with defensive sorting and date normalization
-    const enhancedChartData = React.useMemo(() => {
+    const enhancedChartData = useMemo(() => {
         if (!safeChartData || !safeChartData.length) return [];
         
-        // BUG-Z1 FIX: Defensive sort to prevent zig-zag lines if data is unordered
         const sortedData = [...safeChartData].sort((a, b) => {
             const dateA = a.date ? (normalizeDate(a.date)?.getTime() ?? 0) : 0;
             const dateB = b.date ? (normalizeDate(b.date)?.getTime() ?? 0) : 0;
@@ -128,14 +121,13 @@ export function EvolutionLineChart({
                     copy[`band_${cat.id}`] = [Math.min(l, h), Math.max(l, h)];
                 }
             });
-            // Fallback defensivo para o eixo X (BUG-T1 Fix)
             copy.displayDate = copy.displayDate || copy.date;
             return copy;
         });
     }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId]);
 
     // Gather final points for label positioning (busca regressiva para pegar o último ponto com dado de cada matéria)
-    const { finalPoints, lastValidIndexByCat } = React.useMemo(() => {
+    const { finalPoints, lastValidIndexByCat } = useMemo(() => {
         if (!enhancedChartData.length) return { finalPoints: [], lastValidIndexByCat: {} };
         const pts = [];
         const idxMap = {};
@@ -153,95 +145,111 @@ export function EvolutionLineChart({
                 }
             }
             if (lastVal != null) {
-                pts.push({ id: cat.id, name: cat.name, value: lastVal, color: cat.color });
+                pts.push({ id: cat.id, name: cat.name, value: lastVal, color: cat.color, lastIdx });
                 idxMap[cat.id] = lastIdx;
             }
         });
-        // Sort by value descending (highest values first)
         return { finalPoints: pts.sort((a, b) => b.value - a.value), lastValidIndexByCat: idxMap };
     }, [enhancedChartData, safeActiveCategories, showOnlyFocus, focusSubjectId, engine]);
 
-    // Adaptive label collision logic (Hardened for variable score scales)
-    const yAdjustedMap = React.useMemo(() => {
+    // Adaptive label collision logic — agrupado por proximidade no eixo X (lastIdx)
+    const yAdjustedMap = useMemo(() => {
         if (!finalPoints.length) return {};
 
         const localMin = safeMinScore;
         const localMax = safeMaxScore;
         const range = safeRange;
-        const labels = finalPoints.map(p => ({ ...p, yPos: Number(p.value) || 0 }));
-        
         const topLimit = localMax - (range * 0.01);
         const bottomLimit = localMin + (range * 0.03);
         const safeSpace = Math.max(0.1, topLimit - bottomLimit);
-        
-        const MIN_PCT_DISTANCE = range * 0.10; // 10% distance threshold (was 7.5%)
-        const requiredSpace = (labels.length - 1) * MIN_PCT_DISTANCE;
-        
-        // Dynamic compression if too many labels for the space
-        // BUG: effectiveDistance podia ser 0 quando safeSpace=0, colando labels.
-        const effectiveDistance = Math.max(
-            0.25,
-            requiredSpace > safeSpace 
-                ? safeSpace / Math.max(1, labels.length - 1) 
-                : MIN_PCT_DISTANCE
-        );
+        const MIN_PCT_DISTANCE = range * 0.10;
 
-        // Iterative relaxation algorithm to spread out colliding labels
-        const ITERATIONS = 50;
-        for (let iter = 0; iter < ITERATIONS; iter++) {
-            let overlapFound = false;
-            for (let i = 0; i < labels.length - 1; i++) {
-                const l1 = labels[i];
-                const l2 = labels[i + 1];
-                const diff = l1.yPos - l2.yPos; // Expect l1 > l2 since they are sorted descending
-                
-                if (diff < effectiveDistance) {
-                    overlapFound = true;
-                    const adjustment = (effectiveDistance - diff) / 2;
-                    l1.yPos += adjustment;
-                    l2.yPos -= adjustment;
-                }
-            }
-            
-            // Apply boundary constraints gently (shift all to maintain separation)
-            if (labels.length > 0 && labels[0].yPos > topLimit) {
-                const diff = labels[0].yPos - topLimit;
-                labels.forEach(l => l.yPos -= diff);
-            }
-            
-            if (labels.length > 0 && labels[labels.length - 1].yPos < bottomLimit) {
-                const diff = bottomLimit - labels[labels.length - 1].yPos;
-                labels.forEach(l => l.yPos += diff);
-            }
-            
-            if (!overlapFound) break;
-        }
-
-        // Force strict limits one last time for safety
-        for (let i = 0; i < labels.length; i++) {
-            if (labels[i].yPos > topLimit) labels[i].yPos = topLimit;
-            if (labels[i].yPos < bottomLimit) labels[i].yPos = bottomLimit;
-        }
-
-        // BUG: o clamp final podia reintroduzir overlap.
-        for (let i = 1; i < labels.length; i++) {
-            const minAllowed = labels[i - 1].yPos - effectiveDistance;
-            if (labels[i].yPos > minAllowed) {
-                labels[i].yPos = Math.max(bottomLimit, minAllowed);
+        // Agrupar pontos que terminam na mesma coordenada X (ou índices adjacentes quando há muitos pontos)
+        const totalDates = enhancedChartData.length;
+        const xProximityThreshold = totalDates > 12 ? Math.max(1, Math.floor(totalDates * 0.08)) : 0;
+        const sortedByIdx = [...finalPoints].sort((a, b) => a.lastIdx - b.lastIdx);
+        const clusters = [];
+        for (const pt of sortedByIdx) {
+            const lastCluster = clusters[clusters.length - 1];
+            if (!lastCluster || (pt.lastIdx - lastCluster[lastCluster.length - 1].lastIdx) > xProximityThreshold) {
+                clusters.push([pt]);
+            } else {
+                lastCluster.push(pt);
             }
         }
 
         const map = {};
-        labels.forEach(p => { map[p.id] = p.yPos; });
-        return map;
-    }, [finalPoints, safeMaxScore, safeMinScore, safeRange]);
+        for (const cluster of clusters) {
+            if (cluster.length === 1) {
+                map[cluster[0].id] = Math.max(bottomLimit, Math.min(topLimit, Number(cluster[0].value) || 0));
+                continue;
+            }
+            const labels = cluster
+                .map(p => ({ ...p, yPos: Number(p.value) || 0 }))
+                .sort((a, b) => b.yPos - a.yPos);
 
-    const renderCustomLabel = (props, catId, displayColor, isFocused, hasFocus) => {
+            const requiredSpace = (labels.length - 1) * MIN_PCT_DISTANCE;
+            const effectiveDistance = Math.max(
+                0.25,
+                requiredSpace > safeSpace
+                    ? safeSpace / Math.max(1, labels.length - 1)
+                    : MIN_PCT_DISTANCE
+            );
+
+            const ITERATIONS = 50;
+            for (let iter = 0; iter < ITERATIONS; iter++) {
+                let overlapFound = false;
+                for (let i = 0; i < labels.length - 1; i++) {
+                    const l1 = labels[i];
+                    const l2 = labels[i + 1];
+                    const diff = l1.yPos - l2.yPos;
+                    if (diff < effectiveDistance) {
+                        overlapFound = true;
+                        const adjustment = (effectiveDistance - diff) / 2;
+                        l1.yPos += adjustment;
+                        l2.yPos -= adjustment;
+                    }
+                }
+                if (labels.length > 0 && labels[0].yPos > topLimit) {
+                    const diff = labels[0].yPos - topLimit;
+                    labels.forEach(l => { l.yPos -= diff; });
+                }
+                if (labels.length > 0 && labels[labels.length - 1].yPos < bottomLimit) {
+                    const diff = bottomLimit - labels[labels.length - 1].yPos;
+                    labels.forEach(l => { l.yPos += diff; });
+                }
+                if (!overlapFound) break;
+            }
+
+            for (let i = 0; i < labels.length; i++) {
+                if (labels[i].yPos > topLimit) labels[i].yPos = topLimit;
+                if (labels[i].yPos < bottomLimit) labels[i].yPos = bottomLimit;
+            }
+            for (let i = 1; i < labels.length; i++) {
+                const minAllowed = labels[i - 1].yPos - effectiveDistance;
+                if (labels[i].yPos > minAllowed) {
+                    labels[i].yPos = Math.max(bottomLimit, minAllowed);
+                }
+            }
+            labels.forEach(p => { map[p.id] = p.yPos; });
+        }
+
+        return map;
+    }, [finalPoints, enhancedChartData.length, safeMaxScore, safeMinScore, safeRange]);
+
+    const visibleCategories = useMemo(
+        () => safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId),
+        [safeActiveCategories, showOnlyFocus, focusSubjectId]
+    );
+
+    const rightMargin = showOnlyFocus || visibleCategories.length <= 1 ? 68 : 88;
+
+    const renderCustomLabel = useCallback((props, catId, displayColor, isFocused, hasFocus) => {
         const { x, y, index, value, viewBox } = props;
 
         if (hasFocus && !isFocused) return null;
 
-        if (index === lastValidIndexByCat[catId] && hasValidNum(value) && Number.isFinite(Number(x)) && Number.isFinite(Number(y))) {   // ✅ LOTE-03
+        if (index === lastValidIndexByCat[catId] && hasValidNum(value) && Number.isFinite(Number(x)) && Number.isFinite(Number(y))) {
             let offsetPx = 0;
             const adjustedY = yAdjustedMap[catId];
 
@@ -254,7 +262,7 @@ export function EvolutionLineChart({
 
             const formatted = `${formatValue(value)}${unit}`;
             const boxWidth = Math.max(52, formatted.length * 7 + 20);
-            const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 130;
+            const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + (rightMargin - 4);
             const labelX = Math.max(0, Math.min(x + 8, maxX - boxWidth));
             const maxY = (viewBox?.y ?? 20) + (viewBox?.height ?? 320) - 12;
             const safeCenterY = Math.max(12, Math.min(maxY, y + offsetPx));
@@ -289,13 +297,7 @@ export function EvolutionLineChart({
             );
         }
         return null;
-    };
-
-
-
-    const visibleCategories = safeActiveCategories.filter(
-      cat => !showOnlyFocus || cat.id === focusSubjectId
-    );
+    }, [lastValidIndexByCat, yAdjustedMap, minScore, maxScore, unit, rightMargin]);
 
     const effectiveHighlightedKey = useMemo(() => {
         if (!highlightedDataKey) return null;
@@ -335,7 +337,7 @@ export function EvolutionLineChart({
                 <ComposedChart 
                     data={enhancedChartData} 
                     syncId="evolutionSync"
-                    margin={{ top: 20, right: 140, left: 4, bottom: 20 }} 
+                    margin={{ top: 20, right: rightMargin, left: 4, bottom: 20 }} 
                     style={{ outline: 'none', cursor: effectiveHighlightedKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
                     onClick={() => {
@@ -345,7 +347,7 @@ export function EvolutionLineChart({
                     }}
                 >
                     <defs>
-                        {safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).map((cat) => {
+                        {visibleCategories.map((cat) => {
                             const displayColor = cat.color || '#3b82f6';
                             return (
                             <React.Fragment key={`defs_${cat.id}`}>
@@ -364,7 +366,7 @@ export function EvolutionLineChart({
                             {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
                         </filter>
                     </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.06)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.06)" vertical={false} />
 
                     <XAxis
                         dataKey="date"
@@ -435,10 +437,9 @@ export function EvolutionLineChart({
                         formatter={(value) => value}
                     />
 
-                    {safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).flatMap((cat) => {
+                    {visibleCategories.flatMap((cat) => {
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
                         const lineType = engine?.style || 'linear';
-                        // Determine focus state based on category ID rather than dataKey to survive engine changes
                         const isLegendHighlighted = effectiveHighlightedKey === cat.id;
                         const isAnyHighlighted = !!effectiveHighlightedKey;
 
@@ -447,14 +448,13 @@ export function EvolutionLineChart({
                         
                         let displayColor = cat.color || '#3b82f6';
                         if (isLegendHighlighted) {
-                            displayColor = '#fbbf24'; // Vivid amber/gold highlight
+                            displayColor = '#fbbf24';
                         }
 
                         const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
                         const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.5) : 2;
 
                         return [
-                            // Bayesian Confidence Interval Band
                             (engine?.id === 'bayesian' && (!hasFocus || isFocused)) ? (
                                 <Area connectNulls key={`bay_ci_${cat.id}`} type={lineType}
                                     dataKey={`band_${cat.id}`}
@@ -463,12 +463,10 @@ export function EvolutionLineChart({
                                     isAnimationActive={false}
                                 />
                             ) : null,
-                            // Background Gradient Area for Focused Line
                             isFocused ? (
                                 <Area connectNulls key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
-                                    fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" />
+                                    fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" isAnimationActive={false} />
                             ) : null,
-                            // Bottom layer: Glow effect (thicker, transparent line)
                             <Line connectNulls 
                                 key={`glow_${cat.id}`} 
                                 type={lineType} 
@@ -484,7 +482,6 @@ export function EvolutionLineChart({
                                 legendType="none"
                                 isAnimationActive={false}
                             />,
-                            // Top layer: The Performance Evolution Line
                             <Line connectNulls 
                                 key={cat.id} 
                                 id={cat.id}
@@ -535,5 +532,4 @@ export function EvolutionLineChart({
             </ChartFrame>
         </div>
     );
-}
-
+});

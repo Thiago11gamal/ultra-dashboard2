@@ -42,69 +42,68 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
                     const isDelta = dataKey.startsWith('delta_');
                     const baseKey = isDelta ? dataKey.replace('delta_', '') : dataKey;
 
-                        if (hiddenKeys[baseKey]) return null;
+                    if (hiddenKeys[baseKey]) return null;
 
-                        const val = entry.value;
-                        if (val == null) return null;
+                    const val = entry.value;
+                    if (val == null) return null;
 
-                        const meta = entry.payload[`meta_${baseKey}`];
+                    const meta = entry.payload[`meta_${baseKey}`];
 
-                        if (isDelta) {
-                            const isStable = Math.abs(val) <= stableThreshold;
-                            const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
-                            const prefix = val > 0 ? '+' : '';
-                            const currentPct = hasValidNumber(meta?.currPct) ? Number(meta.currPct) : entry.payload?.[baseKey];
+                    if (isDelta) {
+                        const isStable = Math.abs(val) <= stableThreshold;
+                        const color = entry.payload[`deltaColor_${baseKey}`] || (isStable ? '#eab308' : val > 0 ? '#10b981' : val < 0 ? '#ef4444' : '#94a3b8');
+                        const prefix = val > 0 ? '+' : '';
+                        const currentPct = hasValidNumber(meta?.currPct) ? Number(meta.currPct) : entry.payload?.[baseKey];
 
-                            return (
-                                <div key={idx} className="flex flex-col gap-0.5">
-                                    <div className="flex justify-between items-center text-[10px]">
-                                        <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: entry.color }}></span>
-                                            {entry.name.replace(' (Var.)', '')}
-                                        </span>
-                                        <span style={{ color }} className="font-mono font-black text-xs">
-                                            {prefix}{formatValue(val)}{unit}
+                        return (
+                            <div key={idx} className="flex flex-col gap-0.5">
+                                <div className="flex justify-between items-center text-[10px]">
+                                    <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 rounded-sm" style={{ backgroundColor: entry.color }}></span>
+                                        {entry.name.replace(' (Var.)', '')}
+                                    </span>
+                                    <span style={{ color }} className="font-mono font-black text-xs">
+                                        {prefix}{formatValue(val)}{unit}
+                                    </span>
+                                </div>
+                                {meta && hasValidNumber(meta.prevPct) && hasValidNumber(currentPct) && (
+                                    <div className="flex justify-between text-[8px] text-slate-500 pl-3">
+                                        <span>De {formatValue(meta.prevPct)}{unit}</span>
+                                        <span>
+                                            Para {formatValue(currentPct)}{unit} <strong style={{ color }}>(Δ {prefix}{formatValue(val)}{unit})</strong>
                                         </span>
                                     </div>
-                                    {meta && hasValidNumber(meta.prevPct) && hasValidNumber(currentPct) && (
-                                        <div className="flex justify-between text-[8px] text-slate-500 pl-3">
-                                            <span>De {formatValue(meta.prevPct)}{unit}</span>
-                                            <span>
-                                                Para {formatValue(currentPct)}{unit} <strong style={{ color }}>(Δ {prefix}{formatValue(val)}{unit})</strong>
-                                            </span>
-                                        </div>
-                                    )}
+                                )}
+                            </div>
+                        );
+                    } else {
+                        return (
+                            <div key={idx} className="flex flex-col gap-0.5">
+                                <div className="flex justify-between items-center text-[10px]">
+                                    <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
+                                        {entry.name}
+                                    </span>
+                                    <span className="font-mono font-bold text-white text-xs">
+                                        {formatValue(val)}{unit}
+                                    </span>
                                 </div>
-                            );
-                        } else {
-                            return (
-                                <div key={idx} className="flex flex-col gap-0.5">
-                                    <div className="flex justify-between items-center text-[10px]">
-                                        <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
-                                            {entry.name}
-                                        </span>
-                                        <span className="font-mono font-bold text-white text-xs">
-                                            {formatValue(val)}{unit}
-                                        </span>
-                                    </div>
-                                    {meta && meta.currTot > 0 && (
-                                        <span className="text-[8px] text-slate-500 pl-3.5 italic">
-                                            Volume: {meta.currTot} questões
-                                        </span>
-                                    )}
-                                </div>
-                            );
-                        }
-                    })}
-                </div>
+                                {meta && meta.currTot > 0 && (
+                                    <span className="text-[8px] text-slate-500 pl-3.5 italic">
+                                        Volume: {meta.currTot} questões
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    }
+                })}
             </div>
-        );
+        </div>
+    );
 });
 
 const getMondayStr = (dateStr) => {
     const dt = parseNoonLocal(dateStr);
-    // G-15 FIX: Retornar fallback em vez de null para não perder dados
     if (!dt || isNaN(dt.getTime())) {
         console.warn(`[WeeklyEvolution] Data inválida ignorada: ${dateStr}`);
         return null;
@@ -131,7 +130,7 @@ const shortenLabel = (value, max = 18) => {
     return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 };
 
-export const WeeklyEvolutionView = ({
+export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
     categories,
     studyLogs = [],
     showOnlyFocus,
@@ -139,15 +138,9 @@ export const WeeklyEvolutionView = ({
     maxScore = 100,
     minScore = 0,
     unit = '%'
-}) => {
+}) {
     const [viewMode, setViewMode] = useState('performance');
 
-    // A1 FIX: Padrão idiomático do React para resetar estado derivado de props sem useEffect.
-    // Em vez de setUserToggles({}) dentro de useEffect (que causa render duplo e dispara a
-    // regra react-hooks/set-state-in-effect), rastreamos a "chave de foco" anterior e chamamos
-    // setState DURANTE o render quando ela muda. O React descarta o render parcial e reinicia
-    // com o novo estado — isso é um render único, sem o ciclo extra do useEffect.
-    // Ref: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
     const focusKey = `${showOnlyFocus}-${focusSubjectId}`;
     const [lastFocusKey, setLastFocusKey] = useState(focusKey);
     const [userToggles, setUserToggles] = useState({});
@@ -419,7 +412,7 @@ export const WeeklyEvolutionView = ({
         });
 
         const volumeTracker = {};
-        validIds.forEach(id => volumeTracker[id] = 0);
+        validIds.forEach(id => { volumeTracker[id] = 0; });
         finalData.forEach(week => {
             validIds.forEach(id => {
                 const meta = week[`meta_${id}`];
@@ -436,7 +429,7 @@ export const WeeklyEvolutionView = ({
     const hiddenKeys = useMemo(() => {
         const result = {};
         rankedKeys?.forEach((key, idx) => {
-            const defaultHide = showOnlyFocus ? false : idx >= 6; 
+            const defaultHide = idx >= 6;
             if (userToggles[key] !== undefined) {
                 result[key] = userToggles[key]; 
             } else {
@@ -444,7 +437,7 @@ export const WeeklyEvolutionView = ({
             }
         });
         return result;
-    }, [rankedKeys, userToggles, showOnlyFocus]);
+    }, [rankedKeys, userToggles]);
 
     const topRegressions = useMemo(() => computeTopRegressions({ viewMode, chartData, keys, activeKeys, hiddenKeys }), [viewMode, chartData, keys, activeKeys, hiddenKeys]);
     const trendKpi = useMemo(() => computeTrendKpi({ chartData, keys, hiddenKeys }), [chartData, keys, hiddenKeys]);
@@ -488,13 +481,10 @@ export const WeeklyEvolutionView = ({
         return Math.max(0.5, scoreRange * 0.02);
     }, [minScore, maxScore]);
 
-    // M2 FIX: Tooltip extraído em useCallback para restaurar memoização do Recharts.
-    // Arrow functions inline quebram a memoização porque criam nova referência a cada render.
     const renderWeeklyTooltip = useCallback(
         (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} />,
         [hiddenKeys, unit, stableThreshold]
     );
-
 
     if (chartData.length < 1) {
         return (
@@ -569,7 +559,7 @@ export const WeeklyEvolutionView = ({
                 </div>
             </div>
 
-            <div className="h-[380px] w-full mt-2 relative">
+            <div className="h-[380px] sm:h-[400px] w-full mt-2 relative">
                 {viewMode === 'performance' ? (
                     <WeeklyPerformanceChart
                         categories={categories}
@@ -731,5 +721,4 @@ export const WeeklyEvolutionView = ({
             )}
         </div>
     );
-};
-
+});

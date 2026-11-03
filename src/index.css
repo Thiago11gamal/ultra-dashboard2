@@ -501,7 +501,7 @@ svg *,
 /* Apenas Otimizações Estruturais para a nova engine html-to-image */
 .pdf-render-mode .overflow-x-auto,
 .pdf-render-mode .overflow-y-auto,
-.pdf-render-mode .overflow-hidden {
+.pdf-render-mode .pdf-allow-overflow {
   overflow: visible !important;
 }
 

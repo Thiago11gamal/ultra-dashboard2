@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { useAppStore } from '../store/useAppStore';
 import { getDateKey, toDateMs } from '../utils/dateHelper';
@@ -7,6 +7,7 @@ import { parseNoonLocal, addDaysNoon } from '../utils/parseNoonLocal';
 import { runMonteCarloAnalysis } from '../engine/monteCarlo';
 
 const EMPTY_ARRAY = Object.freeze([]);
+const MC_ENGINES = new Set(['compare', 'mc_density', 'bayesian']);
 
 /**
  * Orquestra o motor Monte Carlo do Menu Evolução.
@@ -14,7 +15,7 @@ const EMPTY_ARRAY = Object.freeze([]);
  *
  * Responsabilidades:
  *  - disparar o worker apenas nos engines que consomem o resultado;
- *  - debouncer + cancelamento seguro;
+ *  - debouncer + cancelamento seguro + cache de assinatura para evitar re-execuções redundantes;
  *  - fallback síncrono quando o worker falha;
  *  - série de projeção futura com parsing de data sem timezone fixo.
  */
@@ -25,12 +26,17 @@ export function useEvolutionMC({
   targetScore,
   minScore,
   maxScore,
+  activeEngine,
   _activeEngine
 }) {
+  const effectiveEngine = activeEngine ?? _activeEngine;
+  const isMcEngineActive = !effectiveEngine || MC_ENGINES.has(effectiveEngine);
+
   const { runAnalysis } = useMonteCarloWorker();
   const [mcLoading, setMcLoading] = useState(false);
   const [mcResult, setMcResult] = useState(null);
   const [mcProjectionSeries, setMcProjectionSeries] = useState(null);
+  const lastComputedSignatureRef = useRef(null);
 
   const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
   useEffect(() => {
@@ -40,30 +46,30 @@ export function useEvolutionMC({
 
   // FIX 3A: usar fingerprint estável para evitar re-cálculo por mudança de referência
   const historyFingerprint = useMemo(() => {
-      const historyRaw = focusCategory?.simuladoStats?.history;
-      if (!historyRaw) return 'empty';
-      const arr = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
-      if (arr.length === 0) return 'empty';
-      // FIX: fingerprint forte. O anterior (só first/last) deixava o array
-      // stale quando um item do MEIO era editado sem mudar o comprimento.
-      return arr
-          .map((h) => `${h?.date || h?.createdAt || ''}:${h?.score ?? ''}`)
-          .join('|');
+    const historyRaw = focusCategory?.simuladoStats?.history;
+    if (!historyRaw) return 'empty';
+    const arr = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+    if (arr.length === 0) return 'empty';
+    return arr
+      .map((h) => `${h?.date || h?.createdAt || ''}:${h?.score ?? ''}:${h?.total ?? h?.questoes ?? ''}:${h?.correct ?? h?.acertos ?? ''}:${h?.timeSpent ?? ''}`)
+      .join('|');
   }, [focusCategory?.simuladoStats?.history]);
-  
+
   const historyArray = useMemo(() => {
-      const historyRaw = focusCategory?.simuladoStats?.history;
-      if (!historyRaw) return EMPTY_ARRAY;
-      return Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+    const historyRaw = focusCategory?.simuladoStats?.history;
+    if (!historyRaw) return EMPTY_ARRAY;
+    return Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyFingerprint]);
-  
-  const currentFocusLevel = focusCategory ? categoryLevels?.[focusCategory.id] : undefined;
+
+  const focusCategoryId = focusCategory?.id;
+  const currentFocusLevel = focusCategoryId ? categoryLevels?.[focusCategoryId] : undefined;
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!focusCategory || !focusCategory.id || !Array.isArray(historyArray) || historyArray.length === 0) {
+    if (!focusCategoryId || !Array.isArray(historyArray) || historyArray.length === 0) {
+      lastComputedSignatureRef.current = null;
       const timer = setTimeout(() => {
         if (!cancelled) {
           setMcLoading(false);
@@ -77,15 +83,31 @@ export function useEvolutionMC({
       };
     }
 
+    if (!isMcEngineActive) {
+      setMcLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+    const safeCurrentMean = Number.isFinite(currentFocusLevel)
+      ? currentFocusLevel
+      : safeMin;
+
+    const signature = `${focusCategoryId}|${historyFingerprint}|${debouncedTarget}|${projectDays}|${safeMin}|${safeMax}|${Math.round(safeCurrentMean * 100)}`;
+    if (lastComputedSignatureRef.current === signature && mcResult?.categoryId === focusCategoryId) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
     const hist = [...historyArray]
       .filter((h) => h && (h.date || h.createdAt))
       .map((h) => {
         const dateKey = getDateKey(h.date || h.createdAt);
         const score = getSafeScore(h, safeMax, safeMin);
-        // FIX 3B: validação mais robusta
         if (!dateKey || !Number.isFinite(score)) return null;
         return {
           date: dateKey,
@@ -99,8 +121,8 @@ export function useEvolutionMC({
       .filter(Boolean)
       .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
-    // FIX 3B: verificar antes de prosseguir
     if (hist.length < 1) {
+      lastComputedSignatureRef.current = null;
       const timer = setTimeout(() => {
         if (!cancelled) {
           setMcLoading(false);
@@ -115,8 +137,6 @@ export function useEvolutionMC({
     }
 
     const workerDebounceTimeout = setTimeout(async () => {
-      // ✅ BUG-5 FIX: Mover cálculos de tempo para ANTES do try/catch
-      // para que fiquem acessíveis no fallback síncrono
       let totalTimeSpent = 0;
       let totalTimedQuestions = 0;
       historyArray.forEach((rawH) => {
@@ -124,7 +144,7 @@ export function useEvolutionMC({
         let hasTopicWithTime = false;
         let topicsTs = 0;
         let topicsTimedQ = 0;
-        
+
         if (Array.isArray(rawH.topics)) {
           for (const t of rawH.topics) {
             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
@@ -138,20 +158,20 @@ export function useEvolutionMC({
             }
           }
         } else if (rawH.topics && typeof rawH.topics === 'object') {
-           for (const key in rawH.topics) {
-             const t = rawH.topics[key];
-             const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-             const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
-               ? t.timedQuestoes
-               : Number(t.total) || 0;
-             if (tTs !== null && tTs > 0 && tTot > 0) {
-               topicsTs += tTs;
-               topicsTimedQ += tTot;
-               hasTopicWithTime = true;
-             }
-           }
+          for (const key in rawH.topics) {
+            const t = rawH.topics[key];
+            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
+            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
+              ? t.timedQuestoes
+              : Number(t.total) || 0;
+            if (tTs !== null && tTs > 0 && tTot > 0) {
+              topicsTs += tTs;
+              topicsTimedQ += tTot;
+              hasTopicWithTime = true;
+            }
+          }
         }
-        
+
         if (hasTopicWithTime) {
           totalTimeSpent += topicsTs;
           totalTimedQuestions += topicsTimedQ;
@@ -183,9 +203,6 @@ export function useEvolutionMC({
       const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
 
       setMcLoading(true);
-      const safeCurrentMean = Number.isFinite(currentFocusLevel)
-        ? currentFocusLevel
-        : safeMin;
       try {
         const result = await runAnalysis({
           values: hist,
@@ -200,9 +217,9 @@ export function useEvolutionMC({
           examDurationMinutes
         });
         if (cancelled || !result) return;
-        setMcResult({ ...result, categoryId: focusCategory?.id });
+        lastComputedSignatureRef.current = signature;
+        setMcResult({ ...result, categoryId: focusCategoryId });
 
-        // ✅ LOTE-05: parse local normalizado (sem timezone hardcoded "-04:00")
         const lastDate = parseNoonLocal(hist[hist.length - 1].date);
         if (!lastDate) return;
         const nextDate = addDaysNoon(lastDate, projectDays || 30);
@@ -214,11 +231,10 @@ export function useEvolutionMC({
           date: getDateKey(nextDate),
           mc_p50: p50,
           mc_band: [lo, hi],
-          categoryId: focusCategory?.id
+          categoryId: focusCategoryId
         });
       } catch (err) {
         console.warn('[useEvolutionMC] Worker MC falhou, tentando sync:', err);
-        // ✅ LOTE-05: fallback síncrono real (antes o catch era vazio)
         if (!cancelled) {
           try {
             const fallback = runMonteCarloAnalysis({
@@ -231,12 +247,12 @@ export function useEvolutionMC({
               maxScore: safeMax,
               currentMean: safeCurrentMean,
               forcedBaseline: safeCurrentMean,
-              // ✅ BUG-5 FIX: repassar parâmetros de Time Penalty ao fallback síncrono
               projectedTotalTimeSeconds,
               examDurationMinutes
             });
             if (fallback) {
-              setMcResult({ ...fallback, categoryId: focusCategory?.id });
+              lastComputedSignatureRef.current = signature;
+              setMcResult({ ...fallback, categoryId: focusCategoryId });
               const lastDate = parseNoonLocal(hist[hist.length - 1].date);
               if (lastDate) {
                 const nextDate = addDaysNoon(lastDate, projectDays || 30);
@@ -247,7 +263,7 @@ export function useEvolutionMC({
                   date: getDateKey(nextDate),
                   mc_p50: p50,
                   mc_band: [lo, hi],
-                  categoryId: focusCategory?.id
+                  categoryId: focusCategoryId
                 });
               }
             }
@@ -261,15 +277,15 @@ export function useEvolutionMC({
     }, 600);
 
     return () => { cancelled = true; clearTimeout(workerDebounceTimeout); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    focusCategory, currentFocusLevel, historyArray, debouncedTarget,
-    projectDays, runAnalysis, minScore, maxScore
+    focusCategoryId, historyFingerprint, currentFocusLevel, historyArray,
+    debouncedTarget, projectDays, runAnalysis, minScore, maxScore, isMcEngineActive
   ]);
 
-  const activeMcResult = mcResult?.categoryId === focusCategory?.id ? mcResult : null;
+  const activeMcResult = mcResult?.categoryId === focusCategoryId ? mcResult : null;
   const activeMcProjectionSeries =
-    mcProjectionSeries?.categoryId === focusCategory?.id ? mcProjectionSeries : null;
+    mcProjectionSeries?.categoryId === focusCategoryId ? mcProjectionSeries : null;
 
   return { mcLoading, mcResult, mcProjectionSeries, activeMcResult, activeMcProjectionSeries };
 }
-

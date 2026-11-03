@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useId } from 'react';
+import React, { useMemo, useState, useEffect, useId, useCallback } from 'react';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, 
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
@@ -7,7 +7,7 @@ import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper';
 import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.conversions';
 import { normalize } from '../../../utils/normalization';
-import { Zap, Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -71,7 +71,7 @@ const CustomTooltipPie = ({ active, payload, unit }) => {
     return null;
 };
 
-export function TodayVsGeneralChart({ 
+export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({ 
     activeCategories: propActiveCategories, 
     categories = [],
     focusCategory = null,
@@ -81,7 +81,7 @@ export function TodayVsGeneralChart({
     minScore = 0,
     unit = '%',
     simuladoRows = []
- }) {
+}) {
     const neonGradInstanceId = useId().replace(/:/g, '');
     const rawCategories = propActiveCategories || categories;
     const activeCategories = useMemo(() => {
@@ -90,6 +90,7 @@ export function TodayVsGeneralChart({
         if (rawCategories && typeof rawCategories === 'object') return Object.values(rawCategories).filter(Boolean);
         return [];
     }, [rawCategories, focusCategory]);
+
     const generalAccuracy = useMemo(() => {
         const safeMax = Math.max(1, Number(maxScore) || 100);
         const safeMin = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMax) : 0;
@@ -129,15 +130,13 @@ export function TodayVsGeneralChart({
     const scale = Math.max(1e-9, safeMax - safeMin) / 100;
     const stabilityMargin = Math.max(0.5, (safeMax - safeMin) * 0.02);
 
-    const [nowMs, setNowMs] = useState(() => Date.now());
     const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
 
     useEffect(() => {
         const updateTime = () => {
             if (document.hidden) return;
-            const now = Date.now();
-            setNowMs(now);
-            setTodayKey(getDateKey(new Date(now)));
+            const nextKey = getDateKey(new Date());
+            setTodayKey(prev => (prev === nextKey ? prev : nextKey));
         };
         const interval = setInterval(updateTime, 60000);
         const handleVisibility = () => {
@@ -154,9 +153,9 @@ export function TodayVsGeneralChart({
         const dayMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMaxScore) : 0;
-        const validNowMs = Number(nowMs) || 0;
-        const localNext = getDateKey(new Date(validNowMs + 86400000));
-        const utcNext = new Date(validNowMs + 86400000).toISOString().split('T')[0];
+        const baseNowMs = toDateMs(todayKey) || Date.now();
+        const localNext = getDateKey(new Date(baseNowMs + 86400000));
+        const utcNext = new Date(baseNowMs + 86400000).toISOString().split('T')[0];
         const maxAllowedDateKey = localNext > utcNext ? localNext : utcNext;
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
@@ -200,19 +199,17 @@ export function TodayVsGeneralChart({
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         return { dailyData: result, lastActiveEntry: lastEntry };
-    }, [activeCategories, maxScore, minScore, nowMs]);
+    }, [activeCategories, maxScore, minScore, todayKey]);
 
     const temporalMetrics = useMemo(() => {
-        const now = nowMs;
         const ms1Week = 7 * 86400000;
         const ms1Month = 30 * 86400000;
         const ms3Months = 90 * 86400000;
         const ms6Months = 180 * 86400000;
-        const validNow = Number(now) || 0;
-        const todayNoonMs = toDateMs(todayKey) || validNow;
-        const utcTodayKey = new Date(validNow).toISOString().split('T')[0];
-        const localNext = getDateKey(new Date(validNow + 86400000));
-        const utcNext = new Date(validNow + 86400000).toISOString().split('T')[0];
+        const todayNoonMs = toDateMs(todayKey) || Date.now();
+        const utcTodayKey = new Date(todayNoonMs).toISOString().split('T')[0];
+        const localNext = getDateKey(new Date(todayNoonMs + 86400000));
+        const utcNext = new Date(todayNoonMs + 86400000).toISOString().split('T')[0];
         const maxAllowedDateKey = localNext > utcNext ? localNext : utcNext;
 
         const buckets = {
@@ -234,9 +231,7 @@ export function TodayVsGeneralChart({
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 if (!hDateKey || hDateKey > maxAllowedDateKey) return;
                 const time = toDateMs(h.date || h.createdAt);
-                // G-16 FIX: Distinguir NaN (dado corrompido) de null (campo ausente)
-                if (time === null || Number.isNaN(time)) return;
-                if (!Number.isFinite(time)) return;
+                if (time === null || Number.isNaN(time) || !Number.isFinite(time)) return;
                 let tot = Number(h.total) || 0;
                 let corr = 0;
                 if (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '' && !h.isPercentage) {
@@ -297,7 +292,6 @@ export function TodayVsGeneralChart({
             }
         }
 
-        // Fallback/Sincronização com cat.simuladoStats.history caso simuladoRows esteja vazio ou desatualizado
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
@@ -319,14 +313,14 @@ export function TodayVsGeneralChart({
 
         const getAcc = (b) => b.total > 0 ? ratioToPoints(b.correct / b.total, safeMaxScore, safeMinScore) : null;
         return [
-            { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 64, rOut: 74 },
-            { id: 'month3', label: 'Últimos 90 dias', val: getAcc(buckets.month3), rIn: 75, rOut: 85 },
-            { id: 'month', label: 'Últimos 30 dias', val: getAcc(buckets.month), rIn: 86, rOut: 95 },
-            { id: 'week', label: 'Últimos 7 dias', val: getAcc(buckets.week), rIn: 96, rOut: 104 },
-            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 105, rOut: 112 },
-            { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 113, rOut: 119 }
+            { id: 'month6', label: 'Últimos 180 dias', val: getAcc(buckets.month6), rIn: 72, rOut: 79 },
+            { id: 'month3', label: 'Últimos 90 dias', val: getAcc(buckets.month3), rIn: 80, rOut: 87 },
+            { id: 'month', label: 'Últimos 30 dias', val: getAcc(buckets.month), rIn: 88, rOut: 95 },
+            { id: 'week', label: 'Últimos 7 dias', val: getAcc(buckets.week), rIn: 96, rOut: 103 },
+            { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 104, rOut: 111 },
+            { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 112, rOut: 119 }
         ];
-    }, [activeCategories, maxScore, minScore, nowMs, todayKey, simuladoRows]);
+    }, [activeCategories, maxScore, minScore, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
     const latestAcc = hasValidNumber(lastMetric?.val) ? Number(lastMetric.val) : null;
@@ -338,7 +332,7 @@ export function TodayVsGeneralChart({
             const lastIdx = data.length - 1;
             const prevAcc = data.length > 1 ? data[lastIdx - 1].accuracy : data[0].accuracy;
             data[lastIdx].lastTestAcc = latestAcc;
-            const marginLine = stabilityMargin;   // ✅ AUDIT FIX (antes: 2 fixo)
+            const marginLine = stabilityMargin;
             if (latestAcc < prevAcc - marginLine) {
                 data[lastIdx].lastTestColor = COLORS.gaugeFillDanger;
             } else if (latestAcc > prevAcc + marginLine) {
@@ -349,6 +343,19 @@ export function TodayVsGeneralChart({
         }
         return data;
     }, [dailyData, latestAcc, stabilityMargin]);
+
+    const renderAccuracyLabel = useCallback((props) => {
+        const { x, y, value, index } = props;
+        if (value == null || !Number.isFinite(Number(value))) return null;
+        const entry = chartData[index];
+        const hasCloseBar = entry?.lastTestAcc != null && Math.abs(Number(entry.lastTestAcc) - Number(value)) <= stabilityMargin * 2;
+        if (hasCloseBar) return null;
+        return (
+            <text x={x} y={Math.max(12, (y ?? 20) - 10)} fill="#94a3b8" fontSize={10} fontWeight={700} textAnchor="middle">
+                {`${formatValue(value)}${unit}`}
+            </text>
+        );
+    }, [chartData, stabilityMargin, unit]);
 
     if (!dailyData || dailyData.length === 0) {
         return (
@@ -362,7 +369,7 @@ export function TodayVsGeneralChart({
     const focusAccuracy = lastActiveEntry ? lastActiveEntry.accuracy : safeMin;
     const delta = focusAccuracy - generalAccuracy;
     const deltaAbs = Math.abs(delta);
-    const marginDelta = stabilityMargin;   // ✅ AUDIT FIX (antes: 2 fixo)
+    const marginDelta = stabilityMargin;
     let deltaStatus = 'stable';
     if (delta > marginDelta) deltaStatus = 'positive';
     else if (delta < -marginDelta) deltaStatus = 'negative';
@@ -388,49 +395,53 @@ export function TodayVsGeneralChart({
     return (
         <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[400px]">
             <div className="w-full lg:w-1/3 min-w-[280px] bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 sm:p-6 flex flex-col items-center justify-between relative shadow-xl backdrop-blur-md overflow-hidden group">
-                <div className="w-full flex items-start justify-between gap-3 mb-2 z-10">
+                <div className="w-full flex flex-col gap-2.5 z-10">
                     <div className="flex items-center gap-2 min-w-0">
                         <div className="p-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 shrink-0">
                             <Target size={14} />
                         </div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider truncate">
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider truncate">
                             {todayAcc != null ? 'Sessão de hoje' : `Último dia ativo (${lastActiveEntry?.displayDate || 'sem data'})`}
                         </span>
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0 max-h-[140px] overflow-y-auto no-scrollbar">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 w-full bg-slate-950/40 rounded-xl p-2.5 border border-white/5">
                         {temporalMetrics.slice().reverse().map(metric => {
                             if (metric.val == null) {
                                 return (
-                                    <div key={metric.id} className="flex items-center gap-1.5 opacity-30">
-                                        <span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold">{metric.label}</span>
-                                        <span className="text-[10px] font-bold font-mono text-slate-600">--{unit}</span>
-                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+                                    <div key={metric.id} className="flex items-center justify-between gap-1 opacity-35 min-w-0">
+                                        <span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold truncate">{metric.label}</span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <span className="text-[9px] font-bold font-mono text-slate-600">--{unit}</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+                                        </div>
                                     </div>
                                 );
                             }
                             const c = getColor(metric.val);
                             return (
-                                <div key={metric.id} className="flex items-center gap-1.5 opacity-90 hover:opacity-100 transition-opacity">
-                                    <span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold">{metric.label}</span>
-                                    <span className="text-[10px] font-black font-mono" style={{ color: c }}>
-                                        {safeFix(metric.val)}{unit}
-                                    </span>
-                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }}></div>
+                                <div key={metric.id} className="flex items-center justify-between gap-1 opacity-90 hover:opacity-100 transition-opacity min-w-0">
+                                    <span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold truncate">{metric.label}</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <span className="text-[9px] font-black font-mono" style={{ color: c }}>
+                                            {safeFix(metric.val)}{unit}
+                                        </span>
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }}></div>
+                                    </div>
                                 </div>
                             );
                         })}
                     </div>
                 </div>
-                <div className="relative w-[260px] h-[140px] mt-6 flex justify-center">
+                <div className="relative w-[260px] h-[142px] mt-4 flex justify-center">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <PieChart>
                             {temporalMetrics.map((metric) => {
                                 const isNull = metric.val == null;
-                                const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-                                const val = isNull ? safeMin : Math.max(safeMin, Math.min(metric.val, safeMax));
+                                const safeMinVal = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+                                const val = isNull ? safeMinVal : Math.max(safeMinVal, Math.min(metric.val, safeMax));
                                 const arcColor = isNull ? 'transparent' : getColor(metric.val);
-                                const scaleRange = Math.max(1e-9, safeMax - safeMin);
-                                const arcVal = isNull ? 0 : Math.max(0, val - safeMin);
+                                const scaleRange = Math.max(1e-9, safeMax - safeMinVal);
+                                const arcVal = isNull ? 0 : Math.max(0, val - safeMinVal);
                                 const arcData = [
                                     { name: metric.label, value: arcVal, trueValue: metric.val, baseColor: arcColor },
                                     { name: `${metric.label} (Restante)`, value: Math.max(0, scaleRange - arcVal), trueValue: null, baseColor: arcColor }
@@ -457,16 +468,16 @@ export function TodayVsGeneralChart({
                             <Tooltip content={<CustomTooltipPie unit={unit} />} cursor={false} offset={0} isAnimationActive={false} />
                         </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-1 pointer-events-none">
-                        <div className="text-4xl sm:text-5xl font-black text-white drop-shadow-md tabular-nums font-mono tracking-tight">
-                            {safeFix(focusAccuracy)}<span className="text-xl text-slate-400 ml-1 font-sans">{unit}</span>
+                    <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end pb-0.5 pointer-events-none">
+                        <div className="text-2xl sm:text-3xl leading-none font-black text-white drop-shadow-md tabular-nums font-mono tracking-tight">
+                            {safeFix(focusAccuracy)}<span className="text-sm text-slate-400 ml-0.5 font-sans">{unit}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mt-1">
+                        <span className="text-[9px] leading-tight text-slate-400 uppercase font-bold tracking-wider mt-1">
                             {todayAcc != null ? `Acertos de hoje (${unit})` : `Último dia ativo (${unit})`}
                         </span>
                     </div>
                 </div>
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-3 w-full">
                     <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm backdrop-blur-sm ${
                         deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
                         deltaStatus === 'negative' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' :
@@ -500,7 +511,7 @@ export function TodayVsGeneralChart({
                         </div>
                     )}
                 </div>
-                <div className="w-full flex justify-between items-center mt-6 pt-4 border-t border-white/5 px-2">
+                <div className="w-full flex justify-between items-center mt-4 pt-3.5 border-t border-white/5 px-2">
                     <div className="flex flex-col">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Média Geral</span>
                         <span className="text-sm font-bold font-mono text-slate-300">{safeFix(generalAccuracy)}{unit}</span>
@@ -571,18 +582,7 @@ export function TodayVsGeneralChart({
                             >
                                 <LabelList 
                                     dataKey="accuracy" 
-                                    content={(props) => {
-                                        const { x, y, value, index } = props;
-                                        if (value == null || !Number.isFinite(Number(value))) return null;
-                                        const entry = chartData[index];
-                                        const hasCloseBar = entry?.lastTestAcc != null && Math.abs(Number(entry.lastTestAcc) - Number(value)) <= stabilityMargin * 2;
-                                        if (hasCloseBar) return null;
-                                        return (
-                                            <text x={x} y={Math.max(12, (y ?? 20) - 10)} fill="#94a3b8" fontSize={10} fontWeight={700} textAnchor="middle">
-                                                {`${formatValue(value)}${unit}`}
-                                            </text>
-                                        );
-                                    }}
+                                    content={renderAccuracyLabel}
                                 />
                             </Line>
                             <Bar dataKey="lastTestAcc" barSize={18} radius={[6,6,0,0]} isAnimationActive={true} animationDuration={1000} fill={COLORS.gaugeFillValid}>
@@ -605,5 +605,4 @@ export function TodayVsGeneralChart({
             </div>
         </div>
     );
-}
-
+});

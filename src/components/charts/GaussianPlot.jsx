@@ -10,7 +10,7 @@ import { formatValue } from '../../utils/scoreHelper';
  * Supports asymmetric distributions and Kernel Density Estimation (KDE) data.
  * Hardened with defensive boundary checks and non-zero scoring floor support.
  */
-export const GaussianPlot = ({ 
+export const GaussianPlot = React.memo(function GaussianPlot({ 
     mean, 
     sd, 
     volatility,
@@ -26,20 +26,19 @@ export const GaussianPlot = ({
     minScore = 0, 
     maxScore = 100, 
     unit = '%' 
-}) => {
+}) {
     const [hover, setHover] = useState(null);
     const hoverRafRef = useRef(null);
     const pendingHoverRef = useRef(null);
     const chartAreaRef = useRef(null);
 
-    // LEAK-FIX: Cleanup de requestAnimationFrame pendente se o componente desmontar durante o hover
     useEffect(() => {
         return () => {
             if (hoverRafRef.current != null) {
                 cancelAnimationFrame(hoverRafRef.current);
                 hoverRafRef.current = null;
             }
-            pendingHoverRef.current = null; // ✅ Limpar pending também
+            pendingHoverRef.current = null;
         };
     }, []);
 
@@ -62,7 +61,6 @@ export const GaussianPlot = ({
         const rawTargetVal = targetScore ?? 70;
         const rawMean = Number.isFinite(Number(mean)) ? Number(mean) : domainMin;
 
-        // Ajuste dinâmico do teto visual para comportar escalas ENEM ou maiores
         let rawMax = unit === '%' 
             ? Math.max(domainMin + 1, Number(maxScore) || 100) 
             : Math.max(Number(maxScore) || 100, rawTargetVal > (Number(maxScore) || 100) ? rawTargetVal * 1.05 : (Number(maxScore) || 100), rawMean > (Number(maxScore) || 100) ? rawMean * 1.05 : (Number(maxScore) || 100));
@@ -73,7 +71,6 @@ export const GaussianPlot = ({
         const range = domainMax - domainMin;
         const safeRange = Math.max(1e-9, range);
         
-        // Clamp do Alvo contra corrupções nos bounds visuais
         const targetVal = Math.max(domainMin, Math.min(domainMax, rawTargetVal));
 
         const effectiveVol = volatility !== undefined ? volatility : sd;
@@ -84,7 +81,6 @@ export const GaussianPlot = ({
 
         const hasValidKDE = kdeData && kdeData.length > 5;
 
-        // Se estivermos simulando uma Gaussiana Assimétrica para bater com a probabilidade real do motor
         if (!hasValidKDE && prob != null && prob > 0 && prob < 100) {
             const targetProb = prob / 100;
             const m = meanVal;
@@ -140,7 +136,6 @@ export const GaussianPlot = ({
 
         if (hasValidKDE) {
             const points = [];
-            // FIX: Defesa Ativa contra Boundary Leaks no KDE recebido
             const safeX = (val) => Math.max(domainMin, Math.min(domainMax, val));
 
             kdeData.forEach(p => {
@@ -169,14 +164,11 @@ export const GaussianPlot = ({
             };
         }
 
-        // ✅ LOTE-04 FIX (M4): busca binária O(log N) em vez de varredura linear O(N).
-        // Resolvido BUG-015: Uso de objetos em vez de strings evita garbage collection e CPU overhead de split() no hover.
         const getYAtX = (pts, xTarget) => {
             const n = pts.length;
             if (n === 0) return 100;
             const getX = (p) => p.x;
             const getY = (p) => p.y;
-            // pts já está ordenado por x (KDE e generateGaussianPoints ordenam)
             let loIdx = -1;
             let lo = 0, hi = n - 1;
             while (lo <= hi) {
@@ -287,13 +279,13 @@ export const GaussianPlot = ({
         });
 
         const res = { hideMean };
-        sorted.forEach(item => res[item.id] = item.level);
+        sorted.forEach(item => { res[item.id] = item.level; });
         return res;
     }, [targetPos, meanPos, currentPos, isTargetVisible, isMeanVisible, isCurrentVisible]);
 
     const getLabelTop = (yPercent, level) => {
-        const offsetPx = 28 + level * 22;
-        return `calc(${Math.max(16, yPercent)}% - ${offsetPx}px)`;
+        const offsetPx = 24 + level * 18;
+        return `calc(max(-32px, ${Math.max(18, yPercent)}% - ${offsetPx}px))`;
     };
 
     const getLabelLeft = (pos, id) => {
@@ -310,7 +302,6 @@ export const GaussianPlot = ({
         return `${Number.isInteger(val) ? val : Number(val).toFixed(2)}${u || ''}`;
     };
 
-    // T-041 FIX: suporte a touch para tooltip em mobile.
     const updateHoverFromClientX = (clientX, el) => {
         if (!el) return;
 
@@ -342,7 +333,7 @@ export const GaussianPlot = ({
 
     return (
         <div
-            className="relative w-full mt-12 sm:mt-14 pt-1 mb-2 cursor-crosshair group/chart"
+            className="relative w-full mt-10 sm:mt-12 pt-1 mb-2 cursor-crosshair group/chart"
             onMouseMove={(e) => updateHoverFromClientX(e.clientX, chartAreaRef.current || e.currentTarget)}
             onMouseLeave={clearHover}
             onTouchStart={(e) => {
@@ -357,9 +348,7 @@ export const GaussianPlot = ({
             }}
             onTouchEnd={clearHover}
         >
-            {/* Área de Plotagem da Curva e Pontos: altura fixa de 176px sem padding inferior para alinhamento pixel-perfect entre SVG e camadas absolutas */}
             <div ref={chartAreaRef} className="relative w-full h-[176px]">
-                {/* Gradientes laterais */}
                 <div style={{
                     position: 'absolute', width: '40px', top: 0, bottom: 0, pointerEvents: 'none', zIndex: 10, left: 0,
                     background: 'linear-gradient(to right, rgb(15, 23, 42), transparent)'
@@ -401,9 +390,7 @@ export const GaussianPlot = ({
                     <path d={failAreaPathData} fill={`url(#${ID.failGrad})`} stroke="#ef4444" strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-70 transition-all duration-1000" clipPath={`url(#${ID.chartClip})`} />
                     <path d={areaPathData} fill={`url(#${ID.areaGrad})`} stroke={successColor} strokeWidth="1.2" vectorEffect="non-scaling-stroke" className="opacity-80 transition-all duration-1000" clipPath={`url(#${ID.chartClip})`} />
 
-                    {/* Bottom Layer: Glow effect */}
                     <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="7" strokeOpacity="0.3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
-                    {/* Top Layer: Main curve */}
                     <path d={pathData} fill="none" stroke={`url(#${ID.curveGrad})`} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="transition-all duration-500" clipPath={`url(#${ID.chartClip})`} />
 
                     {isTargetVisible && <line x1={targetPos} y1="100" x2={targetPos} y2={targetY} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="2,3" vectorEffect="non-scaling-stroke" className="transition-all duration-500" />}
@@ -428,36 +415,36 @@ export const GaussianPlot = ({
 
                 <div className="absolute inset-0 pointer-events-none">
                     {!resolvedLabels.hideMean && isMeanVisible && (
-                        <div className="absolute flex flex-col items-center transition-all duration-500"
+                        <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-25"
                             style={{ left: `${getLabelLeft(meanPos, 'mean')}%`, top: getLabelTop(meanY, resolvedLabels.mean || 0), transform: 'translateX(-50%)', zIndex: 30 }}>
                             <div className="flex flex-col items-center bg-blue-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-blue-500/30 shadow-lg">
                                 <span className="text-[11px] font-black text-blue-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(projectedMean ?? mean ?? 0, unit)}</span>
                                 <span className="text-[7px] font-black text-blue-300 uppercase tracking-widest opacity-80">Projeção</span>
                             </div>
-                            <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${6 + (resolvedLabels.mean || 0) * 22}px` }} />
+                            <div className="w-px bg-blue-500/40 absolute top-full mt-0.5" style={{ height: `${6 + (resolvedLabels.mean || 0) * 18}px` }} />
                         </div>
                     )}
 
                     {isTargetVisible && (
-                        <div className="absolute flex flex-col items-center transition-all duration-500"
+                        <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-25"
                             style={{ left: `${getLabelLeft(targetPos, 'target')}%`, top: getLabelTop(targetY, resolvedLabels.target || 0), transform: 'translateX(-50%)', zIndex: 20 }}>
                             <div className="flex flex-col items-center bg-rose-500/10 backdrop-blur-md px-2 py-0.5 rounded-xl border border-rose-500/30 shadow-lg">
-                                 <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(targetVal, unit)}</span>
+                                <span className="text-[11px] font-black text-rose-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{formatUnitValue(targetVal, unit)}</span>
                                 <span className="text-[7px] font-black text-rose-300 uppercase tracking-widest opacity-80">Meta</span>
                             </div>
-                            <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${6 + (resolvedLabels.target || 0) * 22}px` }} />
+                            <div className="w-px bg-rose-500/40 absolute top-full mt-0.5" style={{ height: `${6 + (resolvedLabels.target || 0) * 18}px` }} />
                         </div>
                     )}
 
                     {isCurrentVisible && (
-                        <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-40"
+                        <div className="absolute flex flex-col items-center transition-all duration-500 group-hover/chart:opacity-25"
                             style={{ left: `${getLabelLeft(currentPos, 'today')}%`, top: getLabelTop(currentY, resolvedLabels.today || 0), transform: 'translateX(-50%)', zIndex: 40 }}>
                             <div className="flex flex-col items-center px-2 py-1 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-white/20 shadow-xl">
                                 <span className="text-[11px] leading-none font-black text-white">{formatUnitValue(currentMean ?? 0, unit)}</span>
                                 {resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje/Projeção</span>}
                                 {!resolvedLabels.hideMean && <span className="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Hoje</span>}
                             </div>
-                            <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.today || 0) * 22}px` }} />
+                            <div className="w-px bg-white/40 absolute top-full mt-0.5" style={{ height: `${8 + (resolvedLabels.today || 0) * 18}px` }} />
                         </div>
                     )}
                 </div>
@@ -467,9 +454,8 @@ export const GaussianPlot = ({
                         <div className="absolute h-full w-px bg-white/10" style={{ left: `${hover.x}%` }} />
                         <div className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_12px_white]" style={{ left: `${hover.x}%`, top: `${Math.max(0, curveY(hover.val))}%`, transform: 'translate(-50%, -50%)' }} />
                         
-                        {/* 🎯 FIX: Topo Seguro para a Tooltip, protegendo-a de sumir no topo da tela (Math.max(30)) */}
                         <div className="absolute bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 text-white px-2.5 py-1.5 rounded-xl shadow-2xl flex flex-col items-center min-w-[90px]" 
-                            style={{ left: `${Math.max(12, Math.min(88, hover.x))}%`, top: `${Math.max(30, curveY(hover.val) - 5)}%`, transform: 'translate(-50%, -100%)' }}>
+                            style={{ left: `${Math.max(14, Math.min(86, hover.x))}%`, top: `${Math.max(32, curveY(hover.val) - 5)}%`, transform: 'translate(-50%, -100%)' }}>
                             
                             <span className="text-[15px] font-black tracking-tight leading-none">{formatUnitValue(hover.val, unit)}</span>
                             <div className="flex items-center gap-1 mt-1">
@@ -483,7 +469,6 @@ export const GaussianPlot = ({
                 )}
             </div>
 
-            {/* Régua de marcações do Eixo X */}
             <div className="relative w-full h-5 mt-2 pointer-events-none">
                 {[0, 0.25, 0.5, 0.75, 1.0].map(f => {
                     const tickVal = domainMin + f * (domainMax - domainMin);
@@ -497,7 +482,6 @@ export const GaussianPlot = ({
             </div>
         </div>
     );
-};
+});
 
 export default GaussianPlot;
-

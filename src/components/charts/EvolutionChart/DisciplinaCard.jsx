@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { formatValue, getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
 import { pointsToPct, pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
@@ -6,7 +6,25 @@ import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
-export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, metrics, target, isFocused, onClick, unit = '%', maxScore = 100, minScore = 0 }) {
+const normalizeStoredFallback = (rawVal, safeMin, safeMax, safeRange) => {
+    const n = Number(rawVal);
+    if (!Number.isFinite(n)) return null;
+    const isLegacyPct = n >= 0 && n <= 100 && (n < safeMin || (safeMax > 100 && safeRange >= 200));
+    return isLegacyPct ? safeMin + (n / 100) * safeRange : n;
+};
+
+export const DisciplinaCard = React.memo(function DisciplinaCard({
+    cat,
+    level,
+    metrics,
+    target,
+    isFocused,
+    onClick,
+    onSelectCategory,
+    unit = '%',
+    maxScore = 100,
+    minScore = 0
+}) {
     const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
     const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 100);
     const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMax;
@@ -27,7 +45,14 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
     const midThreshold = safeMin + (effectiveTarget - safeMin) * 0.75;
     const mid = (val ?? safeMin) >= midThreshold;
     const statusColor = ok ? '#22c55e' : mid ? '#f59e0b' : '#ef4444';
-    const progressWidth = val != null ? Math.max(0, Math.min(100, pointsToPct(val, safeMax, safeMin))) : 0;
+
+    const handleClick = useCallback(() => {
+        if (typeof onSelectCategory === 'function') {
+            onSelectCategory(cat?.id);
+        } else if (typeof onClick === 'function') {
+            onClick();
+        }
+    }, [onSelectCategory, onClick, cat?.id]);
 
     let rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
     if (!hasValidNumber(rawVal)) {
@@ -53,7 +78,9 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                     if (getDateKey(h?.date || h?.createdAt || h?.timestamp) !== latestDayKey) continue;
                     const s = getSafeScore(h, safeMax, safeMin);
                     if (!Number.isFinite(s)) continue;
-                    const q = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) > 0 ? Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) : getSyntheticTotal(safeMax);
+                    const q = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) > 0
+                        ? Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions)
+                        : getSyntheticTotal(safeMax);
                     dayTotal += q;
                     dayCorrect += pointsToRatio(s, safeMax, safeMin) * q;
                 }
@@ -66,16 +93,21 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
     let statsVal = metrics ? metrics[`stats_${cat.id}`] : null;
     if (!hasValidNumber(statsVal) && hasValidNumber(cat?.simuladoStats?.average)) {
-        statsVal = Number(cat.simuladoStats.average);
+        statsVal = normalizeStoredFallback(cat.simuladoStats.average, safeMin, safeMax, safeRange);
     }
 
     let bayVal = metrics ? metrics[`bay_${cat.id}`] : null;
     if (!hasValidNumber(bayVal) && hasValidNumber(cat?.bayesianStats?.mean)) {
-        bayVal = Number(cat.bayesianStats.mean);
+        bayVal = normalizeStoredFallback(cat.bayesianStats.mean, safeMin, safeMax, safeRange);
     }
 
+    const toBarWidth = (v) =>
+        v != null && Number.isFinite(Number(v))
+            ? Math.min(100, Math.max(0, pointsToPct(Number(v), safeMax, safeMin)))
+            : 0;
+
     return (
-        <button onClick={onClick}
+        <button onClick={handleClick}
             aria-pressed={isFocused}
             aria-label={`Focar na disciplina ${cat.name}`}
             className={`relative text-left w-full h-full rounded-2xl border overflow-hidden transition-all duration-300 group flex flex-col justify-between ${
@@ -122,7 +154,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-orange-400 font-mono">{rawVal != null && Number.isFinite(Number(rawVal)) ? `${formatValue(rawVal)}${unit}` : '—'}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-950/60 rounded-full overflow-hidden border border-white/5">
-                            <div className="h-full bg-orange-400 rounded-full" style={{ width: `${rawVal != null && Number.isFinite(Number(rawVal)) ? Math.min(100, Math.max(0, ((Number(rawVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
+                            <div className="h-full bg-orange-400 rounded-full" style={{ width: `${toBarWidth(rawVal)}%` }} />
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -131,7 +163,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-blue-400 font-mono">{statsVal != null && Number.isFinite(Number(statsVal)) ? `${formatValue(statsVal)}${unit}` : '—'}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-950/60 rounded-full overflow-hidden border border-white/5">
-                            <div className="h-full bg-blue-400 rounded-full" style={{ width: `${statsVal != null && Number.isFinite(Number(statsVal)) ? Math.min(100, Math.max(0, ((Number(statsVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
+                            <div className="h-full bg-blue-400 rounded-full" style={{ width: `${toBarWidth(statsVal)}%` }} />
                         </div>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -140,7 +172,7 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
                             <span className="text-emerald-400 font-mono">{bayVal != null && Number.isFinite(Number(bayVal)) ? `${formatValue(bayVal)}${unit}` : '—'}</span>
                         </div>
                         <div className="w-full h-1.5 bg-slate-950/60 rounded-full overflow-hidden border border-white/5">
-                            <div className="h-full bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]" style={{ width: `${bayVal != null && Number.isFinite(Number(bayVal)) ? Math.min(100, Math.max(0, ((Number(bayVal) - safeMin) / safeRange) * 100)) : 0}%` }} />
+                            <div className="h-full bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]" style={{ width: `${toBarWidth(bayVal)}%` }} />
                         </div>
                     </div>
                 </div>
@@ -150,4 +182,3 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({ cat, level, m
 
     );
 });
-

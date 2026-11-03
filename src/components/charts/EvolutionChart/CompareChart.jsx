@@ -2,7 +2,7 @@ import React, { useId, useCallback, useMemo } from 'react';
 import {
     Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, ReferenceLine, Legend, Area, ComposedChart,
-   LabelList, Brush, ReferenceArea
+    LabelList, Brush, ReferenceArea
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
@@ -15,20 +15,15 @@ const CustomActiveDot = (props) => {
     
     return (
         <g>
-            {/* 🎯 FIX: Efeito de pulso animado via SVG para o Hover */}
-            <circle cx={cx} cy={cy} r={12} fill={fill} opacity={0.3}>
-                <animate attributeName="r" values="6;16" dur="1.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1" />
-                <animate attributeName="opacity" values="0.6;0" dur="1.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.2 1" />
-            </circle>
+            <circle cx={cx} cy={cy} r={11} fill={fill} opacity={0.22} />
             <circle cx={cx} cy={cy} r={5} fill={fill} stroke={stroke || "#ffffff"} strokeWidth={2} />
         </g>
     );
 };
 
-export function CompareChart({ 
+export const CompareChart = React.memo(function CompareChart({ 
     filteredChartData, 
     targetScore,
-    // ✅ BUG-7 FIX: removida prop 'categories' que não era usada (causava re-renders desnecessários)
     minScore = 0,
     maxScore = 100,
     unit = '%'
@@ -44,7 +39,6 @@ export function CompareChart({
         let obs = null;
         try {
             obs = new ResizeObserver((entries) => {
-                // FIX 4B: debounce de 100ms para evitar re-renders excessivos
                 if (debounceTimer) clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     for (const entry of entries) {
@@ -125,7 +119,6 @@ export function CompareChart({
       return last;
     }, [chartData]);
 
-    // 🎯 FIX: Algoritmo de Colisão Adaptativo baseado no Range Real
     const solveCollisions = useCallback((points) => {
         if (!points.length) return [];
         const sorted = [...points].sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
@@ -133,7 +126,6 @@ export function CompareChart({
             ...p,
             yPos: Number.isFinite(Number(p.value)) ? Number(p.value) : safeMinScore
         }));
-        // FIX 4A: garantir range mínimo de 1 para evitar divisão por zero
         const range = Math.max(1e-6, safeMaxScore - safeMinScore);
         const topLimit = safeMaxScore - (range * 0.02);
         const bottomLimit = safeMinScore + (range * 0.05);
@@ -145,8 +137,6 @@ export function CompareChart({
             ? safeSpace / Math.max(1, yPos.length - 1) 
             : MIN_PCT_DISTANCE;
 
-        // ✅ LOTE-02 FIX: os 3 passes sequenciais podiam estourar o teto logo após
-        // corrigir o chão. Relaxamento iterativo com re-cheque de limites.
         for (let iter = 0; iter < 30; iter++) {
             let moved = false;
             for (let i = 1; i < yPos.length; i++) {
@@ -159,18 +149,17 @@ export function CompareChart({
             }
             if (yPos[0].yPos > topLimit) {
                 const shift = yPos[0].yPos - topLimit;
-                yPos.forEach(p => p.yPos -= shift);
+                yPos.forEach(p => { p.yPos -= shift; });
                 moved = true;
             }
             if (yPos[yPos.length - 1].yPos < bottomLimit) {
                 const shift = bottomLimit - yPos[yPos.length - 1].yPos;
-                yPos.forEach(p => p.yPos += shift);
+                yPos.forEach(p => { p.yPos += shift; });
                 moved = true;
             }
             if (!moved) break;
         }
 
-        // Clamp final estrito para garantir que nenhum label saia dos limites
         for (let i = 0; i < yPos.length; i++) {
             yPos[i].yPos = Math.max(bottomLimit, Math.min(topLimit, yPos[i].yPos));
         }
@@ -216,9 +205,7 @@ export function CompareChart({
         };
     }, [chartData, lastValidIdx, solveCollisions]);
 
-
-
-    const renderLabel = (props, type, color) => {
+    const renderLabel = useCallback((props, type, color) => {
         const { x, index, value, viewBox } = props;
         if (!isValidValue(value) || !Number.isFinite(Number(x))) {
           return null;
@@ -255,18 +242,15 @@ export function CompareChart({
         }
         const boxWidth = Math.max(42, formatted.length * 7 + 14);
 
-        // Bug 7 FIX: Prefere viewBox.height (sempre preciso) ao invés de containerHeight que pode não estar medido no primeiro render
         const chartHeight = viewBox?.height ?? (containerHeight > 40 ? containerHeight - 40 : 320);
         const chartY = viewBox?.y ?? 20;
         const range = safeMaxScore - safeMinScore;
         const pxPerPct = chartHeight / (range || 1);
         
-        // Compute Y strictly via our internal coordinate map (bypassing Recharts' `y` which bugs out on isolated dots)
         let rawY = chartY + chartHeight - (ptPos - safeMinScore) * pxPerPct - 10;
         if (!Number.isFinite(rawY)) rawY = chartY + chartHeight / 2;
         const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
         
-        // BUG-5 FIX: Clamp label X to prevent overflow past chart right edge
         const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 75;
         const labelX = Math.max(0, Math.min(x + xOff - 2, maxX - boxWidth));
         
@@ -280,7 +264,24 @@ export function CompareChart({
                     {formatted}
                 </text>
             </g>
-        );    };
+        );
+    }, [lastValidIdx, safeMinScore, safeMaxScore, isFuturePoint, futureIdx, lastY, todayIdx, todayY, unit, containerHeight]);
+
+    const renderBayLabel = useCallback((props) => renderLabel(props, 'bay', '#34d399'), [renderLabel]);
+    const renderRawLabel = useCallback((props) => renderLabel(props, 'raw', '#fb923c'), [renderLabel]);
+    const renderStatsLabel = useCallback((props) => renderLabel(props, 'stats', '#818cf8'), [renderLabel]);
+    const renderMcLabel = useCallback((props) => renderLabel(props, 'mc', '#a78bfa'), [renderLabel]);
+
+    const renderMcDot = useCallback((props) => {
+        const { cx, cy, index } = props;
+        if (index !== lastValidIdx.mc || cx == null || cy == null) return null;
+        return (
+            <g key={`mc_dot_${index}`}>
+                <circle cx={cx} cy={cy} r={10} fill="#a78bfa" opacity="0.25" />
+                <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2} />
+            </g>
+        );
+    }, [lastValidIdx.mc]);
 
     const renderCompareTooltip = useCallback(
         (props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} />,
@@ -293,16 +294,15 @@ export function CompareChart({
         <div ref={containerRef} className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
             <ChartFrame minHeight={360} label="Comparando evolução">
                 <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
-                {/* 🎯 FIX: right: 85 impede que as Labels cortem a borda direita na renderização do MC */}
                 <ComposedChart data={chartData} syncId="evolutionSync" margin={{ top: 20, right: 85, left: 4, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         <linearGradient id={CC.projectionPurpleGradient} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.2} />
-                            <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.01} />
+                            <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.22} />
+                            <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.04} />
                         </linearGradient>
                         <linearGradient id={CC.cloudGradient} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
-                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.01} />
+                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.28} />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity={0.08} />
                         </linearGradient>
                         <linearGradient id={CC.bayBandGradient} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#34d399" stopOpacity={0.2} />
@@ -391,9 +391,8 @@ export function CompareChart({
                     <Legend wrapperStyle={{ paddingTop: '20px', paddingBottom: '10px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#94a3b8' }} />
                     
                     <Area connectNulls type="monotoneX" dataKey="Banda Bayesiana" stroke="none" fill={`url(#${CC.bayBandGradient})`} legendType="none" tooltipType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
-                    <Area connectNulls type="monotoneX" dataKey="Futuro Provável" name="_shadow_projection" fill={`url(#${CC.projectionPurpleGradient})`} stroke="none" legendType="none" tooltipType="none" isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out" />
                     
-                    <Area connectNulls type="monotoneX" dataKey="Cenário Range" stroke="none" fill={`url(#${CC.cloudGradient})`} legendType="none" tooltipType="none" isAnimationActive={false} />
+                    <Area connectNulls type="monotoneX" dataKey="Cenário Range" stroke="#a78bfa" strokeOpacity={0.25} strokeWidth={1} fill={`url(#${CC.cloudGradient})`} legendType="none" tooltipType="none" isAnimationActive={false} />
                     
                     {/* Bottom Layer: Glow for Nível Bayesiano */}
                     <Area type="monotoneX" dataKey="Nível Bayesiano" stroke="#34d399" strokeWidth={8} strokeOpacity={0.25} fill="none" activeDot={false} legendType="none" connectNulls isAnimationActive={false} />
@@ -402,38 +401,24 @@ export function CompareChart({
                         strokeLinecap="round" strokeLinejoin="round"
                         fill={`url(#${CC.greenGradient})`} dot={{ r: 3.5, fill: '#0f172a', stroke: '#34d399', strokeWidth: 2 }}
                         activeDot={<CustomActiveDot fill="#34d399" />} connectNulls isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
-                        <LabelList content={(props) => renderLabel(props, 'bay', '#34d399')} />
+                        <LabelList content={renderBayLabel} />
                     </Area>
                     
                     <Line connectNulls type="monotoneX" dataKey="Nota Bruta" stroke="#fb923c" strokeWidth={2.5}
                         strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5 4" 
                         dot={{ r: 3, fill: '#0f172a', stroke: '#fb923c', strokeWidth: 1.8 }} activeDot={<CustomActiveDot fill="#fb923c" />} strokeOpacity={1} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
-                        <LabelList content={(props) => renderLabel(props, 'raw', '#fb923c')} />
+                        <LabelList content={renderRawLabel} />
                     </Line>
                     
                     <Line type="monotoneX" dataKey="Média Histórica" stroke="#818cf8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dot={false} connectNulls strokeOpacity={0.5} activeDot={<CustomActiveDot fill="#818cf8" />} isAnimationActive={animateSeries} animationDuration={1500} animationEasing="ease-in-out">
-                        <LabelList content={(props) => renderLabel(props, 'stats', '#818cf8')} />
+                        <LabelList content={renderStatsLabel} />
                     </Line>
                     
                     <Line connectNulls type="monotoneX" dataKey="Futuro Provável" stroke="#a78bfa" strokeWidth={3}
                         strokeLinecap="round" strokeDasharray="6 4"
-                        dot={(props) => {
-                            const { cx, cy, index } = props;
-                            if (index !== lastValidIdx.mc || cx == null || cy == null) return null;
-                            return (
-                                <g>
-                                    <circle cx={cx} cy={cy} r={5} fill="#a78bfa" stroke="#ffffff" strokeWidth={2}>
-                                        <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite" />
-                                    </circle>
-                                    <circle cx={cx} cy={cy} r={9} fill="#a78bfa" opacity="0.3">
-                                        <animate attributeName="r" values="7;13;7" dur="2s" repeatCount="indefinite" />
-                                        <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite" />
-                                    </circle>
-                                </g>
-                            );
-                        }}
+                        dot={renderMcDot}
                         strokeOpacity={1} isAnimationActive={false}>
-                        <LabelList content={(props) => renderLabel(props, 'mc', '#a78bfa')} />
+                        <LabelList content={renderMcLabel} />
                     </Line>
 
                     {chartData.length > 1 && (
@@ -451,5 +436,4 @@ export function CompareChart({
             </ChartFrame>
         </div>
     );
-}
-
+});

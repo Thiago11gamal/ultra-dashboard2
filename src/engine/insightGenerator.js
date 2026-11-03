@@ -28,6 +28,7 @@ const sortByValidDate = (history) => {
 
 export function generateEvolutionInsights({
     timeline,
+    filteredChartData,
     focusCategory,
     activeEngine,
     categories,
@@ -36,8 +37,12 @@ export function generateEvolutionInsights({
     minScore = 0
 }) {
     const defaultTitle = "Análise do Sistema";
+    const effectiveTimeline =
+        Array.isArray(filteredChartData) && filteredChartData.length > 0
+            ? filteredChartData
+            : timeline;
 
-    if (!timeline?.length) {
+    if (!effectiveTimeline?.length) {
         return {
             type: 'info', icon: "📊", title: defaultTitle,
             text: "Ainda não existem dados suficientes.",
@@ -76,10 +81,10 @@ export function generateEvolutionInsights({
         }
     }
 
-    const lastPoint = timeline[timeline.length - 1];
+    const lastPoint = effectiveTimeline[effectiveTimeline.length - 1];
     const getLastValid = (key) => {
-        for (let i = timeline.length - 1; i >= 0; i--) {
-            if (timeline[i][key] != null) return timeline[i][key];
+        for (let i = effectiveTimeline.length - 1; i >= 0; i--) {
+            if (effectiveTimeline[i][key] != null) return effectiveTimeline[i][key];
         }
         return null;
     };

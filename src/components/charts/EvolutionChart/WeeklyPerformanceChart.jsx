@@ -15,7 +15,7 @@ import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/sco
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
 import { getHistoryDate } from '../../../utils/evolutionGuards.js';
 
-const WeeklyPerformanceChart = ({
+const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     categories = [],
     studyLogs = [],
     showOnlyFocus = false,
@@ -23,7 +23,7 @@ const WeeklyPerformanceChart = ({
     maxScore = 100,
     minScore = 0,
     unit = '%'
-}) => {
+}) {
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeUnit = typeof unit === 'string' && unit.length <= 4 ? unit : '%';
@@ -52,7 +52,6 @@ const WeeklyPerformanceChart = ({
                 }
                 return true;
             });
-            // 🎯 FIX: Calcular apenas os minutos puros para entregar ao Recharts
             const totalMinutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
 
             let correctTotal = 0;
@@ -101,7 +100,7 @@ const WeeklyPerformanceChart = ({
             days.push({
                 data: i === 0 ? "HOJE" : dow,
                 fullDate: dateKey,
-                minutos: totalMinutes / 60, // Horas decimais para o formatDuration funcionar corretamente
+                minutos: totalMinutes / 60,
                 acertos
             });
         }
@@ -112,9 +111,8 @@ const WeeklyPerformanceChart = ({
     const renderTooltip = useCallback(({ active, payload, label }) => {
         if (!(active && payload && payload.length)) return null;
 
-        // Dedup para evitar que Line e Area sobrepostos com o mesmo dataKey apareçam duas vezes
         const uniquePayload = payload
-            .filter((v) => !String(v.name || '').startsWith('_'))   // ✅ LOTE-02
+            .filter((v) => !String(v.name || '').startsWith('_'))
             .filter((v, i, a) => a.findIndex(t => t.name === v.name) === i);
 
         return (
@@ -149,7 +147,7 @@ const WeeklyPerformanceChart = ({
 
     if (!hasAnyData) {
       return (
-        <div className="w-full h-[320px] sm:h-[400px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
+        <div className="w-full h-full min-h-[320px] flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
           <span className="text-3xl">📭</span>
           Sem atividade nos últimos 7 dias.
         </div>
@@ -157,8 +155,8 @@ const WeeklyPerformanceChart = ({
     }
 
     return (
-        <div className="w-full h-[320px] sm:h-[400px] flex flex-col">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 px-1 gap-2 shrink-0">
+        <div className="w-full h-full min-h-[320px] flex flex-col">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-1 gap-2 shrink-0">
                 <div>
                     <h3 className="text-white font-black text-sm sm:text-base flex items-center gap-2">
                         📈 {showOnlyFocus ? 'Foco: Últimos 7 Dias' : 'Desempenho: Últimos 7 Dias'}
@@ -180,7 +178,7 @@ const WeeklyPerformanceChart = ({
             </div>
 
             <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%" minHeight={250} minWidth={1}>
+                <ResponsiveContainer width="100%" height="100%" minHeight={240} minWidth={1}>
                     <ComposedChart
                         data={chartData}
                         margin={{ top: 10, right: 10, left: 2, bottom: 20 }}
@@ -263,7 +261,6 @@ const WeeklyPerformanceChart = ({
                             tooltipType="none"
                         />
 
-                        {/* Bottom Layer: Glow effect */}
                         <Line
                             yAxisId="right"
                             type="monotoneX"
@@ -280,7 +277,6 @@ const WeeklyPerformanceChart = ({
                             legendType="none"
                             tooltipType="none"
                         />
-                        {/* Top Layer: Main Line */}
                         <Line
                             yAxisId="right"
                             type="monotoneX"
@@ -299,7 +295,6 @@ const WeeklyPerformanceChart = ({
             </div>
         </div>
     );
-};
+});
 
 export default WeeklyPerformanceChart;
-

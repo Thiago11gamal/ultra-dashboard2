@@ -26,6 +26,7 @@ const stdDev = (values) => {
 
 export function computeEvolutionStatuses({
   timeline = [],
+  filteredChartData = null,
   categories = [],
   focusCategory = null,
   targetScore = 0,
@@ -47,21 +48,35 @@ export function computeEvolutionStatuses({
 
   const fmt = (v) => `${formatValue(v)}${unit}`;
 
-  const last = Array.isArray(timeline) && timeline.length > 0
-    ? timeline[timeline.length - 1]
+  const effectiveTimeline =
+    Array.isArray(filteredChartData) && filteredChartData.length > 0
+      ? filteredChartData
+      : (Array.isArray(timeline) ? timeline : []);
+
+  const last = effectiveTimeline.length > 0
+    ? effectiveTimeline[effectiveTimeline.length - 1]
     : {};
 
   const focusId = focusCategory?.id;
 
   const currentBay = focusId ? safeNum(last[`bay_${focusId}`], null) : null;
-  const currentRaw = focusId ? safeNum(last[`raw_${focusId}`], null) : null;
+  let currentRaw = focusId ? safeNum(last[`raw_${focusId}`], null) : null;
+  if (currentRaw == null && focusId && effectiveTimeline.length > 0) {
+    for (let i = effectiveTimeline.length - 1; i >= 0; i--) {
+      const r = safeNum(effectiveTimeline[i]?.[`raw_${focusId}`], null);
+      if (r != null) {
+        currentRaw = r;
+        break;
+      }
+    }
+  }
   const currentStats = focusId ? safeNum(last[`stats_${focusId}`], null) : null;
   const current = currentBay ?? currentRaw ?? currentStats;
 
   const getValueSeries = (prefix) => {
-    if (!focusId || !Array.isArray(timeline)) return [];
+    if (!focusId || !Array.isArray(effectiveTimeline)) return [];
 
-    return timeline
+    return effectiveTimeline
       .map((d) => safeNum(d?.[`${prefix}${focusId}`], NaN))
       .filter((v) => Number.isFinite(v));
   };
@@ -202,20 +217,35 @@ export function computeEvolutionStatuses({
 
   // Matérias abaixo da meta
   if (Array.isArray(categories) && categories.length > 0) {
+    const globalTargetRatio = range > 0 ? (safeTarget - safeMin) / range : 0.8;
     const below = categories.filter((cat) => {
-      const lvl = safeNum(
-        last?.[`bay_${cat.id}`] ?? 
-        last?.[`raw_${cat.id}`] ?? 
-        last?.[`stats_${cat.id}`] ?? 
-        cat?.bayesianStats?.mean ?? 
-        cat?.simuladoStats?.average,
+      const catMin = safeNum(cat?.minScore, safeMin);
+      const catMax = Math.max(catMin + 1, safeNum(cat?.maxScore, safeMax));
+      const catRange = catMax - catMin;
+      const catScale = catRange / 100;
+
+      const fromTimeline = safeNum(
+        last?.[`bay_${cat.id}`] ??
+        last?.[`raw_${cat.id}`] ??
+        last?.[`stats_${cat.id}`],
         null
       );
+      let lvl = fromTimeline;
+      if (lvl == null) {
+        const stored = safeNum(cat?.bayesianStats?.mean ?? cat?.simuladoStats?.average, null);
+        if (stored != null) {
+          const isLegacyPct = stored >= 0 && stored <= 100 && (stored < catMin || (catMax > 100 && catRange >= 200));
+          lvl = isLegacyPct ? catMin + (stored / 100) * catRange : stored;
+        }
+      }
+
       const catTarget = Number.isFinite(Number(cat?.minCutoff))
         ? Number(cat.minCutoff)
-        : safeTarget;
+        : (catMax === safeMax && catMin === safeMin
+            ? safeTarget
+            : catMin + globalTargetRatio * catRange);
 
-      return lvl != null && lvl < catTarget - 5 * scale;
+      return lvl != null && lvl < catTarget - 5 * catScale;
     }).length;
 
     statuses.push({
