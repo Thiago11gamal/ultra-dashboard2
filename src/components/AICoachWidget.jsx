@@ -69,13 +69,13 @@ function MetricChip({ label, value, index }) {
             whileHover={{ y: -2, backgroundColor: 'rgba(255, 255, 255, 0.06)' }}
             className="group/chip relative flex flex-col justify-between gap-1.5 bg-black/40 border border-white/[0.06] hover:border-white/15 rounded-xl p-3 transition-all cursor-default overflow-hidden shadow-sm"
         >
-            <span 
+            <span
                 className="text-[9px] font-bold uppercase tracking-wider text-slate-400 truncate block group-hover/chip:text-slate-300 transition-colors"
                 title={label}
             >
                 {label}
             </span>
-            <span 
+            <span
                 className="text-xs sm:text-sm font-black font-mono text-slate-100 tracking-tight truncate block"
                 title={String(value)}
             >
@@ -88,14 +88,11 @@ function MetricChip({ label, value, index }) {
 function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
     const rawProbValue = mc?.probability ?? mc?.probabilityRaw;
     if (!mc || rawProbValue == null || !Number.isFinite(Number(rawProbValue))) return null;
-    
+
     const rawProb = Number(rawProbValue);
     const prob = Math.min(100, Math.max(0, rawProb));
     const toPct = (value) => {
         const range = Math.max(1e-9, scaleMax - scaleMin);
-        if (scaleMax > 100 && value >= 0 && value <= 100) {
-            return Math.min(100, Math.max(0, value));
-        }
         return Math.min(100, Math.max(0, ((value - scaleMin) / range) * 100));
     };
     const hasLow = mc.ci95Low !== null && mc.ci95Low !== undefined && mc.ci95Low !== '' && Number.isFinite(Number(mc.ci95Low));
@@ -148,22 +145,22 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
             <div className="space-y-1.5 pt-0.5">
                 <div className="relative h-2 bg-white/[0.04] rounded-full overflow-hidden border border-white/[0.08]">
                     {/* 95% Confidence Band */}
-                    <Motion.div 
+                    <Motion.div
                         initial={{ width: 0 }}
                         animate={{ left: `${low}%`, width: `${safeBarWidth}%` }}
                         transition={{ duration: 1.4, ease: "easeOut" }}
                         className="absolute top-0 bottom-0 bg-white/15 rounded-full"
                     />
-                    
+
                     {/* Exact Probability Marker */}
-                    <Motion.div 
+                    <Motion.div
                         initial={{ left: '0%' }}
                         animate={{ left: `calc(${safeProbPos}% - 4px)` }}
                         transition={{ duration: 1.4, ease: "easeOut" }}
                         className={`absolute top-0 bottom-0 w-2 rounded-full ${color} ${dotGlow}`}
                     />
                 </div>
-                
+
                 {/* Min / Max Labels */}
                 <div className="flex justify-between items-center text-[9px] font-mono px-0.5">
                     <div className="flex items-center gap-1">
@@ -239,7 +236,7 @@ export default function AICoachWidget({ suggestion }) {
                                 Motor de Produtividade
                             </span>
                             {globalPct !== null && (
-                                <div 
+                                <div
                                     className="flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-black bg-emerald-500/10 text-emerald-300 border border-emerald-500/25 rounded-md tracking-wider shadow-sm"
                                     title={`Projeção global: ${globalMeanRaw.toFixed(1)} / ${scaleMax} pts`}
                                 >
@@ -377,10 +374,10 @@ export default function AICoachWidget({ suggestion }) {
 
                                 {/* Monte Carlo Gauge */}
                                 {suggestion.urgency?.details?.monteCarlo && (
-                                    <MonteCarloGauge 
-                                        mc={suggestion.urgency.details.monteCarlo} 
-                                        scaleMax={scaleMax} 
-                                        scaleMin={scaleMin} 
+                                    <MonteCarloGauge
+                                        mc={suggestion.urgency.details.monteCarlo}
+                                        scaleMax={scaleMax}
+                                        scaleMin={scaleMin}
                                     />
                                 )}
 

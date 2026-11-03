@@ -454,8 +454,28 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const minScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, maxScore) : 0;
 
     const domain = Math.max(1e-9, maxScore - minScore);
+    const globalMaxScore = Number.isFinite(Number(safeOptions.maxScore)) && Number(safeOptions.maxScore) > 0
+        ? Number(safeOptions.maxScore)
+        : maxScore;
+    const globalMinScore = Number.isFinite(Number(safeOptions.minScore))
+        ? Math.min(Number(safeOptions.minScore), globalMaxScore)
+        : minScore;
+    const globalDomain = Math.max(1e-9, globalMaxScore - globalMinScore);
+    const mapGlobalToCategoryScale = (globalVal) => {
+        if (globalVal === null || globalVal === undefined || globalVal === '' || !Number.isFinite(Number(globalVal))) return null;
+        const val = Number(globalVal);
+        if (Math.abs(globalMaxScore - maxScore) < 1e-6 && Math.abs(globalMinScore - minScore) < 1e-6) {
+            return val;
+        }
+        const ratio = clamp((val - globalMinScore) / globalDomain, 0, 1);
+        return minScore + ratio * domain;
+    };
+
     const fallbackTarget = minScore + domain * 0.8;
-    const rawTargetScore = Number(safeCategory.minCutoff ?? safeOptions.targetScore ?? fallbackTarget);
+    const mappedGlobalTarget = safeCategory.minCutoff == null && safeOptions.targetScore != null
+        ? mapGlobalToCategoryScale(safeOptions.targetScore)
+        : null;
+    const rawTargetScore = Number(safeCategory.minCutoff ?? mappedGlobalTarget ?? safeOptions.targetScore ?? fallbackTarget);
     const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
     const targetScoreLabel = safeOptions.targetScoreLabel ?? Math.round(((targetScore - minScore) / domain) * 100);
@@ -715,8 +735,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             averageScore = notaBruta;
         }
     } else {
-        const globalAnchor = Number.isFinite(safeOptions.globalMcStats?.currentMean)
-            ? safeOptions.globalMcStats.currentMean
+        const mappedCurrentMean = mapGlobalToCategoryScale(safeOptions.globalMcStats?.currentMean);
+        const globalAnchor = Number.isFinite(mappedCurrentMean)
+            ? mappedCurrentMean
             : (globalBaselinePct !== 50
                 ? minScore + (globalBaselinePct / 100) * domain
                 : minScore + 0.5 * domain);
@@ -757,7 +778,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         recencyUnknown = false;
     }
 
-    const trendHistory = [...simuladosWithMaxScore]
+    const allSortedDesc = [...simuladosWithMaxScore]
         .map(s => ({
             score: getSafeScore(s, maxScore, minScore),
             date: s.date || s.createdAt
@@ -767,12 +788,13 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             const timeA = (normalizeDate(a.date) || new Date(0)).getTime();
             const timeB = (normalizeDate(b.date) || new Date(0)).getTime();
             return timeB - timeA;
-        })
-        .slice(0, 10)
-        .reverse();
+        });
+
+    const trendHistory = allSortedDesc.slice(0, 10).reverse();
+    const allChronologicalScores = allSortedDesc.slice().reverse().map(t => t.score);
 
     const lastNScores = trendHistory.map(t => t.score);
-    const backtestWeights = deriveBacktestWeights(lastNScores, maxScore, minScore);
+    const backtestWeights = deriveBacktestWeights(allChronologicalScores, maxScore, minScore);
 
     // ==================== LOTE 1: STATE-SPACE / KALMAN ====================
     let stateSpace = null;
@@ -896,9 +918,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         }
     }
 
-    // ✅ FIX: Verificar se safeOptions.globalMcStats existe antes de acessar
+    // ✅ FIX: Verificar se safeOptions.globalMcStats existe antes de acessar e mapear para a escala da categoria
     const globalProjectedMean = safeOptions.globalMcStats && Number.isFinite(safeOptions.globalMcStats.projectedMean)
-        ? safeOptions.globalMcStats.projectedMean
+        ? mapGlobalToCategoryScale(safeOptions.globalMcStats.projectedMean)
         : null;
 
     if (globalProjectedMean != null && globalProjectedMean < effectiveMCTarget && globalProjectedMean > averageScore) {
@@ -909,7 +931,8 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const effectiveCfg = {
         ...cfg,
         MC_SIMULATIONS: adaptiveSimCount,
-        MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct
+        MC_CALIBRATION_NEUTRAL_PCT: globalBaselinePct,
+        nominalTargetScore: targetScore
     };
 
     const agilitySource = safeCategory.simuladoStats?.history?.length ? safeCategory.simuladoStats.history : simuladosWithMaxScore;
@@ -1298,14 +1321,21 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
     const sortedLogsForBurnout = [...(categoryStudyLogs || [])].sort((a, b) =>
         getLogDate(a).getTime() - getLogDate(b).getTime()
     );
-    const rollingWindowMs = 7 * MS_PER_DAY;
+    const rollingWindowMs = 28 * MS_PER_DAY;
     // ✅ FIX: Verificar se metrics.referenceNow existe antes de usar
     const nowMs = Number.isFinite(metrics.referenceNow) ? metrics.referenceNow : Date.now();
     const recentBaselineLogs = sortedLogsForBurnout.filter(log => {
         const diff = nowMs - getLogDate(log).getTime();
         return diff >= -MS_PER_DAY && diff <= rollingWindowMs;
     });
+    // Separa semanas anteriores (dias 7..28) da semana atual (dias 0..7) para evitar que
+    // baselineHoursPerWeek === recentHours torne recentHours > baselineHoursPerWeek * 1.8 impossível.
+    const priorBaselineLogs = recentBaselineLogs.filter(log => {
+        const diff = nowMs - getLogDate(log).getTime();
+        return diff > 7 * MS_PER_DAY;
+    });
     const recentBaselineHours = recentBaselineLogs.reduce((acc, log) => acc + getLogMinutes(log), 0) / 60;
+    const priorBaselineHours = priorBaselineLogs.reduce((acc, log) => acc + getLogMinutes(log), 0) / 60;
     const firstLogTime = sortedLogsForBurnout.length > 0
         ? getLogDate(sortedLogsForBurnout[0]).getTime()
         : nowMs;
@@ -1313,7 +1343,13 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         ? Math.max(1, (nowMs - getLogDate(recentBaselineLogs[0]).getTime()) / MS_PER_DAY)
         : Math.max(1, (nowMs - firstLogTime) / MS_PER_DAY);
     const activeWeeks = Math.max(1, Math.min(4, recentSpanDays / 7));
-    const baselineHoursPerWeek = recentBaselineLogs.length > 0 ? (recentBaselineHours / activeWeeks) : 5.0;
+    const priorSpanDays = priorBaselineLogs.length > 0
+        ? Math.max(7, (nowMs - 7 * MS_PER_DAY - getLogDate(priorBaselineLogs[0]).getTime()) / MS_PER_DAY)
+        : 7;
+    const activePriorWeeks = Math.max(1, Math.min(3, priorSpanDays / 7));
+    const baselineHoursPerWeek = priorBaselineLogs.length > 0
+        ? (priorBaselineHours / activePriorWeeks)
+        : (recentBaselineLogs.length > 0 ? Math.min(8.33, recentBaselineHours / activeWeeks) : 5.0);
     const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
     // Balance bridge boost
     const allCategoriesSafe = options.allCategories || [];
@@ -2662,6 +2698,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
+            const mcEffTarget = Number.isFinite(Number(mc?.effectiveMCTarget)) ? Number(mc.effectiveMCTarget) : targetScore;
+            const zdpNote = mcEffTarget < targetScore - 1e-6
+                ? ` (Meta ZDP: ${minScore === 0 && maxScore === 100 ? `${Math.round(mcEffTarget)}%` : `${formatValue(mcEffTarget)} pts`})`
+                : '';
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido mcProbKey do ID para manter estabilidade no Planner
                 id: `${cat.id}-mc-danger-${mcIdSuffix}`,
@@ -2676,7 +2716,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 topicName: 'Vetor Crítico — Intervenção Exigida',
                 analysis: {
                     reason: "Monte Carlo — Zona de Perigo",
-                    details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel != null ? `${options.targetScoreLabel}%` : (minScore === 0 && maxScore === 100 ? `${Math.round(targetScore)}%` : `${formatValue(targetScore)} pts (${Math.round(((targetScore - minScore) / domain) * 100)}%)`)} em ${Number.isFinite(Number(mc?.effectiveMCDays)) && Number(mc.effectiveMCDays) > 0 ? Math.round(Number(mc.effectiveMCDays)) : 90} dias.`,
+                    details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel != null ? `${options.targetScoreLabel}%` : (minScore === 0 && maxScore === 100 ? `${Math.round(targetScore)}%` : `${formatValue(targetScore)} pts (${Math.round(((targetScore - minScore) / domain) * 100)}%)`)}${zdpNote} em ${Number.isFinite(Number(mc?.effectiveMCDays)) && Number(mc.effectiveMCDays) > 0 ? Math.round(Number(mc.effectiveMCDays)) : 90} dias.`,
                     metrics: cat.urgency?.details?.humanReadable || {},
                     monteCarlo: mc || null,
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."

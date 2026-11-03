@@ -444,11 +444,32 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       const horizon = isLowPerformance ? Math.min(3, defaultHorizon) : defaultHorizon;
       const brierScores = [];
 
+      const nominalTarget = Number.isFinite(Number(safeCfg.nominalTargetScore))
+        ? Math.max(minTarget, Math.min(safeMaxScore, Number(safeCfg.nominalTargetScore)))
+        : safeTargetScore;
+      const isZdpActive = nominalTarget > safeTargetScore + 1e-6;
+
       // Walk-forward estritamente cronológico: do holdout mais antigo (horizon) ao mais recente (1)
       for (let i = horizon; i >= 1; i -= 1) {
         const train = history.slice(0, history.length - i);
         const observedRecord = history[history.length - i];
-        const observed = Number(observedRecord.score) >= safeTargetScore ? 1 : 0;
+        let stepTarget = safeTargetScore;
+        if (isZdpActive && train.length >= 2) {
+          const trainMean = train.reduce((acc, h) => acc + Number(h.score || 0), 0) / train.length;
+          if (nominalTarget - trainMean > 0.15 * range) {
+            let sumDiffSq = 0;
+            for (let j = 1; j < train.length; j += 1) {
+              const d = Number(train[j].score || 0) - Number(train[j - 1].score || 0);
+              sumDiffSq += d * d;
+            }
+            const trainRmssd = Math.sqrt(sumDiffSq / Math.max(1, train.length - 1));
+            const causalZdp = trainMean + Math.max(trainRmssd, range * 0.05) + (range * 0.02);
+            stepTarget = Math.max(trainMean, Math.min(causalZdp, nominalTarget));
+          } else {
+            stepTarget = nominalTarget;
+          }
+        }
+        const observed = Number(observedRecord.score) >= stepTarget ? 1 : 0;
 
         try {
           let gapDays = 7;
@@ -461,7 +482,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
           }
 
           const btSimulations = Math.min(200, Math.max(100, Math.floor(safeSimulations * 0.2)));
-          const bt = monteCarloSimulation(train, safeTargetScore, gapDays,
+          const bt = monteCarloSimulation(train, stepTarget, gapDays,
             btSimulations,
             { maxScore: safeMaxScore, minScore: safeMinScore, agilityPenalty, globalBaselinePct: neutralPct });
 

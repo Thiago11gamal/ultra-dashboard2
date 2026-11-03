@@ -11,6 +11,8 @@ import { describe, it, expect } from 'vitest';
 import {
   computeBayesianProficiency,
   calculateUrgencyScore,
+  calculateUrgency,
+  extractMetrics,
   getCognitiveState,
   analisarDesempenhoHistorico
 } from '../coachLogic.js';
@@ -457,5 +459,56 @@ describe('Auditoria Matemática - Fixes Cirúrgicos Verificados', () => {
     const comp = compareEvaluationSummaries(baseline, candidate);
     expect(comp.heuristicScore).toBeGreaterThanOrEqual(-1);
     expect(comp.heuristicScore).toBeLessThanOrEqual(1);
+  });
+
+  it('28. burnout: isHighVolume dispara quando horas da semana superam baseline das semanas anteriores', () => {
+    const now = new Date('2026-06-30T12:00:00Z');
+    const dayMs = 86400000;
+    const logs = [
+      // Semanas anteriores (dias 14 e 21 atrás): ~6h por semana
+      { categoryId: 'dir', minutes: 360, date: new Date(now.getTime() - 21 * dayMs).toISOString() },
+      { categoryId: 'dir', minutes: 360, date: new Date(now.getTime() - 14 * dayMs).toISOString() },
+      // Semana atual (3 dias ativos, total 18h > threshold 15h, mas < 5 dias para isolar isHighVolume)
+      { categoryId: 'dir', minutes: 360, date: new Date(now.getTime() - 3 * dayMs).toISOString() },
+      { categoryId: 'dir', minutes: 360, date: new Date(now.getTime() - 2 * dayMs).toISOString() },
+      { categoryId: 'dir', minutes: 360, date: new Date(now.getTime() - 1 * dayMs).toISOString() }
+    ];
+    const sims = [
+      { categoryId: 'dir', score: 60, date: new Date(now.getTime() - 10 * dayMs).toISOString() },
+      { categoryId: 'dir', score: 60, date: new Date(now.getTime() - 2 * dayMs).toISOString() }
+    ];
+    const res = calculateUrgency({ id: 'dir', name: 'Direito', weight: 5 }, sims, logs, { now, maxScore: 100 });
+    expect(res.recommendation).toContain('Estafa');
+  });
+
+  it('29. extractMetrics: normaliza globalMcStats para a escala própria da categoria', () => {
+    const cat = { id: 'red', name: 'Redacao', maxScore: 20, minScore: 0 };
+    const metrics = extractMetrics(cat, [], [], {
+      maxScore: 100,
+      minScore: 0,
+      targetScore: 80,
+      globalMcStats: { currentMean: 70, projectedMean: 75 }
+    });
+    expect(metrics.averageScore).toBeCloseTo(14, 5);
+    expect(metrics.targetScore).toBeCloseTo(16, 5);
+    expect(metrics.globalProjectedMean).toBeCloseTo(15, 5);
+  });
+
+  it('30. extractMetrics: backtestWeights.effectiveN cresce além do teto antigo de 10 simulados', () => {
+    const now = new Date('2026-06-30T12:00:00Z');
+    const sims = Array.from({ length: 25 }, (_, i) => ({
+      categoryId: 'mat',
+      score: 60 + (i % 10),
+      date: new Date(now.getTime() - (25 - i) * 86400000).toISOString()
+    }));
+    const metrics = extractMetrics({ id: 'mat', name: 'Matematica' }, sims, [], { now, maxScore: 100 });
+    expect(metrics.backtestWeights.effectiveN).toBeGreaterThan(15);
+  });
+
+  it('31. computeContinuousMcBoost (calibration.js) respeita limiares danger e safe via Hermite smoothstep', () => {
+    const b1 = computeLegacyMcBoost(40, 50, 85); // Abaixo de danger=50 -> boost > 8
+    const b2 = computeLegacyMcBoost(40, 20, 85); // Acima de danger=20 -> boost < 8
+    expect(b1).toBeGreaterThan(8);
+    expect(b2).toBeLessThan(8);
   });
 });

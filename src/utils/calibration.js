@@ -644,7 +644,7 @@ export function buildCalibrationDashboardSeries(events = []) {
   return { trend, rolling7, controlLimits, driftSignals };
 }
 
-export function computeContinuousMcBoost(mcProbability, danger, safe, _options = {}) {
+export function computeContinuousMcBoost(mcProbability, danger, safe, options = {}) {
   // BUG: probability/danger/safe inválidos produziam boost NaN e contaminavam adaptiveRisk.
   const p = Number(mcProbability);
   const d = Number(danger);
@@ -654,13 +654,30 @@ export function computeContinuousMcBoost(mcProbability, danger, safe, _options =
   if (!Number.isFinite(d) || !Number.isFinite(s)) return 0;
 
   const safeProbability = Math.max(0, Math.min(100, p));
-  const _safeDanger = Math.max(0, Math.min(99, d));
-  const _safeSafe = Math.max(0, Math.min(99, s));
+  const safeDanger = Math.max(0, Math.min(99, d));
+  const safeSafe = Math.max(safeDanger + 1, Math.min(100, s));
+  const safePenalty = Number.isFinite(Number(options?.safePenalty)) ? Number(options.safePenalty) : -6;
 
-  const neutral = 50;
-  const boost = (neutral - safeProbability) * 0.12;
+  let rawBoost = 0;
+  if (safeProbability <= safeDanger) {
+    const t = Math.max(0, Math.min(1, (safeDanger - safeProbability) / Math.max(1, safeDanger)));
+    const smooth = t * t * (3 - 2 * t);
+    rawBoost = 8 + 14 * smooth;
+  } else if (safeProbability < safeSafe) {
+    const t = Math.max(0, Math.min(1, (safeProbability - safeDanger) / Math.max(1, safeSafe - safeDanger)));
+    const smooth = t * t * (3 - 2 * t);
+    rawBoost = 8 * (1 - smooth) + safePenalty * smooth;
+  } else {
+    rawBoost = safePenalty;
+  }
+
+  const volRatio = Number.isFinite(Number(options?.volatilityRatio))
+    ? Math.max(0, Math.min(1, Number(options.volatilityRatio)))
+    : 0;
+  const volSmooth = volRatio * volRatio * (3 - 2 * volRatio);
+  const boost = rawBoost * (1 - 0.5 * volSmooth);
 
   if (!Number.isFinite(boost)) return 0;
 
-  return Math.max(-8, Math.min(8, boost));
+  return Math.max(-10, Math.min(22, Number(boost.toFixed(2))));
 }
