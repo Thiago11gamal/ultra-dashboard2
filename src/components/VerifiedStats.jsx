@@ -55,7 +55,7 @@ const InfoTooltip = React.memo(({ text }) => (
     </div>
 ));
 
-const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData, maxScore = 100 }) => (
+const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, trend, hasEnoughData, maxScore = 100, minScore = 0 }) => (
     <div className={`glass h-full p-5 sm:p-6 rounded-2xl sm:rounded-3xl relative flex flex-col justify-between border-l-4 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-950/90 group hover:border-white/20 transition-all shadow-2xl overflow-hidden ${status === 'excellence' || status === 'good' ? 'border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.12)]' :
         status === 'warning' ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.12)]' :
             'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.12)]'
@@ -90,7 +90,7 @@ const ForecastCard = React.memo(({ prediction, status, subtext, targetScore, tre
                     <span className="text-base sm:text-lg font-black text-white font-mono">{formatValue(targetScore ?? 70)}</span>
 
                     {/* T-026 FIX: unidade dinâmica */}
-                    {maxScore === 100 ? (
+                    {maxScore === 100 && minScore === 0 ? (
                         <span className="text-[10px] text-slate-400 font-bold">%</span>
                     ) : (
                         <span className="text-[8px] text-slate-400 font-bold">/{maxScore}</span>
@@ -338,12 +338,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
     // T-039 FIX: estabilizar a prop unit para ajudar na memoização do gauge
     const gaugeUnit = useMemo(() => {
-        return maxScore === 100 ? '%' : ' pts';
-    }, [maxScore]);
+        return (maxScore === 100 && minScore === 0) ? '%' : ' pts';
+    }, [maxScore, minScore]);
 
     // FIX LÓGICO: Clampar meta à escala [minScore, maxScore] sem loops multiplicativos
     const normalizeTargetToScale = React.useCallback((raw) => {
-        const fallback = maxScore === 100
+        const fallback = (maxScore === 100 && minScore === 0)
             ? 70
             : Math.round(minScore + (maxScore - minScore) * 0.7);
 
@@ -664,7 +664,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         // FIX BUG 2: globalAnalysis.trend_slope já é escalado para 30 dias pelo ProgressStateEngine (não multiplicar por 30 novamente)
         const trend30d = globalAnalysis.trend_slope;
         // Threshold relativo: 0.5% do teto por 30 dias, mínimo 0.5 absoluto para maxScore=100
-        const trendThreshold = Math.max(0.5, 0.005 * globalRange); // ✅ LOTE-02 FIX (C3)
+        const trendThreshold = 0.005 * globalRange; // ✅ LOTE-02 FIX (C3)
         const trend = !hasEnoughData ? 'insufficient' :
             (trend30d > trendThreshold ? 'up' :
                 trend30d < -trendThreshold ? 'down' : 'stable');
@@ -820,7 +820,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const strMin = fmt(dateMin);
                         const strMax = fmt(dateMax);
                         prediction = strMin === strMax ? `~${strMin}` : `${strMin} — ${strMax}`;
-                        predictionSubtext = `Previsão de alcance (${formatValue(target)}${maxScore === 100 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
+                        predictionSubtext = `Previsão de alcance (${formatValue(target)}${maxScore === 100 && minScore === 0 ? '%' : ` de ${maxScore}`})`;  // FIX 1.5: Unidade dinâmica
                         predictionStatus = "good";
                     }
                 }
@@ -1061,6 +1061,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     prediction={stats.prediction}
                     status={stats.predictionStatus}
                     subtext={stats.predictionSubtext}
+                    minScore={minScore}
                     targetScore={stats.targetScore}
                     trend={stats.trend}
                     hasEnoughData={stats.hasEnoughData}

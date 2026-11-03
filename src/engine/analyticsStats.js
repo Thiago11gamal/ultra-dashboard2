@@ -398,14 +398,15 @@ export function generateAnalyticsStats({
         const db = normalizeDate(b)?.getTime() ?? 0;
         return da - db;
     });
-    const subjectNames = categoryStats.map(cat => cat.key || cat.name);
+    const subjectNames = categoryStats.map(cat => cat.name || cat.key);
 
     const estimatedRho = getAdaptiveInterSubjectCorrelation(
         categoryStats.map(cat => ({ sd: cat.sd ?? cat.volatility, weight: cat.weight })),
         simuladoRows,
         subjectNames,
         undefined,
-        safeMaxScore
+        safeMaxScore,
+        safeMinScore
     );
 
     const pooledVariance = computeWeightedVariance(

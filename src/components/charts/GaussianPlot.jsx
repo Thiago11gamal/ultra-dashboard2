@@ -65,7 +65,7 @@ export const GaussianPlot = ({
         // Ajuste dinâmico do teto visual para comportar escalas ENEM ou maiores
         let rawMax = unit === '%' 
             ? Math.max(domainMin + 1, Number(maxScore) || 100) 
-            : Math.max(Number(maxScore) || 100, rawTargetVal * 1.05, rawMean * 1.05);
+            : Math.max(Number(maxScore) || 100, rawTargetVal > (Number(maxScore) || 100) ? rawTargetVal * 1.05 : (Number(maxScore) || 100), rawMean > (Number(maxScore) || 100) ? rawMean * 1.05 : (Number(maxScore) || 100));
 
         const domainMax = Math.max(domainMin + 1e-9, rawMax);
         const meanVal = Math.max(domainMin, Math.min(domainMax, rawMean));

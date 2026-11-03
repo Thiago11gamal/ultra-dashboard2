@@ -354,11 +354,11 @@ export function simulateNormalDistribution(
             const devs = numericCutoffs.map(v => Math.pow(v - cutoffsMean, 2));
             cutoffsSD = Math.sqrt(Math.max(0, kahanSum(devs) / (numericCutoffs.length - 1)));
         } else {
-            cutoffsSD = cutoffsMean * 0.05;
+            cutoffsSD = Math.max(1e-6, (maxScore - minScore) * 0.025, Math.abs(cutoffsMean) * 0.05);
         }
 
         if (!Number.isFinite(cutoffsSD) || cutoffsSD <= 0) {
-            cutoffsSD = Math.max(1e-6, cutoffsMean * 0.05);
+            cutoffsSD = Math.max(1e-6, (maxScore - minScore) * 0.025, Math.abs(cutoffsMean) * 0.05);
         }
     }
 

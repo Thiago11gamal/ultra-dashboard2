@@ -243,8 +243,8 @@ const MonteCarloGaugeBase = ({
             return unit;
         }
 
-        return Number(maxScore) === 100 ? '%' : ' pts';
-    }, [unit, maxScore]);
+        return (Number(maxScore) === 100 && Number(minScore) === 0) ? '%' : ' pts';
+    }, [unit, maxScore, minScore]);
 
     if (!simulationData || simulationData.status === 'waiting') {
         let waitingKind = 'loading';
@@ -290,7 +290,7 @@ const MonteCarloGaugeBase = ({
     const message = baseMessage + (effectiveSimulateToday ? " (HOJE)" : " (FUTURO)");
 
     const projectionDelta = projectedSafe - currentSafe;
-    const isProjectionNearCurrent = Math.abs(projectionDelta) < 0.5;
+    const isProjectionNearCurrent = Math.abs(projectionDelta) < 0.005 * Math.max(1e-9, maxScore - minScore);
     const projectionDeltaLabel = `${projectionDelta >= 0 ? '+' : ''}${formatValue(projectionDelta)}${resolvedUnit}`;
 
     const isTodayMode = forcedMode === 'today';

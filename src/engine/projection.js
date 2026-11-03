@@ -10,7 +10,7 @@ import { getPercentile } from './math/percentile.js';
 import { conformalPredictionInterval } from './math/bootstrap.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
-import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian } from './math/gaussian.js';
+import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian, generateKDE } from './math/gaussian.js';
 // ✅ LOTE-04 FIX: Z_95 e MIN_SD_FLOOR removidos — não eram usados aqui
 // (Z_95 vive em stats.js; MIN_SD_FLOOR vive em gaussian.js)
 import { kahanSum, kahanMean } from './math/kahan.js';
@@ -35,7 +35,10 @@ const getSafeTime = (dateInput) => {
  * NEW: Simple non-linear detrending helper (log-time improvement curve).
  * Many students improve fast then plateau.
  */
-export function computeNonLinearTrend(history, maxScore = 100, lambda = 0.08, minScore = 0) {
+export function computeNonLinearTrend(history, maxScore = 100, lambdaOrOptions = 0.08, minScore = 0) {
+  const isOpts = lambdaOrOptions && typeof lambdaOrOptions === 'object';
+  const lambda = isOpts ? (Number.isFinite(Number(lambdaOrOptions.lambda)) ? Number(lambdaOrOptions.lambda) : 0.08) : (Number.isFinite(Number(lambdaOrOptions)) ? Number(lambdaOrOptions) : 0.08);
+  if (isOpts && Number.isFinite(Number(lambdaOrOptions.minScore))) minScore = Number(lambdaOrOptions.minScore);
   const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 100;
   const defaultMid = safeMin + 0.5 * (safeMax - safeMin);
@@ -976,9 +979,14 @@ export function monteCarloSimulation(
 
     // 4. Agregação Estatística
     // Note: We need to count successes before sorting results!
+    const rawCutoffs = Array.isArray(options.historicalCutoffs) ? options.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n >= minScore && n <= maxScore) : [];
+    const hasHistCutoffs = rawCutoffs.length > 0;
+    const cutoffsMean = hasHistCutoffs ? kahanSum(rawCutoffs) / rawCutoffs.length : targetScore;
+    const cutoffsSD = hasHistCutoffs ? (rawCutoffs.length > 1 ? Math.sqrt(Math.max(1e-6, kahanSum(rawCutoffs.map(v => Math.pow(v - cutoffsMean, 2))) / (rawCutoffs.length - 1))) : Math.max(1e-6, (maxScore - minScore) * 0.025, Math.abs(cutoffsMean) * 0.05)) : 0;
     let successes = 0;
     for (let i = 0; i < safeSimulations; i++) {
-        if (results[i] >= targetScore && !minCutoffFailures[i]) {
+        const effectiveSimTarget = hasHistCutoffs ? sampleTruncatedNormal(cutoffsMean, cutoffsSD, minScore, maxScore, rng) : targetScore;
+        if (results[i] >= effectiveSimTarget && !minCutoffFailures[i]) {
             successes++;
         }
     }
@@ -1002,6 +1010,13 @@ export function monteCarloSimulation(
     const rawCiHigh = getPercentile(results, 0.975, true);
     const safeCiLow = Math.max(minScore, Math.min(maxScore, rawCiLow));
     const safeCiHigh = Math.max(minScore, Math.min(maxScore, rawCiHigh));
+    const empMedian = getPercentile(results, 0.5, true);
+    const rawLeft = getPercentile(results, 0.158655, true);
+    const rawRight = getPercentile(results, 0.841345, true);
+    const sdFloor = Math.max((maxScore - minScore) * 0.001, 1e-6);
+    const sdLeft = Math.max(sdFloor, Math.max(0, empMedian - rawLeft));
+    const sdRight = Math.max(sdFloor, Math.max(0, rawRight - empMedian));
+    const kdeData = generateKDE(results, meanResult, finalSD, safeSimulations, minScore, maxScore);
 
     return {
         // FIX #2: Valores brutos com precisão completa. toFixed removido do motor.
@@ -1015,6 +1030,11 @@ export function monteCarloSimulation(
         mean: meanResult,
         projectedMean: meanResult, // Standardized for EvolutionChart
         sd: finalSD,
+        sdLeft,
+        sdRight,
+        kdeData,
+        minScore,
+        maxScore,
         ci95Low: safeCiLow,
         ci95High: safeCiHigh,
         ciConformalLow: safeCiLow,

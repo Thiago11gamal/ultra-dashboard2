@@ -530,7 +530,7 @@ export function useMonteCarloStats({
               sd: c.volatility ?? c.sd,
               minCutoff: c.minCutoff || 0,
               maxScore: c.maxScore || maxScoreRef.current,
-              minScore: minScoreRef.current,
+              minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
               immunityFactor: immunity,
               weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
             };
@@ -604,7 +604,7 @@ export function useMonteCarloStats({
               sd: c.bayesianSd ?? c.sd,
               minCutoff: c.minCutoff || 0,
               maxScore: c.maxScore || maxScoreRef.current,
-              minScore: minScoreRef.current,
+              minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
               immunityFactor: immunity,
               weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
             };
@@ -722,7 +722,7 @@ export function useMonteCarloStats({
                 sd: c.volatility ?? c.sd,
                 minCutoff: c.minCutoff || 0,
                 maxScore: c.maxScore || maxScoreRef.current,
-                minScore: minScoreRef.current,
+                minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
                 immunityFactor: immunity,
                 weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
               };
@@ -739,7 +739,7 @@ export function useMonteCarloStats({
               forcedVolatility: regularizedSD,
               forcedBaseline: pureStatsData.bayesianMean,
               currentMean: pureStatsData.bayesianMean,
-              minScore: minScoreRef.current,
+              minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
               maxScore: maxScoreRef.current,
               subjects: subjectsOpts,
               simuladoRows: rawSimuladoRowsRef.current,
@@ -758,7 +758,7 @@ export function useMonteCarloStats({
                 sd: c.bayesianSd ?? c.sd,
                 minCutoff: c.minCutoff || 0,
                 maxScore: c.maxScore || maxScoreRef.current,
-                minScore: minScoreRef.current,
+                minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
                 immunityFactor: immunity,
                 weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
               };
@@ -773,7 +773,7 @@ export function useMonteCarloStats({
               bayesianCI: pureStatsData.bayesianCI,
               historicalCutoffs: historicalCutoffsRef.current,
               subjects: subjectsOpts,
-              minScore: minScoreRef.current,
+              minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
               maxScore: maxScoreRef.current,
               simuladoRows: rawSimuladoRowsRef.current,
               categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),

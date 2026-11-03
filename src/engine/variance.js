@@ -50,7 +50,7 @@ export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation b
  * Tries to estimate from real user performance history (simulado rows) when sufficient data exists.
  * Falls back gracefully to the conservative prior.
  */
-export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION, maxScore = 100) {
+export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION, maxScore = 100, minScore = 0) {
   try {
     const safeSimuladoRows = (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean);
     if (!Array.isArray(safeSimuladoRows) || safeSimuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
@@ -58,6 +58,7 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
     }
 
     const safeGlobalMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+    const safeGlobalMin = Number.isFinite(Number(minScore)) && Number(minScore) < safeGlobalMax ? Number(minScore) : 0;
     const bucketsByDate = {};
 
     safeSimuladoRows.forEach(row => {
@@ -69,7 +70,7 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
       const rawRowMax = toStrictFiniteNumber(row.maxScore);
       const rowMax = Number.isFinite(rawRowMax) && rawRowMax > 0 ? rawRowMax : safeGlobalMax;
       const rawRowMin = toStrictFiniteNumber(row.minScore);
-      const rowMin = Number.isFinite(rawRowMin) && rawRowMin < rowMax ? rawRowMin : 0;
+      const rowMin = Number.isFinite(rawRowMin) && rawRowMin < rowMax ? rawRowMin : safeGlobalMin;
       const score = getSafeScore(row, rowMax, rowMin);
       if (!Number.isFinite(score)) return;
 

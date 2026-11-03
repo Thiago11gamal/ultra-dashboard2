@@ -88,7 +88,7 @@ export const MonteCarloConfig = ({
     const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMinScore ? Number(maxScore) : Math.max(safeMinScore + 1, 100);
 
     // T-026 FIX: unidade dinâmica para escalas diferentes de 100
-    const unitLabel = safeMaxScore === 100 ? '%' : ' pts';
+    const unitLabel = (safeMaxScore === 100 && safeMinScore === 0) ? '%' : ' pts';
 
     // ✅ LOTE-02 FIX (M6): o piso antigo (10% do TETO) impedia metas baixas e
     // ignorava minScore (10% de 1000 = 100, mesmo com piso 200 -> conflito).
