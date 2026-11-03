@@ -62,7 +62,7 @@ export default function Tasks() {
       <div className="space-y-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
           <div className="lg:col-span-2">
-            <PersonalRanking categories={categories} />
+            <PersonalRanking categories={categories} maxScore={maxScore} minScore={minScore} />
           </div>
           <div className="lg:col-span-1 h-full">
             <VolumeRanking categories={categories} />

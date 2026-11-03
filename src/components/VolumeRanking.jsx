@@ -48,7 +48,7 @@ const VolumeRanking = ({ categories = [] }) => {
     }, [safeCategories, categoriesFingerprint]);
 
     const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
-    const leaderPercentage = totalVolumeOverall > 0 ? ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100 : 0;
+    const leaderPercentage = totalVolumeOverall > 0 ? Math.min(100, Math.max(0, ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100)) : 0;
 
     const getRankStyles = (index) => {
         if (index === 0) return { icon: <Medal size={20} className="text-purple-400 fill-purple-400/20" />, color: 'text-purple-400', barCol: 'bg-purple-500', glow: 'shadow-purple-500/30' };
@@ -127,7 +127,7 @@ const VolumeRanking = ({ categories = [] }) => {
             >
                 {sorted.map((item, index) => {
                     const styles = getRankStyles(index);
-                    const percentage = totalVolumeOverall > 0 ? (item.totalVolume / totalVolumeOverall) * 100 : 0;
+                    const percentage = totalVolumeOverall > 0 ? Math.min(100, Math.max(0, (item.totalVolume / totalVolumeOverall) * 100)) : 0;
 
                     return (
                         <motion.div

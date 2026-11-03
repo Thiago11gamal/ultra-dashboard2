@@ -93,13 +93,15 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
     );
 };
 
-function PersonalRanking({ categories = [] }) {
+function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
     // MELHORIA: proteger contra categories vazio
     const safeCategories = React.useMemo(() => {
         return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
     }, [categories]);
 
     const categoryStats = React.useMemo(() => {
+        const fallbackMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
+        const fallbackMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
         return safeCategories.map(cat => {
             const stats = cat.simuladoStats || { history: [] };
             const historyRaw = stats.history || [];
@@ -110,8 +112,8 @@ function PersonalRanking({ categories = [] }) {
                 const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
                 return acc + Math.max(0, fallback);
             }, 0);
-            const ms = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : 100;
-            const minS = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0;
+            const ms = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : fallbackMax;
+            const minS = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : fallbackMin;
             const range = Math.max(1e-9, ms - minS);
             const correctRaw = history.reduce((acc, h) => {
                 const parsedTotal = Number(h.total);
@@ -137,10 +139,10 @@ function PersonalRanking({ categories = [] }) {
 
             return { ...cat, total, correct, wrong, balance, percentCorrect };
         });
-    }, [safeCategories]);
+    }, [safeCategories, maxScore, minScore]);
 
     const withData = categoryStats.filter(c => c.total > 0);
-    const sortedByBalance = [...withData].sort((a, b) => b.balance - a.balance);
+    const sortedByBalance = [...withData].sort((a, b) => b.balance - a.balance || b.percentCorrect - a.percentCorrect || b.total - a.total);
     const sortedByVolume = [...withData].sort((a, b) => b.total - a.total);
     const sortedByErrors = [...withData].sort((a, b) => b.wrong - a.wrong);
 
