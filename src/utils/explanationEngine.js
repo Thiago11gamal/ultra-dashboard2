@@ -9,9 +9,12 @@ export function buildHumanExplanation({
     trend,
     confidenceTier,
     intervalWidth,
-    maxScore = 100
+    maxScore = 100,
+    minScore = 0
 }) {
-    const scale = Math.max(0.01, (Number(maxScore) || 100) / 100);
+    const safeMax = Number(maxScore) || 100;
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const scale = Math.max(0.01, Math.max(1e-9, safeMax - safeMin) / 100);
     const messages = [];
 
     if (confidenceTier === 'HIGH') {
@@ -46,9 +49,12 @@ export function getConfidenceTier({
     calibrationPenalty,
     volatility,
     sampleSize,
-    maxScore = 100
+    maxScore = 100,
+    minScore = 0
 }) {
-    const scale = Math.max(0.01, (Number(maxScore) || 100) / 100);
+    const safeMax = Number(maxScore) || 100;
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const scale = Math.max(0.01, Math.max(1e-9, safeMax - safeMin) / 100);
     // Tolerância adaptativa: normalizar a volatilidade para a escala base de 100
     // calibrationPenalty está entre 0 e 1 (0.1 = 10% de penalidade).
     const normalizedVolatility = volatility / scale;
@@ -94,10 +100,13 @@ export function detectPerformanceDrift({
     baselineMean,
     recentVolatility,
     maxScore = 100,
+    minScore = 0,
     margin = 2 // % do domínio
 }) {
     const alerts = [];
-    const scale = Math.max(0.1, (Number(maxScore) || 100) / 100);
+    const safeMax = Number(maxScore) || 100;
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const scale = Math.max(0.1, Math.max(1e-9, safeMax - safeMin) / 100);
     const diff = recentMean - baselineMean;
 
     // ✅ PATCH-12: Se estiver em platô/estagnado, retorna sem gerar alertas falsos de "queda"
@@ -167,8 +176,10 @@ export function smoothConfidenceTier({ previousTier, currentTier, stabilityCount
     return { tier: currentTier, stabilityCounter: 0 };
 }
 
-export function humanizeVolatility(sd, maxScore = 100) {
-    const scale = Math.max(1, maxScore / 100);
+export function humanizeVolatility(sd, maxScore = 100, minScore = 0) {
+    const safeMax = Number(maxScore) || 100;
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const scale = Math.max(0.01, Math.max(1e-9, safeMax - safeMin) / 100);
     if (sd < 8 * scale) return 'Muito estável';
     if (sd < 18 * scale) return 'Relativamente estável';
     if (sd < 30 * scale) return 'Oscilação moderada';

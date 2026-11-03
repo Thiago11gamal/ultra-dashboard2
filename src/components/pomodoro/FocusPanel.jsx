@@ -105,10 +105,12 @@ const SessionStatus = React.memo(function SessionStatus({
                 }
             }
         } else {
-            const futureWorkCycles = Math.max(0, safeTarget - safeCompleted);
-            totalSec += futureWorkCycles * workSec;
-            const futureBreakCycles = Math.max(0, futureWorkCycles - 1);
-            totalSec += futureBreakCycles * breakSec;
+            for (let c = safeCompleted + 1; c <= safeTarget; c++) {
+                totalSec += workSec;
+                if (c < safeTarget) {
+                    totalSec += (c % longBreakInterval === 0 ? longBreakSec : breakSec);
+                }
+            }
         }
 
         const safeSpeed = SPEED_OPTIONS.includes(Number(speed)) ? Number(speed) : 1;
@@ -324,14 +326,15 @@ const SubjectStats = React.memo(function SubjectStats({ category, maxScore = 100
         const scoreRange = Math.max(1e-9, effectiveMax - minScore);
         const accuracy = Math.min(100, Math.max(0, ((avg - minScore) / scoreRange) * 100));
 
-        return { avg, last, trend, accuracy, count: scores.length };
+        return { avg, last, trend, accuracy, scoreRange, count: scores.length };
     }, [category, maxScore, simulados]);
 
     if (!stats) return null;
 
-    const trendIcon = stats.trend > 0.5
+    const trendThreshold = 0.5 * ((stats.scoreRange || 100) / 100);
+    const trendIcon = stats.trend > trendThreshold
         ? <TrendingUp size={13} className="text-emerald-400" />
-        : stats.trend < -0.5
+        : stats.trend < -trendThreshold
             ? <TrendingDown size={13} className="text-rose-400" />
             : <Minus size={13} className="text-slate-400" />;
 
@@ -581,7 +584,7 @@ const SessionXP = React.memo(function SessionXP({ user }) {
         return {
             level: rawProgress.level,
             progress: rawProgress.percentage,
-            xp: rawProgress.xp
+            xp: rawProgress.total ?? rawProgress.xp ?? (Number(user.xp) || 0)
         };
     }, [user]);
 

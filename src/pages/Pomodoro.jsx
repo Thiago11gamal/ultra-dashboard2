@@ -209,15 +209,19 @@ const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, stats, ca
 
                 const effectiveSettings = settings && settings !== EMPTY_OBJECT ? settings : (stats?.settings || EMPTY_OBJECT);
                 const safeMaxScore = Number(targetCategory.maxScore || effectiveSettings?.maxScore) || 100;
-                const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore });
+                const rawMinScore = Number(targetCategory.minScore ?? effectiveSettings?.minScore);
+                const safeMinScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, safeMaxScore) : 0;
+                const safeDomain = Math.max(1e-9, safeMaxScore - safeMinScore);
+                const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore, minScore: safeMinScore });
                 if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
                     let color = 'indigo';
                     let iconType = 'Brain';
-                    const volThreshold = 15 * (safeMaxScore / 100);
-                    if (rawInsight.trend > 0.5) {
+                    const volThreshold = 15 * (safeDomain / 100);
+                    const trendThreshold = 0.5 * (safeDomain / 100);
+                    if (rawInsight.trend > trendThreshold) {
                         color = 'emerald';
                         iconType = 'Zap';
-                    } else if (rawInsight.trend < -0.5 || rawInsight.volatility > volThreshold) {
+                    } else if (rawInsight.trend < -trendThreshold || rawInsight.volatility > volThreshold) {
                         color = 'red';
                         iconType = 'Alert';
                     }

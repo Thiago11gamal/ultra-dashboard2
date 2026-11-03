@@ -142,10 +142,11 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     }
     if (!allScores || allScores.length === 0) return [];
 
-    const safeMean = Number.isFinite(projectedMean) ? projectedMean : (maxScore / 2);
-    const safeSD = (Number.isFinite(projectedSD) && projectedSD > 0) ? projectedSD : (maxScore * 0.1);
+    const safeDomain = Math.max(1e-6, maxScore - minScore);
+    const safeMean = Number.isFinite(projectedMean) ? projectedMean : ((minScore + maxScore) / 2);
+    const safeSD = (Number.isFinite(projectedSD) && projectedSD > 0) ? projectedSD : (safeDomain * 0.1);
 
-    const slack = Math.max(maxScore * 0.05, safeSD * 0.5, 1.0);
+    const slack = Math.max(safeDomain * 0.05, safeSD * 0.5, 1.0);
     let plotMin = Math.max(minScore - slack, safeMean - 3.5 * safeSD);
     let plotMax = Math.min(maxScore + slack, safeMean + 3.5 * safeSD);
 

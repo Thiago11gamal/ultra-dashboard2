@@ -1043,7 +1043,7 @@ export function useMonteCarloStats({
           const simHistory = cat.simuladoStats?.history || cat.history || [];
 
           if (Array.isArray(simHistory) && simHistory.length >= 4) {
-            const nl = computeNonLinearTrend(simHistory, catMaxScore);
+            const nl = computeNonLinearTrend(simHistory, catMaxScore, { minScore: catMinScore });
 
             if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
               const nlWeight = modelWeight;
@@ -1067,8 +1067,8 @@ export function useMonteCarloStats({
         // Se o cálculo produzir NaN, cai para 0 (sem projeção) em vez de -15%.
         totalTrendProjection = safeClamp(
           totalTrendProjection,
-          -0.15 * catMaxScore,
-          0.15 * catMaxScore,
+          -0.15 * Math.max(1e-9, catMaxScore - catMinScore),
+          0.15 * Math.max(1e-9, catMaxScore - catMinScore),
           0 // fallback neutro: nenhuma projeção de tendência
         );
 
@@ -1307,7 +1307,8 @@ export function useMonteCarloStats({
       calibrationPenalty,
       volatility: sd,
       sampleSize: nHistory,
-      maxScore: Number(maxScore) || 100
+      maxScore: Number(maxScore) || 100,
+      minScore: Number.isFinite(Number(minScore)) ? Number(minScore) : 0
     });
 
     const explanations = buildHumanExplanation({
@@ -1316,17 +1317,19 @@ export function useMonteCarloStats({
       trend: (projectedMean - currentMean),
       confidenceTier: confidenceObj.tier,
       intervalWidth: ci95High - ci95Low,
-      maxScore: Number(maxScore) || 100
+      maxScore: Number(maxScore) || 100,
+      minScore: Number.isFinite(Number(minScore)) ? Number(minScore) : 0
     });
 
     const driftAlerts = detectPerformanceDrift({
       recentMean: currentMean,
       baselineMean: (statsData?.bayesianMean || currentMean),
       recentVolatility: sdLeft,
-      maxScore: Number(maxScore) || 100
+      maxScore: Number(maxScore) || 100,
+      minScore: Number.isFinite(Number(minScore)) ? Number(minScore) : 0
     });
 
-    const humanVol = humanizeVolatility(sdLeft, Number(maxScore) || 100);
+    const humanVol = humanizeVolatility(sdLeft, Number(maxScore) || 100, Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
 
     try {
       validatePrediction({

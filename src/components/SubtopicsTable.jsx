@@ -131,7 +131,8 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                 const sortedTrend = getSortedHistory(t.trendHistory || []).slice(-10);
                 // FIX: Passa catMinScore para calculateSlope para não distorcer escalas com piso != 0
                 const trendValue = sortedTrend.length >= 3 ? calculateSlope(sortedTrend, t.catMaxScore, { minScore: t.catMinScore }) : 0;
-                const trendTolerance = 0.0167 * (t.catMaxScore / 100);
+                const safeCatRange = Number.isFinite(t.catRange) && t.catRange > 0 ? t.catRange : Math.max(1e-9, t.catMaxScore - (t.catMinScore || 0));
+                const trendTolerance = 0.0167 * (safeCatRange / 100);
                 const trend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
                 return { ...t, balance, percent, trendValue, trend };
             })
@@ -389,7 +390,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                                     </td>
                                     <td className="p-5 text-center align-middle border-l border-white/5">
                                         <div className="flex justify-center">
-                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 shadow-inner" title={`Tendência recente: ${item.trendValue > 0 ? '+' : ''}${(item.trendValue || 0).toFixed(3)} pts/registro`}>
+                                            <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 shadow-inner" title={`Tendência recente: ${item.trendValue > 0 ? '+' : ''}${(item.trendValue || 0).toFixed(3)} pts/dia`}>
                                                 {item.trend === 'up' ? (
                                                     <TrendingUp size={16} className="text-emerald-400" />
                                                 ) : item.trend === 'down' ? (

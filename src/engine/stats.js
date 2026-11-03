@@ -905,7 +905,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             ? (absoluteDeviations[absoluteDeviations.length / 2 - 1] + absoluteDeviations[absoluteDeviations.length / 2]) / 2
             : absoluteDeviations[Math.floor(absoluteDeviations.length / 2)];
 
-        const mad = Number.isFinite(rawMad) && rawMad > 0 ? rawMad * 1.4826 : 0.001 * safeMaxScore;
+        const mad = Number.isFinite(rawMad) && rawMad > 0 ? rawMad * 1.4826 : 0.001 * safeRange;
         const clampLimit = 3.5 * mad;
 
         const robustSamples = [];
@@ -1042,11 +1042,12 @@ export const calculateEMA = (scores, alpha = 0.25, maxScore = 100, minScore = 0)
     if (!clean.length) return 0;
 
     let ema = clean[0];
-    const maxObserved = clean.reduce((a, b) => Math.max(a, b), 1);
+    const minObserved = clean.reduce((a, b) => Math.min(a, b), Infinity);
+    const maxObserved = clean.reduce((a, b) => Math.max(a, b), -Infinity);
 
     for (let i = 1; i < clean.length; i++) {
         const delta = clean[i] - ema;
-        const range = maxObserved;
+        const range = Math.max(1e-9, safeMax - safeMin, maxObserved - minObserved, Math.abs(maxObserved) || 1);
         const absDelta = Math.abs(delta);
 
         const upBonus = Math.min(0.10, 0.05 * (absDelta / range));

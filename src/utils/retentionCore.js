@@ -97,21 +97,23 @@ export function toDateMs(value) {
   return null;
 }
 
-export function normalizeAccuracy(value, maxScore = 100) {
+export function normalizeAccuracy(value, maxScore = 100, minScore = 0) {
   const raw = toFiniteNumber(value, null);
 
   if (raw == null) return 0;
 
-  const max = Math.max(1, toFiniteNumber(maxScore, 100));
+  const min = toFiniteNumber(minScore, 0);
+  const max = Math.max(min + 1, toFiniteNumber(maxScore, 100));
+  const domain = Math.max(1, max - min);
 
   // Heurística:
   // Se maxScore > 1 e o valor está entre 0 e 1, provavelmente é uma razão/probabilidade.
   // Ex.: bayesianStats.mean = 0.82 => 82%.
-  if (max > 1 && raw >= 0 && raw <= 1) {
+  if (min === 0 && max > 1 && raw >= 0 && raw <= 1) {
     return clamp(raw, 0, 1);
   }
 
-  return clamp(raw / max, 0, 1);
+  return clamp((raw - min) / domain, 0, 1);
 }
 
 export function getTotalQuestions(entity) {
