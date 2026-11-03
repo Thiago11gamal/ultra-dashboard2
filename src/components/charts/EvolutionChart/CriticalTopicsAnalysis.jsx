@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList, Cell
@@ -6,6 +6,7 @@ import {
 import { normalizeDate, getDateKey } from "../../../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
+import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -17,7 +18,6 @@ const CustomTooltipStyle = {
     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
 };
 
-// Mover para top-level (antes do componente)
 const WEEKS = [
     { label: "Semana 4", offset: 4 },
     { label: "Semana 3", offset: 3 },
@@ -25,8 +25,6 @@ const WEEKS = [
     { label: "Semana 1", offset: 1 },
     { label: "Semana atual", offset: 0 },
 ];
-
-import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
 
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -291,6 +289,17 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
       });
     }, [categories, startDateKey, endDateKey]);
 
+    const renderLeakageLabel = useCallback((props) => {
+        const { x, y, width, value, index } = props;
+        const entry = pointLeakageData[index];
+        if (!entry || value === null || value === undefined) return null;
+        return (
+            <text x={x + width + 8} y={y + 11} fill="#ffffff" fontSize={10.5} fontWeight="bold">
+                {value}{entry.percentage > 0 ? ` (${entry.percentage}%)` : ''}
+            </text>
+        );
+    }, [pointLeakageData]);
+
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
 
     return (
@@ -364,25 +373,14 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     <div className="min-h-[220px] sm:min-h-[260px] w-full flex-1 flex flex-col justify-center">
                         {pointLeakageData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 38)} minWidth={1}>
-                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 110, left: 0, bottom: 5 }}>
+                                <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 85, left: 0, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 24 ? `${String(v).slice(0, 22)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 22 ? `${String(v).slice(0, 20)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Bar dataKey="displayValue" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                                        <LabelList dataKey="displayValue" position="right" offset={8}
-                                            content={(props) => {
-                                                const { x, y, width, value, index } = props;
-                                                const entry = pointLeakageData[index];
-                                                if (!entry || value === null || value === undefined) return null;
-                                                return (
-                                                    <text x={x + width + 8} y={y + 11} fill="#ffffff" fontSize={10.5} fontWeight="bold">
-                                                        {value}{entry.percentage > 0 ? ` (${entry.percentage}%)` : ''}
-                                                    </text>
-                                                );
-                                            }}
-                                        />
+                                        <LabelList dataKey="displayValue" position="right" offset={8} content={renderLeakageLabel} />
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
@@ -416,10 +414,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                     <div className="min-h-[220px] sm:min-h-[260px] w-full flex-1 flex flex-col justify-center">
                         {subtopicsData.length > 0 ? (
                             <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 38)} minWidth={1}>
-                                <BarChart data={subtopicsData} layout="vertical" margin={{ top: 5, right: 85, left: 0, bottom: 5 }}>
+                                <BarChart data={subtopicsData} layout="vertical" margin={{ top: 5, right: 65, left: 0, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 34 ? `${String(v).slice(0, 32)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={160} />
+                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 28 ? `${String(v).slice(0, 26)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
                                         const correct = Math.round(Number(props?.payload?.correct) || 0);
@@ -445,4 +443,3 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         </div>
     );
 });
-

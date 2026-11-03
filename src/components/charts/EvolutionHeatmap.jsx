@@ -2,7 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
-// ✅ FIX: Worker singleton compartilhado entre todas as instâncias
+// Worker singleton compartilhado entre todas as instâncias
 let sharedWorker = null;
 let sharedWorkerRefCount = 0;
 let terminateTimer = null;
@@ -45,7 +45,7 @@ function invalidateSharedWorker(badWorker) {
   }
 }
 
-export const EvolutionHeatmap = ({ 
+export const EvolutionHeatmap = React.memo(({ 
     heatmapData, 
     targetScore = 70, 
     showOnlyFocus, 
@@ -66,7 +66,7 @@ export const EvolutionHeatmap = ({
       Math.min(100, ((safeTarget - safeMin) / range) * 100)
     );
 
-    // 🎯 FILTRO DE FOCO: Aplica o filtro de "Todas as Matérias" vs "Apenas Foco"
+    // Filtro de foco: "Todas as Matérias" vs "Apenas Foco"
     const filteredRowsByFocus = useMemo(() => {
         if (!showOnlyFocus || !focusSubjectId) return rows;
         return rows.filter(row => row.cat?.id === focusSubjectId);
@@ -111,7 +111,7 @@ export const EvolutionHeatmap = ({
     }, [dates, filteredRowsByFocus, windowSize]);
 
     const [aggregated, setAggregated] = useState(() => {
-        return aggregateHeatmap(filtered, granularity, safeMax, safeMin);
+        return granularity === 'daily' ? filtered : aggregateHeatmap(filtered, granularity, safeMax, safeMin);
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
@@ -130,7 +130,7 @@ export const EvolutionHeatmap = ({
     }, []);
 
     useEffect(() => {
-        // Se for granularidade diária, aggregateHeatmap é síncrono e identidade (filtered).
+        // Se for granularidade diária, aggregateHeatmap é a identidade (filtered).
         // Evita envio desnecessário ao WebWorker e piscada de "Processando...".
         if (granularity === 'daily') {
             setAggregated(filtered);
@@ -327,7 +327,7 @@ export const EvolutionHeatmap = ({
                 Leitura rápida: verde = acima da meta; amarelo/laranja = atenção; vermelho = risco; vazio = sem simulado cadastrado.
             </div>
 
-            {/* VIS-FIX: Container com scroll horizontal dedicado, sem padding lateral para o sticky fixar perfeitamente em x=0 */}
+            {/* Container com scroll horizontal dedicado */}
             <div 
                 className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-2 pb-4"
                 onScroll={() => {
@@ -361,7 +361,6 @@ export const EvolutionHeatmap = ({
                     <div className="space-y-2.5">
                         {filteredRows.map(({ cat, cells }) => (
                             <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
-                                {/* VIS-FIX: Coluna da matéria 100% opaca, largura responsiva, z-30 e shadow para nada de trás transparecer */}
                                 <div 
                                     className="sticky left-0 z-30 self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
                                     style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
@@ -427,7 +426,7 @@ export const EvolutionHeatmap = ({
                 </div>
             </div>
 
-            {/* Portal Tooltip: Flutua sobre tudo via body, impossível de cortar no topo, bordas ou coluna fixa */}
+            {/* Portal Tooltip: Flutua sobre tudo via body */}
             {typeof document !== 'undefined' && hoveredCell && createPortal(
                 <div 
                     className="fixed z-[99999] pointer-events-none flex flex-col items-center bg-slate-950/95 backdrop-blur-md border border-slate-600 rounded-xl p-3 min-w-[140px] shadow-[0_20px_50px_rgba(0,0,0,0.95)] whitespace-nowrap text-center border-l-4 transition-transform duration-75 ease-out"
@@ -465,5 +464,4 @@ export const EvolutionHeatmap = ({
             )}
         </div>
     );
-};
-
+});

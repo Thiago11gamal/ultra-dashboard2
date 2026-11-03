@@ -122,7 +122,7 @@ export const SubtopicsPerformanceChart = React.memo(({
     const [viewMode, setViewMode] = useState('bars');
     const accuracyUnit = '%';
     
-    // FIX 5A: garantir range mínimo e fallback sensato
+    // Garantir range mínimo e fallback sensato
     const safeMinScorePct = hasValidNumber(minScore) ? Number(minScore) : 0;
     const safeMaxScorePct = Number(maxScore) > safeMinScorePct ? Number(maxScore) : safeMinScorePct + 1;
     const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
@@ -255,7 +255,6 @@ export const SubtopicsPerformanceChart = React.memo(({
             })
             .sort((a, b) => a.accuracy - b.accuracy);
     }, [relevantCategories, limitMs, maxScore, minScore]);
-
 
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
         const dateMap = {}; 
@@ -400,9 +399,40 @@ export const SubtopicsPerformanceChart = React.memo(({
         return { timeSeriesData: series, uniqueTopics: topTopics };
     }, [relevantCategories, limitMs, maxScore, minScore]);
 
+    const renderYAxisTick = useCallback((props) => {
+        const { x, y, payload } = props;
+        const text = payload?.value || "";
+        const fullText = payload?.payload?.fullName || text;
+        const maxLen = 24;
+        const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
+        return (
+            <g transform={`translate(${x},${y})`}>
+                <text x={-6} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
+                    <title>{fullText}</title>
+                    {truncated}
+                </text>
+            </g>
+        );
+    }, []);
+
+    const renderBarLabel = useCallback((props) => {
+        const { x, y, width, height, value, index } = props;
+        const entry = chartData[index];
+        if (!entry) return null;
+        return (
+            <text x={x + width + 8} y={y + height / 2 + 4}>
+                <tspan fill="#ffffff" fontSize={11} fontWeight="900">{formatValue(value)}%</tspan>
+                <tspan fill="#94a3b8" fontSize={9.5} fontWeight="700" dx={6}>({entry.correct}/{entry.total})</tspan>
+            </text>
+        );
+    }, [chartData]);
+
+    const barsContainerHeight = useMemo(() => {
+        return Math.max(420, Math.min(chartData.length * 48, 1600));
+    }, [chartData.length]);
 
     return (
-        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl w-full min-h-[600px]" id={`subtopics_container_${instanceId}`}>
+        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl w-full min-h-[560px]" id={`subtopics_container_${instanceId}`}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 px-1 gap-3">
                 <div>
                     <h3 className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-500 mb-0.5 tracking-tight">
@@ -438,11 +468,11 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </div>
                 </div>
             ) : viewMode === 'bars' ? (
-                <div className="w-full overflow-x-auto custom-scrollbar pb-2">
-                    <div className="min-w-[520px] lg:min-w-full relative" style={{ height: Math.max(450, chartData.length * 60) }}>
-                        <ChartFrame minHeight={450} label="Analisando subtópicos">
-                            <ResponsiveContainer width="100%" height="100%" minHeight={450} minWidth={1}>
-                            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 120, left: 0, bottom: 0 }}>
+                <div className="w-full max-h-[640px] overflow-y-auto custom-scrollbar overflow-x-auto pb-2">
+                    <div className="min-w-[520px] lg:min-w-full relative" style={{ height: barsContainerHeight }}>
+                        <ChartFrame minHeight={420} label="Analisando subtópicos">
+                            <ResponsiveContainer width="100%" height="100%" minHeight={420} minWidth={1}>
+                            <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 110, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id={`gradGood_${instanceId}`} x1="0" y1="0" x2="1" y2="0">
                                         <stop offset="0%" stopColor="#10b981" stopOpacity={0.7}/>
@@ -470,29 +500,15 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     allowDataOverflow={true}
                                 />
 
-                                    <YAxis
-                                        type="category"
-                                        dataKey="fullName"
-                                        stroke="#cbd5e1"
-                                        tick={(props) => {
-                                            const { x, y, payload } = props;
-                                            const text = payload?.value || "";
-                                            const fullText = payload?.payload?.fullName || text;
-                                            const maxLen = 24;
-                                            const truncated = text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text;
-                                            return (
-                                                <g transform={`translate(${x},${y})`}>
-                                                    <text x={-6} y={0} dy={4} textAnchor="end" fill="#cbd5e1" fontSize={11} fontWeight={600}>
-                                                        <title>{fullText}</title>
-                                                        {truncated}
-                                                    </text>
-                                                </g>
-                                            );
-                                        }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        width={160}
-                                    />
+                                <YAxis
+                                    type="category"
+                                    dataKey="fullName"
+                                    stroke="#cbd5e1"
+                                    tick={renderYAxisTick}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={150}
+                                />
 
                                 <Tooltip
                                     offset={30}
@@ -516,7 +532,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     label={{ position: 'top', value: 'META', fill: '#34d399', fontSize: 10, fontWeight: 'bold' }}
                                 />
 
-                                <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={26} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
+                                <Bar dataKey="accuracy" radius={[0, 8, 8, 0]} barSize={24} fill="#6366f1" background={{ fill: 'rgba(255,255,255,0.03)', radius: [0, 8, 8, 0] }} isAnimationActive={true} animationDuration={800}>
                                     {chartData.map((entry, index) => {
                                         let barColor = `url(#gradBad_${instanceId})`;
                                         const warnThreshold = targetScorePct > 35 ? Math.max(25, targetScorePct * 0.75) : targetScorePct * 0.75;
@@ -527,17 +543,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     <LabelList
                                         dataKey="accuracy"
                                         position="right"
-                                        content={(props) => {
-                                            const { x, y, width, height, value, index } = props;
-                                            const entry = chartData[index];
-                                            if (!entry) return null;
-                                            return (
-                                                <text x={x + width + 8} y={y + height / 2 + 4}>
-                                                    <tspan fill="#ffffff" fontSize={11} fontWeight="900">{formatValue(value)}%</tspan>
-                                                    <tspan fill="#94a3b8" fontSize={9.5} fontWeight="700" dx={6}>({entry.correct}/{entry.total})</tspan>
-                                                </text>
-                                            );
-                                        }}
+                                        content={renderBarLabel}
                                     />
                                 </Bar>
                             </BarChart>
@@ -546,18 +552,16 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </div>
                 </div>
             ) : (
-                // 🎯 FIX: Altura reduzida de 750px para 500px para caber melhor na tela
                 <div className="w-full relative min-h-[500px]">
-                    <div className="absolute top-0 right-4 text-[10px] text-indigo-400/60 font-mono z-10">
-                        {uniqueTopics.length} tópicos plotados simultaneamente.
+                    <div className="flex justify-end mb-1 text-[10px] text-indigo-400/80 font-mono pr-2">
+                        {uniqueTopics.length} tópicos plotados simultaneamente
                     </div>
                     {timeSeriesData.length > 0 ? (
                         <div className="w-full overflow-x-auto custom-scrollbar pb-2">
                             <div className="min-w-[700px] lg:min-w-full">
-                                <ChartFrame minHeight={500} label="Analisando subtópicos">
-                                    <ResponsiveContainer width="100%" height={500} minWidth={1}>
-                                    {/* 🎯 FIX: left de -20 para 0 para evitar corte do eixo Y */}
-                                    <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 0, bottom: 50 }}>
+                                <ChartFrame minHeight={480} label="Analisando subtópicos">
+                                    <ResponsiveContainer width="100%" height={480} minWidth={1}>
+                                    <LineChart data={timeSeriesData} margin={{ top: 15, right: 30, left: 0, bottom: 50 }}>
                                         <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
 
                                         <XAxis
@@ -631,4 +635,3 @@ export const SubtopicsPerformanceChart = React.memo(({
         </div>
     );
 });
-

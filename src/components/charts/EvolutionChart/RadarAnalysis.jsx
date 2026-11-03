@@ -1,9 +1,8 @@
-import React, { useId } from 'react';
+import React, { useId, useCallback } from 'react';
 import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     ResponsiveContainer, Tooltip, Legend
 } from "recharts";
-// 🎯 FIX: Importação adicionada
 import { formatValue } from '../../../utils/scoreHelper';
 import { ChartFrame } from "../ChartFrame";
 
@@ -13,12 +12,82 @@ import { ChartFrame } from "../ChartFrame";
  * A comprehensive disciplinary cross-section (Raio-X) using a Radar chart.
  * Compares current performance levels against target scores.
  */
-export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = '%' }) {
+export const RadarAnalysis = React.memo(function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = '%' }) {
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMax = Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 1;
 
     const instanceId = useId().replace(/:/g, '');
     const radarGradId = `radar_grad_${instanceId}`;
+
+    const renderAngleAxisTick = useCallback((props) => {
+        const { x, y, cx, cy, payload } = props;
+        const text = payload?.value || "";
+        const maxLen = 28;
+        const maxLineLen = 16;
+        const anchor = x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle';
+        const dy = y > cy ? 6 : -6;
+        
+        if (text.length > 13) {
+            const mid = text.lastIndexOf(' ', Math.ceil(text.length / 2));
+            const splitIdx = mid > 2 ? mid : Math.ceil(text.length / 2);
+            const line1 = text.substring(0, splitIdx).trim();
+            const line2raw = text.substring(splitIdx).trim();
+            const line2 = line2raw.length > maxLineLen ? line2raw.substring(0, maxLineLen - 1) + '..' : line2raw;
+            return (
+                <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={600}>
+                    <title>{text}</title>
+                    <tspan x={x} dy="0">{line1}</tspan>
+                    <tspan x={x} dy="11">{line2}</tspan>
+                </text>
+            );
+        }
+        const truncated = text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
+        return (
+            <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={600}>
+                <title>{text}</title>
+                {truncated}
+            </text>
+        );
+    }, []);
+
+    const renderTooltipContent = useCallback(({ active, payload }) => {
+        if (active && payload && payload.length) {
+            const d = payload[0].payload;
+            const nivel = Number.isFinite(Number(d.nivel)) ? Number(d.nivel) : safeMin;
+            const meta = Number.isFinite(Number(d.meta)) ? Number(d.meta) : safeMin;
+            const diff = nivel - meta;
+            const isAbove = diff >= 0;
+
+            return (
+                <div className="bg-slate-950/95 border border-white/15 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl min-w-[190px]">
+                    <p className="text-xs font-black text-white mb-2 border-b border-white/10 pb-1.5 flex items-center justify-between gap-2">
+                        <span className="truncate">{d.fullSubject || d.subject}</span>
+                    </p>
+                    <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between items-center gap-3">
+                            <span className="text-slate-400 font-medium text-[11px]">Seu Nível:</span>
+                            <span className="font-mono font-black text-indigo-300">{formatValue(nivel)}{unit}</span>
+                        </div>
+                        <div className="flex justify-between items-center gap-3">
+                            <span className="text-slate-400 font-medium text-[11px]">Meta Alvo:</span>
+                            <span className="font-mono font-bold text-emerald-400">{formatValue(meta)}{unit}</span>
+                        </div>
+                        <div className="pt-1.5 border-t border-white/10 flex justify-between items-center gap-3">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Status:</span>
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                isAbove 
+                                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                                    : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            }`}>
+                                {isAbove ? `+${formatValue(diff)}${unit} ✓` : `${formatValue(diff)}${unit}`}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    }, [safeMin, unit]);
 
     return (
         <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all group flex flex-col justify-between h-full min-w-0">
@@ -70,36 +139,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                         <PolarGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="2 2" />
                         <PolarAngleAxis 
                             dataKey="subject" 
-                            tick={(props) => {
-                                const { x, y, cx, cy, payload } = props;
-                                const text = payload?.value || "";
-                                const maxLen = 28;
-                                const maxLineLen = 16;
-                                const anchor = x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle';
-                                const dy = y > cy ? 6 : -6;
-                                
-                                if (text.length > 13) {
-                                    const mid = text.lastIndexOf(' ', Math.ceil(text.length / 2));
-                                    const splitIdx = mid > 2 ? mid : Math.ceil(text.length / 2);
-                                    const line1 = text.substring(0, splitIdx).trim();
-                                    const line2raw = text.substring(splitIdx).trim();
-                                    const line2 = line2raw.length > maxLineLen ? line2raw.substring(0, maxLineLen - 1) + '..' : line2raw;
-                                    return (
-                                        <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={600}>
-                                            <title>{text}</title>
-                                            <tspan x={x} dy="0">{line1}</tspan>
-                                            <tspan x={x} dy="11">{line2}</tspan>
-                                        </text>
-                                    );
-                                }
-                                const truncated = text.length > maxLen ? text.substring(0, maxLen - 2) + '..' : text;
-                                return (
-                                    <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={600}>
-                                        <title>{text}</title>
-                                        {truncated}
-                                    </text>
-                                );
-                            }} 
+                            tick={renderAngleAxisTick} 
                         />
                         
                         <PolarRadiusAxis 
@@ -147,44 +187,7 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
                         />
 
                         <Tooltip 
-                            content={({ active, payload }) => {
-                                if (active && payload && payload.length) {
-                                    const d = payload[0].payload;
-                                    const nivel = Number.isFinite(Number(d.nivel)) ? Number(d.nivel) : safeMin;
-                                    const meta = Number.isFinite(Number(d.meta)) ? Number(d.meta) : safeMin;
-                                    const diff = nivel - meta;
-                                    const isAbove = diff >= 0;
-
-                                    return (
-                                        <div className="bg-slate-950/95 border border-white/15 p-3.5 rounded-2xl shadow-2xl backdrop-blur-xl min-w-[190px]">
-                                            <p className="text-xs font-black text-white mb-2 border-b border-white/10 pb-1.5 flex items-center justify-between gap-2">
-                                                <span className="truncate">{d.fullSubject || d.subject}</span>
-                                            </p>
-                                            <div className="space-y-1.5 text-xs">
-                                                <div className="flex justify-between items-center gap-3">
-                                                    <span className="text-slate-400 font-medium text-[11px]">Seu Nível:</span>
-                                                    <span className="font-mono font-black text-indigo-300">{formatValue(nivel)}{unit}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center gap-3">
-                                                    <span className="text-slate-400 font-medium text-[11px]">Meta Alvo:</span>
-                                                    <span className="font-mono font-bold text-emerald-400">{formatValue(meta)}{unit}</span>
-                                                </div>
-                                                <div className="pt-1.5 border-t border-white/10 flex justify-between items-center gap-3">
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Status:</span>
-                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                                                        isAbove 
-                                                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
-                                                            : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                                                    }`}>
-                                                        {isAbove ? `+${formatValue(diff)}${unit} ✓` : `${formatValue(diff)}${unit}`}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            }}
+                            content={renderTooltipContent}
                         />
                         <Legend 
                             payload={[
@@ -200,5 +203,4 @@ export function RadarAnalysis({ radarData, maxScore = 100, minScore = 0, unit = 
             </div>
         </div>
     );
-}
-
+});
