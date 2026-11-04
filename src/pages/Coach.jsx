@@ -484,21 +484,25 @@ export default function Coach() {
         if (mcStats?.projectedMean == null) return;
         const projectedVal = Number(mcStats.projectedMean.toFixed(1));
         const probVal = mcStats.probability != null ? Number(mcStats.probability.toFixed(1)) : null;
-        setSuggestedFocus(prev => {
-            if (!prev) return prev;
-            if (prev.globalProjectedMean === projectedVal && prev.globalMcContext?.probability === probVal) {
-                return prev;
-            }
-            return {
-                ...prev,
-                globalProjectedMean: projectedVal,
-                globalMcContext: {
-                    projectedMean: projectedVal,
-                    probability: probVal,
-                    source: 'useMonteCarloStats'
+        const timer = setTimeout(() => {
+            if (!isMountedRef.current) return;
+            setSuggestedFocus(prev => {
+                if (!prev) return prev;
+                if (prev.globalProjectedMean === projectedVal && prev.globalMcContext?.probability === probVal) {
+                    return prev;
                 }
-            };
-        });
+                return {
+                    ...prev,
+                    globalProjectedMean: projectedVal,
+                    globalMcContext: {
+                        projectedMean: projectedVal,
+                        probability: probVal,
+                        source: 'useMonteCarloStats'
+                    }
+                };
+            });
+        }, 0);
+        return () => clearTimeout(timer);
     }, [mcStats?.projectedMean, mcStats?.probability]);
 
     useEffect(() => {
@@ -705,7 +709,8 @@ export default function Coach() {
         targetScorePoints,
         flashcardDue,
         flashcardDecks,
-        persistCalibrationMetric
+        persistCalibrationMetric,
+        setData
     ]);
 
     useEffect(() => {
@@ -980,7 +985,7 @@ export function RaioXDashboard({ data }) {
             
             // Reúne todas as fontes de simulado para esta categoria de forma unificada
             const catAttempts = new Set();
-            catStatsHistory.forEach((h, hIdx) => {
+            catStatsHistory.forEach((h) => {
                 if (!h) return;
                 const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `d_${getDateKey(h.date || h.createdAt)}_${h.score}`);
                 catAttempts.add(dKey);
