@@ -3,7 +3,6 @@ import {
   deriveUrgencyWeights,
   getCognitiveState,
   generateDailyGoals,
-  calculateUrgencyScore,
 } from '../coachLogic.js';
 import { kalmanAbilityTrend } from '../../engine/probabilistic/stateSpace.js';
 import { estimatePosteriorPredictive } from '../../engine/probabilistic/posteriorPredictive.js';

@@ -77,7 +77,7 @@ const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => 
             }
             return sortDirection === 'desc' ? -comparison : comparison;
         });
-    }, [safeCategories, sortColumn, sortDirection]);
+    }, [safeCategories, sortColumn, sortDirection, maxScore, minScore]);
 
     // FIX 5.6b: Navegação por teclado
     const handleKeyDown = (e) => {

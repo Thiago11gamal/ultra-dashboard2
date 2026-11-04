@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { normalize, aliases, isSubjectMatch } from '../utils/normalization';
+import { normalize, isSubjectMatch } from '../utils/normalization';
 import ConfirmModal from './ConfirmModal';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';

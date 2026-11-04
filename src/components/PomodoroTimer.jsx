@@ -202,7 +202,7 @@ function PomodoroTimer({
             }
         }, 0);
         return () => clearTimeout(timer);
-    }, [activeSubject?.taskId, activeSubject?.sessionInstanceId, mode]);
+    }, [activeSubject?.taskId, activeSubject?.id, activeSubject?.sessionInstanceId, mode]);
 
     const getSavedState = (key, defaultValue) => {
         if (savedState && savedState[key] !== undefined) {
@@ -316,12 +316,20 @@ function PomodoroTimer({
 
     const savePomodoroStateRef = useRef(null);
     const postSyncRef = useRef(null);
+    const clockRef = useRef(null);
+    const svgCircleRef = useRef(null);
+    const workFillsRef = useRef([]);
+    const breakBallsRef = useRef([]);
 
     useEffect(() => {
         const w = safeSettings.pomodoroWork;
         const b = safeSettings.pomodoroBreak;
         const match = POMODORO_PRESETS.find(p => p.work === w && p.break === b);
-        setActivePresetId(match ? match.id : 'custom');
+        const nextId = match ? match.id : 'custom';
+        const timer = setTimeout(() => {
+            setActivePresetId(prev => prev === nextId ? prev : nextId);
+        }, 0);
+        return () => clearTimeout(timer);
     }, [safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
 
     const handleSelectPreset = useCallback((preset) => {
@@ -506,7 +514,9 @@ function PomodoroTimer({
             console.warn('[PomodoroSync] Failed to post message:', error);
         }
     }, [syncChannel]);
-    postSyncRef.current = postSync;
+    useEffect(() => {
+        postSyncRef.current = postSync;
+    }, [postSync]);
 
     useEffect(() => {
         if (speedRef.current !== speed) {
@@ -535,11 +545,6 @@ function PomodoroTimer({
     const isTransitioningRef = useRef(false);
     const transitionRetriesRef = useRef(0);
 
-    const clockRef = useRef(null);
-    const svgCircleRef = useRef(null);
-    const workFillsRef = useRef([]);
-    const breakBallsRef = useRef([]);
-
     const isMountedRef = useRef(true);
 
     useEffect(() => {
@@ -557,18 +562,6 @@ function PomodoroTimer({
             isTransitioningRef.current = false;
         };
     }, []);
-
-    useEffect(() => {
-        if (workFillsRef.current) {
-            workFillsRef.current = workFillsRef.current.slice(0, targetCycles || 1);
-        }
-        if (breakBallsRef.current) {
-            breakBallsRef.current = breakBallsRef.current.slice(
-                0,
-                (targetCycles || 1) - 1
-            );
-        }
-    }, [targetCycles]);
 
     const toggleMute = () => {
         const newVal = !isMutedRef.current;
@@ -858,6 +851,7 @@ function PomodoroTimer({
         }
     }, [
         activeSubject?.taskId,
+        savedState,
         mode,
         safeSettings.pomodoroWork,
         safeSettings.pomodoroBreak,
@@ -963,7 +957,9 @@ function PomodoroTimer({
             console.error('Failed to save pomodoroState:', error);
         }
     }, [activeSubject]);
-    savePomodoroStateRef.current = savePomodoroState;
+    useEffect(() => {
+        savePomodoroStateRef.current = savePomodoroState;
+    }, [savePomodoroState]);
 
     useEffect(() => {
         return () => {
@@ -1003,7 +999,7 @@ function PomodoroTimer({
             });
             setPomodoroRunning(false);
             endsAtRef.current = null;
-            try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+            try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
         };
     }, [savePomodoroState, safeSettings, safeOnUpdateStudyTime, onSessionComplete, setPomodoroRunning]);
 
@@ -1016,7 +1012,7 @@ function PomodoroTimer({
             } else {
                 savePomodoroState({ isRunning: false, timeLeft: stateRefs.current?.timeLeft ?? timeLeft });
                 setPomodoroRunning(false);
-                try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -1053,7 +1049,7 @@ function PomodoroTimer({
         stateRefs.current.isRunning = false;
         setPomodoroRunning(false);
         endsAtRef.current = null;
-        try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+        try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
 
         const isManual = source !== 'natural';
 
@@ -1092,7 +1088,6 @@ function PomodoroTimer({
         }
 
         const targetSubject = activeSubjectRef.current;
-        let savedMinutes = 0;
 
         if (targetSubject && completedMode === 'work' && sessionMinutes > 0) {
             if (!Number.isFinite(sessionMinutes) || sessionMinutes <= 0) {
@@ -1105,7 +1100,6 @@ function PomodoroTimer({
                 targetSubject.task || targetSubject.title || targetSubject.name || ''
             );
             hasFlushedRef.current = true;
-            savedMinutes = sessionMinutes;
         }
 
         const actualSeriesMinutes = Number(
@@ -1231,12 +1225,13 @@ function PomodoroTimer({
         onSessionComplete,
         postSync,
         setPomodoroRunning,
-        commitTimeLeft
+        commitTimeLeft,
+        isNotifEnabled
     ]);
 
     const handlePhaseEnd = useCallback(() => {
         endsAtRef.current = null;
-        try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+        try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
         if (!isTransitioningRef.current) {
             transitionRetriesRef.current = 0;
             transitionSession(stateRefs.current.mode, 'natural');
@@ -1250,7 +1245,9 @@ function PomodoroTimer({
             }
         }
     }, [transitionSession]);
-    handlePhaseEndRef.current = handlePhaseEnd;
+    useEffect(() => {
+        handlePhaseEndRef.current = handlePhaseEnd;
+    }, [handlePhaseEnd]);
 
     // ✅ TIMER SEM DRIFT (Sobrevive a abas em background e reload com verificação de mudança)
     useEffect(() => {
@@ -1389,7 +1386,7 @@ function PomodoroTimer({
             setIsRunning(false);
             setPomodoroRunning(false);
             endsAtRef.current = null;
-            try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+            try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
             setTimeLeft(resetTime);
 
             if (Array.isArray(workFillsRef.current)) {
@@ -1455,7 +1452,7 @@ function PomodoroTimer({
             setIsRunning(false);
             setPomodoroRunning(false);
             endsAtRef.current = null;
-            try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+            try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
             setTimeLeft(currentTotalTime);
 
             if (clockRef.current) {
@@ -1484,9 +1481,8 @@ function PomodoroTimer({
                 workFillsRef.current[s - 1].style.width = '100%';
             }
         } else {
-            const breakEl = breakBallsRef.current?.[s - 1];
-            if (breakEl?.style) {
-                breakEl.style.height = '100%';
+            if (breakBallsRef.current?.[s - 1]?.style) {
+                breakBallsRef.current[s - 1].style.height = '100%';
             }
         }
 
@@ -1512,7 +1508,7 @@ function PomodoroTimer({
                 taskId: activeSubjectRef.current?.taskId || null,
                 sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
             }));
-        } catch {}
+        } catch { /* ignore */ }
         stateRefs.current.isRunning = true;
         setIsRunning(true);
         setPomodoroRunning(true);
@@ -1531,7 +1527,7 @@ function PomodoroTimer({
             ? Math.max(0, Math.ceil(((endsAtRef.current - Date.now()) * currentSpeed) / 1000))
             : stateRefs.current.timeLeft;
         endsAtRef.current = null;
-        try { localStorage.removeItem('pomodoro-endsAt'); } catch {}
+        try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
         commitTimeLeft(remaining);
         stateRefs.current.isRunning = false;
         setIsRunning(false);
@@ -1601,7 +1597,9 @@ function PomodoroTimer({
                         savedAt: Date.now()
                     })
                 );
-            } catch {}
+            } catch {
+                /* ignore storage error */
+            }
 
             try {
                 syncChannel?.postMessage?.({
@@ -1613,7 +1611,9 @@ function PomodoroTimer({
                     endsAt,
                     speed: currentSpeed
                 });
-            } catch {}
+            } catch {
+                /* ignore postMessage error */
+            }
 
             showToast('Iniciando sessão de Foco Livre ⏱️', 'info');
             return;

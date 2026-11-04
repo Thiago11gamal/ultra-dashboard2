@@ -3,10 +3,8 @@ import {
   getCombinedHistory,
   getSuggestedFocus,
   generateDailyGoals,
-  calculateUrgency,
   extractMetrics,
   getWeakestTopic,
-  getWeakestTopicsList,
   _buildSortedTopics
 } from '../coachLogic.js';
 import { deriveAdaptiveRiskThresholds, deriveBacktestWeights } from '../coachAdaptive.js';

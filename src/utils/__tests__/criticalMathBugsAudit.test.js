@@ -103,7 +103,7 @@ describe('Auditoria de Correções Matemáticas Críticas', () => {
     const shrunkLinear = highProb * (1 - 0.2) + 50 * 0.2; // 86
     const shrunkLogistic = shrinkProbabilityLogistic(highProb, 0.2, 50, 0.5);
     // Shrinkage logístico preserva melhor certezas extremas
-    expect(shrunkLogistic).toBeGreaterThan(86);
+    expect(shrunkLogistic).toBeGreaterThan(shrunkLinear);
     expect(shrunkLogistic).toBeLessThan(95);
 
     // Neutro no centro (50%) permanece 50%

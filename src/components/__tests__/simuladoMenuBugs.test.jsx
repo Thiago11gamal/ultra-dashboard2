@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper.js';
 import { createSimuladoSlice } from '../../store/slices/createSimuladoSlice.js';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
@@ -337,7 +337,6 @@ describe('Simulado Menu Bugs Audit & Fixes', () => {
   describe('Bug 4: Date Normalization for Category History Deduplication', () => {
     it('should recognize ISO timestamp in category history and not produce duplicates', () => {
       const contest = mockState.appState.contests['contest-1'];
-      const todayKey = getDateKey(normalizeDate(new Date()));
       const isoToday = new Date().toISOString();
 
       // Pre-existing history entry with full ISO timestamp

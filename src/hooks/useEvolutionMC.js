@@ -84,9 +84,12 @@ export function useEvolutionMC({
     }
 
     if (!isMcEngineActive) {
-      setMcLoading(false);
+      const timer = setTimeout(() => {
+        if (!cancelled) setMcLoading(false);
+      }, 0);
       return () => {
         cancelled = true;
+        clearTimeout(timer);
       };
     }
 

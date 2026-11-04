@@ -76,8 +76,6 @@ export const EvolutionHeatmap = React.memo(({
     const [granularity, setGranularity] = useState('daily');
     const [hoveredCell, setHoveredCell] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
-    const scrollDebounceRef = useRef(null);
-
     useEffect(() => {
         const checkMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
         checkMobile();
@@ -85,11 +83,10 @@ export const EvolutionHeatmap = React.memo(({
         const handleScroll = () => {
             setHoveredCell(null);
         };
-        window.addEventListener('scroll', handleScroll, { passive: true });
+        window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
         return () => {
             window.removeEventListener('resize', checkMobile);
-            window.removeEventListener('scroll', handleScroll);
-            if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+            window.removeEventListener('scroll', handleScroll, { capture: true });
         };
     }, []);
 
@@ -111,7 +108,7 @@ export const EvolutionHeatmap = React.memo(({
     }, [dates, filteredRowsByFocus, windowSize]);
 
     const [aggregated, setAggregated] = useState(() => {
-        return granularity === 'daily' ? filtered : aggregateHeatmap(filtered, granularity, safeMax, safeMin);
+        return granularity === 'daily' ? null : aggregateHeatmap(filtered, granularity, safeMax, safeMin);
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
@@ -130,10 +127,8 @@ export const EvolutionHeatmap = React.memo(({
     }, []);
 
     useEffect(() => {
-        // Se for granularidade diária, aggregateHeatmap é a identidade (filtered).
-        // Evita envio desnecessário ao WebWorker e piscada de "Processando...".
+        // Se for granularidade diária, usa filtered diretamente sem passar pelo worker
         if (granularity === 'daily') {
-            setAggregated(filtered);
             setIsAggregating(false);
             return;
         }
@@ -194,8 +189,12 @@ export const EvolutionHeatmap = React.memo(({
         };
     }, [filtered, granularity, safeTarget, targetScorePct, safeMin, safeMax]);
 
-    const filteredDates = aggregated.dates || [];
-    const filteredRows = aggregated.rows || [];
+    const activeData = useMemo(() => {
+        return (granularity === 'daily' || !aggregated) ? filtered : aggregated;
+    }, [granularity, filtered, aggregated]);
+
+    const filteredDates = useMemo(() => activeData.dates || [], [activeData.dates]);
+    const filteredRows = useMemo(() => activeData.rows || [], [activeData.rows]);
 
     const maxCellTotal = useMemo(() => {
         const totals = filteredRows
@@ -282,7 +281,10 @@ export const EvolutionHeatmap = React.memo(({
                         <button
                             type="button"
                             key={opt.value}
-                            onClick={() => setWindowSize(opt.value)}
+                            onClick={() => {
+                                setHoveredCell(null);
+                                setWindowSize(opt.value);
+                            }}
                             aria-label={`Filtrar janela ${opt.label}`}
                             aria-pressed={windowSize === opt.value}
                             className={`px-2.5 py-1.5 rounded-md text-[10px] font-extrabold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 ${windowSize === opt.value ? 'bg-indigo-500/30 text-indigo-100 border border-indigo-400/40' : 'text-slate-400 hover:text-slate-200'}`}
@@ -296,7 +298,10 @@ export const EvolutionHeatmap = React.memo(({
                         <button
                             type="button"
                             key={opt.value}
-                            onClick={() => setGranularity(opt.value)}
+                            onClick={() => {
+                                setHoveredCell(null);
+                                setGranularity(opt.value);
+                            }}
                             aria-label={`Selecionar granularidade ${opt.label}`}
                             aria-pressed={granularity === opt.value}
                             className={`px-2.5 py-1.5 rounded-md text-[10px] font-extrabold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 ${granularity === opt.value ? 'bg-cyan-500/30 text-cyan-100 border border-cyan-400/40' : 'text-slate-400 hover:text-slate-200'}`}
@@ -331,10 +336,7 @@ export const EvolutionHeatmap = React.memo(({
             <div 
                 className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-2 pb-4"
                 onScroll={() => {
-                    if (hoveredCell) {
-                        if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
-                        scrollDebounceRef.current = setTimeout(() => setHoveredCell(null), 100);
-                    }
+                    if (hoveredCell) setHoveredCell(null);
                 }}
             >
                 <div style={{ minWidth: `${filteredDates.length * 72 + stickyColWidth}px` }}>
@@ -345,8 +347,8 @@ export const EvolutionHeatmap = React.memo(({
                         >
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Disciplina</span>
                         </div>
-                        {filteredDates.map(d => (
-                            <div key={d.key} className="flex flex-col items-center gap-1">
+                        {filteredDates.map((d, di) => (
+                            <div key={d.key || `date-${di}`} className="flex flex-col items-center gap-1">
                                 <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${d.isWeekend ? 'text-purple-300' : 'text-slate-400'}`}>
                                     {d.dayName}
                                 </span>
@@ -359,19 +361,19 @@ export const EvolutionHeatmap = React.memo(({
                     </div>
 
                     <div className="space-y-2.5">
-                        {filteredRows.map(({ cat, cells }) => (
-                            <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
+                        {filteredRows.map(({ cat, cells }, rowIndex) => (
+                            <div key={cat?.id || cat?.name || `row-${rowIndex}`} style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
                                 <div 
                                     className="sticky left-0 z-30 self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
                                     style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
                                 >
-                                    <span className="text-lg shrink-0">{cat.icon}</span>
+                                    <span className="text-lg shrink-0">{cat?.icon}</span>
                                     <span 
                                         className="text-[11px] sm:text-[13px] font-extrabold leading-tight capitalize min-w-0 line-clamp-2 select-none" 
-                                        style={{ color: cat.color }} 
-                                        title={cat.name}
+                                        style={{ color: cat?.color }} 
+                                        title={cat?.name}
                                     >
-                                        {cat.name}
+                                        {cat?.name}
                                     </span>
                                 </div>
 
@@ -411,7 +413,7 @@ export const EvolutionHeatmap = React.memo(({
                                                         {formatPct(cell.pct)}
                                                     </span>
                                                     <span className="text-[9px] text-slate-300/80 font-mono mt-1">
-                                                        {Math.round(cell.correct)}/{Math.round(cell.total)}
+                                                        {Math.round(cell.correct ?? 0)}/{Math.round(cell.total ?? 0)}
                                                     </span>
                                                 </>
                                             ) : (
@@ -434,11 +436,11 @@ export const EvolutionHeatmap = React.memo(({
                         top: hoveredCell.isAbove ? `${hoveredCell.rect.top - 8}px` : `${hoveredCell.rect.bottom + 8}px`,
                         left: `${hoveredCell.left}px`,
                         transform: hoveredCell.isAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
-                        borderLeftColor: hoveredCell.col.text,
+                        borderLeftColor: hoveredCell.col?.text || '#818cf8',
                     }}
                 >
                     <span className="text-[10px] text-slate-200 font-black uppercase tracking-[0.15em] mb-1.5 pb-1.5 border-b border-slate-800 w-full">
-                        {hoveredCell.date ? `${hoveredCell.date.dayName} • ${hoveredCell.date.label}` : ''}
+                        {hoveredCell.date ? `${hoveredCell.date.dayName ? `${hoveredCell.date.dayName} • ` : ''}${hoveredCell.date.label || ''}` : ''}
                     </span>
                     {Number.isFinite(Number(hoveredCell.date?.count)) && Number(hoveredCell.date.count) > 1 && (
                         <span className="text-[9px] text-cyan-400 font-bold mb-1.5">
@@ -446,18 +448,18 @@ export const EvolutionHeatmap = React.memo(({
                         </span>
                     )}
                     <div className="flex flex-col items-center justify-center py-1.5 px-3 rounded-lg bg-slate-900 border border-slate-800 w-full mb-1.5">
-                        <span className="text-[17px] font-black leading-none mb-1 drop-shadow-[0_0_8px_rgba(0,0,0,1)]" style={{ color: hoveredCell.col.text }}>
-                            {formatPct(hoveredCell.cell.pct)}
+                        <span className="text-[17px] font-black leading-none mb-1 drop-shadow-[0_0_8px_rgba(0,0,0,1)]" style={{ color: hoveredCell.col?.text || '#4ade80' }}>
+                            {formatPct(hoveredCell.cell?.pct)}
                         </span>
                         <span className="text-[8px] text-slate-300 font-black uppercase tracking-widest">Desempenho</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-white font-mono">
-                        <span className="font-black px-1.5 py-0.5 rounded-md bg-black" style={{ color: hoveredCell.col.text }}>{Math.round(hoveredCell.cell.correct)}</span>
+                        <span className="font-black px-1.5 py-0.5 rounded-md bg-black" style={{ color: hoveredCell.col?.text || '#4ade80' }}>{Math.round(hoveredCell.cell?.correct ?? 0)}</span>
                         <span className="text-slate-500 font-bold">/</span>
-                        <span className="font-bold">{Math.round(hoveredCell.cell.total)} <small className="text-[8px] text-slate-400">Q</small></span>
+                        <span className="font-bold">{Math.round(hoveredCell.cell?.total ?? 0)} <small className="text-[8px] text-slate-400">Q</small></span>
                     </div>
                     <div className="mt-1 text-[8px] text-slate-500 font-black uppercase tracking-tighter">
-                        Densidade: {Math.round((hoveredCell.col.density || 0) * 100)}%
+                        Densidade: {Math.round((hoveredCell.col?.density || 0) * 100)}%
                     </div>
                 </div>,
                 document.body
