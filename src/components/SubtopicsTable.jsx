@@ -183,7 +183,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                     comparison = a.trendValue - b.trendValue;
                     break;
                 default:
-                    comparison = b.balance - a.balance;
+                    comparison = a.balance - b.balance;
             }
             return sortDirection === 'desc' ? -comparison : comparison;
         });

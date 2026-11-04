@@ -820,9 +820,6 @@ export function computeBayesianLevel(
 export function computeCategoryStats(history, weight, _daysValue = 60, maxScore = 100, minScore = 0) {
     const safeHistory = toHistoryArray(history);
     if (!safeHistory.length) return null;
-    const safeMax = safeMaxScoreValue(maxScore, 100);
-    const safeMin = safeMinScoreValue(minScore, 0);
-
     const safeMaxScore = safeMaxScoreValue(maxScore, 100);
     const safeMinScore = safeMinScoreValue(minScore, 0);
     const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);

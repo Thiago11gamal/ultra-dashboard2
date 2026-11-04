@@ -194,7 +194,10 @@ const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, stats, ca
             }
 
             try {
-                const hasSimulados = (simulados || []).some(s => s && s.categoryScores && (
+                const hasCategoryHistory = Array.isArray(targetCategory?.simuladoStats?.history)
+                    ? targetCategory.simuladoStats.history.length > 0
+                    : Object.keys(targetCategory?.simuladoStats?.history || {}).length > 0;
+                const hasSimulados = hasCategoryHistory || (simulados || []).some(s => s && s.categoryScores && (
                     s.categoryScores[targetCategory.id] !== undefined ||
                     (targetCategory.name && s.categoryScores[targetCategory.name] !== undefined)
                 ));
@@ -329,8 +332,8 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
     isRunning = false,
     mode = 'work',
     timeLeft = 0,
-    targetCycles = 1,
-    completedCycles = 0,
+    _targetCycles = 1,
+    _completedCycles = 0,
     speed = 1
 }) {
     const recommendedTask = useMemo(() => {

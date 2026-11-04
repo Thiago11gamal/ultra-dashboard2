@@ -7,7 +7,6 @@ import { mulberry32 } from './random.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
-import { conformalPredictionInterval } from './math/bootstrap.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
 import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian, generateKDE } from './math/gaussian.js';

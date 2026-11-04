@@ -27,11 +27,19 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({ radarData, maxS
         const anchor = x > cx + 10 ? 'start' : x < cx - 10 ? 'end' : 'middle';
         const dy = y > cy ? 6 : -6;
         
-        if (text.length > 13) {
-            const mid = text.lastIndexOf(' ', Math.ceil(text.length / 2));
-            const splitIdx = mid > 2 ? mid : Math.ceil(text.length / 2);
-            const line1 = text.substring(0, splitIdx).trim();
+        if (text.length > 13 && text.includes(' ')) {
+            const center = text.length / 2;
+            const spaces = [];
+            for (let i = 0; i < text.length; i++) {
+                if (text[i] === ' ') spaces.push(i);
+            }
+            const splitIdx = spaces.reduce((closest, idx) =>
+                Math.abs(idx - center) < Math.abs(closest - center) ? idx : closest
+            , spaces[0]);
+
+            const line1raw = text.substring(0, splitIdx).trim();
             const line2raw = text.substring(splitIdx).trim();
+            const line1 = line1raw.length > maxLineLen ? line1raw.substring(0, maxLineLen - 1) + '..' : line1raw;
             const line2 = line2raw.length > maxLineLen ? line2raw.substring(0, maxLineLen - 1) + '..' : line2raw;
             return (
                 <text x={x} y={y + dy} textAnchor={anchor} fill="#cbd5e1" fontSize={9} fontWeight={600}>

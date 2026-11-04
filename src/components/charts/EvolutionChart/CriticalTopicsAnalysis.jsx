@@ -3,7 +3,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, LabelList, Cell
 } from "recharts";
-import { normalizeDate, getDateKey } from "../../../utils/dateHelper";
+import { getDateKey } from "../../../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
@@ -33,7 +33,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
     // Calc time window
-    const { startDate, endDate, startDateKey, endDateKey, dateLabel } = useMemo(() => {
+    const { startDateKey, endDateKey, dateLabel } = useMemo(() => {
         const end = new Date();
         end.setHours(23, 59, 59, 999);
         end.setDate(end.getDate() - (selectedWeekOffset * 7));
