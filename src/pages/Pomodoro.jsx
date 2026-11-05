@@ -23,7 +23,7 @@ import { calculateETA } from '../utils/pomodoroHelpers';
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 
-const ALLOWED_RETURN_PATHS = ['/', '/pomodoro', '/simulados', '/revisao', '/desempenho', '/calendario', '/configuracoes'];
+const ALLOWED_RETURN_PATHS = ['/', '/pomodoro', '/coach', '/simulados', '/revisao', '/desempenho', '/calendario', '/configuracoes'];
 
 const resolveReturnPath = (source, forceDashboard = false) => {
     if (forceDashboard) return '/';

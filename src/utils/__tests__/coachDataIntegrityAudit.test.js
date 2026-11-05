@@ -319,5 +319,154 @@ describe('COACH AI DATA INTEGRITY AUDIT', () => {
       const trapTask = goals.find(g => g.id.includes('trap'));
       expect(trapTask).toBeUndefined();
     });
+
+    it('extractMetrics deduplicates identical simulados across simuladoStats.history, combinedHistory, allSimulados, and simuladoRows', () => {
+      const category = {
+        id: 'cat-const',
+        name: 'Direito Constitucional',
+        maxScore: 100,
+        minScore: 0,
+        simuladoStats: {
+          history: [
+            { date: '2026-03-01', score: 80, total: 20, correct: 16 },
+            { date: '2026-03-05', score: 85, total: 20, correct: 17 }
+          ]
+        }
+      };
+
+      const combinedHistory = [
+        { id: 'legacy-2026-03-01', date: '2026-03-01', subject: 'Direito Constitucional', score: 80 },
+        { id: 'legacy-2026-03-05', date: '2026-03-05', subject: 'Direito Constitucional', score: 85 }
+      ];
+
+      const allSimulados = [
+        { id: 'sim-real-1', date: '2026-03-01', categoryId: 'cat-const', score: 80 },
+        { id: 'sim-real-2', date: '2026-03-05', categoryId: 'cat-const', score: 85 }
+      ];
+
+      const simuladoRows = [
+        { id: 'row-1', date: '2026-03-01', categoryId: 'cat-const', correct: 16, total: 20 },
+        { id: 'row-2', date: '2026-03-05', categoryId: 'cat-const', correct: 17, total: 20 }
+      ];
+
+      const metrics = extractMetrics(category, combinedHistory, [], {
+        maxScore: 100,
+        minScore: 0,
+        allSimulados,
+        simuladoRows
+      });
+
+      expect(metrics.simuladosWithMaxScore).toHaveLength(2);
+    });
+
+    it('generateDailyGoals performDeepCheck counts questions stored in category.simuladoStats.history without false trap alert', () => {
+      const categories = [
+        {
+          name: 'Direito Administrativo',
+          maxScore: 100,
+          minScore: 0,
+          simuladoStats: {
+            history: [
+              { date: '2026-03-10', score: 75, total: 150, correct: 112 }
+            ]
+          }
+        }
+      ];
+
+      const studyLogs = [
+        {
+          categoryName: 'Direito Administrativo',
+          date: '2026-03-10',
+          minutes: 360 // 6h studied, 150 questions solved = 25 questions/h (> 12/h threshold)
+        }
+      ];
+
+      const goals = generateDailyGoals(categories, [], studyLogs, {
+        now: new Date('2026-03-12'),
+        maxScore: 100,
+        minScore: 0
+      });
+
+      const trapTask = goals.find(g => g.id.includes('trap'));
+      expect(trapTask).toBeUndefined();
+    });
+
+    it('generateDailyGoals prevents ID collisions when multiple categories lack explicit .id and formats Cruzeiro Seguro as [STATUS] alert', () => {
+      const categoriesWithoutId = [
+        {
+          name: 'Direito Penal',
+          weight: 5,
+          maxScore: 100,
+          minScore: 0,
+          tasks: [{ text: 'Teoria do Crime', completed: false }],
+          simuladoStats: { history: [] }
+        },
+        {
+          name: 'Direito Civil',
+          weight: 5,
+          maxScore: 100,
+          minScore: 0,
+          tasks: [{ text: 'Negócio Jurídico', completed: false }],
+          simuladoStats: {
+            history: [
+              { date: '2026-03-01', score: 92, total: 50, correct: 46 },
+              { date: '2026-03-03', score: 94, total: 50, correct: 47 },
+              { date: '2026-03-05', score: 95, total: 50, correct: 48 },
+              { date: '2026-03-07', score: 96, total: 50, correct: 48 },
+              { date: '2026-03-09', score: 95, total: 50, correct: 48 }
+            ]
+          }
+        }
+      ];
+
+      const goals = generateDailyGoals(categoriesWithoutId, [], [], {
+        now: new Date('2026-03-10'),
+        maxScore: 100,
+        minScore: 0,
+        targetScore: 70
+      });
+
+      // Tasks from both categories must coexist without colliding under "undefined-..."
+      const penalTasks = goals.filter(g => g.category === 'Direito Penal');
+      const civilTasks = goals.filter(g => g.category === 'Direito Civil');
+      expect(penalTasks.length).toBeGreaterThan(0);
+      expect(civilTasks.length).toBeGreaterThan(0);
+      expect(goals.every(g => !String(g.id).startsWith('undefined-'))).toBe(true);
+
+      // High-performing category should emit a [STATUS] 🏆 CRUZEIRO SEGURO alert task
+      const safeAlert = goals.find(g => String(g.id).includes('-mc-safe-'));
+      expect(safeAlert).toBeDefined();
+      expect(safeAlert.text).toContain('[STATUS]');
+      expect(safeAlert.text).toContain('CRUZEIRO SEGURO');
+    });
+
+    it('_buildSortedTopics merges topic history from simuladoStats.history and simuladoRows without dropping or double-counting', () => {
+      const category = {
+        id: 'cat-port',
+        name: 'Língua Portuguesa',
+        maxScore: 100,
+        minScore: 0,
+        simuladoStats: {
+          history: [
+            { id: 'h1', date: '2026-03-01', topic: 'Crase', total: 20, correct: 10, score: 50 }
+          ]
+        }
+      };
+
+      const simuladoRows = [
+        // Mirrored entry on 2026-03-01 for Crase -> should be deduplicated
+        { id: 'r1', categoryId: 'cat-port', date: '2026-03-01', topic: 'Crase', total: 20, correct: 10, score: 50 },
+        // New topic entry only in simuladoRows -> must be included even though simuladoStats.history is non-empty!
+        { id: 'r2', categoryId: 'cat-port', date: '2026-03-05', topic: 'Sintaxe', total: 20, correct: 8, score: 40 }
+      ];
+
+      const topics = _buildSortedTopics(category, [], 100, 0, { simuladoRows });
+      const crase = topics.find(t => t.name === 'Crase');
+      const sintaxe = topics.find(t => t.name === 'Sintaxe');
+      expect(crase).toBeDefined();
+      expect(crase.scores).toHaveLength(1);
+      expect(sintaxe).toBeDefined();
+      expect(sintaxe.percentage).toBeCloseTo(40, 1);
+    });
   });
 });

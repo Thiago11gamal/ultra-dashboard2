@@ -95,12 +95,22 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
         const range = Math.max(1e-9, scaleMax - scaleMin);
         return Math.min(100, Math.max(0, ((value - scaleMin) / range) * 100));
     };
-    const hasLow = mc.ci95Low !== null && mc.ci95Low !== undefined && mc.ci95Low !== '' && Number.isFinite(Number(mc.ci95Low));
-    const rawLow = hasLow ? toPct(Number(mc.ci95Low)) : prob - 5;
-    const low = Math.min(100, Math.max(0, rawLow));
-    const hasHigh = mc.ci95High !== null && mc.ci95High !== undefined && mc.ci95High !== '' && Number.isFinite(Number(mc.ci95High));
-    const rawHigh = hasHigh ? toPct(Number(mc.ci95High)) : prob + 5;
-    const high = Math.min(100, Math.max(low, rawHigh));
+    const safeVolatility = Number.isFinite(Number(mc.volatility)) ? Math.round(Number(mc.volatility)) : 0;
+    const volHalfBand = Math.max(5, Math.min(22, (safeVolatility / Math.max(1, scaleMax - scaleMin)) * 100 * 1.5));
+
+    // FIX: Usar intervalo conformal de probabilidade (conformalLow / conformalHigh) ou banda probabilística ao redor de `prob`
+    // em vez de ci95Low/ci95High (que estão na escala de nota projetada e ficavam deslocados do marcador de probabilidade).
+    const hasConformalLow = mc.conformalLow !== null && mc.conformalLow !== undefined && mc.conformalLow !== '' && Number.isFinite(Number(mc.conformalLow));
+    const hasConformalHigh = mc.conformalHigh !== null && mc.conformalHigh !== undefined && mc.conformalHigh !== '' && Number.isFinite(Number(mc.conformalHigh));
+    const rawProbLow = hasConformalLow ? Math.min(prob, Number(mc.conformalLow)) : (prob - volHalfBand);
+    const rawProbHigh = hasConformalHigh ? Math.max(prob, Number(mc.conformalHigh)) : (prob + volHalfBand);
+    const low = Math.min(prob, Math.max(0, rawProbLow));
+    const high = Math.min(100, Math.max(prob, low, rawProbHigh));
+
+    const hasScoreLow = mc.ci95Low !== null && mc.ci95Low !== undefined && mc.ci95Low !== '' && Number.isFinite(Number(mc.ci95Low));
+    const hasScoreHigh = mc.ci95High !== null && mc.ci95High !== undefined && mc.ci95High !== '' && Number.isFinite(Number(mc.ci95High));
+    const scoreLowPct = hasScoreLow ? Math.round(toPct(Number(mc.ci95Low))) : null;
+    const scoreHighPct = hasScoreHigh ? Math.round(toPct(Number(mc.ci95High))) : null;
 
     const dangerThreshold = mc.thresholds?.danger != null && Number.isFinite(Number(mc.thresholds.danger))
         ? Number(mc.thresholds.danger)
@@ -112,7 +122,6 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
     const color = isCritical ? 'bg-red-400' : (prob >= safeThreshold ? 'bg-emerald-400' : 'bg-indigo-400');
     const dotGlow = isCritical ? 'shadow-[0_0_12px_rgba(239,68,68,0.8)]' : (prob >= safeThreshold ? 'shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'shadow-[0_0_12px_rgba(99,102,241,0.8)]');
 
-    const safeVolatility = Number.isFinite(Number(mc.volatility)) ? Math.round(Number(mc.volatility)) : 0;
     const safeBarWidth = Math.max(0, Math.min(100 - low, high - low));
     const safeProbPos = Math.max(2, Math.min(98, prob));
 
@@ -172,6 +181,12 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
                         <span className="font-bold text-slate-300">{Math.round(high)}%</span>
                     </div>
                 </div>
+                {scoreLowPct !== null && scoreHighPct !== null && (
+                    <div className="flex justify-between items-center text-[8.5px] font-mono px-0.5 pt-0.5 text-slate-400/80">
+                        <span className="uppercase tracking-wider font-sans font-bold text-[8px]">IC 95% Nota Projetada:</span>
+                        <span className="font-bold text-slate-300">{scoreLowPct}% – {scoreHighPct}%</span>
+                    </div>
+                )}
             </div>
         </div>
     );

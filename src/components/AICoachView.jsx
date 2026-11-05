@@ -53,17 +53,16 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
 
     return (
         <div
-            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${
-                isCompleted
+            className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${isCompleted
                     ? 'border-emerald-500/30 border-l-4 sm:border-l-8 border-l-emerald-500 opacity-80 hover:opacity-100'
-                    : isPriority 
-                        ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]' 
+                    : isPriority
+                        ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]'
                         : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
-            }`}
+                }`}
         >
             {/* Efeitos Visuais de Fundo (Glassmorphism & Cinematic Glow) */}
             <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] via-[#0a0c14]/0 to-transparent ${isPriority ? 'from-rose-900/30' : col.glow}`} />
-            
+
             {/* Efeito de Sirene/Alerta Cinematico para Cards Críticos */}
             {isPriority && (
                 <>
@@ -93,20 +92,19 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
                         </div>
                     </div>
                 </div>
-                <button 
+                <button
                     type="button"
                     aria-label={`${isCompleted ? 'Revisar' : 'Iniciar'} estudo: ${displaySubject(subjectPart, categories)}`}
                     onClick={(e) => {
                         e.stopPropagation();
                         onStartPomodoro(task);
                     }}
-                    className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${
-                        isCompleted
+                    className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${isCompleted
                             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-500'
-                            : isPriority 
+                            : isPriority
                                 ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
                                 : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
-                    }`}
+                        }`}
                 >
                     <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{isCompleted ? 'Revisar' : 'Iniciar'}</span>
                     <Play size={13} fill="currentColor" className="transition-colors" />
@@ -141,34 +139,34 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
                 const mcVolPct = (mcVol / scaleDomain) * 100;
                 const highVol = mcVolPct > 8;
                 return (
-                <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
-                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
-                        <div className="flex items-center justify-between z-10 relative">
-                            <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
-                            <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(mcProb)}%</span>
+                    <div className="relative z-10 grid grid-cols-2 gap-3 mb-5">
+                        <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi hover:bg-white/[0.04] transition-colors">
+                            <div className="flex items-center justify-between z-10 relative">
+                                <span className="text-[9px] font-black tracking-widest uppercase text-indigo-400/80">Probabilidade</span>
+                                <span className="font-mono text-xs font-bold text-indigo-300">{Math.round(mcProb)}%</span>
+                            </div>
+                            <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
+                                <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${mcProb}%` }} />
+                            </div>
                         </div>
-                        <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className="h-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] rounded-full transition-all duration-1000" style={{ width: `${mcProb}%` }} />
+                        <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
+                            <div className="flex items-center justify-between z-10 relative">
+                                <span className={`text-[9px] font-black tracking-widest uppercase ${highVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
+                                <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)}</span>
+                            </div>
+                            <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
+                                <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (mcVolPct / 20) * 100))}%` }} />
+                            </div>
                         </div>
                     </div>
-                    <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-2 relative group/kpi transition-colors hover:bg-white/[0.04]">
-                        <div className="flex items-center justify-between z-10 relative">
-                            <span className={`text-[9px] font-black tracking-widest uppercase ${highVol ? 'text-amber-400/80' : 'text-slate-400'}`}>Volatilidade</span>
-                            <span className={`font-mono text-xs font-bold ${highVol ? 'text-amber-300' : 'text-slate-300'}`}>±{mcVol > 0 && mcVol < 0.5 ? '<1' : Math.round(mcVol)}</span>
-                        </div>
-                        <div className="h-1 w-full bg-black/40 rounded-full overflow-hidden z-10 relative">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${highVol ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-slate-500'}`} style={{ width: `${Math.min(100, Math.max(0, (mcVolPct / 20) * 100))}%` }} />
-                        </div>
-                    </div>
-                </div>
                 );
             })()}
             {task.analysis && (
                 <div className="relative z-10 mt-auto pt-4 border-t border-white/[0.04]">
-                    <button 
+                    <button
                         type="button"
                         aria-expanded={isExpanded}
-                        onClick={() => setIsExpanded(!isExpanded)} 
+                        onClick={() => setIsExpanded(!isExpanded)}
                         className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none focus:outline-none ${isExpanded ? 'bg-indigo-500/[0.04] border-indigo-500/10' : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'}`}
                     >
                         <div className="flex items-center gap-3">
@@ -181,7 +179,7 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
                     </button>
                     <AnimatePresence>
                         {isExpanded && (
-                            <Motion.div 
+                            <Motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
@@ -189,7 +187,9 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
                             >
                                 <div className="pt-3 pb-2 space-y-3">
                                     <div className="text-[11px] sm:text-xs text-indigo-200/80 leading-relaxed bg-indigo-500/[0.04] p-5 rounded-xl border border-indigo-500/10 font-medium whitespace-pre-wrap shadow-[inset_0_0_20px_rgba(99,102,241,0.03)] font-mono tracking-tight">
-                                        {renderBoldText(task.analysis.reason)}
+                                        <div>{renderBoldText(task.analysis.reason)}</div>
+                                        {task.analysis.details && <div className="mt-2 pt-2 border-t border-indigo-500/10 text-[10px] text-slate-300/90">{renderBoldText(task.analysis.details)}</div>}
+                                        {task.analysis.verdict && <div className="mt-2 pt-2 border-t border-indigo-500/10 text-[11px] font-sans text-indigo-300/95">{renderBoldText(task.analysis.verdict)}</div>}
                                     </div>
                                     {task.analysis.metrics && (
                                         <div className="flex flex-wrap gap-2 pt-1">
@@ -220,7 +220,7 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
     );
 }
 
-export default function AICoachView({ suggestedFocus, onClearHistory }) {
+export default function AICoachView({ suggestedFocus, onClearHistory, onRegeneratePlan }) {
     const [isExporting, setIsExporting] = useState(false);
     const [viewMode, setViewMode] = useState('planner');
     const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -299,7 +299,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
         // Se a task é um system alert, iniciar sessão isolada.
         if (isSystemAlertTask(task)) {
             startNeuralSession([{ ...task, sourceContext: 'system-alert' }], 0);
-            navigate('/pomodoro');
+            navigate('/pomodoro', { state: { from: 'coach' } });
             return;
         }
         const matchTask = (t) => {
@@ -308,7 +308,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
             if (taskSid && candidateSid && taskSid === candidateSid) return true;
             return t === task || Boolean(task?.text && t?.text === task.text);
         };
-        
+
         let targetIndex = unallocatedTasks.findIndex(matchTask);
         let sessionTasks = unallocatedTasks;
 
@@ -316,7 +316,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
 
         if (targetIndex === -1) {
             // BUG-DESYNC FIX: Se não estiver nos não-alocados, buscar ativamente em qual dia do planner está
-            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) => 
+            const dayEntry = Object.entries(coachPlanner).find(([, tasks]) =>
                 (tasks || []).some(matchTask)
             );
             if (dayEntry) {
@@ -333,12 +333,12 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
 
         if (!Array.isArray(sessionTasks) || sessionTasks.length === 0) return;
         const safeIndex = targetIndex !== -1 ? targetIndex : 0;
-        
+
         // FIX: Inject sourceContext just like in AICoachPlanner.jsx
         const sessionWithContext = sessionTasks.map(t => ({ ...t, sourceContext }));
-        
+
         startNeuralSession(sessionWithContext, safeIndex);
-        navigate('/pomodoro');
+        navigate('/pomodoro', { state: { from: 'coach' } });
     };
 
     const handleExport = async () => {
@@ -370,7 +370,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
                 <div className="bg-slate-900/70 backdrop-blur-xl border border-white/10 p-3 sm:p-4 rounded-2xl shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[60px] -mr-32 -mt-32 pointer-events-none"></div>
                     <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-[60px] -ml-32 -mb-32 pointer-events-none"></div>
-                    
+
                     <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
                         <div className="flex items-center gap-3">
                             <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center shadow-sm">
@@ -403,8 +403,19 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
                                     Pendências
                                 </button>
                             </div>
-                            
+
                             <div className="flex items-center gap-1.5">
+                                {onRegeneratePlan && (
+                                    <button
+                                        type="button"
+                                        onClick={onRegeneratePlan}
+                                        title="Recalcular sugestões do Coach AI"
+                                        className="flex items-center justify-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-[9px] sm:text-[9.5px] font-black text-indigo-300 uppercase tracking-widest hover:bg-indigo-500/20 hover:text-indigo-200 transition"
+                                    >
+                                        <Sparkles size={12} className="shrink-0" />
+                                        <span>Recalcular</span>
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={handleExport}
@@ -435,7 +446,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
 
             <AnimatePresence mode="wait">
                 {viewMode === 'cards' && (
-                    <Motion.div 
+                    <Motion.div
                         key="cards"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -492,7 +503,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
                 )}
 
                 {viewMode === 'planner' && (
-                    <Motion.div 
+                    <Motion.div
                         key="planner"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -500,18 +511,18 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     >
                         <div className="space-y-4 mb-4">
-                    {suggestedFocus ? (
-                        <div className="w-full">
-                            {/* UX-FIX: sem onGenerateGoals aqui — havia dois botões de recalcular ("Recalcular Estratégia" e "Recalcular") a poucos px de distância */}
-                            <AICoachWidget suggestion={suggestedFocus} />
-                        </div>
-                    ) : (
-                        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-6 text-center">
-                            <AlertCircle size={18} className="mx-auto mb-2 text-slate-600" />
-                            <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">As recomendações são atualizadas automaticamente conforme novos simulados forem registrados.</p>
-                        </div>
-                    )}
+                            {suggestedFocus ? (
+                                <div className="w-full">
+                                    {/* UX-FIX: sem onGenerateGoals aqui — havia dois botões de recalcular ("Recalcular Estratégia" e "Recalcular") a poucos px de distância */}
+                                    <AICoachWidget suggestion={suggestedFocus} />
+                                </div>
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-6 text-center">
+                                    <AlertCircle size={18} className="mx-auto mb-2 text-slate-600" />
+                                    <p className="text-sm font-semibold text-slate-400">Nenhum foco sugerido</p>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">As recomendações são atualizadas automaticamente conforme novos simulados forem registrados.</p>
+                                </div>
+                            )}
                         </div>
 
                         {systemAlerts.length > 0 && (
@@ -522,12 +533,12 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
                                     const separatorIndex = cleanText.indexOf(':');
                                     const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
                                     const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
-                                    
+
                                     let type = 'info';
                                     let titlePart = message;
                                     let descPart = '';
                                     let actionDesc = '';
-                                    
+
                                     if (/VETOR CRÍTICO/i.test(message)) {
                                         type = 'danger';
                                         titlePart = "Vetor Crítico";
@@ -559,8 +570,8 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
 
                                     return (
                                         <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-3.5 sm:p-4 rounded-2xl border flex flex-col gap-3 shadow-lg ${t.bg} ${t.border}`}>
-                                             <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
-                                            
+                                            <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
+
                                             <div className="flex items-start gap-3">
                                                 <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
                                                     <t.Icon size={18} className={t.isCritical ? "animate-pulse" : ""} />
@@ -582,6 +593,7 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
                                                     {descPart && (
                                                         <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
                                                             {renderBoldText(descPart)}
+                                                            {alertTask.analysis?.details && <span className="block text-[10px] font-mono text-slate-400/90 leading-relaxed mt-1">{renderBoldText(alertTask.analysis.details)}</span>}
                                                         </span>
                                                     )}
                                                 </div>
@@ -595,22 +607,22 @@ export default function AICoachView({ suggestedFocus, onClearHistory }) {
                                                 const hasVol = mc.volatility !== null && mc.volatility !== undefined && mc.volatility !== '' && Number.isFinite(Number(mc.volatility));
                                                 const safeVol = hasVol ? Number(mc.volatility) : 0;
                                                 return (
-                                                <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
-                                                    <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
-                                                        <Target size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Math.max(0, Math.min(100, safeProb)))}%</span></span>
-                                                    </div>
-                                                    <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
-                                                        <Activity size={12} className={t.iconColor} />
-                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{safeVol.toFixed(1)} pts</span></span>
-                                                    </div>
-                                                    {Number(mc.calibrationPenalty) > 0.01 && (
-                                                        <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
-                                                             <Zap size={12} className="text-amber-400" />
-                                                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(Number(mc.calibrationPenalty) * 100)}%</span></span>
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
+                                                        <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                            <Target size={12} className={t.iconColor} />
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Math.max(0, Math.min(100, safeProb)))}%</span></span>
                                                         </div>
-                                                    )}
-                                                </div>
+                                                        <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                            <Activity size={12} className={t.iconColor} />
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{safeVol.toFixed(1)} pts</span></span>
+                                                        </div>
+                                                        {Number(mc.calibrationPenalty) > 0.01 && (
+                                                            <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
+                                                                <Zap size={12} className="text-amber-400" />
+                                                                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(Number(mc.calibrationPenalty) * 100)}%</span></span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 );
                                             })()}
 

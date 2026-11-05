@@ -33,7 +33,14 @@ import { displaySubject } from '../utils/displaySubject';
 import { formatDateTimePtBR, toDateMs, getDateKey } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 import { ensureCoachTaskId } from '../utils/coachTaskId';
-import { isSubjectMatch } from '../utils/normalization';
+import { isSubjectMatch, normalize } from '../utils/normalization';
+
+const getSafeCategoryKey = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const id = getSafeId(value);
+    if (!id || id === 'task-null-sentinel') return '';
+    return String(id).trim();
+};
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
 
@@ -160,6 +167,7 @@ export default function Coach() {
     }, [activeTab, safeActiveTab]);
 
     const [isAnalyzing, setIsAnalyzing] = useState(true);
+    const [planRefreshTick, setPlanRefreshTick] = useState(0);
     const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
 
     useEffect(() => {
@@ -184,7 +192,7 @@ export default function Coach() {
 
         // RATE-LIMIT: Evita loops por categoria se métricas forem emitidas em sequência rápida
         const now = Date.now();
-        const normalizedCategoryId = getSafeId(metric?.categoryId || metric?.categoryName);
+        const normalizedCategoryId = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
         if (!normalizedCategoryId) return;
 
         const catKey = String(normalizedCategoryId);
@@ -206,8 +214,9 @@ export default function Coach() {
             calibrationPenalty >= HIGH_PENALTY_THRESHOLD || 
             (avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD);
 
-        // DATA-QUALITY GATE: evita persistir eventos vazios/ruins que poluem histórico e painéis.
-        const hasUsefulSignal = avgBrier !== null || ece !== null || probability !== null || calibrationPenalty > 0 || reliability.length > 0;
+        // DATA-QUALITY GATE: evita persistir eventos sem calibração real (ex.: n < 8 simulados onde avgBrier e ece são null)
+        // que poluem o histórico, escondem a barra de formação de amostra (X/8) e geram linhas com '-' no Log de Auditoria.
+        const hasUsefulSignal = avgBrier !== null || ece !== null || calibrationPenalty > 0 || reliability.length > 0 || isDegraded;
         if (!hasUsefulSignal) return;
 
         const normalizedMetric = {
@@ -233,36 +242,38 @@ export default function Coach() {
             // Verificação de redundância (Brier + ECE + penalty + probabilidade)
             // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
             const lastEntry = categoryHistory[categoryHistory.length - 1];
-            const hasComparableLast = lastEntry && Number.isFinite(Number(lastEntry?.timestamp));
+            const hasComparableLast = lastEntry && toFinite(lastEntry?.timestamp, null) !== null;
             if (hasComparableLast) {
                 const metricDelta = (currentValue, previousValue) => {
-                    const currentFinite = Number.isFinite(Number(currentValue));
-                    const previousFinite = Number.isFinite(Number(previousValue));
-                    if (currentFinite && previousFinite) return Math.abs(Number(previousValue) - Number(currentValue));
-                    if (!currentFinite && !previousFinite) return 0;
+                    const curVal = toFinite(currentValue, null);
+                    const prevVal = toFinite(previousValue, null);
+                    if (curVal !== null && prevVal !== null) return Math.abs(prevVal - curVal);
+                    if (curVal === null && prevVal === null) return 0;
                     return Infinity;
                 };
 
                 const toReliabilitySignature = (bucketList = []) => (Array.isArray(bucketList) ? bucketList : [])
                     .map((bucket) => {
-                        const meanPred = Number(bucket?.meanPred);
-                        const observedRate = Number(bucket?.observedRate);
-                        const gap = Number(bucket?.gap);
+                        const meanPred = toFinite(bucket?.meanPred, null);
+                        const observedRate = toFinite(bucket?.observedRate, null);
+                        const gap = toFinite(bucket?.gap, null);
                         const count = Number(bucket?.count) || 0;
-                        return `${count}|${Number.isFinite(meanPred) ? meanPred.toFixed(3) : 'na'}|${Number.isFinite(observedRate) ? observedRate.toFixed(3) : 'na'}|${Number.isFinite(gap) ? gap.toFixed(3) : 'na'}`;
+                        return `${count}|${meanPred !== null ? meanPred.toFixed(3) : 'na'}|${observedRate !== null ? observedRate.toFixed(3) : 'na'}|${gap !== null ? gap.toFixed(3) : 'na'}`;
                     })
                     .join('::');
 
                 const brierDelta = metricDelta(avgBrier, lastEntry.avgBrier);
                 const eceDelta = metricDelta(ece, lastEntry.ece);
-                const penaltyDelta = Math.abs(Number(lastEntry.calibrationPenalty || 0) - calibrationPenalty);
+                const penaltyDelta = Math.abs(toFinite(lastEntry.calibrationPenalty, 0) - calibrationPenalty);
                 const probabilityDelta = metricDelta(probability, lastEntry.probability);
                 const reliabilitySignatureChanged =
                     toReliabilitySignature(lastEntry?.reliability) !== toReliabilitySignature(reliability);
                 const degradationChanged = Boolean(lastEntry.degraded) !== Boolean(isDegraded);
 
-                const prevBrierBase = Number.isFinite(Number(lastEntry.avgBrier)) ? Math.max(0.001, Math.abs(Number(lastEntry.avgBrier))) : 0.001;
-                const prevEceBase = Number.isFinite(Number(lastEntry.ece)) ? Math.max(0.001, Math.abs(Number(lastEntry.ece))) : 0.001;
+                const lastBrierVal = toFinite(lastEntry.avgBrier, null);
+                const lastEceVal = toFinite(lastEntry.ece, null);
+                const prevBrierBase = lastBrierVal !== null ? Math.max(0.001, Math.abs(lastBrierVal)) : 0.001;
+                const prevEceBase = lastEceVal !== null ? Math.max(0.001, Math.abs(lastEceVal)) : 0.001;
 
                 // BUG 6 FIX: Lowered absolute thresholds to capture low-variance micro-movements
                 const shouldSkipPersist =
@@ -435,15 +446,15 @@ export default function Coach() {
 
         categories.forEach(cat => {
             if (!cat) return;
-            const canonicalKey = getSafeId(cat.id || cat.name);
+            const canonicalKey = getSafeCategoryKey(cat.id || cat.name);
             if (!canonicalKey || seenCanonical.has(canonicalKey)) return;
             seenCanonical.add(canonicalKey);
 
             const candidateKeys = [
                 cat.id && String(cat.id),
-                cat.id && getSafeId(cat.id),
+                cat.id && getSafeCategoryKey(cat.id),
                 cat.name && String(cat.name),
-                cat.name && getSafeId(cat.name)
+                cat.name && getSafeCategoryKey(cat.name)
             ].filter(Boolean);
 
             const op = candidateKeys.map(k => ops[k]).find(Boolean);
@@ -600,19 +611,46 @@ export default function Coach() {
                             : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
 
                         // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
+                        // e atualizar a telemetria (analysis) caso a tarefa exista nas novas metas calculadas.
+                        const freshTasksById = new Map();
+                        newTasks.forEach(t => {
+                            if (t) {
+                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                if (sid) freshTasksById.set(sid, t);
+                            }
+                        });
+
                         const assignedTasks = [];
                         const assignedIds = new Set();
-                        Object.values(existingPlanner).forEach(dayArr => {
+                        const refreshedPlanner = {};
+                        let plannerTelemetryUpdated = false;
+                        Object.entries(existingPlanner).forEach(([dayKey, dayArr]) => {
                             if (Array.isArray(dayArr)) {
-                                dayArr.forEach(t => {
-                                    if (t) {
-                                        const sid = getSafeId(ensureCoachTaskId(t));
-                                        if (sid) {
-                                            assignedIds.add(sid);
-                                            assignedTasks.push(t);
+                                refreshedPlanner[dayKey] = dayArr.map(t => {
+                                    if (!t) return t;
+                                    const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                    if (sid) {
+                                        assignedIds.add(sid);
+                                        const fresh = freshTasksById.get(sid);
+                                        const mergedTask = fresh
+                                            ? {
+                                                ...t,
+                                                analysis: fresh.analysis || t.analysis,
+                                                priority: fresh.priority || t.priority,
+                                                completed: Boolean(t.completed),
+                                                ...(t.completedAt ? { completedAt: t.completedAt } : {})
+                                            }
+                                            : t;
+                                        if (fresh && fresh.analysis && JSON.stringify(fresh.analysis) !== JSON.stringify(t.analysis)) {
+                                            plannerTelemetryUpdated = true;
                                         }
+                                        assignedTasks.push(mergedTask);
+                                        return mergedTask;
                                     }
+                                    return t;
                                 });
+                            } else {
+                                refreshedPlanner[dayKey] = [];
                             }
                         });
 
@@ -620,7 +658,7 @@ export default function Coach() {
                         const existingCompletedMap = new Map();
                         existingPlan.forEach(t => {
                             if (t && t.completed) {
-                                const sid = getSafeId(ensureCoachTaskId(t));
+                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
                                 if (sid) existingCompletedMap.set(sid, t);
                             }
                         });
@@ -629,11 +667,11 @@ export default function Coach() {
                             ...assignedTasks,
                             ...newTasks
                                 .filter(t => {
-                                    const sid = getSafeId(ensureCoachTaskId(t));
+                                    const sid = getSafeCategoryKey(ensureCoachTaskId(t));
                                     return sid && !assignedIds.has(sid);
                                 })
                                 .map(t => {
-                                    const sid = getSafeId(ensureCoachTaskId(t));
+                                    const sid = getSafeCategoryKey(ensureCoachTaskId(t));
                                     const prevCompleted = sid ? existingCompletedMap.get(sid) : null;
                                     if (prevCompleted) {
                                         return { ...t, completed: true, completedAt: prevCompleted.completedAt };
@@ -642,12 +680,13 @@ export default function Coach() {
                                 })
                         ];
 
-                        const hasPlanChanged = existingPlan.length !== nextPlan.length ||
+                        const hasPlanChanged = plannerTelemetryUpdated ||
+                            existingPlan.length !== nextPlan.length ||
                             existingPlan.some((t, i) => {
                                 const next = nextPlan[i];
                                 if (!next) return true;
-                                const sid1 = getSafeId(ensureCoachTaskId(t));
-                                const sid2 = getSafeId(ensureCoachTaskId(next));
+                                const sid1 = getSafeCategoryKey(ensureCoachTaskId(t));
+                                const sid2 = getSafeCategoryKey(ensureCoachTaskId(next));
                                 return sid1 !== sid2 ||
                                     t.text !== next.text ||
                                     t.priority !== next.priority ||
@@ -657,7 +696,7 @@ export default function Coach() {
                         if (hasPlanChanged || !currentData?.coachPlanner) {
                             setData(() => ({
                                 coachPlan: nextPlan,
-                                coachPlanner: existingPlanner
+                                coachPlanner: refreshedPlanner
                             }));
                         }
                     }
@@ -710,7 +749,8 @@ export default function Coach() {
         flashcardDue,
         flashcardDecks,
         persistCalibrationMetric,
-        setData
+        setData,
+        planRefreshTick
     ]);
 
     useEffect(() => {
@@ -743,6 +783,13 @@ export default function Coach() {
             coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
         }));
     }, [setData]);
+
+    const handleRegeneratePlan = useCallback(() => {
+        clearMcCache();
+        clearUrgencyCache();
+        clearTopicsCache();
+        setPlanRefreshTick(t => t + 1);
+    }, []);
 
     
 
@@ -848,7 +895,11 @@ export default function Coach() {
                                                     )}
                                                 </div>
                                             )}
-                                            <AICoachView suggestedFocus={suggestedFocus} onClearHistory={handleClearHistory} />
+                                            <AICoachView
+                                                suggestedFocus={suggestedFocus}
+                                                onClearHistory={handleClearHistory}
+                                                onRegeneratePlan={handleRegeneratePlan}
+                                            />
                                         </>
                                     ) : (
                                         <RaioXDashboard data={data} />
@@ -947,13 +998,17 @@ export function RaioXDashboard({ data }) {
     const activeCategoryIds = useMemo(() => {
         const set = new Set();
         categories.forEach(c => {
-            if (c?.id) {
+            const cid = getSafeCategoryKey(c?.id);
+            if (cid) {
                 set.add(String(c.id));
-                set.add(getSafeId(c.id));
+                set.add(cid);
+                set.add(normalize(cid));
             }
-            if (c?.name) {
+            const cname = getSafeCategoryKey(c?.name);
+            if (cname) {
                 set.add(String(c.name));
-                set.add(getSafeId(c.name));
+                set.add(cname);
+                set.add(normalize(cname));
             }
         });
         return set;
@@ -965,40 +1020,49 @@ export function RaioXDashboard({ data }) {
     const categorySimCounts = useMemo(() => {
         const rawSims = Array.isArray(rawSimulados) ? rawSimulados : (rawSimulados ? Object.values(rawSimulados) : []);
         const rawRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : (rawSimuladoRows ? Object.values(rawSimuladoRows) : []);
-        
-        // Deduplica itens para evitar contagem dupla se o mesmo registro existir em simulados e simuladoRows
-        const seen = new Set();
-        const allSims = [];
-        [...rawSims, ...rawRows].forEach(s => {
-            if (!s) return;
-            const key = s.id ? `id_${s.id}` : (s.date && (s.subject || s.categoryId)) ? `d_${s.date}_${s.subject || s.categoryId}_${s.score}` : null;
-            if (key) {
-                if (seen.has(key)) return;
-                seen.add(key);
-            }
-            allSims.push(s);
-        });
 
         return categories.map(cat => {
             const catName = cat.name || cat.id || '';
             const catStatsHistory = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
             
-            // Reúne todas as fontes de simulado para esta categoria de forma unificada
+            // Reúne todas as fontes de simulado para esta categoria de forma unificada sem contagem dupla entre fontes
             const catAttempts = new Set();
-            catStatsHistory.forEach((h) => {
-                if (!h) return;
-                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `d_${getDateKey(h.date || h.createdAt)}_${h.score}`);
-                catAttempts.add(dKey);
-            });
+            const seenDatesCrossSource = new Set();
 
-            allSims.forEach(s => {
+            const histDates = new Set();
+            catStatsHistory.forEach((h, idx) => {
+                if (!h) return;
+                const dStr = getDateKey(h.date || h.createdAt);
+                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `d_${dStr || idx}_${h.score}`);
+                catAttempts.add(dKey);
+                if (dStr) histDates.add(dStr);
+            });
+            histDates.forEach(d => seenDatesCrossSource.add(d));
+
+            const simDates = new Set();
+            rawSims.forEach((s, idx) => {
                 if (!s) return;
                 const matches = (cat.id && s.categoryId && String(s.categoryId) === String(cat.id)) ||
                     isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName);
-                if (matches) {
-                    const dKey = s.batchId ? `b_${s.batchId}` : (s.id ? `id_${s.id}` : `d_${getDateKey(s.date || s.createdAt)}_${s.score}`);
-                    catAttempts.add(dKey);
-                }
+                if (!matches) return;
+                const dStr = getDateKey(s.date || s.createdAt);
+                if (dStr && seenDatesCrossSource.has(dStr)) return;
+                const dKey = s.batchId ? `b_${s.batchId}` : (s.id ? `id_${s.id}` : `d_${dStr || idx}_${s.score}`);
+                catAttempts.add(dKey);
+                if (dStr) simDates.add(dStr);
+            });
+            simDates.forEach(d => seenDatesCrossSource.add(d));
+
+            rawRows.forEach((r, idx) => {
+                if (!r) return;
+                const matches = (cat.id && r.categoryId && String(r.categoryId) === String(cat.id)) ||
+                    isSubjectMatch(r.subject || r.categoryName || r.materia || r.disciplina || '', catName);
+                if (!matches) return;
+                const dStr = getDateKey(r.date || r.createdAt);
+                if (dStr && seenDatesCrossSource.has(dStr)) return;
+                // Agrupa linhas do mesmo dia/batch em uma única tentativa de simulado, preservando id quando não há data
+                const dKey = r.batchId ? `b_${r.batchId}` : (dStr ? `row_${dStr}` : (r.id ? `id_${r.id}` : `row_${idx}_${r.score}`));
+                catAttempts.add(dKey);
             });
 
             const count = catAttempts.size;
@@ -1029,53 +1093,69 @@ export function RaioXDashboard({ data }) {
         Object.entries(historyByCategory)
             .filter(([categoryId]) => {
                 if (activeCategoryIds.size === 0) return true;
-                return activeCategoryIds.has(String(categoryId)) || activeCategoryIds.has(getSafeId(categoryId));
+                const safeId = getSafeCategoryKey(categoryId);
+                return activeCategoryIds.has(String(categoryId)) ||
+                    (safeId && activeCategoryIds.has(safeId)) ||
+                    (safeId && activeCategoryIds.has(normalize(safeId))) ||
+                    categories.some(c => c && (
+                        (c.id && String(c.id) === String(categoryId)) ||
+                        (c.name && isSubjectMatch(c.name, categoryId))
+                    ));
             })
             .forEach(([categoryId, history]) => {
                 const rows = Array.isArray(history) ? history : [];
                 if (rows.length === 0) return;
-                const matchedCategory = categories.find(c => c && (
-                    String(c.id) === categoryId ||
-                    String(c.name) === categoryId ||
-                    getSafeId(c.id) === getSafeId(categoryId) ||
-                    getSafeId(c.name) === getSafeId(categoryId)
-                ));
-                const canonicalId = getSafeId(matchedCategory?.id || matchedCategory?.name || categoryId) || String(categoryId);
+                const safeCatKey = getSafeCategoryKey(categoryId);
+                const matchedCategory = categories.find(c => {
+                    if (!c) return false;
+                    const cid = getSafeCategoryKey(c.id);
+                    const cname = getSafeCategoryKey(c.name);
+                    return (cid && (cid === String(categoryId) || cid === safeCatKey)) ||
+                        (cname && (cname === String(categoryId) || cname === safeCatKey || isSubjectMatch(cname, categoryId)));
+                });
+                const canonicalId = getSafeCategoryKey(matchedCategory?.id || matchedCategory?.name || categoryId) || String(categoryId);
                 const prev = mergedByCanonical.get(canonicalId) || { categoryId: canonicalId, matchedCategory, rows: [] };
                 prev.rows.push(...rows);
                 mergedByCanonical.set(canonicalId, prev);
             });
 
+        const hasFiniteMetric = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+
         return Array.from(mergedByCanonical.values())
-            .map(({ categoryId, matchedCategory, rows }) => {
+            .map(({ categoryId, matchedCategory, rows: rawRows }) => {
+                const rows = [...rawRows].sort((a, b) => toTimestampMs(a?.timestamp) - toTimestampMs(b?.timestamp));
                 const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
                 const recent = rows.filter(h => toTimestampMs(h?.timestamp) >= sevenDaysAgo);
                 const base = recent.length > 0 ? recent : rows;
                 const brierValues = base
-                    .filter(h => h?.avgBrier !== null && h?.avgBrier !== undefined && h?.avgBrier !== '')
-                    .map(h => Number(h.avgBrier))
-                    .filter(Number.isFinite);
+                    .filter(h => hasFiniteMetric(h?.avgBrier))
+                    .map(h => Number(h.avgBrier));
                 const eceValues = base
-                    .filter(h => h?.ece !== null && h?.ece !== undefined && h?.ece !== '')
-                    .map(h => Number(h.ece))
-                    .filter(Number.isFinite);
+                    .filter(h => hasFiniteMetric(h?.ece))
+                    .map(h => Number(h.ece));
                 const penaltyValues = base
-                    .filter(h => h?.calibrationPenalty !== null && h?.calibrationPenalty !== undefined && h?.calibrationPenalty !== '')
-                    .map(h => Number(h.calibrationPenalty))
-                    .filter(Number.isFinite);
+                    .filter(h => hasFiniteMetric(h?.calibrationPenalty))
+                    .map(h => Number(h.calibrationPenalty));
                 // FIX: If no brier values exist yet, return null (never a fake 0.00 "perfect" error)
                 const avgBrier = brierValues.length > 0 ? brierValues.reduce((acc, val) => acc + val, 0) / brierValues.length : null;
                 const avgEce = eceValues.length > 0 ? eceValues.reduce((acc, val) => acc + val, 0) / eceValues.length : null;
                 const avgPenalty = penaltyValues.length > 0 ? penaltyValues.reduce((acc, val) => acc + val, 0) / penaltyValues.length : null;
-                const validCount = base.filter(h => Number.isFinite(Number(h?.avgBrier)) || Number.isFinite(Number(h?.calibrationPenalty))).length;
+                const validCount = base.filter(h =>
+                    hasFiniteMetric(h?.avgBrier) ||
+                    hasFiniteMetric(h?.ece) ||
+                    (hasFiniteMetric(h?.calibrationPenalty) && Number(h.calibrationPenalty) > 0)
+                ).length;
                 if (validCount === 0) return null;
                 const label = matchedCategory?.name || rows[rows.length - 1]?.categoryName || categoryId;
-                const matchedSim = categorySimCounts.find(c => c && (
-                    c.id === categoryId ||
-                    c.name === label ||
-                    getSafeId(c.id) === getSafeId(categoryId) ||
-                    getSafeId(c.name) === getSafeId(label)
-                ));
+                const safeCatKey = getSafeCategoryKey(categoryId);
+                const safeLabelKey = getSafeCategoryKey(label);
+                const matchedSim = categorySimCounts.find(c => {
+                    if (!c) return false;
+                    const cid = getSafeCategoryKey(c.id);
+                    const cname = getSafeCategoryKey(c.name);
+                    return (cid && (cid === String(categoryId) || cid === safeCatKey)) ||
+                        (cname && (cname === String(label) || cname === safeLabelKey || isSubjectMatch(cname, label)));
+                });
                 const latestSampleSize = Number.isFinite(Number(rows[rows.length - 1]?.sampleSize))
                     ? Number(rows[rows.length - 1].sampleSize)
                     : null;

@@ -1,4 +1,5 @@
 import { generateId, getSafeId } from '../../utils/idGenerator.js';
+import { ensureCoachTaskId } from '../../utils/coachTaskId.js';
 import { XP_CONFIG } from '../../config/gamification.js';
 import { getTaskXP } from '../../utils/gamification.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
@@ -106,12 +107,13 @@ export const createTaskSlice = (set, get) => ({
             
             const matchesTask = (t) => {
                 if (!t) return false;
-                return t.id === taskId || t.text === taskId || t.title === taskId || (typeof getSafeId === 'function' && getSafeId(t) === taskId);
+                return t.id === taskId || t.text === taskId || t.title === taskId || (typeof getSafeId === 'function' && getSafeId(t) === taskId) || (typeof ensureCoachTaskId === 'function' && ensureCoachTaskId(t)?.id === taskId);
             };
 
             // Search in coachPlan (Backlog)
             if (activeData.coachPlan) {
-                const task = activeData.coachPlan.find(matchesTask);
+                const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
+                const task = planList.find(matchesTask);
                 if (task) handleTask(task);
             }
 

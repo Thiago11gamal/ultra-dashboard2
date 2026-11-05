@@ -451,11 +451,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     });
     if (startIndex === -1) {
       startNeuralSession([{ ...task, sourceContext: dayId || 'isolated' }], 0);
-      navigate('/pomodoro');
+      navigate('/pomodoro', { state: { from: 'coach' } });
       return;
     }
     startNeuralSession(sessionTasks.map(t => ({ ...t, sourceContext: dayId })), startIndex);
-    navigate('/pomodoro');
+    navigate('/pomodoro', { state: { from: 'coach' } });
   }, [columns, isDragging, storeColumns, startNeuralSession, navigate, propOnStart]);
 
   // FIX (BUG-01): contador ao vivo (−1 na origem, +1 no destino durante o drag)

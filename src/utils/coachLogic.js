@@ -515,17 +515,26 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     // 3. Linhas individuais em safeOptions.simuladoRows (ou safeOptions.history) correspondentes à matéria
     const catSims = [];
     const seenSimKeys = new Set();
+    const seenDateScoreBySource = new Set();
+    const seenDatesBySource = new Set();
 
     // 1. Histórico da própria categoria
     const rawCatHistory = safeArray(safeCategory?.simuladoStats?.history);
+    const source1DateScores = new Set();
+    const source1Dates = new Set();
     rawCatHistory.forEach((h, idx) => {
         if (!h) return;
         const score = getSafeScore(h, maxScore, minScore);
         if (!Number.isFinite(score)) return;
-        const dStr = getDateKey(h.date || h.createdAt) || `d_${idx}`;
+        const realDateKey = getDateKey(h.date || h.createdAt);
+        const dStr = realDateKey || `d_${idx}`;
         const key = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `cat_${dStr}_${score}`);
         if (seenSimKeys.has(key)) return;
         seenSimKeys.add(key);
+        if (realDateKey) {
+            source1DateScores.add(`${realDateKey}_${Math.round(score * 10)}`);
+            source1Dates.add(realDateKey);
+        }
         catSims.push({
             ...h,
             id: h.id || key,
@@ -535,29 +544,45 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             score
         });
     });
+    source1DateScores.forEach(k => seenDateScoreBySource.add(k));
+    source1Dates.forEach(d => seenDatesBySource.add(d));
 
-    // 2. Simulados da lista passada (ou safeOptions.allSimulados)
-    const combinedSimSources = [...safeSimulados, ...safeArray(safeOptions.allSimulados)];
-    combinedSimSources.forEach(s => {
-        if (!s) return;
-        const matches = (safeCategory.id && s.categoryId && String(s.categoryId) === String(safeCategory.id)) ||
-            (catName && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName));
-        if (!matches) return;
-        const score = getSafeScore(s, maxScore, minScore);
-        if (!Number.isFinite(score)) return;
-        const dStr = getDateKey(s.date || s.createdAt) || 'no-date';
-        const key = s.batchId ? `b_${s.batchId}` : (s.id ? `id_${s.id}` : `sim_${dStr}_${score}`);
-        if (seenSimKeys.has(key)) return;
-        seenSimKeys.add(key);
-        catSims.push({
-            ...s,
-            id: s.id || key,
-            date: s.date || s.createdAt,
-            categoryId: safeCategory.id,
-            subject: catName,
-            score
+    // 2. Simulados da lista passada (e safeOptions.allSimulados), deduplicando entre fontes
+    const addFromSimList = (list) => {
+        const stageDateScores = new Set();
+        const stageDates = new Set();
+        safeArray(list).forEach(s => {
+            if (!s) return;
+            const matches = (safeCategory.id && s.categoryId && String(s.categoryId) === String(safeCategory.id)) ||
+                (catName && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName));
+            if (!matches) return;
+            const score = getSafeScore(s, maxScore, minScore);
+            if (!Number.isFinite(score)) return;
+            const realDateKey = getDateKey(s.date || s.createdAt);
+            const dStr = realDateKey || 'no-date';
+            const key = s.batchId ? `b_${s.batchId}` : (s.id ? `id_${s.id}` : `sim_${dStr}_${score}`);
+            if (seenSimKeys.has(key)) return;
+            const dsKey = realDateKey ? `${realDateKey}_${Math.round(score * 10)}` : null;
+            const isSyntheticLegacy = String(s.id || '').startsWith('legacy-');
+            if (dsKey && seenDateScoreBySource.has(dsKey)) return;
+            if (isSyntheticLegacy && realDateKey && seenDatesBySource.has(realDateKey)) return;
+            seenSimKeys.add(key);
+            if (dsKey) stageDateScores.add(dsKey);
+            if (realDateKey) stageDates.add(realDateKey);
+            catSims.push({
+                ...s,
+                id: s.id || key,
+                date: s.date || s.createdAt,
+                categoryId: safeCategory.id,
+                subject: catName,
+                score
+            });
         });
-    });
+        stageDateScores.forEach(k => seenDateScoreBySource.add(k));
+        stageDates.forEach(d => seenDatesBySource.add(d));
+    };
+    addFromSimList(safeSimulados);
+    addFromSimList(safeOptions.allSimulados);
 
     // 3. Linhas de simuladoRows (agrupadas por batchId ou data)
     const rawRows = safeArray(safeOptions.simuladoRows || safeOptions.history);
@@ -574,20 +599,25 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                     date: r.date || r.createdAt,
                     correct: 0,
                     total: 0,
-                    batchId: r.batchId
+                    batchId: r.batchId,
+                    explicitScore: Number.isFinite(Number(r.score)) ? getSafeScore(r, maxScore, minScore) : null
                 };
             }
-            grouped[groupKey].correct += Number(r.correct) || 0;
-            grouped[groupKey].total += Number(r.total) || 0;
+            grouped[groupKey].correct += Number(r.correct ?? r.acertos ?? r.correctCount) || 0;
+            grouped[groupKey].total += Number(r.total ?? r.questoes ?? r.totalQuestoes) || 0;
         });
 
         Object.entries(grouped).forEach(([gKey, gData]) => {
             const key = gData.batchId ? `b_${gData.batchId}` : `row_${gKey}`;
             if (seenSimKeys.has(key)) return;
-            seenSimKeys.add(key);
             const score = gData.total > 0
                 ? minScore + (gData.correct / gData.total) * (maxScore - minScore)
-                : minScore;
+                : (Number.isFinite(gData.explicitScore) ? gData.explicitScore : minScore);
+            const realDateKey = getDateKey(gData.date);
+            const dsKey = realDateKey ? `${realDateKey}_${Math.round(score * 10)}` : null;
+            if (dsKey && seenDateScoreBySource.has(dsKey)) return;
+            if (!gData.batchId && realDateKey && seenDatesBySource.has(realDateKey)) return;
+            seenSimKeys.add(key);
             catSims.push({
                 id: key,
                 date: gData.date,
@@ -1235,8 +1265,9 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         domain
     );
 
-    // SCORE: agora mede distância até a meta com peso adaptativo
-    const scoreComponent = clamp(gapRatio * urgencyWeights.scoreMax, 0, urgencyWeights.scoreMax);
+    // SCORE: agora mede distância até a meta com peso adaptativo e calibração de backtest
+    const scoreRaw = gapRatio * urgencyWeights.scoreMax * (backtestWeights?.scoreWeight ?? 1);
+    const scoreComponent = clamp(scoreRaw, 0, urgencyWeights.scoreMax * 1.15);
     // RECENCY: recência desconhecida não é mais máxima, peso adaptativo por confiança MC
     const effectiveRiskDays = recencyUnknown ? 5 : Math.min(daysSinceLastStudy, 45);
     const recencyFactor = 1 - Math.exp(-effectiveRiskDays / 8);
@@ -1308,10 +1339,13 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
             mcRiskLabel = mcRiskLabel || 'elevated_global_risk';
         }
     }
+    const effectiveMcBoostMax = Number.isFinite(urgencyWeights.mcBoostMax) && urgencyWeights.mcBoostMax > 0
+        ? Math.max(12, Math.min(25, urgencyWeights.mcBoostMax))
+        : 25;
     const mcUrgencyBoostClamped = clamp(
         mcUrgencyBoost,
-        cfg.MC_BOOST_SAFE_PENALTY ?? -6,
-        25
+        cfg.MC_BOOST_SAFE_PENALTY ?? -10,
+        effectiveMcBoostMax
     );
     // Burnout / hours
     const getLogMinutes = (log) => sanitizeMinutes(log?.minutes ?? log?.minutos ?? log?.duration);
@@ -1387,14 +1421,15 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         let rawW = c.weight;
         if (typeof rawW === 'string') rawW = rawW.replace(/\./g, '').replace(',', '.');
         const parsedW = Number(rawW);
-        const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
+        const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? clamp(parsedW, 1, 10) : 5;
         return acc + w;
     }, 0);
-    const safeRawWeight = Number.isFinite(Number(metrics.rawWeight))
-        ? Number(metrics.rawWeight)
-        : (Number.isFinite(Number(metrics.boundedWeight))
-            ? Number(metrics.boundedWeight)
+    const rawCatWeight = Number.isFinite(Number(metrics.boundedWeight))
+        ? Number(metrics.boundedWeight)
+        : (Number.isFinite(Number(metrics.rawWeight))
+            ? Number(metrics.rawWeight)
             : (Number.isFinite(Number(metrics.weight)) ? Number(metrics.weight) : 5));
+    const safeRawWeight = clamp(rawCatWeight, 1, 10);
     const idealShare = totalSyllabusWeight > 0
         ? safeRawWeight / totalSyllabusWeight
         : (1 / activeCount);
@@ -2116,13 +2151,20 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
     const allSafeSims = Array.isArray(simulados)
         ? simulados
         : Object.values(simulados || {});
+    const optAllSimsRaw = Array.isArray(options?.allSimulados)
+        ? options.allSimulados
+        : Object.values(options?.allSimulados || {});
+    const optSimRowsRaw = Array.isArray(options?.simuladoRows)
+        ? options.simuladoRows
+        : Object.values(options?.simuladoRows || {});
     const catNameForSims = safeCat.name || safeCat.id || '';
-    const safeSims = catNameForSims
-        ? allSafeSims.filter(s => s && (
-            (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
-            isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims)
-        ))
-        : allSafeSims;
+    const matchesCatSim = (s) => s && (
+        (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
+        (catNameForSims && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims))
+    );
+    const safeSims = catNameForSims ? allSafeSims.filter(matchesCatSim) : allSafeSims;
+    const optAllSims = catNameForSims ? optAllSimsRaw.filter(matchesCatSim) : [];
+    const optSimRows = catNameForSims ? optSimRowsRaw.filter(matchesCatSim) : [];
     let lastSimTimestamp = 0;
     let historyVolume = 0;
     if (safeSims.length > 0) {
@@ -2166,7 +2208,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
         fsrsb: getCoachFeature(options, 'useFsrsForSrsBoost', false),
         fsrst: getCoachFeature(options, 'useFsrsTopicScheduling', false),
     }));
-    const hash = `${userId}-${refDateKey}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${catMax}-${catMin}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
+    const hash = `${userId}-${refDateKey}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${optAllSims.length}-${optSimRows.length}-${catMax}-${catMin}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
     // FIX (BUG-13): activeId deve vir de options prioritariamente
     const activeId = options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default';
     const cacheKey = `isolate_${activeId}_${catId}_${hash}`;
@@ -2189,7 +2231,67 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     const tasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
     const topicMap = {};
     const rawCatHistory = safeArray(safeCat.simuladoStats?.history);
-    const history = rawCatHistory.length > 0 ? rawCatHistory : safeArray(_simulados);
+    const catNameForSims = safeCat.name || safeCat.id || '';
+    const matchesCatSim = (s) => s && (
+        (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
+        (catNameForSims && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims))
+    );
+    const optAllSims = catNameForSims ? safeArray(options?.allSimulados).filter(matchesCatSim) : [];
+    const optSimRows = catNameForSims ? safeArray(options?.simuladoRows).filter(matchesCatSim) : [];
+
+    // Combina as fontes de histórico de tópicos sem duplicar registros espelhados entre fontes
+    const extractEntryTopics = (entry) => {
+        if (!entry) return [];
+        const rawTopics = entry.topics;
+        if (Array.isArray(rawTopics) && rawTopics.length > 0 && rawTopics.some(t => t && (t.name || t.topic || t.assunto || t.subtopic || t.topicName))) {
+            return rawTopics;
+        }
+        const singleTopicName = entry.topic || entry.assunto || entry.subtopic || entry.topicName;
+        if (singleTopicName) {
+            return [{
+                name: String(singleTopicName).trim(),
+                total: entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions,
+                correct: entry.correct ?? entry.acertos ?? entry.correctCount,
+                score: entry.score,
+                isPercentage: entry.isPercentage
+            }];
+        }
+        return [];
+    };
+
+    const history = [];
+    const seenCrossSourceDateTopic = new Set();
+    const seenEntryIds = new Set();
+    const topicSources = [rawCatHistory, safeArray(_simulados), optAllSims, optSimRows];
+
+    topicSources.forEach((sourceList) => {
+        if (!Array.isArray(sourceList) || sourceList.length === 0) return;
+        const sourceDateTopics = new Set();
+        sourceList.forEach((entry) => {
+            if (!entry) return;
+            const entryId = entry.id && !String(entry.id).startsWith('legacy-') ? String(entry.id) : null;
+            if (entryId && seenEntryIds.has(entryId)) return;
+            const entryTopics = extractEntryTopics(entry);
+            if (entryTopics.length === 0) return;
+            const dKey = getDateKey(entry.date || entry.createdAt) || '';
+            const filteredTopics = entryTopics.filter((t) => {
+                const tName = t && (t.name || t.topic || t.assunto || t.subtopic || t.topicName);
+                if (!tName) return false;
+                const normTopic = normalize(String(tName));
+                if (!normTopic) return false;
+                const crossKey = dKey
+                    ? `${dKey}|${normTopic}`
+                    : `nodate|${normTopic}|${t.total ?? t.questoes ?? ''}|${t.correct ?? t.acertos ?? ''}|${t.score ?? ''}`;
+                if (seenCrossSourceDateTopic.has(crossKey)) return false;
+                sourceDateTopics.add(crossKey);
+                return true;
+            });
+            if (filteredTopics.length === 0) return;
+            if (entryId) seenEntryIds.add(entryId);
+            history.push({ ...entry, topics: filteredTopics });
+        });
+        sourceDateTopics.forEach((k) => seenCrossSourceDateTopic.add(k));
+    });
     const parsedRefNow = options?.now ? normalizeDate(options.now) : null;
     const todayForTopics = (parsedRefNow && !Number.isNaN(parsedRefNow.getTime())) ? parsedRefNow : new Date();
     const historyWithTime = history.map(h => {
@@ -2623,12 +2725,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const thirtyDaysAgo = new Date(baseDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         const cutoffTime = thirtyDaysAgo.getTime();
 
-        // ✅ FIX: Verificar se category.id existe antes de filtrar
+        // ✅ FIX: Permitir filtro por categoryId OU nome da disciplina (mesmo quando category.id estiver ausente)
         const categoryId = category?.id;
-        const catName = category?.name;
-        const recentLogs = categoryId
+        const catName = category?.name || category?.id || '';
+        const recentLogs = (categoryId || catName)
             ? safeStudyLogs.filter(l => {
-                const matchesId = l?.categoryId === categoryId || String(l?.categoryId) === String(categoryId);
+                const matchesId = categoryId !== undefined && categoryId !== null && l?.categoryId !== undefined && l?.categoryId !== null && (
+                    l.categoryId === categoryId || String(l.categoryId) === String(categoryId)
+                );
                 // FIX C-02: logs antigos podem ter só categoryName/subject.
                 const matchesName = catName && (l?.categoryName || l?.subject || l?.materia)
                     ? isSubjectMatch(l?.categoryName || l?.subject || l?.materia, catName)
@@ -2638,14 +2742,30 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
               })
             : [];
 
-        // ✅ FIX: Verificar se category.name existe antes de normalizar
-        const catNormalized = catName ? normalize(catName) : '';
-        const recentSims = catNormalized
-            ? safeSimulados.filter(s =>
-                normalize(s?.subject || s?.categoryName || s?.materia || s?.disciplina || '') === catNormalized &&
-                (normalizeDate(s?.date || s?.createdAt) || new Date(0)).getTime() >= cutoffTime
-              )
+        // ✅ FIX: Incluir simulados de safeSimulados E category.simuladoStats.history (com deduplicação e isSubjectMatch)
+        const catHistorySims = safeArray(category?.simuladoStats?.history).filter(h =>
+            h && (normalizeDate(h?.date || h?.createdAt) || new Date(0)).getTime() >= cutoffTime
+        );
+        const globalMatchingSims = (categoryId || catName)
+            ? safeSimulados.filter(s => {
+                if (!s) return false;
+                const matchesId = categoryId !== undefined && categoryId !== null && s?.categoryId !== undefined && s?.categoryId !== null && (
+                    s.categoryId === categoryId || String(s.categoryId) === String(categoryId)
+                );
+                const matchesSubj = catName && isSubjectMatch(s?.subject || s?.categoryName || s?.materia || s?.disciplina || '', catName);
+                return (matchesId || matchesSubj) &&
+                    (normalizeDate(s?.date || s?.createdAt) || new Date(0)).getTime() >= cutoffTime;
+              })
             : [];
+        const seenDeepCheckKeys = new Set();
+        const recentSims = [];
+        [...catHistorySims, ...globalMatchingSims].forEach((s, idx) => {
+            const dKey = getDateKey(s?.date || s?.createdAt) || `idx_${idx}`;
+            const k = s?.batchId ? `b_${s.batchId}` : (s?.id && !String(s.id).startsWith('legacy-') ? `id_${s.id}` : `d_${dKey}`);
+            if (seenDeepCheckKeys.has(k)) return;
+            seenDeepCheckKeys.add(k);
+            recentSims.push(s);
+        });
 
         const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0
             ? Number(category.maxScore)
@@ -2676,6 +2796,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     const tasksPerCategory = topCategories.length < 5 ? 3 : (topCategories.length < 8 ? 2 : 1);
     topCategories.forEach((cat) => {
         let localPriorityCounter = 0;
+        const safeCatKey = cat.id || normalize(cat.name) || 'cat';
+        const safeCategoryId = cat.id || safeCatKey;
         const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
         const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : minScore;
         const catRange = Math.max(1e-9, catMax - catMin);
@@ -2694,7 +2816,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const adaptiveDanger = mc?.thresholds?.danger || cfg.MC_PROB_DANGER;
         const adaptiveSafe = mc?.thresholds?.safe || cfg.MC_PROB_SAFE;
         // ✅ FIX: sufixo determinístico — sem Date.now() (IDs estáveis p/ Planner/dedupe)
-        const mcIdSuffix = hashString64(`${cat.id}|mc`);
+        const mcIdSuffix = hashString64(`${safeCatKey}|mc`);
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
@@ -2704,12 +2826,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 : '';
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido mcProbKey do ID para manter estabilidade no Planner
-                id: `${cat.id}-mc-danger-${mcIdSuffix}`,
+                id: `${safeCatKey}-mc-danger-${mcIdSuffix}`,
                 text: `${cat.name}: [ALERTA MESTRE] 🚨 VETOR CRÍTICO! Projeção matemática indica colapso de performance.`,
                 completed: false,
                 status: 'pending',
                 priority: 'high',
-                categoryId: cat.id,
+                categoryId: safeCategoryId,
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
@@ -2726,12 +2848,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido mcVolKey e mcProbKey do ID para manter estabilidade
-                id: `${cat.id}-mc-chaos-${mcIdSuffix}`,
+                id: `${safeCatKey}-mc-chaos-${mcIdSuffix}`,
                 text: `${cat.name}: [ALERTA MESTRE] 🌪️ OSCILAÇÃO ESTATÍSTICA: Padrão imprevisível detectado.`,
                 completed: false,
                 status: 'pending',
                 priority: 'high',
-                categoryId: cat.id,
+                categoryId: safeCategoryId,
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
@@ -2748,12 +2870,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const srsKey = cat.urgency?.details?.srsLabel.replace(/\s/g, '').substring(0, 15);
             const srsTopic = weakTopics[0]?.name || 'Revisão Espaçada (SRS)';
             allGeneratedTasks.push({
-                id: `${cat.id}-srs-${srsKey}`,
+                id: `${safeCatKey}-srs-${srsKey}`,
                 text: `${cat.name}: [${srsTopic}]`,
                 completed: false,
                 status: 'pending',
                 priority: 'high',
-                categoryId: cat.id,
+                categoryId: safeCategoryId,
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
@@ -2769,13 +2891,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         } else if (mc && mc.probabilityRaw >= adaptiveSafe) {
             const probPct = Math.round(mc.probabilityRaw);
             allGeneratedTasks.push({
-                // FIX (LOGIC): Removido mcProbKey do ID para manter estabilidade
-                id: `${cat.id}-mc-safe-${mcIdSuffix}`,
-                text: `${cat.name}: [Manutenção - ${cat.name}]`,
+                // FIX (LOGIC): Emitido como alerta de sistema [STATUS] para acionar o banner Cruzeiro Seguro no AICoachView sem duplicar tarefa comum
+                id: `${safeCatKey}-mc-safe-${mcIdSuffix}`,
+                text: `${cat.name}: [STATUS] 🏆 CRUZEIRO SEGURO: ${probPct}% de probabilidade de atingir a meta.`,
                 completed: false,
                 status: 'pending',
                 priority: 'low',
-                categoryId: cat.id,
+                categoryId: safeCategoryId,
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
@@ -2793,12 +2915,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                                        (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(t => t && !t.completed && (t.text || t.title))?.text;
             const trapTopic = trapTopicCandidate ? ` — ${trapTopicCandidate}` : '';
             allGeneratedTasks.push({
-                id: `${cat.id}-trap-trap`,
+                id: `${safeCatKey}-trap-trap`,
                 text: `${cat.name}: [Estudo Ativo & Auto-Explicação${trapTopic}]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',
-                categoryId: cat.id,
+                categoryId: safeCategoryId,
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
@@ -2828,12 +2950,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             const agilityTopicSuffix = agilityTopicCandidate ? ` — ${agilityTopicCandidate}` : ' — Fórmulas & Prazos';
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido avgSeconds do ID para manter estabilidade no Planner
-                id: `${cat.id}-agility`,
+                id: `${safeCatKey}-agility`,
                 text: `${cat.name}: [Revisão Expressa${agilityTopicSuffix}]`,
                 completed: false,
                 status: 'pending',
                 priority: 'medium',
-                categoryId: cat.id,
+                categoryId: safeCategoryId,
                 category: cat.name,
                 catName: cat.name,
                 subjectName: cat.name,
@@ -2896,12 +3018,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 }
 
                 allGeneratedTasks.push({
-                    id: `${cat.id}-topic-${uniqueIdSuffix}`,
+                    id: `${safeCatKey}-topic-${uniqueIdSuffix}`,
                     text: `${cat.name}: ${topicLabel}`,
                     completed: false,
                     status: 'pending',
                     priority: topicPriority,
-                    categoryId: cat.id,
+                    categoryId: safeCategoryId,
                     category: cat.name,
                     catName: cat.name,
                     subjectName: cat.name,
@@ -2939,12 +3061,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     const dormantPriority = isSevereDecay ? 'high' : (safeDays >= 21 ? 'medium' : 'low');
 
                     activeTask = {
-                        id: `${cat.id}-decay-${safeSlug}-${i}-${hashString(`${cat.id}|decay|${dormant.name}|${i}`)}`,
+                        id: `${safeCatKey}-decay-${safeSlug}-${i}-${hashString(`${safeCatKey}|decay|${dormant.name}|${i}`)}`,
                         text: `${cat.name}: ${getPriorityLabel(dormantPriority)}[Revisão por Recência — ${dormant.name}]`,
                         completed: false,
                         status: 'pending',
                         priority: dormantPriority,
-                        categoryId: cat.id,
+                        categoryId: safeCategoryId,
                         category: cat.name,
                         catName: cat.name,
                         subjectName: cat.name,
@@ -2978,12 +3100,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         const syllabusPriority = syllabusTask.priority || 'medium';
 
                         activeTask = {
-                            id: `${cat.id}-syllabus-${safeSlug}-${i}-${hashString(`${cat.id}|syllabus|${title}|${i}`)}`,
+                            id: `${safeCatKey}-syllabus-${safeSlug}-${i}-${hashString(`${safeCatKey}|syllabus|${title}|${i}`)}`,
                             text: `${cat.name}: ${getPriorityLabel(syllabusPriority)}[Avanço de Edital — ${title}]`,
                             completed: false,
                             status: 'pending',
                             priority: syllabusPriority,
-                            categoryId: cat.id,
+                            categoryId: safeCategoryId,
                             category: cat.name,
                             catName: cat.name,
                             subjectName: cat.name,
@@ -3006,7 +3128,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         const nowMs = (options.now ? (normalizeDate(options.now) || new Date()) : new Date()).getTime();
                         const matchingDeck = flashcardDecks.find(d => {
                             if (!d) return false;
-                            const matchId = d.categoryId && (d.categoryId === cat.id || String(d.categoryId) === String(cat.id));
+                            const matchId = d.categoryId && cat.id && (d.categoryId === cat.id || String(d.categoryId) === String(cat.id));
                             const matchName = (d.subject || d.name) && isSubjectMatch(d.subject || d.name, cat.name);
                             return matchId || matchName;
                         });
@@ -3022,12 +3144,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                             if (dueCards.length > 0) {
                                 const srsPriority = dueCards.length >= 15 ? 'high' : (dueCards.length >= 5 ? 'medium' : 'low');
                                 activeTask = {
-                                    id: `${cat.id}-srsblitz-${i}-${hashString(`${cat.id}|srs|${i}`)}`,
+                                    id: `${safeCatKey}-srsblitz-${i}-${hashString(`${safeCatKey}|srs|${i}`)}`,
                                     text: `${cat.name}: ${getPriorityLabel(srsPriority)}[SRS Blitz — Zerar ${dueCards.length} Flashcards]`,
                                     completed: false,
                                     status: 'pending',
                                     priority: srsPriority,
-                                    categoryId: cat.id,
+                                    categoryId: safeCategoryId,
                                     category: cat.name,
                                     catName: cat.name,
                                     subjectName: cat.name,
@@ -3064,12 +3186,12 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
 
                     activeTask = {
-                        id: `${cat.id}-synthesis-${i}-${hashString(`${cat.id}|synthesis|${i}`)}`,
+                        id: `${safeCatKey}-synthesis-${i}-${hashString(`${safeCatKey}|synthesis|${i}`)}`,
                         text: `${cat.name}: ${getPriorityLabel(reviewPriority)}[Consolidação Teórica — ${resolvedTopicName}]`,
                         completed: false,
                         status: 'pending',
                         priority: reviewPriority,
-                        categoryId: cat.id,
+                        categoryId: safeCategoryId,
                         category: cat.name,
                         catName: cat.name,
                         subjectName: cat.name,
@@ -3341,10 +3463,36 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     safeArray(history).forEach(r => {
         const dKey = getDateKey(r.date || r.createdAt);
         if (dKey && !hasSimuladoForDate.has(dKey)) {
-            if (!rowsByDate[dKey]) rowsByDate[dKey] = { correct: 0, total: 0, directScores: [] };
+            if (!rowsByDate[dKey]) {
+                rowsByDate[dKey] = {
+                    correct: 0,
+                    total: 0,
+                    directScores: [],
+                    subjects: new Set(),
+                    categoryIds: new Set(),
+                    topics: []
+                };
+            }
             const _toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
             const rCorrect = _toNum(r.correct ?? r.acertos ?? r.correctCount);
             const rTotal = _toNum(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions);
+            const rSubj = r.subject || r.categoryName || r.materia || r.disciplina;
+            if (rSubj) rowsByDate[dKey].subjects.add(String(rSubj).trim());
+            if (r.categoryId !== undefined && r.categoryId !== null && r.categoryId !== '') {
+                rowsByDate[dKey].categoryIds.add(r.categoryId);
+            }
+            const rTopic = r.topic || r.assunto || r.subtopic || r.topicName;
+            if (rTopic) {
+                rowsByDate[dKey].topics.push({
+                    name: String(rTopic).trim(),
+                    total: rTotal > 0 ? rTotal : undefined,
+                    correct: rTotal > 0 ? Math.min(rTotal, Math.max(0, rCorrect)) : undefined,
+                    score: r.score,
+                    isPercentage: r.isPercentage
+                });
+            } else if (Array.isArray(r.topics) && r.topics.length > 0) {
+                rowsByDate[dKey].topics.push(...r.topics);
+            }
             if (rTotal > 0) {
                 rowsByDate[dKey].correct += Math.min(rTotal, Math.max(0, rCorrect));
                 rowsByDate[dKey].total += rTotal;
@@ -3368,10 +3516,16 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
             const safeScoreStr = String(Math.round(score * 100));
             const key = `legacy-${dKey}|${dKey}|${safeScoreStr}`;
             if (!deduplicatedMap.has(key)) {
+                const singleSubject = stats.subjects.size === 1 ? Array.from(stats.subjects)[0] : undefined;
+                const singleCategoryId = stats.categoryIds.size === 1 ? Array.from(stats.categoryIds)[0] : undefined;
                 deduplicatedMap.set(key, {
                     id: `legacy-${dKey}`,
                     date: dKey,
                     score,
+                    ...(stats.total > 0 ? { total: stats.total, correct: stats.correct } : {}),
+                    ...(singleSubject ? { subject: singleSubject, categoryName: singleSubject } : {}),
+                    ...(singleCategoryId !== undefined ? { categoryId: singleCategoryId } : {}),
+                    ...(stats.topics.length > 0 ? { topics: stats.topics } : {}),
                     type: 'simulado'
                 });
             }

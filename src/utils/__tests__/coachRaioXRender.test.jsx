@@ -242,5 +242,82 @@ describe('RaioXDashboard (Raio-X Técnico no Coach)', () => {
         expect(html).toContain('id="select-drift-category"');
         expect(html).toContain('aria-label="Selecionar categoria para análise de Drift Temporal"');
     });
+
+    it('9. Preserves sample formation progress bar when history only has uncalibrated (n < 8) entries with null Brier and 0 penalty', () => {
+        const mockUncalibratedData = {
+            categories: [
+                {
+                    id: 'cat-const',
+                    name: 'Direito Constitucional',
+                    simuladoStats: {
+                        history: [
+                            { date: '2026-10-01', score: 70 },
+                            { date: '2026-10-02', score: 75 },
+                            { date: '2026-10-03', score: 80 },
+                            { date: '2026-10-04', score: 85 }
+                        ]
+                    }
+                }
+            ],
+            simulados: [
+                // Same dates as simuladoStats.history -> must deduplicate to 4/8, not 8/8
+                { id: 's1', categoryId: 'cat-const', date: '2026-10-01', score: 70 },
+                { id: 's2', categoryId: 'cat-const', date: '2026-10-02', score: 75 }
+            ],
+            simuladoRows: [
+                { id: 'r1', categoryId: 'cat-const', date: '2026-10-01', correct: 7, total: 10 },
+                { id: 'r2', categoryId: 'cat-const', date: '2026-10-01', correct: 7, total: 10 }
+            ],
+            calibrationHistoryByCategory: {
+                'cat-const': [
+                    { timestamp: 1700000000000, avgBrier: null, ece: null, calibrationPenalty: 0, probability: 0.65 }
+                ]
+            }
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockUncalibratedData} />);
+        expect(html).toContain('Amostra técnica em formação');
+        expect(html).toContain('4/8');
+        expect(html).toContain('Faltam 4 simulados');
+    });
+
+    it('10. Does not collide categories that lack explicit .id via task-null-sentinel in calibrationSummary', () => {
+        const mockNoIdCategoriesData = {
+            categories: [
+                {
+                    name: 'Direito Penal',
+                    simuladoStats: {
+                        history: Array.from({ length: 9 }, (_, i) => ({
+                            date: `2026-10-0${i + 1}`,
+                            score: 75
+                        }))
+                    }
+                },
+                {
+                    name: 'Direito Civil',
+                    simuladoStats: {
+                        history: Array.from({ length: 12 }, (_, i) => ({
+                            date: `2026-10-${String(i + 1).padStart(2, '0')}`,
+                            score: 82
+                        }))
+                    }
+                }
+            ],
+            calibrationHistoryByCategory: {
+                'Direito Penal': [
+                    { timestamp: 1700000000000, categoryName: 'Direito Penal', avgBrier: 0.16, ece: 0.04, calibrationPenalty: 0 }
+                ],
+                'Direito Civil': [
+                    { timestamp: 1700000000000, categoryName: 'Direito Civil', avgBrier: 0.21, ece: 0.06, calibrationPenalty: 0 }
+                ]
+            }
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockNoIdCategoriesData} />);
+        expect(html).toContain('Direito Penal');
+        expect(html).toContain('Direito Civil');
+        expect(html).toContain('n=9');
+        expect(html).toContain('n=12');
+    });
 });
 
