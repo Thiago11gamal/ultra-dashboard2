@@ -17,6 +17,22 @@ const isTestEnv = (() => {
   }
 })();
 
+let sweepStyleInjected = false;
+function ensureSweepKeyframes() {
+  if (sweepStyleInjected || typeof document === 'undefined') return;
+  sweepStyleInjected = true;
+  if (document.getElementById('chartframe-sweep-styles')) return;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'chartframe-sweep-styles';
+  styleEl.textContent = `
+    @keyframes chartframe-sweep {
+      0%   { background-position: 140% 0; }
+      100% { background-position: -40% 0; }
+    }
+  `;
+  document.head.appendChild(styleEl);
+}
+
 export default function ChartFrame({
   children,
   minHeight = 320,
@@ -28,6 +44,7 @@ export default function ChartFrame({
   const [size, setSize] = useState(() => (isTestEnv ? { w: 800, h: Number(minHeight) || 320 } : { w: 0, h: 0 }));
 
   useLayoutEffect(() => {
+    ensureSweepKeyframes();
     const el = boxRef.current;
     if (!el || isTestEnv) return;
 
@@ -40,15 +57,20 @@ export default function ChartFrame({
     }
 
     let ro = null;
+    let rafId = null;
     if (typeof ResizeObserver !== 'undefined') {
       ro = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const r = entry.contentRect || el.getBoundingClientRect();
-          const w = Math.floor(r.width);
-          const h = Math.floor(r.height);
-          setSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
-          setReady(w > 0 && h > 0);
-        }
+        if (rafId != null) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          for (const entry of entries) {
+            const r = entry.contentRect || el.getBoundingClientRect();
+            const w = Math.floor(r.width);
+            const h = Math.floor(r.height);
+            setSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+            setReady(w > 0 && h > 0);
+          }
+        });
       });
       ro.observe(el);
     } else {
@@ -59,6 +81,7 @@ export default function ChartFrame({
       setReady(true);
     }
     return () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
       if (ro) ro.disconnect();
     };
   }, [minHeight]);
@@ -106,13 +129,6 @@ export default function ChartFrame({
       >
         {ready ? children : null}
       </div>
-
-      <style>{`
-        @keyframes chartframe-sweep {
-          0%   { background-position: 140% 0; }
-          100% { background-position: -40% 0; }
-        }
-      `}</style>
     </div>
   );
 }

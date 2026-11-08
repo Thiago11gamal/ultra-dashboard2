@@ -116,7 +116,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
                 </div>
             </div>
 
-            <div className="w-full mt-3 pt-2.5 border-t border-slate-800/60 bg-slate-950/40 p-2.5 rounded-xl border flex flex-col gap-1.5">
+            <div className="w-full mt-3 pt-2.5 border border-slate-800/60 bg-slate-950/40 p-2.5 rounded-xl flex flex-col gap-1.5">
                 {hasAbsolute && (
                     <div className="flex justify-between items-center text-xs">
                         <span className="text-slate-400 font-medium">Última média</span>
@@ -138,7 +138,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     );
 });
 
-export function TimeSpentChart({ subjectAggData, activeCategories = [], categories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore: _minScore = 0 }) {
+export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggData, activeCategories = [], categories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore: _minScore = 0 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const chartData = useMemo(() => {
@@ -338,7 +338,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], categori
             };
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
-    }, [subjectAggData, activeCategories, sortOrder, maxScore, showOnlyFocus, focusCategory]);
+    }, [subjectAggData, activeCategories, categories, sortOrder, maxScore, showOnlyFocus, focusCategory]);
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {
@@ -506,5 +506,5 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], categori
             </div>
         </div>
     );
-}
+});
 

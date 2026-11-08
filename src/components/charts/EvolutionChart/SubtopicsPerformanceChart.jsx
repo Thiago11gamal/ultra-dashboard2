@@ -337,7 +337,7 @@ export const SubtopicsPerformanceChart = React.memo(({
                 const dayNoonMs = parseNoonLocal(dateKey)?.getTime() ?? d.getTime();
 
                 if (!dateMap[dateKey]) {
-                    dateMap[dateKey] = { dateLabel, originalDate: dayNoonMs };
+                    dateMap[dateKey] = { dateKey, dateLabel, originalDate: dayNoonMs };
                 }
 
                 let topicList = toArray(h.topics);
@@ -606,12 +606,15 @@ export const SubtopicsPerformanceChart = React.memo(({
                                         <CartesianGrid strokeDasharray="2 2" stroke="#1e2937" vertical={false} />
 
                                         <XAxis
-                                            dataKey="originalDate"
+                                            dataKey="dateKey"
                                             stroke="#64748b"
                                             tick={{ fontSize: 11, fill: '#94a3b8' }}
                                             axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                             tickLine={false}
                                             tickFormatter={(val) => {
+                                                if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+                                                    return formatDisplayDate(val);
+                                                }
                                                 const candidate = typeof val === 'number' ? new Date(val) : parseNoonLocal(val);
                                                 const d = Number.isFinite(candidate?.getTime?.()) ? candidate : new Date(val);
                                                 if (!Number.isFinite(d?.getTime?.())) return String(val ?? '');

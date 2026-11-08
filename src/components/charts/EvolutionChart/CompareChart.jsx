@@ -251,7 +251,7 @@ export const CompareChart = React.memo(function CompareChart({
         if (!Number.isFinite(rawY)) rawY = chartY + chartHeight / 2;
         const safeY = Math.max(2, Math.min(chartY + chartHeight - 22, rawY));
         
-        const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 75;
+        const maxX = (viewBox?.width ?? 700) + (viewBox?.x ?? 0) + 82;
         const labelX = Math.max(0, Math.min(x + xOff - 2, maxX - boxWidth));
         
         return (
@@ -377,7 +377,7 @@ export const CompareChart = React.memo(function CompareChart({
                                 fill: '#c4b5fd',
                                 fontSize: 9,
                                 fontWeight: 'bold',
-                                position: 'insideTopRight',
+                                position: todayIdx > chartData.length * 0.65 ? 'insideTopLeft' : 'insideTopRight',
                                 dy: -8
                             }}
                         />

@@ -457,8 +457,16 @@ export default React.memo(function EvolutionChart({
         const el = carouselRef.current;
         if (!el) return;
         const { scrollLeft, scrollWidth, clientWidth } = el;
-        setCanScrollLeft(scrollLeft > 6);
-        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 6);
+        const nextLeft = scrollLeft > 6;
+        const nextRight = scrollLeft < scrollWidth - clientWidth - 6;
+        setCanScrollLeft(prev => (prev === nextLeft ? prev : nextLeft));
+        setCanScrollRight(prev => (prev === nextRight ? prev : nextRight));
+    }, []);
+
+    const handleSelectCategory = useCallback((catId) => {
+        if (!hasDraggedRef.current && catId) {
+            setFocusSubjectId(catId);
+        }
     }, []);
 
     useEffect(() => {
@@ -501,6 +509,8 @@ export default React.memo(function EvolutionChart({
         startXRef.current = e.pageX - el.offsetLeft;
         scrollLeftRef.current = el.scrollLeft;
         hasDraggedRef.current = false;
+        el.style.scrollBehavior = 'auto';
+        el.style.scrollSnapType = 'none';
     }, []);
 
     const handleCarouselMouseMove = useCallback((e) => {
@@ -516,6 +526,13 @@ export default React.memo(function EvolutionChart({
     }, []);
 
     const handleCarouselMouseUpOrLeave = useCallback(() => {
+        if (isDraggingRef.current) {
+            const el = carouselRef.current;
+            if (el) {
+                el.style.scrollBehavior = '';
+                el.style.scrollSnapType = '';
+            }
+        }
         isDraggingRef.current = false;
         if (hasDraggedRef.current) {
             setTimeout(() => {
@@ -1099,11 +1116,7 @@ export default React.memo(function EvolutionChart({
                                     metrics={latestMetricsByCat[cat.id] || null}
                                     target={targetScore}
                                     isFocused={focusCategory?.id === cat.id}
-                                    onClick={() => {
-                                        if (!hasDraggedRef.current) {
-                                            setFocusSubjectId(cat.id);
-                                        }
-                                    }}
+                                    onSelectCategory={handleSelectCategory}
                                     unit={unit}
                                     maxScore={maxScore}
                                     minScore={minScore}
@@ -1537,21 +1550,23 @@ export default React.memo(function EvolutionChart({
                                       ));
                                     })()}
                                   </div>
-                                ) : (
+                                ) : mcLoading ? (
                                   <div className="w-full md:w-1/2 grid place-items-center self-center px-6">
                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
-                                      Sem projeção Monte Carlo disponível
+                                      Calculando projeção Monte Carlo...
                                     </span>
                                   </div>
-                                )}
+                                ) : null}
                         </div>
 
                         {mcLoading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm pointer-events-none"></div>
+                            <div className="absolute inset-0 rounded-2xl flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm pointer-events-none">
+                                <span className="animate-spin text-indigo-400 text-lg font-bold">↻</span>
+                            </div>
                         )}
 
                         {!activeMcResult && !mcLoading && (
-                            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-6 text-center bg-slate-900/50 backdrop-blur-sm pointer-events-none">
+                            <div className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-2 px-6 text-center bg-slate-900/50 backdrop-blur-sm pointer-events-none">
                                 <span className="text-2xl mb-2">📉</span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                     Cadastre pelo menos 2 registros para ver a densidade

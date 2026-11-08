@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 
@@ -45,6 +45,113 @@ function invalidateSharedWorker(badWorker) {
   }
 }
 
+const formatPct = (value) => {
+    if (!Number.isFinite(value)) return '—';
+    const rounded = Number(value.toFixed(2));
+    return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}%`;
+};
+
+const HeatmapGrid = React.memo(function HeatmapGrid({
+    filteredDates,
+    filteredRows,
+    stickyColWidth,
+    getRowTargetPct,
+    cellColor,
+    onCellHover,
+    onCellLeave,
+    onGridScroll
+}) {
+    return (
+        <div 
+            className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-2 pb-4 pr-1"
+            onScroll={onGridScroll}
+        >
+            <div style={{ minWidth: `${filteredDates.length * 72 + stickyColWidth}px` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
+                    <div 
+                        className="sticky left-0 z-30 self-stretch flex items-center px-3.5 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]" 
+                        style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
+                    >
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Disciplina</span>
+                    </div>
+                    {filteredDates.map((d, di) => (
+                        <div key={d.key || `date-${di}`} className="flex flex-col items-center gap-1">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${d.isWeekend ? 'text-purple-300' : 'text-slate-400'}`}>
+                                {d.dayName}
+                            </span>
+                            <span className="text-[11px] font-mono font-bold text-slate-100">{d.label}</span>
+                            {Number.isFinite(Number(d.count)) && Number(d.count) > 1 && (
+                                <span className="text-[8px] text-slate-500">{d.count}d</span>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                <div className="space-y-2.5">
+                    {filteredRows.map(({ cat, cells }, rowIndex) => {
+                        const rowTargetPct = getRowTargetPct(cat);
+                        return (
+                            <div key={cat?.id || cat?.name || `row-${rowIndex}`} style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
+                                <div 
+                                    className="sticky left-0 z-30 self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
+                                    style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
+                                >
+                                    <span className="text-lg shrink-0">{cat?.icon}</span>
+                                    <span 
+                                        className="text-[11px] sm:text-[13px] font-extrabold leading-tight min-w-0 line-clamp-2 select-none" 
+                                        style={{ color: cat?.color }} 
+                                        title={cat?.name}
+                                    >
+                                        {cat?.name}
+                                    </span>
+                                </div>
+
+                                {cells.map((cell, ci) => {
+                                    const hasData = Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
+                                    const col = cellColor(hasData ? cell.pct : null, hasData ? cell.total : 0, rowTargetPct);
+                                    const dateObj = filteredDates[ci];
+                                    return (
+                                        <div
+                                            key={dateObj?.key || dateObj?.label || ci}
+                                            className={`relative rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 ${hasData ? 'hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]' : 'opacity-60 cursor-default'}`}
+                                            style={{
+                                                background: col.bg,
+                                                opacity: hasData ? (0.85 + (col.density * 0.15)) : 0.6,
+                                                border: `1px solid ${col.border}`,
+                                                minHeight: '52px',
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!hasData) return;
+                                                onCellHover(e, cell, col, dateObj);
+                                            }}
+                                            onMouseLeave={onCellLeave}
+                                        >
+                                            {hasData ? (
+                                                <>
+                                                    <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
+                                                        {formatPct(cell.pct)}
+                                                    </span>
+                                                    {!cell.isSynthetic && (
+                                                        <span className="text-[9px] text-slate-300/80 font-mono mt-1">
+                                                            {Math.round(cell.realCorrect ?? cell.correct ?? 0)}/{Math.round(cell.realTotal ?? cell.total ?? 0)}
+                                                        </span>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <span className="text-slate-500 text-[13px] font-bold">—</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+});
+
 export const EvolutionHeatmap = React.memo(({ 
     heatmapData, 
     targetScore = 70, 
@@ -80,15 +187,19 @@ export const EvolutionHeatmap = React.memo(({
         const checkMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
         checkMobile();
         window.addEventListener('resize', checkMobile);
-        const handleScroll = () => {
-            setHoveredCell(null);
-        };
-        window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
         return () => {
             window.removeEventListener('resize', checkMobile);
-            window.removeEventListener('scroll', handleScroll, { capture: true });
         };
     }, []);
+
+    useEffect(() => {
+        if (!hoveredCell) return;
+        const handleScroll = () => setHoveredCell(null);
+        window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+        return () => {
+            window.removeEventListener('scroll', handleScroll, { capture: true });
+        };
+    }, [hoveredCell]);
 
     const stickyColWidth = isMobile ? 160 : 250;
 
@@ -219,7 +330,7 @@ export const EvolutionHeatmap = React.memo(({
             worker.removeEventListener('error', handleError);
             setIsAggregating(false);
         };
-    }, [filtered, granularity, safeTarget, targetScorePct, safeMin, safeMax]);
+    }, [filtered, granularity, safeMin, safeMax]);
 
     const activeData = useMemo(() => {
         return (granularity === 'daily' || !aggregated) ? filtered : aggregated;
@@ -235,7 +346,7 @@ export const EvolutionHeatmap = React.memo(({
         return totals.length > 0 ? totals.reduce((m, v) => Math.max(m, v), 1) : 1;
     }, [filteredRows]);
 
-    const getRowTargetPct = (cat) => {
+    const getRowTargetPct = useCallback((cat) => {
       if (cat?.minCutoff !== null && cat?.minCutoff !== undefined && String(cat.minCutoff).trim() !== '' && Number.isFinite(Number(cat.minCutoff))) {
         const catMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMin;
         const catMax = Number(cat?.maxScore) > catMin ? Number(cat.maxScore) : safeMax;
@@ -243,9 +354,9 @@ export const EvolutionHeatmap = React.memo(({
         return Math.max(0, Math.min(100, ((Number(cat.minCutoff) - catMin) / catRange) * 100));
       }
       return targetScorePct;
-    };
+    }, [safeMin, safeMax, targetScorePct]);
 
-    const cellColor = (pct, total = 0, rowTargetPct = targetScorePct) => {
+    const cellColor = useCallback((pct, total = 0, rowTargetPct = targetScorePct) => {
       if (pct == null || !Number.isFinite(Number(pct))) {
         return {
           bg: 'rgba(255,255,255,0.02)',
@@ -293,13 +404,30 @@ export const EvolutionHeatmap = React.memo(({
         border: 'rgba(239,68,68,0.6)',
         density
       };
-    };
+    }, [maxCellTotal, targetScorePct]);
 
-    const formatPct = (value) => {
-        if (!Number.isFinite(value)) return '—';
-        const rounded = Number(value.toFixed(2));
-        return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(2)}%`;
-    };
+    const handleCellHover = useCallback((e, cell, col, date) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const isAbove = rect.top > 160;
+        const centerX = rect.left + rect.width / 2;
+        const left = Math.max(85, Math.min(window.innerWidth - 85, centerX));
+        setHoveredCell({
+            rect,
+            isAbove,
+            left,
+            cell,
+            col,
+            date,
+        });
+    }, []);
+
+    const handleCellLeave = useCallback(() => {
+        setHoveredCell(null);
+    }, []);
+
+    const handleGridScroll = useCallback(() => {
+        setHoveredCell(prev => (prev ? null : prev));
+    }, []);
 
     if (!filteredDates.length) return (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
@@ -376,103 +504,16 @@ export const EvolutionHeatmap = React.memo(({
             </div>
 
             {/* Container com scroll horizontal dedicado */}
-            <div 
-                className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-2 pb-4"
-                onScroll={() => {
-                    if (hoveredCell) setHoveredCell(null);
-                }}
-            >
-                <div style={{ minWidth: `${filteredDates.length * 72 + stickyColWidth}px` }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
-                        <div 
-                            className="sticky left-0 z-30 self-stretch flex items-center px-3.5 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]" 
-                            style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
-                        >
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Disciplina</span>
-                        </div>
-                        {filteredDates.map((d, di) => (
-                            <div key={d.key || `date-${di}`} className="flex flex-col items-center gap-1">
-                                <span className={`text-[10px] font-black uppercase tracking-[0.15em] ${d.isWeekend ? 'text-purple-300' : 'text-slate-400'}`}>
-                                    {d.dayName}
-                                </span>
-                                <span className="text-[11px] font-mono font-bold text-slate-100">{d.label}</span>
-                                {Number.isFinite(Number(d.count)) && Number(d.count) > 1 && (
-                                    <span className="text-[8px] text-slate-500">{d.count}d</span>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="space-y-2.5">
-                        {filteredRows.map(({ cat, cells }, rowIndex) => (
-                            <div key={cat?.id || cat?.name || `row-${rowIndex}`} style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
-                                <div 
-                                    className="sticky left-0 z-30 self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
-                                    style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
-                                >
-                                    <span className="text-lg shrink-0">{cat?.icon}</span>
-                                    <span 
-                                        className="text-[11px] sm:text-[13px] font-extrabold leading-tight capitalize min-w-0 line-clamp-2 select-none" 
-                                        style={{ color: cat?.color }} 
-                                        title={cat?.name}
-                                    >
-                                        {cat?.name}
-                                    </span>
-                                </div>
-
-                                {cells.map((cell, ci) => {
-                                    const hasData = Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
-                                    const rowTargetPct = getRowTargetPct(cat);
-                                    const col = cellColor(hasData ? cell.pct : null, hasData ? cell.total : 0, rowTargetPct);
-                                    return (
-                                        <div
-                                            key={ci}
-                                            className={`relative rounded-lg flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-200 ${hasData ? 'hover:scale-[1.03] hover:z-20 cursor-default shadow-[0_6px_16px_rgba(2,6,23,0.22)] hover:shadow-[0_10px_24px_rgba(2,6,23,0.4)]' : 'opacity-60 cursor-default'}`}
-                                            style={{
-                                                background: col.bg,
-                                                opacity: hasData ? (0.85 + (col.density * 0.15)) : 0.6,
-                                                border: `1px solid ${col.border}`,
-                                                minHeight: '52px',
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!hasData) return;
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                const isAbove = rect.top > 160;
-                                                const centerX = rect.left + rect.width / 2;
-                                                const left = Math.max(85, Math.min(window.innerWidth - 85, centerX));
-                                                setHoveredCell({
-                                                    rect,
-                                                    isAbove,
-                                                    left,
-                                                    cell,
-                                                    col,
-                                                    date: filteredDates[ci],
-                                                });
-                                            }}
-                                            onMouseLeave={() => setHoveredCell(null)}
-                                        >
-                                            {hasData ? (
-                                                <>
-                                                    <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
-                                                        {formatPct(cell.pct)}
-                                                    </span>
-                                                    {!cell.isSynthetic && (
-                                                        <span className="text-[9px] text-slate-300/80 font-mono mt-1">
-                                                            {Math.round(cell.realCorrect ?? cell.correct ?? 0)}/{Math.round(cell.realTotal ?? cell.total ?? 0)}
-                                                        </span>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <span className="text-slate-500 text-[13px] font-bold">—</span>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+            <HeatmapGrid
+                filteredDates={filteredDates}
+                filteredRows={filteredRows}
+                stickyColWidth={stickyColWidth}
+                getRowTargetPct={getRowTargetPct}
+                cellColor={cellColor}
+                onCellHover={handleCellHover}
+                onCellLeave={handleCellLeave}
+                onGridScroll={handleGridScroll}
+            />
 
             {/* Portal Tooltip: Flutua sobre tudo via body */}
             {typeof document !== 'undefined' && hoveredCell && createPortal(

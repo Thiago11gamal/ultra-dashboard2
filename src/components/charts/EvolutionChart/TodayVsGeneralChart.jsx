@@ -482,6 +482,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                                         paddingAngle={0}
                                         dataKey="value"
                                         stroke="none"
+                                        isAnimationActive={false}
                                     >
                                         <Cell key={`cell-${metric.id}-0`} fill={arcColor} style={{ filter: isNull ? 'none' : `drop-shadow(0 0 6px ${arcColor}60)` }} />
                                         <Cell key={`cell-${metric.id}-1`} fill={COLORS.gaugeBg} />

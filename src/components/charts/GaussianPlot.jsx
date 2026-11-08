@@ -373,9 +373,6 @@ export const GaussianPlot = React.memo(function GaussianPlot({
                             <stop offset="0%" stopColor="rgba(239, 68, 68, 0.5)" />
                             <stop offset="100%" stopColor="rgba(239, 68, 68, 0.1)" />
                         </linearGradient>
-                        <filter id={ID.glow} x="-20%" y="-20%" width="140%" height="140%">
-                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
-                        </filter>
                         <clipPath id={ID.chartClip}>
                             <rect x="0" y="-50" width="100" height="200" />
                         </clipPath>

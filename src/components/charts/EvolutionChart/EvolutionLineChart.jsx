@@ -45,10 +45,11 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
     showOnlyFocus,
     minScore = 0,
     maxScore = 100,
-    unit = '%'
+    unit = '%',
+    syncId
 }) {
     const instanceId = useId().replace(/:/g, "");
-    const shadowId = `el_lineShadow_${instanceId}`;
+    const effectiveSyncId = syncId !== undefined ? syncId : (engine?.id ? `evolutionSync_${engine.id}` : `evolutionSync_${instanceId}`);
 
     const [highlightedDataKey, setHighlightedDataKey] = useState(null);
     const isLineClicked = useRef(false);
@@ -333,6 +334,44 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         (props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />,
         [enhancedChartData, unit, maxScore, minScore]
     );
+
+    const toggleHighlightByCatId = useCallback((catId, e, props) => {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (props?.nativeEvent && typeof props.nativeEvent.stopPropagation === 'function') props.nativeEvent.stopPropagation();
+        isLineClicked.current = true;
+        setHighlightedDataKey(prev => prev === catId ? null : catId);
+        if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = setTimeout(() => { isLineClicked.current = false; }, 50);
+    }, []);
+
+    const lineConfigByCat = useMemo(() => {
+        const map = {};
+        const isAnyHighlighted = !!effectiveHighlightedKey;
+        const hasFocus = showOnlyFocus ? !!focusSubjectId : isAnyHighlighted;
+        visibleCategories.forEach((cat) => {
+            const isLegendHighlighted = effectiveHighlightedKey === cat.id;
+            const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
+            const displayColor = isLegendHighlighted ? '#fbbf24' : (cat.color || '#3b82f6');
+            const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
+            const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.5) : 2;
+            const onDotClick = (e) => toggleHighlightByCatId(cat.id, e);
+            const onLineClick = (props, e) => toggleHighlightByCatId(cat.id, e, props);
+            const labelRenderer = (props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus);
+            map[cat.id] = {
+                isFocused,
+                hasFocus,
+                displayColor,
+                lineOpacity,
+                lineWidth,
+                onDotClick,
+                onLineClick,
+                labelRenderer,
+                dotProps: { r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity },
+                activeDotEl: <CustomActiveDot fill={displayColor} stroke="#ffffff" isDimmed={hasFocus && !isFocused} onClick={onDotClick} />
+            };
+        });
+        return map;
+    }, [visibleCategories, effectiveHighlightedKey, showOnlyFocus, focusSubjectId, toggleHighlightByCatId, renderCustomLabel]);
     
     if (!enhancedChartData.length || visibleCategories.length === 0 || finalPoints.length === 0) {
       return (
@@ -358,7 +397,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                 <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 <ComposedChart 
                     data={enhancedChartData} 
-                    syncId="evolutionSync"
+                    syncId={effectiveSyncId}
                     margin={{ top: 20, right: rightMargin, left: 4, bottom: 20 }} 
                     style={{ outline: 'none', cursor: effectiveHighlightedKey ? 'pointer' : 'default' }} 
                     tabIndex="-1"
@@ -384,9 +423,6 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                             </React.Fragment>
                             );
                         })}
-                        <filter id={shadowId} height="200%">
-                            {/* Disabled SVG glow filter to prevent FPS drops on mobile/Safari */}
-                        </filter>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.06)" vertical={false} />
 
@@ -455,26 +491,16 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                         iconSize={8}
                         iconType="circle"
                         onClick={handleLegendClick}
-                        wrapperStyle={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, paddingBottom: '8px', cursor: 'pointer', textTransform: 'capitalize' }} 
-                        formatter={(value) => value}
+                        wrapperStyle={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, paddingBottom: '8px', cursor: 'pointer' }} 
                     />
 
                     {visibleCategories.flatMap((cat) => {
                         const dataKey = engine?.prefix ? `${engine.prefix}${cat.id}` : `raw_${cat.id}`;
                         const lineType = engine?.style || 'linear';
-                        const isLegendHighlighted = effectiveHighlightedKey === cat.id;
-                        const isAnyHighlighted = !!effectiveHighlightedKey;
-
-                        const isFocused = showOnlyFocus ? (focusSubjectId === cat.id) : isLegendHighlighted;
-                        const hasFocus = showOnlyFocus ? !!focusSubjectId : isAnyHighlighted;
-                        
-                        let displayColor = cat.color || '#3b82f6';
-                        if (isLegendHighlighted) {
-                            displayColor = '#fbbf24';
-                        }
-
-                        const lineOpacity = hasFocus ? (isFocused ? 1 : 0.4) : 0.8;
-                        const lineWidth = hasFocus ? (isFocused ? 3.5 : 1.5) : 2;
+                        const cfg = lineConfigByCat[cat.id];
+                        if (!cfg) return [];
+                        const { isFocused, hasFocus, displayColor, lineOpacity, lineWidth, onLineClick, labelRenderer, dotProps, activeDotEl } = cfg;
+                        const showGlow = isFocused || (!hasFocus && visibleCategories.length <= 4);
 
                         return [
                             (engine?.id === 'bayesian' && (!hasFocus || isFocused)) ? (
@@ -489,21 +515,23 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                                 <Area connectNulls key={`area_${cat.id}`} type={lineType} dataKey={dataKey} name={`_area_${cat.id}`} stroke="none"
                                     fill={`url(#grad_${cat.id}_${instanceId})`} legendType="none" isAnimationActive={false} />
                             ) : null,
-                            <Line connectNulls 
-                                key={`glow_${cat.id}`} 
-                                type={lineType} 
-                                dataKey={dataKey} 
-                                name={`_glow_${cat.name}`}
-                                stroke={displayColor} 
-                                strokeWidth={lineWidth + 4}
-                                strokeLinecap="round" 
-                                strokeLinejoin="round"
-                                strokeOpacity={(isFocused || !hasFocus) ? lineOpacity * 0.3 : 0}
-                                dot={false}
-                                activeDot={false}
-                                legendType="none"
-                                isAnimationActive={false}
-                            />,
+                            showGlow ? (
+                                <Line connectNulls 
+                                    key={`glow_${cat.id}`} 
+                                    type={lineType} 
+                                    dataKey={dataKey} 
+                                    name={`_glow_${cat.name}`}
+                                    stroke={displayColor} 
+                                    strokeWidth={lineWidth + 4}
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round"
+                                    strokeOpacity={lineOpacity * 0.3}
+                                    dot={false}
+                                    activeDot={false}
+                                    legendType="none"
+                                    isAnimationActive={false}
+                                />
+                            ) : null,
                             <Line connectNulls 
                                 key={cat.id} 
                                 id={cat.id}
@@ -515,26 +543,13 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                                 strokeLinecap="round" 
                                 strokeLinejoin="round"
                                 strokeOpacity={lineOpacity}
-                                dot={{ r: 3, strokeWidth: 1.5, stroke: displayColor, fill: '#0f172a', strokeOpacity: lineOpacity, fillOpacity: lineOpacity }}
-                                activeDot={<CustomActiveDot fill={displayColor} stroke="#ffffff" isDimmed={hasFocus && !isFocused} onClick={(e) => {
-                                    if (e && e.stopPropagation) e.stopPropagation();
-                                    isLineClicked.current = true;
-                                    setHighlightedDataKey(prev => prev === cat.id ? null : cat.id);
-                                    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-                                    clickTimerRef.current = setTimeout(() => { isLineClicked.current = false; }, 50);
-                                }} />}
+                                dot={dotProps}
+                                activeDot={activeDotEl}
                                 style={{ transition: 'opacity 0.2s ease', cursor: 'pointer' }}
                                 isAnimationActive={false}
-                                onClick={(props, e) => {
-                                    if (e && e.stopPropagation) e.stopPropagation();
-                                    if (props && props.nativeEvent && props.nativeEvent.stopPropagation) props.nativeEvent.stopPropagation();
-                                    isLineClicked.current = true;
-                                    setHighlightedDataKey(prev => prev === cat.id ? null : cat.id);
-                                    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
-                                    clickTimerRef.current = setTimeout(() => { isLineClicked.current = false; }, 50);
-                                }}
+                                onClick={onLineClick}
                             >
-                                <LabelList content={(props) => renderCustomLabel(props, cat.id, displayColor, isFocused, hasFocus)} />
+                                <LabelList content={labelRenderer} />
                             </Line>
                         ];
                     })}

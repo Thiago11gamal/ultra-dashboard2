@@ -95,7 +95,7 @@ const SCENARIO_OPTIONS = [
  * Visualizes the trajectory of projected scores and success probabilities over time.
  * Hardened to support non-zero scoring floors (minScore) and preventing Y-axis overshoot.
  */
-export const MonteCarloEvolutionChart = ({ 
+export const MonteCarloEvolutionChart = React.memo(({ 
     data = [], 
     targetScore = 75, 
     unit = 'pts', 
@@ -116,13 +116,6 @@ export const MonteCarloEvolutionChart = ({
       const fallback = safeMin + (safeMax - safeMin) * 0.8;
       return Math.max(safeMin, Math.min(safeMax, hasValidNumber(targetScore) ? Number(targetScore) : fallback));
     }, [targetScore, safeMin, safeMax]);
-
-    const targetOffset = useMemo(() => {
-      const range = safeMax - safeMin;
-      if (range <= 0 || !Number.isFinite(range)) return 0;
-      const pct = 1 - (safeTargetScore - safeMin) / range;
-      return Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
-    }, [safeTargetScore, safeMin, safeMax]);
 
     const formattedData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
@@ -180,6 +173,29 @@ export const MonteCarloEvolutionChart = ({
         return scenarioAdjustedData;
     }, [scenarioAdjustedData]);
 
+    const targetOffset = useMemo(() => {
+        if (displayData.length > 0) {
+            let minCi = Infinity;
+            let maxCi = -Infinity;
+            for (const item of displayData) {
+                const low = Number(item?.ciRange?.[0]);
+                const high = Number(item?.ciRange?.[1]);
+                if (Number.isFinite(low) && low < minCi) minCi = low;
+                if (Number.isFinite(high) && high > maxCi) maxCi = high;
+            }
+            if (Number.isFinite(minCi) && Number.isFinite(maxCi) && maxCi > minCi) {
+                if (safeTargetScore >= maxCi) return 0;
+                if (safeTargetScore <= minCi) return 1;
+                const pct = 1 - (safeTargetScore - minCi) / (maxCi - minCi);
+                return Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
+            }
+        }
+        const range = safeMax - safeMin;
+        if (range <= 0 || !Number.isFinite(range)) return 0;
+        const pct = 1 - (safeTargetScore - safeMin) / range;
+        return Math.max(0, Math.min(1, Number.isFinite(pct) ? pct : 0));
+    }, [displayData, safeTargetScore, safeMin, safeMax]);
+
     const qualitySignal = useMemo(() => classifyScenarioSignal(scenarioAdjustedData, safeMax, safeMin), [scenarioAdjustedData, safeMax, safeMin]);
 
     const mcAssumptions = useMemo(() => {
@@ -220,12 +236,12 @@ export const MonteCarloEvolutionChart = ({
                 <div className="w-full max-w-md h-40 opacity-20 pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%" minWidth={120} minHeight={150}>
                         <AreaChart data={[
-                            { date: '1', mean: minScore + (maxScore - minScore) * 0.4 }, 
-                            { date: '2', mean: minScore + (maxScore - minScore) * 0.6 }, 
-                            { date: '3', mean: minScore + (maxScore - minScore) * 0.85 }
+                            { date: '1', mean: safeMin + (safeMax - safeMin) * 0.4 }, 
+                            { date: '2', mean: safeMin + (safeMax - safeMin) * 0.6 }, 
+                            { date: '3', mean: safeMin + (safeMax - safeMin) * 0.85 }
                         ]}>
                             <XAxis dataKey="date" hide />
-                            <YAxis hide domain={[minScore, maxScore]} />
+                            <YAxis hide domain={[safeMin, safeMax]} />
                             <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="none" strokeWidth={3} isAnimationActive={false} />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -405,9 +421,9 @@ export const MonteCarloEvolutionChart = ({
                 ) : scenarioAdjustedData.length === 0 ? null : (
                     <div className="w-full h-full opacity-10 pointer-events-none blur-sm">
                     <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={1}>
-                        <AreaChart data={[{ mean: minScore }, { mean: scenarioAdjustedData[0]?.mean ?? minScore }, { mean: minScore }]}>
-                            <YAxis hide domain={[minScore, maxScore]} />
-                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="none" strokeWidth={3} />
+                        <AreaChart data={[{ mean: safeMin }, { mean: scenarioAdjustedData[0]?.mean ?? safeMin }, { mean: safeMin }]}>
+                            <YAxis hide domain={[safeMin, safeMax]} />
+                            <Area connectNulls type="monotoneX" dataKey="mean" stroke="#60a5fa" fill="none" strokeWidth={3} isAnimationActive={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                     </div>
@@ -473,5 +489,5 @@ export const MonteCarloEvolutionChart = ({
             </div>
         </div>
     );
-};
+});
 
