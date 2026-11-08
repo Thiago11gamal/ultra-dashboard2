@@ -138,7 +138,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     );
 });
 
-export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore: _minScore = 0 }) {
+export function TimeSpentChart({ subjectAggData, activeCategories = [], categories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore: _minScore = 0 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
     const chartData = useMemo(() => {
@@ -156,7 +156,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
             // Média Recente (Últimos 7 dias)
             let recentAvgSeconds = null;
-            const cat = activeCategories.find(c => c.id === d.id);
+            const cat = activeCategories.find(c => c.id === d.id)
+                || (Array.isArray(categories) ? categories.find(c => c.id === d.id) : null)
+                || (focusCategory?.id === d.id ? focusCategory : null);
+            const catMax = Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
             if (cat) {
                 const nowMs = new Date().getTime();
                 const todayKey = getDateKey(new Date());
@@ -193,7 +196,10 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                         return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
                     } else {
                         let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
-                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(maxScore);
+                        if (tot === 0 && safeTopics.length > 0) {
+                            tot = safeTopics.reduce((s, t) => s + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
+                        }
+                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
                         if (tot > 0 && rootTs !== null && rootTs > 0) {
                             return { ts: acc.ts + rootTs, tq: acc.tq + tot };
                         }
@@ -215,6 +221,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
             let absoluteTotalTime = null;
 
             if (cat) {
+                const todayKey = getDateKey(new Date());
                 const extractEntryTiming = (entry) => {
                     let rootTs = typeof entry?.timeSpent === 'number' ? entry.timeSpent : null;
                     let topicsTs = 0;
@@ -232,14 +239,25 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                     }
                     if (hasTopicWithTime && topicsTimedQ > 0) return { ts: topicsTs, tq: topicsTimedQ };
                     let tot = Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0;
-                    if (tot === 0 && entry?.score != null) tot = getSyntheticTotal(maxScore);
+                    if (tot === 0 && safeTopics.length > 0) {
+                        tot = safeTopics.reduce((s, t) => s + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
+                    }
+                    if (tot === 0 && entry?.score != null) tot = getSyntheticTotal(catMax);
                     if (tot > 0 && rootTs !== null && rootTs > 0) return { ts: rootTs, tq: tot };
                     return null;
                 };
 
-                // BUG FIX: Garante que o histórico é ordenado cronologicamente e possui tempo válido
-                const sortedHistory = Object.values(cat.simuladoStats?.history || {})
-                    .filter(h => h && h.valid !== false && toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h) !== null)
+                const allValidTimed = Object.values(cat.simuladoStats?.history || {})
+                    .filter(h => h && h.valid !== false && toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h) !== null);
+                const nonFutureTimed = todayKey
+                    ? allValidTimed.filter(h => {
+                        const hk = getDateKey(h.date || h.createdAt);
+                        return hk && hk <= todayKey;
+                    })
+                    : [];
+
+                // BUG FIX: Garante que o histórico é ordenado cronologicamente, sem datas futuras e possui tempo válido
+                const sortedHistory = (nonFutureTimed.length > 0 ? nonFutureTimed : allValidTimed)
                     .sort((a, b) => {
                         const da = toDateMs(a.date || a.createdAt) || 0;
                         const db = toDateMs(b.date || b.createdAt) || 0;

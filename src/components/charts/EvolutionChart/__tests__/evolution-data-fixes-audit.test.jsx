@@ -6,10 +6,15 @@ import { renderHook } from '@testing-library/react';
 import { DisciplinaCard } from '../DisciplinaCard';
 import { SubtopicsPerformanceChart } from '../SubtopicsPerformanceChart';
 import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
+import { PerformanceBarChart } from '../PerformanceBarChart';
+import { WeeklyEvolutionView } from '../WeeklyEvolutionView';
+import { EvolutionHeatmap } from '../../EvolutionHeatmap';
 import { ChartTooltip } from '../../ChartTooltip';
 import { useCategoryLevels } from '../../../../hooks/useCategoryLevels';
 import { useSubjectAggData } from '../../../../hooks/useSubjectAggData';
 import { computeEvolutionStatuses } from '../../../../utils/evolutionStatus';
+import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
+import { computeBayesianLevel, computeCategoryStats } from '../../../../engine/stats';
 import { getDateKey } from '../../../../utils/dateHelper';
 
 vi.mock('recharts', async () => {
@@ -275,6 +280,179 @@ describe('Evolution Menu - Data Integrity & Edge Case Fixes', () => {
       expect(result.current).toHaveLength(1);
       expect(result.current[0].timeSpent).toBe(500);
       expect(result.current[0].timedQuestoes).toBe(10);
+    });
+
+    it('não soma questões sintéticas (+20) às questões reais quando a matéria já possui questões reais', () => {
+      const categories = [
+        {
+          id: '1',
+          name: 'Direito Civil',
+          simuladoStats: {
+            history: [
+              { date: '2026-09-01', total: 10, correct: 8, score: 80 },
+              { date: '2026-09-02', total: 0, score: 90 }
+            ]
+          }
+        }
+      ];
+
+      const { result } = renderHook(() =>
+        useSubjectAggData({ categories, timeWindow: 'all', maxScore: 100, minScore: 0 })
+      );
+
+      expect(result.current[0].realQuestoes).toBe(10);
+      expect(result.current[0].questoes).toBe(10);
+      expect(result.current[0].acertos).toBe(8);
+
+      const html = renderToStaticMarkup(
+        <PerformanceBarChart subjectAggData={result.current} unit="%" />
+      );
+      expect(html).toContain('Questões Resolvidas vs Acertos');
+    });
+  });
+
+  describe('Fix 8: Novos 15 bugs auditados (stats, heatmap, insights, status, weekly, todayVsGeneral)', () => {
+    it('computeBayesianLevel e computeCategoryStats extraem questões e nota de h.topics quando total=0 no cabeçalho', () => {
+      const history = [
+        {
+          date: '2026-09-01',
+          total: 0,
+          score: null,
+          topics: [
+            { name: 'Crase', total: 10, correct: 9 },
+            { name: 'Sintaxe', total: 10, correct: 7 }
+          ]
+        }
+      ];
+
+      const stats = computeCategoryStats(history, 1, 60, 100, 0);
+      expect(stats).not.toBeNull();
+      expect(stats.mean).toBeCloseTo(80, 1);
+
+      const bay = computeBayesianLevel(history, 1, 1, 100, { minScore: 0 });
+      expect(bay.mean).toBeGreaterThan(50);
+    });
+
+    it('EvolutionHeatmap colore células respeitando cat.minCutoff e oculta fração fictícia 17/20 em células sintéticas', () => {
+      const heatmapData = {
+        dates: [{ key: '2026-09-01', label: '01/09', dayName: 'Ter', isWeekend: false }],
+        rows: [
+          {
+            cat: { id: 'c1', name: 'Português', minCutoff: 90, minScore: 0, maxScore: 100 },
+            cells: [{ pct: 83, correct: 16.6, total: 20, realCorrect: 0, realTotal: 0, isSynthetic: true }]
+          }
+        ]
+      };
+
+      const html = renderToStaticMarkup(
+        <EvolutionHeatmap heatmapData={heatmapData} targetScore={70} maxScore={100} minScore={0} />
+      );
+      expect(html).toContain('83%');
+      expect(html).not.toContain('17/20');
+      // 83% é menor que minCutoff=90 (mas >= 90*0.8 = 72%), então deve receber cor amarela (#fcd34d) e não verde (#4ade80)
+      expect(html).toContain('#fcd34d');
+    });
+
+    it('insightGenerator ignora simulados invalidados (valid: false) e respeita escala da matéria em foco', () => {
+      const cat = {
+        id: 'c1',
+        name: 'Física',
+        minScore: 0,
+        maxScore: 20,
+        simuladoStats: {
+          history: [
+            { date: '2026-09-01', total: 10, correct: 8, score: 16, valid: true },
+            { date: '2026-09-02', total: 10, correct: 8, score: 16, valid: true },
+            { date: '2026-09-03', total: 10, correct: 0, score: 0, valid: false }
+          ]
+        }
+      };
+      const timeline = [
+        { date: '2026-09-01', raw_c1: 16, bay_c1: 16 },
+        { date: '2026-09-02', raw_c1: 16, bay_c1: 16 }
+      ];
+
+      const insight = generateEvolutionInsights({
+        timeline,
+        focusCategory: cat,
+        activeEngine: 'raw',
+        categories: [cat],
+        unit: 'pts',
+        minScore: 0,
+        maxScore: 100
+      });
+
+      expect(insight.title).not.toContain('Alta Volatilidade');
+      expect(insight.title).toContain('Consistência Sólida');
+    });
+
+    it('WeeklyEvolutionView processa simulados salvos apenas em h.topics no modo Semanas por Matéria', () => {
+      const categories = [
+        {
+          id: 'cat_top',
+          name: 'Química',
+          color: '#10b981',
+          simuladoStats: {
+            history: [
+              {
+                date: '2026-09-01',
+                total: 0,
+                score: null,
+                topics: [{ name: 'Termoquímica', total: 10, correct: 8 }]
+              }
+            ]
+          }
+        }
+      ];
+
+      const html = renderToStaticMarkup(
+        <WeeklyEvolutionView
+          categories={categories}
+          showOnlyFocus={false}
+          maxScore={100}
+          minScore={0}
+          unit="%"
+        />
+      );
+      expect(html).toContain('Semanas por Matéria');
+      expect(html).not.toContain('Dados insuficientes');
+    });
+
+    it('TodayVsGeneralChart filtra simuladoRows invalidados (valid: false) e processa h.topics', () => {
+      const today = getDateKey(new Date());
+      const categories = [
+        {
+          id: 'c1',
+          name: 'História',
+          simuladoStats: {
+            history: [
+              {
+                date: today,
+                total: 0,
+                score: null,
+                topics: [{ name: 'Brasil Império', total: 10, correct: 8 }]
+              }
+            ]
+          }
+        }
+      ];
+      const simuladoRows = [
+        { date: today, categoryId: 'c1', subject: 'História', total: 10, correct: 2, score: 20, valid: false }
+      ];
+
+      const html = renderToStaticMarkup(
+        <TodayVsGeneralChart
+          categories={categories}
+          simuladoRows={simuladoRows}
+          globalMetrics={{ globalAccuracy: 80 }}
+          targetScore={75}
+          maxScore={100}
+          minScore={0}
+          unit="%"
+        />
+      );
+      expect(html).toContain('80.0%');
+      expect(html).not.toContain('20.0%');
     });
   });
 });

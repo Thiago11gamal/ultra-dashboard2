@@ -235,7 +235,17 @@ export const EvolutionHeatmap = React.memo(({
         return totals.length > 0 ? totals.reduce((m, v) => Math.max(m, v), 1) : 1;
     }, [filteredRows]);
 
-    const cellColor = (pct, total = 0) => {
+    const getRowTargetPct = (cat) => {
+      if (cat?.minCutoff !== null && cat?.minCutoff !== undefined && String(cat.minCutoff).trim() !== '' && Number.isFinite(Number(cat.minCutoff))) {
+        const catMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMin;
+        const catMax = Number(cat?.maxScore) > catMin ? Number(cat.maxScore) : safeMax;
+        const catRange = Math.max(1e-9, catMax - catMin);
+        return Math.max(0, Math.min(100, ((Number(cat.minCutoff) - catMin) / catRange) * 100));
+      }
+      return targetScorePct;
+    };
+
+    const cellColor = (pct, total = 0, rowTargetPct = targetScorePct) => {
       if (pct == null || !Number.isFinite(Number(pct))) {
         return {
           bg: 'rgba(255,255,255,0.02)',
@@ -248,8 +258,9 @@ export const EvolutionHeatmap = React.memo(({
       const safePct = Number(pct);
       const safeTotal = Number.isFinite(Number(total)) ? Math.max(0, Number(total)) : 0;
       const density = maxCellTotal > 0 ? Math.min(1, safeTotal / maxCellTotal) : 0;
+      const effTarget = Number.isFinite(Number(rowTargetPct)) ? Number(rowTargetPct) : targetScorePct;
     
-      if (safePct >= targetScorePct) {
+      if (safePct >= effTarget) {
         return {
           bg: 'rgba(34,197,94,0.45)',
           text: '#4ade80',
@@ -258,7 +269,7 @@ export const EvolutionHeatmap = React.memo(({
         };
       }
     
-      if (safePct >= targetScorePct * 0.8) {
+      if (safePct >= effTarget * 0.8) {
         return {
           bg: 'rgba(251,191,36,0.4)',
           text: '#fcd34d',
@@ -267,7 +278,7 @@ export const EvolutionHeatmap = React.memo(({
         };
       }
     
-      if (safePct >= targetScorePct * 0.6) {
+      if (safePct >= effTarget * 0.6) {
         return {
           bg: 'rgba(251,146,60,0.4)',
           text: '#fb923c',
@@ -411,7 +422,8 @@ export const EvolutionHeatmap = React.memo(({
 
                                 {cells.map((cell, ci) => {
                                     const hasData = Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
-                                    const col = cellColor(hasData ? cell.pct : null, hasData ? cell.total : 0);
+                                    const rowTargetPct = getRowTargetPct(cat);
+                                    const col = cellColor(hasData ? cell.pct : null, hasData ? cell.total : 0, rowTargetPct);
                                     return (
                                         <div
                                             key={ci}
@@ -444,9 +456,11 @@ export const EvolutionHeatmap = React.memo(({
                                                     <span className="text-[13px] sm:text-[14px] font-black leading-none tabular-nums drop-shadow-[0_0_6px_rgba(15,23,42,0.65)]" style={{ color: col.text }}>
                                                         {formatPct(cell.pct)}
                                                     </span>
-                                                    <span className="text-[9px] text-slate-300/80 font-mono mt-1">
-                                                        {Math.round(cell.correct ?? 0)}/{Math.round(cell.total ?? 0)}
-                                                    </span>
+                                                    {!cell.isSynthetic && (
+                                                        <span className="text-[9px] text-slate-300/80 font-mono mt-1">
+                                                            {Math.round(cell.realCorrect ?? cell.correct ?? 0)}/{Math.round(cell.realTotal ?? cell.total ?? 0)}
+                                                        </span>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <span className="text-slate-500 text-[13px] font-bold">—</span>
@@ -485,11 +499,13 @@ export const EvolutionHeatmap = React.memo(({
                         </span>
                         <span className="text-[8px] text-slate-300 font-black uppercase tracking-widest">Desempenho</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-white font-mono">
-                        <span className="font-black px-1.5 py-0.5 rounded-md bg-black" style={{ color: hoveredCell.col?.text || '#4ade80' }}>{Math.round(hoveredCell.cell?.correct ?? 0)}</span>
-                        <span className="text-slate-500 font-bold">/</span>
-                        <span className="font-bold">{Math.round(hoveredCell.cell?.total ?? 0)} <small className="text-[8px] text-slate-400">Q</small></span>
-                    </div>
+                    {!hoveredCell.cell?.isSynthetic && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-white font-mono">
+                            <span className="font-black px-1.5 py-0.5 rounded-md bg-black" style={{ color: hoveredCell.col?.text || '#4ade80' }}>{Math.round(hoveredCell.cell?.realCorrect ?? hoveredCell.cell?.correct ?? 0)}</span>
+                            <span className="text-slate-500 font-bold">/</span>
+                            <span className="font-bold">{Math.round(hoveredCell.cell?.realTotal ?? hoveredCell.cell?.total ?? 0)} <small className="text-[8px] text-slate-400">Q</small></span>
+                        </div>
+                    )}
                     <div className="mt-1 text-[8px] text-slate-500 font-black uppercase tracking-tighter">
                         Densidade: {Math.round((hoveredCell.col?.density || 0) * 100)}%
                     </div>

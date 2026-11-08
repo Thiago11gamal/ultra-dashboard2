@@ -1161,11 +1161,11 @@ export default React.memo(function EvolutionChart({
                                 filteredChartData={filteredHistoricalData}
                                 activeCategories={activeCategories}
                                 engine={BAYESIAN_ENGINE}
-                                targetScore={targetScore}
+                                targetScore={showOnlyFocus ? focusTarget : targetScore}
                                 focusSubjectId={focusSubjectId}
                                 showOnlyFocus={showOnlyFocus}
-                                minScore={minScore}
-                                maxScore={maxScore}
+                                minScore={showOnlyFocus ? focusMin : minScore}
+                                maxScore={showOnlyFocus ? focusMax : maxScore}
                                 unit={unit}
                             />
                         )}
@@ -1312,6 +1312,7 @@ export default React.memo(function EvolutionChart({
                     <TimeSpentChart 
                         subjectAggData={subjectAggData} 
                         activeCategories={activeCategories}
+                        categories={categories}
                         showOnlyFocus={showOnlyFocus}
                         focusCategory={focusCategory}
                         maxScore={maxScore}
@@ -1397,11 +1398,11 @@ export default React.memo(function EvolutionChart({
                                 filteredChartData={filteredChartData}
                                 activeCategories={activeCategories}
                                 engine={engine}
-                                targetScore={targetScore}
+                                targetScore={showOnlyFocus ? focusTarget : targetScore}
                                 focusSubjectId={focusSubjectId}
                                 showOnlyFocus={showOnlyFocus}
-                                minScore={minScore}
-                                maxScore={maxScore}
+                                minScore={showOnlyFocus ? focusMin : minScore}
+                                maxScore={showOnlyFocus ? focusMax : maxScore}
                                 unit={unit}
                             />
                         </div>

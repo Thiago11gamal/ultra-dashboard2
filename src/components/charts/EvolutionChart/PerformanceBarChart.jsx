@@ -24,12 +24,13 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({ sub
 
     const chartData = useMemo(() => {
         return filteredAggData.map((d) => {
-            const questoes = sanitizeCount(d.questoes);
-            const acertosBrutos = sanitizeCount(d.acertos);
+            const hasReal = d.realQuestoes !== undefined && d.realQuestoes !== null;
+            const questoes = sanitizeCount(hasReal ? d.realQuestoes : d.questoes);
+            const acertosBrutos = sanitizeCount(hasReal ? d.realAcertos : d.acertos);
             const acertos = Math.min(questoes, acertosBrutos);
             const erros = Math.max(0, questoes - acertos);
             return { ...d, fullName: d.fullName || d.name || d.id, questoes, acertos, erros, errosRaw: erros };
-        });
+        }).filter((d) => d.questoes > 0);
     }, [filteredAggData]);
     
     const totals = useMemo(() => {

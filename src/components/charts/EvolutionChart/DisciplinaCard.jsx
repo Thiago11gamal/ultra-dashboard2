@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { formatValue, getSafeScore, getSyntheticTotal } from '../../../utils/scoreHelper';
+import { formatValue, getSafeScore, getSyntheticTotal, extractTopicsTotals } from '../../../utils/scoreHelper';
 import { pointsToPct, pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 
@@ -34,12 +34,13 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
     const safeRange = Math.max(1e-9, safeMax - safeMin);
     const hasLevel = hasValidNumber(level);
     const val = hasLevel ? Number(level) : null;
+    const globalRange = Math.max(1e-9, globalMax - globalMin);
     const effectiveTarget = hasValidNumber(cat?.minCutoff)
         ? Number(cat.minCutoff)
         : (hasValidNumber(target)
             ? (Number(target) <= safeMax && Number(target) >= safeMin && safeMax === globalMax && safeMin === globalMin
                 ? Number(target)
-                : safeMin + ((Number(target) - globalMin) / (globalMax - globalMin)) * safeRange)
+                : safeMin + ((Number(target) - globalMin) / globalRange) * safeRange)
             : safeMin + safeRange * 0.8);
     const ok = (val ?? safeMin) >= effectiveTarget;
     const midThreshold = safeMin + (effectiveTarget - safeMin) * 0.75;
@@ -57,8 +58,17 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
     let rawVal = metrics ? metrics[`raw_${cat.id}`] : null;
     if (!hasValidNumber(rawVal)) {
         const historyRaw = cat?.simuladoStats?.history;
-        const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
-        if (history.length > 0) {
+        const rawList = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+        const validHistory = rawList.filter(h => h && h.valid !== false);
+        if (validHistory.length > 0) {
+            const todayKey = getDateKey(new Date());
+            const nonFutureHistory = todayKey
+                ? validHistory.filter(h => {
+                    const dk = getDateKey(h?.date || h?.createdAt || h?.timestamp);
+                    return dk && dk <= todayKey;
+                })
+                : [];
+            const history = nonFutureHistory.length > 0 ? nonFutureHistory : validHistory;
             let latestDayKey = null;
             let latestMs = -Infinity;
             for (let i = 0; i < history.length; i++) {
@@ -76,11 +86,21 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
                 for (let i = 0; i < history.length; i++) {
                     const h = history[i];
                     if (getDateKey(h?.date || h?.createdAt || h?.timestamp) !== latestDayKey) continue;
-                    const s = getSafeScore(h, safeMax, safeMin);
+                    let s = getSafeScore(h, safeMax, safeMin);
+                    let q = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0;
+                    if (q <= 0 && h?.topics != null) {
+                        const tf = extractTopicsTotals(h, safeMax, safeMin);
+                        if (tf.total > 0) {
+                            q = tf.total;
+                            dayTotal += q;
+                            dayCorrect += tf.correct;
+                            continue;
+                        } else if (!Number.isFinite(s) && tf.hasTopicsScore) {
+                            s = tf.score;
+                        }
+                    }
                     if (!Number.isFinite(s)) continue;
-                    const q = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) > 0
-                        ? Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions)
-                        : getSyntheticTotal(safeMax);
+                    if (q <= 0) q = getSyntheticTotal(safeMax);
                     dayTotal += q;
                     dayCorrect += pointsToRatio(s, safeMax, safeMin) * q;
                 }

@@ -1,4 +1,4 @@
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
+import { getSafeScore, getSyntheticTotal, extractTopicsTotals } from '../utils/scoreHelper.js';
 import { normalizeDate, safeDateParse } from '../utils/dateHelper.js';
 import { calculateSlope } from './projection.js';
 import { Z_95, MIN_SD_FLOOR } from './math/constants.js';
@@ -475,8 +475,13 @@ export function computeBayesianLevel(
     const safeSyntheticTotal = Number.isFinite(syntheticTotalValue) ? syntheticTotalValue : 20;
 
     const safeTotalEntry = (h) => {
-        const n = Number(h?.total);
-        return Number.isFinite(n) && n > 0 ? n : safeSyntheticTotal;
+        const n = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions);
+        if (Number.isFinite(n) && n > 0) return n;
+        if (h && typeof h === 'object' && h.topics != null) {
+            const tf = extractTopicsTotals(h, safeMaxScore, safeMinScore);
+            if (tf.total > 0) return tf.total;
+        }
+        return safeSyntheticTotal;
     };
 
     const gaps = [];
@@ -561,7 +566,11 @@ export function computeBayesianLevel(
         for (let i = 0; i < historyToProcess.length; i++) {
             const h = historyToProcess[i];
 
-            const totalRaw = Number(h?.total);
+            let totalRaw = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions);
+            if ((!Number.isFinite(totalRaw) || totalRaw <= 0) && h && typeof h === 'object' && h.topics != null) {
+                const tf = extractTopicsTotals(h, safeMaxScore, safeMinScore);
+                if (tf.total > 0) totalRaw = tf.total;
+            }
             const hasTotal = Number.isFinite(totalRaw) && totalRaw > 0;
             const total = hasTotal ? totalRaw : 0;
 
@@ -835,8 +844,19 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
 
     const historyWithSynthetics = safeHistory
         .map(h => {
-            const score = getSafeScore(h, safeMaxScore, minScore);
-            const total = Number(h?.total);
+            const score = getSafeScore(h, safeMaxScore, safeMinScore);
+            let total = Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions);
+            if ((!Number.isFinite(total) || total <= 0) && h && typeof h === 'object' && h.topics != null) {
+                const tf = extractTopicsTotals(h, safeMaxScore, safeMinScore);
+                if (tf.total > 0) {
+                    return {
+                        ...h,
+                        total: tf.total,
+                        correct: tf.correct,
+                        score: Number.isFinite(score) ? score : tf.score
+                    };
+                }
+            }
 
             if ((!Number.isFinite(total) || total <= 0) && Number.isFinite(score)) {
                 if (typeof h === 'number') {
@@ -861,11 +881,11 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const historyToUse = validHistory.length > 0 ? validHistory : historyWithSynthetics;
 
     const scores = historyToUse
-        .map(h => getSafeScore(h, safeMaxScore, minScore))
+        .map(h => getSafeScore(h, safeMaxScore, safeMinScore))
         .filter(Number.isFinite);
 
     const validHistoryForMean = historyToUse.filter(h =>
-        Number.isFinite(getSafeScore(h, safeMaxScore, minScore))
+        Number.isFinite(getSafeScore(h, safeMaxScore, safeMinScore))
     );
 
     let sumWeightMean = 0;
@@ -880,7 +900,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
         const effW = totalWeight * diffWeight;
 
         sumWeightMean += effW;
-        sumScoreMean += getSafeScore(h, safeMaxScore, minScore) * effW;
+        sumScoreMean += getSafeScore(h, safeMaxScore, safeMinScore) * effW;
     });
 
     const mRaw = sumWeightMean > 0 ? sumScoreMean / sumWeightMean : mean(scores);

@@ -122,14 +122,29 @@ export const SubtopicsPerformanceChart = React.memo(({
     const [viewMode, setViewMode] = useState('bars');
     const accuracyUnit = '%';
     
-    // Garantir range mínimo e fallback sensato
-    const safeMinScorePct = hasValidNumber(minScore) ? Number(minScore) : 0;
-    const safeMaxScorePct = Number(maxScore) > safeMinScorePct ? Number(maxScore) : safeMinScorePct + 1;
+    // Garantir range mínimo e fallback sensato (respeitando escala e meta da matéria em foco quando showOnlyFocus está ativo)
+    const focusedCategory = (showOnlyFocus && focusSubjectId && Array.isArray(categories))
+        ? categories.find(cat => cat && cat.id === focusSubjectId)
+        : null;
+    const globalMinScorePct = hasValidNumber(minScore) ? Number(minScore) : 0;
+    const globalMaxScorePct = Number(maxScore) > globalMinScorePct ? Number(maxScore) : globalMinScorePct + 1;
+    const globalRangePct = Math.max(1e-9, globalMaxScorePct - globalMinScorePct);
+
+    const safeMinScorePct = (focusedCategory && hasValidNumber(focusedCategory.minScore))
+        ? Number(focusedCategory.minScore)
+        : globalMinScorePct;
+    const safeMaxScorePct = (focusedCategory && hasValidNumber(focusedCategory.maxScore) && Number(focusedCategory.maxScore) > safeMinScorePct)
+        ? Number(focusedCategory.maxScore)
+        : (globalMaxScorePct > safeMinScorePct ? globalMaxScorePct : safeMinScorePct + 1);
     const safeRangePct = Math.max(1e-9, safeMaxScorePct - safeMinScorePct);
     
-    const safeTargetScorePctRaw = hasValidNumber(targetScore)
-      ? Number(targetScore)
-      : safeMinScorePct;
+    const safeTargetScorePctRaw = (focusedCategory && hasValidNumber(focusedCategory.minCutoff))
+      ? Number(focusedCategory.minCutoff)
+      : (hasValidNumber(targetScore)
+          ? (safeMaxScorePct === globalMaxScorePct && safeMinScorePct === globalMinScorePct
+              ? Number(targetScore)
+              : safeMinScorePct + ((Number(targetScore) - globalMinScorePct) / globalRangePct) * safeRangePct)
+          : safeMinScorePct);
     
     const safeTargetScorePctClamped = Math.max(
       safeMinScorePct,
@@ -215,10 +230,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const key = n.toLowerCase();
 
                     if (!topicMap[key]) {
-                        topicMap[key] = { name: n, correct: 0, total: 0 };
+                        topicMap[key] = { name: n, correct: 0, total: 0, realCorrect: 0, realTotal: 0 };
                     }
 
-                    let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
+                    const rawTotParsed = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
+                    const isSynthTopic = rawTotParsed <= 0;
+                    let total = rawTotParsed;
                     if (t.isPercentage) {
                         if (total === 0) total = getSyntheticTotal(catMax);
                     } else if (total === 0 && hasValidNumber(t.score)) {
@@ -244,6 +261,10 @@ export const SubtopicsPerformanceChart = React.memo(({
 
                     topicMap[key].total += total;
                     topicMap[key].correct += correctCount;
+                    if (!isSynthTopic) {
+                        topicMap[key].realTotal += total;
+                        topicMap[key].realCorrect += correctCount;
+                    }
                 });
             }
         });
@@ -251,13 +272,19 @@ export const SubtopicsPerformanceChart = React.memo(({
         return Object.values(topicMap)
             .filter(d => d.total > 0)
             .map(d => {
-                const rawAcc = (d.correct / d.total) * 100;
+                const effTotal = d.realTotal > 0 ? d.realTotal : d.total;
+                const effCorrect = d.realTotal > 0 ? d.realCorrect : d.correct;
+                const rawAcc = (effCorrect / effTotal) * 100;
                 const acc = Number.isFinite(rawAcc) ? rawAcc : 0;
+                const isSynthetic = d.realTotal === 0;
                 return {
                     name: d.name.length > 25 ? d.name.substring(0, 23) + '...' : d.name,
                     fullName: d.name,
-                    correct: Math.round(d.correct),
-                    total: Math.round(d.total),
+                    correct: Math.round(isSynthetic ? d.correct : d.realCorrect),
+                    total: Math.round(isSynthetic ? d.total : d.realTotal),
+                    realCorrect: Math.round(d.realCorrect),
+                    realTotal: Math.round(d.realTotal),
+                    isSynthetic,
                     accuracy: Number(acc.toFixed(2)),
                 };
             })
@@ -434,7 +461,9 @@ export const SubtopicsPerformanceChart = React.memo(({
         return (
             <text x={x + width + 8} y={y + height / 2 + 4}>
                 <tspan fill="#ffffff" fontSize={11} fontWeight="900">{formatValue(value)}%</tspan>
-                <tspan fill="#94a3b8" fontSize={9.5} fontWeight="700" dx={6}>({entry.correct}/{entry.total})</tspan>
+                {!entry.isSynthetic && (
+                    <tspan fill="#94a3b8" fontSize={9.5} fontWeight="700" dx={6}>({entry.realCorrect ?? entry.correct}/{entry.realTotal ?? entry.total})</tspan>
+                )}
             </text>
         );
     }, [chartData]);

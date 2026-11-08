@@ -129,6 +129,7 @@ export {
   latestByDate,
   resolveTargetPoints,
   normalizeScoreValue,
+  extractTopicsTotals,
   getSafeScore,
   clampCorrectToTotal,
   sanitizeSimuladoRow,

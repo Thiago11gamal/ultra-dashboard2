@@ -1,5 +1,5 @@
 import { normalizeDate, toDateMs } from "../utils/dateHelper.js";
-import { getSafeScore, getSyntheticTotal } from "../utils/scoreHelper.js";
+import { getSafeScore, getSyntheticTotal, extractTopicsTotals } from "../utils/scoreHelper.js";
 import { pointsToRatio } from "../utils/scoreHelper.conversions.js";
 
 const toHistoryArray = (history) => {
@@ -14,10 +14,13 @@ const safeFinite = (value, fallback = 0) => {
 };
 
 const sortByValidDate = (history) => {
+    const maxAllowedMs = Date.now() + 86400000;
     return toHistoryArray(history)
         .filter(h => {
+            if (h?.valid === false) return false;
             const raw = h?.date || h?.createdAt;
-            return raw && Number.isFinite(normalizeDate(raw)?.getTime());
+            const ms = normalizeDate(raw)?.getTime();
+            return raw && Number.isFinite(ms) && ms <= maxAllowedMs;
         })
         .sort((a, b) => {
             const ta = normalizeDate(a?.date || a?.createdAt)?.getTime() ?? 0;
@@ -34,7 +37,8 @@ export function generateEvolutionInsights({
     categories,
     unit = '%',
     maxScore = 100,
-    minScore = 0
+    minScore = 0,
+    showOnlyFocus = false
 }) {
     const defaultTitle = "Análise do Sistema";
     const effectiveTimeline =
@@ -91,8 +95,12 @@ export function generateEvolutionInsights({
 
     const raw = getLastValid(`raw_${focusCategory.id}`);
     const bayesian = getLastValid(`bay_${focusCategory.id}`);
-    const safeMaxScore = safeFinite(maxScore, 100) > 0 ? safeFinite(maxScore, 100) : 100;
-    const safeMinScore = safeFinite(minScore, 0);
+    const globalMaxScore = safeFinite(maxScore, 100) > 0 ? safeFinite(maxScore, 100) : 100;
+    const globalMinScore = safeFinite(minScore, 0);
+    const safeMaxScore = safeFinite(focusCategory?.maxScore, globalMaxScore) > 0
+        ? safeFinite(focusCategory?.maxScore, globalMaxScore)
+        : globalMaxScore;
+    const safeMinScore = safeFinite(focusCategory?.minScore, globalMinScore);
     const scale = Math.max(0.01, (safeMaxScore - safeMinScore) / 100);
 
     // Lógica do Mapa de Calor (Raw Weekly)
@@ -101,14 +109,17 @@ export function generateEvolutionInsights({
         const dayStats = {};
         const now = new Date();
         
-        const safeCategories = Array.isArray(categories)
+        const allCategories = Array.isArray(categories)
             ? categories.filter(Boolean)
             : Object.values(categories || {}).filter(Boolean);
+        const safeCategories = (showOnlyFocus && focusCategory?.id)
+            ? allCategories.filter(c => c.id === focusCategory.id)
+            : allCategories;
 
         safeCategories.forEach(cat => {
             const history = toHistoryArray(cat.simuladoStats?.history);
-            const cMax = safeFinite(cat?.maxScore, safeMaxScore) > 0 ? safeFinite(cat?.maxScore, safeMaxScore) : safeMaxScore;
-            const cMin = safeFinite(cat?.minScore, safeMinScore);
+            const cMax = safeFinite(cat?.maxScore, globalMaxScore) > 0 ? safeFinite(cat?.maxScore, globalMaxScore) : globalMaxScore;
+            const cMin = safeFinite(cat?.minScore, globalMinScore);
 
             const rawHistory = history
                 .filter(h => {
@@ -127,6 +138,14 @@ export function generateEvolutionInsights({
                 if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
 
                 let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions);
+                if ((!Number.isFinite(tot) || tot <= 0) && h.topics != null) {
+                    const tf = extractTopicsTotals(h, cMax, cMin);
+                    if (tf.total > 0) {
+                        dayStats[dow].correct += tf.correct;
+                        dayStats[dow].total += tf.total;
+                        return;
+                    }
+                }
                 if (!Number.isFinite(tot) || tot <= 0) {
                     tot = getSyntheticTotal(cMax);
                 }
@@ -178,11 +197,14 @@ export function generateEvolutionInsights({
                 return Number.isFinite(d) && (nowMs - d) >= -86400000 && (nowMs - d) <= sevenDaysMs;
             })
             .reduce((sum, h) => {
-                const parsedTotal = parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10);
-                const fallbackTotal = h?.score != null ? getSyntheticTotal(safeMaxScore) : 0;
+                let parsedTotal = parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10);
+                if ((!Number.isFinite(parsedTotal) || parsedTotal <= 0) && h?.topics != null) {
+                    const tf = extractTopicsTotals(h, safeMaxScore, safeMinScore);
+                    if (tf.total > 0) parsedTotal = tf.total;
+                }
                 const safeTotal = Number.isFinite(parsedTotal) && parsedTotal > 0
                     ? parsedTotal
-                    : fallbackTotal;
+                    : 0;
 
                 return sum + Math.max(0, safeFinite(safeTotal, 0));
             }, 0);
@@ -237,8 +259,8 @@ export function generateEvolutionInsights({
             return { type: 'info', icon: "🧠", title: "Nível Bayesiano", text: "Aguardando mais dados..." };
         }
 
-        const ciLow = safeFinite(lastPoint[`bay_ci_low_${focusCategory.id}`], NaN);
-        const ciHigh = safeFinite(lastPoint[`bay_ci_high_${focusCategory.id}`], NaN);
+        const ciLow = safeFinite(getLastValid(`bay_ci_low_${focusCategory.id}`) ?? lastPoint[`bay_ci_low_${focusCategory.id}`], NaN);
+        const ciHigh = safeFinite(getLastValid(`bay_ci_high_${focusCategory.id}`) ?? lastPoint[`bay_ci_high_${focusCategory.id}`], NaN);
         const ciWidth = (Number.isFinite(ciHigh) && Number.isFinite(ciLow)) ? Math.abs(ciHigh - ciLow) : null;
 
         if (ciWidth != null && ciWidth < 5 * scale) return { type: 'success', icon: "🎯", title: "++Alta Precisão Bayesiana++", text: `Seu nível real é ${safeBayesian.toFixed(1)}${unit}.`, advice: "++Convergência máxima++ do algoritmo." };
@@ -293,8 +315,8 @@ export function generateEvolutionInsights({
 
     // Lógica Densidade MC (mc_density)
     if (activeEngine === "mc_density") {
-        const ciLow = safeFinite(lastPoint[`bay_ci_low_${focusCategory.id}`], NaN);
-        const ciHigh = safeFinite(lastPoint[`bay_ci_high_${focusCategory.id}`], NaN);
+        const ciLow = safeFinite(getLastValid(`bay_ci_low_${focusCategory.id}`) ?? lastPoint[`bay_ci_low_${focusCategory.id}`], NaN);
+        const ciHigh = safeFinite(getLastValid(`bay_ci_high_${focusCategory.id}`) ?? lastPoint[`bay_ci_high_${focusCategory.id}`], NaN);
         const ciWidth = (Number.isFinite(ciHigh) && Number.isFinite(ciLow)) ? (ciHigh - ciLow) : null;
         return { 
             type: 'info', 

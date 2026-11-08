@@ -72,18 +72,18 @@ export function computeEvolutionStatuses({
        (focusMax === safeMax && focusMin === safeMin ? safeTarget : focusMin + globalTargetRatio * focusRange))
     : safeTarget;
 
-  const currentBay = focusId ? safeNum(last[`bay_${focusId}`], null) : null;
-  let currentRaw = focusId ? safeNum(last[`raw_${focusId}`], null) : null;
-  if (currentRaw == null && focusId && effectiveTimeline.length > 0) {
-    for (let i = effectiveTimeline.length - 1; i >= 0; i--) {
-      const r = safeNum(effectiveTimeline[i]?.[`raw_${focusId}`], null);
-      if (r != null) {
-        currentRaw = r;
-        break;
-      }
+  const getLastValidFrom = (series, key) => {
+    if (!Array.isArray(series) || series.length === 0) return null;
+    for (let i = series.length - 1; i >= 0; i--) {
+      const val = safeNum(series[i]?.[key], null);
+      if (val != null) return val;
     }
-  }
-  const currentStats = focusId ? safeNum(last[`stats_${focusId}`], null) : null;
+    return null;
+  };
+
+  const currentBay = focusId ? getLastValidFrom(effectiveTimeline, `bay_${focusId}`) : null;
+  const currentRaw = focusId ? getLastValidFrom(effectiveTimeline, `raw_${focusId}`) : null;
+  const currentStats = focusId ? getLastValidFrom(effectiveTimeline, `stats_${focusId}`) : null;
   const current = currentBay ?? currentRaw ?? currentStats;
 
   const getValueSeries = (prefix) => {
@@ -224,8 +224,8 @@ export function computeEvolutionStatuses({
 
   // Incerteza bayesiana
   if (focusId) {
-    const ciLow = safeNum(last[`bay_ci_low_${focusId}`], null);
-    const ciHigh = safeNum(last[`bay_ci_high_${focusId}`], null);
+    const ciLow = getLastValidFrom(effectiveTimeline, `bay_ci_low_${focusId}`);
+    const ciHigh = getLastValidFrom(effectiveTimeline, `bay_ci_high_${focusId}`);
 
     if (ciLow != null && ciHigh != null) {
       const width = Math.abs(ciHigh - ciLow);
@@ -248,34 +248,38 @@ export function computeEvolutionStatuses({
 
   // Matérias abaixo da meta
   if (Array.isArray(categories) && categories.length > 0) {
+    let evaluatedCount = 0;
     const below = categories.filter((cat) => {
       const catMin = safeNum(cat?.minScore, safeMin);
       const catMax = Math.max(catMin + 1, safeNum(cat?.maxScore, safeMax));
       const catRange = catMax - catMin;
       const catScale = catRange / 100;
 
-      const fromTimeline = safeNum(
-        last?.[`bay_${cat.id}`] ??
-        last?.[`raw_${cat.id}`] ??
-        last?.[`stats_${cat.id}`],
-        null
-      );
+      const fromTimeline =
+        getLastValidFrom(effectiveTimeline, `bay_${cat.id}`) ??
+        getLastValidFrom(effectiveTimeline, `raw_${cat.id}`) ??
+        getLastValidFrom(effectiveTimeline, `stats_${cat.id}`) ??
+        getLastValidFrom(timeline, `bay_${cat.id}`) ??
+        getLastValidFrom(timeline, `raw_${cat.id}`) ??
+        getLastValidFrom(timeline, `stats_${cat.id}`);
       let lvl = fromTimeline;
       if (lvl == null) {
         const hist = Array.isArray(cat?.simuladoStats?.history)
           ? cat.simuladoStats.history
           : Object.values(cat?.simuladoStats?.history || {});
-        const hasHistory = hist.some(Boolean);
+        const hasHistory = hist.some((h) => h && h.valid !== false);
         const hasBayes = safeNum(cat?.bayesianStats?.mean, null) != null;
         const avgVal = safeNum(cat?.simuladoStats?.average, null);
         const stored = hasBayes
           ? safeNum(cat.bayesianStats.mean, null)
           : (hasHistory || (avgVal != null && avgVal > 0) ? avgVal : null);
-        if (stored != null) {
+        if (stored != null && (hasHistory || hasBayes || (avgVal != null && avgVal > 0))) {
           const isLegacyPct = stored >= 0 && stored <= 100 && (stored < catMin || (catMax > 100 && catRange >= 200));
           lvl = isLegacyPct ? catMin + (stored / 100) * catRange : stored;
         }
       }
+
+      if (lvl != null) evaluatedCount++;
 
       const customMinCutoff = safeNum(cat?.minCutoff, null);
       const catTarget = customMinCutoff != null
@@ -287,10 +291,12 @@ export function computeEvolutionStatuses({
       return lvl != null && lvl < catTarget - 5 * catScale;
     }).length;
 
+    const totalSubjectsDenom = evaluatedCount > 0 ? evaluatedCount : categories.length;
+
     statuses.push({
       id: 'subjects',
       label: 'Matérias abaixo da meta',
-      value: `${below}/${categories.length}`,
+      value: `${below}/${totalSubjectsDenom}`,
       tone: below === 0 ? 'success' : below <= 2 ? 'warning' : 'danger',
       icon: '📚',
       help: 'Matérias com nível atual abaixo da zona segura da meta.'
@@ -329,7 +335,14 @@ export function computeEvolutionStatuses({
 
   // Movimento/tendência interna
   if (focusId) {
-    const trendStatus = String(last?.[`trend_status_${focusId}`] || '').toLowerCase();
+    let trendStatus = '';
+    for (let i = effectiveTimeline.length - 1; i >= 0; i--) {
+      const ts = String(effectiveTimeline[i]?.[`trend_status_${focusId}`] || '').toLowerCase();
+      if (ts) {
+        trendStatus = ts;
+        break;
+      }
+    }
 
     if (trendStatus) {
       statuses.push({

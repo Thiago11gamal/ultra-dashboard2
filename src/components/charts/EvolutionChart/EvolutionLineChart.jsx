@@ -130,6 +130,11 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
                     }
                 });
 
+                const trendKey = `trend_${cat.id}`;
+                if (needsScale && hasValidNum(copy[trendKey])) {
+                    copy[trendKey] = Number(((Number(copy[trendKey]) / cRange) * safeRange).toFixed(2));
+                }
+
                 const low = copy[`bay_ci_low_${cat.id}`];
                 const high = copy[`bay_ci_high_${cat.id}`];
                 if (hasValidNum(low) && hasValidNum(high)) {

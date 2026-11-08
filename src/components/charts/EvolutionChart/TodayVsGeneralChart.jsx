@@ -4,7 +4,7 @@ import {
     ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, LabelList
 } from 'recharts';
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
-import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper';
+import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals } from '../../../utils/scoreHelper';
 import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.conversions';
 import { normalize } from '../../../utils/normalization';
 import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
@@ -93,9 +93,60 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         return [];
     }, [rawCategories, focusCategory]);
 
+    const globalMax = Math.max(1, Number(maxScore) || 100);
+    const globalMin = hasValidNumber(minScore) ? Math.min(Number(minScore), globalMax) : 0;
+    const globalRange = Math.max(1e-9, globalMax - globalMin);
+    const safeMax = (focusCategory && hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0)
+        ? Number(focusCategory.maxScore)
+        : globalMax;
+    const safeMin = (focusCategory && hasValidNumber(focusCategory?.minScore))
+        ? Math.min(Number(focusCategory.minScore), safeMax)
+        : Math.min(globalMin, safeMax);
+    const safeRange = Math.max(1e-9, safeMax - safeMin);
+    const effectiveTargetScore = (focusCategory && hasValidNumber(focusCategory?.minCutoff))
+        ? Math.max(safeMin, Math.min(safeMax, Number(focusCategory.minCutoff)))
+        : (hasValidNumber(targetScore)
+            ? (safeMax === globalMax && safeMin === globalMin
+                ? Number(targetScore)
+                : safeMin + ((Number(targetScore) - globalMin) / globalRange) * safeRange)
+            : safeMin + safeRange * 0.8);
+
+    const resolveEntryQuestionStats = (h, catMax, catMin) => {
+        let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+        let corr = 0;
+        const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
+        const hasExplicitC = rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '' && !h.isPercentage;
+        if (tot <= 0 && h?.topics != null) {
+            const tf = extractTopicsTotals(h, catMax, catMin);
+            if (tf.total > 0) {
+                return { tot: tf.total, corr: tf.correct, isSynthetic: false };
+            }
+            if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
+                const synthTot = getSyntheticTotal(catMax);
+                return { tot: synthTot, corr: pointsToRatio(tf.score, catMax, catMin) * synthTot, isSynthetic: true };
+            }
+        }
+        if (hasExplicitC) {
+            const rawC = Math.max(0, Number(rawCorrVal) || 0);
+            if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
+            corr = Math.min(tot, Number.isFinite(rawC) ? rawC : 0);
+            return { tot, corr, isSynthetic: false };
+        }
+        const rawScore = getSafeScore(h, catMax, catMin);
+        if (!Number.isFinite(rawScore) && tot <= 0) return { tot: 0, corr: 0, isSynthetic: false };
+        const score = Number.isFinite(rawScore) ? rawScore : catMin;
+        const isSynthetic = tot === 0;
+        if (tot === 0 && (h.isPercentage || h.score != null || h.scorePoints != null || h.scorePct != null)) {
+            tot = getSyntheticTotal(catMax);
+        }
+        if (tot <= 0) return { tot: 0, corr: 0, isSynthetic: false };
+        corr = isSynthetic
+            ? pointsToRatio(score, catMax, catMin) * tot
+            : Math.round(pointsToRatio(score, catMax, catMin) * tot);
+        return { tot, corr: Math.max(0, Math.min(tot, corr)), isSynthetic };
+    };
+
     const generalAccuracy = useMemo(() => {
-        const safeMax = Math.max(1, Number(maxScore) || 100);
-        const safeMin = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMax) : 0;
         if (focusCategory) {
             const catMax = hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0 ? Number(focusCategory.maxScore) : safeMax;
             const catMin = hasValidNumber(focusCategory?.minScore) ? Math.min(Number(focusCategory.minScore), catMax) : safeMin;
@@ -103,21 +154,10 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             let totalQ = 0;
             let totalC = 0;
             history.forEach(h => {
-                let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
-                let corr = 0;
-                const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
-                if (rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '' && !h.isPercentage) {
-                    const rawC = Math.max(0, Number(rawCorrVal) || 0);
-                    if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
-                    corr = Math.min(tot, rawC);
-                } else {
-                    const rawScore = getSafeScore(h, catMax, catMin);
-                    const score = Number.isFinite(rawScore) ? rawScore : catMin;
-                    if (tot === 0 && (h.isPercentage || h.score != null)) tot = getSyntheticTotal(catMax);
-                    corr = Math.round(pointsToRatio(score, catMax, catMin) * tot);
-                }
+                const { tot, corr } = resolveEntryQuestionStats(h, catMax, catMin);
+                if (tot <= 0) return;
                 totalQ += tot;
-                totalC += Math.max(0, Math.min(tot, corr));
+                totalC += corr;
             });
             if (totalQ > 0) {
                 return Math.max(safeMin, Math.min(safeMax, ratioToPoints(totalC / totalQ, safeMax, safeMin)));
@@ -126,12 +166,11 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         const pct = Number(globalMetrics?.globalAccuracy);
         const safePct = Number.isFinite(pct) ? pct : 0;
         return Math.max(safeMin, Math.min(safeMax, ratioToPoints(safePct / 100, safeMax, safeMin)));
-    }, [focusCategory, globalMetrics?.globalAccuracy, maxScore, minScore]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [focusCategory, globalMetrics?.globalAccuracy, safeMax, safeMin]);
 
-    const safeMax = Math.max(1, Number(maxScore) || 100);
-    const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
-    const scale = Math.max(1e-9, safeMax - safeMin) / 100;
-    const stabilityMargin = Math.max(0.5, (safeMax - safeMin) * 0.02);
+    const scale = safeRange / 100;
+    const stabilityMargin = Math.max(0.5, safeRange * 0.02);
 
     const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
 
@@ -154,8 +193,8 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
 
     const { dailyData, lastActiveEntry } = useMemo(() => {
         const dayMap = {};
-        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-        const safeMinScore = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMaxScore) : 0;
+        const safeMaxScore = safeMax;
+        const safeMinScore = safeMin;
         const baseNowMs = toDateMs(todayKey) || 0;
         const localNext = getDateKey(new Date(baseNowMs + 86400000));
         const utcNext = new Date(baseNowMs + 86400000).toISOString().split('T')[0];
@@ -167,23 +206,8 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
                 if (!dKey || dKey > maxAllowedDateKey) return;
-                let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
-                let corr = 0;
-                const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
-                if (rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '' && !h.isPercentage) {
-                    const rawC = Math.max(0, Number(rawCorrVal) || 0);
-                    if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
-                    corr = Math.min(tot, Number.isFinite(rawC) ? rawC : 0);
-                } else {
-                    const rawScore = getSafeScore(h, catMax, catMin);
-                    const score = Number.isFinite(rawScore) ? rawScore : catMin;
-                    if (tot === 0 && (h.isPercentage || h.score != null)) {
-                        tot = getSyntheticTotal(catMax);
-                    }
-                    corr = Math.round(pointsToRatio(score, catMax, catMin) * tot);
-                }
+                const { tot, corr } = resolveEntryQuestionStats(h, catMax, catMin);
                 if (tot <= 0) return;
-                corr = Math.max(0, Math.min(tot, corr));
                 if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
                 dayMap[dKey].correct += corr;
                 dayMap[dKey].total += tot;
@@ -199,12 +223,13 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 date,
                 displayDate: shortDate,
                 accuracy: acc,
-                total: d.total
+                total: Math.round(d.total)
             };
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         return { dailyData: result, lastActiveEntry: lastEntry };
-    }, [activeCategories, maxScore, minScore, todayKey]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeCategories, safeMax, safeMin, todayKey]);
 
     const temporalMetrics = useMemo(() => {
         const ms1Week = 7 * 86400000;
@@ -225,8 +250,8 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             month6: { correct: 0, total: 0 }
         };
 
-        const safeMaxScore = Math.max(1, Number(maxScore) || 100);
-        const safeMinScore = hasValidNumber(minScore) ? Math.min(Number(minScore), safeMaxScore) : 0;
+        const safeMaxScore = safeMax;
+        const safeMinScore = safeMin;
 
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
@@ -237,23 +262,8 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 if (!hDateKey || hDateKey > maxAllowedDateKey) return;
                 const time = toDateMs(h.date || h.createdAt);
                 if (time === null || Number.isNaN(time) || !Number.isFinite(time)) return;
-                let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
-                let corr = 0;
-                const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
-                if (rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '' && !h.isPercentage) {
-                    const rawC = Math.max(0, Number(rawCorrVal) || 0);
-                    if (tot === 0) tot = rawC > 0 ? rawC : getSyntheticTotal(catMax);
-                    corr = Math.min(tot, Number.isFinite(rawC) ? rawC : 0);
-                } else {
-                    const rawScore = getSafeScore(h, catMax, catMin);
-                    const score = Number.isFinite(rawScore) ? rawScore : catMin;
-                    if (tot === 0 && (h.isPercentage || h.score != null)) {
-                        tot = getSyntheticTotal(catMax);
-                    }
-                    corr = Math.round(pointsToRatio(score, catMax, catMin) * tot);
-                }
-                corr = Math.max(0, Math.min(tot, corr));
-                if (tot === 0) return;
+                const { tot, corr } = resolveEntryQuestionStats(h, catMax, catMin);
+                if (tot <= 0) return;
 
                 const isTodayDate = hDateKey === todayKey || hDateKey === utcTodayKey;
                 if (isTodayDate) { buckets.today.correct += corr; buckets.today.total += tot; }
@@ -274,6 +284,9 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             const activeCategoryIdMap = new Set(activeCategories.map(c => c.id).filter(Boolean));
             const sortedRows = [...simuladoRows]
                 .filter(r => {
+                  if (!r || r.valid === false) return false;
+                  const rDateKey = getDateKey(r.date || r.createdAt);
+                  if (!rDateKey || rDateKey > maxAllowedDateKey) return false;
                   const rSubj = normalize(r.subject || r.categoryName || r.materia);
                   const subjMatches = rSubj ? activeCategoryMap.has(rSubj) : false;
                   const idMatches = r.categoryId && activeCategoryIdMap.has(r.categoryId);
@@ -308,7 +321,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 const ms = toDateMs(h?.createdAt || h?.date);
                 const latestDayKey = Number.isFinite(latestTimestamp) ? getDateKey(new Date(latestTimestamp)) : '';
                 const isNewer = hasRowMatch
-                    ? (Number.isFinite(ms) && hDateKey > latestDayKey)
+                    ? (Number.isFinite(ms) && (ms > latestTimestamp || hDateKey > latestDayKey))
                     : (Number.isFinite(ms) && ms >= latestTimestamp);
                 if (isNewer) {
                     const rawScore = getSafeScore(h, catMax, catMin);
@@ -329,7 +342,8 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 104, rOut: 111 },
             { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 112, rOut: 119 }
         ];
-    }, [activeCategories, maxScore, minScore, todayKey, simuladoRows]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeCategories, safeMax, safeMin, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');
     const latestAcc = hasValidNumber(lastMetric?.val) ? Number(lastMetric.val) : null;
@@ -394,8 +408,8 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
 
     const getColor = (val) => {
         if (val == null) return 'transparent';
-        if (val >= targetScore) return COLORS.gaugeFillSuccess;
-        if (val < targetScore - (15 * scale)) return COLORS.gaugeFillDanger;
+        if (val >= effectiveTargetScore) return COLORS.gaugeFillSuccess;
+        if (val < effectiveTargetScore - (15 * scale)) return COLORS.gaugeFillDanger;
         return '#facc15';
     };
 
@@ -446,7 +460,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                         <PieChart>
                             {temporalMetrics.map((metric) => {
                                 const isNull = metric.val == null;
-                                const safeMinVal = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+                                const safeMinVal = safeMin;
                                 const val = isNull ? safeMinVal : Math.max(safeMinVal, Math.min(metric.val, safeMax));
                                 const arcColor = isNull ? 'transparent' : getColor(metric.val);
                                 const scaleRange = Math.max(1e-9, safeMax - safeMinVal);
@@ -527,7 +541,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                     </div>
                     <div className="flex flex-col text-right">
                         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Meta</span>
-                        <span className="text-sm font-bold font-mono text-emerald-400">{formatValue(targetScore)}{unit}</span>
+                        <span className="text-sm font-bold font-mono text-emerald-400">{formatValue(effectiveTargetScore)}{unit}</span>
                     </div>
                 </div>
             </div>
@@ -562,7 +576,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                                 fontWeight={600}
                             />
                             <YAxis 
-                                domain={[minScore, maxScore]} 
+                                domain={[safeMin, safeMax]} 
                                 stroke="#64748b" 
                                 fontSize={10} 
                                 tickLine={false} 

@@ -81,15 +81,17 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
             ? Math.max(0, Math.min(rawTotal > 0 ? rawTotal : Infinity, parsedCorrect))
             : 0;
         let score = getSafeScore(h, safeMax, safeMin);
-        if (rawTotal <= 0 && !Number.isFinite(score)) {
+        if (rawTotal <= 0) {
             const topicFallback = extractTopicsTotals(h, safeMax, safeMin);
             if (topicFallback.total > 0) {
                 rawTotal = topicFallback.total;
                 rawCorrect = topicFallback.correct;
                 hasCorrect = true;
                 parsedCorrect = rawCorrect;
-                score = topicFallback.score;
-            } else if (topicFallback.hasTopicsScore) {
+                if (!Number.isFinite(score) || score === safeMin) {
+                    score = topicFallback.score;
+                }
+            } else if (!Number.isFinite(score) && topicFallback.hasTopicsScore) {
                 score = topicFallback.score;
             }
         }
@@ -276,10 +278,9 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
         const getVol = (h, catMax, catMin) => {
             const t = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
             if (t > 0) return t;
-            if (h?.score != null || h?.scorePoints != null) return getSyntheticTotal(catMax);
             const topicFallback = extractTopicsTotals(h, catMax, catMin);
             if (topicFallback.total > 0) return topicFallback.total;
-            if (topicFallback.hasTopicsScore) return getSyntheticTotal(catMax);
+            if (h?.score != null || h?.scorePoints != null || topicFallback.hasTopicsScore) return getSyntheticTotal(catMax);
             return 0;
         };
         const volMap = new Map();
@@ -367,15 +368,17 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     ? Math.max(0, Math.min(rawTotal > 0 ? rawTotal : Infinity, parsedCorrect))
                     : 0;
                 let score = getSafeScore(h, catMax, catMin);
-                if (rawTotal <= 0 && !Number.isFinite(score)) {
+                if (rawTotal <= 0) {
                     const topicFallback = extractTopicsTotals(h, catMax, catMin);
                     if (topicFallback.total > 0) {
                         rawTotal = topicFallback.total;
                         rawC = topicFallback.correct;
                         hasCorrect = true;
                         parsedCorrect = rawC;
-                        score = topicFallback.score;
-                    } else if (topicFallback.hasTopicsScore) {
+                        if (!Number.isFinite(score) || score === catMin) {
+                            score = topicFallback.score;
+                        }
+                    } else if (!Number.isFinite(score) && topicFallback.hasTopicsScore) {
                         score = topicFallback.score;
                     }
                 }
@@ -515,7 +518,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             hist.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
-                if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0 };
+                if (!dayMap[key]) dayMap[key] = { correct: 0, total: 0, realCorrect: 0, realTotal: 0 };
                 let tot = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
                 let hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
                                  (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
@@ -523,23 +526,30 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 let parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
                 let raw = hasCorrect && Number.isFinite(parsedCorrect) ? Math.max(0, parsedCorrect) : 0;
                 let score = getSafeScore(h, catMax, catMin);
-                if (tot <= 0 && !Number.isFinite(score)) {
+                if (tot <= 0) {
                     const topicFallback = extractTopicsTotals(h, catMax, catMin);
                     if (topicFallback.total > 0) {
                         tot = topicFallback.total;
                         raw = topicFallback.correct;
                         hasCorrect = true;
                         parsedCorrect = raw;
-                        score = topicFallback.score;
-                    } else if (topicFallback.hasTopicsScore) {
+                        if (!Number.isFinite(score) || score === catMin) {
+                            score = topicFallback.score;
+                        }
+                    } else if (!Number.isFinite(score) && topicFallback.hasTopicsScore) {
                         score = topicFallback.score;
                     }
                 }
                 if (!Number.isFinite(score)) return;
+                const isSyntheticEntry =
+                    h?.syntheticVolume === true ||
+                    h?.isSynthetic === true ||
+                    h?.type === 'percent-only' ||
+                    tot === 0;
                 let corrNorm;
                 if (tot === 0) {
                     tot = getSyntheticTotal(catMax);
-                    corrNorm = Math.round(toCatRatio(score) * tot);
+                    corrNorm = toCatRatio(score) * tot;
                 } else if (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect)) {
                     corrNorm = Math.max(0, Math.min(tot, raw));
                 } else {
@@ -547,15 +557,25 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 }
                 dayMap[key].correct += corrNorm;
                 dayMap[key].total += tot;
+                if (!isSyntheticEntry) {
+                    dayMap[key].realCorrect += corrNorm;
+                    dayMap[key].realTotal += tot;
+                }
             });
             const cells = datesToUse.map(dateStr => {
                 const entry = dayMap[dateStr];
                 if (!entry || entry.total === 0) return null;
-                const pct = (entry.correct / entry.total) * 100;
+                const pct = entry.realTotal > 0
+                    ? (entry.realCorrect / entry.realTotal) * 100
+                    : (entry.correct / entry.total) * 100;
+                const isSynthetic = entry.realTotal === 0;
                 return {
                     pct: Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0)),
-                    correct: entry.correct,
-                    total: entry.total,
+                    correct: isSynthetic ? entry.correct : entry.realCorrect,
+                    total: isSynthetic ? entry.total : entry.realTotal,
+                    realCorrect: entry.realCorrect,
+                    realTotal: entry.realTotal,
+                    isSynthetic,
                 };
             });
             return { cat, cells };
@@ -601,14 +621,16 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                                    (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
                 let rawParsedC = Number(h.correct ?? h.acertos ?? h.correctCount);
                 let score = getSafeScore(h, catMax, catMin);
-                if (tot <= 0 && !Number.isFinite(score)) {
+                if (tot <= 0) {
                     const topicFallback = extractTopicsTotals(h, catMax, catMin);
                     if (topicFallback.total > 0) {
                         tot = topicFallback.total;
                         rawParsedC = topicFallback.correct;
                         hasExplicitC = true;
-                        score = topicFallback.score;
-                    } else if (topicFallback.hasTopicsScore) {
+                        if (!Number.isFinite(score) || score === catMin) {
+                            score = topicFallback.score;
+                        }
+                    } else if (!Number.isFinite(score) && topicFallback.hasTopicsScore) {
                         score = topicFallback.score;
                     }
                 }
@@ -623,7 +645,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 let corrNorm;
                 if (isSyntheticVolume && tot === 0) {
                     tot = getSyntheticTotal(catMax);
-                    corrNorm = Math.round(toCatRatio(score) * tot);
+                    corrNorm = toCatRatio(score) * tot;
                 } else if (!h.isPercentage && hasExplicitC && Number.isFinite(rawParsedC)) {
                     corrNorm = Math.max(0, Math.min(tot, rawParsedC));
                 } else {

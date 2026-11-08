@@ -353,6 +353,56 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   };
 }
 
+export function extractTopicsTotals(entry, maxScore = 100, minScore = 0) {
+  const rawTopics = entry?.topics;
+  const topicsList = Array.isArray(rawTopics)
+    ? rawTopics
+    : (rawTopics && typeof rawTopics === "object" ? Object.values(rawTopics) : []);
+  if (!topicsList.length) return { total: 0, correct: 0, hasTopicsScore: false, score: NaN };
+
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0
+    ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore))
+    ? Math.min(Number(minScore), safeMax) : 0;
+  const safeRange = Math.max(1e-9, safeMax - safeMin);
+  let sumTotal = 0;
+  let sumCorrect = 0;
+  let scoreSum = 0;
+  let scoreCount = 0;
+
+  for (const t of topicsList) {
+    if (!t || typeof t !== "object") continue;
+    const tTot = Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+    const hasTC =
+      (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== "") ||
+      (t.acertos !== undefined && t.acertos !== null && String(t.acertos).trim() !== "") ||
+      (t.correctCount !== undefined && t.correctCount !== null && String(t.correctCount).trim() !== "");
+    const parsedTC = Number(t.correct ?? t.acertos ?? t.correctCount);
+    const tScore = getSafeScore(t, safeMax, safeMin);
+    if (tTot > 0) {
+      sumTotal += tTot;
+      if (!t.isPercentage && hasTC && Number.isFinite(parsedTC)) {
+        sumCorrect += Math.max(0, Math.min(tTot, parsedTC));
+      } else if (Number.isFinite(tScore)) {
+        const ratio = Math.max(0, Math.min(1, (tScore - safeMin) / safeRange));
+        sumCorrect += Math.round(ratio * tTot);
+      }
+    } else if (Number.isFinite(tScore)) {
+      scoreSum += tScore;
+      scoreCount += 1;
+    }
+  }
+
+  if (sumTotal > 0) {
+    const derivedScore = safeMin + (sumCorrect / sumTotal) * safeRange;
+    return { total: sumTotal, correct: sumCorrect, hasTopicsScore: true, score: derivedScore };
+  }
+  if (scoreCount > 0) {
+    return { total: 0, correct: 0, hasTopicsScore: true, score: scoreSum / scoreCount };
+  }
+  return { total: 0, correct: 0, hasTopicsScore: false, score: NaN };
+}
+
 /**
  * Para motores matemáticos, retorne SEMPRE pontos.
  */
@@ -406,6 +456,16 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     // ✅ FIX: proteger contra total=0 → divisão por zero
     if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
       score = safeMin + (Math.max(0, Math.min(total, correct)) / total) * range;
+    }
+  }
+
+  if (typeof row === "object" && row.topics != null) {
+    const headerTotal = Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions) || 0;
+    if (!Number.isFinite(score) || (headerTotal <= 0 && score === safeMin)) {
+      const topicFallback = extractTopicsTotals(row, safeMax, safeMin);
+      if (topicFallback.hasTopicsScore && Number.isFinite(topicFallback.score)) {
+        score = topicFallback.score;
+      }
     }
   }
 

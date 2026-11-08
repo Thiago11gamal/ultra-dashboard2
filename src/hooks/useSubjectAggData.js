@@ -114,14 +114,16 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
                         (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
           let rawC = Number(h.correct ?? h.acertos ?? h.correctCount);
           let score = getSafeScore(h, catMax, catMin);
-          if (tot === 0 && !Number.isFinite(score)) {
+          if (tot <= 0) {
             const topicFallback = extractTopicsTotals(h, catMax, catMin);
             if (topicFallback.total > 0) {
               tot = topicFallback.total;
               rawC = topicFallback.correct;
               hasRawC = true;
-              score = topicFallback.score;
-            } else if (topicFallback.hasTopicsScore) {
+              if (!Number.isFinite(score) || score === catMin) {
+                score = topicFallback.score;
+              }
+            } else if (!Number.isFinite(score) && topicFallback.hasTopicsScore) {
               score = topicFallback.score;
             }
           }
@@ -156,8 +158,8 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
           }
         });
 
-        const totalQ = realQ + synthQ;
-        const totalCorrect = Math.round(realC + synthC);
+        const totalQ = realQ > 0 ? realQ : synthQ;
+        const totalCorrect = Math.round(realQ > 0 ? realC : synthC);
 
         const stats = history.reduce(
           (acc, h) => {
@@ -178,7 +180,11 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
               }
             }
             if (hasTopicWithTime) return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-            const rootTot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
+            let rootTot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
+            if (rootTot <= 0 && h.topics != null) {
+              const tf = extractTopicsTotals(h, catMax, catMin);
+              if (tf.total > 0) rootTot = tf.total;
+            }
             if (rootTs !== null && rootTs > 0 && rootTot > 0) return { ts: acc.ts + rootTs, tq: acc.tq + rootTot };
             if (rootTs !== null && rootTs > 0 && h.score != null) return { ts: acc.ts + rootTs, tq: acc.tq + getSyntheticTotal(catMax) };
             return acc;

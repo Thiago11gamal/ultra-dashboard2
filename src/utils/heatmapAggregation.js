@@ -43,11 +43,33 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
         if (typeof val === 'string') val = val.replace(',', '.');
         return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
       }, 0);
+      const realTotal = samples.reduce((a, c) => {
+        const hasReal = c.realTotal !== undefined;
+        let val = hasReal ? c.realTotal : (c.isSynthetic ? 0 : c.total);
+        if (typeof val === 'string') val = val.replace(',', '.');
+        return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+      }, 0);
+      const realCorrect = samples.reduce((a, c) => {
+        const hasReal = c.realCorrect !== undefined;
+        let val = hasReal ? c.realCorrect : (c.isSynthetic ? 0 : c.correct);
+        if (typeof val === 'string') val = val.replace(',', '.');
+        return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
+      }, 0);
+      const isSynthetic = samples.every(c => c.isSynthetic === true);
       // ✅ FIX: pct é SEMPRE percentual [0,100], invariante à escala
-      const pct = total > 0
-        ? Math.max(0, Math.min(100, Number.isFinite(correct / total) ? (correct / total) * 100 : 0))
+      const effTotal = realTotal > 0 ? realTotal : total;
+      const effCorrect = realTotal > 0 ? realCorrect : correct;
+      const pct = effTotal > 0
+        ? Math.max(0, Math.min(100, Number.isFinite(effCorrect / effTotal) ? (effCorrect / effTotal) * 100 : 0))
         : null;
-      return { total, correct, pct };
+      return {
+        total: isSynthetic ? total : (realTotal > 0 ? realTotal : total),
+        correct: isSynthetic ? correct : (realTotal > 0 ? realCorrect : correct),
+        realTotal,
+        realCorrect,
+        isSynthetic,
+        pct,
+      };
     })
   }));
   return { dates, rows };

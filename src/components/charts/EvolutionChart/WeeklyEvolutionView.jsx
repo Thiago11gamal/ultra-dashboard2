@@ -4,7 +4,7 @@ import {
     Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
 } from 'recharts';
 import { TrendingUp, BarChart3, HelpCircle, Zap } from 'lucide-react';
-import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
+import { getSafeScore, formatValue, getSyntheticTotal, extractTopicsTotals } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
 import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
@@ -233,8 +233,15 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const validIds = Object.keys(itemsMap);
         if (validIds.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
 
-        const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
-        const safeMaxScore = hasValidNumber(maxScore) ? Number(maxScore) : 100;
+        const focusedCat = (showOnlyFocus && focusSubjectId)
+            ? categories.find(c => c.id === focusSubjectId)
+            : null;
+        const safeMinScore = (focusedCat && hasValidNumber(focusedCat?.minScore))
+            ? Number(focusedCat.minScore)
+            : (hasValidNumber(minScore) ? Number(minScore) : 0);
+        const safeMaxScore = (focusedCat && hasValidNumber(focusedCat?.maxScore) && Number(focusedCat.maxScore) > 0)
+            ? Number(focusedCat.maxScore)
+            : (hasValidNumber(maxScore) ? Number(maxScore) : 100);
         const lowerBound = Math.min(safeMinScore, safeMaxScore);
         const upperBound = Math.max(safeMinScore, safeMaxScore);
         const scoreRange = Math.max(1e-9, upperBound - lowerBound);
@@ -258,6 +265,23 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 const hasValidC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
                                   (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
                                   (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+                if (totalQ === 0 && h?.topics != null) {
+                    const tf = extractTopicsTotals(h, cMax, cMin);
+                    if (tf.total > 0) {
+                        totalQ = tf.total;
+                        corr = tf.correct;
+                        weeksTemp[weekStr][itemId].total += totalQ;
+                        weeksTemp[weekStr][itemId].correct += corr;
+                        return;
+                    }
+                    if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
+                        totalQ = getSyntheticTotal(cMax);
+                        corr = Math.max(0, Math.min(1, (tf.score - cMin) / cRange)) * totalQ;
+                        weeksTemp[weekStr][itemId].total += totalQ;
+                        weeksTemp[weekStr][itemId].correct += corr;
+                        return;
+                    }
+                }
                 if (hasValidC && !h.isPercentage) {
                     const rawC = Math.max(0, Number(h.correct ?? h.acertos ?? h.correctCount) || 0);
                     if (totalQ === 0) totalQ = rawC > 0 ? rawC : getSyntheticTotal(cMax);
@@ -492,12 +516,29 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         );
     }, [hiddenKeys, activeKeys]);
 
+    const focusedCategoryObj = useMemo(() => {
+        if (!showOnlyFocus || !focusSubjectId) return null;
+        return categories.find(c => c.id === focusSubjectId) || null;
+    }, [categories, showOnlyFocus, focusSubjectId]);
+
+    const effectiveMaxScore = useMemo(() => {
+        if (focusedCategoryObj && hasValidNumber(focusedCategoryObj?.maxScore) && Number(focusedCategoryObj.maxScore) > 0) {
+            return Number(focusedCategoryObj.maxScore);
+        }
+        return hasValidNumber(maxScore) ? Number(maxScore) : 100;
+    }, [focusedCategoryObj, maxScore]);
+
+    const effectiveMinScore = useMemo(() => {
+        if (focusedCategoryObj && hasValidNumber(focusedCategoryObj?.minScore)) {
+            return Math.min(Number(focusedCategoryObj.minScore), effectiveMaxScore);
+        }
+        return hasValidNumber(minScore) ? Number(minScore) : 0;
+    }, [focusedCategoryObj, minScore, effectiveMaxScore]);
+
     const stableThreshold = useMemo(() => {
-        const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-        const safeMaxScore = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
-        const scoreRange = Math.max(1e-9, Math.abs(safeMaxScore - safeMinScore));
+        const scoreRange = Math.max(1e-9, Math.abs(effectiveMaxScore - effectiveMinScore));
         return Math.max(0.5, scoreRange * 0.02);
-    }, [minScore, maxScore]);
+    }, [effectiveMinScore, effectiveMaxScore]);
 
     const hasConsecutiveDelta = useMemo(() => {
         if (!Array.isArray(chartData) || chartData.length < 2) return false;
@@ -589,8 +630,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         studyLogs={studyLogs}
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
-                        maxScore={maxScore}
-                        minScore={minScore}
+                        maxScore={effectiveMaxScore}
+                        minScore={effectiveMinScore}
                         unit={unit}
                     />
                 ) : viewMode === 'variation' && !hasConsecutiveDelta ? (
@@ -606,7 +647,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} dy={10} minTickGap={15} />
-                                <YAxis domain={[minScore, maxScore]} stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
+                                <YAxis domain={[effectiveMinScore, effectiveMaxScore]} stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
                                 <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 

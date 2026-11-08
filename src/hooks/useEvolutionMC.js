@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { useAppStore } from '../store/useAppStore';
 import { getDateKey, toDateMs } from '../utils/dateHelper';
-import { getSafeScore } from '../utils/scoreHelper';
+import { getSafeScore, extractTopicsTotals } from '../utils/scoreHelper';
 import { parseNoonLocal, addDaysNoon } from '../utils/parseNoonLocal';
 import { runMonteCarloAnalysis } from '../engine/monteCarlo';
 
@@ -51,7 +51,15 @@ export function useEvolutionMC({
     const arr = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
     if (arr.length === 0) return 'empty';
     return arr
-      .map((h) => `${h?.date || h?.createdAt || ''}:${h?.score ?? ''}:${h?.total ?? h?.questoes ?? ''}:${h?.correct ?? h?.acertos ?? ''}:${h?.timeSpent ?? ''}`)
+      .map((h) => {
+        const rawTopics = Array.isArray(h?.topics)
+          ? h.topics
+          : (h?.topics && typeof h.topics === 'object' ? Object.values(h.topics) : EMPTY_ARRAY);
+        const topicsSig = rawTopics
+          .map((t) => `${t?.total ?? t?.questoes ?? ''}:${t?.correct ?? t?.acertos ?? ''}:${t?.score ?? ''}:${t?.timeSpent ?? ''}`)
+          .join(',');
+        return `${h?.date || h?.createdAt || ''}:${h?.valid === false ? 0 : 1}:${h?.isPercentage ? 1 : 0}:${h?.score ?? ''}:${h?.total ?? h?.questoes ?? ''}:${h?.correct ?? h?.acertos ?? ''}:${h?.timeSpent ?? ''}:${h?.timedQuestoes ?? ''}:[${topicsSig}]`;
+      })
       .join('|');
   }, [focusCategory?.simuladoStats?.history]);
 
@@ -116,19 +124,40 @@ export function useEvolutionMC({
       };
     }
 
+    const toOptionalFinite = (val) => {
+      if (val === null || val === undefined || typeof val === 'boolean' || String(val).trim() === '') return undefined;
+      const n = Number(val);
+      return Number.isFinite(n) ? n : undefined;
+    };
+
     const hist = [...historyArray]
       .filter((h) => h && h.valid !== false && (h.date || h.createdAt))
       .map((h) => {
         const dateKey = getDateKey(h.date || h.createdAt);
-        const score = getSafeScore(h, safeMax, safeMin);
+        let score = getSafeScore(h, safeMax, safeMin);
+        let total = toOptionalFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions);
+        let correct = !h.isPercentage ? toOptionalFinite(h.correct ?? h.acertos ?? h.correctCount) : undefined;
+        if ((!total || total <= 0) && h.topics != null) {
+          const tf = extractTopicsTotals(h, safeMax, safeMin);
+          if (tf.total > 0) {
+            total = tf.total;
+            correct = tf.correct;
+            if (!Number.isFinite(score) || score === safeMin) score = tf.score;
+          } else if (!Number.isFinite(score) && tf.hasTopicsScore) {
+            score = tf.score;
+          }
+        }
         if (!dateKey || !Number.isFinite(score)) return null;
+        if (total != null && total > 0 && correct === undefined) {
+          correct = Math.round(Math.max(0, Math.min(1, (score - safeMin) / safeRange)) * total);
+        }
         return {
           date: dateKey,
           score,
-          correct: Number.isFinite(Number(h.correct ?? h.acertos ?? h.correctCount)) ? Number(h.correct ?? h.acertos ?? h.correctCount) : undefined,
-          total: Number.isFinite(Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions)) ? Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) : undefined,
-          timeSpent: Number.isFinite(Number(h.timeSpent)) ? Number(h.timeSpent) : undefined,
-          timedQuestoes: Number.isFinite(Number(h.timedQuestoes)) ? Number(h.timedQuestoes) : undefined
+          correct: total != null && total > 0 ? correct : undefined,
+          total: total != null && total > 0 ? total : undefined,
+          timeSpent: toOptionalFinite(h.timeSpent),
+          timedQuestoes: toOptionalFinite(h.timedQuestoes)
         };
       })
       .filter(Boolean)
@@ -153,7 +182,7 @@ export function useEvolutionMC({
       let totalTimeSpent = 0;
       let totalTimedQuestions = 0;
       historyArray.forEach((rawH) => {
-        if (!rawH) return;
+        if (!rawH || rawH.valid === false) return;
         let hasTopicWithTime = false;
         let topicsTs = 0;
         let topicsTimedQ = 0;
@@ -293,7 +322,8 @@ export function useEvolutionMC({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     focusCategoryId, historyFingerprint, currentFocusLevel, historyArray,
-    debouncedTarget, projectDays, runAnalysis, minScore, maxScore, isMcEngineActive
+    debouncedTarget, projectDays, runAnalysis, minScore, maxScore, isMcEngineActive,
+    focusCategory?.minScore, focusCategory?.maxScore, focusCategory?.minCutoff
   ]);
 
   const activeMcResult = mcResult?.categoryId === focusCategoryId ? mcResult : null;

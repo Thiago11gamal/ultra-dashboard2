@@ -99,4 +99,39 @@ describe('useChartData — blindagem NaN (BATCH-01)', () => {
     expect(result.current.globalMetrics.totalCorrect).toBe(14);
     expect(result.current.globalMetrics.globalAccuracy).toBe(70);
   });
+
+  it('prioriza questões reais de h.topics mesmo quando cabeçalho tem total: 0 e score: 0 (default legado)', () => {
+    const categories = [mkCat([
+      {
+        date: '2026-07-06',
+        total: 0,
+        score: 0,
+        topics: [
+          { name: 'Funções', total: 10, correct: 9 },
+          { name: 'Matrizes', total: 10, correct: 7 }
+        ]
+      }
+    ])];
+    const { result } = renderHook(() => useChartData(categories, {}, 100, 0));
+    expect(result.current.globalMetrics.totalQuestions).toBe(20);
+    expect(result.current.globalMetrics.totalCorrect).toBe(16);
+    expect(result.current.globalMetrics.globalAccuracy).toBe(80);
+    expect(result.current.timeline[0].raw_mat).toBe(80);
+    expect(result.current.heatmapData.rows[0].cells[0].pct).toBe(80);
+    expect(result.current.heatmapData.rows[0].cells[0].isSynthetic).toBe(false);
+  });
+
+  it('não distorce simulado percentual (83%) para 85% por arredondamento de 20 questões sintéticas no heatmap e globalAccuracy', () => {
+    const categories = [mkCat([
+      {
+        date: '2026-07-07',
+        total: 0,
+        score: 83
+      }
+    ])];
+    const { result } = renderHook(() => useChartData(categories, {}, 100, 0));
+    expect(result.current.globalMetrics.globalAccuracy).toBeCloseTo(83, 2);
+    expect(result.current.heatmapData.rows[0].cells[0].pct).toBeCloseTo(83, 2);
+    expect(result.current.heatmapData.rows[0].cells[0].isSynthetic).toBe(true);
+  });
 });
