@@ -321,4 +321,19 @@ describe('getCombinedHistory — deduplicação', () => {
     const jan1 = combined.filter(h => (h.date || '').startsWith('2025-01-01'));
     expect(jan1.length).toBeLessThanOrEqual(1);
   });
+
+  it('preserva matérias distintas no mesmo dia e não suprime outra matéria quando há simulado no dia', () => {
+    const history = [
+      { date: '2025-02-10', subject: 'Português', categoryId: 'port', correct: 8, total: 10 },
+      { date: '2025-02-10', subject: 'Direito Constitucional', categoryId: 'const', correct: 7, total: 10 },
+    ];
+    const simulados = [
+      { id: 's-math', date: '2025-02-10', score: 60, subject: 'Matemática', categoryId: 'math' },
+    ];
+    const combined = getCombinedHistory(history, simulados);
+    const subjects = combined.map(h => h.subject);
+    expect(subjects).toContain('Matemática');
+    expect(subjects).toContain('Português');
+    expect(subjects).toContain('Direito Constitucional');
+  });
 });

@@ -217,16 +217,26 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   const totalRaw = Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions);
   const total = Number.isFinite(totalRaw) ? Math.max(0, Math.trunc(totalRaw)) : 0;
 
+  const rawCorrectVal = r.correct ?? r.acertos ?? r.correctCount;
+  const hasExplicitCorrect =
+    rawCorrectVal !== undefined &&
+    rawCorrectVal !== null &&
+    String(rawCorrectVal).trim() !== "" &&
+    Number.isFinite(Number(rawCorrectVal));
+  const hasAnyScoreField =
+    (r.scorePoints != null && Number.isFinite(Number(r.scorePoints))) ||
+    (r.scorePct != null && Number.isFinite(Number(r.scorePct))) ||
+    (r.score != null && Number.isFinite(Number(r.score))) ||
+    (r.value != null && r.value !== "" && Number.isFinite(Number(r.value)));
+
   let correct = 0;
-  if (total > 0) {
-    const correctRaw = Number(r.correct ?? r.acertos ?? r.correctCount);
-    correct = Number.isFinite(correctRaw)
-      ? Math.max(0, Math.min(total, Math.trunc(correctRaw)))
-      : 0;
+  if (total > 0 && hasExplicitCorrect) {
+    const correctRaw = Number(rawCorrectVal);
+    correct = Math.max(0, Math.min(total, Math.trunc(correctRaw)));
   }
 
   // ── 1) total/correct ──────────────────────────────────────
-  if (total > 0) {
+  if (total > 0 && (hasExplicitCorrect || !hasAnyScoreField)) {
     const ratio = Math.max(0, Math.min(1, correct / total));
     return {
       points: domain.min + ratio * domain.range,
@@ -241,17 +251,25 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
     };
   }
 
+  const withDerivedCorrect = (res) => {
+    if (total > 0 && Number.isFinite(res.ratio)) {
+      const derivedC = Math.max(0, Math.min(total, Math.round(res.ratio * total)));
+      return { ...res, total, correct: derivedC, totalValid: true };
+    }
+    return res;
+  };
+
   // ── 2) scorePoints explícito ──────────────────────────────
   const scorePointsRaw = r.scorePoints == null ? NaN : Number(r.scorePoints);
   if (Number.isFinite(scorePointsRaw)) {
     const points = clampFinite(scorePointsRaw, domain.min, domain.max, domain.min);
     const pct = pointsToPct(points, domain);
-    return {
+    return withDerivedCorrect({
       points, pct,
       ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
       total, correct, totalValid: false, domain,
       ambiguous: false, source: "scorePoints",
-    };
+    });
   }
 
   // ── 3) scorePct explícito ─────────────────────────────────
@@ -259,12 +277,12 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   if (Number.isFinite(scorePctRaw)) {
     const pct = clampFinite(scorePctRaw, 0, 100, 0);
     const points = pctToPoints(pct, domain);
-    return {
+    return withDerivedCorrect({
       points, pct,
       ratio: clampFinite(pct / 100, 0, 1, 0),
       total, correct, totalValid: false, domain,
       ambiguous: false, source: "scorePct",
-    };
+    });
   }
 
   // ── 4) campo score ────────────────────────────────────────
@@ -281,24 +299,24 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
       // ✅ FIX: Garantir que points está dentro do domínio
       const safePoints = clampFinite(points, domain.min, domain.max, domain.min);
       const ratio = clampFinite((safePoints - domain.min) / domain.range, 0, 1, 0);
-      return {
+      return withDerivedCorrect({
         points: safePoints,
         pct,
         ratio,
         total, correct, totalValid: false, domain,
         ambiguous: false, source: "score-explicit-pct",
-      };
+      });
     }
     if (explicitPoints) {
       // ✅ FIX: Clamp direto no domínio
       const points = clampFinite(scoreRaw, domain.min, domain.max, domain.min);
       const pct = pointsToPct(points, domain);
       const ratio = clampFinite((points - domain.min) / domain.range, 0, 1, 0);
-      return {
+      return withDerivedCorrect({
         points, pct, ratio,
         total, correct, totalValid: false, domain,
         ambiguous: false, source: "score-explicit-points",
-      };
+      });
     }
 
     // ✅ FIX: SEM auto-detecção. Tratar como PONTOS.
@@ -307,12 +325,12 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
     const ratio = clampFinite((points - domain.min) / domain.range, 0, 1, 0);
     const ambiguous = domain.max > 100 && scoreRaw >= 0 && scoreRaw <= 100 && r.isPercentage !== false;
     
-    return {
+    return withDerivedCorrect({
       points, pct, ratio,
       total, correct, totalValid: false, domain,
       ambiguous,
       source: ambiguous ? "score-ambiguous-as-points" : "score-auto-points",
-    };
+    });
   }
 
   // ── 5) fallback campo value (dados legados) ───────────────
@@ -320,12 +338,12 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   if (Number.isFinite(valueRaw)) {
     const points = clampFinite(valueRaw, domain.min, domain.max, domain.min);
     const pct = pointsToPct(points, domain);
-    return {
+    return withDerivedCorrect({
       points, pct,
       ratio: clampFinite((points - domain.min) / domain.range, 0, 1, 0),
       total, correct, totalValid: false, domain,
       ambiguous: false, source: "value-field",
-    };
+    });
   }
 
   return {
@@ -605,7 +623,7 @@ export function migrateContestData(contest) {
   if (!contest || typeof contest !== "object") return contest;
 
   const maxScore = sanitizeMaxScore(contest.maxScore);
-  const minScore = clampFinite(contest.minScore, 0, maxScore, 0);
+  const minScore = clampFinite(contest.minScore, -maxScore, maxScore, 0);
 
   const next = {
     ...contest,
@@ -630,7 +648,7 @@ export function migrateContestData(contest) {
       if (!cat || typeof cat !== "object") return cat;
 
       const catMax = sanitizeMaxScore(cat.maxScore ?? maxScore);
-      const catMin = clampFinite(cat.minScore ?? minScore, 0, catMax, minScore);
+      const catMin = clampFinite(cat.minScore ?? minScore, -catMax, catMax, minScore);
 
       const nextCat = {
         ...cat,
@@ -659,4 +677,3 @@ export function migrateContestData(contest) {
 
   return next;
 }
-

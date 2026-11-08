@@ -418,11 +418,6 @@ export default React.memo(function EvolutionChart({
         () => (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})),
         [simuladoRows]
     );
-    const safeGlobalMetrics = useMemo(() => ({
-        totalQuestions: Number(globalMetrics?.totalQuestions) || 0,
-        totalCorrect: Number(globalMetrics?.totalCorrect) || 0,
-        globalAccuracy: (globalMetrics?.globalAccuracy === null || globalMetrics?.globalAccuracy === undefined || globalMetrics?.globalAccuracy === '') ? 0 : (Number.isFinite(Number(globalMetrics?.globalAccuracy)) ? Number(globalMetrics?.globalAccuracy) : 0),
-    }), [globalMetrics]);
 
     const projectDays = useMemo(() => {
         if (!goalDate) return 30;
@@ -552,11 +547,63 @@ export default React.memo(function EvolutionChart({
         return found || pool[0] || categories[0];
     }, [activeCategories, categories, focusSubjectId]);
 
+    const focusMax = useMemo(() => {
+        return hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0
+            ? Number(focusCategory.maxScore)
+            : maxScore;
+    }, [focusCategory?.maxScore, maxScore]);
+
+    const focusMin = useMemo(() => {
+        return hasValidNumber(focusCategory?.minScore)
+            ? Math.min(Number(focusCategory.minScore), focusMax)
+            : minScore;
+    }, [focusCategory?.minScore, focusMax, minScore]);
+
+    const focusTarget = useMemo(() => {
+        if (hasValidNumber(focusCategory?.minCutoff)) {
+            return Math.max(focusMin, Math.min(focusMax, Number(focusCategory.minCutoff)));
+        }
+        if (focusMax !== maxScore || focusMin !== minScore) {
+            return ratioToPoints(pointsToRatio(targetScore, maxScore, minScore), focusMax, focusMin);
+        }
+        return targetScore;
+    }, [focusCategory?.minCutoff, focusMin, focusMax, targetScore, maxScore, minScore]);
+
     const categoryLevels = useCategoryLevels(categories, timeline, 'bayesian', maxScore, minScore);
 
     const subjectAggData = useSubjectAggData({
         categories, showOnlyFocus, focusCategory, timeWindow, maxScore, minScore
     });
+
+    const safeGlobalMetrics = useMemo(() => {
+        if (timeWindow === 'all' && !showOnlyFocus) {
+            return {
+                totalQuestions: Number(globalMetrics?.totalQuestions) || 0,
+                totalCorrect: Number(globalMetrics?.totalCorrect) || 0,
+                globalAccuracy: (globalMetrics?.globalAccuracy === null || globalMetrics?.globalAccuracy === undefined || globalMetrics?.globalAccuracy === '')
+                    ? 0
+                    : (Number.isFinite(Number(globalMetrics?.globalAccuracy)) ? Number(globalMetrics?.globalAccuracy) : 0),
+            };
+        }
+        let realQ = 0;
+        let realC = 0;
+        let synthQ = 0;
+        let synthC = 0;
+        for (const item of (subjectAggData || [])) {
+            realQ += Number(item?.realQuestoes ?? item?.questoes) || 0;
+            realC += Number(item?.realAcertos ?? item?.acertos) || 0;
+            synthQ += Number(item?.syntheticQuestoes) || 0;
+            synthC += Number(item?.syntheticAcertos) || 0;
+        }
+        const acc = realQ > 0
+            ? (realC / realQ) * 100
+            : (synthQ > 0 ? (synthC / synthQ) * 100 : 0);
+        return {
+            totalQuestions: realQ,
+            totalCorrect: realC,
+            globalAccuracy: Number.isFinite(acc) ? acc : 0,
+        };
+    }, [globalMetrics, subjectAggData, timeWindow, showOnlyFocus]);
 
     const { mcLoading, activeMcResult, activeMcProjectionSeries } = useEvolutionMC({
         focusCategory, categoryLevels, projectDays, targetScore, minScore, maxScore, activeEngine
@@ -569,10 +616,10 @@ export default React.memo(function EvolutionChart({
             categoryLevels, 
             activeMcProjectionSeries, 
             projectDays, 
-            minScore, 
-            maxScore
+            focusMin, 
+            focusMax
         );
-    }, [timeline, focusCategory, activeMcProjectionSeries, categoryLevels, projectDays, minScore, maxScore]);
+    }, [timeline, focusCategory, activeMcProjectionSeries, categoryLevels, projectDays, focusMin, focusMax]);
 
     const chartData = activeEngine === "compare" ? compareData : timeline;
 
@@ -659,10 +706,14 @@ export default React.memo(function EvolutionChart({
         const pts = Array.isArray(filteredHistoricalData) ? filteredHistoricalData : [];
         if (pts.length < 2) return filteredList;
         const fId = focusCategory?.id;
-        const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
-        const safeMax = hasValidNumber(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 100;
+        const useFocusDomain = Boolean(fId);
+        const effMin = useFocusDomain ? focusMin : minScore;
+        const effMax = useFocusDomain ? focusMax : maxScore;
+        const effTarget = useFocusDomain ? focusTarget : targetScore;
+        const safeMin = hasValidNumber(effMin) ? Number(effMin) : 0;
+        const safeMax = hasValidNumber(effMax) && Number(effMax) > safeMin ? Number(effMax) : safeMin + 100;
         const safeRange = Math.max(1, safeMax - safeMin);
-        const safeTarget = hasValidNumber(targetScore) ? Number(targetScore) : safeMin + safeRange * 0.8;
+        const safeTarget = hasValidNumber(effTarget) ? Number(effTarget) : safeMin + safeRange * 0.8;
 
         const synth = pts
             .map((pt, idx) => {
@@ -690,13 +741,14 @@ export default React.memo(function EvolutionChart({
                     ci95Low: low,
                     ci95High: high,
                     probability: prob,
-                    target: safeTarget
+                    target: safeTarget,
+                    __fromFocus: useFocusDomain
                 };
             })
             .filter(Boolean);
 
         return synth.length >= 2 ? synth : filteredList;
-    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, minScore, maxScore, targetScore, activeMcResult]);
+    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
 
     const latestMetricsByCat = useMemo(() => {
         const map = {};
@@ -1268,10 +1320,10 @@ export default React.memo(function EvolutionChart({
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart
                         data={effectiveMcHistoryData}
-                        targetScore={targetScore}
+                        targetScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusTarget : targetScore}
                         unit={unit}
-                        minScore={minScore}
-                        maxScore={maxScore}
+                        minScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMin : minScore}
+                        maxScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMax : maxScore}
                         loading={mcLoading}
                     />
                 ) : activeEngine === "weekly_diff" ? (
@@ -1331,9 +1383,9 @@ export default React.memo(function EvolutionChart({
                             )}
                             <CompareChart
                                 filteredChartData={filteredChartData}
-                                targetScore={targetScore}
-                                minScore={minScore}
-                                maxScore={maxScore}
+                                targetScore={focusTarget}
+                                minScore={focusMin}
+                                maxScore={focusMax}
                                 unit={unit}
                             />
                         </div>
@@ -1387,19 +1439,19 @@ export default React.memo(function EvolutionChart({
                                 </div>
                                 <div className="h-[280px] w-full mb-2">
                                     <GaussianPlot
-                                        mean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? minScore}
-                                        projectedMean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? minScore}
+                                        mean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? focusMin}
+                                        projectedMean={activeMcResult?.projectedMean ?? activeMcResult?.mean ?? focusMin}
                                         currentMean={categoryLevels[focusCategory?.id]}
                                         sd={activeMcResult?.sd ?? 0}
                                         sdLeft={activeMcResult?.sdLeft ?? activeMcResult?.sd ?? 0}
                                         sdRight={activeMcResult?.sdRight ?? activeMcResult?.sd ?? 0}
-                                        low95={activeMcResult?.ci95Low ?? minScore}
-                                        high95={activeMcResult?.ci95High ?? maxScore}
-                                        targetScore={targetScore}
+                                        low95={activeMcResult?.ci95Low ?? focusMin}
+                                        high95={activeMcResult?.ci95High ?? focusMax}
+                                        targetScore={focusTarget}
                                         prob={activeMcResult?.probability ?? 0}
                                         kdeData={activeMcResult?.kdeData}
-                                        minScore={minScore}
-                                        maxScore={maxScore}
+                                        minScore={focusMin}
+                                        maxScore={focusMax}
                                         unit={unit}
                                     />
                                 </div>
@@ -1415,10 +1467,10 @@ export default React.memo(function EvolutionChart({
                                             ? Number(v)
                                             : fallback;
                                 
-                                      const bounded = (v) => Math.max(minScore, Math.min(maxScore, toFinite(v, minScore)));
+                                      const bounded = (v) => Math.max(focusMin, Math.min(focusMax, toFinite(v, focusMin)));
                                 
                                       const projectedLevel = bounded(
-                                        toFinite(activeMcResult?.projectedMean, toFinite(activeMcResult?.mean, minScore))
+                                        toFinite(activeMcResult?.projectedMean, toFinite(activeMcResult?.mean, focusMin))
                                       );
                                 
                                       const ciLow = bounded(toFinite(activeMcResult?.ci95Low, projectedLevel));

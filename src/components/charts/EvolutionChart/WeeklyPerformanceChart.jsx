@@ -14,6 +14,7 @@ import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../uti
 import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper.js';
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
 import { getHistoryDate } from '../../../utils/evolutionGuards.js';
+import { isSubjectMatch } from '../../../utils/normalization.js';
 
 const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     categories = [],
@@ -34,6 +35,8 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
         const days = [];
         const today = new Date();
         today.setHours(12, 0, 0, 0);
+        const focusCategory = focusSubjectId ? categories.find(c => String(c?.id) === String(focusSubjectId)) : null;
+        const focusName = focusCategory?.name || '';
 
         for (let i = 6; i >= 0; i--) {
             const d = new Date(today);
@@ -43,16 +46,22 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
             const dow = formatWeekdayShortPtBR(d);
 
             const dailyLogs = studyLogs.filter(log => {
+                if (!log) return false;
                 const rawDate = getHistoryDate(log);
                 if (!rawDate) return false;
                 const logDate = getDateKey(rawDate);
                 if (logDate !== dateKey) return false;
                 if (showOnlyFocus && focusSubjectId) {
-                    return String(log.categoryId ?? log.subjectId ?? '') === String(focusSubjectId);
+                    const logCatId = log.categoryId ?? log.subjectId;
+                    if (logCatId != null && String(logCatId) !== '') {
+                        return String(logCatId) === String(focusSubjectId);
+                    }
+                    const logSubj = log.subject || log.categoryName || log.materia || '';
+                    return Boolean(focusName && logSubj && isSubjectMatch(logSubj, focusName));
                 }
                 return true;
             });
-            const totalMinutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
+            const totalMinutes = dailyLogs.reduce((acc, log) => acc + (Number(log.minutes ?? log.minutos ?? log.duration) || 0), 0);
 
             let correctTotal = 0;
             let questionsTotal = 0;
@@ -64,6 +73,7 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                 const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
+                    if (!h || h.valid === false) return;
                     const hDate = getDateKey(getHistoryDate(h));
                     if (hDate === dateKey) {
                         let q = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;

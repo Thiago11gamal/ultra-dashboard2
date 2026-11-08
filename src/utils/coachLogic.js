@@ -523,7 +523,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const source1DateScores = new Set();
     const source1Dates = new Set();
     rawCatHistory.forEach((h, idx) => {
-        if (!h) return;
+        if (!h || h.valid === false) return;
         const score = getSafeScore(h, maxScore, minScore);
         if (!Number.isFinite(score)) return;
         const realDateKey = getDateKey(h.date || h.createdAt);
@@ -552,7 +552,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const stageDateScores = new Set();
         const stageDates = new Set();
         safeArray(list).forEach(s => {
-            if (!s) return;
+            if (!s || s.valid === false) return;
             const matches = (safeCategory.id && s.categoryId && String(s.categoryId) === String(safeCategory.id)) ||
                 (catName && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName));
             if (!matches) return;
@@ -586,7 +586,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     // 3. Linhas de simuladoRows (agrupadas por batchId ou data)
     const rawRows = safeArray(safeOptions.simuladoRows || safeOptions.history);
-    const rowsForCat = rawRows.filter(r => r && (
+    const rowsForCat = rawRows.filter(r => r && r.valid !== false && (
         (safeCategory.id && r.categoryId && String(r.categoryId) === String(safeCategory.id)) ||
         (catName && isSubjectMatch(r.subject || r.categoryName || r.materia || r.disciplina || '', catName))
     ));
@@ -2158,38 +2158,41 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
         ? options.simuladoRows
         : Object.values(options?.simuladoRows || {});
     const catNameForSims = safeCat.name || safeCat.id || '';
-    const matchesCatSim = (s) => s && (
+    const matchesCatSim = (s) => s && s.valid !== false && (
         (safeCat.id && s.categoryId && String(s.categoryId) === String(safeCat.id)) ||
         (catNameForSims && isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catNameForSims))
     );
-    const safeSims = catNameForSims ? allSafeSims.filter(matchesCatSim) : allSafeSims;
+    const safeSims = catNameForSims ? allSafeSims.filter(matchesCatSim) : allSafeSims.filter(s => s && s.valid !== false);
     const optAllSims = catNameForSims ? optAllSimsRaw.filter(matchesCatSim) : [];
     const optSimRows = catNameForSims ? optSimRowsRaw.filter(matchesCatSim) : [];
+    const rawCatHistForHash = safeArray(safeCat.simuladoStats?.history).filter(h => h && h.valid !== false);
+    const allSourcesForHash = [...rawCatHistForHash, ...safeSims, ...optAllSims, ...optSimRows];
     let lastSimTimestamp = 0;
-    let historyVolume = 0;
-    if (safeSims.length > 0) {
-        const lastSim = safeSims.reduce((latest, current) => {
+    let historyVolume = allSourcesForHash.length;
+    if (allSourcesForHash.length > 0) {
+        const lastSim = allSourcesForHash.reduce((latest, current) => {
             if (!latest) return current;
             if (!current) return latest;
             const latestTime = (normalizeDate(latest.date || latest.createdAt) || new Date(0)).getTime();
             const currTime = (normalizeDate(current.date || current.createdAt) || new Date(0)).getTime();
             return currTime > latestTime ? current : latest;
-        }, safeSims[0]);
+        }, allSourcesForHash[0]);
         if (lastSim) {
             lastSimTimestamp = (normalizeDate(lastSim.date || lastSim.createdAt) || new Date(0)).getTime();
         }
-        historyVolume = safeSims.length;
     }
-    const scoreChecksum = safeSims.reduce((acc, s, index) => {
+    const scoreChecksum = allSourcesForHash.reduce((acc, s, index) => {
         if (!s) return acc;
         const parsed = getSafeScore(s, catMax, catMin);
         const validVal = Number.isNaN(parsed) ? 0 : parsed;
-        return acc + (validVal * (index + 1) * 1.17);
+        const tLen = Array.isArray(s.topics) ? s.topics.length : (s.topic || s.assunto ? 1 : 0);
+        const tSum = Array.isArray(s.topics)
+            ? s.topics.reduce((sum, t) => sum + (Number(t?.total ?? t?.questoes) || 0) * 3 + (Number(t?.correct ?? t?.acertos) || 0) * 7 + (Number(t?.score) || 0), 0)
+            : ((Number(s.total ?? s.questoes) || 0) * 3 + (Number(s.correct ?? s.acertos) || 0) * 7);
+        return acc + ((validVal + tLen * 13 + tSum) * (index + 1) * 1.17);
     }, 0);
-    const tasksHash = safeTasks.reduce((acc, t) => acc + ((t?.id || t?.text || '').length), 0);
-    const historyLen = (safeCat.simuladoStats && safeCat.simuladoStats.history)
-        ? (Array.isArray(safeCat.simuladoStats.history) ? safeCat.simuladoStats.history.length : Object.keys(safeCat.simuladoStats.history).length)
-        : 0;
+    const tasksHash = safeTasks.reduce((acc, t) => acc + ((t?.id || t?.text || '').length) + (t?.completed ? 17 : 0), 0);
+    const historyLen = rawCatHistForHash.length;
 
 
 
@@ -2268,7 +2271,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
         if (!Array.isArray(sourceList) || sourceList.length === 0) return;
         const sourceDateTopics = new Set();
         sourceList.forEach((entry) => {
-            if (!entry) return;
+            if (!entry || entry.valid === false) return;
             const entryId = entry.id && !String(entry.id).startsWith('legacy-') ? String(entry.id) : null;
             if (entryId && seenEntryIds.has(entryId)) return;
             const entryTopics = extractEntryTopics(entry);
@@ -2820,9 +2823,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
-            const mcEffTarget = Number.isFinite(Number(mc?.effectiveMCTarget)) ? Number(mc.effectiveMCTarget) : targetScore;
-            const zdpNote = mcEffTarget < targetScore - 1e-6
-                ? ` (Meta ZDP: ${minScore === 0 && maxScore === 100 ? `${Math.round(mcEffTarget)}%` : `${formatValue(mcEffTarget)} pts`})`
+            const catTargetScore = Number.isFinite(Number(cat?.minCutoff))
+                ? clamp(Number(cat.minCutoff), catMin, catMax)
+                : (Math.abs(catMax - maxScore) < 1e-6 && Math.abs(catMin - minScore) < 1e-6
+                    ? targetScore
+                    : catMin + clamp((targetScore - minScore) / domain, 0, 1) * catRange);
+            const mcEffTarget = Number.isFinite(Number(mc?.effectiveMCTarget)) ? Number(mc.effectiveMCTarget) : catTargetScore;
+            const zdpNote = mcEffTarget < catTargetScore - 1e-6
+                ? ` (Meta ZDP: ${catMin === 0 && catMax === 100 ? `${Math.round(mcEffTarget)}%` : `${formatValue(mcEffTarget)} pts`})`
                 : '';
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido mcProbKey do ID para manter estabilidade no Planner
@@ -2838,7 +2846,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 topicName: 'Vetor Crítico — Intervenção Exigida',
                 analysis: {
                     reason: "Monte Carlo — Zona de Perigo",
-                    details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel != null ? `${options.targetScoreLabel}%` : (minScore === 0 && maxScore === 100 ? `${Math.round(targetScore)}%` : `${formatValue(targetScore)} pts (${Math.round(((targetScore - minScore) / domain) * 100)}%)`)}${zdpNote} em ${Number.isFinite(Number(mc?.effectiveMCDays)) && Number(mc.effectiveMCDays) > 0 ? Math.round(Number(mc.effectiveMCDays)) : 90} dias.`,
+                    details: `Apenas ${probPct}% de chance de bater a meta de ${options.targetScoreLabel != null ? `${options.targetScoreLabel}%` : (catMin === 0 && catMax === 100 ? `${Math.round(catTargetScore)}%` : `${formatValue(catTargetScore)} pts (${Math.round(((catTargetScore - catMin) / catRange) * 100)}%)`)}${zdpNote} em ${Number.isFinite(Number(mc?.effectiveMCDays)) && Number(mc.effectiveMCDays) > 0 ? Math.round(Number(mc.effectiveMCDays)) : 90} dias.`,
                     metrics: cat.urgency?.details?.humanReadable || {},
                     monteCarlo: mc || null,
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
@@ -3435,7 +3443,7 @@ export const getCoachInsight = (category, simulados = [], studyLogs = [], option
 
 export function getCombinedHistory(history, simulados, maxScore = 100, minScore = 0) {
     const deduplicatedMap = new Map();
-    const allSimulados = safeArray(simulados);
+    const allSimulados = safeArray(simulados).filter(s => s && s.valid !== false);
 
     allSimulados.forEach((s) => {
         const safeScore = getSafeScore(s, maxScore, minScore);
@@ -3453,18 +3461,47 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         deduplicatedMap.set(key, { ...s, type: 'simulado' });
     });
 
-    const hasSimuladoForDate = new Set(
-        allSimulados
-            .map(s => getDateKey(s.date || s.createdAt))
-            .filter(Boolean)
-    );
+    const hasSimuladoForDate = new Set();
+    const hasGenericSimuladoForDate = new Set();
+    const hasSimuladoForDateSubject = new Set();
 
-    const rowsByDate = {};
+    allSimulados.forEach((s) => {
+        const dKey = getDateKey(s.date || s.createdAt);
+        if (!dKey) return;
+        hasSimuladoForDate.add(dKey);
+        const rawSub = s.subject || s.categoryName || s.materia || s.disciplina;
+        const normSub = rawSub ? normalize(String(rawSub)) : '';
+        const catId = s.categoryId !== undefined && s.categoryId !== null && s.categoryId !== '' ? String(s.categoryId) : '';
+        if (!normSub && !catId) {
+            hasGenericSimuladoForDate.add(dKey);
+        } else {
+            if (normSub) hasSimuladoForDateSubject.add(`${dKey}|subj:${normSub}`);
+            if (catId) hasSimuladoForDateSubject.add(`${dKey}|cat:${catId}`);
+        }
+    });
+
+    const rowsByGroup = {};
     safeArray(history).forEach(r => {
+        if (!r || r.valid === false) return;
         const dKey = getDateKey(r.date || r.createdAt);
-        if (dKey && !hasSimuladoForDate.has(dKey)) {
-            if (!rowsByDate[dKey]) {
-                rowsByDate[dKey] = {
+        if (!dKey) return;
+        const rSubj = r.subject || r.categoryName || r.materia || r.disciplina;
+        const rSubjNorm = rSubj ? normalize(String(rSubj)) : '';
+        const rCatId = r.categoryId !== undefined && r.categoryId !== null && r.categoryId !== '' ? String(r.categoryId) : '';
+
+        const isCoveredBySimulado = (!rSubjNorm && !rCatId)
+            ? hasSimuladoForDate.has(dKey)
+            : (hasGenericSimuladoForDate.has(dKey) ||
+               (rSubjNorm && hasSimuladoForDateSubject.has(`${dKey}|subj:${rSubjNorm}`)) ||
+               (rCatId && hasSimuladoForDateSubject.has(`${dKey}|cat:${rCatId}`)));
+
+        if (!isCoveredBySimulado) {
+            const groupKey = rSubjNorm
+                ? `${dKey}|subj:${rSubjNorm}`
+                : (rCatId ? `${dKey}|cat:${rCatId}` : dKey);
+            if (!rowsByGroup[groupKey]) {
+                rowsByGroup[groupKey] = {
+                    dKey,
                     correct: 0,
                     total: 0,
                     directScores: [],
@@ -3473,17 +3510,17 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                     topics: []
                 };
             }
+            const bucket = rowsByGroup[groupKey];
             const _toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
             const rCorrect = _toNum(r.correct ?? r.acertos ?? r.correctCount);
             const rTotal = _toNum(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions);
-            const rSubj = r.subject || r.categoryName || r.materia || r.disciplina;
-            if (rSubj) rowsByDate[dKey].subjects.add(String(rSubj).trim());
+            if (rSubj) bucket.subjects.add(String(rSubj).trim());
             if (r.categoryId !== undefined && r.categoryId !== null && r.categoryId !== '') {
-                rowsByDate[dKey].categoryIds.add(r.categoryId);
+                bucket.categoryIds.add(r.categoryId);
             }
             const rTopic = r.topic || r.assunto || r.subtopic || r.topicName;
             if (rTopic) {
-                rowsByDate[dKey].topics.push({
+                bucket.topics.push({
                     name: String(rTopic).trim(),
                     total: rTotal > 0 ? rTotal : undefined,
                     correct: rTotal > 0 ? Math.min(rTotal, Math.max(0, rCorrect)) : undefined,
@@ -3491,21 +3528,22 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                     isPercentage: r.isPercentage
                 });
             } else if (Array.isArray(r.topics) && r.topics.length > 0) {
-                rowsByDate[dKey].topics.push(...r.topics);
+                bucket.topics.push(...r.topics);
             }
             if (rTotal > 0) {
-                rowsByDate[dKey].correct += Math.min(rTotal, Math.max(0, rCorrect));
-                rowsByDate[dKey].total += rTotal;
+                bucket.correct += Math.min(rTotal, Math.max(0, rCorrect));
+                bucket.total += rTotal;
             } else {
                 const s = getSafeScore(r, maxScore, minScore);
                 if (Number.isFinite(s)) {
-                    rowsByDate[dKey].directScores.push(s);
+                    bucket.directScores.push(s);
                 }
             }
         }
     });
 
-    Object.entries(rowsByDate).forEach(([dKey, stats]) => {
+    Object.entries(rowsByGroup).forEach(([groupKey, stats]) => {
+        const dKey = stats.dKey;
         let score = null;
         if (stats.total > 0) {
             score = minScore + (stats.correct / stats.total) * (maxScore - minScore);
@@ -3514,12 +3552,12 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         }
         if (score !== null && Number.isFinite(score)) {
             const safeScoreStr = String(Math.round(score * 100));
-            const key = `legacy-${dKey}|${dKey}|${safeScoreStr}`;
+            const key = `legacy-${groupKey}|${dKey}|${safeScoreStr}`;
             if (!deduplicatedMap.has(key)) {
-                const singleSubject = stats.subjects.size === 1 ? Array.from(stats.subjects)[0] : undefined;
-                const singleCategoryId = stats.categoryIds.size === 1 ? Array.from(stats.categoryIds)[0] : undefined;
+                const singleSubject = stats.subjects.size >= 1 ? Array.from(stats.subjects)[0] : undefined;
+                const singleCategoryId = stats.categoryIds.size >= 1 ? Array.from(stats.categoryIds)[0] : undefined;
                 deduplicatedMap.set(key, {
-                    id: `legacy-${dKey}`,
+                    id: groupKey === dKey ? `legacy-${dKey}` : `legacy-${groupKey}`,
                     date: dKey,
                     score,
                     ...(stats.total > 0 ? { total: stats.total, correct: stats.correct } : {}),

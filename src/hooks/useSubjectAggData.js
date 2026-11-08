@@ -2,6 +2,51 @@ import { useMemo } from 'react';
 import { toDateMs, getDateKey } from '../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
 
+function extractTopicsTotals(entry, safeMax, safeMin) {
+  const rawTopics = entry?.topics;
+  const topicsList = Array.isArray(rawTopics)
+    ? rawTopics
+    : (rawTopics && typeof rawTopics === 'object' ? Object.values(rawTopics) : []);
+  if (!topicsList.length) return { total: 0, correct: 0, hasTopicsScore: false, score: NaN };
+
+  const safeRange = Math.max(1e-9, safeMax - safeMin);
+  let sumTotal = 0;
+  let sumCorrect = 0;
+  let scoreSum = 0;
+  let scoreCount = 0;
+
+  for (const t of topicsList) {
+    if (!t || typeof t !== 'object') continue;
+    const tTot = Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+    const hasTC = (t.correct !== undefined && t.correct !== null && String(t.correct).trim() !== '') ||
+                  (t.acertos !== undefined && t.acertos !== null && String(t.acertos).trim() !== '') ||
+                  (t.correctCount !== undefined && t.correctCount !== null && String(t.correctCount).trim() !== '');
+    const parsedTC = Number(t.correct ?? t.acertos ?? t.correctCount);
+    const tScore = getSafeScore(t, safeMax, safeMin);
+    if (tTot > 0) {
+      sumTotal += tTot;
+      if (!t.isPercentage && hasTC && Number.isFinite(parsedTC)) {
+        sumCorrect += Math.max(0, Math.min(tTot, parsedTC));
+      } else if (Number.isFinite(tScore)) {
+        const ratio = Math.max(0, Math.min(1, (tScore - safeMin) / safeRange));
+        sumCorrect += Math.round(ratio * tTot);
+      }
+    } else if (Number.isFinite(tScore)) {
+      scoreSum += tScore;
+      scoreCount += 1;
+    }
+  }
+
+  if (sumTotal > 0) {
+    const derivedScore = safeMin + (sumCorrect / sumTotal) * safeRange;
+    return { total: sumTotal, correct: sumCorrect, hasTopicsScore: true, score: derivedScore };
+  }
+  if (scoreCount > 0) {
+    return { total: 0, correct: 0, hasTopicsScore: true, score: scoreSum / scoreCount };
+  }
+  return { total: 0, correct: 0, hasTopicsScore: false, score: NaN };
+}
+
 /**
  * Filtra um histórico por janela de tempo ('30' | '60' | '90' | 'all').
  * Movido do EvolutionChart.jsx (LOTE-05).
@@ -57,32 +102,62 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
         const catRange = Math.max(1e-9, catMax - catMin);
 
-        const totalQ = history.reduce((s, h) => {
-          let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
-          if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
-          const score = getSafeScore(h, catMax, catMin);
-          if (!Number.isFinite(score)) return s;
-          return s + tot;
-        }, 0);
+        let realQ = 0;
+        let realC = 0;
+        let synthQ = 0;
+        let synthC = 0;
 
-        const totalCorrect = Math.round(
-          history.reduce((s, h) => {
-            let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
-            if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
-            const hasRawC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
-                            (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
-                            (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
-            const rawC = Number(h.correct ?? h.acertos ?? h.correctCount);
-            if (!h.isPercentage && hasRawC && Number.isFinite(rawC)) {
-              return s + Math.max(0, Math.min(tot, rawC));
+        history.forEach((h) => {
+          let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+          let hasRawC = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
+                        (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
+                        (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
+          let rawC = Number(h.correct ?? h.acertos ?? h.correctCount);
+          let score = getSafeScore(h, catMax, catMin);
+          if (tot === 0 && !Number.isFinite(score)) {
+            const topicFallback = extractTopicsTotals(h, catMax, catMin);
+            if (topicFallback.total > 0) {
+              tot = topicFallback.total;
+              rawC = topicFallback.correct;
+              hasRawC = true;
+              score = topicFallback.score;
+            } else if (topicFallback.hasTopicsScore) {
+              score = topicFallback.score;
             }
-            const score = getSafeScore(h, catMax, catMin);
-            if (!Number.isFinite(score)) return s;
+          }
+          if (!Number.isFinite(score)) return;
+
+          const isSynth =
+            h?.syntheticVolume === true ||
+            h?.isSynthetic === true ||
+            h?.type === 'percent-only' ||
+            tot === 0;
+
+          if (isSynth && tot === 0) {
+            tot = getSyntheticTotal(catMax);
+          }
+          if (tot <= 0) return;
+
+          let corr = 0;
+          if (!isSynth && !h.isPercentage && hasRawC && Number.isFinite(rawC)) {
+            corr = Math.max(0, Math.min(tot, rawC));
+          } else {
             const normalizedScore = Math.max(catMin, Math.min(catMax, score));
             const derived = ((normalizedScore - catMin) / catRange) * tot;
-            return s + Math.max(0, Math.min(tot, Number.isFinite(derived) ? derived : 0));
-          }, 0)
-        );
+            corr = Math.max(0, Math.min(tot, Number.isFinite(derived) ? derived : 0));
+          }
+
+          if (isSynth) {
+            synthQ += tot;
+            synthC += corr;
+          } else {
+            realQ += tot;
+            realC += corr;
+          }
+        });
+
+        const totalQ = realQ + synthQ;
+        const totalCorrect = Math.round(realC + synthC);
 
         const stats = history.reduce(
           (acc, h) => {
@@ -117,6 +192,10 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
           name: shortName,
           fullName: safeName,
           questoes: totalQ,
+          realQuestoes: realQ,
+          realAcertos: Math.round(realC),
+          syntheticQuestoes: synthQ,
+          syntheticAcertos: Math.round(synthC),
           timedQuestoes: stats.tq,
           acertos: totalCorrect,
           timeSpent: stats.ts,
@@ -128,4 +207,3 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
       .sort((a, b) => b.questoes - a.questoes);
   }, [categories, showOnlyFocus, focusCategory?.id, maxScore, minScore, timeWindow]);
 }
-

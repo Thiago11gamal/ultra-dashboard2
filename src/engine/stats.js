@@ -11,9 +11,10 @@ export const RETENTION_DECAY_SHORT = 0.94;
 export const RETENTION_DECAY_LONG = 0.992;
 
 function toHistoryArray(history) {
-    if (Array.isArray(history)) return history.filter(Boolean);
-    if (history && typeof history === 'object') return Object.values(history).filter(Boolean);
-    return [];
+    const raw = Array.isArray(history)
+        ? history
+        : (history && typeof history === 'object' ? Object.values(history) : []);
+    return raw.filter(h => h != null && (typeof h !== 'object' || h.valid !== false));
 }
 
 function safeFinite(value, fallback = 0) {
@@ -641,7 +642,11 @@ export function computeBayesianLevel(
                 alpha += Number.isFinite(alphaHoje) ? alphaHoje : 0;
                 beta += Number.isFinite(betaHoje) ? betaHoje : 0;
             } else if (total >= 1) {
-                let correct = Math.max(0, Math.round(pct * total));
+                const rawCorrectField = h?.correct ?? h?.acertos ?? h?.correctCount;
+                const hasExplicitCorrect = !h?.isPercentage && rawCorrectField !== undefined && rawCorrectField !== null && String(rawCorrectField).trim() !== '' && Number.isFinite(Number(rawCorrectField));
+                let correct = hasExplicitCorrect
+                    ? Math.max(0, Number(rawCorrectField))
+                    : Math.max(0, Math.round(pct * total));
                 const safeCorrect = Math.max(0, Math.min(total, correct));
 
                 let acertosHoje = Math.max(0, safeCorrect * itemWeight);

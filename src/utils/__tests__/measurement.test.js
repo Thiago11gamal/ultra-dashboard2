@@ -141,6 +141,25 @@ describe("measurement", () => {
     expect(migrated.categories[0].simuladoStats.history[0].correct).toBe(5);
   });
 
+  it("migrateContestData preserva minScore negativo (ex.: Cebraspe -120..120)", () => {
+    const migrated = migrateContestData({
+      maxScore: 120,
+      minScore: -120,
+      categories: [{ id: "c1", name: "Penal", maxScore: 120, minScore: -120, simuladoStats: { history: [{ date: "2026-05-01", score: -30 }] } }]
+    });
+    expect(migrated.minScore).toBe(-120);
+    expect(migrated.categories[0].minScore).toBe(-120);
+    expect(migrated.categories[0].simuladoStats.history[0].score).toBe(-30);
+  });
+
+  it("normalizeScoreValue deriva correct de score quando total > 0 e correct está ausente", () => {
+    const norm = normalizeScoreValue({ total: 50, score: 80, isPercentage: true }, 100, 0);
+    expect(norm.points).toBe(80);
+    expect(norm.pct).toBe(80);
+    expect(norm.correct).toBe(40);
+    expect(norm.total).toBe(50);
+  });
+
   it("latestByDate retorna o mais recente por data real", () => {
     const rows = [
       { date: "2026-01-01", id: "a" },

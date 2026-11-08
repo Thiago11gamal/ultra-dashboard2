@@ -63,4 +63,40 @@ describe('useChartData — blindagem NaN (BATCH-01)', () => {
     assertNoNaN(result.current.timeline);
     expect(Number.isFinite(result.current.globalMetrics.globalAccuracy)).toBe(true);
   });
+
+  it('preserva rawCorrect exato no acumulado e não vaza volume sintético para raw_total/global_total', () => {
+    const categories = [mkCat([
+      { date: '2026-07-01', total: 3, correct: 2, score: 67 },
+      { date: '2026-07-02', total: 0, score: 83 }
+    ])];
+    const { result } = renderHook(() => useChartData(categories, {}, 100, 0));
+    const [pt1, pt2] = result.current.timeline;
+    expect(pt1.raw_correct_mat).toBe(2);
+    expect(pt1.raw_total_mat).toBe(3);
+    expect(pt1.raw_mat).toBeCloseTo(66.6667, 2);
+    // Simulado apenas percentual não injeta 20 questões sintéticas em raw_total nem global_total
+    expect(pt2.raw_total_mat).toBe(0);
+    expect(pt2.global_total).toBe(0);
+    expect(pt2.raw_mat).toBeCloseTo(83, 2);
+  });
+
+  it('inclui entradas registradas apenas por tópicos (h.topics) na timeline, heatmap e globalMetrics', () => {
+    const categories = [mkCat([
+      {
+        date: '2026-07-05',
+        total: 0,
+        score: null,
+        topics: [
+          { name: 'Álgebra', total: 10, correct: 8 },
+          { name: 'Geometria', total: 10, correct: 6 }
+        ]
+      }
+    ])];
+    const { result } = renderHook(() => useChartData(categories, {}, 100, 0));
+    expect(result.current.activeCategories.length).toBe(1);
+    expect(result.current.timeline.length).toBe(1);
+    expect(result.current.globalMetrics.totalQuestions).toBe(20);
+    expect(result.current.globalMetrics.totalCorrect).toBe(14);
+    expect(result.current.globalMetrics.globalAccuracy).toBe(70);
+  });
 });
