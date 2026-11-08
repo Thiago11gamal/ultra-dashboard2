@@ -522,6 +522,11 @@ export default React.memo(function EvolutionChart({
 
     const handleCarouselMouseUpOrLeave = useCallback(() => {
         isDraggingRef.current = false;
+        if (hasDraggedRef.current) {
+            setTimeout(() => {
+                hasDraggedRef.current = false;
+            }, 0);
+        }
     }, []);
 
     // FIX-CLEANUP-01: limpar timer de erro e refs de tab ao desmontar.
@@ -631,6 +636,67 @@ export default React.memo(function EvolutionChart({
             ? [...sampledHistorical, ...historicalData.future]
             : sampledHistorical;
     }, [activeEngine, sampledHistorical, historicalData.future]);
+
+    const effectiveMcHistoryData = useMemo(() => {
+        const rawList = Array.isArray(monteCarloHistoryArray) ? monteCarloHistoryArray : [];
+        let filteredList = rawList;
+        if (timeWindow !== "all") {
+            const days = Number.parseInt(timeWindow, 10);
+            if (Number.isFinite(days) && days > 0 && rawList.length > 0) {
+                const cutoffDate = new Date();
+                cutoffDate.setHours(12, 0, 0, 0);
+                cutoffDate.setDate(cutoffDate.getDate() - days);
+                const limit = toDateMs(getDateKey(cutoffDate));
+                filteredList = rawList.filter((item) => {
+                    const ms = toDateMs(item?.date);
+                    return Number.isFinite(ms) && ms >= limit;
+                });
+            }
+        }
+        if (filteredList.length >= 2) return filteredList;
+
+        // Synthesize trajectory from Bayesian timeline when global monteCarloHistory has <= 1 snapshot
+        const pts = Array.isArray(filteredHistoricalData) ? filteredHistoricalData : [];
+        if (pts.length < 2) return filteredList;
+        const fId = focusCategory?.id;
+        const safeMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const safeMax = hasValidNumber(maxScore) && Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 100;
+        const safeRange = Math.max(1, safeMax - safeMin);
+        const safeTarget = hasValidNumber(targetScore) ? Number(targetScore) : safeMin + safeRange * 0.8;
+
+        const synth = pts
+            .map((pt, idx) => {
+                const meanVal = fId
+                    ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`])
+                    : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw);
+                if (!hasValidNumber(meanVal)) return null;
+                const m = Number(meanVal);
+                const low = fId && hasValidNumber(pt[`bay_ci_low_${fId}`]) ? Number(pt[`bay_ci_low_${fId}`]) : Math.max(safeMin, m - safeRange * 0.06);
+                const high = fId && hasValidNumber(pt[`bay_ci_high_${fId}`]) ? Number(pt[`bay_ci_high_${fId}`]) : Math.min(safeMax, m + safeRange * 0.06);
+                const isLast = idx === pts.length - 1;
+                const proj = isLast && hasValidNumber(activeMcResult?.projectedMean)
+                    ? Number(activeMcResult.projectedMean)
+                    : m;
+                const sigma = Math.max(safeRange * 0.02, (high - low) / 3.92);
+                const z = (proj - safeTarget) / sigma;
+                const approxProb = 100 / (1 + Math.exp(-1.702 * z));
+                const prob = isLast && hasValidNumber(activeMcResult?.probability)
+                    ? Number(activeMcResult.probability)
+                    : approxProb;
+                return {
+                    date: pt.date,
+                    mean: m,
+                    projectedMean: proj,
+                    ci95Low: low,
+                    ci95High: high,
+                    probability: prob,
+                    target: safeTarget
+                };
+            })
+            .filter(Boolean);
+
+        return synth.length >= 2 ? synth : filteredList;
+    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, minScore, maxScore, targetScore, activeMcResult]);
 
     const latestMetricsByCat = useMemo(() => {
         const map = {};
@@ -1201,7 +1267,7 @@ export default React.memo(function EvolutionChart({
                     />
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart
-                        data={monteCarloHistoryArray}
+                        data={effectiveMcHistoryData}
                         targetScore={targetScore}
                         unit={unit}
                         minScore={minScore}
@@ -1312,7 +1378,7 @@ export default React.memo(function EvolutionChart({
                                         className="bg-transparent text-[10px] font-black text-indigo-300 uppercase tracking-widest outline-none border-b border-indigo-500/30 pb-1 cursor-pointer hover:text-indigo-200 transition-colors appearance-none pr-4 relative w-auto max-w-full truncate"
                                         style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' fill=\'%23818cf8\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M8 11.5l-5-5h10l-5 5z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right center' }}
                                     >
-                                        {categories.map(c => (
+                                        {(activeCategories.length > 0 ? activeCategories : categories).map(c => (
                                             <option key={c.id} value={c.id} className="bg-slate-900 text-slate-200">
                                                 Foco: {c.name}
                                             </option>
@@ -1649,6 +1715,8 @@ export default React.memo(function EvolutionChart({
                     categories={categories}
                     maxScore={maxScore}
                     minScore={minScore}
+                    showOnlyFocus={showOnlyFocus}
+                    focusSubjectId={focusCategory?.id || focusSubjectId}
                 />
             </div>
         </motion.div>

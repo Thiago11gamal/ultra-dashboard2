@@ -34,19 +34,21 @@ export function useCategoryLevels(categories, timeline, activeEngine, maxScore =
       }
 
       const historyRaw = cat.simuladoStats?.history;
-      const history = historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [];
+      const history = (historyRaw ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw)) : [])
+        .filter((h) => h && h.valid !== false);
       const weight = Number(cat.weight) > 0 ? Number(cat.weight) : 10;
       const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
       const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMin;
 
       // Fallback para o histórico da disciplina caso não esteja na timeline
       if (activeEngine === 'raw' && history.length > 0) {
+        const nowMs = Date.now() + 86400000;
         let latestEntry = null;
         let latestMs = -Infinity;
         for (let i = 0; i < history.length; i++) {
           const h = history[i];
           const ms = toDateMs(h?.date || h?.createdAt) || 0;
-          if (ms >= latestMs) {
+          if (ms <= nowMs && ms >= latestMs) {
             latestMs = ms;
             latestEntry = h;
           }

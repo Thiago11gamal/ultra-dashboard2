@@ -198,8 +198,8 @@ export const MonteCarloEvolutionChart = ({
     // M1 FIX: Callback estável para o Tooltip — arrow function inline criaria nova referência
     // a cada render, quebrando a memoização do Recharts e causando re-renders desnecessários.
     const renderTooltip = useCallback(
-        (props) => <MonteCarloTooltip {...props} unit={unit} targetScore={safeTargetScore} maxScore={maxScore} minScore={minScore} />,
-        [unit, safeTargetScore, maxScore, minScore]
+        (props) => <MonteCarloTooltip {...props} unit={unit} targetScore={safeTargetScore} maxScore={safeMax} minScore={safeMin} />,
+        [unit, safeTargetScore, safeMax, safeMin]
     );
 
     if (formattedData.length <= 1) {
@@ -451,7 +451,7 @@ export const MonteCarloEvolutionChart = ({
                         </div>
                     </div>
                 </div>
-                {qualitySignal && (qualitySignal.color.includes('red') || qualitySignal.color.includes('rose')) && (
+                {qualitySignal && (qualitySignal.hasDowntrend || qualitySignal.color.includes('red') || qualitySignal.color.includes('rose')) && (
                     <div className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-2xl mt-1 animate-pulse backdrop-blur-sm">
                         <p className="text-xs font-bold text-rose-400 mb-1 flex items-center gap-2">
                             <AlertCircle size={14} /> Alerta de tendência

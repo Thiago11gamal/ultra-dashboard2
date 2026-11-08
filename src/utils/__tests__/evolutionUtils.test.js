@@ -112,4 +112,32 @@ describe('evolution utils', () => {
     expect(signal?.label).toBe('Sinal Fraco');
   });
 
+  it('ignores null delta values in computeTopRegressions instead of coercing null to 0', () => {
+    const chartData = [
+      { week: '2026-01-01', displayDate: '01/01', a: 70, delta_a: -8 },
+      { week: '2026-01-08', displayDate: '08/01', a: null, delta_a: null },
+    ];
+    const regs = computeTopRegressions({
+      viewMode: 'variation',
+      chartData,
+      keys: ['a'],
+      activeKeys: { a: { name: 'Matéria A' } },
+      hiddenKeys: { a: false },
+    });
+    expect(regs.length).toBe(1);
+    expect(regs[0].delta).toBe(-8);
+  });
+
+  it('detects projection downtrend in classifyScenarioSignal', () => {
+    const signal = classifyScenarioSignal(
+      [
+        { mean: 75, projectedMean: 75, ciRange: [70, 80] },
+        { mean: 70, projectedMean: 70, ciRange: [65, 75] },
+      ],
+      100,
+      0
+    );
+    expect(signal?.hasDowntrend).toBe(true);
+  });
+
 });

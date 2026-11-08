@@ -180,24 +180,32 @@ export const SubtopicsPerformanceChart = React.memo(({
             const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const catRange = Math.max(1e-9, catMax - catMin);
+            const tasksList = toArray(cat.tasks);
+            const nowEndMs = new Date().setHours(23, 59, 59, 999);
 
             const recentHistory = history.filter(h => {
-                if (!limitMs) return true;
+                if (!h || h.valid === false) return false;
                 const d = normalizeDate(getHistoryDate(h));
-                return d && d.getTime() >= limitMs;
+                if (!d || !Number.isFinite(d.getTime()) || d.getTime() > nowEndMs) return false;
+                if (!limitMs) return true;
+                return d.getTime() >= limitMs;
             });
 
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
                 let topicList = toArray(h.topics);
-                if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
-                    topicList = [{
-                        name: h.topic || h.assunto || h.subtopic || h.topicName,
-                        total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
-                        correct: h.correct ?? h.acertos ?? h.correctCount,
-                        score: h.score,
-                        isPercentage: h.isPercentage
-                    }];
+                if (topicList.length === 0) {
+                    const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
+                    const fallbackName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
+                    if (fallbackName) {
+                        topicList = [{
+                            name: fallbackName,
+                            total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+                            correct: h.correct ?? h.acertos ?? h.correctCount,
+                            score: h.score,
+                            isPercentage: h.isPercentage
+                        }];
+                    }
                 }
 
                 topicList.forEach(t => {
@@ -282,11 +290,15 @@ export const SubtopicsPerformanceChart = React.memo(({
             const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const catRange = Math.max(1e-9, catMax - catMin);
+            const tasksList = toArray(cat.tasks);
+            const nowEndMs = new Date().setHours(23, 59, 59, 999);
 
             const recentHistory = history.filter(h => {
-                if (!limitMs) return true;
+                if (!h || h.valid === false) return false;
                 const d = normalizeDate(getHistoryDate(h));
-                return d && d.getTime() >= limitMs;
+                if (!d || !Number.isFinite(d.getTime()) || d.getTime() > nowEndMs) return false;
+                if (!limitMs) return true;
+                return d.getTime() >= limitMs;
             });
 
             for (const h of recentHistory) {
@@ -302,14 +314,18 @@ export const SubtopicsPerformanceChart = React.memo(({
                 }
 
                 let topicList = toArray(h.topics);
-                if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
-                    topicList = [{
-                        name: h.topic || h.assunto || h.subtopic || h.topicName,
-                        total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
-                        correct: h.correct ?? h.acertos ?? h.correctCount,
-                        score: h.score,
-                        isPercentage: h.isPercentage
-                    }];
+                if (topicList.length === 0) {
+                    const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
+                    const fallbackName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
+                    if (fallbackName) {
+                        topicList = [{
+                            name: fallbackName,
+                            total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+                            correct: h.correct ?? h.acertos ?? h.correctCount,
+                            score: h.score,
+                            isPercentage: h.isPercentage
+                        }];
+                    }
                 }
 
                 topicList.forEach(t => {
@@ -325,7 +341,11 @@ export const SubtopicsPerformanceChart = React.memo(({
                     }
                     if (total === 0) return;
 
-                    topicVolumeMap[topicName] = (topicVolumeMap[topicName] || 0) + total;
+                    const sKey = toTopicKey(topicName);
+                    if (!topicVolumeMap[sKey]) {
+                        topicVolumeMap[sKey] = { name: topicName, key: sKey, volume: 0 };
+                    }
+                    topicVolumeMap[sKey].volume += total;
 
                     const hasValidC = !t.isPercentage && (
                         (t.correct !== null && t.correct !== undefined && String(t.correct).trim() !== '') ||
@@ -343,7 +363,6 @@ export const SubtopicsPerformanceChart = React.memo(({
                     }
                     correct = Math.max(0, Math.min(total, Number.isFinite(correct) ? correct : 0));
 
-                    const sKey = toTopicKey(topicName);
                     const totKey = `${sKey}_total`;
                     const corKey = `${sKey}_correct`;
 
@@ -357,17 +376,10 @@ export const SubtopicsPerformanceChart = React.memo(({
             }
         });
 
-        const topTopicNames = Object.entries(topicVolumeMap)
-            .sort((a, b) => b[1] - a[1])
+        const topTopics = Object.values(topicVolumeMap)
+            .sort((a, b) => b.volume - a.volume)
             .slice(0, 8)
-            .map(entry => entry[0]);
-
-        const topTopics = topTopicNames
-          .map(name => ({
-            name,
-            key: toTopicKey(name)
-          }))
-          .filter((topic, index, self) => self.findIndex(t => t.key === topic.key) === index);
+            .map(({ name, key }) => ({ name, key }));
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
 

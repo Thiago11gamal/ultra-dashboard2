@@ -12,6 +12,7 @@ export function filterHistoryByTimeWindow(history, timeWindow) {
   const todayKey = getDateKey(new Date());
 
   const validEntries = safeHistory.filter(Boolean).filter((h) => {
+    if (h?.valid === false) return false;
     const rawDate = h?.date || h?.createdAt;
     if (!rawDate) return false;
     const key = getDateKey(rawDate);

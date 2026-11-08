@@ -130,7 +130,7 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
                     </div>
                 )}
                 <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400 font-medium">Média (7 dias)</span>
+                    <span className="text-slate-400 font-medium">{data.hasRecentData === false ? 'Média (Geral)' : 'Média (7 dias)'}</span>
                     <span className="text-cyan-400 font-bold">{formatTime(data.displaySeconds)}</span>
                 </div>
             </div>
@@ -162,7 +162,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
                 const todayKey = getDateKey(new Date());
                 const todayNoonMs = toDateMs(todayKey) || nowMs;
                 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-                const history = Object.values(cat.simuladoStats?.history || {});
+                const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
 
                 const recentStats = history.reduce((acc, h) => {
                     const hKey = getDateKey(h.date || h.createdAt);
@@ -239,7 +239,7 @@ export function TimeSpentChart({ subjectAggData, activeCategories = [], showOnly
 
                 // BUG FIX: Garante que o histórico é ordenado cronologicamente e possui tempo válido
                 const sortedHistory = Object.values(cat.simuladoStats?.history || {})
-                    .filter(h => h && toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h) !== null)
+                    .filter(h => h && h.valid !== false && toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h) !== null)
                     .sort((a, b) => {
                         const da = toDateMs(a.date || a.createdAt) || 0;
                         const db = toDateMs(b.date || b.createdAt) || 0;

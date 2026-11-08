@@ -54,11 +54,21 @@ export function classifyScenarioSignal(data = [], maxScore = 100, minScore = 0) 
   const low = Number(latest?.ciRange?.[0]);
   const width = Number.isFinite(high) && Number.isFinite(low) ? Math.max(0, high - low) : Number.POSITIVE_INFINITY;
 
+  let hasDowntrend = false;
+  if (data.length >= 2) {
+    const prev = data[data.length - 2];
+    const currVal = Number(latest?.projectedMean ?? latest?.mean);
+    const prevVal = Number(prev?.projectedMean ?? prev?.mean);
+    if (Number.isFinite(currVal) && Number.isFinite(prevVal) && (currVal - prevVal) <= -(range * 0.015)) {
+      hasDowntrend = true;
+    }
+  }
+
   if (data.length < 4 || width >= (range * 0.18)) {
-    return { label: 'Sinal Fraco', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10' };
+    return { label: 'Sinal Fraco', color: 'text-amber-300 border-amber-500/40 bg-amber-500/10', hasDowntrend };
   }
   if (width <= (range * 0.10) && data.length >= 8) {
-    return { label: 'Sinal Forte', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10' };
+    return { label: 'Sinal Forte', color: 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10', hasDowntrend };
   }
-  return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10' };
+  return { label: 'Sinal Médio', color: 'text-sky-300 border-sky-500/40 bg-sky-500/10', hasDowntrend };
 }

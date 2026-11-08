@@ -175,14 +175,25 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         } else {
             const cat = categories.find(c => c.id === focusSubjectId);
             if (cat) {
+                const SUBTOPIC_PALETTE = [
+                    '#38bdf8', '#a855f7', '#34d399', '#fb923c', '#f472b6',
+                    '#facc15', '#60a5fa', '#c084fc', '#4ade80', '#f87171',
+                    '#2dd4bf', '#818cf8'
+                ];
+                let colorIdx = 0;
+                const nextColor = () => SUBTOPIC_PALETTE[colorIdx++ % SUBTOPIC_PALETTE.length];
+
                 (cat.tasks || []).forEach(task => {
-                    const tName = String(task?.text || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                    const tName = String(task?.text || task?.title || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!tName) return;
                     const key = toSafeKey(tName);
-                    itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                    if (!itemsMap[key]) {
+                        itemsMap[key] = { name: shortenLabel(tName, 18), color: nextColor(), fullName: tName };
+                    }
                 });
 
-                const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                const hArray = (Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {}))
+                    .filter(h => h && h.valid !== false);
                 hArray.forEach(h => {
                     const topics = toArray(h.topics);
                     
@@ -192,26 +203,27 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                             if (!tName) return;
                             const key = toSafeKey(tName);
                             if (!itemsMap[key]) {
-                                itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                                itemsMap[key] = { name: shortenLabel(tName, 18), color: nextColor(), fullName: tName };
                             }
                         });
                     } else if (h.taskId) {
-                        const rawTaskText = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
+                        const foundTask = cat.tasks?.find(task => task.id === h.taskId);
+                        const rawTaskText = foundTask?.text || foundTask?.title || 'Assunto';
                         const tName = String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
                         const key = toSafeKey(tName);
                         if (!itemsMap[key]) {
-                            itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                            itemsMap[key] = { name: shortenLabel(tName, 18), color: nextColor(), fullName: tName };
                         }
                     } else if (h.topic || h.assunto || h.subtopic || h.topicName) {
                         const rawTopicText = h.topic || h.assunto || h.subtopic || h.topicName;
                         const tName = String(rawTopicText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
                         const key = toSafeKey(tName);
                         if (!itemsMap[key]) {
-                            itemsMap[key] = { name: shortenLabel(tName, 18), color: cat.color || '#3b82f6', fullName: tName };
+                            itemsMap[key] = { name: shortenLabel(tName, 18), color: nextColor(), fullName: tName };
                         }
                     } else {
                         if (!itemsMap['top_geral']) {
-                            itemsMap['top_geral'] = { name: 'Geral', color: cat.color || '#3b82f6', fullName: 'Geral' };
+                            itemsMap['top_geral'] = { name: 'Geral', color: cat.color || nextColor(), fullName: 'Geral' };
                         }
                     }
                 });
@@ -234,6 +246,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
             if (!Array.isArray(historyArray) || !itemId) return;
             const cRange = Math.max(1e-9, cMax - cMin);
             historyArray.forEach(h => {
+                if (!h || h.valid === false) return;
                 const weekStr = getMondayStr(getHistoryDate(h));
                 if (!weekStr) return;
 
@@ -278,7 +291,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
                 const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
                 const cRange = Math.max(1e-9, cMax - cMin);
-                const hArray2 = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                const hArray2 = (Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {}))
+                    .filter(h => h && h.valid !== false);
                 hArray2.forEach(h => {
                     const topics = toArray(h.topics);
                     
@@ -419,9 +433,13 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 if (meta && hasValidNumber(meta.currTot)) volumeTracker[id] += Number(meta.currTot);
             });
         });
-        const rankedKeys = [...validIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
+        const idsWithVolume = validIds.filter(id => volumeTracker[id] > 0);
+        const effectiveIds = idsWithVolume.length > 0 ? idsWithVolume : validIds;
+        const filteredActiveKeys = {};
+        effectiveIds.forEach(id => { filteredActiveKeys[id] = itemsMap[id]; });
+        const rankedKeys = [...effectiveIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
-        return { chartData: finalData, activeKeys: itemsMap, rankedKeys };
+        return { chartData: finalData, activeKeys: filteredActiveKeys, rankedKeys };
     }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore]);
 
     const keys = Object.keys(activeKeys);
@@ -480,6 +498,11 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const scoreRange = Math.max(1e-9, Math.abs(safeMaxScore - safeMinScore));
         return Math.max(0.5, scoreRange * 0.02);
     }, [minScore, maxScore]);
+
+    const hasConsecutiveDelta = useMemo(() => {
+        if (!Array.isArray(chartData) || chartData.length < 2) return false;
+        return chartData.some(pt => keys.some(k => !hiddenKeys[k] && hasValidNumber(pt?.[`delta_${k}`])));
+    }, [chartData, keys, hiddenKeys]);
 
     const renderWeeklyTooltip = useCallback(
         (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} />,
@@ -570,7 +593,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         minScore={minScore}
                         unit={unit}
                     />
-                ) : viewMode === 'variation' && chartData.length < 2 ? (
+                ) : viewMode === 'variation' && !hasConsecutiveDelta ? (
                     <div className="h-full flex flex-col items-center justify-center bg-slate-950/40 rounded-3xl border border-slate-800/60 p-6 text-center">
                         <BarChart3 size={36} className="text-slate-600 mb-2" />
                         <p className="text-sm font-bold text-slate-300">Semanas consecutivas necessárias</p>

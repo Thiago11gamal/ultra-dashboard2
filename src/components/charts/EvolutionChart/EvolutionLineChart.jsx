@@ -113,8 +113,25 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         return sortedData.map(d => {
             const copy = { ...d };
             safeActiveCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId).forEach(cat => {
-                const low = d[`bay_ci_low_${cat.id}`];
-                const high = d[`bay_ci_high_${cat.id}`];
+                const cMin = hasValidNum(cat?.minScore) ? Number(cat.minScore) : safeMinScore;
+                const cMax = hasValidNum(cat?.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMaxScore;
+                const cRange = Math.max(1e-9, cMax - cMin);
+                const needsScale = (cMax !== safeMaxScore || cMin !== safeMinScore);
+                const normVal = (v) => {
+                    if (!hasValidNum(v)) return v;
+                    const n = Number(v);
+                    return needsScale ? safeMinScore + ((n - cMin) / cRange) * safeRange : n;
+                };
+
+                ['raw_', 'bay_', 'stats_', 'bay_ci_low_', 'bay_ci_high_'].forEach(prefix => {
+                    const k = `${prefix}${cat.id}`;
+                    if (hasValidNum(copy[k])) {
+                        copy[k] = Number(normVal(copy[k]).toFixed(2));
+                    }
+                });
+
+                const low = copy[`bay_ci_low_${cat.id}`];
+                const high = copy[`bay_ci_high_${cat.id}`];
                 if (hasValidNum(low) && hasValidNum(high)) {
                     const l = Number(low);
                     const h = Number(high);
@@ -124,7 +141,7 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
             copy.displayDate = copy.displayDate || copy.date;
             return copy;
         });
-    }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId]);
+    }, [safeChartData, safeActiveCategories, showOnlyFocus, focusSubjectId, safeMinScore, safeMaxScore, safeRange]);
 
     // Gather final points for label positioning (busca regressiva para pegar o último ponto com dado de cada matéria)
     const { finalPoints, lastValidIndexByCat } = useMemo(() => {

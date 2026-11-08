@@ -1,10 +1,13 @@
 import { toDateMs } from './dateHelper.js';
 
+const hasFiniteNumber = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
 export function computeTopRegressions({ viewMode, chartData = [], keys = [], activeKeys = {}, hiddenKeys = {} }) {
   if (viewMode !== 'variation' || !Array.isArray(chartData) || chartData.length === 0) return [];
 
   const latestWeekWithDelta = [...chartData].reverse().find(point =>
-    keys.some(key => Number.isFinite(Number(point?.[`delta_${key}`])))
+    keys.some(key => !hiddenKeys[key] && hasFiniteNumber(point?.[`delta_${key}`]))
   );
 
   if (!latestWeekWithDelta) return [];
@@ -13,7 +16,7 @@ export function computeTopRegressions({ viewMode, chartData = [], keys = [], act
     .map((key) => {
       const delta = latestWeekWithDelta[`delta_${key}`];
 
-      if (!Number.isFinite(Number(delta)) || Number(delta) >= 0 || hiddenKeys[key]) return null;
+      if (!hasFiniteNumber(delta) || Number(delta) >= 0 || hiddenKeys[key]) return null;
 
       return {
         key,
@@ -30,7 +33,7 @@ export function computeTopRegressions({ viewMode, chartData = [], keys = [], act
 }
 
 export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) {
-  if (!Array.isArray(chartData) || chartData.length < 2) return null;
+  if (!Array.isArray(chartData) || chartData.length < 5) return null;
 
   const visibleKeys = keys.filter((key) => !hiddenKeys[key]);
   if (visibleKeys.length === 0) return null;
@@ -64,7 +67,7 @@ export function computeTrendKpi({ chartData = [], keys = [], hiddenKeys = {} }) 
         // ✅ BUG-30 FIX: Proteção extra para garantir que meta exista antes do acesso
         if (week && week[`meta_${key}`]) {
           const meta = week[`meta_${key}`];
-          if (meta && meta.currTot > 0 && Number.isFinite(Number(week[key]))) {
+          if (meta && meta.currTot > 0 && hasFiniteNumber(week[key])) {
             weekSum += (Number(week[key]) * meta.currTot);
             weekVol += meta.currTot;
           }

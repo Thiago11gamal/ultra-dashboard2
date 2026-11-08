@@ -5,6 +5,9 @@ import { computeTrendStatus } from './trendStatus';
 export { computeTrendStatus };
 
 const safeNum = (value, fallback = null) => {
+  if (value === null || value === undefined || typeof value === 'boolean' || String(value).trim() === '') {
+    return fallback;
+  }
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 };
@@ -20,7 +23,7 @@ const stdDev = (values) => {
   const mean = average(values);
   if (!Number.isFinite(mean)) return null;
 
-  const variance = average(values.map((v) => (v - mean) ** 2));
+  const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (values.length - 1);
   return Number.isFinite(variance) ? Math.sqrt(variance) : null;
 };
 
@@ -29,6 +32,7 @@ export function computeEvolutionStatuses({
   filteredChartData = null,
   categories = [],
   focusCategory = null,
+  showOnlyFocus = false,
   targetScore = 0,
   unit = '%',
   minScore = 0,
@@ -58,6 +62,15 @@ export function computeEvolutionStatuses({
     : {};
 
   const focusId = focusCategory?.id;
+  const focusMin = focusId ? safeNum(focusCategory?.minScore, safeMin) : safeMin;
+  const focusMax = focusId ? Math.max(focusMin + 1, safeNum(focusCategory?.maxScore, safeMax)) : safeMax;
+  const focusRange = focusMax - focusMin;
+  const focusScale = focusRange / 100;
+  const globalTargetRatio = range > 0 ? (safeTarget - safeMin) / range : 0.8;
+  const focusTarget = focusId
+    ? (safeNum(focusCategory?.minCutoff, null) ??
+       (focusMax === safeMax && focusMin === safeMin ? safeTarget : focusMin + globalTargetRatio * focusRange))
+    : safeTarget;
 
   const currentBay = focusId ? safeNum(last[`bay_${focusId}`], null) : null;
   let currentRaw = focusId ? safeNum(last[`raw_${focusId}`], null) : null;
@@ -93,31 +106,31 @@ export function computeEvolutionStatuses({
     tone:
       current == null
         ? 'neutral'
-        : current >= safeTarget
+        : current >= focusTarget
           ? 'success'
-          : current >= safeTarget - 8 * scale
+          : current >= focusTarget - 8 * focusScale
             ? 'warning'
             : 'danger',
     icon: '📍',
-    help: `Nível atual estimado na escala da prova. Meta: ${fmt(safeTarget)}.`
+    help: `Nível atual estimado na escala da prova. Meta: ${fmt(focusTarget)}.`
   });
 
   // Gap até a meta
   if (current != null) {
-    const gap = current - safeTarget;
+    const gap = current - focusTarget;
 
     statuses.push({
       id: 'gap',
       label: 'Distância da meta',
       value: `${gap >= 0 ? '+' : ''}${formatValue(gap)}${unit}`,
-      tone: gap >= 0 ? 'success' : gap >= -5 * scale ? 'warning' : 'danger',
+      tone: gap >= 0 ? 'success' : gap >= -5 * focusScale ? 'warning' : 'danger',
       icon: '🎯',
       help: 'Diferença entre o nível atual e a meta configurada.'
     });
   }
 
   // REFACTOR-TREND-01: usar computeTrendStatus centralizado
-  statuses.push(computeTrendStatus(levelSeries, { formatValue, unit, scale }));
+  statuses.push(computeTrendStatus(levelSeries, { formatValue, unit, scale: focusScale }));
 
   // Probabilidade Monte Carlo
   const probability = safeNum(activeMcResult?.probability, null);
@@ -137,15 +150,33 @@ export function computeEvolutionStatuses({
 
   // Constância nos últimos 14 dias
   const rawHeatmapDates = Array.isArray(heatmapData?.dates) ? heatmapData.dates : [];
+  const heatmapRows = Array.isArray(heatmapData?.rows) ? heatmapData.rows : [];
+  const focusRow = (showOnlyFocus && focusId)
+    ? heatmapRows.find((r) => r?.cat?.id === focusId)
+    : null;
   const heatmapDates = rawHeatmapDates
-    .map((d) => (typeof d === 'string' ? d : d?.key || getDateKey(d)))
+    .map((d, idx) => {
+      if (focusRow && !focusRow.cells?.[idx]) return null;
+      return typeof d === 'string' ? d : d?.key || getDateKey(d);
+    })
     .filter(Boolean);
+  const timelineDatesForConst = Array.isArray(timeline)
+    ? timeline
+        .filter((d) => {
+          if (!d?.date) return false;
+          if (showOnlyFocus && focusId) {
+            return d[`raw_${focusId}`] != null || safeNum(d[`raw_total_${focusId}`], 0) > 0;
+          }
+          return true;
+        })
+        .map((d) => d.date)
+    : [];
   const allActiveDates = new Set([
     ...heatmapDates,
-    ...(Array.isArray(timeline) ? timeline.map((d) => d?.date).filter(Boolean) : [])
+    ...timelineDatesForConst
   ]);
 
-  if (allActiveDates.size > 0) {
+  if (allActiveDates.size > 0 || (showOnlyFocus && focusId && (rawHeatmapDates.length > 0 || timeline.length > 0))) {
     const todayForConst = new Date();
     todayForConst.setHours(12, 0, 0, 0);
     let activeDays = 0;
@@ -180,9 +211,9 @@ export function computeEvolutionStatuses({
         label: 'Volatilidade',
         value: `σ ${formatValue(volatility)}`,
         tone:
-          volatility <= 5 * scale
+          volatility <= 5 * focusScale
             ? 'success'
-            : volatility <= 12 * scale
+            : volatility <= 12 * focusScale
               ? 'warning'
               : 'danger',
         icon: '📊',
@@ -204,9 +235,9 @@ export function computeEvolutionStatuses({
         label: 'Incerteza bayesiana',
         value: `±${formatValue(width / 2)}${unit}`,
         tone:
-          width <= 8 * scale
+          width <= 8 * focusScale
             ? 'success'
-            : width <= 20 * scale
+            : width <= 20 * focusScale
               ? 'warning'
               : 'danger',
         icon: '🧠',
@@ -217,7 +248,6 @@ export function computeEvolutionStatuses({
 
   // Matérias abaixo da meta
   if (Array.isArray(categories) && categories.length > 0) {
-    const globalTargetRatio = range > 0 ? (safeTarget - safeMin) / range : 0.8;
     const below = categories.filter((cat) => {
       const catMin = safeNum(cat?.minScore, safeMin);
       const catMax = Math.max(catMin + 1, safeNum(cat?.maxScore, safeMax));
@@ -232,15 +262,24 @@ export function computeEvolutionStatuses({
       );
       let lvl = fromTimeline;
       if (lvl == null) {
-        const stored = safeNum(cat?.bayesianStats?.mean ?? cat?.simuladoStats?.average, null);
+        const hist = Array.isArray(cat?.simuladoStats?.history)
+          ? cat.simuladoStats.history
+          : Object.values(cat?.simuladoStats?.history || {});
+        const hasHistory = hist.some(Boolean);
+        const hasBayes = safeNum(cat?.bayesianStats?.mean, null) != null;
+        const avgVal = safeNum(cat?.simuladoStats?.average, null);
+        const stored = hasBayes
+          ? safeNum(cat.bayesianStats.mean, null)
+          : (hasHistory || (avgVal != null && avgVal > 0) ? avgVal : null);
         if (stored != null) {
           const isLegacyPct = stored >= 0 && stored <= 100 && (stored < catMin || (catMax > 100 && catRange >= 200));
           lvl = isLegacyPct ? catMin + (stored / 100) * catRange : stored;
         }
       }
 
-      const catTarget = Number.isFinite(Number(cat?.minCutoff))
-        ? Number(cat.minCutoff)
+      const customMinCutoff = safeNum(cat?.minCutoff, null);
+      const catTarget = customMinCutoff != null
+        ? customMinCutoff
         : (catMax === safeMax && catMin === safeMin
             ? safeTarget
             : catMin + globalTargetRatio * catRange);
@@ -271,7 +310,12 @@ export function computeEvolutionStatuses({
   const recentVolume = Array.isArray(timeline)
     ? timeline
         .filter((d) => d?.date && sevenDayKeys.has(d.date))
-        .reduce((sum, d) => sum + safeNum(d?.global_total, 0), 0)
+        .reduce((sum, d) => {
+          const q = (showOnlyFocus && focusId && d?.[`raw_total_${focusId}`] !== undefined)
+            ? safeNum(d?.[`raw_total_${focusId}`], 0)
+            : safeNum(d?.global_total, 0);
+          return sum + q;
+        }, 0)
     : 0;
 
   statuses.push({

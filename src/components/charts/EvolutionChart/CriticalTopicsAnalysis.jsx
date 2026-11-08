@@ -29,8 +29,17 @@ const WEEKS = [
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
-export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0 }) => {
+export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0, showOnlyFocus = false, focusSubjectId = null }) => {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
+
+    const effectiveCategories = useMemo(() => {
+        const list = Array.isArray(categories) ? categories : Object.values(categories || {});
+        if (showOnlyFocus && focusSubjectId) {
+            const focused = list.filter(c => c && c.id === focusSubjectId);
+            return focused.length > 0 ? focused : list;
+        }
+        return list;
+    }, [categories, showOnlyFocus, focusSubjectId]);
 
     // Calc time window
     const { startDateKey, endDateKey, dateLabel } = useMemo(() => {
@@ -54,15 +63,18 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
     }, [selectedWeekOffset]);
 
     const subtopicsData = useMemo(() => {
-        if (!categories || !categories.length) return [];
+        if (!effectiveCategories || !effectiveCategories.length) return [];
         const topicMap = {};
+        const multiCat = effectiveCategories.length > 1;
 
-        categories.forEach(cat => {
+        effectiveCategories.forEach(cat => {
             const historyRaw = cat.simuladoStats?.history;
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
             if (!history.length) return;
+            const tasksList = toArray(cat.tasks);
 
             const recentHistory = history.filter(h => {
+                if (!h || h.valid === false) return false;
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
@@ -76,21 +88,34 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
                 let topicList = toArray(h.topics);
-                if (topicList.length === 0 && (h.topic || h.assunto || h.subtopic || h.topicName)) {
-                    topicList = [{
-                        name: h.topic || h.assunto || h.subtopic || h.topicName,
-                        total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
-                        correct: h.correct ?? h.acertos ?? h.correctCount,
-                        score: h.score,
-                        isPercentage: h.isPercentage
-                    }];
+                if (topicList.length === 0) {
+                    const matchedTask = h.taskId ? tasksList.find(tk => tk && tk.id === h.taskId) : null;
+                    const fallbackTopicName = matchedTask?.title || matchedTask?.text || matchedTask?.name || h.topic || h.assunto || h.subtopic || h.topicName;
+                    if (fallbackTopicName) {
+                        topicList = [{
+                            name: fallbackTopicName,
+                            total: h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions,
+                            correct: h.correct ?? h.acertos ?? h.correctCount,
+                            score: h.score,
+                            isPercentage: h.isPercentage
+                        }];
+                    }
                 }
 
                 topicList.forEach(t => {
                     const n = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     if (!n || n.toLowerCase() === 'nenhum') return;
-                    const key = n.toLowerCase();
-                    if (!topicMap[key]) topicMap[key] = { name: n, total: 0, correct: 0, criticidade: 0 };
+                    const key = `${cat.id || cat.name || ''}::${n.toLowerCase()}`;
+                    if (!topicMap[key]) {
+                        topicMap[key] = {
+                            name: n,
+                            catName: cat.name || '',
+                            rawKey: n.toLowerCase(),
+                            total: 0,
+                            correct: 0,
+                            criticidade: 0
+                        };
+                    }
 
                     let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
                     if (total === 0 && hasValidNumber(t.score)) {
@@ -125,9 +150,18 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             }
         });
 
-        // Calcular criticidade final consolidada por tópico
+        // Check if generic topic names collide across different categories so we disambiguate them
+        const nameFrequency = {};
+        Object.values(topicMap).forEach(item => {
+            nameFrequency[item.rawKey] = (nameFrequency[item.rawKey] || 0) + 1;
+        });
+
+        // Calcular criticidade final consolidada por tópico (escopado por matéria)
         Object.keys(topicMap).forEach(key => {
             const item = topicMap[key];
+            if (multiCat && nameFrequency[item.rawKey] > 1 && item.catName) {
+                item.name = `${item.name} (${item.catName})`;
+            }
             const accuracy = item.total > 0 ? item.correct / item.total : 0;
             const erroAbsoluto = item.total - item.correct;
             // Índice de criticidade
@@ -149,20 +183,21 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
-    }, [categories, startDateKey, endDateKey, maxScore, minScore]);
+    }, [effectiveCategories, startDateKey, endDateKey, maxScore, minScore]);
 
     const pointLeakageData = useMemo(() => {
-        if (!categories || !categories.length) return [];
+        if (!effectiveCategories || !effectiveCategories.length) return [];
         let totalCriticidade = 0;
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
 
-        const rawData = categories.map(cat => {
+        const rawData = effectiveCategories.map(cat => {
             let total = 0;
             let correct = 0;
             const historyRaw = cat.simuladoStats?.history;
             const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
 
             const recentHistory = history.filter(h => {
+                if (!h || h.valid === false) return false;
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
@@ -256,18 +291,19 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 displayValue: Math.round(item.value * 10) / 10
             };
         });
-    }, [categories, startDateKey, endDateKey, maxScore, minScore]);
+    }, [effectiveCategories, startDateKey, endDateKey, maxScore, minScore]);
 
     const hasData = useMemo(() => {
-      if (!categories) return false;
+      if (!effectiveCategories) return false;
     
-      return categories.some(cat => {
+      return effectiveCategories.some(cat => {
         const historyRaw = cat.simuladoStats?.history;
         const history = Array.isArray(historyRaw)
           ? historyRaw
           : Object.values(historyRaw || {});
     
         return history.some(h => {
+          if (!h || h.valid === false) return false;
           const k = getDateKey(getHistoryDate(h));
           const topics = toArray(h.topics);
     
@@ -287,7 +323,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
           );
         });
       });
-    }, [categories, startDateKey, endDateKey]);
+    }, [effectiveCategories, startDateKey, endDateKey]);
 
     const renderLeakageLabel = useCallback((props) => {
         const { x, y, width, value, index } = props;
@@ -432,9 +468,19 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             </ResponsiveContainer>
                         ) : (
                             <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
-                                <span className="text-4xl mb-2">{hasData ? '🎉' : '⏳'}</span>
-                                <p className="font-bold text-slate-300 mb-1">{hasData ? 'Sem assuntos críticos!' : 'Nenhum dado registrado'}</p>
-                                <p className="text-xs text-slate-400 mt-0.5">{hasData ? 'Nenhum erro registrado neste período.' : 'Sem simulados registrados neste período. Selecione outra semana acima.'}</p>
+                                <span className="text-4xl mb-2">{hasData ? (pointLeakageData.length > 0 ? '📋' : '🎉') : '⏳'}</span>
+                                <p className="font-bold text-slate-300 mb-1">
+                                    {hasData
+                                        ? (pointLeakageData.length > 0 ? 'Sem detalhamento por assunto' : 'Sem assuntos críticos!')
+                                        : 'Nenhum dado registrado'}
+                                </p>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                    {hasData
+                                        ? (pointLeakageData.length > 0
+                                            ? 'Os simulados desta semana foram registrados apenas por matéria, sem divisão em tópicos.'
+                                            : 'Nenhum erro registrado neste período.')
+                                        : 'Sem simulados registrados neste período. Selecione outra semana acima.'}
+                                </p>
                             </div>
                         )}
                     </div>

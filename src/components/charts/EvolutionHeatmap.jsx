@@ -94,18 +94,50 @@ export const EvolutionHeatmap = React.memo(({
 
     const filtered = useMemo(() => {
         if (!Array.isArray(dates) || !Array.isArray(filteredRowsByFocus)) return { dates: [], rows: [] };
-        const size = windowSize === 'all' ? dates.length : Number(windowSize);
-        const safeSize = Number.isFinite(size) ? Math.max(1, size) : dates.length;
-        const start = Math.max(0, dates.length - safeSize);
+
+        // When "Apenas Foco" is active, only keep dates where the focused row actually has activity
+        let activeIndices = dates.map((_, idx) => idx);
+        if (showOnlyFocus && focusSubjectId && filteredRowsByFocus.length > 0) {
+            const focusFiltered = activeIndices.filter((idx) =>
+                filteredRowsByFocus.some((row) => {
+                    const cell = row?.cells?.[idx];
+                    return Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
+                })
+            );
+            if (focusFiltered.length > 0) {
+                activeIndices = focusFiltered;
+            }
+        }
+
+        if (windowSize !== 'all') {
+            const days = Number(windowSize);
+            if (Number.isFinite(days) && days > 0 && activeIndices.length > 0) {
+                const lastDateEntry = dates[activeIndices[activeIndices.length - 1]];
+                const lastKey = typeof lastDateEntry === 'string' ? lastDateEntry : lastDateEntry?.key;
+                const lastMs = lastKey && /^\d{4}-\d{2}-\d{2}$/.test(lastKey) ? new Date(`${lastKey}T12:00:00Z`).getTime() : NaN;
+                if (Number.isFinite(lastMs)) {
+                    const cutoffMs = lastMs - (days - 1) * 86400000;
+                    activeIndices = activeIndices.filter((idx) => {
+                        const dEntry = dates[idx];
+                        const dKey = typeof dEntry === 'string' ? dEntry : dEntry?.key;
+                        const ms = dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey) ? new Date(`${dKey}T12:00:00Z`).getTime() : NaN;
+                        return Number.isFinite(ms) ? ms >= cutoffMs : true;
+                    });
+                } else {
+                    const safeSize = Math.max(1, days);
+                    activeIndices = activeIndices.slice(Math.max(0, activeIndices.length - safeSize));
+                }
+            }
+        }
 
         return {
-            dates: dates.slice(start),
+            dates: activeIndices.map((idx) => dates[idx]),
             rows: filteredRowsByFocus.map((row) => ({
                 ...row,
-                cells: Array.isArray(row.cells) ? row.cells.slice(start) : []
+                cells: Array.isArray(row.cells) ? activeIndices.map((idx) => row.cells[idx]) : []
             }))
         };
-    }, [dates, filteredRowsByFocus, windowSize]);
+    }, [dates, filteredRowsByFocus, windowSize, showOnlyFocus, focusSubjectId]);
 
     const [aggregated, setAggregated] = useState(() => {
         return granularity === 'daily' ? null : aggregateHeatmap(filtered, granularity, safeMax, safeMin);

@@ -55,13 +55,13 @@ export default function Evolution() {
     const h = category?.simuladoStats?.history;
     const list = Array.isArray(h) ? h : Object.values(h || {});
     return list.some(entry => {
-      if (!entry) return false;
+      if (!entry || entry.valid === false) return false;
       const hasHeaderData = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions) > 0 || hasValidNumber(entry.score);
       if (hasHeaderData) return true;
       const topics = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
       return topics.some(t => t && (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) > 0 || hasValidNumber(t.score)));
     });
-  })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.length > 0);
+  })) || (Array.isArray(safeSimuladoRows) && safeSimuladoRows.some(row => row && row.valid !== false && (Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions) > 0 || hasValidNumber(row.score))));
 
   // ✅ FIX: Converter targetProbability (percentual) para pontos na escala da prova
   const targetScorePoints = React.useMemo(() => {

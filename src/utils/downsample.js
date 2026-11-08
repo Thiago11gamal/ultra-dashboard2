@@ -26,6 +26,32 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
     return Number.isFinite(num) ? num : 0;
   };
   const dataLength = data.length;
+  // Forward/backward fill Y values so null points in sparse series do not turn into 0
+  // and distort LTTB triangle area calculations.
+  const filledY = new Array(dataLength).fill(0);
+  let lastValidY = null;
+  for (let idx = 0; idx < dataLength; idx++) {
+    const raw = data[idx]?.[yKey];
+    const num = (raw !== null && raw !== undefined && raw !== "") ? Number(raw) : NaN;
+    if (Number.isFinite(num)) {
+      lastValidY = num;
+      filledY[idx] = num;
+    } else if (lastValidY !== null) {
+      filledY[idx] = lastValidY;
+    }
+  }
+  let nextValidY = null;
+  for (let idx = dataLength - 1; idx >= 0; idx--) {
+    const raw = data[idx]?.[yKey];
+    const num = (raw !== null && raw !== undefined && raw !== "") ? Number(raw) : NaN;
+    if (Number.isFinite(num)) {
+      nextValidY = num;
+    } else if (filledY[idx] === 0 && nextValidY !== null) {
+      filledY[idx] = nextValidY;
+    }
+  }
+  const getYAt = (idx) => filledY[idx] ?? 0;
+
   const bucketSize = (dataLength - 2) / (safeThreshold - 2);
   let a = 0;
   const sampledData = [data[0]];
@@ -38,25 +64,28 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
     const avgRangeLength = avgRangeEnd - avgRangeStart;
     for (; avgRangeStart < avgRangeEnd; avgRangeStart++) {
       avgX += getX(data[avgRangeStart], avgRangeStart);
-      avgY += getY(data[avgRangeStart]);
+      avgY += getYAt(avgRangeStart);
     }
     if (avgRangeLength > 0) {
       avgX /= avgRangeLength;
       avgY /= avgRangeLength;
     } else if (avgRangeStart < dataLength) {
       avgX = getX(data[avgRangeStart], avgRangeStart);
-      avgY = getY(data[avgRangeStart]);
+      avgY = getYAt(avgRangeStart);
     }
     let rangeOffs = Math.floor(i * bucketSize) + 1;
     let rangeTo = Math.floor((i + 1) * bucketSize) + 1;
     const pointAx = getX(data[a], a);
-    const pointAy = getY(data[a]);
+    const pointAy = getYAt(a);
     let maxArea = -1;
     let maxAreaIndex = -1;
     for (; rangeOffs < rangeTo; rangeOffs++) {
       const bx = getX(data[rangeOffs], rangeOffs);
-      const by = getY(data[rangeOffs]);
-      const area = Math.abs((pointAx - avgX) * (by - pointAy) - (pointAx - bx) * (avgY - pointAy)) * 0.5;
+      const by = getYAt(rangeOffs);
+      let area = Math.abs((pointAx - avgX) * (by - pointAy) - (pointAx - bx) * (avgY - pointAy)) * 0.5;
+      if (data[rangeOffs]?.[yKey] !== null && data[rangeOffs]?.[yKey] !== undefined) {
+        area *= 1.15;
+      }
       if (area > maxArea) {
         maxArea = area;
         maxAreaIndex = rangeOffs;

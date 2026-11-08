@@ -107,13 +107,16 @@ export function generateEvolutionInsights({
 
         safeCategories.forEach(cat => {
             const history = toHistoryArray(cat.simuladoStats?.history);
+            const cMax = safeFinite(cat?.maxScore, safeMaxScore) > 0 ? safeFinite(cat?.maxScore, safeMaxScore) : safeMaxScore;
+            const cMin = safeFinite(cat?.minScore, safeMinScore);
 
             const rawHistory = history
                 .filter(h => {
+                    if (h?.valid === false) return false;
                     const d = normalizeDate(h?.date || h?.createdAt);
                     return d && Number.isFinite(d.getTime()) && d.getTime() <= now.getTime();
                 })
-                .map(h => ({ ...h, score: getSafeScore(h, safeMaxScore, safeMinScore) }))
+                .map(h => ({ ...h, score: getSafeScore(h, cMax, cMin) }))
                 .filter(h => Number.isFinite(h.score));
 
             rawHistory.forEach(h => {
@@ -123,14 +126,14 @@ export function generateEvolutionInsights({
                 const dow = d.getDay();
                 if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
 
-                let tot = Number(h.total);
+                let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions);
                 if (!Number.isFinite(tot) || tot <= 0) {
-                    tot = getSyntheticTotal(safeMaxScore);
+                    tot = getSyntheticTotal(cMax);
                 }
 
                 if (!Number.isFinite(tot) || tot <= 0) return;
 
-                dayStats[dow].correct += (pointsToRatio(h.score, safeMaxScore, safeMinScore) * tot);
+                dayStats[dow].correct += (pointsToRatio(h.score, cMax, cMin) * tot);
                 dayStats[dow].total += tot;
             });
         });
@@ -170,11 +173,12 @@ export function generateEvolutionInsights({
 
         const recentVolumeAlert = history
             .filter(h => {
+                if (h?.valid === false) return false;
                 const d = toDateMs(h?.date || h?.createdAt);
                 return Number.isFinite(d) && (nowMs - d) >= -86400000 && (nowMs - d) <= sevenDaysMs;
             })
             .reduce((sum, h) => {
-                const parsedTotal = parseInt(h?.total, 10);
+                const parsedTotal = parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10);
                 const fallbackTotal = h?.score != null ? getSyntheticTotal(safeMaxScore) : 0;
                 const safeTotal = Number.isFinite(parsedTotal) && parsedTotal > 0
                     ? parsedTotal

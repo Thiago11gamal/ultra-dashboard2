@@ -7,7 +7,7 @@ import { parseNoonLocal, addDaysNoon } from '../utils/parseNoonLocal';
 import { runMonteCarloAnalysis } from '../engine/monteCarlo';
 
 const EMPTY_ARRAY = Object.freeze([]);
-const MC_ENGINES = new Set(['compare', 'mc_density', 'bayesian']);
+const MC_ENGINES = new Set(['compare', 'mc_density', 'bayesian', 'raw_weekly']);
 
 /**
  * Orquestra o motor Monte Carlo do Menu Evolução.
@@ -93,13 +93,23 @@ export function useEvolutionMC({
       };
     }
 
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+    const globalMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const globalMax = Math.max(globalMin + 1, Number(maxScore) || 100);
+    const globalRange = Math.max(1, globalMax - globalMin);
+    const safeMin = Number.isFinite(Number(focusCategory?.minScore)) ? Number(focusCategory.minScore) : globalMin;
+    const safeMax = Number(focusCategory?.maxScore) > safeMin ? Number(focusCategory.maxScore) : globalMax;
+    const safeRange = Math.max(1, safeMax - safeMin);
+    const hasCustomCutoff = focusCategory?.minCutoff !== null && focusCategory?.minCutoff !== undefined && String(focusCategory?.minCutoff).trim() !== '' && Number.isFinite(Number(focusCategory?.minCutoff));
+    const effectiveTarget = hasCustomCutoff
+      ? Number(focusCategory.minCutoff)
+      : (safeMax === globalMax && safeMin === globalMin
+          ? debouncedTarget
+          : safeMin + ((Number(debouncedTarget) - globalMin) / globalRange) * safeRange);
     const safeCurrentMean = Number.isFinite(currentFocusLevel)
       ? currentFocusLevel
       : safeMin;
 
-    const signature = `${focusCategoryId}|${historyFingerprint}|${debouncedTarget}|${projectDays}|${safeMin}|${safeMax}|${Math.round(safeCurrentMean * 100)}`;
+    const signature = `${focusCategoryId}|${historyFingerprint}|${effectiveTarget}|${projectDays}|${safeMin}|${safeMax}|${Math.round(safeCurrentMean * 100)}`;
     if (lastComputedSignatureRef.current === signature && mcResult?.categoryId === focusCategoryId) {
       return () => {
         cancelled = true;
@@ -107,7 +117,7 @@ export function useEvolutionMC({
     }
 
     const hist = [...historyArray]
-      .filter((h) => h && (h.date || h.createdAt))
+      .filter((h) => h && h.valid !== false && (h.date || h.createdAt))
       .map((h) => {
         const dateKey = getDateKey(h.date || h.createdAt);
         const score = getSafeScore(h, safeMax, safeMin);
@@ -115,8 +125,8 @@ export function useEvolutionMC({
         return {
           date: dateKey,
           score,
-          correct: Number.isFinite(Number(h.correct)) ? Number(h.correct) : undefined,
-          total: Number.isFinite(Number(h.total)) ? Number(h.total) : undefined,
+          correct: Number.isFinite(Number(h.correct ?? h.acertos ?? h.correctCount)) ? Number(h.correct ?? h.acertos ?? h.correctCount) : undefined,
+          total: Number.isFinite(Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions)) ? Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) : undefined,
           timeSpent: Number.isFinite(Number(h.timeSpent)) ? Number(h.timeSpent) : undefined,
           timedQuestoes: Number.isFinite(Number(h.timedQuestoes)) ? Number(h.timedQuestoes) : undefined
         };
@@ -210,7 +220,7 @@ export function useEvolutionMC({
         const result = await runAnalysis({
           values: hist,
           dates: hist.map((h) => h.date),
-          meta: debouncedTarget,
+          meta: effectiveTarget,
           projectionDays: projectDays,
           minScore: safeMin,
           maxScore: safeMax,
@@ -243,7 +253,7 @@ export function useEvolutionMC({
             const fallback = runMonteCarloAnalysis({
               values: hist,
               dates: hist.map((h) => h.date),
-              meta: debouncedTarget,
+              meta: effectiveTarget,
               simulations: 1500,
               projectionDays: projectDays,
               minScore: safeMin,
