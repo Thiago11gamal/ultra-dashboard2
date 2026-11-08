@@ -1023,6 +1023,10 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
           abilitySd: safeStateSpace?.abilitySd ?? fallbackAbilitySd,
           trendPerDay: safeStateSpace?.trendPerDay ?? fallbackTrendPerDay,
           trendSd: safeStateSpace?.trendSd ?? fallbackTrendSd,
+          abilityTrendCov: safeStateSpace?.abilityTrendCov ?? 0,
+          observationSd: Number.isFinite(safeStateSpace?.observationVariance)
+            ? Math.sqrt(Math.max(0, safeStateSpace.observationVariance))
+            : undefined,
           dailyVolatility: safeDynamicVolatility?.dailyVolatility ?? fallbackDailyVolatility,
           horizonDays: effectiveMCDays,
           targetScore: effectiveMCTarget,
@@ -1074,6 +1078,9 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
             mean: Number.isFinite(posteriorMc.mean)
               ? posteriorMc.mean
               : mcResult.mean,
+            meanProjected: Number.isFinite(posteriorMc.mean)
+              ? posteriorMc.mean
+              : (mcResult.meanProjected ?? mcResult.mean),
             ci95Low: Number.isFinite(posteriorMc.ciLow)
               ? posteriorMc.ciLow
               : mcResult.ci95Low,
@@ -1081,7 +1088,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
               ? posteriorMc.ciHigh
               : mcResult.ci95High,
             volatility: Number.isFinite(safeDynamicVolatility?.volatility)
-              ? clamp(safeDynamicVolatility.volatility, 0, maxScore)
+              ? clamp(safeDynamicVolatility.volatility, 0, domain)
               : mcResult.volatility,
             posteriorPredictive: posteriorMc,
             baseProbability: baseMcProbability,
@@ -1249,7 +1256,7 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
     // FIX-C05: empiricalTrust calculado SEMPRE, não apenas quando !hasData.
     // Antes, categorias com dados tinham trust=1.0 fixo, ignorando a
     // confiança real nos dados (n, volatilidade, tendência).
-    const globalSignal = computeAdaptiveCoachWeight(metrics.trendHistory || []);
+    const globalSignal = computeAdaptiveCoachWeight(metrics.trendHistory || [], maxScore, minScore);
     const empiricalTrust = hasData
         ? Math.max(0.2, globalSignal?.confidenceWeight ?? 0.5)
         : Math.max(0.2, globalSignal?.confidenceWeight ?? 0.2);
@@ -2368,7 +2375,7 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             topicMap[name].correct += (topicCorrect * timeWeight);
             if (topicTotal > 0) {
                 if (topicMap[name].scores.length >= 20) {
-                    topicMap[name].scores = topicMap[name].scores.slice(-9);
+                    topicMap[name].scores = topicMap[name].scores.slice(-19);
                 }
                 topicMap[name].scores.push({
                     score: (topicCorrect / topicTotal) * 100,

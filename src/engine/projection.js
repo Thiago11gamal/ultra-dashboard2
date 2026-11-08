@@ -123,7 +123,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const safeWeights = sumWeights > 1e-15 ? sumWeights : 1;
     const expectedResidual = sumWeights > 1e-15 ? (sumResidualsWeighted / safeWeights) : 0;
     const nEff = sumWeightsSq > 1e-15 ? (sumWeights * sumWeights) / sumWeightsSq : residualSamples.length;
-    const bessel = nEff > 2.2 ? (nEff / (nEff - 2)) : (residualSamples.length > 2 ? residualSamples.length / (residualSamples.length - 1) : 1);
+    const bessel = nEff > 2.2 ? (nEff / Math.max(1, nEff - 2)) : (residualSamples.length > 2 ? residualSamples.length / (residualSamples.length - 1) : 1);
     const mssdVariance = Math.max(0, ((sumSw / safeWeights) - (expectedResidual * expectedResidual)) * bessel);
 
     const weightedMedian = (arr) => {

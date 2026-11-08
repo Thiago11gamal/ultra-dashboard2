@@ -250,7 +250,7 @@ export function calculateSlopeStdError(sorted, slope, intercept, lambda, maxScor
 
     if (effectiveN <= 2.1) return defaultSlopeStdError;
 
-    const variance = (rss / sumW) * (effectiveN / (effectiveN - 2));
+    const variance = (rss / sumW) * (effectiveN / Math.max(1, effectiveN - 2));
     const meanX = sumWX / sumW;
     const ssXw = sumWXX - (sumWX * sumWX) / sumW;
     const varX = ssXw / sumW;
@@ -936,7 +936,7 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
             const totalWeight = Number(h?.total);
             if (!Number.isFinite(totalWeight) || totalWeight <= 0) return;
 
-            const safeScore = getSafeScore(h, safeMaxScore, minScore);
+            const safeScore = getSafeScore(h, safeMaxScore, safeMinScore);
             if (!Number.isFinite(safeScore)) return;
 
             const robustScore = Number.isFinite(median) && Number.isFinite(clampLimit)
@@ -1016,13 +1016,13 @@ export function computeCategoryStats(history, weight, _daysValue = 60, maxScore 
     const trendThreshold = getDynamicTrendThreshold(m, safeMaxScore, safeMinScore);
 
     const validHistoryForTrend = historyToUse.filter(h =>
-        Number.isFinite(getSafeScore(h, safeMaxScore, minScore))
+        Number.isFinite(getSafeScore(h, safeMaxScore, safeMinScore))
     );
 
     const sortedForTrendCap = getSortedHistory(validHistoryForTrend);
 
     const lastScoreRaw = sortedForTrendCap.length > 0
-        ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore, minScore)
+        ? getSafeScore(sortedForTrendCap[sortedForTrendCap.length - 1], safeMaxScore, safeMinScore)
         : m;
 
     const safeLastScore = Number.isFinite(lastScoreRaw) ? lastScoreRaw : m;

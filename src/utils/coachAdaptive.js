@@ -170,15 +170,16 @@ export function deriveBacktestWeights(rawScores = [], maxScore = 100, minScore =
   const prev = scores[n - 2];
   const uplift = last - prev;
 
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const safeRange = Math.max(1e-9, (maxScore || 100) - safeMin);
+  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
+  const safeMin = Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), safeMax) : 0;
+  const safeRange = Math.max(1e-9, safeMax - safeMin);
 
   const scoreWeight = Math.max(0.85, Math.min(1.2, 1 + (uplift / safeRange) * 0.4));
   const recencyWeight = Math.max(0.9, Math.min(1.15, 1 + (n / 50) * 0.15));
   const rankQuality = scores.filter(s => s >= (safeMin + safeRange * 0.7)).length / n;
   const instabilityWeight = Math.max(0.8, Math.min(1.25, 1 - rankQuality * 0.15 + (uplift < 0 ? 0.15 : -0.05)));
 
-  const weighted = scores.map((_, i) => Math.exp(-0.015 * (n - i)));
+  const weighted = scores.map((_, i) => Math.exp(-0.015 * (n - 1 - i)));
   const sumW = kahanSum(weighted);
   const sumW2 = kahanSum(weighted.map(w => w * w));
   const effectiveN = sumW2 > 1e-9 ? (sumW * sumW) / sumW2 : scores.length;
