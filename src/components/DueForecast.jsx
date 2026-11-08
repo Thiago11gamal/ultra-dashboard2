@@ -8,7 +8,7 @@ import DueForecastChart from './charts/DueForecastChart';
  * Previsão de Cartões a Vencer (Due Forecast)
  * Componente reutilizável com resumo + gráfico de barras.
  */
-export default function DueForecast({ decks = [], horizon = 14, compact = false }) {
+function DueForecast({ decks = [], horizon = 14, compact = false }) {
     const safeHorizon = Math.max(1, Math.min(30, Number(horizon) || 14));
 
     const { forecast, totalDueInHorizon, maxDaily, horizon: usedHorizon, totalCards } = useMemo(() => {
@@ -139,4 +139,7 @@ export default function DueForecast({ decks = [], horizon = 14, compact = false 
         </div>
     );
 }
+
+export default React.memo(DueForecast);
+
 

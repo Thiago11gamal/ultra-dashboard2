@@ -264,7 +264,7 @@ export function useMonteCarloStats({
     const weightsMap = {};
 
     activeCategories.forEach(cat => {
-      const stored = weights[cat.id || cat.name];
+      const stored = weights[cat.id] ?? weights[cat.name];
       const w = sanitizeWeightUnit(stored);
       weightsMap[cat.id || cat.name] = (stored !== undefined && stored !== null) ? Math.max(0, w) : 1;
     });
@@ -541,6 +541,9 @@ export function useMonteCarloStats({
 
           // T-018/T-024 FIX: usar categorias já normalizadas no hook
           const safeTimeCategories = safeCategories;
+          const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
+            ? timelineDates[timeIndex]
+            : getDateKey(new Date());
 
           safeTimeCategories.forEach(cat => {
             const rawHistory = cat?.simuladoStats?.history;
@@ -550,6 +553,11 @@ export function useMonteCarloStats({
               : Object.values(rawHistory || {});
 
             histArray.forEach(h => {
+              if (!h || h.valid === false || h.validated === false) return;
+              if (cutoffDate) {
+                const dk = getDateKey(h.date || h.createdAt);
+                if (!dk || dk > cutoffDate) return;
+              }
               const timeSpent = Number(h?.timeSpent);
               const timedQuestoes = Number(h?.timedQuestoes);
 
@@ -666,9 +674,10 @@ export function useMonteCarloStats({
           try {
             const setDataFn = useAppStore.getState().setData;
 
-            // T-015 FIX: só gravar eventos de calibração para previsões futuras.
-            // Eventos do modo "hoje" não devem alimentar calibração.
-            if (projectDaysRef.current > 0 && setDataFn && result?.probability != null) {
+            // T-015 FIX: só gravar eventos de calibração para previsões futuras reais (sem Máquina do Tempo).
+            // Eventos do modo "hoje" ou de viagem no tempo não devem alimentar calibração.
+            const isTimeTravelingNow = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+            if (projectDaysRef.current > 0 && !isTimeTravelingNow && setDataFn && result?.probability != null) {
               const hash = `${pureStatsHash}-${debouncedTarget}`;
 
               if (lastRecordedGlobalPredRef.current !== hash) {
@@ -802,7 +811,8 @@ export function useMonteCarloStats({
             const setDataFn = useAppStore.getState().setData;
 
             // T-015 FIX: também proteger o fallback síncrono
-            if (projectDaysRef.current > 0 && setDataFn && result?.probability != null) {
+            const isTimeTravelingFallback = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+            if (projectDaysRef.current > 0 && !isTimeTravelingFallback && setDataFn && result?.probability != null) {
               const hash = `${pureStatsHash}-${debouncedTarget}`;
 
               if (lastRecordedGlobalPredRef.current !== hash) {
@@ -1200,8 +1210,9 @@ export function useMonteCarloStats({
   ]);
 
   useEffect(() => {
-    // T-015 FIX: não gravar calibração de subjects em modo "hoje"
-    if (projectDays <= 0) return;
+    // T-015 FIX: não gravar calibração de subjects em modo "hoje" ou durante viagem no tempo
+    const isTimeTravelingSubj = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+    if (projectDays <= 0 || isTimeTravelingSubj) return;
 
     if (!perSubjectProbs || perSubjectProbs.length === 0 || simulationData?.status !== 'ready') return;
 

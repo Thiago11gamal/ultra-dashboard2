@@ -31,7 +31,7 @@ const formatTime = (minutes) => {
     return formatDuration(minutes / 60);
 };
 
-export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
+function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
     const logsArray = useMemo(() => Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}), [studyLogs]);
     const categoriesArray = useMemo(() => {
         const list = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -60,7 +60,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         // Sanitização contra timer runaway: teto de 720 min (12h) por sessão, alinhado com chartDataMappers.js
         const getLogMinutes = (log) => {
             if (!log || log.type === 'flashcard') return 0;
-            const minutes = Number(log?.minutes);
+            const minutes = Number(log?.minutes ?? log?.minutos);
             const duration = Number(log?.duration);
 
             if (Number.isFinite(minutes) && minutes > 0) return Math.min(720, minutes);
@@ -450,4 +450,7 @@ export default function WeeklyAnalysis({ studyLogs = [], categories = [], dayTic
         </div>
     );
 }
+
+export default React.memo(WeeklyAnalysis);
+
 

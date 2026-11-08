@@ -244,9 +244,10 @@ export function generateAnalyticsStats({
     const maxScoreByKey = new Map();
     const bayesianStats = [];
 
+    const todayKey = getDateKey(new Date());
     const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
         ? timelineDates[timeIndex]
-        : null;
+        : todayKey;
 
     const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
 
@@ -266,6 +267,7 @@ export function generateAnalyticsStats({
 
             const history = [...historyArray]
                 .filter(h => {
+                    if (!h || h.valid === false || h.validated === false) return false;
                     if (!cutoffDate) return true;
                     const dateString = getDateKey(getHistoryDate(h));
                     if (!dateString) return false;
@@ -278,7 +280,7 @@ export function generateAnalyticsStats({
             if (history.length === 0) return;
 
             const weightKey = cat.id || cat.name;
-            const weight = sanitizeWeightUnit(debouncedWeights[weightKey] ?? 1);
+            const weight = sanitizeWeightUnit(debouncedWeights[cat.id] ?? debouncedWeights[cat.name] ?? 1);
 
             // ✅ LOTE-01 FIX (C3): propagar o piso da disciplina para o nível bayesiano
             const baye = computeBayesianLevel(history, 1, 1, catMaxScore, { minScore: catMinScore });
@@ -332,12 +334,25 @@ export function generateAnalyticsStats({
 
                         const existing = scoresByDate[dk][weightKey];
 
-                        const currentTotal = Number(h.total) || 0;
+                        let rawTotal = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
+                        let rawCorrectVal = Number(h.correct ?? h.acertos ?? h.correctCount);
+                        if (rawTotal <= 0 && h.topics) {
+                            const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+                            rawTotal = safeTopics.reduce((sum, t) => sum + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
+                            if (!Number.isFinite(rawCorrectVal)) {
+                                rawCorrectVal = safeTopics.reduce((sum, t) => sum + (Number(t?.correct ?? t?.acertos ?? t?.correctCount) || 0), 0);
+                            }
+                        }
+
+                        // Se não houver total explícito mas houver nota válida, usa volume sintético
+                        // para que a nota não seja descartada ao agregar múltiplos registros no mesmo dia.
+                        const currentTotal = rawTotal > 0 ? rawTotal : getSyntheticTotal(catMaxScore);
+                        const inferredCorrect = ((currentScore - catMinScore) / catDomain) * currentTotal;
 
                         // T-011 FIX: clamp de correct por total antes de agregar
-                        const currentCorrect = currentTotal > 0
-                            ? clampCorrectToTotal(h.correct, currentTotal)
-                            : 0;
+                        const currentCorrect = rawTotal > 0 && Number.isFinite(rawCorrectVal)
+                            ? clampCorrectToTotal(rawCorrectVal, currentTotal)
+                            : clampCorrectToTotal(inferredCorrect, currentTotal);
 
                         if (existing) {
                             const newTotal = existing.total + currentTotal;

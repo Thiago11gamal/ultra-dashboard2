@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useId, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const CustomTooltip = ({ active, payload }) => {
@@ -17,26 +17,29 @@ const CustomTooltip = ({ active, payload }) => {
     return null;
 };
 
-export default function DueForecastChart({ data = [], height = 260 }) {
+function DueForecastChart({ data = [], height = 260 }) {
     const instanceId = useId().replace(/:/g, "");
     const barId = `due_bar_${instanceId}`;
 
-    if (!Array.isArray(data) || data.length === 0) {
+    // Prepare recharts data
+    const chartData = useMemo(() => {
+        if (!Array.isArray(data) || data.length === 0) return [];
+        return data.map((d, idx) => ({
+            ...d,
+            idx,
+            value: d.count
+        }));
+    }, [data]);
+
+    const hasAny = useMemo(() => chartData.some(d => d.value > 0), [chartData]);
+
+    if (chartData.length === 0) {
         return (
             <div className="flex items-center justify-center h-[180px] border border-white/5 rounded-2xl bg-black/20 text-slate-500 text-sm" role="img" aria-label="Sem dados de previsão de cartões">
                 Sem dados de previsão.
             </div>
         );
     }
-
-    // Prepare recharts data
-    const chartData = data.map((d, idx) => ({
-        ...d,
-        idx,
-        value: d.count
-    }));
-
-    const hasAny = chartData.some(d => d.value > 0);
 
     return (
         <div style={{ height }} className="w-full -mx-1" role="img" aria-label="Gráfico de previsão de cartões a vencer por dia">
@@ -75,7 +78,7 @@ export default function DueForecastChart({ data = [], height = 260 }) {
                     <Bar dataKey="value" radius={[4, 4, 0, 0]} fill={`url(#${barId})`} minPointSize={2}>
                         {chartData.map((entry, index) => (
                             <Cell
-                                key={`cell-${index}`}
+                                key={entry.dateKey || `cell-${index}`}
                                 // T-044 FIX: usar o gradiente nas barras comuns.
                                 // Antes, o Cell sobrescrevia o fill do Bar e o gradiente nunca aparecia.
                                 fill={entry.isToday ? '#f59e0b' : entry.isTomorrow ? '#fbbf24' : `url(#${barId})`}
@@ -94,4 +97,7 @@ export default function DueForecastChart({ data = [], height = 260 }) {
         </div>
     );
 }
+
+export default React.memo(DueForecastChart);
+
 

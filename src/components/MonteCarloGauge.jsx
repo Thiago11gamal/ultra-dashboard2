@@ -47,15 +47,16 @@ const MonteCarloGaugeBase = ({
 
     const timelineDates = useMemo(() => {
         const dates = new Set();
+        const todayKey = getDateKey(new Date());
         const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
         safeCategories.forEach(cat => {
             if (cat.simuladoStats?.history) {
                 const safeHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
                 safeHistory.forEach(h => {
-                    if (!h) return;
+                    if (!h || h.valid === false || h.validated === false) return;
                     const normalized = normalizeDate(h.date || h.createdAt);
                     const dk = normalized ? getDateKey(normalized) : null;
-                    if (dk) dates.add(dk);
+                    if (dk && (!todayKey || dk <= todayKey)) dates.add(dk);
                 });
             }
         });
@@ -224,7 +225,7 @@ const MonteCarloGaugeBase = ({
 
             if (hLen === 0) return sum;
 
-            const rawW = weights?.[cat.id || cat.name];
+            const rawW = weights?.[cat.id] ?? weights?.[cat.name];
 
             // Se o peso não foi definido, o motor assume 1.
             const w = (rawW === undefined || rawW === null)
@@ -578,7 +579,7 @@ const MonteCarloGaugeBase = ({
                         <div className="flex justify-between items-center mb-3">
                             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Máquina do Tempo</span>
                             <span className="text-[10px] font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
-                                {clampedTimeIndex === -1 || !timelineDates[clampedTimeIndex] ? 'Hoje' : formatDatePtBR(`${timelineDates[clampedTimeIndex]}T12:00:00`)}
+                                {clampedTimeIndex === -1 || !timelineDates[clampedTimeIndex] ? 'Hoje' : formatDatePtBR(timelineDates[clampedTimeIndex])}
                             </span>
                         </div>
                         <input

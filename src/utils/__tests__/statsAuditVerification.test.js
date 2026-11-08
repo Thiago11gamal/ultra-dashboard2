@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { useChartData } from '../../hooks/useChartData.js';
 import { filterHistoryByTimeWindow } from '../../hooks/useSubjectAggData.js';
 import { mapSubjectHoursData } from '../chartDataMappers.js';
+import { generateAnalyticsStats } from '../../engine/analyticsStats.js';
 import { repairContestHistory } from '../../store/schemas.js';
 import { safeDisplayNumber } from '../scoreHelper.js';
 import { getDateKey } from '../dateHelper.js';
@@ -224,6 +225,56 @@ describe('Stats Menu Bug Audit Verification Suite', () => {
       const filteredAll = filterHistoryByTimeWindow(history, 'all');
       expect(filteredAll).toHaveLength(2);
       expect(filteredAll.some(h => h.id === '3')).toBe(false);
+    });
+  });
+
+  describe('BUG-STATS-33: generateAnalyticsStats & mapSubjectHoursData data integrity', () => {
+    it('excludes valid: false and future dates and preserves score-only entries in daily aggregation', () => {
+      const today = getDateKey(new Date());
+      const categories = [
+        {
+          id: 'cat1',
+          name: 'Português',
+          maxScore: 100,
+          minScore: 0,
+          simuladoStats: {
+            history: [
+              { date: today, total: 100, correct: 80, score: 80, valid: true },
+              { date: today, total: 0, score: 60, valid: true },
+              { date: today, total: 100, correct: 10, score: 10, valid: false },
+              { date: '2099-12-31', total: 100, correct: 100, score: 100, valid: true }
+            ]
+          }
+        }
+      ];
+
+      const stats = generateAnalyticsStats({
+        categories,
+        debouncedWeights: { Português: 2 },
+        timeIndex: -1,
+        timelineDates: [],
+        minScore: 0,
+        maxScore: 100
+      });
+
+      expect(stats).not.toBeNull();
+      expect(stats.totalWeight).toBe(2);
+      expect(stats.globalHistory).toHaveLength(1);
+      // Weighted average of 80 (weight 100) and 60 (synthetic weight 20 from getSyntheticTotal(100)) = 9200 / 120 = 76.67,
+      // ignoring valid: false (10) and future (100)
+      expect(stats.globalHistory[0].score).toBeCloseTo(9200 / 120, 2);
+    });
+
+    it('supports legacy minutos field and skips logs with corrupted dates in mapSubjectHoursData', () => {
+      const categories = [{ id: 'cat1', name: 'Português' }];
+      const studyLogs = [
+        { categoryId: 'cat1', minutos: 60, date: '2026-10-10' },
+        { categoryId: 'cat1', minutes: 120, date: 'invalid-corrupt-date' }
+      ];
+
+      const mapped = mapSubjectHoursData(studyLogs, categories);
+      expect(mapped).toHaveLength(1);
+      expect(mapped[0].horas).toBe(1.0);
     });
   });
 });

@@ -1,20 +1,23 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
 
 const COLORS = ['#818cf8', '#6366f1', '#4f46e5', '#4338ca', '#3730a3'];
 
-export function HorasDisciplinaChart({ data }) {
-    if (!data || !Array.isArray(data) || data.length === 0) {
+export const HorasDisciplinaChart = React.memo(function HorasDisciplinaChart({ data }) {
+    // Sort by hours descending (ensuring numerical sort)
+    const sortedData = useMemo(() => {
+        if (!data || !Array.isArray(data) || data.length === 0) return [];
+        return [...data].sort((a, b) => (Number(b.horas) || 0) - (Number(a.horas) || 0));
+    }, [data]);
+
+    if (sortedData.length === 0) {
         return (
             <div className="flex items-center justify-center h-[300px] border border-white/5 rounded-2xl bg-black/20">
                 <p className="text-slate-500 text-sm font-medium italic">Dados insuficientes para análise por matéria.</p>
             </div>
         );
     }
-
-    // Sort by hours descending (ensuring numerical sort)
-    const sortedData = [...data].sort((a, b) => (Number(b.horas) || 0) - (Number(a.horas) || 0));
 
     // FIX: Altura base de 300px (para o eixo X ficar sempre no fundo alinhado ao outro gráfico), 
     // mas se tiver muitas matérias, cresce proporcionalmente para não amassar as barras.
@@ -50,17 +53,18 @@ export function HorasDisciplinaChart({ data }) {
                         fontSize={10}
                         axisLine={false}
                         tickLine={false}
-                        width={80}
+                        width={110}
                         tick={(props) => {
                             const { x, y, payload } = props;
-                            let rawText = String(payload?.value ?? '');
-                            if (rawText.length > 13) {
-                                rawText = rawText.substring(0, 13).trim() + '...';
-                            }
+                            const fullText = String(payload?.value ?? '');
+                            const displayText = fullText.length > 18
+                                ? fullText.substring(0, 18).trim() + '…'
+                                : fullText;
                             return (
                                 <g transform={`translate(${x},${y})`}>
-                                    <text x={0} y={0} dy={3} dx={-5} textAnchor="end" fill="#e2e8f0" fontSize={9} fontWeight={600}>
-                                        {rawText}
+                                    <text x={0} y={0} dy={3} dx={-5} textAnchor="end" fill="#e2e8f0" fontSize={9.5} fontWeight={600}>
+                                        <title>{fullText}</title>
+                                        {displayText}
                                     </text>
                                 </g>
                             );
@@ -70,7 +74,9 @@ export function HorasDisciplinaChart({ data }) {
                     <Tooltip
                         cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                         contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
+                        labelStyle={{ color: '#f8fafc', fontWeight: 700, marginBottom: '4px' }}
                         itemStyle={{ padding: '2px 0' }}
+                        labelFormatter={(label) => String(label ?? '')}
                         formatter={(value) => [formatDuration(value), 'Total']}
                     />
 
@@ -89,5 +95,6 @@ export function HorasDisciplinaChart({ data }) {
             </ResponsiveContainer>
         </div>
     );
-}
+});
+
 

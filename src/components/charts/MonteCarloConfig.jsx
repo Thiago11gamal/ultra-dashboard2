@@ -94,7 +94,8 @@ export const MonteCarloConfig = ({
     // ignorava minScore (10% de 1000 = 100, mesmo com piso 200 -> conflito).
     // Agora: 5% do RANGE a partir do piso da escala.
     const safeRange = Math.max(1, safeMaxScore - safeMinScore);
-    const sliderMin = Math.max(safeMinScore, Math.round(safeMinScore + safeRange * 0.05));
+    const sliderMin = safeMinScore;
+    const sliderStep = safeRange <= 20 ? 0.5 : 1;
     const sliderRange = Math.max(1, safeMaxScore - sliderMin);
     const numericTarget = (targetScore !== null && targetScore !== undefined && targetScore !== '') ? Number(targetScore) : NaN;
     const clampedTarget = Math.min(safeMaxScore, Math.max(sliderMin, Number.isFinite(numericTarget) ? numericTarget : sliderMin));
@@ -113,7 +114,7 @@ export const MonteCarloConfig = ({
     const manualTotal = useMemo(() => {
         if (!Array.isArray(categories)) return 0;
         return categories.reduce((acc, cat) => {
-            const val = weights?.[cat.id || cat.name];
+            const val = weights?.[cat.id] ?? weights?.[cat.name];
             const parsed = val !== undefined && val !== null ? Number(val) : 1;
             return acc + Math.max(0, Number.isFinite(parsed) ? parsed : 0);
         }, 0);
@@ -151,7 +152,8 @@ export const MonteCarloConfig = ({
     const sliderPercent = ((localTarget - sliderMin) / sliderRange) * 100;
 
     const handleSliderChange = (e) => {
-        const val = parseInt(e.target.value, 10);
+        const val = parseFloat(e.target.value);
+        if (!Number.isFinite(val)) return;
         setLocalTarget(val);
         
         isDragging.current = true;
@@ -286,7 +288,7 @@ export const MonteCarloConfig = ({
                                 type="range"
                                 min={sliderMin}
                                 max={safeMaxScore}
-                                step="1"
+                                step={sliderStep}
                                 defaultValue={clampedTarget}
                                 onChange={handleSliderChange}
                                 aria-label="Meta de classificação"
@@ -480,15 +482,21 @@ export const MonteCarloConfig = ({
                             </div>
                         ) : (
                             Array.isArray(categories) && categories.length > 0 ? (
-                                categories.map(cat => (
-                                    <WeightRow
-                                        key={cat.id || cat.name}
-                                        cat={cat}
-                                        weight={weights ? (weights[cat.id || cat.name] !== undefined ? (parseInt(weights[cat.id || cat.name], 10) || 0) : 1) : 1}
-                                        manualTotal={manualTotal}
-                                        updateWeight={updateWeight}
-                                    />
-                                ))
+                                categories.map(cat => {
+                                    const rawW = weights ? (weights[cat.id] ?? weights[cat.name]) : undefined;
+                                    const safeW = rawW !== undefined && rawW !== null
+                                        ? (Number.isFinite(Number(rawW)) ? Number(rawW) : 0)
+                                        : 1;
+                                    return (
+                                        <WeightRow
+                                            key={cat.id || cat.name}
+                                            cat={cat}
+                                            weight={safeW}
+                                            manualTotal={manualTotal}
+                                            updateWeight={updateWeight}
+                                        />
+                                    );
+                                })
                             ) : (
                                 <div className="py-10 flex flex-col items-center justify-center text-center opacity-50 space-y-2">
                                     <Activity size={40} className="text-slate-600 mb-2" />

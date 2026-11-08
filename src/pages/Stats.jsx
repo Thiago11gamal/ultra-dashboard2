@@ -5,7 +5,8 @@ import WeeklyAnalysis from '../components/WeeklyAnalysis';
 import { EvolucaoFocoChart } from '../components/charts/Analytics/EvolucaoFocoChart';
 import { HorasDisciplinaChart } from '../components/charts/Analytics/HorasDisciplinaChart';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
-import { getDateKey } from '../utils/dateHelper';
+import { getDateKey, normalizeDate } from '../utils/dateHelper';
+import { getSafeScore } from '../utils/scoreHelper';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -72,22 +73,27 @@ export default function Stats() {
             ? rawSimuladoRows
             : Object.values(rawSimuladoRows || {});
         const hasValidRows = rowsArray.some(r => {
-            if (!r || r.validated === false) return false;
+            if (!r || r.validated === false || r.valid === false) return false;
+            const rawTotal = r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions;
+            const rawCorrect = r.correct ?? r.acertos ?? r.correctCount;
             const hasScore = r.score !== null && r.score !== undefined && r.score !== '' && Number.isFinite(Number(r.score));
-            const hasTotal = r.total !== null && r.total !== undefined && r.total !== '' && Number.isFinite(Number(r.total));
+            const hasTotal = rawTotal !== null && rawTotal !== undefined && rawTotal !== '' && Number.isFinite(Number(rawTotal));
             return (
-                (Number(r.total) > 0 && Number(r.correct) >= 0) ||
-                (hasScore && hasTotal && Number(r.total) >= 0)
+                (Number(rawTotal) > 0 && Number(rawCorrect) >= 0) ||
+                (hasScore && (!hasTotal || Number(rawTotal) >= 0))
             );
         });
         if (hasValidRows) return true;
         return categories.some(category => {
             const h = category?.simuladoStats?.history;
             const hArray = Array.isArray(h) ? h : Object.values(h || {});
+            const catMax = Number(category?.maxScore) || 100;
+            const catMin = Number.isFinite(Number(category?.minScore)) ? Number(category?.minScore) : 0;
             return hArray.some(entry => {
-                if (!entry) return false;
-                const hasScore = entry.score !== null && entry.score !== undefined && entry.score !== '' && Number.isFinite(Number(entry.score));
-                return Number(entry.total) > 0 || hasScore;
+                if (!entry || entry.valid === false || entry.validated === false) return false;
+                const rawTotal = entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions;
+                const safeScore = getSafeScore(entry, catMax, catMin);
+                return Number(rawTotal) > 0 || Number.isFinite(safeScore);
             });
         });
     }, [rawSimuladoRows, categories]);
@@ -101,14 +107,16 @@ export default function Stats() {
         });
     }, [flashcardDecks]);
 
-    // FIX Bug 6: considera apenas logs de estudo reais (não flashcards) com tempo positivo
+    // FIX Bug 6: considera apenas logs de estudo reais (não flashcards) com tempo positivo e data válida
     const hasStudyLogs = useMemo(() => {
-        return studyLogs.some(log =>
-            log && log.type !== 'flashcard' && (
-                (Number.isFinite(Number(log.minutes)) && Number(log.minutes) > 0) ||
-                (Number.isFinite(Number(log.duration)) && Number(log.duration) > 0)
-            )
-        );
+        return studyLogs.some(log => {
+            if (!log || log.type === 'flashcard') return false;
+            const d = normalizeDate(log.date || log.createdAt);
+            if (!d || Number.isNaN(d.getTime())) return false;
+            const mins = Number(log.minutes ?? log.minutos);
+            const dur = Number(log.duration);
+            return (Number.isFinite(mins) && mins > 0) || (Number.isFinite(dur) && dur > 0);
+        });
     }, [studyLogs]);
     const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards;
 

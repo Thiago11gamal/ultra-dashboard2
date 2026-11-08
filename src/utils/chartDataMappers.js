@@ -74,8 +74,8 @@ const getStudyLogMinutes = (log) => {
     // FIX E-02: revisões de flashcard não devem contar como horas de estudo
     // (alinhado com getStudyMinutes em analytics.js).
     if (log.type === 'flashcard') return 0;
-    // FIX: Number() em undefined/null → NaN. Usar validação explícita.
-    const rawMinutes = log.minutes;
+    // FIX: Number() em undefined/null → NaN. Usar validação explícita e aceitar alias legado `minutos`.
+    const rawMinutes = log.minutes ?? log.minutos;
     const rawDuration = log.duration;
     const minutes = (rawMinutes === null || rawMinutes === undefined || rawMinutes === '')
         ? NaN : Number(rawMinutes);
@@ -201,6 +201,13 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
 
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
+
+        // Descartar registros com data corrompida para manter paridade com WeeklyAnalysis
+        const rawDate = log.date ?? log.createdAt;
+        if (rawDate !== undefined && rawDate !== null && rawDate !== '') {
+            const parsedDate = normalizeDate(rawDate);
+            if (!parsedDate || Number.isNaN(parsedDate.getTime())) return;
+        }
 
         let cat = null;
         if (log.categoryId != null) {

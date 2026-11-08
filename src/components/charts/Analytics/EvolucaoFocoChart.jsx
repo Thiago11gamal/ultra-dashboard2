@@ -2,7 +2,7 @@ import React, { useId } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatDuration } from '../../../utils/dateHelper';
 
-export function EvolucaoFocoChart({ data }) {
+export const EvolucaoFocoChart = React.memo(function EvolucaoFocoChart({ data }) {
     const instanceId = useId().replace(/:/g, "");
     const colorFocoId = `foco_grad_${instanceId}`;
 
@@ -56,7 +56,9 @@ export function EvolucaoFocoChart({ data }) {
 
                     <Tooltip
                         contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '12px', fontSize: '13px', backdropFilter: 'blur(8px)' }}
+                        labelStyle={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '4px' }}
                         itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                        labelFormatter={(label) => `Dia ${label}`}
                         formatter={(value) => [formatDuration(value), 'Tempo Estudado']}
                     />
 
@@ -73,5 +75,5 @@ export function EvolucaoFocoChart({ data }) {
             </ResponsiveContainer>
         </div>
     );
-}
+});
 

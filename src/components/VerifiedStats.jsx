@@ -212,8 +212,8 @@ const CategoryRow = React.memo(({ cat, idx, maxSdVal, maxScore = 100, minScore =
             <div className="flex items-center gap-2 md:col-span-4 min-w-0">
                 <div className="flex-1 h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 relative">
                     <div className={`h-full rounded-full ${sdBarColor} shadow-md ${sdBarGlow} transition-all duration-700 ease-out`} style={{ width: `${barWidth}%`, minWidth: barWidth > 0 ? '4px' : '0' }} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd5Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd5Val}`} />
-                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd15Val / safeMaxSdVal) * 100))}%` }} title={`SD=${sd15Val}`} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd5Val / safeMaxSdVal) * 100))}%` }} title={`SD=${formatValue(sd5Val)}`} />
+                    <div className="absolute top-0 h-full w-px bg-white/10" style={{ right: `${Math.max(0, Math.min(100, (sd15Val / safeMaxSdVal) * 100))}%` }} title={`SD=${formatValue(sd15Val)}`} />
                 </div>
                 <span className={`text-xs font-mono font-black min-w-[36px] text-right ${safeColor}`}>±{Number.isFinite(sdNum) ? ((scoreRange <= 20 || sdNum < 10) && sdNum > 0 ? sdNum.toFixed(1) : sdNum.toFixed(0)) : '--'}</span>
             </div>
@@ -297,15 +297,11 @@ const SubjectBreakdownTable = React.memo(({ categoryBreakdown, maxScore = 100, m
 export default function VerifiedStats({ categories = [], user, flashcardDecks: propFlashcardDecks, dayTick }) {
     const safeCategories = useMemo(() => Array.isArray(categories) ? categories : Object.values(categories || {}), [categories]);
 
-    // ✅ FIX: usar hash estável das categorias como dependência
+    // ✅ FIX: usar hash leve das categorias como dependência (sem JSON.stringify pesado)
     const categoriesHash = useMemo(() => {
-      return JSON.stringify(
-        safeCategories.map(c => ({ 
-          id: c.id, 
-          maxScore: c.maxScore, 
-          minScore: c.minScore 
-        }))
-      );
+        return safeCategories
+            .map(c => `${c?.id ?? c?.name ?? ''}:${c?.maxScore ?? ''}:${c?.minScore ?? ''}`)
+            .join('|');
     }, [safeCategories]);
 
     const activeId = useAppStore(state => state.appState?.activeId);
@@ -320,19 +316,26 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         })
     );
 
-    // ✅ LOTE-02 FIX (M5): reduce em vez de spread — evita RangeError com muitas categorias
+    // ✅ LOTE-02 FIX (M5): Priorizar contestSettings.maxScore/minScore; só usar escala das categorias
+    // se todas compartilharem a mesma escala (evita que 1 matéria com maxScore=120 contamine 0-100%).
     const maxScore = useMemo(() => {
-        const scores = safeCategories.map(c => Number(c.maxScore)).filter(s => Number.isFinite(s) && s > 0);
-        if (scores.length > 0) return scores.reduce((a, b) => Math.max(a, b), -Infinity);
         const cMax = Number(contestSettings?.maxScore);
-        return Number.isFinite(cMax) && cMax > 0 ? cMax : 100;
+        if (Number.isFinite(cMax) && cMax > 0) return cMax;
+        const scores = safeCategories.map(c => Number(c.maxScore)).filter(s => Number.isFinite(s) && s > 0);
+        if (scores.length > 0 && scores.length === safeCategories.length && new Set(scores).size === 1) {
+            return scores[0];
+        }
+        return 100;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categoriesHash, contestSettings?.maxScore]);
     const minScore = useMemo(() => {
-        const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
-        if (scores.length > 0) return scores.reduce((a, b) => Math.min(a, b), Infinity);
         const cMin = Number(contestSettings?.minScore);
-        return Number.isFinite(cMin) ? cMin : 0;
+        if (Number.isFinite(cMin)) return cMin;
+        const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
+        if (scores.length > 0 && scores.length === safeCategories.length && new Set(scores).size === 1) {
+            return scores[0];
+        }
+        return 0;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categoriesHash, contestSettings?.minScore]);
 
@@ -570,17 +573,21 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
     const baseHistoryStats = useMemo(() => {
         let allHistory = [];
         let totalQuestionsGlobal = 0;
+        const todayKey = getDateKey(new Date());
 
         safeCategories.forEach(cat => {
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Flatten history for global regression
                 const hArray = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
                 hArray.forEach(h => {
+                    if (!h || h.valid === false || h.validated === false) return;
                     const catMaxScore = Number(cat.maxScore) || maxScore;
                     // ✅ LOTE-02 FIX (C3): minScore calculado ANTES e propagado ao getSafeScore
                     const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
                     const safeScore = getSafeScore(h, catMaxScore, catMinScore);
                     const parsedDate = normalizeDate(h.date || h.createdAt);
+                    const dk = parsedDate ? getDateKey(parsedDate) : null;
+                    if (!dk || (todayKey && dk > todayKey)) return;
                     // ✅ LOTE-02 FIX (C2): `>= 0` aceitava o NaN→0 do getSafeScore antigo
                     // e qualquer zero falso. Number.isFinite é o filtro correto.
                     if (parsedDate && Number.isFinite(safeScore)) {
@@ -593,12 +600,18 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const ratio = Math.max(0, Math.min(1, (safeScore - catMinScore) / catRange));
                         const normalizedToGlobalScale = minScore + ratio * globalRange;
 
+                        let entryQuestions = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
+                        if (entryQuestions <= 0 && h.topics) {
+                            const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+                            entryQuestions = safeTopics.reduce((sum, t) => sum + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
+                        }
+
                         allHistory.push({
                             date: parsedDate.getTime(),
                             score: normalizedToGlobalScale,
-                            totalQuestions: Number(h.total) || 0
+                            totalQuestions: entryQuestions
                         });
-                        totalQuestionsGlobal += (Number(h.total) || 0);
+                        totalQuestionsGlobal += entryQuestions;
                     }
                 });
             }
@@ -885,6 +898,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             insufficient_data: { status: 'SEM DADOS', color: 'text-slate-400', bgBorder: 'border-slate-500/30' }
         };
 
+        const todayKey = getDateKey(new Date());
+
         sortedCategories.forEach(cat => {
             const catMaxScore = Number(cat.maxScore) || maxScore;
             // ✅ LOTE-02 FIX (C3): normalização por RAZÃO no intervalo útil da matéria,
@@ -899,8 +914,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             // 0s Bug Filter: Proteção contra Corrupção de Dados sincronizada com baseHistoryStats
             const validHistory = hArray
                 .filter(h => {
+                    if (!h || h.valid === false || h.validated === false) return false;
                     const dateVal = h?.date || h?.createdAt;
-                    if (!h || !dateVal || normalizeDate(dateVal) === null) return false;
+                    const parsedDate = dateVal ? normalizeDate(dateVal) : null;
+                    if (!parsedDate) return false;
+                    const dk = getDateKey(parsedDate);
+                    if (!dk || (todayKey && dk > todayKey)) return false;
                     const safeScore = getSafeScore(h, catMaxScore, catMinScore2);
                     if (!Number.isFinite(safeScore)) return false;
                     const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
@@ -949,8 +968,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                         const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
                         safeTopics.forEach(t => {
                             if (!t || !t.name || typeof t.name !== 'string' || !t.name.trim()) return;
-                            const topicName = t.name.trim();
-                            let total = Number(t.total) || 0;
+                            const displayName = t.name.trim();
+                            const topicKey = displayName.toLowerCase().normalize('NFC');
+                            let total = Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0;
                             const isSynthetic = total === 0 && t.score != null;
                             if (isSynthetic) total = 100; // Synthetic total for percentage-only inputs
 
@@ -959,29 +979,32 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                             const safeScore = getSafeScore(t, catMaxScore, catMinScore2);
                             const topicRatio = Math.max(0, Math.min(1, (safeScore - catMinScore2) / catRange2));
                             
-                            if (total > 0) {
+                            if (total > 0 || Number.isFinite(safeScore)) {
+                                const rawCorrect = Number(t.correct ?? t.acertos ?? t.correctCount) || 0;
                                 // BUG FIX (Rounding Noise): Evitar requantizar quando já temos a nota calculada
                                 const finalTopicRatio = (Number.isFinite(safeScore)) 
                                     ? topicRatio 
-                                    : Math.max(0, Math.min(1, (Number(t.correct) || 0) / total));
+                                    : (total > 0 ? Math.max(0, Math.min(1, rawCorrect / total)) : 0);
 
                                 // Escala global com piso
                                 const topicScore = minScore + finalTopicRatio * globalRange;
-                                if (!topicMap[topicName]) topicMap[topicName] = [];
-                                topicMap[topicName].push(topicScore);
+                                if (!topicMap[topicKey]) {
+                                    topicMap[topicKey] = { displayName, scores: [] };
+                                }
+                                topicMap[topicKey].scores.push(topicScore);
                             }
                         });
                     }
                 });
 
                 const unstableTopics = [];
-                Object.entries(topicMap).forEach(([tName, tScores]) => {
+                Object.values(topicMap).forEach(({ displayName, scores: tScores }) => {
                     if (tScores.length >= 3) {
                         const tMean = tScores.reduce((a, b) => a + b, 0) / tScores.length;
                         const tVar = tScores.reduce((a, b) => a + Math.pow(b - tMean, 2), 0) / (tScores.length - 1);
                         const tSD = Math.sqrt(Math.max(0, tVar));
                         if (tSD > 0.10 * globalRange) { // ✅ LOTE-02 FIX (C3)
-                            unstableTopics.push({ name: tName, sd: tSD });
+                            unstableTopics.push({ name: displayName, sd: tSD });
                         }
                     }
                 });
