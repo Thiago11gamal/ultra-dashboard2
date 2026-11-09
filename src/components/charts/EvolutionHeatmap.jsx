@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
+import { parseNoonLocal } from '../../utils/dateHelper.js';
 
 // Worker singleton compartilhado entre todas as instâncias
 let sharedWorker = null;
@@ -8,41 +9,41 @@ let sharedWorkerRefCount = 0;
 let terminateTimer = null;
 
 function getSharedWorker() {
-  if (terminateTimer) { clearTimeout(terminateTimer); terminateTimer = null; }
-  if (!sharedWorker) {
-    try {
-      sharedWorker = new Worker(
-        new URL('../../engine/heatmap.worker.js', import.meta.url),
-        { type: 'module' }
-      );
-    } catch (e) {
-      console.warn("[EvolutionHeatmap] Web Worker not available:", e);
-      return null;
+    if (terminateTimer) { clearTimeout(terminateTimer); terminateTimer = null; }
+    if (!sharedWorker) {
+        try {
+            sharedWorker = new Worker(
+                new URL('../../engine/heatmap.worker.js', import.meta.url),
+                { type: 'module' }
+            );
+        } catch (e) {
+            console.warn("[EvolutionHeatmap] Web Worker not available:", e);
+            return null;
+        }
     }
-  }
-  sharedWorkerRefCount++;
-  return sharedWorker;
+    sharedWorkerRefCount++;
+    return sharedWorker;
 }
 
 function releaseSharedWorker() {
-  sharedWorkerRefCount--;
-  if (sharedWorkerRefCount < 0) sharedWorkerRefCount = 0;
-  if (sharedWorkerRefCount === 0 && sharedWorker) {
-    terminateTimer = setTimeout(() => {
-      if (sharedWorkerRefCount === 0 && sharedWorker) {
-        sharedWorker.terminate();
-        sharedWorker = null;
-      }
-    }, 100);
-  }
+    sharedWorkerRefCount--;
+    if (sharedWorkerRefCount < 0) sharedWorkerRefCount = 0;
+    if (sharedWorkerRefCount === 0 && sharedWorker) {
+        terminateTimer = setTimeout(() => {
+            if (sharedWorkerRefCount === 0 && sharedWorker) {
+                sharedWorker.terminate();
+                sharedWorker = null;
+            }
+        }, 100);
+    }
 }
 
 function invalidateSharedWorker(badWorker) {
-  if (sharedWorker && sharedWorker === badWorker) {
-    try { sharedWorker.terminate(); } catch { /* ignore */ }
-    sharedWorker = null;
-    sharedWorkerRefCount = 0;
-  }
+    if (sharedWorker && sharedWorker === badWorker) {
+        try { sharedWorker.terminate(); } catch { /* ignore */ }
+        sharedWorker = null;
+        sharedWorkerRefCount = 0;
+    }
 }
 
 const formatPct = (value) => {
@@ -62,14 +63,14 @@ const HeatmapGrid = React.memo(function HeatmapGrid({
     onGridScroll
 }) {
     return (
-        <div 
+        <div
             className="w-full overflow-x-auto overflow-y-visible custom-scrollbar pt-2 pb-4 pr-1"
             onScroll={onGridScroll}
         >
             <div style={{ minWidth: `${filteredDates.length * 72 + stickyColWidth}px` }}>
                 <div style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px' }} className="mb-3">
-                    <div 
-                        className="sticky left-0 z-30 self-stretch flex items-center px-3.5 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]" 
+                    <div
+                        className="sticky left-0 z-30 self-stretch flex items-center px-3.5 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
                         style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
                     >
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Disciplina</span>
@@ -92,14 +93,14 @@ const HeatmapGrid = React.memo(function HeatmapGrid({
                         const rowTargetPct = getRowTargetPct(cat);
                         return (
                             <div key={cat?.id || cat?.name || `row-${rowIndex}`} style={{ display: 'grid', gridTemplateColumns: `${stickyColWidth}px repeat(${filteredDates.length}, 68px)`, gap: '4px', alignItems: 'center' }}>
-                                <div 
+                                <div
                                     className="sticky left-0 z-30 self-stretch flex items-center gap-2.5 px-3 bg-slate-950 border-r border-slate-800/80 shadow-[4px_0_12px_rgba(0,0,0,0.8)]"
                                     style={{ width: `${stickyColWidth}px`, minWidth: `${stickyColWidth}px`, maxWidth: `${stickyColWidth}px`, backgroundColor: '#020617' }}
                                 >
                                     <span className="text-lg shrink-0">{cat?.icon}</span>
-                                    <span 
-                                        className="text-[11px] sm:text-[13px] font-extrabold leading-tight min-w-0 line-clamp-2 select-none" 
-                                        style={{ color: cat?.color }} 
+                                    <span
+                                        className="text-[11px] sm:text-[13px] font-extrabold leading-tight min-w-0 line-clamp-2 select-none"
+                                        style={{ color: cat?.color }}
                                         title={cat?.name}
                                     >
                                         {cat?.name}
@@ -152,25 +153,25 @@ const HeatmapGrid = React.memo(function HeatmapGrid({
     );
 });
 
-export const EvolutionHeatmap = React.memo(({ 
-    heatmapData, 
-    targetScore = 70, 
-    showOnlyFocus, 
-    focusSubjectId, 
-    maxScore = 100, 
-    minScore = 0 
+export const EvolutionHeatmap = React.memo(({
+    heatmapData,
+    targetScore = 70,
+    showOnlyFocus,
+    focusSubjectId,
+    maxScore = 100,
+    minScore = 0
 }) => {
     const { dates = [], rows = [] } = heatmapData || {};
-    
+
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const range = Math.max(1e-9, safeMax - safeMin);
-    
+
     const safeTarget = Number.isFinite(Number(targetScore)) ? Number(targetScore) : safeMin;
-    
+
     const targetScorePct = Math.max(
-      0,
-      Math.min(100, ((safeTarget - safeMin) / range) * 100)
+        0,
+        Math.min(100, ((safeTarget - safeMin) / range) * 100)
     );
 
     // Filtro de foco: "Todas as Matérias" vs "Apenas Foco"
@@ -225,13 +226,13 @@ export const EvolutionHeatmap = React.memo(({
             if (Number.isFinite(days) && days > 0 && activeIndices.length > 0) {
                 const lastDateEntry = dates[activeIndices[activeIndices.length - 1]];
                 const lastKey = typeof lastDateEntry === 'string' ? lastDateEntry : lastDateEntry?.key;
-                const lastMs = lastKey && /^\d{4}-\d{2}-\d{2}$/.test(lastKey) ? new Date(`${lastKey}T12:00:00Z`).getTime() : NaN;
+                const lastMs = lastKey && /^\d{4}-\d{2}-\d{2}$/.test(lastKey) ? (parseNoonLocal(lastKey)?.getTime() ?? NaN) : NaN;
                 if (Number.isFinite(lastMs)) {
                     const cutoffMs = lastMs - (days - 1) * 86400000;
                     activeIndices = activeIndices.filter((idx) => {
                         const dEntry = dates[idx];
                         const dKey = typeof dEntry === 'string' ? dEntry : dEntry?.key;
-                        const ms = dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey) ? new Date(`${dKey}T12:00:00Z`).getTime() : NaN;
+                        const ms = dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey) ? (parseNoonLocal(dKey)?.getTime() ?? NaN) : NaN;
                         return Number.isFinite(ms) ? ms >= cutoffMs : true;
                     });
                 } else {
@@ -261,7 +262,7 @@ export const EvolutionHeatmap = React.memo(({
         const worker = getSharedWorker();
         workerRef.current = worker;
         didAcquireWorker.current = worker !== null;
-        
+
         return () => {
             if (didAcquireWorker.current) releaseSharedWorker();
             workerRef.current = null;
@@ -314,15 +315,15 @@ export const EvolutionHeatmap = React.memo(({
         worker.addEventListener('error', handleError);
 
         worker.postMessage({
-          id: msgId,
-          payload: {
-            filtered,
-            granularity,
-            targetScore: safeTarget,
-            targetScorePct,
-            minScore: safeMin,
-            maxScore: safeMax
-          }
+            id: msgId,
+            payload: {
+                filtered,
+                granularity,
+                targetScore: safeTarget,
+                targetScorePct,
+                minScore: safeMin,
+                maxScore: safeMax
+            }
         });
 
         return () => {
@@ -347,63 +348,63 @@ export const EvolutionHeatmap = React.memo(({
     }, [filteredRows]);
 
     const getRowTargetPct = useCallback((cat) => {
-      if (cat?.minCutoff !== null && cat?.minCutoff !== undefined && String(cat.minCutoff).trim() !== '' && Number.isFinite(Number(cat.minCutoff))) {
-        const catMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMin;
-        const catMax = Number(cat?.maxScore) > catMin ? Number(cat.maxScore) : safeMax;
-        const catRange = Math.max(1e-9, catMax - catMin);
-        return Math.max(0, Math.min(100, ((Number(cat.minCutoff) - catMin) / catRange) * 100));
-      }
-      return targetScorePct;
+        if (cat?.minCutoff !== null && cat?.minCutoff !== undefined && String(cat.minCutoff).trim() !== '' && Number.isFinite(Number(cat.minCutoff))) {
+            const catMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMin;
+            const catMax = Number(cat?.maxScore) > catMin ? Number(cat.maxScore) : safeMax;
+            const catRange = Math.max(1e-9, catMax - catMin);
+            return Math.max(0, Math.min(100, ((Number(cat.minCutoff) - catMin) / catRange) * 100));
+        }
+        return targetScorePct;
     }, [safeMin, safeMax, targetScorePct]);
 
     const cellColor = useCallback((pct, total = 0, rowTargetPct = targetScorePct) => {
-      if (pct == null || !Number.isFinite(Number(pct))) {
+        if (pct == null || !Number.isFinite(Number(pct))) {
+            return {
+                bg: 'rgba(255,255,255,0.02)',
+                text: '#64748b',
+                border: '#1e293b',
+                density: 0
+            };
+        }
+
+        const safePct = Number(pct);
+        const safeTotal = Number.isFinite(Number(total)) ? Math.max(0, Number(total)) : 0;
+        const density = maxCellTotal > 0 ? Math.min(1, safeTotal / maxCellTotal) : 0;
+        const effTarget = Number.isFinite(Number(rowTargetPct)) ? Number(rowTargetPct) : targetScorePct;
+
+        if (safePct >= effTarget) {
+            return {
+                bg: 'rgba(34,197,94,0.45)',
+                text: '#4ade80',
+                border: 'rgba(34,197,94,0.6)',
+                density
+            };
+        }
+
+        if (safePct >= effTarget * 0.8) {
+            return {
+                bg: 'rgba(251,191,36,0.4)',
+                text: '#fcd34d',
+                border: 'rgba(251,191,36,0.6)',
+                density
+            };
+        }
+
+        if (safePct >= effTarget * 0.6) {
+            return {
+                bg: 'rgba(251,146,60,0.4)',
+                text: '#fb923c',
+                border: 'rgba(251,146,60,0.6)',
+                density
+            };
+        }
+
         return {
-          bg: 'rgba(255,255,255,0.02)',
-          text: '#64748b',
-          border: '#1e293b',
-          density: 0
+            bg: 'rgba(239,68,68,0.4)',
+            text: '#f87171',
+            border: 'rgba(239,68,68,0.6)',
+            density
         };
-      }
-    
-      const safePct = Number(pct);
-      const safeTotal = Number.isFinite(Number(total)) ? Math.max(0, Number(total)) : 0;
-      const density = maxCellTotal > 0 ? Math.min(1, safeTotal / maxCellTotal) : 0;
-      const effTarget = Number.isFinite(Number(rowTargetPct)) ? Number(rowTargetPct) : targetScorePct;
-    
-      if (safePct >= effTarget) {
-        return {
-          bg: 'rgba(34,197,94,0.45)',
-          text: '#4ade80',
-          border: 'rgba(34,197,94,0.6)',
-          density
-        };
-      }
-    
-      if (safePct >= effTarget * 0.8) {
-        return {
-          bg: 'rgba(251,191,36,0.4)',
-          text: '#fcd34d',
-          border: 'rgba(251,191,36,0.6)',
-          density
-        };
-      }
-    
-      if (safePct >= effTarget * 0.6) {
-        return {
-          bg: 'rgba(251,146,60,0.4)',
-          text: '#fb923c',
-          border: 'rgba(251,146,60,0.6)',
-          density
-        };
-      }
-    
-      return {
-        bg: 'rgba(239,68,68,0.4)',
-        text: '#f87171',
-        border: 'rgba(239,68,68,0.6)',
-        density
-      };
     }, [maxCellTotal, targetScorePct]);
 
     const handleCellHover = useCallback((e, cell, col, date) => {
@@ -517,7 +518,7 @@ export const EvolutionHeatmap = React.memo(({
 
             {/* Portal Tooltip: Flutua sobre tudo via body */}
             {typeof document !== 'undefined' && hoveredCell && createPortal(
-                <div 
+                <div
                     className="fixed z-[99999] pointer-events-none flex flex-col items-center bg-slate-950/95 backdrop-blur-md border border-slate-600 rounded-xl p-3 min-w-[140px] shadow-[0_20px_50px_rgba(0,0,0,0.95)] whitespace-nowrap text-center border-l-4 transition-transform duration-75 ease-out"
                     style={{
                         top: hoveredCell.isAbove ? `${hoveredCell.rect.top - 8}px` : `${hoveredCell.rect.bottom + 8}px`,

@@ -18,13 +18,6 @@ export function downsampleLTTB(data, threshold, xKey, yKey) {
     const num = Number(val);
     return Number.isFinite(num) ? num : fallbackIdx;
   };
-  const getY = (item) => {
-    if (!item || typeof item !== "object") return 0;
-    const raw = item[yKey];
-    if (raw === null || raw === undefined || raw === "") return 0;
-    const num = Number(raw);
-    return Number.isFinite(num) ? num : 0;
-  };
   const dataLength = data.length;
   // Forward/backward fill Y values so null points in sparse series do not turn into 0
   // and distort LTTB triangle area calculations.

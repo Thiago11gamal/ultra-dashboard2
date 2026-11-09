@@ -47,7 +47,6 @@ export function computeEvolutionStatuses({
   const safeMin = safeNum(minScore, 0);
   const safeMax = Math.max(safeMin + 1, safeNum(maxScore, 100));
   const range = safeMax - safeMin;
-  const scale = range / 100;
   const safeTarget = Math.max(safeMin, Math.min(safeMax, safeNum(targetScore, safeMin)));
 
   const fmt = (v) => `${formatValue(v)}${unit}`;
@@ -57,10 +56,6 @@ export function computeEvolutionStatuses({
       ? filteredChartData
       : (Array.isArray(timeline) ? timeline : []);
 
-  const last = effectiveTimeline.length > 0
-    ? effectiveTimeline[effectiveTimeline.length - 1]
-    : {};
-
   const focusId = focusCategory?.id;
   const focusMin = focusId ? safeNum(focusCategory?.minScore, safeMin) : safeMin;
   const focusMax = focusId ? Math.max(focusMin + 1, safeNum(focusCategory?.maxScore, safeMax)) : safeMax;
@@ -69,7 +64,7 @@ export function computeEvolutionStatuses({
   const globalTargetRatio = range > 0 ? (safeTarget - safeMin) / range : 0.8;
   const focusTarget = focusId
     ? (safeNum(focusCategory?.minCutoff, null) ??
-       (focusMax === safeMax && focusMin === safeMin ? safeTarget : focusMin + globalTargetRatio * focusRange))
+      (focusMax === safeMax && focusMin === safeMin ? safeTarget : focusMin + globalTargetRatio * focusRange))
     : safeTarget;
 
   const getLastValidFrom = (series, key) => {
@@ -162,14 +157,14 @@ export function computeEvolutionStatuses({
     .filter(Boolean);
   const timelineDatesForConst = Array.isArray(timeline)
     ? timeline
-        .filter((d) => {
-          if (!d?.date) return false;
-          if (showOnlyFocus && focusId) {
-            return d[`raw_${focusId}`] != null || safeNum(d[`raw_total_${focusId}`], 0) > 0;
-          }
-          return true;
-        })
-        .map((d) => d.date)
+      .filter((d) => {
+        if (!d?.date) return false;
+        if (showOnlyFocus && focusId) {
+          return d[`raw_${focusId}`] != null || safeNum(d[`raw_total_${focusId}`], 0) > 0;
+        }
+        return true;
+      })
+      .map((d) => d.date)
     : [];
   const allActiveDates = new Set([
     ...heatmapDates,
@@ -285,8 +280,8 @@ export function computeEvolutionStatuses({
       const catTarget = customMinCutoff != null
         ? customMinCutoff
         : (catMax === safeMax && catMin === safeMin
-            ? safeTarget
-            : catMin + globalTargetRatio * catRange);
+          ? safeTarget
+          : catMin + globalTargetRatio * catRange);
 
       return lvl != null && lvl < catTarget - 5 * catScale;
     }).length;
@@ -315,13 +310,13 @@ export function computeEvolutionStatuses({
 
   const recentVolume = Array.isArray(timeline)
     ? timeline
-        .filter((d) => d?.date && sevenDayKeys.has(d.date))
-        .reduce((sum, d) => {
-          const q = (showOnlyFocus && focusId && d?.[`raw_total_${focusId}`] !== undefined)
-            ? safeNum(d?.[`raw_total_${focusId}`], 0)
-            : safeNum(d?.global_total, 0);
-          return sum + q;
-        }, 0)
+      .filter((d) => d?.date && sevenDayKeys.has(d.date))
+      .reduce((sum, d) => {
+        const q = (showOnlyFocus && focusId && d?.[`raw_total_${focusId}`] !== undefined)
+          ? safeNum(d?.[`raw_total_${focusId}`], 0)
+          : safeNum(d?.global_total, 0);
+        return sum + q;
+      }, 0)
     : 0;
 
   statuses.push({
@@ -369,8 +364,8 @@ export function computeEvolutionStatuses({
   // Tempo médio por questão
   const timedSubjects = Array.isArray(subjectAggData)
     ? subjectAggData.filter(
-        (d) => safeNum(d?.timedQuestoes, 0) > 0 && safeNum(d?.timeSpent, 0) >= 0
-      )
+      (d) => safeNum(d?.timedQuestoes, 0) > 0 && safeNum(d?.timeSpent, 0) >= 0
+    )
     : [];
 
   if (timedSubjects.length > 0) {

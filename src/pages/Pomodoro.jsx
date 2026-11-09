@@ -61,14 +61,21 @@ const DataTriviaPanel = React.memo(function DataTriviaPanel({ studyLogs, simulad
             if (!log) return;
             const logDate = log.date || log.createdAt || log.timestamp;
             if (!logDate) return;
-            const parsedDate = new Date(logDate);
-            const t = Number.isFinite(parsedDate.getTime()) ? parsedDate.getTime() : (normalizeDate(logDate)?.getTime() || NaN);
+            const isDateOnly = typeof logDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(logDate.trim());
+            const normDate = normalizeDate(logDate);
+            const parsedDate = isDateOnly ? normDate : new Date(logDate);
+            const t = (parsedDate && Number.isFinite(parsedDate.getTime()))
+                ? parsedDate.getTime()
+                : (normDate?.getTime() ?? NaN);
             if (Number.isNaN(t)) return;
-            const mins = Number(log.minutes) || 0;
+            const rawMins = log.type === 'flashcard'
+                ? 0
+                : (Number(log.minutes ?? log.minutos) || Number(log.duration) || 0);
+            const mins = Math.max(0, rawMins);
             if (t >= startOfWeek) weekMins += mins;
             if (t >= startOfMonth) monthMins += mins;
             const dayKey = getDateKey(logDate) || getDateKey(new Date(t));
-            if (dayKey) daysStudied.add(dayKey);
+            if (dayKey && (mins > 0 || log.type === 'flashcard')) daysStudied.add(dayKey);
         });
 
         (simulados || []).forEach(s => {
@@ -177,75 +184,75 @@ const DEFAULT_INSIGHT = Object.freeze({
 });
 
 const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, stats, categories = [], studyLogs = [], simulados = [], settings = EMPTY_OBJECT }) {
-        const insight = useMemo(() => {
-            if (!activeSubject) return DEFAULT_INSIGHT;
+    const insight = useMemo(() => {
+        if (!activeSubject) return DEFAULT_INSIGHT;
 
-            const catId = activeSubject.categoryId || activeSubject.catId;
-            const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-            const targetCategory = safeCats.find(c => c && (c.id === catId || c.name === activeSubject.category));
+        const catId = activeSubject.categoryId || activeSubject.catId;
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const targetCategory = safeCats.find(c => c && (c.id === catId || c.name === activeSubject.category));
 
-            if (!targetCategory) {
+        if (!targetCategory) {
+            return {
+                title: activeSubject.category || 'Foco Tático',
+                text: `Mantenha a concentração em **${activeSubject.task || 'sua meta'}**. Ciclos consistentes constroem retenção profunda.`,
+                color: 'indigo',
+                iconType: 'Brain'
+            };
+        }
+
+        try {
+            const hasCategoryHistory = Array.isArray(targetCategory?.simuladoStats?.history)
+                ? targetCategory.simuladoStats.history.length > 0
+                : Object.keys(targetCategory?.simuladoStats?.history || {}).length > 0;
+            const hasSimulados = hasCategoryHistory || (simulados || []).some(s => s && s.categoryScores && (
+                s.categoryScores[targetCategory.id] !== undefined ||
+                (targetCategory.name && s.categoryScores[targetCategory.name] !== undefined)
+            ));
+            if (!hasSimulados) {
                 return {
-                    title: activeSubject.category || 'Foco Tático',
-                    text: `Mantenha a concentração em **${activeSubject.task || 'sua meta'}**. Ciclos consistentes constroem retenção profunda.`,
+                    title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
+                    text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
                     color: 'indigo',
                     iconType: 'Brain'
                 };
             }
 
-            try {
-                const hasCategoryHistory = Array.isArray(targetCategory?.simuladoStats?.history)
-                    ? targetCategory.simuladoStats.history.length > 0
-                    : Object.keys(targetCategory?.simuladoStats?.history || {}).length > 0;
-                const hasSimulados = hasCategoryHistory || (simulados || []).some(s => s && s.categoryScores && (
-                    s.categoryScores[targetCategory.id] !== undefined ||
-                    (targetCategory.name && s.categoryScores[targetCategory.name] !== undefined)
-                ));
-                if (!hasSimulados) {
-                    return {
-                        title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
-                        text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
-                        color: 'indigo',
-                        iconType: 'Brain'
-                    };
+            const effectiveSettings = settings && settings !== EMPTY_OBJECT ? settings : (stats?.settings || EMPTY_OBJECT);
+            const safeMaxScore = Number(targetCategory.maxScore || effectiveSettings?.maxScore) || 100;
+            const rawMinScore = Number(targetCategory.minScore ?? effectiveSettings?.minScore);
+            const safeMinScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, safeMaxScore) : 0;
+            const safeDomain = Math.max(1e-9, safeMaxScore - safeMinScore);
+            const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore, minScore: safeMinScore });
+            if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
+                let color = 'indigo';
+                let iconType = 'Brain';
+                const volThreshold = 15 * (safeDomain / 100);
+                const trendThreshold = 0.5 * (safeDomain / 100);
+                if (rawInsight.trend > trendThreshold) {
+                    color = 'emerald';
+                    iconType = 'Zap';
+                } else if (rawInsight.trend < -trendThreshold || rawInsight.volatility > volThreshold) {
+                    color = 'red';
+                    iconType = 'Alert';
                 }
 
-                const effectiveSettings = settings && settings !== EMPTY_OBJECT ? settings : (stats?.settings || EMPTY_OBJECT);
-                const safeMaxScore = Number(targetCategory.maxScore || effectiveSettings?.maxScore) || 100;
-                const rawMinScore = Number(targetCategory.minScore ?? effectiveSettings?.minScore);
-                const safeMinScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, safeMaxScore) : 0;
-                const safeDomain = Math.max(1e-9, safeMaxScore - safeMinScore);
-                const rawInsight = getCoachInsight(targetCategory, simulados, studyLogs, { maxScore: safeMaxScore, minScore: safeMinScore });
-                if (rawInsight && !rawInsight.error && rawInsight.text && rawInsight.text !== 'Dados insuficientes para análise.') {
-                    let color = 'indigo';
-                    let iconType = 'Brain';
-                    const volThreshold = 15 * (safeDomain / 100);
-                    const trendThreshold = 0.5 * (safeDomain / 100);
-                    if (rawInsight.trend > trendThreshold) {
-                        color = 'emerald';
-                        iconType = 'Zap';
-                    } else if (rawInsight.trend < -trendThreshold || rawInsight.volatility > volThreshold) {
-                        color = 'red';
-                        iconType = 'Alert';
-                    }
-
-                    return {
-                        title: `IA Mentor · ${targetCategory.name || 'Diagnóstico'}`,
-                        text: `Desempenho em ${targetCategory.name}: **${rawInsight.text}**. Foco redobrado nesta etapa.`,
-                        color,
-                        iconType
-                    };
-                }
-            } catch {
-                // Silently fallback to default subject advice
+                return {
+                    title: `IA Mentor · ${targetCategory.name || 'Diagnóstico'}`,
+                    text: `Desempenho em ${targetCategory.name}: **${rawInsight.text}**. Foco redobrado nesta etapa.`,
+                    color,
+                    iconType
+                };
             }
+        } catch {
+            // Silently fallback to default subject advice
+        }
 
-            return {
-                title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
-                text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
-                color: 'indigo',
-                iconType: 'Brain'
-            };
+        return {
+            title: `IA Mentor · ${targetCategory.name || 'Foco'}`,
+            text: `Alvo ativo: **${activeSubject.task || targetCategory.name}**. Mantenha o ritmo para maximizar retenção.`,
+            color: 'indigo',
+            iconType: 'Brain'
+        };
     }, [activeSubject, categories, studyLogs, simulados, settings, stats]);
     const icons = {
         'Brain': <BrainCircuit size={24} strokeWidth={1.5} />,
@@ -495,11 +502,10 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
                             <span className="truncate">Matéria: {activeTaskStats.categoryName}</span>
                         </p>
                         <div className="flex items-center gap-1.5 shrink-0">
-                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${
-                                isRunning
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${isRunning
                                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                                     : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                            }`}>
+                                }`}>
                                 {isRunning ? (mode === 'work' ? 'Sessão Ativa' : 'Em Intervalo') : 'Pausado'}
                             </span>
                             <span className="text-[10px] font-black text-cyan-500/50 bg-cyan-500/10 px-2 py-0.5 rounded-md shrink-0">
@@ -1036,13 +1042,12 @@ const PomodoroTopBar = React.memo(function PomodoroTopBar({
                                 <span className="text-[10.5px] sm:text-xs font-black uppercase tracking-[0.15em] text-[#2d1a12] max-w-[180px] sm:max-w-xs truncate" title={disciplineName}>
                                     {disciplineName}
                                 </span>
-                                <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${
-                                    activeSubject && isRunning
+                                <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${activeSubject && isRunning
                                         ? 'bg-emerald-700 animate-pulse'
                                         : activeSubject
                                             ? 'bg-amber-700/80'
                                             : 'bg-[#2d1a12]/30'
-                                }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando início'} />
+                                    }`} title={activeSubject && isRunning ? 'Em execução' : activeSubject ? 'Pausado' : 'Aguardando início'} />
                             </div>
 
                             {/* Alertas posicionados ao lado da disciplina */}
@@ -1075,11 +1080,10 @@ const PomodoroTopBar = React.memo(function PomodoroTopBar({
                 {/* Previsão & Status Operacional do Pomodoro */}
                 <div className="flex flex-col items-end shrink-0 text-right">
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#2d1a12]/15 border border-[#2d1a12]/25 shadow-inner">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${
-                            isRunning
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${isRunning
                                 ? 'bg-emerald-800 animate-pulse'
                                 : (activeSubject ? 'bg-amber-700' : 'bg-[#2d1a12]/40')
-                        }`} />
+                            }`} />
                         <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-[#2d1a12]">
                             {isRunning
                                 ? (mode === 'work' ? (etaString ? `FOCO • ATÉ ${etaString}` : 'EM FOCO') : (etaString ? `PAUSA • ATÉ ${etaString}` : 'PAUSA ATIVA'))
@@ -1285,11 +1289,15 @@ export default function Pomodoro() {
 
         const recentLogs = [...(studyLogs || [])]
             .map(log => {
-                if (!log) return null;
+                if (!log || log.type === 'flashcard') return null;
                 const rawDate = log.date || log.createdAt || log.timestamp;
                 if (!rawDate) return null;
-                const parsedDate = new Date(rawDate);
-                const t = Number.isFinite(parsedDate.getTime()) ? parsedDate.getTime() : (normalizeDate(rawDate)?.getTime() || NaN);
+                const isDateOnly = typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim());
+                const normDate = normalizeDate(rawDate);
+                const parsedDate = isDateOnly ? normDate : new Date(rawDate);
+                const t = (parsedDate && Number.isFinite(parsedDate.getTime()))
+                    ? parsedDate.getTime()
+                    : (normDate?.getTime() ?? NaN);
                 return Number.isFinite(t) ? { ...log, _parsedTime: t } : null;
             })
             .filter(log => log && log._parsedTime >= startOfToday)
@@ -1299,7 +1307,7 @@ export default function Pomodoro() {
 
         for (const log of recentLogs) {
             const logDate = log._parsedTime;
-            const minutes = Number(log.minutes) || 0;
+            const minutes = Number(log.minutes ?? log.minutos) || Number(log.duration) || 0;
             if (!logDate || Number.isNaN(logDate) || minutes <= 0) continue;
 
             const sessionEndTime = log.endDate ? new Date(log.endDate).getTime() : logDate;
