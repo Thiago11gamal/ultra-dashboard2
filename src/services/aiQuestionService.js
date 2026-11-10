@@ -19,6 +19,17 @@ function isValidUrl(rawUrl) {
   }
 }
 
+export function resolveAIEndpoint(baseUrl = AI_BACKEND_URL) {
+  const clean = String(baseUrl || '').trim().replace(/\/+$/, '');
+  if (clean.endsWith('/ai/generate-questions') || clean.endsWith('/generate-questions')) {
+    return clean;
+  }
+  if (clean.endsWith('/ai')) {
+    return `${clean}/generate-questions`;
+  }
+  return `${clean}/ai/generate-questions`;
+}
+
 // ✅ FIX S02: credentials deve ser 'same-origin' por padrão.
 // Se o backend for cross-origin, o backend deve configurar CORS
 // explicitamente e o frontend deve usar 'include' apenas quando necessário.
@@ -144,7 +155,7 @@ export async function generateViaGeminiDirect({
   }
 
   try {
-    const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
+    const response = await fetch(resolveAIEndpoint(AI_BACKEND_URL), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: isSameOrigin ? 'same-origin' : 'omit',
@@ -205,7 +216,7 @@ export async function generateViaBackend({
   }
 
   try {
-    const response = await fetch(`${AI_BACKEND_URL}/ai/generate-questions`, {
+    const response = await fetch(resolveAIEndpoint(AI_BACKEND_URL), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: isSameOrigin ? 'same-origin' : 'omit',

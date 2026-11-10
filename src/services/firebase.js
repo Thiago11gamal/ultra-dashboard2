@@ -18,6 +18,7 @@ export const firebaseConfig = {
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 // 🛡️ [SECURITY] Sem fallback hardcoded. Se faltar config, modo local estrito.
@@ -39,6 +40,7 @@ let analytics = null;
 
 export function getAppAnalytics(appInstance = app) {
     if (!appInstance) return null;
+    if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return null;
     return getAnalytics(appInstance);
 }
 
