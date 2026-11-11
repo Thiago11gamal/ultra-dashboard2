@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { formatValue, getSafeScore, getSyntheticTotal, extractTopicsTotals } from '../../../utils/scoreHelper';
 import { pointsToPct, pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
+import { hexToRgba, normalizeHexColor } from '../../../utils/colorHelper';
 
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -137,14 +138,14 @@ export const DisciplinaCard = React.memo(function DisciplinaCard({
             }`}
             style={{
                 padding: '0.875rem 1rem',
-                backgroundColor: isFocused ? `${cat.color}18` : 'rgba(15,23,42,0.65)',
-                borderColor: isFocused ? `${cat.color}60` : undefined,
-                boxShadow: isFocused ? `0 0 25px -8px ${cat.color}40` : undefined
+                backgroundColor: isFocused ? hexToRgba(cat.color, 0.12, '#6366f1') : 'rgba(15,23,42,0.65)',
+                borderColor: isFocused ? hexToRgba(cat.color, 0.50, '#6366f1') : undefined,
+                boxShadow: isFocused ? `0 0 25px -8px ${hexToRgba(cat.color, 0.35, '#6366f1')}` : undefined
             }}>
 
             {/* Fundo radiante no estado focado */}
             {isFocused && (
-                <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-transparent to-current mix-blend-overlay pointer-events-none" style={{ color: cat.color }} />
+                <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-transparent to-current mix-blend-overlay pointer-events-none" style={{ color: normalizeHexColor(cat.color, '#6366f1') }} />
             )}
 
             <div className="relative z-10 flex items-start justify-between gap-1.5 mb-1.5 w-full min-h-[2.4rem]">

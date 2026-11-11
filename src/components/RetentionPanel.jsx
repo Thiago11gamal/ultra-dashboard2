@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play, Info } from 'lucide-react';
 import { formatTimeAgo } from '../utils/dateHelper';
 import { formatValue } from '../utils/scoreHelper';
+import { hexToRgba, normalizeHexColor } from '../utils/colorHelper';
 import {
     clamp,
     normalizeArray,
@@ -515,7 +516,7 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                                             {/* Icon */}
                                             <div
                                                 className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 transition-transform duration-500 group-hover:scale-110 shadow-lg border border-white/5"
-                                                style={{ backgroundColor: `${cat.color}15`, borderColor: `${cat.color}30` }}
+                                                style={{ backgroundColor: hexToRgba(cat.color, 0.15, '#6366f1'), borderColor: hexToRgba(cat.color, 0.30, '#6366f1') }}
                                             >
                                                 {cat.icon}
                                             </div>

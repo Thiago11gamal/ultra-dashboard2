@@ -5,6 +5,7 @@ import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
 import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
 import { clearMcCache } from '../../utils/coachAdaptive.js';
+import { PRESET_CATEGORY_COLORS } from '../../utils/colorHelper.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => {
@@ -30,11 +31,13 @@ export const createCategorySlice = (set) => ({
             const catMaxScore = Number(activeData.maxScore) > 0 ? Number(activeData.maxScore) : 100;
             const catMinScore = Number.isFinite(Number(activeData.minScore)) ? Number(activeData.minScore) : 0;
             const newCatId = generateId('cat');
+            const catCount = activeData.categories.length;
+            const assignedColor = PRESET_CATEGORY_COLORS[catCount % PRESET_CATEGORY_COLORS.length];
 
             activeData.categories.push({
                 id: newCatId,
                 name,
-                color: '#3b82f6',
+                color: assignedColor,
                 icon: '📚',
                 tasks: [],
                 weight: 10,

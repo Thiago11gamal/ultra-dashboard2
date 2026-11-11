@@ -18,6 +18,7 @@ import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
 import { calculateETA } from '../utils/pomodoroHelpers';
+import { hexToRgba, normalizeHexColor } from '../utils/colorHelper';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
@@ -665,7 +666,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
                                     <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 ${isActive ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-transparent group-hover:bg-indigo-500/30'}`} />
                                     <div
                                         className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-base transition-transform group-hover:scale-105"
-                                        style={{ backgroundColor: `${task.catColor || '#ffffff'}15`, border: `1px solid ${task.catColor || '#ffffff'}30` }}
+                                        style={{ backgroundColor: hexToRgba(task.catColor, 0.15, '#6366f1'), border: `1px solid ${hexToRgba(task.catColor, 0.30, '#6366f1')}` }}
                                     >
                                         {task.catIcon || '📚'}
                                     </div>

@@ -10,13 +10,14 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { formatDuration } from '../../utils/dateHelper';
+import { hexToRgba, normalizeHexColor } from '../../utils/colorHelper';
 
 const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
     const normalizedShare = manualTotal > 0 ? Math.round((weight / manualTotal) * 100) : 0;
     return (
         <div className={`bg-slate-800/40 backdrop-blur-md p-3 rounded-2xl border border-white/[0.03] flex flex-col sm:flex-row items-center gap-4 hover:border-indigo-500/20 transition-all ${weight === 0 ? 'opacity-50 grayscale' : ''}`}>
             <div className="flex items-center gap-4 w-full sm:w-auto">
-                <div className="min-w-[40px] h-10 px-2 rounded-xl flex items-center justify-center text-sm shadow-inner shrink-0 whitespace-nowrap overflow-hidden" style={{ backgroundColor: `${cat.color || '#3b82f6'}15`, border: `1px solid ${cat.color || '#3b82f6'}20` }}>{cat.icon || '📚'}</div>
+                <div className="min-w-[40px] h-10 px-2 rounded-xl flex items-center justify-center text-sm shadow-inner shrink-0 whitespace-nowrap overflow-hidden" style={{ backgroundColor: hexToRgba(cat.color, 0.15, '#3b82f6'), border: `1px solid ${hexToRgba(cat.color, 0.25, '#3b82f6')}` }}>{cat.icon || '📚'}</div>
                 <div className="flex-1 sm:hidden">
                     <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-0.5 truncate">{cat.name || 'Matéria'}</p>
                     <p className="text-[9px] font-black text-slate-500">{normalizedShare}% da Classificação</p>
@@ -25,7 +26,7 @@ const WeightRow = React.memo(({ cat, weight, manualTotal, updateWeight }) => {
             <div className="hidden sm:block flex-1 min-w-0">
                 <p className="text-[11px] font-black text-slate-200 uppercase tracking-tight mb-1.5 truncate">{cat.name || 'Matéria'}</p>
                 <div className="h-1.5 bg-slate-950/50 rounded-full overflow-hidden shadow-inner border border-black/20">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${normalizedShare}%`, backgroundColor: cat.color || '#3b82f6' }} />
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${normalizedShare}%`, backgroundColor: normalizeHexColor(cat.color, '#3b82f6') }} />
                 </div>
                 <div className="flex items-center justify-between mt-1.5">
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Share</p>

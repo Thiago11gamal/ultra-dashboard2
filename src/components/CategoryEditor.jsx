@@ -2,11 +2,17 @@ import React, { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 // ✅ FIX S02: DOMPurify adicionado para sanitizar entradas no CategoryEditor
 import DOMPurify from 'dompurify';
-import { Settings, X } from 'lucide-react';
+import { Settings, X, Check, Pipette } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
 import { normalize } from '../utils/normalization';
 import { useToast } from '../hooks/useToast';
+import {
+    PRESET_CATEGORY_COLORS,
+    normalizeHexColor,
+    hexToRgba,
+    DEFAULT_CATEGORY_COLOR
+} from '../utils/colorHelper';
 
 export default function CategoryEditor({ category, isOpen, onClose }) {
     const modalRef = useRef(null);
@@ -34,7 +40,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
     const [minCutoff, setMinCutoff] = useState(category?.minCutoff ?? 0);
     const [maxScore, setMaxScore] = useState(category?.maxScore ?? 100);
     const [name, setName] = useState(category?.name || '');
-    const [color, setColor] = useState(category?.color || '#3b82f6');
+    const [color, setColor] = useState(normalizeHexColor(category?.color, DEFAULT_CATEGORY_COLOR));
 
     useEffect(() => {
         if (effectiveOpen && category) {
@@ -42,7 +48,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             setMinCutoff(category.minCutoff ?? 0);
             setMaxScore(category.maxScore ?? 100);
             setName(category.name || '');
-            setColor(category.color || '#3b82f6');
+            setColor(normalizeHexColor(category.color, DEFAULT_CATEGORY_COLOR));
         }
     }, [effectiveOpen, category]);
 
@@ -86,9 +92,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                 `Clampado para ${safeMin}.`
             );
         }
-        const safeColor = /^#[0-9a-fA-F]{6}$/.test(color)
-            ? color
-            : '#3b82f6';
+        const safeColor = normalizeHexColor(color, DEFAULT_CATEGORY_COLOR);
 
         updateCategoryFields(category.id || category.name, {
             name: cleanName,
@@ -212,20 +216,73 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                     </div>
 
                     <div>
-                        <label
-                            htmlFor={colorInputId}
-                            className="block text-xs text-slate-400 font-bold uppercase mb-1"
-                        >
-                            Cor
-                        </label>
+                        <div className="flex items-center justify-between mb-2">
+                            <label
+                                htmlFor={colorInputId}
+                                className="block text-xs text-slate-400 font-bold uppercase"
+                            >
+                                Paleta de Cores
+                            </label>
+                            <span className="text-[11px] font-mono text-slate-400 uppercase">
+                                {normalizeHexColor(color, DEFAULT_CATEGORY_COLOR)}
+                            </span>
+                        </div>
 
-                        <input
-                            id={colorInputId}
-                            type="color"
-                            value={color}
-                            onChange={e => setColor(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-700 rounded-lg h-10 px-1 py-1 cursor-pointer focus:outline-none focus:border-purple-500"
-                        />
+                        {/* Grade de cores predefinidas */}
+                        <div className="grid grid-cols-6 gap-2 mb-3">
+                            {PRESET_CATEGORY_COLORS.map((preset) => {
+                                const isSelected = normalizeHexColor(color) === preset.toLowerCase();
+                                return (
+                                    <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => setColor(preset)}
+                                        className={`h-8 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer hover:scale-110 active:scale-95 ${
+                                            isSelected
+                                                ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 shadow-md scale-105'
+                                                : 'hover:opacity-90'
+                                        }`}
+                                        style={{ backgroundColor: preset }}
+                                        title={`Selecionar cor ${preset}`}
+                                        aria-label={`Cor ${preset}`}
+                                    >
+                                        {isSelected && (
+                                            <Check size={14} strokeWidth={3} className="text-white drop-shadow" />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Seletor de cor personalizada e preview */}
+                        <div className="flex items-center gap-2">
+                            <div className="relative flex items-center gap-2 flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 focus-within:border-purple-500">
+                                <Pipette size={14} className="text-slate-400" />
+                                <span className="text-xs text-slate-300">Personalizada:</span>
+                                <input
+                                    id={colorInputId}
+                                    type="color"
+                                    value={normalizeHexColor(color, DEFAULT_CATEGORY_COLOR)}
+                                    onChange={e => setColor(e.target.value)}
+                                    className="w-7 h-7 rounded border-0 p-0 cursor-pointer bg-transparent ml-auto"
+                                    title="Escolher cor personalizada"
+                                />
+                            </div>
+
+                            {/* Preview em tempo real da disciplina */}
+                            <div
+                                className="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 truncate max-w-[140px]"
+                                style={{
+                                    backgroundColor: hexToRgba(color, 0.15, DEFAULT_CATEGORY_COLOR),
+                                    borderColor: hexToRgba(color, 0.35, DEFAULT_CATEGORY_COLOR),
+                                    color: normalizeHexColor(color, DEFAULT_CATEGORY_COLOR)
+                                }}
+                                title="Pré-visualização do tema da disciplina"
+                            >
+                                <span className="text-sm">📚</span>
+                                <span className="truncate">{name.trim() || 'Exemplo'}</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="mt-6 flex gap-3">

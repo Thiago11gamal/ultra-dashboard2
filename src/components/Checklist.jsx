@@ -32,33 +32,17 @@ import { getContestDisplayName } from './sidebarUtils';
 import { normalize } from '../utils/normalization';
 import { useToast } from '../hooks/useToast';
 import { useNavigate } from 'react-router-dom';
+import {
+    hexToRgba,
+    normalizeHexColor,
+    getCategoryColorStyles,
+    normalizePriority,
+    getPriorityConfig,
+    normalizeSimuladoLevel,
+    PRIORITY_CONFIG
+} from '../utils/colorHelper';
 
-const priorityColors = {
-    high: {
-        bg: 'bg-rose-500/15 hover:bg-rose-500/25',
-        border: 'border-rose-500/40 hover:border-rose-500/60',
-        text: 'text-rose-300',
-        dot: 'bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.6)]',
-        label: 'Alta',
-        next: 'Baixa'
-    },
-    medium: {
-        bg: 'bg-amber-500/15 hover:bg-amber-500/25',
-        border: 'border-amber-500/40 hover:border-amber-500/60',
-        text: 'text-amber-300',
-        dot: 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]',
-        label: 'Média',
-        next: 'Alta'
-    },
-    low: {
-        bg: 'bg-emerald-500/15 hover:bg-emerald-500/25',
-        border: 'border-emerald-500/40 hover:border-emerald-500/60',
-        text: 'text-emerald-300',
-        dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.6)]',
-        label: 'Baixa',
-        next: 'Média'
-    },
-};
+const priorityColors = PRIORITY_CONFIG;
 
 const getHistoryDateLabel = (h) => {
     try {
@@ -93,6 +77,8 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const history = toArray(rawHistory);
     const hasHistory = history.length > 0;
+    const safeColor = normalizeHexColor(color, '#818cf8');
+    const colorStyles = getCategoryColorStyles(safeColor, '#818cf8');
 
     if (!hasHistory) {
         return (
@@ -101,9 +87,9 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     <div
                         className="w-9 h-9 rounded-xl flex items-center justify-center text-sm flex-shrink-0 border shadow-inner"
                         style={{
-                            backgroundColor: `${color || '#818cf8'}15`,
-                            borderColor: `${color || '#818cf8'}30`,
-                            color: color || '#818cf8'
+                            backgroundColor: colorStyles.bg15,
+                            borderColor: colorStyles.border30,
+                            color: colorStyles.text
                         }}
                     >
                         <BarChart2 size={16} />
@@ -123,9 +109,9 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     onClick={() => navigate('/simulados')}
                     className="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 cursor-pointer shadow-sm hover:scale-105 active:scale-95 border flex-shrink-0"
                     style={{
-                        backgroundColor: `${color || '#818cf8'}15`,
-                        borderColor: `${color || '#818cf8'}30`,
-                        color: color || '#818cf8'
+                        backgroundColor: colorStyles.bg15,
+                        borderColor: colorStyles.border30,
+                        color: colorStyles.text
                     }}
                 >
                     <Plus size={13} className="stroke-[2.5]" />
@@ -135,22 +121,22 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         );
     }
 
+    const normTrend = String(trend || '').toLowerCase().trim();
     let trendIcon = (
         <div className="w-4 h-4 flex items-center justify-center rounded-full bg-slate-500/10">
             <Minus size={12} className="text-slate-400" />
         </div>
     );
-
     let trendText = 'Estável';
 
-    if (trend === 'up') {
+    if (normTrend === 'up' || normTrend === 'alta' || normTrend === 'subindo') {
         trendIcon = (
             <div className="w-4 h-4 flex items-center justify-center rounded-full bg-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
                 <TrendingUp size={12} className="text-emerald-400" />
             </div>
         );
         trendText = 'Subindo';
-    } else if (trend === 'down') {
+    } else if (normTrend === 'down' || normTrend === 'queda' || normTrend === 'caindo' || normTrend === 'baixo') {
         trendIcon = (
             <div className="w-4 h-4 flex items-center justify-center rounded-full bg-rose-500/20 shadow-[0_0_8px_rgba(244,63,94,0.3)]">
                 <TrendingDown size={12} className="text-rose-400" />
@@ -159,16 +145,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         trendText = 'Caindo';
     }
 
-    let levelColor = 'text-slate-400 bg-slate-500/10 border-slate-500/20';
-
-    if (level === 'ALTO') levelColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
-    if (level === 'MÉDIO') levelColor = 'text-amber-400 bg-amber-500/10 border-amber-500/20';
-    if (level === 'BAIXO') levelColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20';
-
-    // Exibe o nível em caixa normal ("Alto", "Médio", "Baixo") sem alterar o valor interno
-    const levelLabel = typeof level === 'string' && level.length > 1
-        ? level.charAt(0).toUpperCase() + level.slice(1).toLowerCase()
-        : level;
+    const levelInfo = normalizeSimuladoLevel(level, average, safeMax);
 
     const avgNum = Number(average);
     const formattedAvg = Number.isFinite(avgNum)
@@ -199,7 +176,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
             <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] to-transparent pointer-events-none" />
             <div className="relative z-10 flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-slate-200 text-sm font-semibold">
-                    <BarChart2 size={16} style={{ color: color || '#818cf8' }} />
+                    <BarChart2 size={16} style={{ color: colorStyles.text }} />
                     <h3>Desempenho em simulados</h3>
                     <span className="text-[11px] font-normal text-slate-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/5 tabular-nums">
                         {history.length} {history.length === 1 ? 'registro' : 'registros'}
@@ -221,7 +198,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     <span className="text-xs text-slate-400 font-medium mb-1">
                         Média geral
                     </span>
-                    <span className="text-xl font-bold leading-tight tabular-nums" style={{ color: color || '#818cf8' }}>
+                    <span className="text-xl font-bold leading-tight tabular-nums" style={{ color: colorStyles.text }}>
                         {avgDisplay}
                     </span>
                     {avgPctSub && (
@@ -235,22 +212,32 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     <span className="text-xs text-slate-400 font-medium mb-1">
                         Último simulado
                     </span>
-                    <span className="text-xl font-bold leading-tight tabular-nums text-slate-200">
+                    <span className="text-xl font-bold leading-tight tabular-nums text-slate-100">
                         {lastDisplay}
                     </span>
-                    {lastPctSub && (
+                    {lastPctSub ? (
                         <span className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
                             {lastPctSub}
+                        </span>
+                    ) : history.length > 1 && Number.isFinite(lastNum) && Number.isFinite(avgNum) ? (
+                        <span className={`text-[10px] font-semibold mt-0.5 tabular-nums flex items-center gap-0.5 ${
+                            lastNum > avgNum ? 'text-emerald-400' : lastNum < avgNum ? 'text-rose-400' : 'text-slate-400'
+                        }`}>
+                            {lastNum > avgNum ? `+${(lastNum - avgNum).toFixed(1)} vs média` : lastNum < avgNum ? `${(lastNum - avgNum).toFixed(1)} vs média` : '= à média'}
+                        </span>
+                    ) : (
+                        <span className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
+                            recente
                         </span>
                     )}
                 </div>
 
-                <div className={`px-3 py-2.5 rounded-lg border flex flex-col items-center justify-center text-center shadow-sm transition-colors ${levelColor}`}>
+                <div className={`px-3 py-2.5 rounded-lg border flex flex-col items-center justify-center text-center shadow-sm transition-colors ${levelInfo.badgeClasses}`}>
                     <span className="text-xs font-medium mb-1 opacity-80">
                         Nível
                     </span>
                     <span className="text-base font-semibold leading-tight">
-                        {levelLabel}
+                        {levelInfo.label}
                     </span>
                 </div>
 
@@ -275,35 +262,38 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
                     </p>
 
                     <div className="flex items-end h-10 gap-0.5 w-full overflow-visible">
-                        {history.slice(-10).map((h, i) => {
+                        {history.slice(-10).map((h, i, arr) => {
                             const dateLabel = getHistoryDateLabel(h);
                             const rawScore = h?.score ?? (h?.total > 0 ? (h.correct / h.total) * safeMax : 0);
                             const hScore = Number.isFinite(Number(rawScore)) ? Number(rawScore) : 0;
                             const formattedHScore = Number.isInteger(hScore) ? hScore : hScore.toFixed(1);
                             const hPct = Math.round((hScore / safeMax) * 100);
-                            const barHeight = Math.min(100, Math.max(2, (hScore / safeMax) * 100));
+                            const barHeight = Math.min(100, Math.max(4, (hScore / safeMax) * 100));
 
                             const labelTooltip = safeMax === 100
                                 ? `${formattedHScore}% (${dateLabel})`
                                 : `${formattedHScore} pts (${hPct}%) (${dateLabel})`;
 
+                            const isLast = i === arr.length - 1;
+                            const barOpacity = isLast ? 1 : Math.max(0.35, 0.35 + (i / arr.length) * 0.45);
+
                             return (
                                 <div
                                     key={`${h.date || h.createdAt || 'hist'}-${i}`}
-                                    className="flex-1 flex flex-col items-center group/bar relative focus-visible:outline-none"
+                                    className="flex-1 flex flex-col items-center group/bar relative focus-visible:outline-none h-full justify-end"
                                     tabIndex={0}
                                     title={labelTooltip}
                                 >
                                     <div
-                                        className="w-full bg-slate-700/50 hover:bg-white/20 transition-all rounded-t-sm"
+                                        className="w-full transition-all rounded-t-sm group-hover/bar:brightness-125"
                                         style={{
                                             height: `${barHeight}%`,
-                                            backgroundColor: i === history.slice(-10).length - 1 ? (color || '#818cf8') : undefined,
-                                            opacity: i === history.slice(-10).length - 1 ? 1 : 0.3
+                                            backgroundColor: colorStyles.hex,
+                                            opacity: barOpacity
                                         }}
                                     />
 
-                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 group-focus-within/bar:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 tabular-nums">
+                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-white/10 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover/bar:opacity-100 group-focus-within/bar:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20 tabular-nums shadow-lg">
                                         {labelTooltip}
                                     </div>
                                 </div>
@@ -330,8 +320,8 @@ const TaskItem = ({
     const [editNotes, setEditNotes] = useState(task.notes || '');
     const [showNotesField, setShowNotesField] = useState(Boolean(task.notes));
 
-    const safePriority = String(task.priority || 'medium').toLowerCase();
-    const priority = priorityColors[safePriority] || priorityColors.medium;
+    const safePriority = normalizePriority(task.priority);
+    const priority = getPriorityConfig(task.priority);
 
     const handleStartEditing = (e) => {
         if (e) e.stopPropagation();
@@ -564,11 +554,11 @@ const TaskItem = ({
                             e.stopPropagation();
                             onTogglePriority(task.id || task.text || task.title);
                         }}
-                        className={`h-8 px-3 sm:w-20 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 select-none flex items-center justify-center gap-1.5 border ${priority.bg} ${priority.text} ${priority.border}`}
+                        className={`h-8 px-2.5 sm:px-3 sm:min-w-[84px] rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 select-none flex items-center justify-center gap-1.5 border whitespace-nowrap shrink-0 ${priority.bg} ${priority.text} ${priority.border}`}
                         title={`Prioridade: ${priority.label} (clique para alternar para ${priority.next})`}
                         aria-label={`Alternar prioridade da tarefa: ${taskTitle}. Atual: ${priority.label}`}
                     >
-                        <span className={`w-1.5 h-1.5 rounded-full ${priority.dot} flex-shrink-0`} />
+                        <span className={`w-2 h-2 rounded-full ${priority.dot} flex-shrink-0`} />
                         <span>{priority.label}</span>
                     </button>
 
@@ -619,6 +609,7 @@ const CategoryAccordion = React.memo(({
         : 0;
 
     const panelId = `category-panel-${category.id || 'unknown'}`;
+    const catStyles = getCategoryColorStyles(category.color, '#a855f7');
 
     const toggleOpen = () => setIsOpen(v => !v);
 
@@ -637,8 +628,8 @@ const CategoryAccordion = React.memo(({
                     <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl flex-shrink-0 border transition-transform duration-300 group-hover:scale-105 shadow-sm"
                         style={{
-                            backgroundColor: `${category.color || '#a855f7'}18`,
-                            borderColor: `${category.color || '#a855f7'}35`
+                            backgroundColor: catStyles.bg15,
+                            borderColor: catStyles.border30
                         }}
                         aria-hidden="true"
                     >
@@ -649,7 +640,7 @@ const CategoryAccordion = React.memo(({
                         <div className="flex items-center gap-2 flex-wrap">
                             <h3
                                 className="font-semibold text-base sm:text-lg leading-snug tracking-tight break-words line-clamp-2"
-                                style={{ color: category.color }}
+                                style={{ color: catStyles.hex }}
                             >
                                 {category.name || 'Sem Nome'}
                             </h3>
@@ -701,14 +692,14 @@ const CategoryAccordion = React.memo(({
                             className="h-full rounded-full transition-all duration-500"
                             style={{
                                 width: `${progress}%`,
-                                backgroundColor: category.color
+                                backgroundColor: catStyles.hex
                             }}
                         />
                     </div>
 
                     <span
                         className="text-sm font-semibold tabular-nums flex-shrink-0 w-10 sm:w-11 text-right inline-block"
-                        style={{ color: category.color }}
+                        style={{ color: catStyles.hex }}
                     >
                         {progress}%
                     </span>
@@ -735,7 +726,7 @@ const CategoryAccordion = React.memo(({
                         <div className="pt-4">
                             <PerformancePanel
                                 stats={category.simuladoStats}
-                                color={category.color}
+                                color={catStyles.hex}
                                 maxScore={category.maxScore || 100}
                             />
                         </div>
@@ -1336,7 +1327,7 @@ function Checklist({
                                                         <div className="flex-1 min-w-0">
                                                             <div
                                                                 className="text-sm font-bold text-white break-words line-clamp-2"
-                                                                style={{ color: cat.color }}
+                                                                style={{ color: normalizeHexColor(cat.color, '#a855f7') }}
                                                             >
                                                                 {cat.name}
                                                             </div>

@@ -1,30 +1,9 @@
 import React, { useMemo } from 'react';
 import { Info } from 'lucide-react';
 import { toArray } from '../utils/normalize';
+import { PRIORITY_CONFIG, normalizePriority } from '../utils/colorHelper';
 
-const priorityColors = {
-    high: {
-        label: 'Alta',
-        bar: 'bg-red-500',
-        bg: 'bg-red-500/10',
-        text: 'text-red-400',
-        border: 'border-red-500/20'
-    },
-    medium: {
-        label: 'Média',
-        bar: 'bg-yellow-500',
-        bg: 'bg-yellow-500/10',
-        text: 'text-yellow-400',
-        border: 'border-yellow-500/20'
-    },
-    low: {
-        label: 'Baixa',
-        bar: 'bg-green-500',
-        bg: 'bg-green-500/10',
-        text: 'text-green-400',
-        border: 'border-green-500/20'
-    },
-};
+const priorityColors = PRIORITY_CONFIG;
 
 export default function PriorityProgress({ categories = [] }) {
     const stats = useMemo(() => {
@@ -46,8 +25,7 @@ export default function PriorityProgress({ categories = [] }) {
         toArray(categories).forEach(cat => {
             const weight = Number(cat?.weight) || 5; // padrão 5 se ausente
             toArray(cat?.tasks).forEach(task => {
-                const rawPriority = String(task?.priority || 'medium').toLowerCase();
-                const priorityKey = taskCounts[rawPriority] ? rawPriority : 'medium';
+                const priorityKey = normalizePriority(task?.priority);
 
                 taskCounts[priorityKey].total += 1;
                 totalRealTasks += 1;
@@ -208,11 +186,7 @@ export default function PriorityProgress({ categories = [] }) {
                                             className={`h-full rounded-full ${conf.bar} transition-all duration-1000 ease-out`}
                                             style={{
                                                 width: `${pct}%`,
-                                                boxShadow: p === 'high'
-                                                    ? '0 0 15px rgba(239, 68, 68, 0.4)'
-                                                    : p === 'medium'
-                                                        ? '0 0 15px rgba(234, 179, 8, 0.4)'
-                                                        : '0 0 15px rgba(34, 197, 94, 0.4)'
+                                                boxShadow: `0 0 15px ${conf.glow}`
                                             }}
                                         />
                                     ) : (

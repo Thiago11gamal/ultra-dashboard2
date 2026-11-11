@@ -3,6 +3,7 @@ import { ensureCoachTaskId } from '../../utils/coachTaskId.js';
 import { XP_CONFIG } from '../../config/gamification.js';
 import { getTaskXP } from '../../utils/gamification.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
+import { normalizePriority } from '../../utils/colorHelper.js';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
@@ -323,7 +324,7 @@ export const createTaskSlice = (set, get) => ({
             const taskIndex = tasks.findIndex(t => t && ((t.id && t.id === taskId) || (t.text && t.text === taskId) || (t.title && t.title === taskId)));
             if (taskIndex !== -1) {
                 let task = tasks[taskIndex];
-                const oldPriority = String(task.priority || 'medium').toLowerCase();
+                const oldPriority = normalizePriority(task.priority);
                 const currentIndex = priorities.indexOf(oldPriority);
                 const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % 3;
                 const newPriority = priorities[nextIndex];
