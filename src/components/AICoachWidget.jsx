@@ -184,7 +184,12 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
                 {scoreLowPct !== null && scoreHighPct !== null && (
                     <div className="flex justify-between items-center text-[8.5px] font-mono px-0.5 pt-0.5 text-slate-400/80">
                         <span className="uppercase tracking-wider font-sans font-bold text-[8px]">IC 95% Nota Projetada:</span>
-                        <span className="font-bold text-slate-300">{scoreLowPct}% – {scoreHighPct}%</span>
+                        <span className="font-bold text-slate-300">
+                            {scoreLowPct}% – {scoreHighPct}%
+                            {scoreLowPct === 0 && scoreHighPct === 100 && (
+                                <span className="text-[7.5px] text-slate-500 font-sans ml-1 font-normal">(amostra em formação)</span>
+                            )}
+                        </span>
                     </div>
                 )}
             </div>

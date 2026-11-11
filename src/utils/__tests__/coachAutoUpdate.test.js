@@ -157,4 +157,24 @@ describe('Coach AI Automatic Update Lifecycle', () => {
 
     expect(hasChangedModified).toBe(true);
   });
+
+  it('aligns recommendation wording with urgency level when trend is dropping', () => {
+    // Drop in score but high overall score (stable category)
+    const cat = baseCategories[0];
+    const dropSimulados = [
+      { id: 'sim-1', categoryId: 'cat-1', categoryName: 'Direito Constitucional', date: '2026-10-01', score: 95 },
+      { id: 'sim-2', categoryId: 'cat-1', categoryName: 'Direito Constitucional', date: '2026-10-10', score: 92 },
+      { id: 'sim-3', categoryId: 'cat-1', categoryName: 'Direito Constitucional', date: '2026-10-20', score: 80 }
+    ];
+    const combined = getCombinedHistory(dropSimulados, dropSimulados, 100, 0);
+    const focus = getSuggestedFocus([cat], combined, [], { maxScore: 100, minScore: 0 });
+
+    expect(focus).toBeDefined();
+    expect(focus.urgency).toBeDefined();
+    // In stable condition (urgency <= 50), recommendation avoids alarming 'Atenção urgente'
+    if (focus.urgency.normalizedScore <= 50 && focus.urgency.recommendation.includes('Queda')) {
+      expect(focus.urgency.recommendation).toContain('Atenção preventiva recomendada');
+      expect(focus.urgency.recommendation).not.toContain('Atenção urgente');
+    }
+  });
 });

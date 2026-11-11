@@ -1670,7 +1670,9 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     } else if (mssdVolatility > cfg.MC_VOLATILITY_HIGH * (domain / 100) && trend > 0) {
         recommendation = "Desempenho Oscilante: Foque em preencher lacunas de base";
     } else if (trend < -trendThreshold) {
-        recommendation = `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`;
+        recommendation = normalized > 50
+            ? `Nota caindo (${formatValue(trend)} pts) - Atenção urgente`
+            : `Queda recente (${formatValue(trend)} pts) - Atenção preventiva recomendada`;
     } else if (averageScore < targetScore - (0.2 * domain)) {
         recommendation = `Nota Crítica: ${formatPercent(((averageScore - minScore) / domain) * 100)} (Meta ${formatPercent(((targetScore - minScore) / domain) * 100)})`;
     } else if (averageScore >= targetScore) {
