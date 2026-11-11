@@ -6,6 +6,7 @@ import { safeDate } from '../engine/math/date.js';
 import { format } from 'date-fns';
 import { toFinite } from '../engine/math/safe.js';
 import { toArray } from './normalize.js';
+import { normalizePriority } from './colorHelper.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -539,9 +540,9 @@ export const analyzeEfficiency = (categories, studyLogs = [], user = {}) => {
         parseFloat((completedTasks / (totalMinutes / 60)).toFixed(2)) : 0;
 
     // Análise de tarefas de alta prioridade
-    // T-019 FIX: tasks normalizadas
+    // T-019 FIX: tasks normalizadas com suporte a 'alta'/'urgente'
     const highPriorityTasks = safeCategories.flatMap(c =>
-        toArray(c?.tasks).filter(t => t?.priority === 'high')
+        toArray(c?.tasks).filter(t => normalizePriority(t?.priority) === 'high')
     );
     const highPriorityCompleted = highPriorityTasks.filter(t => t.completed).length;
     const highPriorityRate = highPriorityTasks.length > 0

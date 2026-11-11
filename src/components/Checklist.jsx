@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
     ChevronDown,
@@ -147,12 +148,26 @@ const PerformancePanel = ({ stats, color, maxScore = 100, minScore = 0 }) => {
         trendText = 'Caindo';
     }
 
-    const levelInfo = normalizeSimuladoLevel(level, average, safeMax, safeMin);
+    const computedAvg = hasHistory
+        ? history.reduce((sum, h) => sum + (Number(h?.score) || (h?.total > 0 ? (h.correct / h.total) * safeMax : 0)), 0) / history.length
+        : 0;
+    const effectiveAvg = (Number.isFinite(Number(average)) && Number(average) > 0)
+        ? Number(average)
+        : (hasHistory ? computedAvg : 0);
 
-    const avgNum = Number(average);
+    const computedLast = hasHistory
+        ? (Number(history[history.length - 1]?.score) || (history[history.length - 1]?.total > 0 ? (history[history.length - 1].correct / history[history.length - 1].total) * safeMax : 0))
+        : 0;
+    const effectiveLast = (Number.isFinite(Number(lastAttempt)) && Number(lastAttempt) > 0)
+        ? Number(lastAttempt)
+        : (hasHistory ? computedLast : 0);
+
+    const levelInfo = normalizeSimuladoLevel(level, effectiveAvg, safeMax, safeMin);
+
+    const avgNum = Number(effectiveAvg);
     const formattedAvg = Number.isFinite(avgNum)
         ? (Number.isInteger(avgNum) ? avgNum : avgNum.toFixed(1))
-        : average;
+        : effectiveAvg;
 
     const avgDisplay = (safeMax === 100 && safeMin === 0)
         ? `${formattedAvg}%`
@@ -161,10 +176,10 @@ const PerformancePanel = ({ stats, color, maxScore = 100, minScore = 0 }) => {
         ? `${Math.round(pointsToPct(avgNum, safeMax, safeMin))}%`
         : null;
 
-    const lastNum = Number(lastAttempt);
+    const lastNum = Number(effectiveLast);
     const formattedLast = Number.isFinite(lastNum)
         ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(1))
-        : lastAttempt;
+        : effectiveLast;
 
     const lastDisplay = (safeMax === 100 && safeMin === 0)
         ? `${formattedLast}%`
@@ -269,10 +284,10 @@ const PerformancePanel = ({ stats, color, maxScore = 100, minScore = 0 }) => {
                             const rawScore = h?.score ?? (h?.total > 0 ? (h.correct / h.total) * safeMax : 0);
                             const hScore = Number.isFinite(Number(rawScore)) ? Number(rawScore) : 0;
                             const formattedHScore = Number.isInteger(hScore) ? hScore : hScore.toFixed(1);
-                            const hPct = Math.round((hScore / safeMax) * 100);
-                            const barHeight = Math.min(100, Math.max(4, (hScore / safeMax) * 100));
+                            const hPct = Math.round(pointsToPct(hScore, safeMax, safeMin));
+                            const barHeight = Math.min(100, Math.max(4, hPct));
 
-                            const labelTooltip = safeMax === 100
+                            const labelTooltip = (safeMax === 100 && safeMin === 0)
                                 ? `${formattedHScore}% (${dateLabel})`
                                 : `${formattedHScore} pts (${hPct}%) (${dateLabel})`;
 
@@ -281,7 +296,7 @@ const PerformancePanel = ({ stats, color, maxScore = 100, minScore = 0 }) => {
 
                             return (
                                 <div
-                                    key={`${h.date || h.createdAt || 'hist'}-${i}`}
+                                    key={`${h?.id || h?.date || 'hist'}-${i}`}
                                     className="flex-1 flex flex-col items-center group/bar relative focus-visible:outline-none h-full justify-end"
                                     tabIndex={0}
                                     title={labelTooltip}
@@ -317,7 +332,8 @@ const TaskItem = ({
     onTriggerPlay
 }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const taskTitle = task.title || task.text || 'Tarefa sem nome';
+    if (!task) return null;
+    const taskTitle = task?.title || task?.text || 'Tarefa sem nome';
     const [editTitle, setEditTitle] = useState(taskTitle);
     const [editNotes, setEditNotes] = useState(task.notes || '');
     const [showNotesField, setShowNotesField] = useState(Boolean(task.notes));
@@ -863,13 +879,13 @@ function Checklist({
             normalize(c?.name || '') === normalize(catToImport?.name || '')
         );
         if (alreadyExists) {
-            showToast(`"${catToImport.name}" já existe neste concurso.`, 'warning');
+            showToast(`A disciplina "${catToImport.name}" já existe neste concurso.`, 'warning');
             return;
         }
         if (typeof onImportCategory === 'function') {
             onImportCategory(sourceContestId, categoryId);
         }
-        showToast(`"${catToImport.name}" importado com sucesso!`, 'success');
+        showToast(`Disciplina "${catToImport.name}" importada com sucesso! ✨`, 'success');
     }, [contests, categories, onImportCategory, showToast]);
 
     useEffect(() => {
@@ -896,7 +912,7 @@ function Checklist({
     const safeCategories = useMemo(() => {
         return toArray(categories).map(cat => ({
             ...cat,
-            tasks: toArray(cat.tasks)
+            tasks: toArray(cat.tasks).filter(t => t && typeof t === 'object' && (t.title || t.text || t.id))
         }));
     }, [categories]);
 
@@ -1160,7 +1176,7 @@ function Checklist({
                         ))}
                     </div>
 
-                    {onAddCategory && filter !== 'completed' && (
+                    {onAddCategory && (
                         <div className="mt-6 flex flex-wrap items-center gap-3">
                             {/* Botão em Evidência: Nova Disciplina */}
                             <button
@@ -1213,7 +1229,7 @@ function Checklist({
                 placeholder="Ex: Direito Administrativo..."
             />
 
-            {isImportModalOpen && (
+            {isImportModalOpen && typeof document !== 'undefined' && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                     <div
                         className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
@@ -1358,7 +1374,8 @@ function Checklist({
                             </div>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ✅ LOTE-03: Modais únicos centralizados */}
@@ -1380,7 +1397,9 @@ function Checklist({
                 onClose={() => setDeleteCatModal(null)}
                 onConfirm={() => {
                     if (deleteCatModal) {
-                        onDeleteCategory(deleteCatModal.id);
+                        if (typeof onDeleteCategory === 'function') {
+                            onDeleteCategory(deleteCatModal.id);
+                        }
                         showToast(`Disciplina "${deleteCatModal.name || ''}" movida para a lixeira.`, 'info');
                     }
                     setDeleteCatModal(null);
@@ -1397,7 +1416,9 @@ function Checklist({
                     if (deleteTaskModal) {
                         const tId = deleteTaskModal.task?.id || deleteTaskModal.task?.text || deleteTaskModal.task?.title;
                         const tName = deleteTaskModal.task?.title || deleteTaskModal.task?.text || 'Assunto';
-                        onDeleteTask(deleteTaskModal.catId, tId);
+                        if (typeof onDeleteTask === 'function') {
+                            onDeleteTask(deleteTaskModal.catId, tId);
+                        }
                         showToast(`Assunto "${tName}" excluído.`, 'info');
                     }
                     setDeleteTaskModal(null);

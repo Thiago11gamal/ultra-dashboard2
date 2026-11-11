@@ -4,6 +4,7 @@ import { XP_CONFIG } from '../../config/gamification.js';
 import { getTaskXP } from '../../utils/gamification.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { normalizePriority } from '../../utils/colorHelper.js';
+import { normalize } from '../../utils/normalization.js';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
@@ -167,9 +168,9 @@ export const createTaskSlice = (set, get) => ({
                     : [];
             }
             // BUG-T04 FIX: Impedir duplicatas por nome normalizado.
-            const normNew = trimmedTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+            const normNew = normalize(trimmedTitle);
             const alreadyExists = category.tasks.some(t => {
-                const existing = String(t.text || t.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                const existing = normalize(String(t.text || t.title || ''));
                 return existing === normNew;
             });
             if (alreadyExists) return;
@@ -218,6 +219,13 @@ export const createTaskSlice = (set, get) => ({
                 : (currentTask.title || currentTask.text);
 
         if (!newTitle) return;
+
+        const normNew = normalize(newTitle);
+        const isDuplicate = category.tasks.some((t, idx) => {
+            if (idx === taskIndex) return false;
+            return normalize(String(t?.text || t?.title || '')) === normNew;
+        });
+        if (isDuplicate) return;
 
         const newNotes = updates.notes !== undefined
             ? (typeof updates.notes === 'string' ? updates.notes.trim() : updates.notes)
@@ -348,6 +356,14 @@ export const createTaskSlice = (set, get) => ({
                 }
 
                 tasks[taskIndex] = task;
+
+                const activeSubject = state.appState.pomodoro?.activeSubject;
+                if (activeSubject && (activeSubject.taskId === taskId || activeSubject.taskId === task.id || activeSubject.task === task.title || activeSubject.task === task.text)) {
+                    state.appState.pomodoro.activeSubject = {
+                        ...activeSubject,
+                        priority: newPriority
+                    };
+                }
 
                 // Garante novas referências de array e de objeto para Zustand / React shallow memoization
                 category.tasks = [...tasks];

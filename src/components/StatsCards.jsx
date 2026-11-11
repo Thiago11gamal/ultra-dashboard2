@@ -410,7 +410,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 Top: <strong className="font-semibold text-slate-200">{balance.distribution[0].subject}</strong>
                             </span>
                         ) : (
-                            <span className="text-slate-500">Sem matérias</span>
+                            <span className="text-slate-500">
+                                {(data?.categories && (Array.isArray(data.categories) ? data.categories.length : Object.keys(data.categories).length) > 0)
+                                    ? 'Aguardando estudos'
+                                    : 'Sem matérias'}
+                            </span>
                         )}
 
                         {balance?.metrics?.activeSubjects > 0 && (
@@ -548,10 +552,10 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             onChange={(e) => {
                                 const selected = e.target.value;
                                 if (!selected) {
-                                    onUpdateGoalDate('');
+                                    if (typeof onUpdateGoalDate === 'function') onUpdateGoalDate('');
                                     return;
                                 }
-                                onUpdateGoalDate(selected);
+                                if (typeof onUpdateGoalDate === 'function') onUpdateGoalDate(selected);
                             }}
                             className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 pointer-events-auto [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                             title="Escolher data da prova"

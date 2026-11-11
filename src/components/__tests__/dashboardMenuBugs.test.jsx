@@ -531,6 +531,125 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(resolvedCatId).toBe('Direito Penal');
         });
     });
+
+    describe('12. First Menu Data Integrity & Edge Case Resolutions', () => {
+        it('PerformancePanel accurately calculates pointsToPct and barHeight for shifted and negative scales', async () => {
+            const { pointsToPct } = await import('../../utils/scoreHelper.js');
+            // Scale: minScore = 20, maxScore = 100. Score = 60 pts
+            const pct1 = pointsToPct(60, 100, 20);
+            expect(pct1).toBe(50); // (60 - 20) / (100 - 20) = 40/80 = 50%
+
+            // Cebraspe: minScore = -100, maxScore = 100. Score = 0 pts
+            const pct2 = pointsToPct(0, 100, -100);
+            expect(pct2).toBe(50); // (0 - (-100)) / 200 = 100/200 = 50%
+        });
+
+        it('NextGoalCard prioritizes tasks with Portuguese priorities (alta before baixa)', async () => {
+            const { normalizePriority } = await import('../../utils/colorHelper.js');
+            const tasks = [
+                { id: '1', title: 'Task Baixa', priority: 'baixa' },
+                { id: '2', title: 'Task Alta', priority: 'alta' },
+                { id: '3', title: 'Task Media', priority: 'media' }
+            ];
+
+            const priorityOrder = { high: 0, medium: 1, low: 2 };
+            const sorted = [...tasks].sort((a, b) => {
+                const pA = normalizePriority(a.priority);
+                const pB = normalizePriority(b.priority);
+                return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
+            });
+
+            expect(sorted[0].title).toBe('Task Alta');
+            expect(sorted[1].title).toBe('Task Media');
+            expect(sorted[2].title).toBe('Task Baixa');
+        });
+
+        it('createTaskSlice togglePriority syncs priority with pomodoro.activeSubject', () => {
+            const mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    pomodoro: {
+                        activeSubject: {
+                            taskId: 't-1',
+                            category: 'Direito',
+                            priority: 'low'
+                        }
+                    },
+                    contests: {
+                        'contest-1': {
+                            categories: [
+                                {
+                                    id: 'cat-1',
+                                    name: 'Direito',
+                                    tasks: [
+                                        { id: 't-1', title: 'Artigo 5', priority: 'low' }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+
+            const setFn = (fn) => fn(mockState);
+            const getFn = () => ({ awardExperience: vi.fn() });
+            const taskSlice = createTaskSlice(setFn, getFn);
+
+            taskSlice.togglePriority('cat-1', 't-1');
+
+            expect(mockState.appState.contests['contest-1'].categories[0].tasks[0].priority).toBe('medium');
+            expect(mockState.appState.pomodoro.activeSubject.priority).toBe('medium');
+        });
+
+        it('createTaskSlice updateTask rejects renaming to a duplicate title in the same category', () => {
+            const mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    contests: {
+                        'contest-1': {
+                            categories: [
+                                {
+                                    id: 'cat-1',
+                                    name: 'Direito',
+                                    tasks: [
+                                        { id: 't-1', title: 'Controle de Constitucionalidade' },
+                                        { id: 't-2', title: 'Direitos Fundamentais' }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+
+            const setFn = (fn) => fn(mockState);
+            const getFn = () => ({});
+            const taskSlice = createTaskSlice(setFn, getFn);
+
+            // Attempt to rename t-2 to duplicate of t-1
+            taskSlice.updateTask('cat-1', 't-2', { title: 'controle de constitucionalidade' });
+
+            // Title should remain unchanged
+            expect(mockState.appState.contests['contest-1'].categories[0].tasks[1].title).toBe('Direitos Fundamentais');
+        });
+
+        it('analyzeEfficiency handles Portuguese priorities in highPriorityTasks calculation', async () => {
+            const { analyzeEfficiency } = await import('../../utils/analytics.js');
+            const categories = [
+                {
+                    id: 'cat-1',
+                    name: 'Penal',
+                    tasks: [
+                        { id: 't-1', priority: 'alta', completed: true },
+                        { id: 't-2', priority: 'alta', completed: false }
+                    ]
+                }
+            ];
+
+            const result = analyzeEfficiency(categories, [{ duration: 60 }], { level: 1 });
+            expect(result.metrics.highPriorityRate).toBe(50); // 1 out of 2 completed
+        });
+    });
 });
 
 

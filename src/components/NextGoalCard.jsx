@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Play, Clock, Info, Sparkles } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 import { toArray } from '../utils/normalize';
+import { normalizePriority } from '../utils/colorHelper';
 
 function NextGoalCard({
     categories = [],
@@ -56,8 +57,8 @@ function NextGoalCard({
                     .filter(t => t && !t.completed)
                     .slice()
                     .sort((a, b) => {
-                        const pA = String(a?.priority || 'medium').toLowerCase();
-                        const pB = String(b?.priority || 'medium').toLowerCase();
+                        const pA = normalizePriority(a?.priority);
+                        const pB = normalizePriority(b?.priority);
                         return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
                     });
                 const nextTask = sortedTasks[0];
@@ -261,7 +262,7 @@ function NextGoalCard({
                                 {category.name}
                             </h3>
 
-                            {display.assunto && (
+                            {display?.assunto && (
                                 <div className="flex items-center gap-1.5 text-sm font-medium text-slate-300">
                                     <Target
                                         size={14}
@@ -294,7 +295,7 @@ function NextGoalCard({
                     <button
                         type="button"
                         onClick={() => typeof onStartStudying === 'function' && onStartStudying(category.id || category.name, task.id || task.text || task.title)}
-                        aria-label={`Iniciar sessão de ${category.name}${display.assunto ? `: ${display.assunto}` : ''}`}
+                        aria-label={`Iniciar sessão de ${category.name}${display?.assunto ? `: ${display.assunto}` : ''}`}
                         className={`w-full sm:w-auto px-7 py-3 rounded-xl bg-gradient-to-r ${urgencyStyle.buttonGradient} ${urgencyStyle.glow} text-white font-semibold text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95 group/btn overflow-hidden cursor-pointer`}
                     >
                         <Play
