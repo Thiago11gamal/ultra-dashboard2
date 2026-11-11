@@ -51,6 +51,7 @@ export const createTaskSlice = (set, get) => ({
                     if (isMatchingActiveTask) {
                         state.appState.pomodoro.activeSubject = null;
                         state.appState.pomodoro.isRunning = false;
+                        try { localStorage.removeItem('pomodoroState'); } catch { }
                     }
                 }
             } else {
@@ -106,7 +107,7 @@ export const createTaskSlice = (set, get) => ({
                     found = true;
                 }
             };
-            
+
             const matchesTask = (t) => {
                 if (!t) return false;
                 return t.id === taskId || t.text === taskId || t.title === taskId || (typeof getSafeId === 'function' && getSafeId(t) === taskId) || (typeof ensureCoachTaskId === 'function' && ensureCoachTaskId(t)?.id === taskId);
@@ -227,6 +228,10 @@ export const createTaskSlice = (set, get) => ({
         });
         if (isDuplicate) return;
 
+        const newPriority = updates.priority !== undefined
+            ? normalizePriority(updates.priority)
+            : currentTask.priority;
+
         const newNotes = updates.notes !== undefined
             ? (typeof updates.notes === 'string' ? updates.notes.trim() : updates.notes)
             : currentTask.notes;
@@ -236,6 +241,7 @@ export const createTaskSlice = (set, get) => ({
             ...currentTask,
             title: newTitle,
             text: newTitle,
+            priority: newPriority,
             notes: sanitizedNotes
         };
         if (!sanitizedNotes) {
@@ -246,7 +252,8 @@ export const createTaskSlice = (set, get) => ({
         if (activeSubject && (activeSubject.taskId === taskId || activeSubject.taskId === currentTask.id || activeSubject.task === currentTask.title || activeSubject.task === currentTask.text)) {
             state.appState.pomodoro.activeSubject = {
                 ...activeSubject,
-                task: newTitle
+                task: newTitle,
+                priority: newPriority
             };
         }
 

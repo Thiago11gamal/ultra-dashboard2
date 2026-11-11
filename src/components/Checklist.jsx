@@ -500,7 +500,7 @@ const TaskItem = ({
                             <button
                                 type="button"
                                 onClick={handleStartEditing}
-                                className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-slate-500 hover:text-purple-300 transition-all rounded hover:bg-purple-500/10 cursor-pointer"
+                                className="opacity-70 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-slate-500 hover:text-purple-300 transition-all rounded hover:bg-purple-500/10 cursor-pointer"
                                 title="Editar assunto e anotações (duplo clique)"
                                 aria-label={`Editar ${taskTitle}`}
                             >
@@ -760,16 +760,14 @@ const CategoryAccordion = React.memo(({
                                 <p className="text-slate-400 text-xs max-w-xs mt-1 mb-4 leading-relaxed">
                                     Cadastre os tópicos do edital desta disciplina para organizar seus estudos e acompanhar seu desempenho.
                                 </p>
-                                {filter !== 'completed' && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onOpenTaskModal(category.id || category.name)}
-                                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/50 hover:to-indigo-600/50 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
-                                    >
-                                        <Plus size={14} className="text-purple-300" />
-                                        <span>Adicionar Primeiro Assunto</span>
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => onOpenTaskModal(category.id || category.name)}
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 hover:from-purple-600/50 hover:to-indigo-600/50 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center gap-2 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                                >
+                                    <Plus size={14} className="text-purple-300" />
+                                    <span>Adicionar Primeiro Assunto</span>
+                                </button>
                             </div>
                         </div>
                     ) : (
@@ -794,18 +792,16 @@ const CategoryAccordion = React.memo(({
                                 ))
                             )}
 
-                            {filter !== 'completed' && (
-                                <button
-                                    type="button"
-                                    onClick={() => onOpenTaskModal(category.id || category.name)}
-                                    className="w-full py-2.5 px-4 rounded-xl bg-purple-500/[0.03] hover:bg-purple-500/[0.08] border border-dashed border-purple-500/25 hover:border-purple-500/45 text-slate-400 hover:text-purple-200 transition-all duration-200 flex items-center justify-center gap-2 group text-xs sm:text-sm font-medium shadow-sm mt-3 cursor-pointer"
-                                >
-                                    <div className="w-5 h-5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 border border-purple-500/20 group-hover:border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:text-purple-200 transition-all group-hover:scale-110">
-                                        <Plus size={13} className="stroke-[2.5]" />
-                                    </div>
-                                    <span>Adicionar assunto</span>
-                                </button>
-                            )}
+                            <button
+                                type="button"
+                                onClick={() => onOpenTaskModal(category.id || category.name)}
+                                className="w-full py-2.5 px-4 rounded-xl bg-purple-500/[0.03] hover:bg-purple-500/[0.08] border border-dashed border-purple-500/25 hover:border-purple-500/45 text-slate-400 hover:text-purple-200 transition-all duration-200 flex items-center justify-center gap-2 group text-xs sm:text-sm font-medium shadow-sm mt-3 cursor-pointer"
+                            >
+                                <div className="w-5 h-5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 border border-purple-500/20 group-hover:border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:text-purple-200 transition-all group-hover:scale-110">
+                                    <Plus size={13} className="stroke-[2.5]" />
+                                </div>
+                                <span>Adicionar assunto</span>
+                            </button>
                         </div>
                     )}
                 </div>

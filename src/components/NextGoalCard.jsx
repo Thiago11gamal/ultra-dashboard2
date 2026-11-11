@@ -149,6 +149,7 @@ function NextGoalCard({
     const urgencyScore = Number.isFinite(rawUrgencyScore) ? rawUrgencyScore : 0;
     const hasSimuladoData = Boolean(urgency?.details?.hasData);
     const daysSinceLastStudy = Number(urgency?.details?.daysSinceLastStudy || 0);
+    const hasStudyHistory = hasSimuladoData || !urgency?.details?.recencyUnknown || daysSinceLastStudy > 0 || Boolean(category?.lastStudiedAt);
 
     let urgencyStyle = {
         gradient: 'from-blue-500/15 via-blue-500/5 to-transparent',
@@ -244,7 +245,7 @@ function NextGoalCard({
                                 <Clock size={11} className={urgencyStyle.textHighlight} />
                                 <span>Tempo sem ver:</span>
                                 <strong className="text-white font-semibold tabular-nums">
-                                    {hasSimuladoData
+                                    {hasStudyHistory
                                         ? daysSinceLastStudy > 0
                                             ? `${daysSinceLastStudy}d`
                                             : 'Hoje'

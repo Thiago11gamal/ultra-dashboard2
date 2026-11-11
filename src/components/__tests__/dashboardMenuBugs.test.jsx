@@ -650,6 +650,111 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(result.metrics.highPriorityRate).toBe(50); // 1 out of 2 completed
         });
     });
+
+    describe('13. Extended Portuguese Priority, Gamification XP, Task Notes Persistence & Stale State Cleanup', () => {
+        it('getTaskXP awards correct XP for Portuguese priority values', async () => {
+            const { getTaskXP } = await import('../../utils/gamification.js');
+            expect(getTaskXP({ priority: 'alta' }, true)).toBe(200);
+            expect(getTaskXP({ priority: 'urgente' }, true)).toBe(200);
+            expect(getTaskXP({ priority: 'high' }, true)).toBe(200);
+            expect(getTaskXP({ priority: 'media' }, true)).toBe(150);
+            expect(getTaskXP({ priority: 'medium' }, true)).toBe(150);
+            expect(getTaskXP({ priority: 'baixa' }, true)).toBe(100);
+            expect(getTaskXP({ priority: 'low' }, true)).toBe(100);
+        });
+
+        it('sanitizeContest preserves task notes without dropping them during serialization', async () => {
+            const { sanitizeContest } = await import('../../store/schemas.js');
+            const contestData = {
+                contestName: 'Audit Test',
+                categories: [
+                    {
+                        id: 'cat-1',
+                        name: 'Direito Administrativo',
+                        tasks: [
+                            { id: 't-1', text: 'Atos Administrativos', notes: 'Importante rever requisitos e anulação vs revogação' }
+                        ]
+                    }
+                ]
+            };
+
+            const sanitized = sanitizeContest(contestData);
+            expect(sanitized.categories[0].tasks[0].notes).toBe('Importante rever requisitos e anulação vs revogação');
+        });
+
+        it('coachLogic calculateUrgency detects high priority boost for Portuguese alta tasks', async () => {
+            const { calculateUrgency } = await import('../../utils/coachLogic.js');
+            const category = {
+                id: 'cat-1',
+                name: 'Direito',
+                tasks: [
+                    { id: 't-1', priority: 'alta', completed: false }
+                ]
+            };
+            const urgency = calculateUrgency(category, [], []);
+            expect(urgency.details.components.priorityBoost).toBeGreaterThan(0);
+        });
+
+        it('createTaskSlice updateTask updates priority and syncs with pomodoro activeSubject', () => {
+            const mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    pomodoro: {
+                        activeSubject: { taskId: 't-1', task: 'Tarefa Antiga', priority: 'low' }
+                    },
+                    contests: {
+                        'contest-1': {
+                            categories: [
+                                {
+                                    id: 'cat-1',
+                                    tasks: [{ id: 't-1', title: 'Tarefa Antiga', priority: 'low' }]
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            const setFn = (fn) => fn(mockState);
+            const taskSlice = createTaskSlice(setFn, () => ({}));
+            taskSlice.updateTask('cat-1', 't-1', { title: 'Tarefa Nova', priority: 'alta' });
+
+            const updatedTask = mockState.appState.contests['contest-1'].categories[0].tasks[0];
+            expect(updatedTask.title).toBe('Tarefa Nova');
+            expect(updatedTask.priority).toBe('high');
+            expect(mockState.appState.pomodoro.activeSubject.priority).toBe('high');
+            expect(mockState.appState.pomodoro.activeSubject.task).toBe('Tarefa Nova');
+        });
+
+        it('createTaskSlice deleteTask cleans up localStorage pomodoroState on active task deletion', () => {
+            localStorage.setItem('pomodoroState', JSON.stringify({ isRunning: true, taskId: 't-1' }));
+            const mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    pomodoro: {
+                        activeSubject: { taskId: 't-1', task: 'Tarefa Ativa' },
+                        isRunning: true
+                    },
+                    contests: {
+                        'contest-1': {
+                            categories: [
+                                {
+                                    id: 'cat-1',
+                                    tasks: [{ id: 't-1', title: 'Tarefa Ativa' }]
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            const setFn = (fn) => fn(mockState);
+            const taskSlice = createTaskSlice(setFn, () => ({}));
+            taskSlice.deleteTask('cat-1', 't-1');
+
+            expect(mockState.appState.pomodoro.activeSubject).toBeNull();
+            expect(mockState.appState.pomodoro.isRunning).toBe(false);
+            expect(localStorage.getItem('pomodoroState')).toBeNull();
+        });
+    });
 });
 
 

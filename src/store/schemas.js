@@ -280,13 +280,14 @@ export const sanitizeContest = (data, contestId = '') => {
         completedAt: t.completedAt || null,
         lastStudiedAt: t.lastStudiedAt || null,
         priority: normalizePriority(t.priority || "medium"),
+        ...(t.notes ? { notes: String(t.notes) } : {}),
         ...(t.awardedXP != null && Number.isFinite(Number(t.awardedXP)) ? { awardedXP: Number(t.awardedXP) } : {}),
         ...(t.status ? { status: t.status } : {})
       })).filter(t => t.id && (t.text || t.title));
 
       const seenTaskNames = new Set();
       const dedupedTasks = rawTasks.filter(t => {
-        const normName = t.text.toLowerCase().replace(/\s+/g, ' ').trim();
+        const normName = normalize(t.text || t.title || '');
         if (seenTaskNames.has(normName)) return false;
         seenTaskNames.add(normName);
         return true;

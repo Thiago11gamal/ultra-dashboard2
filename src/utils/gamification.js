@@ -1,4 +1,5 @@
 import { XP_CONFIG } from '../config/gamification.js';
+import { normalizePriority } from './colorHelper.js';
 
 export const calculateLevel = (xpInput) => {
   const parsed = Number(xpInput);
@@ -53,7 +54,8 @@ export const calculateProgress = (xp) => getXPProgress(xp).percentage;
 export const getTaskXP = (task, completed) => {
   if (!task || typeof task !== 'object') return 0;
   
-  const baseXP = XP_CONFIG.task[task.priority] || XP_CONFIG.task.medium;
+  const normPriority = normalizePriority(task.priority);
+  const baseXP = XP_CONFIG.task[normPriority] || XP_CONFIG.task.medium;
   if (completed) return baseXP;
   
   const rawAwarded = task.awardedXP !== undefined ? Number(task.awardedXP) : baseXP;

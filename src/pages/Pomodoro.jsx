@@ -18,7 +18,7 @@ import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
 import { calculateETA } from '../utils/pomodoroHelpers';
-import { hexToRgba, normalizeHexColor } from '../utils/colorHelper';
+import { hexToRgba, normalizeHexColor, normalizePriority } from '../utils/colorHelper';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
 const EMPTY_ARRAY = Object.freeze([]);
@@ -370,7 +370,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
         (categories || []).filter(Boolean).forEach(cat => {
             const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
             safeTasks.filter(t => {
-                if (!t || t.completed || t.priority !== 'high') return false;
+                if (!t || t.completed || normalizePriority(t.priority) !== 'high') return false;
                 const tid = String(t.id || t.text || t.title);
                 return tid !== recommendedId && tid !== currentTaskId;
             }).forEach(t => {
@@ -381,7 +381,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
             (categories || []).filter(Boolean).forEach(cat => {
                 const safeTasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
                 safeTasks.filter(t => {
-                    if (!t || t.completed || t.priority !== 'medium') return false;
+                    if (!t || t.completed || normalizePriority(t.priority) !== 'medium') return false;
                     const tid = String(t.id || t.text || t.title);
                     return tid !== recommendedId && tid !== currentTaskId;
                 }).forEach(t => {
@@ -429,10 +429,10 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
         const quality = completionPct >= 80 ? 'Maestria' : completionPct >= 40 ? 'Evolução' : 'Fase Inicial';
         const hitRate = completionPct;
         const missRate = total > 0 ? Math.max(0, 100 - completionPct) : 0;
-        const highPriorityCount = categoryTasks.filter(t => t.priority === 'high' && !t.completed).length;
+        const highPriorityCount = categoryTasks.filter(t => normalizePriority(t.priority) === 'high' && !t.completed).length;
         const whySelected = isCurrentCompleted
             ? 'necessidade de retenção de memória (Revisão Espaçada)'
-            : activeSubject.priority === 'high'
+            : normalizePriority(activeSubject.priority) === 'high'
                 ? 'ser um alvo crítico de alto impacto'
                 : 'apresentar alta sinergia com o seu ritmo atual';
         const improveText = remaining > 0
@@ -585,7 +585,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
                         <span className="inline-block px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[9px] font-bold uppercase tracking-widest">
                             ⚡ Recomendado pela IA
                         </span>
-                        {recommendedTask.priority === 'high' && (
+                        {normalizePriority(recommendedTask?.priority) === 'high' && (
                             <span className="inline-block px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[9px] font-bold uppercase tracking-widest shrink-0">
                                 Prioridade Alta
                             </span>
@@ -817,7 +817,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
         (categories || []).forEach(cat => {
             const safeTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
             safeTasks.forEach(t => {
-                if (t && !t.completed && t.priority === 'high' && (t.id || t.text) !== activeSubject?.taskId) {
+                if (t && !t.completed && normalizePriority(t.priority) === 'high' && (t.id || t.text) !== activeSubject?.taskId) {
                     count++;
                 }
             });
@@ -1058,7 +1058,7 @@ const PomodoroTopBar = React.memo(function PomodoroTopBar({
                                     <span>{alertBadge.text || alertBadge.label}</span>
                                 </span>
                             )}
-                            {(isPriority || activeSubject?.priority === 'high') && (
+                            {(isPriority || normalizePriority(activeSubject?.priority) === 'high') && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider bg-rose-950/20 text-rose-950 border border-rose-900/30 shadow-xs">
                                     <span>🔥</span>
                                     <span>Prioritário</span>
@@ -1451,7 +1451,7 @@ export default function Pomodoro() {
             const highPriority = [];
             safeCats.forEach(cat => {
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
-                catTasks.filter(t => t && !t.completed && t.priority === 'high').forEach(t => {
+                catTasks.filter(t => t && !t.completed && normalizePriority(t.priority) === 'high').forEach(t => {
                     highPriority.push({ ...t, id: t.id || t.text || t.title, categoryId: cat.id, catName: cat.name });
                 });
             });

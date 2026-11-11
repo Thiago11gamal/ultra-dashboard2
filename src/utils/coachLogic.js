@@ -6,6 +6,7 @@ import { computeForgettingRisk } from '../engine/diagnostics.js';
 import { getSafeScore, getSyntheticTotal, formatValue, formatPercent } from './scoreHelper.js';
 import { safeDateParse as _safeDateParse, normalizeDate, getDateKey } from './dateHelper.js';
 import { normalize, isSubjectMatch } from './normalization.js';
+import { normalizePriority } from './colorHelper.js';
 import { computeRollingCalibrationParams } from './calibration.js';
 import {
     deriveAdaptiveRiskThresholds,
@@ -1247,7 +1248,7 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         : Object.values(safeCategory?.tasks || {});
     const hasHighPriorityTasks = metrics.hasHighPriorityTasks !== undefined
         ? Boolean(metrics.hasHighPriorityTasks)
-        : safeTasksArray.some(t => t && !t.completed && t.priority === 'high');
+        : safeTasksArray.some(t => t && !t.completed && normalizePriority(t.priority) === 'high');
     const priorityBoost = hasHighPriorityTasks ? cfg.PRIORITY_BOOST : 0;
     const totalTasks = safeTasksArray.length;
     const completedTasks = safeTasksArray.filter(t => t?.completed).length;
@@ -1866,7 +1867,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const lastLog = logsForChecksum.length > 0
             ? (logsForChecksum[logsForChecksum.length - 1]?.date || logsForChecksum[logsForChecksum.length - 1]?.createdAt || '')
             : '';
-        const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (t?.priority === 'high' ? 5 : 0), 0);
+        const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (normalizePriority(t?.priority) === 'high' ? 5 : 0), 0);
         // FIX: a soma de minutos impacta a urgência (balance bridge,
         // burnout/dynamicBurnoutThreshold, totalHours). Antes, editar a
         // duração de um log existente não invalidava o cache — só
@@ -2416,8 +2417,9 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             topicMap[name].completed = !topicMap[name].hasUnfinishedTask;
         }
         let newTaskPriority = 0;
-        if (task.priority === 'high') newTaskPriority = 40;
-        else if (task.priority === 'medium') newTaskPriority = 20;
+        const normTaskPriority = normalizePriority(task?.priority);
+        if (normTaskPriority === 'high') newTaskPriority = 40;
+        else if (normTaskPriority === 'medium') newTaskPriority = 20;
         if (!task.completed) {
             topicMap[name].manualPriority = Math.max(topicMap[name].manualPriority || 0, newTaskPriority);
         }
@@ -3361,7 +3363,7 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
                 name: c.text || c.title || c.id || `task-${c._originalIndex}`,
                 type: 'task',
                 priority: c.priority || 'medium',
-                priorityValue: (priorityWeight[c.priority] ?? 2) / 3,
+                priorityValue: (priorityWeight[normalizePriority(c.priority)] ?? 2) / 3,
                 weakness: c.analysis ? 0.68 : 0.48,
                 uncertainty: 0.42,
                 evidence: c.analysis ? 0.7 : 0.4,
@@ -3385,8 +3387,8 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
 
     // FIX: sort estável e seguro (peso de prioridade → tem analysis → ordem original)
     candidates.sort((a, b) => {
-        const pa = priorityWeight[a.priority] ?? 2;
-        const pb = priorityWeight[b.priority] ?? 2;
+        const pa = priorityWeight[normalizePriority(a.priority)] ?? 2;
+        const pb = priorityWeight[normalizePriority(b.priority)] ?? 2;
         if (pb !== pa) return pb - pa;
         const aa = a.analysis ? 1 : 0;
         const ab = b.analysis ? 1 : 0;

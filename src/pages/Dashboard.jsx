@@ -10,6 +10,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { toArray } from '../utils/normalize';
+import { normalizePriority } from '../utils/colorHelper';
 
 export default function Dashboard() {
     // P06 PERF FIX: Group store actions with useShallow to prevent re-rendering Dashboard on every store mutation
@@ -164,7 +165,7 @@ export default function Dashboard() {
                     return {
                         ...c,
                         tasks: toArray(c.tasks).map(t => {
-                            const isMatchingCategory = (c.id && cat.id) ? c.id === cat.id : c.name === cat.name;
+                            const isMatchingCategory = (c.id && cat.id && c.id === cat.id) || (c.name && cat.name && c.name === cat.name);
                             if (isMatchingCategory && (t.id === tsk.id || t.id === taskId || (tsk.text && t.text === tsk.text) || (tsk.title && t.title === tsk.title))) {
                                 return { ...t, status: 'studying' };
                             }
@@ -185,7 +186,7 @@ export default function Dashboard() {
             taskId: tsk.id || taskId,
             category: cat.name,
             task: tsk.title || tsk.text || 'Estudo',
-            priority: tsk.priority,
+            priority: normalizePriority(tsk.priority),
             source: 'dashboard'
         });
 
