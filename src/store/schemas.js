@@ -6,6 +6,7 @@ import { getDateKey } from '../utils/dateHelper.js';
 import { computeCategoryStats } from '../engine/index.js';
 import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
 import { getSyntheticTotal } from '../utils/scoreHelper.js';
+import { normalizeHexColor, normalizePriority } from '../utils/colorHelper.js';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
 
@@ -189,9 +190,9 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
           trend: statsResult?.trend || 'stable',
           lastAttempt: rebuiltHistory.length > 0 ? rebuiltHistory[rebuiltHistory.length - 1].score : 0,
           level: statsResult?.level || (
-            (statsResult?.mean || 0) > 0.7 * maxScore
+            (statsResult?.mean || 0) > (minScore + 0.7 * scoreRange)
               ? 'ALTO'
-              : (statsResult?.mean || 0) > 0.4 * maxScore
+              : (statsResult?.mean || 0) > (minScore + 0.4 * scoreRange)
                 ? 'MÉDIO'
                 : 'BAIXO'
           )
@@ -239,16 +240,18 @@ export const sanitizeContest = (data, contestId = '') => {
       avatar: source.user?.avatar || "👤",
       startDate: source.user?.startDate || getDateKey(new Date()),
       goalDate: source.user?.goalDate || null,
-      targetScore: (source.user?.targetScore != null) ? Number(source.user.targetScore) : DEFAULT_TARGET_SCORE,
-      xp: Number(source.user?.xp) || 0,
-      level: Number(source.user?.level) || 1,
+      targetScore: (source.user?.targetScore != null && Number.isFinite(Number(source.user.targetScore)))
+        ? Number(source.user.targetScore)
+        : DEFAULT_TARGET_SCORE,
+      xp: Number.isFinite(Number(source.user?.xp)) ? Math.max(0, Number(source.user.xp)) : 0,
+      level: Number.isFinite(Number(source.user?.level)) ? Math.max(1, Math.floor(Number(source.user.level))) : 1,
       achievements: (Array.isArray(source.user?.achievements) ? source.user.achievements : [])
         .map(a => typeof a === 'string' ? a : a?.id)
         .filter(Boolean),
       studiedEarly: Boolean(source.user?.studiedEarly),
       studiedLate: Boolean(source.user?.studiedLate),
       targetProbability: (source.user?.targetProbability != null && Number.isFinite(Number(source.user.targetProbability)))
-        ? Number(source.user.targetProbability)
+        ? Math.max(0, Math.min(100, Number(source.user.targetProbability)))
         : 70
     },
     coachPlan: Array.isArray(source.coachPlan)
@@ -261,73 +264,138 @@ export const sanitizeContest = (data, contestId = '') => {
     coachPlanner: (source.coachPlanner && typeof source.coachPlanner === 'object')
       ? source.coachPlanner
       : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
-    categories: (Array.isArray(source.categories) ? source.categories : Object.values(source.categories || {})).filter(cat => cat && typeof cat === 'object').map(cat => ({
-      id: cat.id || generateId('cat'),
-      name: cat.name || "Sem Nome",
-      color: cat.color || "#3b82f6",
-      icon: cat.icon || "📚",
-      tasks: (() => {
-        const rawTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t && typeof t === 'object').map(t => ({
-          id: t.id || generateId('task'),
-          text: t.text || t.title || t.topic || "Nova Tarefa",
-          title: t.title || t.text || t.topic || "Nova Tarefa",
-          completed: Boolean(t.completed),
-          completedAt: t.completedAt || null,
-          lastStudiedAt: t.lastStudiedAt || null,
-          priority: t.priority || "medium",
-          // BUG-01 & 02 FIX: Preserve awardedXP and studying status during sync/reload
-          ...(t.awardedXP != null ? { awardedXP: Number(t.awardedXP) } : {}),
-          ...(t.status ? { status: t.status } : {})
-        })).filter(t => t.id && (t.text || t.title)); // Skip Corrupted Tasks
-
-        // BUG 16 FIX: Deduplicação rigorosa por nome normalizado
-        const seenTaskNames = new Set();
-        return rawTasks.filter(t => {
-          const normName = t.text.toLowerCase().replace(/\s+/g, ' ').trim();
-          if (seenTaskNames.has(normName)) return false;
-          seenTaskNames.add(normName);
-          return true;
-        });
-      })(),
-      weight: (cat.weight !== undefined && cat.weight !== null) ? Number(cat.weight) : 10,
-      maxScore: Number(cat.maxScore) || Number(source?.maxScore) || 100,
-      minScore: (cat.minScore !== undefined && cat.minScore !== null && Number.isFinite(Number(cat.minScore)))
+    categories: (Array.isArray(source.categories) ? source.categories : Object.values(source.categories || {})).filter(cat => cat && typeof cat === 'object').map(cat => {
+      const catMin = (cat.minScore !== undefined && cat.minScore !== null && Number.isFinite(Number(cat.minScore)))
         ? Number(cat.minScore)
-        : ((source?.minScore !== undefined && Number.isFinite(Number(source.minScore))) ? Number(source.minScore) : 0),
-      minCutoff: Number(cat.minCutoff) || 0,
-      level: Number(cat.level) || 0,
-      totalMinutes: Number(cat.totalMinutes) || 0,
-      lastStudiedAt: cat.lastStudiedAt || null,
-      simuladoStats: {
-        // Deep-strip nulls/poison from history. Support both Array and legacy Object formats.
-        history: (Array.isArray(cat.simuladoStats?.history) 
-          ? cat.simuladoStats.history 
-          : Object.values(cat.simuladoStats?.history || {}))
-          .filter(h => h && typeof h === 'object' && h.date && (
-              h.total > 0 || h.score != null || h.scorePoints != null
-          )),
-        average: Number(cat.simuladoStats?.average) || 0,
-        lastAttempt: Number(cat.simuladoStats?.lastAttempt) || 0,
-        trend: cat.simuladoStats?.trend || "stable",
-        level: cat.simuladoStats?.level || "BAIXO"
+        : ((source?.minScore !== undefined && Number.isFinite(Number(source.minScore))) ? Number(source.minScore) : 0);
+      const catMaxRaw = Number(cat.maxScore) || Number(source?.maxScore) || 100;
+      const catMax = Math.max(catMin + 1e-9, catMaxRaw);
+      const scoreRange = Math.max(1e-9, catMax - catMin);
+
+      const rawTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(t => t && typeof t === 'object').map(t => ({
+        id: t.id || generateId('task'),
+        text: t.text || t.title || t.topic || "Nova Tarefa",
+        title: t.title || t.text || t.topic || "Nova Tarefa",
+        completed: Boolean(t.completed),
+        completedAt: t.completedAt || null,
+        lastStudiedAt: t.lastStudiedAt || null,
+        priority: normalizePriority(t.priority || "medium"),
+        ...(t.awardedXP != null && Number.isFinite(Number(t.awardedXP)) ? { awardedXP: Number(t.awardedXP) } : {}),
+        ...(t.status ? { status: t.status } : {})
+      })).filter(t => t.id && (t.text || t.title));
+
+      const seenTaskNames = new Set();
+      const dedupedTasks = rawTasks.filter(t => {
+        const normName = t.text.toLowerCase().replace(/\s+/g, ' ').trim();
+        if (seenTaskNames.has(normName)) return false;
+        seenTaskNames.add(normName);
+        return true;
+      });
+
+      // Deep sanitize simulado history and reconcile stats
+      const rawHistory = (Array.isArray(cat.simuladoStats?.history)
+        ? cat.simuladoStats.history
+        : Object.values(cat.simuladoStats?.history || {}))
+        .filter(h => h && typeof h === 'object' && (h.date || h.createdAt));
+
+      const cleanHistory = rawHistory
+        .map(h => {
+          const rawScore = Number(h.score ?? h.scorePoints);
+          const hasRawScore = Number.isFinite(rawScore);
+          let rawTotal = Math.max(0, parseInt(h.total, 10) || 0);
+          let rawCorrect = Math.max(0, parseInt(h.correct, 10) || 0);
+
+          let score = hasRawScore
+            ? Math.min(catMax, Math.max(catMin, rawScore))
+            : (rawTotal > 0 ? catMin + (Math.min(rawTotal, rawCorrect) / rawTotal) * scoreRange : catMin);
+
+          let total = rawTotal;
+          let correct = Math.min(total, rawCorrect);
+
+          if (total === 0 && hasRawScore) {
+            total = typeof getSyntheticTotal === 'function' ? getSyntheticTotal(catMax) : 20;
+            const ratio = Math.max(0, Math.min(1, (score - catMin) / scoreRange));
+            correct = Math.round(ratio * total);
+          }
+
+          const date = h.date || h.createdAt;
+          return {
+            ...h,
+            date,
+            score: Number(score.toFixed(2)),
+            total,
+            correct,
+            syntheticVolume: Boolean(h.syntheticVolume || (rawTotal === 0 && hasRawScore))
+          };
+        })
+        .sort((a, b) => {
+          const da = new Date(a.date).getTime() || 0;
+          const db = new Date(b.date).getTime() || 0;
+          return da - db;
+        });
+
+      let average = Number(cat.simuladoStats?.average);
+      if (!Number.isFinite(average) || (average === 0 && cleanHistory.length > 0)) {
+        if (cleanHistory.length > 0) {
+          const sum = cleanHistory.reduce((acc, curr) => acc + curr.score, 0);
+          average = Number((sum / cleanHistory.length).toFixed(2));
+        } else {
+          average = 0;
+        }
       }
-    })),
+
+      let lastAttempt = Number(cat.simuladoStats?.lastAttempt);
+      if (!Number.isFinite(lastAttempt) || (lastAttempt === 0 && cleanHistory.length > 0)) {
+        lastAttempt = cleanHistory.length > 0 ? cleanHistory[cleanHistory.length - 1].score : catMin;
+      }
+
+      let level = cat.simuladoStats?.level;
+      if (!level || (level === 'BAIXO' && average >= (catMin + 0.4 * scoreRange))) {
+        level = average >= (catMin + 0.7 * scoreRange)
+          ? 'ALTO'
+          : average >= (catMin + 0.4 * scoreRange)
+            ? 'MÉDIO'
+            : 'BAIXO';
+      }
+
+      return {
+        id: cat.id || generateId('cat'),
+        name: cat.name || "Sem Nome",
+        color: normalizeHexColor(cat.color, "#3b82f6"),
+        icon: cat.icon || "📚",
+        tasks: dedupedTasks,
+        weight: (cat.weight !== undefined && cat.weight !== null && Number.isFinite(Number(cat.weight))) ? Math.max(0, Number(cat.weight)) : 10,
+        maxScore: catMax,
+        minScore: catMin,
+        minCutoff: Number(cat.minCutoff) || 0,
+        level: Number(cat.level) || 0,
+        totalMinutes: Number(cat.totalMinutes) || 0,
+        lastStudiedAt: cat.lastStudiedAt || null,
+        simuladoStats: {
+          history: cleanHistory,
+          average,
+          lastAttempt,
+          trend: cat.simuladoStats?.trend || "stable",
+          level: String(level).toUpperCase() === 'MEDIO' ? 'MÉDIO' : String(level).toUpperCase()
+        }
+      };
+    }),
     simuladoRows: (Array.isArray(source.simuladoRows) ? source.simuladoRows : Object.values(source.simuladoRows || {})).filter(r => r && r.id),
     simulados: (Array.isArray(source.simulados) ? source.simulados : Object.values(source.simulados || {})).filter(s => s && s.id),
-    studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : [])
+    studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : Object.values(source.studyLogs || {}))
         .filter(l => l && typeof l === 'object')
         .map(l => ({
             ...l,
             id: String(l.id || generateId('log')),
-            minutes: Math.max(0, Number(l.minutes) || 0),
+            minutes: Math.min(720, Math.max(0, Number(l.minutes ?? l.minutos) || 0)),
             date: l.date || l.createdAt || new Date().toISOString()
         })),
-    studySessions: (Array.isArray(source.studySessions) ? source.studySessions : [])
+    studySessions: (Array.isArray(source.studySessions) ? source.studySessions : Object.values(source.studySessions || {}))
         .filter(s => s && typeof s === 'object')
         .map(s => ({
             ...s,
             id: String(s.id || generateId('session')),
-            duration: Math.max(0, Number(s.duration) || 0),
+            duration: Math.min(720, Math.max(0, Number(s.duration) || 0)),
             startTime: s.startTime || s.date || new Date().toISOString()
         })),
     notes: typeof source.notes === 'string' ? source.notes : "",
@@ -347,22 +415,33 @@ export const sanitizeContest = (data, contestId = '') => {
       completedCycles: Number(source.settings?.completedCycles) || 0,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
-    historicalCutoffs: Array.isArray(source.historicalCutoffs)
-      ? source.historicalCutoffs.map(Number).filter(n => Number.isFinite(n) && n > 0)
-      : [],
+    historicalCutoffs: (Array.isArray(source.historicalCutoffs) ? source.historicalCutoffs : Object.values(source.historicalCutoffs || {}))
+      .map(Number)
+      .filter(n => Number.isFinite(n) && n > 0),
     // BUG-10 REVERSION: monteCarloHistory MUST be an Array for charts and slices to work.
     // Migration: If it's an object (legacy), convert it to an array of {date, probability}.
     monteCarloHistory: (() => {
       const raw = source.monteCarloHistory;
-      if (Array.isArray(raw)) return raw;
-      if (raw && typeof raw === 'object') {
-        return Object.entries(raw).map(([date, data]) => ({
-          date,
-          probability: typeof data === 'object' ? data.probability : data,
-          ...(typeof data === 'object' ? data : {})
-        })).sort((a, b) => a.date.localeCompare(b.date));
-      }
-      return [];
+      const arr = Array.isArray(raw)
+        ? raw
+        : (raw && typeof raw === 'object'
+          ? Object.entries(raw).map(([date, data]) => ({
+              date,
+              probability: typeof data === 'object' ? data?.probability : data,
+              ...(typeof data === 'object' ? data : {})
+            }))
+          : []);
+
+      return arr
+        .filter(item => item && typeof item === 'object' && item.date)
+        .map(item => ({
+          ...item,
+          date: String(item.date).trim(),
+          probability: Number.isFinite(Number(item.probability))
+            ? Math.max(0, Math.min(100, Number(item.probability)))
+            : 0
+        }))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
     })(),
     contestName: (typeof source.contestName === 'string' && source.contestName.trim())
       || (typeof source.name === 'string' && source.name.trim())

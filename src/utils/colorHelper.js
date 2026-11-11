@@ -183,8 +183,10 @@ export function getPriorityConfig(rawPriority) {
  * @param {number} [average]
  * @param {number} [maxScore]
  */
-export function normalizeSimuladoLevel(level, average = 0, maxScore = 100) {
-    const safeMax = Math.max(1, Number(maxScore) || 100);
+export function normalizeSimuladoLevel(level, average = 0, maxScore = 100, minScore = 0) {
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
+    const scoreRange = safeMax - safeMin;
 
     // 1. Tenta identificar a partir da string fornecida
     if (typeof level === 'string' && level.trim() && level !== '-') {
@@ -217,8 +219,8 @@ export function normalizeSimuladoLevel(level, average = 0, maxScore = 100) {
 
     // 2. Se a string era indefinida/ausente, deduz a partir da média
     const avgNum = Number(average);
-    if (Number.isFinite(avgNum) && avgNum > 0) {
-        const ratio = avgNum / safeMax;
+    if (Number.isFinite(avgNum) && avgNum > safeMin) {
+        const ratio = (avgNum - safeMin) / scoreRange;
         if (ratio >= 0.7) {
             return {
                 key: 'ALTO',

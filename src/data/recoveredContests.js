@@ -44,13 +44,14 @@ export const RECOVERED_DIREITO_CONTEST = {
         average: 38.18,
         lastAttempt: 38.18,
         trend: "stable",
-        level: "MÉDIO",
+        level: "BAIXO",
         history: [
           {
             id: "sim-hist-admin-1",
             date: "2026-07-03",
             score: 38.18,
             total: 100,
+            correct: 38,
             topic: "Lei da Improbidade",
             name: "Lei da Improbidade"
           }
@@ -96,6 +97,7 @@ export const RECOVERED_DIREITO_CONTEST = {
             date: "2026-07-03",
             score: 51.46,
             total: 100,
+            correct: 51,
             topic: "Processo Legislativo",
             name: "Processo Legislativo"
           }
@@ -141,6 +143,7 @@ export const RECOVERED_DIREITO_CONTEST = {
             date: "2026-07-02",
             score: 45.0,
             total: 100,
+            correct: 45,
             topic: "Revisão Geral",
             name: "Revisão Geral"
           }

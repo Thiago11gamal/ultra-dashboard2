@@ -41,6 +41,7 @@ import {
     normalizeSimuladoLevel,
     PRIORITY_CONFIG
 } from '../utils/colorHelper';
+import { pointsToPct } from '../utils/scoreHelper';
 
 const priorityColors = PRIORITY_CONFIG;
 
@@ -62,7 +63,7 @@ const getHistoryDateLabel = (h) => {
     }
 };
 
-const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
+const PerformancePanel = ({ stats, color, maxScore = 100, minScore = 0 }) => {
     const navigate = useNavigate();
     if (!stats) return null;
 
@@ -74,7 +75,8 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         history: rawHistory = []
     } = stats;
 
-    const safeMax = Math.max(1, Number(maxScore) || 100);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
     const history = toArray(rawHistory);
     const hasHistory = history.length > 0;
     const safeColor = normalizeHexColor(color, '#818cf8');
@@ -145,18 +147,18 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         trendText = 'Caindo';
     }
 
-    const levelInfo = normalizeSimuladoLevel(level, average, safeMax);
+    const levelInfo = normalizeSimuladoLevel(level, average, safeMax, safeMin);
 
     const avgNum = Number(average);
     const formattedAvg = Number.isFinite(avgNum)
         ? (Number.isInteger(avgNum) ? avgNum : avgNum.toFixed(1))
         : average;
 
-    const avgDisplay = safeMax === 100
+    const avgDisplay = (safeMax === 100 && safeMin === 0)
         ? `${formattedAvg}%`
         : `${formattedAvg} / ${safeMax} pts`;
-    const avgPctSub = safeMax !== 100 && Number.isFinite(avgNum)
-        ? `${Math.round((avgNum / safeMax) * 100)}%`
+    const avgPctSub = (safeMax !== 100 || safeMin !== 0) && Number.isFinite(avgNum)
+        ? `${Math.round(pointsToPct(avgNum, safeMax, safeMin))}%`
         : null;
 
     const lastNum = Number(lastAttempt);
@@ -164,11 +166,11 @@ const PerformancePanel = ({ stats, color, maxScore = 100 }) => {
         ? (Number.isInteger(lastNum) ? lastNum : lastNum.toFixed(1))
         : lastAttempt;
 
-    const lastDisplay = safeMax === 100
+    const lastDisplay = (safeMax === 100 && safeMin === 0)
         ? `${formattedLast}%`
         : `${formattedLast} / ${safeMax} pts`;
-    const lastPctSub = safeMax !== 100 && Number.isFinite(lastNum)
-        ? `${Math.round((lastNum / safeMax) * 100)}%`
+    const lastPctSub = (safeMax !== 100 || safeMin !== 0) && Number.isFinite(lastNum)
+        ? `${Math.round(pointsToPct(lastNum, safeMax, safeMin))}%`
         : null;
 
     return (
@@ -728,6 +730,7 @@ const CategoryAccordion = React.memo(({
                                 stats={category.simuladoStats}
                                 color={catStyles.hex}
                                 maxScore={category.maxScore || 100}
+                                minScore={category.minScore || 0}
                             />
                         </div>
                     )}
