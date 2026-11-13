@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { logger } from '../utils/logger';
+import { useAppStore } from '../store/useAppStore';
 
 /**
  * useIdleLogout Hook
@@ -48,11 +49,9 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
-        timerRef.current = setTimeout(async () => {
+        timerRef.current = setTimeout(() => {
             if (!isMounted.current) return;
             try {
-                const { useAppStore } = await import('../store/useAppStore');
-                if (!isMounted.current) return;
                 const pomodoroActive = useAppStore.getState()?.appState?.pomodoro?.activeSubject;
                 if (pomodoroActive) {
                     logger.log('[IdleLogout] Pomodoro ativo — adiando logout.');

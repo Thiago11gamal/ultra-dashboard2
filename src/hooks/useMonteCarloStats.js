@@ -868,7 +868,9 @@ export function useMonteCarloStats({
     effectiveSimulateToday,
     safeCategories,
     statsDataFingerprint,
-    statsData?.estimatedRho
+    statsData?.estimatedRho,
+    timeIndex,
+    timelineDates
   ]);
 
   const probabilityData = useMemo(() => {
@@ -1228,20 +1230,42 @@ export function useMonteCarloStats({
 
       lastRecordedSubjectPredsRef.current = hash;
 
-      const setDataFn = useAppStore.getState().setData;
+      const storeState = useAppStore.getState();
+      const setDataFn = storeState.setData;
       if (!setDataFn) return;
+
+      const existingContest = storeState.appState?.contests?.[storeState.appState?.activeId];
+      const existingEvents = Array.isArray(existingContest?.calibrationEvents)
+        ? existingContest.calibrationEvents
+        : [];
+      const today = getDateKey(new Date());
 
       const newEvents = [];
       perSubjectProbs.forEach(subj => {
         if (subj.prob == null) return;
 
+        const catName = subj.name || 'subject';
+        const prob01 = Number(subj.prob) / 100;
+        const targetVal = subj.targetScore != null ? subj.targetScore : debouncedTarget;
+        const nextEffN = subj.diagnostics?.effectiveN ?? null;
+
+        const lastSubjEv = [...existingEvents].reverse().find(e => e && e.category === catName);
+        if (lastSubjEv && lastSubjEv.observed == null) {
+          const prevDay = getDateKey(lastSubjEv.timestamp);
+          const sameDay = Boolean(today && prevDay && prevDay === today);
+          const sameProb = Number.isFinite(Number(lastSubjEv.probability)) && Math.abs(Number(lastSubjEv.probability) - prob01) < 0.005;
+          const sameTarget = Number.isFinite(Number(lastSubjEv.targetScore)) && Math.abs(Number(lastSubjEv.targetScore) - Number(targetVal)) <= 0.1;
+          const sameEffN = (lastSubjEv.effectiveN ?? null) === (Number.isFinite(Number(nextEffN)) ? Number(nextEffN) : null);
+          if (sameDay && sameProb && sameTarget && sameEffN) return;
+        }
+
         const ev = recordPredictionEvent({
           timestamp: Date.now(),
-          probability: Number(subj.prob) / 100,
-          targetScore: subj.targetScore != null ? subj.targetScore : debouncedTarget,
+          probability: prob01,
+          targetScore: targetVal,
           sims: 500,
-          category: subj.name || 'subject',
-          effectiveN: subj.diagnostics?.effectiveN
+          category: catName,
+          effectiveN: nextEffN
         });
 
         if (ev) newEvents.push(ev);
@@ -1268,7 +1292,9 @@ export function useMonteCarloStats({
     simulationData?.status,
     pureStatsHash,
     // T-015 FIX: dependência explícita do modo futuro/hoje
-    projectDays
+    projectDays,
+    timeIndex,
+    timelineDates.length
   ]);
 
   const derivedMetrics = useMemo(() => {

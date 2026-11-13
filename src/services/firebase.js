@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
+import { del } from 'idb-keyval';
 
 export const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -116,6 +117,7 @@ export async function secureLogout() {
             'pomodoroSideTab',
             'focusPanelPosition',
             'coach_active_flags_v1',
+            'coach_features_v1',
         ];
         keysToRemove.forEach(key => {
             try {
@@ -124,10 +126,14 @@ export async function secureLogout() {
             } catch { /* ignore */ }
         });
 
-        // Limpar chaves de rascunho e geração de simulado IA
+        // Limpar chaves de rascunho, geração de simulado IA e escopos de flags do Coach AI
         try {
             Object.keys(localStorage).forEach(k => {
-                if (k.startsWith('ai_simulado_draft:') || k.startsWith('ai_simulado_generating:')) {
+                if (
+                    k.startsWith('ai_simulado_draft:') ||
+                    k.startsWith('ai_simulado_generating:') ||
+                    k.startsWith('coach_features_v1::')
+                ) {
                     localStorage.removeItem(k);
                 }
             });
@@ -140,7 +146,6 @@ export async function secureLogout() {
 
         // ✅ FIX N-01: Limpar IndexedDB do app (idb-keyval)
         try {
-            const { del } = await import('idb-keyval');
             await del('ultra-dashboard-storage');
         } catch (e) {
             console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
