@@ -44,7 +44,7 @@ const cleanUndefined = (obj, seen = new WeakSet(), depth = 0) => {
 
 const safeguardContest = (contest) => {
   if (!contest) return contest;
-  
+
   // Tratamento profundo para categorias (evitar arrays infinitos e crashes com Objetos)
   const safeCategories = toArray(contest.categories).map(cat => {
     if (!cat.simuladoStats) return cat;
@@ -55,15 +55,15 @@ const safeguardContest = (contest) => {
         history: [...toArray(cat.simuladoStats.history)]
           .sort((a, b) => new Date(a.date || a.createdAt || 0).getTime() - new Date(b.date || b.createdAt || 0).getTime())
           .slice(-100),
-        historyByMatter: cat.simuladoStats.historyByMatter 
+        historyByMatter: cat.simuladoStats.historyByMatter
           ? Object.fromEntries(
-              Object.entries(cat.simuladoStats.historyByMatter).map(([mId, h]) => [
-                mId, 
-                [...toArray(h)]
-                  .sort((a, b) => new Date(a.date || a.createdAt || 0).getTime() - new Date(b.date || b.createdAt || 0).getTime())
-                  .slice(-50)
-              ])
-            )
+            Object.entries(cat.simuladoStats.historyByMatter).map(([mId, h]) => [
+              mId,
+              [...toArray(h)]
+                .sort((a, b) => new Date(a.date || a.createdAt || 0).getTime() - new Date(b.date || b.createdAt || 0).getTime())
+                .slice(-50)
+            ])
+          )
           : cat.simuladoStats.historyByMatter
       }
     };
@@ -88,10 +88,10 @@ const safeguardContest = (contest) => {
     coachPlan: toArray(contest.coachPlan).slice(-100),
     calibrationHistoryByCategory: contest.calibrationHistoryByCategory
       ? Object.fromEntries(
-          Object.entries(contest.calibrationHistoryByCategory).map(([catId, history]) => [
-            catId, Array.isArray(history) ? history.slice(-50) : history
-          ])
-        )
+        Object.entries(contest.calibrationHistoryByCategory).map(([catId, history]) => [
+          catId, Array.isArray(history) ? history.slice(-50) : history
+        ])
+      )
       : contest.calibrationHistoryByCategory,
   };
 };
@@ -841,6 +841,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const lastLocalMutationRef = useRef(0);
   const isCloudPullRef = useRef(false);
   const pendingWritesCountRef = useRef(0);
+  const lastAutoHealVersionRef = useRef(null);
 
   // ✅ FIX C06: Safety net independente de syncTrigger.
   // Usa setInterval para garantir que o reset ocorra mesmo sem mudanças
@@ -969,8 +970,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         pendingWritesCountRef.current += 1;
         logger.debug(`[Sync] Ignorando snapshot: Escrita local pendente (${pendingWritesCountRef.current}).`);
         if (pendingWritesCountRef.current >= 5 && !isParityValidatedRef.current) {
-            logger.warn("[Sync] Pending writes persistentes — forçando paridade com dados locais.");
-            confirmParity();
+          logger.warn("[Sync] Pending writes persistentes — forçando paridade com dados locais.");
+          confirmParity();
         }
         return;
       }
@@ -1031,7 +1032,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           return; // ABORT Sync to avoid corrupting state with missing data
         }
       }
-      
+
       latestCloudDataRef.current = cloudData;
 
       if (!cloudData) {
@@ -1049,16 +1050,26 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
       if (!needsContestRescue) {
         if (localVersion > cloudVersion) {
-          console.warn('[CloudSync] Pull ignorado: estado local é mais novo que nuvem.', {
-            localVersion,
-            cloudVersion
-          });
-          if (cloudRootMissingSubcollectionIds) {
-            lastSyncedRef.current = null;
-          }
-          if (!isParityValidatedRef.current) {
+            logger.debug('[CloudSync] Pull ignorado: estado local é mais novo que nuvem.', {
+              localVersion,
+              cloudVersion
+            });
+            if(cloudRootMissingSubcollectionIds) {
+              lastSyncedRef.current = null;
+            }
+          const needsServerCatchUpPush =
+              isParityValidatedRef.current &&
+              !isFromCache &&
+              !syncMutexRef.current &&
+              !isInternalSyncingRef.current &&
+              !debounceRef.current &&
+              lastAutoHealVersionRef.current !== localVersion;
+
+            if(!isParityValidatedRef.current) {
             confirmParity();
-          } else if (cloudRootMissingSubcollectionIds) {
+          } else if (cloudRootMissingSubcollectionIds || needsServerCatchUpPush) {
+            lastAutoHealVersionRef.current = localVersion;
+            lastSyncedRef.current = null;
             setParityTick(t => t + 1);
           }
           return;
@@ -1210,12 +1221,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
         }
         const isCloudSignificantlyAhead = cloudUpdatedTime > localUpdatedTime + 5000;
-        
+
         // Conflito REAL: Cloud está na frente (outro aparelho editou) E localWasJustEdited (nós editamos aqui)
         // Se a Cloud está na frente mas NÃO editamos localmente, deveria ter feito Pull automático.
         // Se o local está na frente, é apenas um sync pendente, NÃO é conflito.
         const hasRealDivergence = isCloudSignificantlyAhead && localWasJustEdited;
-        
+
         setHasConflict(!isBootSync && hasRealDivergence);
       }
     }, (err) => {
@@ -1243,6 +1254,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     setTimeout(() => { setParityTick(t => t + 1); setHasConflict(false); }, 0);
     lastSyncedRef.current = null;
     lastLocalMutationRef.current = 0;
+    lastAutoHealVersionRef.current = null;
   }, [currentUser?.uid]);
 
   const currentUid = currentUser?.uid;
@@ -1422,85 +1434,85 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       isInternalSyncingRef.current = true;
 
       try {
-      while (attempt < MAX_RETRIES) {
-        try {
-          const freshState = useAppStore.getState().appState;
-          const currentStateString = stateStringForSync(freshState);
-          if (lastSyncedRef.current === currentStateString) break;
+        while (attempt < MAX_RETRIES) {
+          try {
+            const freshState = useAppStore.getState().appState;
+            const currentStateString = stateStringForSync(freshState);
+            if (lastSyncedRef.current === currentStateString) break;
 
 
-          const safeContests = freshState.contests
-            ? Object.fromEntries(Object.entries(freshState.contests).map(([id, c]) => [id, safeguardContest(c)]))
-            : freshState.contests;
-          const safeTrash = (freshState.trash || []).slice(-20);
-          const stateToSave = cleanUndefined(safeClone({
-            ...freshState, contests: safeContests, trash: safeTrash,
-            history: [], _lastBackup: new Date().toISOString()
-          }));
+            const safeContests = freshState.contests
+              ? Object.fromEntries(Object.entries(freshState.contests).map(([id, c]) => [id, safeguardContest(c)]))
+              : freshState.contests;
+            const safeTrash = (freshState.trash || []).slice(-20);
+            const stateToSave = cleanUndefined(safeClone({
+              ...freshState, contests: safeContests, trash: safeTrash,
+              history: [], _lastBackup: new Date().toISOString()
+            }));
 
-          // ✅ FIX: Incluir version no payload para detecção de conflito
-          stateToSave._syncVersion = freshState?.version || 0;
-          stateToSave._syncTimestamp = Date.now();
+            // ✅ FIX: Incluir version no payload para detecção de conflito
+            stateToSave._syncVersion = freshState?.version || 0;
+            stateToSave._syncTimestamp = Date.now();
 
-          // 🚨 ARQUITETURA CRÍTICA: Separar editais em subcoleções para evitar o limite de 1MB do Firestore!
-          const batch = writeBatch(db);
-          const coreState = { ...stateToSave };
-          const contestsToSave = coreState.contests || {};
-          
-          coreState.contestIds = Object.keys(contestsToSave);
-          delete coreState.contests; // REMOVE DA RAIZ PARA NÃO BATER 1MB
+            // 🚨 ARQUITETURA CRÍTICA: Separar editais em subcoleções para evitar o limite de 1MB do Firestore!
+            const batch = writeBatch(db);
+            const coreState = { ...stateToSave };
+            const contestsToSave = coreState.contests || {};
 
-          batch.set(doc(db, 'backups', currentUser.uid), coreState);
-          for (const [cid, cData] of Object.entries(contestsToSave)) {
-            batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
-          }
+            coreState.contestIds = Object.keys(contestsToSave);
+            delete coreState.contests; // REMOVE DA RAIZ PARA NÃO BATER 1MB
 
-          // FIX: Deletar subcoleção apenas se o concurso foi deletado explicitamente pelo usuário (por contestId, nunca por auto-trash)
-          const explicitDeletedContests = getExplicitDeletedContestMap(freshState);
-          const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
-          const currentLocalIds = new Set(Object.keys(contestsToSave));
-          for (const oldId of knownCloudIds) {
-            if (!currentLocalIds.has(oldId) && explicitDeletedContests.has(oldId)) {
-              batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
+            batch.set(doc(db, 'backups', currentUser.uid), coreState);
+            for (const [cid, cData] of Object.entries(contestsToSave)) {
+              batch.set(doc(db, 'backups', currentUser.uid, 'contests', cid), cData);
+            }
+
+            // FIX: Deletar subcoleção apenas se o concurso foi deletado explicitamente pelo usuário (por contestId, nunca por auto-trash)
+            const explicitDeletedContests = getExplicitDeletedContestMap(freshState);
+            const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
+            const currentLocalIds = new Set(Object.keys(contestsToSave));
+            for (const oldId of knownCloudIds) {
+              if (!currentLocalIds.has(oldId) && explicitDeletedContests.has(oldId)) {
+                batch.delete(doc(db, 'backups', currentUser.uid, 'contests', oldId));
+              }
+            }
+
+            const commitWithTimeout = (batchToCommit, timeoutMs) => {
+              return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error('Firestore timeout')), timeoutMs);
+                batchToCommit.commit().then(() => {
+                  clearTimeout(timer);
+                  resolve();
+                }).catch(err => {
+                  clearTimeout(timer);
+                  reject(err);
+                });
+              });
+            };
+
+            await commitWithTimeout(batch, 15000);
+            lastSyncedRef.current = currentStateString;
+            try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
+            lastError = null;
+            syncReentryCountRef.current = 0; // ✅ FIX: Resetar contador em sucesso
+            break;
+          } catch (e) {
+            lastError = e;
+            attempt++;
+            if (attempt < MAX_RETRIES) {
+              await new Promise(r => setTimeout(r, attempt * 2000));
             }
           }
+        }
 
-          const commitWithTimeout = (batchToCommit, timeoutMs) => {
-            return new Promise((resolve, reject) => {
-              const timer = setTimeout(() => reject(new Error('Firestore timeout')), timeoutMs);
-              batchToCommit.commit().then(() => {
-                clearTimeout(timer);
-                resolve();
-              }).catch(err => {
-                clearTimeout(timer);
-                reject(err);
-              });
-            });
-          };
-
-          await commitWithTimeout(batch, 15000);
-          lastSyncedRef.current = currentStateString;
-          try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
-          lastError = null;
-          syncReentryCountRef.current = 0; // ✅ FIX: Resetar contador em sucesso
-          break;
-        } catch (e) {
-          lastError = e;
-          attempt++;
-          if (attempt < MAX_RETRIES) {
-            await new Promise(r => setTimeout(r, attempt * 2000));
+        if (lastError) {
+          logger.error("[Sync] Todas as tentativas falharam:", lastError);
+          if (showToastRef.current && lastError.code !== 'unavailable' && lastError.message !== 'timeout') {
+            showToastRef.current(`Falha ao salvar: ${lastError.message || lastError.code || 'Erro desconhecido'}`, 'error');
           }
+          // ✅ LOTE-03: resetar o contador para permitir retries futuros
+          syncReentryCountRef.current = 0;
         }
-      }
-
-      if (lastError) {
-        logger.error("[Sync] Todas as tentativas falharam:", lastError);
-        if (showToastRef.current && lastError.code !== 'unavailable' && lastError.message !== 'timeout') {
-          showToastRef.current(`Falha ao salvar: ${lastError.message || lastError.code || 'Erro desconhecido'}`, 'error');
-        }
-        // ✅ LOTE-03: resetar o contador para permitir retries futuros
-        syncReentryCountRef.current = 0;
-      }
       } finally {
         // ✅ SEMPRE liberar o mutex
         syncMutexRef.current = false;

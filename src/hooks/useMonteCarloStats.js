@@ -88,6 +88,62 @@ function setCachedSubjectSim(key, result) {
   SUBJECT_SIM_CACHE.set(key, { result, timestamp: now });
 }
 
+function maybeRecordGlobalCalibrationPrediction({
+  result,
+  projectDays,
+  timeIndex,
+  timelineDates,
+  activeId,
+  pureStatsHash,
+  debouncedTarget,
+  lastRecordedGlobalPredRef,
+}) {
+  try {
+    const setDataFn = useAppStore.getState().setData;
+    const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+    if (!(projectDays > 0 && !isTimeTraveling && setDataFn && result?.probability != null)) return;
+
+    const hash = `${pureStatsHash}-${debouncedTarget}`;
+    if (lastRecordedGlobalPredRef.current === hash) return;
+    lastRecordedGlobalPredRef.current = hash;
+
+    const prob01 = Number(result.probability) / 100;
+    const nextEffN = result.diagnostics?.effectiveN ?? null;
+    const today = getDateKey(new Date());
+    const existingContest = useAppStore.getState().appState?.contests?.[activeId];
+    const existingEvents = Array.isArray(existingContest?.calibrationEvents) ? existingContest.calibrationEvents : [];
+    const lastGlobal = [...existingEvents].reverse().find(e => e && (e.category || 'global') === 'global');
+
+    if (lastGlobal && lastGlobal.observed == null) {
+      const prevDay = getDateKey(lastGlobal.timestamp);
+      const sameDay = Boolean(today && prevDay && prevDay === today);
+      const sameProb = Number.isFinite(Number(lastGlobal.probability)) && Math.abs(Number(lastGlobal.probability) - prob01) < 0.005;
+      const sameTarget = Number.isFinite(Number(lastGlobal.targetScore)) && Math.abs(Number(lastGlobal.targetScore) - Number(debouncedTarget)) <= 0.1;
+      const sameEffN = (lastGlobal.effectiveN ?? null) === (Number.isFinite(Number(nextEffN)) ? Number(nextEffN) : null);
+      if (sameDay && sameProb && sameTarget && sameEffN) return;
+    }
+
+    const ev = recordPredictionEvent({
+      timestamp: Date.now(),
+      probability: prob01,
+      targetScore: debouncedTarget,
+      sims: result.simulationCount,
+      effectiveN: nextEffN,
+      category: 'global'
+    });
+
+    if (ev) {
+      setDataFn(contest => {
+        const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
+        evs.push(ev);
+        return { ...contest, calibrationEvents: evs.slice(-200) };
+      });
+    }
+  } catch {
+    // best effort
+  }
+}
+
 export function useMonteCarloStats({
   categories,
   goalDate,
@@ -134,13 +190,13 @@ export function useMonteCarloStats({
     return Array.isArray(arr) ? arr : Object.values(arr || {});
   }));
 
-    // ✅ LOTE-03 FIX (A2): assinar APENAS simuladoRows em vez do concurso inteiro.
-    // Antes, qualquer campo do concurso (studyLogs, flashcards, tasks, sessões...)
-    // trocava a referência de `contest` e re-renderizava os DOIS gauges.
-    const contestSimuladoRows = useAppStore(state => {
-      const currentActiveId = state.appState?.activeId;
-      return state.appState?.contests?.[currentActiveId]?.simuladoRows;
-    });
+  // ✅ LOTE-03 FIX (A2): assinar APENAS simuladoRows em vez do concurso inteiro.
+  // Antes, qualquer campo do concurso (studyLogs, flashcards, tasks, sessões...)
+  // trocava a referência de `contest` e re-renderizava os DOIS gauges.
+  const contestSimuladoRows = useAppStore(state => {
+    const currentActiveId = state.appState?.activeId;
+    return state.appState?.contests?.[currentActiveId]?.simuladoRows;
+  });
 
   const calibrationEvents = useAppStore(useShallow(state => {
     const currentActiveId = state.appState?.activeId;
@@ -157,13 +213,13 @@ export function useMonteCarloStats({
     return state.appState?.contests?.[currentActiveId]?.examTotalQuestions || 100;
   });
 
-    const rawSimuladoRows = useMemo(() => {
-        const source = propSimuladoRows ?? contestSimuladoRows ?? [];
-        // ✅ LOTE-03 FIX (M8): simuladoRows podem vir como OBJETO no Firebase.
-        // O guard `rawSimuladoRows.length === 0` do efeito de backfill falhava
-        // silenciosamente com objetos (undefined !== 0) e .map() quebraria.
-        return Array.isArray(source) ? source : Object.values(source);
-    }, [propSimuladoRows, contestSimuladoRows]);
+  const rawSimuladoRows = useMemo(() => {
+    const source = propSimuladoRows ?? contestSimuladoRows ?? [];
+    // ✅ LOTE-03 FIX (M8): simuladoRows podem vir como OBJETO no Firebase.
+    // O guard `rawSimuladoRows.length === 0` do efeito de backfill falhava
+    // silenciosamente com objetos (undefined !== 0) e .map() quebraria.
+    return Array.isArray(source) ? source : Object.values(source);
+  }, [propSimuladoRows, contestSimuladoRows]);
 
   const calibrationSummary = useMemo(() => {
     if (calibrationEvents.length < 3) return null;
@@ -306,7 +362,7 @@ export function useMonteCarloStats({
     if (timeIndex >= 0 && timeIndex < timelineDates.length) {
       // T-025 FIX: evitar new Date('YYYY-MM-DD') diretamente.
       // normalizeDate costuma ancorar melhor a data no helper do projeto.
-      const parsedTimelineDate = parseNoonLocal(timelineDates[timeIndex]) || 
+      const parsedTimelineDate = parseNoonLocal(timelineDates[timeIndex]) ||
         normalizeDate(timelineDates[timeIndex]);
 
       if (parsedTimelineDate && Number.isFinite(parsedTimelineDate.getTime())) {
@@ -347,21 +403,21 @@ export function useMonteCarloStats({
     });
   }, [safeCategories, debouncedWeights, timeIndex, timelineDates, minScore, maxScore, rawSimuladoRows]);
 
-    const calibrationPenalty = useMemo(() => {
-        let pen = computeCalibrationPenalty(
-            mcHistory,
-            pureStatsData?.globalHistory,
-            maxScore,
-            calibrationSummary,
-            minScore // ✅ LOTE-03 FIX (M9): resíduo normalizado pelo domínio real [min, max]
-        );
+  const calibrationPenalty = useMemo(() => {
+    let pen = computeCalibrationPenalty(
+      mcHistory,
+      pureStatsData?.globalHistory,
+      maxScore,
+      calibrationSummary,
+      minScore // ✅ LOTE-03 FIX (M9): resíduo normalizado pelo domínio real [min, max]
+    );
 
     if (modelHealth < 0.6) {
       pen = Math.min(MAX_CALIBRATION_PENALTY, pen * (1 + (0.6 - modelHealth)));
     }
 
     return pen;
-    }, [mcHistory, pureStatsData?.globalHistory, maxScore, minScore, calibrationSummary, modelHealth]);
+  }, [mcHistory, pureStatsData?.globalHistory, maxScore, minScore, calibrationSummary, modelHealth]);
 
   const statsData = useMemo(() => {
     if (!pureStatsData) return null;
@@ -437,7 +493,7 @@ export function useMonteCarloStats({
     }
   }, [rawSimuladoRows, maxScore, minScore, calibrationEvents, statsData?.categoryStats]);
 
-    const projectDaysRef = useRef(projectDays);
+  const projectDaysRef = useRef(projectDays);
   useEffect(() => { projectDaysRef.current = projectDays; }, [projectDays]);
 
   const minScoreRef = useRef(minScore);
@@ -671,39 +727,16 @@ export function useMonteCarloStats({
             setSimulationData({ status: 'ready', data: result });
           }
 
-          try {
-            const setDataFn = useAppStore.getState().setData;
-
-            // T-015 FIX: só gravar eventos de calibração para previsões futuras reais (sem Máquina do Tempo).
-            // Eventos do modo "hoje" ou de viagem no tempo não devem alimentar calibração.
-            const isTimeTravelingNow = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
-            if (projectDaysRef.current > 0 && !isTimeTravelingNow && setDataFn && result?.probability != null) {
-              const hash = `${pureStatsHash}-${debouncedTarget}`;
-
-              if (lastRecordedGlobalPredRef.current !== hash) {
-                lastRecordedGlobalPredRef.current = hash;
-
-                const ev = recordPredictionEvent({
-                  timestamp: Date.now(),
-                  probability: Number(result.probability) / 100,
-                  targetScore: debouncedTarget,
-                  sims: result.simulationCount,
-                  effectiveN: result.diagnostics?.effectiveN,
-                  category: 'global'
-                });
-
-                if (ev) {
-                  setDataFn(contest => {
-                    const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
-                    evs.push(ev);
-                    return { ...contest, calibrationEvents: evs.slice(-200) };
-                  });
-                }
-              }
-            }
-          } catch {
-            // best effort
-          }
+          maybeRecordGlobalCalibrationPrediction({
+            result,
+            projectDays: projectDaysRef.current,
+            timeIndex,
+            timelineDates,
+            activeId,
+            pureStatsHash,
+            debouncedTarget,
+            lastRecordedGlobalPredRef,
+          });
         }
       } catch (err) {
         console.warn('[MC Worker] Simulation failed, using sync fallback:', err);
@@ -713,11 +746,11 @@ export function useMonteCarloStats({
 
           const regularizedSD = isFuture && pureStatsData.globalHistory?.length > 0
             ? regularizeVolatility(
-                pureStatsData.dailySD,
-                projectDaysRef.current,
-                pureStatsData.globalHistory.length,
-                domain
-              )
+              pureStatsData.dailySD,
+              projectDaysRef.current,
+              pureStatsData.globalHistory.length,
+              domain
+            )
             : pureStatsData.dailySD;
 
           if (isFuture && pureStatsData.globalHistory?.length > 0) {
@@ -807,38 +840,16 @@ export function useMonteCarloStats({
             setSimulationData({ status: 'ready', data: result });
           }
 
-          try {
-            const setDataFn = useAppStore.getState().setData;
-
-            // T-015 FIX: também proteger o fallback síncrono
-            const isTimeTravelingFallback = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
-            if (projectDaysRef.current > 0 && !isTimeTravelingFallback && setDataFn && result?.probability != null) {
-              const hash = `${pureStatsHash}-${debouncedTarget}`;
-
-              if (lastRecordedGlobalPredRef.current !== hash) {
-                lastRecordedGlobalPredRef.current = hash;
-
-                const ev = recordPredictionEvent({
-                  timestamp: Date.now(),
-                  probability: Number(result.probability) / 100,
-                  targetScore: debouncedTarget,
-                  sims: result.simulationCount,
-                  effectiveN: result.diagnostics?.effectiveN,
-                  category: 'global'
-                });
-
-                if (ev) {
-                  setDataFn(contest => {
-                    const evs = Array.isArray(contest.calibrationEvents) ? contest.calibrationEvents.slice() : [];
-                    evs.push(ev);
-                    return { ...contest, calibrationEvents: evs.slice(-200) };
-                  });
-                }
-              }
-            }
-          } catch {
-            // best effort
-          }
+          maybeRecordGlobalCalibrationPrediction({
+            result,
+            projectDays: projectDaysRef.current,
+            timeIndex,
+            timelineDates,
+            activeId,
+            pureStatsHash,
+            debouncedTarget,
+            lastRecordedGlobalPredRef,
+          });
         }
       }
     };
@@ -849,21 +860,21 @@ export function useMonteCarloStats({
       cancelled = true;
       clearTimeout(timerId);
     };
-        // ✅ LOTE-03 FIX (A7): o efeito captura safeCategories no closure para o
-        // cálculo de agilidade (timeSpent/timedQuestoes). Antes, entrava apenas
-        // indiretamente via pureStatsHash — mudanças estruturais nas categorias
-        // que não alterassem o hash usavam dados stale.
-    }, [
-        pureStatsHash,
-        runAnalysis,
-        debouncedTarget,
-        calibrationPenalty,
-        projectDays,
-        effectiveSimulateToday,
-        safeCategories,
-        statsDataFingerprint,
-        statsData?.estimatedRho
-    ]);
+    // ✅ LOTE-03 FIX (A7): o efeito captura safeCategories no closure para o
+    // cálculo de agilidade (timeSpent/timedQuestoes). Antes, entrava apenas
+    // indiretamente via pureStatsHash — mudanças estruturais nas categorias
+    // que não alterassem o hash usavam dados stale.
+  }, [
+    pureStatsHash,
+    runAnalysis,
+    debouncedTarget,
+    calibrationPenalty,
+    projectDays,
+    effectiveSimulateToday,
+    safeCategories,
+    statsDataFingerprint,
+    statsData?.estimatedRho
+  ]);
 
   const probabilityData = useMemo(() => {
     const rawProbability = simulationData?.data?.probability ?? 0;
@@ -940,10 +951,10 @@ export function useMonteCarloStats({
     )
       ? (simulationData?.data?.currentMean ?? pMean)
       : (
-          Number.isFinite(Number(pureStatsData.bayesianMean))
-            ? Number(pureStatsData.bayesianMean)
-            : (simulationData?.data?.currentMean ?? pMean)
-        );
+        Number.isFinite(Number(pureStatsData.bayesianMean))
+          ? Number(pureStatsData.bayesianMean)
+          : (simulationData?.data?.currentMean ?? pMean)
+      );
 
     return {
       probability: prob,
@@ -1086,11 +1097,11 @@ export function useMonteCarloStats({
         // mantém o baseline atual em vez de despencar para catMinScore.
         const baseline = (!effectiveSimulateToday && projectDays > 0)
           ? safeClamp(
-              currentBaseline + totalTrendProjection,
-              catMinScore,
-              catMaxScore,
-              currentBaseline // fallback: permanece onde está
-            )
+            currentBaseline + totalTrendProjection,
+            catMinScore,
+            catMaxScore,
+            currentBaseline // fallback: permanece onde está
+          )
           : currentBaseline;
 
         // ✅ LOTE-01 FIX: meta projetada no INTERVALO real, respeitando minScore

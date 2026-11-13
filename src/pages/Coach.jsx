@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { 
-    Brain, 
-    Zap, 
-    AlertCircle, 
+import {
+    Brain,
+    Zap,
+    AlertCircle,
     ArrowUpRight,
     ArrowDownRight,
     ShieldCheck,
@@ -73,7 +73,7 @@ export default function Coach() {
         // G-03 FIX: Limpar cache de alertas ao trocar de concurso
         calibrationAlertCacheRef.current.clear();
         lastPushedScoreRef.current = null;
-        
+
         const timer = setTimeout(() => {
             if (isMountedRef.current) {
                 setSuggestedFocus(null);
@@ -137,29 +137,29 @@ export default function Coach() {
     useEffect(() => {
         showToastRef.current = showToast;
     }, [showToast]);
-    
+
     const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
     const history = useMemo(() => Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {}), [rawHistory]);
-    
+
     const rawSimulados = data?.simulados || EMPTY_ARRAY;
     const simulados = useMemo(() => Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {}), [rawSimulados]);
-    
+
     const rawCategories = data?.categories || EMPTY_ARRAY;
     const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
         ...c,
         tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
     })), [rawCategories]);
-    
+
     const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
     const flashcardDecks = useMemo(() => Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {}), [rawFlashcardDecks]);
-    
+
     const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
     const studyLogs = useMemo(() => Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {}), [rawStudyLogs]);
     const flashcardDue = useMemo(() => {
         return getFlashcardDueTodayCount(flashcardDecks);
     }, [flashcardDecks]);
     const userProfile = data?.user;
-    
+
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
     const { currentUser } = useAuth();
     const { isPremium } = useSubscription(currentUser || userProfile);
@@ -170,7 +170,7 @@ export default function Coach() {
 
     const VALID_TABS = new Set(showControlCenter ? ['insights', 'analytics', 'control'] : ['insights', 'analytics']);
     const safeActiveTab = VALID_TABS.has(activeTab) ? activeTab : 'insights';
-    
+
     useEffect(() => {
         if (activeTab && activeTab !== safeActiveTab) {
             console.warn(`[Coach.jsx] Estado de aba inválido recebido: ${activeTab}, ativando fallback.`);
@@ -223,8 +223,8 @@ export default function Coach() {
         const probability = toFinite(metric?.probability, null);
         const calibrationPenalty = toFinite(metric?.calibrationPenalty, 0);
         const reliability = Array.isArray(metric?.reliability) ? metric.reliability : [];
-        const isDegraded = metric?.degraded === true || 
-            calibrationPenalty >= HIGH_PENALTY_THRESHOLD || 
+        const isDegraded = metric?.degraded === true ||
+            calibrationPenalty >= HIGH_PENALTY_THRESHOLD ||
             (avgBrier !== null && avgBrier >= CRITICAL_BRIER_THRESHOLD);
 
         // DATA-QUALITY GATE: evita persistir eventos sem calibração real (ex.: n < 8 simulados onde avgBrier e ece são null)
@@ -257,7 +257,7 @@ export default function Coach() {
                 metric?.categoryId,
                 metric?.categoryName
             );
-            
+
             // Verificação de redundância (Brier + ECE + penalty + probabilidade)
             // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
             const lastEntry = categoryHistory[categoryHistory.length - 1];
@@ -391,14 +391,14 @@ export default function Coach() {
         () => getCombinedHistory(history, simulados, currentMaxScore, currentMinScore),
         [history, simulados, currentMaxScore, currentMinScore]
     );
-    
+
     // Converte targetScore ou targetProbability em pontos na escala da prova
     const targetScorePoints = useMemo(() => {
         const safeMax = Math.max(1, Number(currentMaxScore) || 100);
         const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
         return resolveUserTargetScorePoints(userProfile, safeMin, safeMax, 0.85);
     }, [userProfile, currentMinScore, currentMaxScore]);
-    
+
     const mcStats = useMonteCarloStats({
         categories: categories,
         goalDate: userProfile?.goalDate,
@@ -410,6 +410,7 @@ export default function Coach() {
         simuladoRows: data?.simuladoRows || EMPTY_ARRAY
     });
 
+    const isMcStatsReady = mcStats?.simulationData?.status === 'ready';
     const projectedScore = mcStats?.projectedMean ?? 0;
     // UX-STABILITY: Para o card de volatilidade, preferimos pooledSD (determinístico)
     // ao sd da simulação MC (estocástico), reduzindo "pisca/pula" visual.
@@ -497,12 +498,15 @@ export default function Coach() {
         return count;
     }, [data?.calibrationOps, data?.calibrationHistoryByCategory, categories]);
 
-    const mcStatsContext = useMemo(() => ({
-        projectedMean: mcStats?.projectedMean,
-        probability: mcStats?.probability,
-        statsData: mcStats?.statsData,
-        sd: mcStats?.sd
-    }), [mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
+    const mcStatsContext = useMemo(() => {
+        if (!isMcStatsReady) return null;
+        return {
+            projectedMean: mcStats?.projectedMean,
+            probability: mcStats?.probability,
+            statsData: mcStats?.statsData,
+            sd: mcStats?.sd
+        };
+    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
 
     // FIX-#185: Stable ref so the analysis useEffect doesn't need mcStatsContext
     // as a dependency. Without this, any isFlashing toggle inside useMonteCarloStats
@@ -513,7 +517,7 @@ export default function Coach() {
 
     // Sincroniza projeção global quando o cálculo do Monte Carlo conclui a simulação
     useEffect(() => {
-        if (mcStats?.projectedMean == null) return;
+        if (!isMcStatsReady || mcStats?.projectedMean == null) return;
         const projectedVal = Number(mcStats.projectedMean.toFixed(1));
         const probVal = mcStats.probability != null ? Number(mcStats.probability.toFixed(1)) : null;
         const timer = setTimeout(() => {
@@ -535,272 +539,279 @@ export default function Coach() {
             });
         }, 0);
         return () => clearTimeout(timer);
-    }, [mcStats?.projectedMean, mcStats?.probability]);
+}, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability]);
 
-    useEffect(() => {
-        if (!isHydrated) return;
-        if (!data?.categories || categories.length === 0) {
-            const timer = setTimeout(() => {
-                if (isMountedRef.current) {
-                    setSuggestedFocus(null);
-                    setIsAnalyzing(false);
-                }
-            }, 0);
-            return () => clearTimeout(timer);
-        }
+useEffect(() => {
+    if (!isHydrated) return;
+    if (!data?.categories || categories.length === 0) {
+        const timer = setTimeout(() => {
+            if (isMountedRef.current) {
+                setSuggestedFocus(null);
+                setIsAnalyzing(false);
+            }
+        }, 0);
+        return () => clearTimeout(timer);
+    }
 
-        let metricsTimer = null;
-        let nestedTimeouts = [];
-        // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
-        // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
-        // lateral não fica "preso" aguardando cálculo síncrono.
-        const analysisTimer = setTimeout(() => {
-            try {
-                const safeTargetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
-                const safeMax = Number.isFinite(Number(currentMaxScore)) ? Number(currentMaxScore) : 100;
-                const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
-                const collectedMetrics = [];
-                const collectedMetricKeys = new Set();
-                const isManualRefresh = planRefreshTick !== lastProcessedManualRefreshRef.current;
-                lastProcessedManualRefreshRef.current = planRefreshTick;
+    let metricsTimer = null;
+    let nestedTimeouts = [];
+    // UX-FLUIDITY FIX: agenda o cálculo pesado para o próximo ciclo.
+    // Se o usuário sair rapidamente do Coach, o cleanup cancela tudo e o menu
+    // lateral não fica "preso" aguardando cálculo síncrono.
+    const analysisTimer = setTimeout(() => {
+        try {
+            const safeTargetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
+            const safeMax = Number.isFinite(Number(currentMaxScore)) ? Number(currentMaxScore) : 100;
+            const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
+            const collectedMetrics = [];
+            const collectedMetricKeys = new Set();
+            const isManualRefresh = planRefreshTick !== lastProcessedManualRefreshRef.current;
+            lastProcessedManualRefreshRef.current = planRefreshTick;
 
-                const baseCoachOptions = {
-                    contestId: activeId,
-                    user: data?.user,
-                    ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
-                    maxScore: safeMax,
-                    minScore: safeMin,
-                    calibrationHistoryByCategory: calibrationHistoryRef.current,
-                    flashcardDecks,
-                    flashcardDue,
-                    onCalibrationMetric: (metric) => {
-                        const rawKey = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
-                        const dedupKey = rawKey ? (getCalibrationKey(rawKey) || rawKey) : '';
-                        if (dedupKey && !collectedMetricKeys.has(dedupKey)) {
-                            collectedMetricKeys.add(dedupKey);
-                            collectedMetrics.push(metric);
-                        }
-                    },
-                    // Pass global MC stats for richer integration (see analysis of Coach + MC)
-                    // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
-                    globalMcStats: mcStatsContextRef.current,
-                    simuladoRows: data?.simuladoRows,
-                    allSimulados: data?.simulados,
-                    config: {
-                        contestId: activeId,
-                        MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+            const baseCoachOptions = {
+                contestId: activeId,
+                user: data?.user,
+                ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
+                maxScore: safeMax,
+                minScore: safeMin,
+                calibrationHistoryByCategory: calibrationHistoryRef.current,
+                flashcardDecks,
+                flashcardDue,
+                onCalibrationMetric: (metric) => {
+                    const rawKey = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
+                    const dedupKey = rawKey ? (getCalibrationKey(rawKey) || rawKey) : '';
+                    if (dedupKey && !collectedMetricKeys.has(dedupKey)) {
+                        collectedMetricKeys.add(dedupKey);
+                        collectedMetrics.push(metric);
                     }
-                };
+                },
+                // Pass global MC stats for richer integration (see analysis of Coach + MC)
+                // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
+                globalMcStats: mcStatsContextRef.current,
+                simuladoRows: data?.simuladoRows,
+                allSimulados: data?.simulados,
+                config: {
+                    contestId: activeId,
+                    MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                }
+            };
 
-                const result = getSuggestedFocus(
+            const result = getSuggestedFocus(
+                categories,
+                combinedHistory,
+                studyLogs,
+                baseCoachOptions
+            );
+
+            // BEST: enrich the suggestion with global MC context for the UI
+            const _mcCtx = mcStatsContextRef.current;
+            if (result && _mcCtx && _mcCtx.projectedMean != null) {
+                const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
+                result.globalProjectedMean = projectedVal;
+                result.globalMcContext = {
+                    projectedMean: projectedVal,
+                    probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
+                    source: 'useMonteCarloStats'
+                };
+            }
+            setSuggestedFocus(result);
+
+            // GERAÇÃO AUTOMÁTICA DO PLANO DE METAS DO COACH (coachPlan)
+            try {
+                const newTasks = generateDailyGoals(
                     categories,
                     combinedHistory,
                     studyLogs,
                     baseCoachOptions
                 );
 
-                // BEST: enrich the suggestion with global MC context for the UI
-                const _mcCtx = mcStatsContextRef.current;
-                if (result && _mcCtx && _mcCtx.projectedMean != null) {
-                    const projectedVal = Number(_mcCtx.projectedMean.toFixed(1));
-                    result.globalProjectedMean = projectedVal;
-                    result.globalMcContext = {
-                        projectedMean: projectedVal,
-                        probability: _mcCtx.probability != null ? Number(_mcCtx.probability.toFixed(1)) : null,
-                        source: 'useMonteCarloStats'
+                if (Array.isArray(newTasks) && newTasks.length > 0 && isMountedRef.current) {
+                    const currentData = useAppStore.getState().appState?.contests?.[activeId];
+                    const existingPlan = Array.isArray(currentData?.coachPlan) ? currentData.coachPlan : Object.values(currentData?.coachPlan || {});
+                    const existingPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
+                        ? currentData.coachPlanner
+                        : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+
+                    const isTaskCategoryValid = (taskItem) => {
+                        const cid = taskItem?.categoryId;
+                        if (!cid || ['geral', 'default'].includes(String(cid))) return true;
+                        const safeCid = getSafeCategoryKey(cid);
+                        return categories.some(c => c && (
+                            (c.id && String(c.id) === String(cid)) ||
+                            (safeCid && getSafeCategoryKey(c.id) === safeCid) ||
+                            (taskItem?.category && c.name && isSubjectMatch(c.name, taskItem.category))
+                        ));
                     };
-                }
-                setSuggestedFocus(result);
 
-                // GERAÇÃO AUTOMÁTICA DO PLANO DE METAS DO COACH (coachPlan)
-                try {
-                    const newTasks = generateDailyGoals(
-                        categories,
-                        combinedHistory,
-                        studyLogs,
-                        baseCoachOptions
-                    );
-
-                    if (Array.isArray(newTasks) && newTasks.length > 0 && isMountedRef.current) {
-                        const currentData = useAppStore.getState().appState?.contests?.[activeId];
-                        const existingPlan = Array.isArray(currentData?.coachPlan) ? currentData.coachPlan : Object.values(currentData?.coachPlan || {});
-                        const existingPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
-                            ? currentData.coachPlanner
-                            : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
-
-                        const isTaskCategoryValid = (taskItem) => {
-                            const cid = taskItem?.categoryId;
-                            if (!cid || ['geral', 'default'].includes(String(cid))) return true;
-                            const safeCid = getSafeCategoryKey(cid);
-                            return categories.some(c => c && (
-                                (c.id && String(c.id) === String(cid)) ||
-                                (safeCid && getSafeCategoryKey(c.id) === safeCid) ||
-                                (taskItem?.category && c.name && isSubjectMatch(c.name, taskItem.category))
-                            ));
-                        };
-
-                        // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
-                        // e atualizar a telemetria (analysis) caso a tarefa exista nas novas metas calculadas.
-                        const freshTasksById = new Map();
-                        newTasks.forEach(t => {
-                            if (t) {
-                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                                if (sid) freshTasksById.set(sid, t);
-                            }
-                        });
-
-                        const assignedTasks = [];
-                        const assignedIds = new Set();
-                        const refreshedPlanner = {};
-                        let plannerTelemetryUpdated = false;
-                        let plannerChanged = false;
-                        Object.entries(existingPlanner).forEach(([dayKey, dayArr]) => {
-                            if (Array.isArray(dayArr)) {
-                                const nextDay = [];
-                                dayArr.forEach(t => {
-                                    if (!t) {
-                                        plannerChanged = true;
-                                        return;
-                                    }
-                                    if (!isTaskCategoryValid(t)) {
-                                        plannerChanged = true;
-                                        return;
-                                    }
-                                    const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                                    if (sid) {
-                                        const fresh = freshTasksById.get(sid);
-                                        const staleAlert = !fresh && !t.completed && isSystemAlertTask(t.text || t.title);
-                                        const staleOnManual = !fresh && !t.completed && isManualRefresh;
-                                        if (staleAlert || staleOnManual) {
-                                            plannerChanged = true;
-                                            return;
-                                        }
-                                        assignedIds.add(sid);
-                                        const mergedTask = fresh
-                                            ? {
-                                                ...t,
-                                                analysis: fresh.analysis || t.analysis,
-                                                priority: fresh.priority || t.priority,
-                                                completed: Boolean(t.completed),
-                                                ...(t.completedAt ? { completedAt: t.completedAt } : {})
-                                            }
-                                            : t;
-                                        if (fresh && fresh.analysis && JSON.stringify(fresh.analysis) !== JSON.stringify(t.analysis)) {
-                                            plannerTelemetryUpdated = true;
-                                        }
-                                        assignedTasks.push(mergedTask);
-                                        nextDay.push(mergedTask);
-                                        return;
-                                    }
-                                    nextDay.push(t);
-                                });
-                                refreshedPlanner[dayKey] = nextDay;
-                            } else {
-                                refreshedPlanner[dayKey] = [];
-                            }
-                        });
-
-                        // Preservar status de tarefas previamente concluídas no backlog
-                        const existingCompletedMap = new Map();
-                        existingPlan.forEach(t => {
-                            if (t && t.completed && isTaskCategoryValid(t)) {
-                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                                if (sid) existingCompletedMap.set(sid, t);
-                            }
-                        });
-
-                        const nextPlan = [
-                            ...assignedTasks,
-                            ...newTasks
-                                .filter(t => {
-                                    const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                                    return sid && !assignedIds.has(sid);
-                                })
-                                .map(t => {
-                                    const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                                    const prevCompleted = sid ? existingCompletedMap.get(sid) : null;
-                                    if (prevCompleted) {
-                                        return { ...t, completed: true, completedAt: prevCompleted.completedAt };
-                                    }
-                                    return t;
-                                })
-                        ];
-
-                        const hasPlanChanged = plannerTelemetryUpdated ||
-                            plannerChanged ||
-                            existingPlan.length !== nextPlan.length ||
-                            existingPlan.some((t, i) => {
-                                const next = nextPlan[i];
-                                if (!next) return true;
-                                const sid1 = getSafeCategoryKey(ensureCoachTaskId(t));
-                                const sid2 = getSafeCategoryKey(ensureCoachTaskId(next));
-                                return sid1 !== sid2 ||
-                                    t.text !== next.text ||
-                                    t.priority !== next.priority ||
-                                    Boolean(t.completed) !== Boolean(next.completed) ||
-                                    JSON.stringify(t.analysis || null) !== JSON.stringify(next.analysis || null);
-                            });
-
-                        if (hasPlanChanged || !currentData?.coachPlanner) {
-                            setData(() => ({
-                                coachPlan: nextPlan,
-                                coachPlanner: refreshedPlanner
-                            }));
+                    // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
+                    // e atualizar a telemetria (analysis) caso a tarefa exista nas novas metas calculadas.
+                    const freshTasksById = new Map();
+                    newTasks.forEach(t => {
+                        if (t) {
+                            const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                            if (sid) freshTasksById.set(sid, t);
                         }
-                    }
-                } catch (errGoals) {
-                    console.warn('[Coach] Erro ao gerar metas do coach automaticamente:', errGoals);
-                }
+                    });
 
-                if (collectedMetrics.length > 0) {
-                    metricsTimer = setTimeout(() => {
-                        if (!isMountedRef.current) return;
-                        collectedMetrics.forEach((metric, i) => {
-                            const t = setTimeout(() => {
-                                if (!isMountedRef.current) return;
-                                persistCalibrationMetric(metric);
-                            }, i * 600);
-                            nestedTimeouts.push(t);
+                    const assignedTasks = [];
+                    const assignedIds = new Set();
+                    const refreshedPlanner = {};
+                    let plannerTelemetryUpdated = false;
+                    let plannerChanged = false;
+                    Object.entries(existingPlanner).forEach(([dayKey, dayArr]) => {
+                        if (Array.isArray(dayArr)) {
+                            const nextDay = [];
+                            dayArr.forEach(t => {
+                                if (!t) {
+                                    plannerChanged = true;
+                                    return;
+                                }
+                                if (!isTaskCategoryValid(t)) {
+                                    plannerChanged = true;
+                                    return;
+                                }
+                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                if (sid) {
+                                    const fresh = freshTasksById.get(sid);
+                                    const staleAlert = !fresh && !t.completed && isSystemAlertTask(t.text || t.title);
+                                    const staleOnManual = !fresh && !t.completed && isManualRefresh;
+                                    if (staleAlert || staleOnManual) {
+                                        plannerChanged = true;
+                                        return;
+                                    }
+                                    assignedIds.add(sid);
+                                    const mergedTask = fresh
+                                        ? {
+                                            ...t,
+                                            analysis: fresh.analysis || t.analysis,
+                                            priority: fresh.priority || t.priority,
+                                            completed: Boolean(t.completed),
+                                            ...(t.completedAt ? { completedAt: t.completedAt } : {})
+                                        }
+                                        : t;
+                                    if (fresh && fresh.analysis && JSON.stringify(fresh.analysis) !== JSON.stringify(t.analysis)) {
+                                        plannerTelemetryUpdated = true;
+                                    }
+                                    assignedTasks.push(mergedTask);
+                                    nextDay.push(mergedTask);
+                                    return;
+                                }
+                                nextDay.push(t);
+                            });
+                            refreshedPlanner[dayKey] = nextDay;
+                        } else {
+                            refreshedPlanner[dayKey] = [];
+                        }
+                    });
+
+                    // Preservar status de tarefas previamente concluídas no backlog
+                    const existingCompletedMap = new Map();
+                    existingPlan.forEach(t => {
+                        if (t && t.completed && isTaskCategoryValid(t)) {
+                            const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                            if (sid) existingCompletedMap.set(sid, t);
+                        }
+                    });
+
+                    const nextPlan = [
+                        ...assignedTasks,
+                        ...newTasks
+                            .filter(t => {
+                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                return sid && !assignedIds.has(sid);
+                            })
+                            .map(t => {
+                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                const prevCompleted = sid ? existingCompletedMap.get(sid) : null;
+                                if (prevCompleted) {
+                                    return { ...t, completed: true, completedAt: prevCompleted.completedAt };
+                                }
+                                return t;
+                            })
+                    ];
+
+                    const hasPlanChanged = plannerTelemetryUpdated ||
+                        plannerChanged ||
+                        existingPlan.length !== nextPlan.length ||
+                        existingPlan.some((t, i) => {
+                            const next = nextPlan[i];
+                            if (!next) return true;
+                            const sid1 = getSafeCategoryKey(ensureCoachTaskId(t));
+                            const sid2 = getSafeCategoryKey(ensureCoachTaskId(next));
+                            return sid1 !== sid2 ||
+                                t.text !== next.text ||
+                                t.priority !== next.priority ||
+                                Boolean(t.completed) !== Boolean(next.completed) ||
+                                JSON.stringify(t.analysis || null) !== JSON.stringify(next.analysis || null);
                         });
-                    }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
-                }
-            } catch (err) {
-                console.error('[Coach] Falha ao processar redes e análise do Coach:', err);
-            } finally {
-                setIsAnalyzing(false);
-            }
-        }, 0);
 
-        return () => {
-            clearTimeout(analysisTimer);
-            if (metricsTimer) clearTimeout(metricsTimer);
-            nestedTimeouts.forEach(clearTimeout);
-        };
+                    if (hasPlanChanged || !currentData?.coachPlanner) {
+                        setData(() => ({
+                            coachPlan: nextPlan,
+                            coachPlanner: refreshedPlanner
+                        }));
+                    }
+                }
+            } catch (errGoals) {
+                console.warn('[Coach] Erro ao gerar metas do coach automaticamente:', errGoals);
+            }
+
+            if (collectedMetrics.length > 0) {
+                metricsTimer = setTimeout(() => {
+                    if (!isMountedRef.current) return;
+                    collectedMetrics.forEach((metric, i) => {
+                        const t = setTimeout(() => {
+                            if (!isMountedRef.current) return;
+                            persistCalibrationMetric(metric);
+                        }, i * 600);
+                        nestedTimeouts.push(t);
+                    });
+                }, 1000); // Cooldown de 1s para deixar o dashboard respirar entre análises
+            }
+        } catch (err) {
+            console.error('[Coach] Falha ao processar redes e análise do Coach:', err);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    }, 0);
+
+    return () => {
+        clearTimeout(analysisTimer);
+        if (metricsTimer) clearTimeout(metricsTimer);
+        nestedTimeouts.forEach(clearTimeout);
+    };
     // FIX-#185: mcStatsContext removed — it's read via mcStatsContextRef.current inside
     // the effect body, so it never needs to be a reactive dependency.
-    }, [
-        isHydrated,
-        activeId,
-        data?.categories,
-        data?.simuladoRows,
-        data?.simulados,
-        categories, 
-        combinedHistory, 
-        studyLogs, 
-        data?.user, 
-        currentMaxScore,
-        currentMinScore,
-        data?.settings?.adaptiveCalibrationEnabled,
-        targetScorePoints,
-        flashcardDue,
-        flashcardDecks,
-        persistCalibrationMetric,
-        setData,
-        planRefreshTick
-    ]);
+}, [
+    isHydrated,
+    activeId,
+    data?.categories,
+    data?.simuladoRows,
+    data?.simulados,
+    categories,
+    combinedHistory,
+    studyLogs,
+    data?.user,
+    currentMaxScore,
+    currentMinScore,
+    data?.settings?.adaptiveCalibrationEnabled,
+    targetScorePoints,
+    flashcardDue,
+    flashcardDecks,
+    persistCalibrationMetric,
+    setData,
+    planRefreshTick
+]);
 
-    useEffect(() => {
-        if (typeof projectedScore === 'number' && !Number.isNaN(projectedScore) && projectedScore !== lastPushedScoreRef.current) {
+useEffect(() => {
+        if (!isMcStatsReady) return;
+        if (typeof projectedScore !== 'number' || Number.isNaN(projectedScore)) return;
+        const persistedScore = Number(data?.coachScore);
+        if (Number.isFinite(persistedScore) && Math.abs(projectedScore - persistedScore) <= 0.01) {
+            lastPushedScoreRef.current = projectedScore;
+            return;
+        }
+        if (projectedScore !== lastPushedScoreRef.current) {
             if (lastPushedScoreRef.current === null || Math.abs(projectedScore - lastPushedScoreRef.current) > 0.01) {
                 lastPushedScoreRef.current = projectedScore;
                 const timer = setTimeout(() => {
@@ -809,166 +820,166 @@ export default function Coach() {
                 return () => clearTimeout(timer);
             }
         }
-    }, [projectedScore, updateCoachScore]);
+    }, [isMcStatsReady, projectedScore, data?.coachScore, updateCoachScore]);
 
 
 
-    const handleChangeTab = useCallback((tab) => {
-        if (tab === 'analytics') setActiveTab('analytics');
-        else if (tab === 'control' && showControlCenter) setActiveTab('control');
-        else setActiveTab('insights');
-    }, [showControlCenter]);
+const handleChangeTab = useCallback((tab) => {
+    if (tab === 'analytics') setActiveTab('analytics');
+    else if (tab === 'control' && showControlCenter) setActiveTab('control');
+    else setActiveTab('insights');
+}, [showControlCenter]);
 
-    
 
-    // BUG-8 FIX: Merge both operations into a single setData call to prevent desync
-    const handleClearHistory = useCallback(() => {
-        clearMcCache();
-        clearUrgencyCache();
-        clearTopicsCache();
-        setData(() => ({
-            coachPlan: [],
-            coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
-        }));
-    }, [setData]);
 
-    const handleRegeneratePlan = useCallback(() => {
-        clearMcCache();
-        clearUrgencyCache();
-        clearTopicsCache();
-        setPlanRefreshTick(t => t + 1);
-    }, []);
+// BUG-8 FIX: Merge both operations into a single setData call to prevent desync
+const handleClearHistory = useCallback(() => {
+    clearMcCache();
+    clearUrgencyCache();
+    clearTopicsCache();
+    setData(() => ({
+        coachPlan: [],
+        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+    }));
+}, [setData]);
 
-    
+const handleRegeneratePlan = useCallback(() => {
+    clearMcCache();
+    clearUrgencyCache();
+    clearTopicsCache();
+    setPlanRefreshTick(t => t + 1);
+}, []);
 
-    // BUG-FIX: antes, se o concurso não tinha `categories` (usuário novo), o efeito de
-    // análise retornava cedo, isAnalyzing nunca virava false e o loader girava para sempre.
-    if (!isHydrated || (isAnalyzing && data?.categories)) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                    <Brain className="absolute inset-0 m-auto text-indigo-500 animate-pulse" size={24} />
-                </div>
-                <div className="flex flex-col items-center">
-                    <span className="text-white font-black uppercase tracking-widest text-xs">Sincronizando Redes Neurais</span>
-                    <span className="text-slate-500 text-[10px] mt-1 uppercase font-bold animate-pulse">Processando Probabilidades...</span>
-                </div>
-            </div>
-        );
-    }
 
+
+// BUG-FIX: antes, se o concurso não tinha `categories` (usuário novo), o efeito de
+// análise retornava cedo, isAnalyzing nunca virava false e o loader girava para sempre.
+if (!isHydrated || (isAnalyzing && data?.categories)) {
     return (
-        <PageErrorBoundary pageName="Coach">
-            <div ref={topRef} className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6 pt-1 sm:pt-2 pb-10 sm:pb-16">
-                <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
-                    <PageHeader 
-                        title="Análise do Coach" 
-                        description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
-                    />
-                    
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 bg-slate-900/80 border border-white/10 p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
-                        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-1 w-full sm:w-auto">
-                            <QuickStat label="Volatilidade" value={`${Number.isFinite(normalizedVolatility) ? normalizedVolatility.toFixed(1) : '0.0'}pp`} color="text-amber-400" icon={<Zap size={13} />} />
-                            <div className="w-px h-5 bg-white/10 shrink-0" />
-                            <QuickStat
-                                label="Tendência"
-                                value={formattedDrift}
-                                color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
-                                icon={normalizedDrift >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-                            />
-                            <div className="w-px h-5 bg-white/10 shrink-0" />
-                            <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={13} />} />
-                        </div>
-                        <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />
-                        <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-1.5 sm:pt-0 sm:border-t-0">
-                            <MonteCarloDebugger stats={mcStats} />
-                        </div>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <div className="relative">
+                <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                <Brain className="absolute inset-0 m-auto text-indigo-500 animate-pulse" size={24} />
+            </div>
+            <div className="flex flex-col items-center">
+                <span className="text-white font-black uppercase tracking-widest text-xs">Sincronizando Redes Neurais</span>
+                <span className="text-slate-500 text-[10px] mt-1 uppercase font-bold animate-pulse">Processando Probabilidades...</span>
+            </div>
+        </div>
+    );
+}
+
+return (
+    <PageErrorBoundary pageName="Coach">
+        <div ref={topRef} className="max-w-[1560px] mx-auto px-3 sm:px-5 lg:px-6 pt-1 sm:pt-2 pb-10 sm:pb-16">
+            <div className="relative z-40 flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
+                <PageHeader
+                    title="Análise do Coach"
+                    description="Mentor estatístico processando seu desempenho para otimizar sua aprovação."
+                />
+
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 bg-slate-900/80 border border-white/10 p-2 sm:p-2.5 rounded-2xl backdrop-blur-xl w-full lg:w-auto shadow-xl">
+                    <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-1 w-full sm:w-auto">
+                        <QuickStat label="Volatilidade" value={`${Number.isFinite(normalizedVolatility) ? normalizedVolatility.toFixed(1) : '0.0'}pp`} color="text-amber-400" icon={<Zap size={13} />} />
+                        <div className="w-px h-5 bg-white/10 shrink-0" />
+                        <QuickStat
+                            label="Tendência"
+                            value={formattedDrift}
+                            color={normalizedDrift >= 0 ? "text-emerald-400" : "text-rose-400"}
+                            icon={normalizedDrift >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+                        />
+                        <div className="w-px h-5 bg-white/10 shrink-0" />
+                        <QuickStat label="Simulados" value={totalSimulados} color="text-indigo-400" icon={<Dna size={13} />} />
                     </div>
-                </div>
-
-                {/* VIS-FIX: a condição fica no pai para o AnimatePresence conseguir animar a saída */}
-                <AnimatePresence>
-                    {degradedCount > 0 && <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />}
-                </AnimatePresence>
-
-                <div className="space-y-4 sm:space-y-5">
-                    <div className="w-full">
-                        <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} showControlCenter={showControlCenter} />
-
-                        <AnimatePresence mode="wait">
-                            <Motion.div 
-                                key={safeActiveTab}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.2, ease: "easeOut" }}
-                                style={{ transform: 'none', filter: 'none', willChange: 'auto' }}
-                                className="min-h-[200px]"
-                            >
-                                <div
-                                    role="tabpanel"
-                                    id={`coach-panel-${safeActiveTab}`}
-                                    aria-labelledby={`coach-tab-${safeActiveTab}`}
-                                    tabIndex={0}
-                                >
-                                    {safeActiveTab === 'insights' ? (
-                                        <>
-                                            {flashcardDue > 0 && (
-                                                <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
-                                                    <BookOpen className="text-amber-400 shrink-0" size={16} />
-                                                    <div className="flex-1 min-w-[180px] text-amber-200">
-                                                        <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => navigate('/flashcards')}
-                                                        className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
-                                                    >
-                                                        Revisar agora
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {/* Visual global MC context */}
-                                            {globalProjection && (
-                                                <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
-                                                    <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
-                                                    <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
-                                                        {globalProjection.points.toFixed(1)}
-                                                        <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
-                                                    </span>
-                                                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
-                                                    {globalProjection.probability !== null && (
-                                                        <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
-                                                    )}
-                                                </div>
-                                            )}
-                                            <AICoachView
-                                                suggestedFocus={suggestedFocus}
-                                                onClearHistory={handleClearHistory}
-                                                onRegeneratePlan={handleRegeneratePlan}
-                                            />
-                                        </>
-                                    ) : safeActiveTab === 'control' && showControlCenter ? (
-                                        <CoachControlCenter
-                                            categories={categories}
-                                            simulados={combinedHistory}
-                                            studyLogs={studyLogs}
-                                            maxScore={currentMaxScore}
-                                            targetScore={targetScorePoints}
-                                        />
-                                    ) : (
-                                        <RaioXDashboard data={data} />
-                                    )}
-                                </div>
-                            </Motion.div>
-                        </AnimatePresence>
+                    <div className="hidden sm:block w-px h-5 bg-white/10 shrink-0" />
+                    <div className="w-full sm:w-auto flex justify-end border-t border-white/5 pt-1.5 sm:pt-0 sm:border-t-0">
+                        <MonteCarloDebugger stats={mcStats} />
                     </div>
                 </div>
             </div>
-        </PageErrorBoundary>
-    );
+
+            {/* VIS-FIX: a condição fica no pai para o AnimatePresence conseguir animar a saída */}
+            <AnimatePresence>
+                {degradedCount > 0 && <GovernanceBanner key="governance-banner" degradedCount={degradedCount} />}
+            </AnimatePresence>
+
+            <div className="space-y-4 sm:space-y-5">
+                <div className="w-full">
+                    <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} showControlCenter={showControlCenter} />
+
+                    <AnimatePresence mode="wait">
+                        <Motion.div
+                            key={safeActiveTab}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                            style={{ transform: 'none', filter: 'none', willChange: 'auto' }}
+                            className="min-h-[200px]"
+                        >
+                            <div
+                                role="tabpanel"
+                                id={`coach-panel-${safeActiveTab}`}
+                                aria-labelledby={`coach-tab-${safeActiveTab}`}
+                                tabIndex={0}
+                            >
+                                {safeActiveTab === 'insights' ? (
+                                    <>
+                                        {flashcardDue > 0 && (
+                                            <div className="mb-3 flex flex-wrap sm:flex-nowrap items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3.5 py-2.5 text-xs sm:text-sm">
+                                                <BookOpen className="text-amber-400 shrink-0" size={16} />
+                                                <div className="flex-1 min-w-[180px] text-amber-200">
+                                                    <span className="font-semibold">{flashcardDue} flashcard{flashcardDue === 1 ? '' : 's'}</span> pendente{flashcardDue === 1 ? '' : 's'} para hoje. SRS melhora retenção e o modelo.
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate('/flashcards')}
+                                                    className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition"
+                                                >
+                                                    Revisar agora
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Visual global MC context */}
+                                        {globalProjection && (
+                                            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-2 text-xs">
+                                                <span className="font-black uppercase tracking-[0.15em] text-[10px] text-emerald-300">Projeção Global</span>
+                                                <span className="font-mono text-sm sm:text-base font-bold text-emerald-200 tabular-nums">
+                                                    {globalProjection.points.toFixed(1)}
+                                                    <span className="text-emerald-400/60 text-xs"> / {globalProjection.max} pts</span>
+                                                </span>
+                                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 font-mono font-bold text-emerald-300 tabular-nums text-xs">{Math.round(globalProjection.pct)}%</span>
+                                                {globalProjection.probability !== null && (
+                                                    <span className="text-emerald-400/70 text-xs">· prob. de atingir a meta <span className="font-mono font-bold text-emerald-200">{Math.round(globalProjection.probability)}%</span></span>
+                                                )}
+                                            </div>
+                                        )}
+                                        <AICoachView
+                                            suggestedFocus={suggestedFocus}
+                                            onClearHistory={handleClearHistory}
+                                            onRegeneratePlan={handleRegeneratePlan}
+                                        />
+                                    </>
+                                ) : safeActiveTab === 'control' && showControlCenter ? (
+                                    <CoachControlCenter
+                                        categories={categories}
+                                        simulados={combinedHistory}
+                                        studyLogs={studyLogs}
+                                        maxScore={currentMaxScore}
+                                        targetScore={targetScorePoints}
+                                    />
+                                ) : (
+                                    <RaioXDashboard data={data} />
+                                )}
+                            </div>
+                        </Motion.div>
+                    </AnimatePresence>
+                </div>
+            </div>
+        </div>
+    </PageErrorBoundary>
+);
 }
 
 function QuickStat({ label, value, color, icon }) {
@@ -998,7 +1009,7 @@ function StatRow({ label, value, trend, color }) {
 
 const GovernanceBanner = React.memo(function GovernanceBanner({ degradedCount }) {
     return (
-        <Motion.div 
+        <Motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -1018,7 +1029,7 @@ const GovernanceBanner = React.memo(function GovernanceBanner({ degradedCount })
             </div>
             <div className="hidden sm:block text-right">
                 <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest leading-tight">
-                    O Coach está aplicando<br/>ajustes conservadores.
+                    O Coach está aplicando<br />ajustes conservadores.
                 </p>
             </div>
         </Motion.div>
@@ -1081,7 +1092,7 @@ export function RaioXDashboard({ data }) {
         return categories.map(cat => {
             const catName = cat.name || cat.id || '';
             const catStatsHistory = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
-            
+
             // Reúne todas as fontes de simulado para esta categoria de forma unificada sem contagem dupla entre fontes
             const catAttempts = new Set();
             const seenBatches = new Set();
@@ -1370,7 +1381,7 @@ export function RaioXDashboard({ data }) {
                             </p>
                         </div>
                     </div>
-                
+
                     <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         {calibrationSummary.map(row => {
                             const op = ops[row.categoryId] || ops[getSafeId(row.categoryId)] || (row.label && ops[getSafeId(row.label)]) || (row.label && ops[row.label]) || {};
@@ -1378,13 +1389,13 @@ export function RaioXDashboard({ data }) {
                             const avgBrier = hasBrier ? Number(row.avgBrier) : null;
                             const penVal = toFiniteNumber(row.avgPenalty);
                             const isDegraded = Boolean(op.degraded || (hasBrier && avgBrier >= CRITICAL_BRIER_THRESHOLD) || penVal >= HIGH_PENALTY_THRESHOLD);
-                            
+
                             const brierPct = hasBrier ? Math.max(0, Math.min(100, (avgBrier / 0.35) * 100)) : 0;
                             const radius = 14;
                             const circ = 2 * Math.PI * radius;
                             const offset = Number.isFinite(circ - (brierPct / 100) * circ) ? circ - (brierPct / 100) * circ : circ;
                             const colorClass = isDegraded ? 'text-rose-500' : (!hasBrier ? 'text-slate-400' : (avgBrier >= CRITICAL_BRIER_THRESHOLD ? 'text-rose-500' : (avgBrier > 0.18 || penVal > 0.001 ? 'text-amber-500' : 'text-emerald-500')));
-                            
+
                             return (
                                 <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
                                     <div className="flex justify-between items-start gap-4 mb-4">
@@ -1404,13 +1415,13 @@ export function RaioXDashboard({ data }) {
                                         <div className="shrink-0 relative w-12 h-12 flex items-center justify-center">
                                             <svg className="w-full h-full -rotate-90 transform drop-shadow-md" viewBox="0 0 36 36">
                                                 <circle cx="18" cy="18" r={radius} fill="none" className="stroke-white/10" strokeWidth="3" />
-                                                <circle 
-                                                    cx="18" cy="18" r={radius} fill="none" 
-                                                    className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`} 
-                                                    strokeWidth="3" 
-                                                    strokeDasharray={circ} 
+                                                <circle
+                                                    cx="18" cy="18" r={radius} fill="none"
+                                                    className={`stroke-current ${colorClass} transition-all duration-1000 ease-out`}
+                                                    strokeWidth="3"
+                                                    strokeDasharray={circ}
                                                     strokeDashoffset={offset}
-                                                    strokeLinecap="round" 
+                                                    strokeLinecap="round"
                                                 />
                                             </svg>
                                             <div className="absolute inset-0 flex items-center justify-center">
@@ -1420,7 +1431,7 @@ export function RaioXDashboard({ data }) {
                                             </div>
                                         </div>
                                     </div>
-                                
+
                                     <div className="flex items-center justify-between pt-3 border-t border-white/[0.05] mt-auto gap-2">
                                         <div className="group/tooltip relative flex items-center gap-1.5 cursor-help min-w-0">
                                             <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover/tooltip:text-slate-300 transition-colors border-b border-dashed border-slate-600 shrink-0">Brier</span>
@@ -1435,7 +1446,7 @@ export function RaioXDashboard({ data }) {
                                                 Brier Score mede o erro quadrático das projeções (ideal &lt; 0.18). ECE mede o desvio médio de confiabilidade.
                                             </div>
                                         </div>
-                                    
+
                                         {(() => {
                                             if (penVal <= 0.001) return null;
                                             return (
@@ -1492,7 +1503,7 @@ export function RaioXDashboard({ data }) {
                         Log de Auditoria
                     </h3>
                     <div className="flex gap-1 bg-slate-900/50 border border-white/5 rounded-xl p-0.5" role="group" aria-label="Filtrar log de auditoria">
-                        <button 
+                        <button
                             type="button"
                             aria-pressed={filter === 'all'}
                             onClick={() => setFilter('all')}
@@ -1500,7 +1511,7 @@ export function RaioXDashboard({ data }) {
                         >
                             Tudo
                         </button>
-                        <button 
+                        <button
                             type="button"
                             aria-pressed={filter === 'degraded'}
                             onClick={() => setFilter('degraded')}
@@ -1510,7 +1521,7 @@ export function RaioXDashboard({ data }) {
                         </button>
                     </div>
                 </div>
-                
+
                 <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/10">
                     <table className="w-full text-left">
                         <thead>
@@ -1532,25 +1543,25 @@ export function RaioXDashboard({ data }) {
                                 const isDeg = isLogDegraded(log);
                                 const logTs = toTimestampMs(log?.timestamp);
                                 return (
-                                <tr key={`${logTs || idx}-${log?.categoryName || log?.categoryId || 'cat'}-${idx}`} className="group hover:bg-white/[0.03] transition-colors">
-                                    <td className="py-3 pl-4 pr-4 text-[10px] text-slate-400 font-mono whitespace-nowrap">{logTs > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
-                                    <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
-                                        <div className="flex items-center gap-2">
-                                            <span>{displaySubject(log.categoryName || log.categoryId, categories)}</span>
-                                            {isDeg && (
-                                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                                    Degradado
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
-                                    <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
-                                    <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
-                                        {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (calibração)` : '-'}
-                                    </td>
-                                    <td className="py-3 pl-4 pr-4 text-[10px] text-white font-black whitespace-nowrap text-right tabular-nums">{toPercentLabel(log?.probability)}</td>
-                                </tr>
+                                    <tr key={`${logTs || idx}-${log?.categoryName || log?.categoryId || 'cat'}-${idx}`} className="group hover:bg-white/[0.03] transition-colors">
+                                        <td className="py-3 pl-4 pr-4 text-[10px] text-slate-400 font-mono whitespace-nowrap">{logTs > 0 ? formatDateTimePtBR(log.timestamp) : '-'}</td>
+                                        <td className="py-3 px-4 text-[10px] text-white font-bold whitespace-nowrap">
+                                            <div className="flex items-center gap-2">
+                                                <span>{displaySubject(log.categoryName || log.categoryId, categories)}</span>
+                                                {isDeg && (
+                                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                                        Degradado
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
+                                        <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
+                                        <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
+                                            {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (calibração)` : '-'}
+                                        </td>
+                                        <td className="py-3 pl-4 pr-4 text-[10px] text-white font-black whitespace-nowrap text-right tabular-nums">{toPercentLabel(log?.probability)}</td>
+                                    </tr>
                                 );
                             })}
                         </tbody>
