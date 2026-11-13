@@ -69,10 +69,14 @@ export function normalizeTaskStatus(task) {
 
 export function normalizeTaskPriority(task, action = '', isSystemAlert = false) {
   const raw = String(task?.text || task?.title || '');
-  if (/\[PROTOCOLO PRIORITÁRIO\]/i.test(raw) || isSystemAlert) return 'high';
+  if (/\[PROTOCOLO PRIORITÁRIO\]|\[ALERTA MESTRE\]/i.test(raw)) return 'high';
   if (task?.priority === 'high') return 'high';
   if (task?.priority === 'low') return 'low';
   if (task?.priority === 'medium') return 'medium';
+  if (isSystemAlert) {
+    if (/CRUZEIRO SEGURO/i.test(raw) || /CRUZEIRO SEGURO/i.test(action)) return 'low';
+    return 'high';
+  }
   if (/ALERTA|CRÍTICO|VETOR CRÍTICO/i.test(action)) return 'high';
   return 'medium';
 }

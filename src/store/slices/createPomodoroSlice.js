@@ -36,6 +36,28 @@ const formatTaskName = (task) => {
     return cleanTaskTitle(rawName, cat) || cat || 'Sessão de Estudo';
 };
 
+const resolveTaskCategoryId = (activeData, targetTask, fallbackName) => {
+    const directCatId = targetTask?.categoryId || targetTask?.catId;
+    if (directCatId && directCatId !== 'default') return directCatId;
+
+    const rawCats = activeData?.categories || [];
+    const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats || {});
+    const targetName = String(fallbackName || extractCategoryFromTask(targetTask) || '').toLowerCase();
+
+    const foundCat = safeCats.find(c => {
+        if (!c) return false;
+        if (c.name && targetName && c.name.toLowerCase() === targetName) return true;
+        const tasks = Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {});
+        return tasks.some(t => t && (
+            (targetTask?.id != null && t.id != null && String(t.id) === String(targetTask.id)) ||
+            (targetTask?.text && t.text === targetTask.text) ||
+            (targetTask?.title && t.title === targetTask.title)
+        ));
+    });
+
+    return foundCat?.id || 'geral';
+};
+
 export const createPomodoroSlice = (set, get) => ({
     resetPomodoroProgress: () => {
         set((state) => {
@@ -427,12 +449,15 @@ export const createPomodoroSlice = (set, get) => ({
         clearPomodoroStorage();
 
         const task = safeTasks[startIndex] || safeTasks[0];
+        const taskCategoryName = extractCategoryFromTask(task);
+        const activeData = get().appState?.contests?.[get().appState?.activeId];
+        const resolvedCatId = resolveTaskCategoryId(activeData, task, taskCategoryName);
 
         const subject = {
             taskId: task.id || task.text || task.title,
             task: formatTaskName(task),
-            category: extractCategoryFromTask(task),
-            categoryId: task.categoryId || task.catId || 'default',
+            category: taskCategoryName,
+            categoryId: resolvedCatId,
             priority: 'high',
             sessionInstanceId: Date.now().toString(),
             source: 'neural_core'
@@ -492,31 +517,13 @@ export const createPomodoroSlice = (set, get) => ({
         const nextTask = neuralQueue[currentIndex + 1];
         const taskCategoryName = extractCategoryFromTask(nextTask);
         const activeData = get().appState?.contests?.[get().appState?.activeId];
-        const rawCats = activeData?.categories || [];
-        const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats || {});
-        let resolvedCatId = nextTask.categoryId || nextTask.catId;
-
-        if (!resolvedCatId || resolvedCatId === 'default') {
-            const foundCat = safeCats.find(c => {
-                if (!c) return false;
-                if (c.name && taskCategoryName && c.name.toLowerCase() === taskCategoryName.toLowerCase()) return true;
-                const tasks = Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {});
-                return tasks.some(t => t && (
-                    String(t.id) === String(nextTask.id) ||
-                    t.text === nextTask.text ||
-                    t.title === nextTask.title
-                ));
-            });
-            if (foundCat?.id) {
-                resolvedCatId = foundCat.id;
-            }
-        }
+        const resolvedCatId = resolveTaskCategoryId(activeData, nextTask, taskCategoryName);
 
         const nextSubject = {
             taskId: nextTask.id || nextTask.text || nextTask.title,
             task: formatTaskName(nextTask),
             category: taskCategoryName,
-            categoryId: resolvedCatId || 'geral',
+            categoryId: resolvedCatId,
             priority: 'high',
             sessionInstanceId: Date.now().toString(),
             source: 'neural_core'

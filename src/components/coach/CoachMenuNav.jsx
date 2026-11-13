@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Sparkles, BarChart3 } from 'lucide-react';
+import { Sparkles, BarChart3, SlidersHorizontal } from 'lucide-react';
 
 const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label, subtitle, tabId, panelId, disabled = false }) {
     return (
@@ -36,8 +36,10 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
     );
 });
 
-export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
-    const availableTabs = ['insights', 'analytics']; // Analytics is now always available as a sample
+export default function CoachMenuNav({ activeTab, onChangeTab, isPremium, showControlCenter = false }) {
+    const availableTabs = showControlCenter
+        ? ['insights', 'analytics', 'control']
+        : ['insights', 'analytics']; // Analytics is now always available as a sample
     const rafRef = useRef(null);
 
     useEffect(() => {
@@ -97,6 +99,9 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
     const handleActivateAnalytics = () => {
         activateTab('analytics');
     };
+    const handleActivateControl = () => {
+        activateTab('control');
+    };
 
     return (
         <div className="mb-4 sm:mb-5 p-2 sm:p-2.5 rounded-2xl border border-violet-500/20 bg-slate-900/90 shadow-[0_12px_32px_rgba(2,6,23,0.45)] backdrop-blur-md">
@@ -111,7 +116,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                     aria-label="Coach AI sections"
                     aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
-                    className="grid grid-cols-2 gap-2 w-full lg:w-auto lg:min-w-[440px] coach-mobile-tabs"
+                    className={`grid gap-2 w-full lg:w-auto coach-mobile-tabs ${showControlCenter ? 'grid-cols-3 lg:min-w-[600px]' : 'grid-cols-2 lg:min-w-[440px]'}`}
                 >
                     <MenuTab
                         active={activeTab === 'insights'}
@@ -131,6 +136,17 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium }) {
                         tabId="coach-tab-analytics"
                         panelId="coach-panel-analytics"
                     />
+                    {showControlCenter && (
+                        <MenuTab
+                            active={activeTab === 'control'}
+                            onClick={handleActivateControl}
+                            icon={SlidersHorizontal}
+                            label="Control Center"
+                            subtitle="Flags & AutoTuner"
+                            tabId="coach-tab-control"
+                            panelId="coach-panel-control"
+                        />
+                    )}
                 </div>
             </div>
         </div>

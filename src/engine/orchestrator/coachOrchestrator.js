@@ -23,7 +23,7 @@ import {
   clearTopicsCache,
   clearMcCache,
 } from '../../utils/coachLogic.js';
-import { writeFlags, readFlags, replaceFlags } from '../../utils/coachFeatureStore.js';
+import { readFlags } from '../../utils/coachFeatureStore.js';
 import { isValidFeatureKey } from '../../utils/coachFeatures.js';
 
 const ORCHESTRATOR_VERSION = '12.0.0';
@@ -194,16 +194,12 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
   };
 
   const contestId = options.contestId;
-  let flagsToRestore = readFlags(contestId);
-  let tunerAppliedFlags = false;
-  const hasTransientOptionFeatures = Boolean(
-    options.features && typeof options.features === 'object' && Object.keys(options.features).length > 0
-  );
+  const initialStoreFlags = readFlags(contestId);
 
   try {
     // Flags iniciais (não vaza overrides transitórios de options.features para fora da execução).
     let features = {};
-    const baseFeatures = flagsToRestore;
+    const baseFeatures = initialStoreFlags;
     const optionFeatures = options.features || {};
     for (const [k, v] of Object.entries({ ...baseFeatures, ...optionFeatures })) {
       if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
@@ -234,7 +230,6 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       try {
         optimizerModule.bootstrapCoachFlags(contestId);
         const updatedBase = readFlags(contestId);
-        flagsToRestore = updatedBase;
         features = {};
         for (const [k, v] of Object.entries({ ...updatedBase, ...optionFeatures })) {
           if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
@@ -245,9 +240,6 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
           message: err?.message || String(err),
         });
       }
-    }
-    if (hasTransientOptionFeatures) {
-      writeFlags(features, contestId);
     }
     meta.flags = features;
 
@@ -505,6 +497,7 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
             maxScore,
             minScore,
             contestId,
+            currentFeatures: features,
             force: true,
             autoApply: options.autoApplyTuner === true,
             forceApply: options.forceApplyTuner === true,
@@ -512,7 +505,6 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
             exploration: options.exploration === true,
           });
           if (tuner?.applied) {
-            tunerAppliedFlags = true;
             clearCoachCaches();
           }
         } catch (err) {
@@ -574,13 +566,6 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
       },
     };
   } finally {
-    if (hasTransientOptionFeatures && !tunerAppliedFlags) {
-      try {
-        replaceFlags(flagsToRestore, contestId);
-      } catch {
-        // ignore restore errors
-      }
-    }
     if (options?.signal) {
       options.signal.removeEventListener('abort', onExternalAbort);
     }

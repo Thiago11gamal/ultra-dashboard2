@@ -231,8 +231,10 @@ export function useCoachControlCenter({
       loadAuxiliaryData();
       if (result?.applied) {
         clearCoachCaches();
-        const flags = loadPersistedCoachFlags();
-        setCurrentFlags(flags || {});
+        const flags = loadPersistedCoachFlags() || {};
+        setCurrentFlags(flags);
+        setFlagOverrides({});
+        initialFlagsRef.current = flags;
       }
       return result;
     } catch (err) {
@@ -257,8 +259,10 @@ export function useCoachControlCenter({
       });
       if (applied) {
         clearCoachCaches();
-        const flags = loadPersistedCoachFlags();
-        setCurrentFlags(flags || {});
+        const flags = loadPersistedCoachFlags() || {};
+        setCurrentFlags(flags);
+        setFlagOverrides({});
+        initialFlagsRef.current = flags;
       }
       return applied;
     } catch (err) {
@@ -279,6 +283,7 @@ export function useCoachControlCenter({
       clearCoachCaches();
       setCurrentFlags(next);
       setFlagOverrides({});
+      initialFlagsRef.current = next;
       return true;
     } catch {
       return false;

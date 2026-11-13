@@ -18,6 +18,7 @@ import { calculateAdaptiveSlope } from '../engine/projection.js';
 import PageHeader from '../components/header/PageHeader';
 import AICoachView from '../components/AICoachView';
 import CoachMenuNav from '../components/coach/CoachMenuNav';
+import CoachControlCenter from '../components/coach/CoachControlCenter';
 import MonteCarloDebugger from '../components/MonteCarloDebugger';
 import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
@@ -33,6 +34,11 @@ import { displaySubject } from '../utils/displaySubject';
 import { formatDateTimePtBR, toDateMs, getDateKey } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 import { ensureCoachTaskId } from '../utils/coachTaskId';
+import { getCalibrationKey, getCalibrationHistoryFor } from '../utils/coachSafe';
+import { isSystemAlertTask } from '../utils/coachText';
+import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
+import { getCoachFeature } from '../utils/coachFeatures';
+import { setCoachFeatureContestScope } from '../utils/coachFeatureStore';
 import { isSubjectMatch, normalize } from '../utils/normalization';
 
 const getSafeCategoryKey = (value) => {
@@ -100,6 +106,10 @@ export default function Coach() {
         }
     }, [activeId]);
 
+    useEffect(() => {
+        setCoachFeatureContestScope(activeId || 'default');
+    }, [activeId]);
+
     const data = useAppStore(useShallow(state => {
         const contest = state.appState?.contests?.[state.appState?.activeId] || {};
         return {
@@ -156,8 +166,9 @@ export default function Coach() {
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState('insights');
+    const showControlCenter = getCoachFeature({ contestId: activeId }, 'useCoachControlCenter', false);
 
-    const VALID_TABS = new Set(['insights', 'analytics']);
+    const VALID_TABS = new Set(showControlCenter ? ['insights', 'analytics', 'control'] : ['insights', 'analytics']);
     const safeActiveTab = VALID_TABS.has(activeTab) ? activeTab : 'insights';
     
     useEffect(() => {
@@ -168,6 +179,7 @@ export default function Coach() {
 
     const [isAnalyzing, setIsAnalyzing] = useState(true);
     const [planRefreshTick, setPlanRefreshTick] = useState(0);
+    const lastProcessedManualRefreshRef = useRef(0);
     const calibrationHistoryRef = useRef(data?.calibrationHistoryByCategory || {});
 
     useEffect(() => {
@@ -194,8 +206,9 @@ export default function Coach() {
         const now = Date.now();
         const normalizedCategoryId = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
         if (!normalizedCategoryId) return;
+        const storageCategoryKey = getCalibrationKey(normalizedCategoryId) || normalizedCategoryId;
 
-        const catKey = String(normalizedCategoryId);
+        const catKey = String(storageCategoryKey);
         if (now - (lastPersistByCategoryRef.current[catKey] || 0) < 500) return;
         lastPersistByCategoryRef.current[catKey] = now;
 
@@ -235,9 +248,15 @@ export default function Coach() {
         let didSkipPersist = false;
         // BUG-3 FIX: Immer mutation pattern — explicit return undefined to document intent
         setData(prev => {
-            if (!prev) return;
+            if (!prev) return prev;
             const current = prev.calibrationHistoryByCategory || {};
-            const categoryHistory = current[normalizedCategoryId] || [];
+            const categoryHistory = getCalibrationHistoryFor(
+                current,
+                storageCategoryKey,
+                normalizedCategoryId,
+                metric?.categoryId,
+                metric?.categoryName
+            );
             
             // Verificação de redundância (Brier + ECE + penalty + probabilidade)
             // Evita descartar eventos onde o Brier ficou estável, mas ECE/penalty mudaram.
@@ -301,7 +320,7 @@ export default function Coach() {
 
             const calibrationOps = {
                 ...(prev.calibrationOps || {}),
-                [normalizedCategoryId]: {
+                [storageCategoryKey]: {
                     categoryName: normalizedMetric.categoryName,
                     avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
                     sample7d: recent7.length,
@@ -309,18 +328,24 @@ export default function Coach() {
                     updatedAt: now
                 }
             };
+            const nextHistoryByCategory = {
+                ...(prev.calibrationHistoryByCategory || {}),
+                [storageCategoryKey]: nextHistory
+            };
+            if (normalizedCategoryId && normalizedCategoryId !== storageCategoryKey) {
+                delete calibrationOps[normalizedCategoryId];
+                delete nextHistoryByCategory[normalizedCategoryId];
+            }
 
             const calibrationAuditLog = [...(prev.calibrationAuditLog || []), {
                 ...normalizedMetric,
+                categoryId: storageCategoryKey,
                 avgBrier7d: Number.isFinite(avgBrier7d) ? Number(avgBrier7d.toFixed(4)) : null,
                 degraded: isDegraded,
                 source: 'coach'
             }].slice(-500);
             return {
-                calibrationHistoryByCategory: {
-                    ...(prev.calibrationHistoryByCategory || {}),
-                    [normalizedCategoryId]: nextHistory
-                },
+                calibrationHistoryByCategory: nextHistoryByCategory,
                 calibrationOps,
                 calibrationAuditLog
             };
@@ -358,8 +383,8 @@ export default function Coach() {
     }, [setData]);
 
     // BUG-11 FIX: Pass explicit defaults for timeIndex and timelineDates
-    const currentMaxScore = data?.maxScore ?? 100;
-    const currentMinScore = data?.minScore ?? 0;
+    const currentMaxScore = data?.maxScore ?? data?.settings?.maxScore ?? 100;
+    const currentMinScore = data?.minScore ?? data?.settings?.minScore ?? 0;
 
     // BUG-26 FIX: Deduplicating history entries safely with correct scale
     const combinedHistory = useMemo(
@@ -370,22 +395,8 @@ export default function Coach() {
     // Converte targetScore ou targetProbability em pontos na escala da prova
     const targetScorePoints = useMemo(() => {
         const safeMax = Math.max(1, Number(currentMaxScore) || 100);
-        const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax) : 0;
-        const clampVal = (value) => Math.min(safeMax, Math.max(safeMin, Number.isFinite(Number(value)) ? Number(value) : safeMin));
-        
-        if (userProfile?.targetScore != null && Number.isFinite(Number(userProfile.targetScore))) {
-            let ts = Number(userProfile.targetScore);
-            if (ts <= 100 && (safeMax - safeMin) > 100) {
-                ts = safeMin + (ts / 100) * (safeMax - safeMin);
-            }
-            return clampVal(ts);
-        }
-        
-        if (userProfile?.targetProbability != null && Number.isFinite(Number(userProfile.targetProbability))) {
-            return clampVal(safeMin + (Number(userProfile.targetProbability) / 100) * (safeMax - safeMin));
-        }
-        
-        return clampVal(safeMin + (safeMax - safeMin) * 0.85);
+        const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
+        return resolveUserTargetScorePoints(userProfile, safeMin, safeMax, 0.85);
     }, [userProfile, currentMinScore, currentMaxScore]);
     
     const mcStats = useMonteCarloStats({
@@ -453,8 +464,12 @@ export default function Coach() {
             const candidateKeys = [
                 cat.id && String(cat.id),
                 cat.id && getSafeCategoryKey(cat.id),
+                cat.id && getCalibrationKey(cat.id),
+                cat.id && getCalibrationKey(getSafeCategoryKey(cat.id)),
                 cat.name && String(cat.name),
-                cat.name && getSafeCategoryKey(cat.name)
+                cat.name && getSafeCategoryKey(cat.name),
+                cat.name && getCalibrationKey(cat.name),
+                cat.name && getCalibrationKey(getSafeCategoryKey(cat.name))
             ].filter(Boolean);
 
             const op = candidateKeys.map(k => ops[k]).find(Boolean);
@@ -463,7 +478,13 @@ export default function Coach() {
                 return;
             }
 
-            const history = candidateKeys.map(k => historyByCategory[k]).find(h => Array.isArray(h) && h.length > 0);
+            const history = getCalibrationHistoryFor(
+                historyByCategory,
+                cat.id,
+                getSafeCategoryKey(cat.id),
+                cat.name,
+                getSafeCategoryKey(cat.name)
+            );
             if (Array.isArray(history) && history.length > 0) {
                 const latest = history[history.length - 1];
                 const brier = latest?.avgBrier != null && latest?.avgBrier !== '' ? Number(latest.avgBrier) : NaN;
@@ -536,34 +557,46 @@ export default function Coach() {
         const analysisTimer = setTimeout(() => {
             try {
                 const safeTargetScore = Number.isFinite(Number(targetScorePoints)) ? Number(targetScorePoints) : null;
-                const safeMax = Number.isFinite(currentMaxScore) ? currentMaxScore : (data?.maxScore ?? 100);
-                const safeMin = Number.isFinite(currentMinScore) ? currentMinScore : (data?.minScore ?? 0);
+                const safeMax = Number.isFinite(Number(currentMaxScore)) ? Number(currentMaxScore) : 100;
+                const safeMin = Number.isFinite(Number(currentMinScore)) ? Number(currentMinScore) : 0;
                 const collectedMetrics = [];
+                const collectedMetricKeys = new Set();
+                const isManualRefresh = planRefreshTick !== lastProcessedManualRefreshRef.current;
+                lastProcessedManualRefreshRef.current = planRefreshTick;
+
+                const baseCoachOptions = {
+                    contestId: activeId,
+                    user: data?.user,
+                    ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
+                    maxScore: safeMax,
+                    minScore: safeMin,
+                    calibrationHistoryByCategory: calibrationHistoryRef.current,
+                    flashcardDecks,
+                    flashcardDue,
+                    onCalibrationMetric: (metric) => {
+                        const rawKey = getSafeCategoryKey(metric?.categoryId || metric?.categoryName);
+                        const dedupKey = rawKey ? (getCalibrationKey(rawKey) || rawKey) : '';
+                        if (dedupKey && !collectedMetricKeys.has(dedupKey)) {
+                            collectedMetricKeys.add(dedupKey);
+                            collectedMetrics.push(metric);
+                        }
+                    },
+                    // Pass global MC stats for richer integration (see analysis of Coach + MC)
+                    // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
+                    globalMcStats: mcStatsContextRef.current,
+                    simuladoRows: data?.simuladoRows,
+                    allSimulados: data?.simulados,
+                    config: {
+                        contestId: activeId,
+                        MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
+                    }
+                };
 
                 const result = getSuggestedFocus(
                     categories,
                     combinedHistory,
                     studyLogs,
-                    {
-                        contestId: activeId,
-                        user: data?.user,
-                        ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
-                        maxScore: safeMax,
-                        minScore: safeMin,
-                        calibrationHistoryByCategory: calibrationHistoryRef.current,
-                        flashcardDecks: flashcardDecks,
-                        flashcardDue,
-                        onCalibrationMetric: (metric) => collectedMetrics.push(metric),
-                        // Pass global MC stats for richer integration (see analysis of Coach + MC)
-                        // FIX-#185: Read from ref (stable) instead of the reactive mcStatsContext
-                        globalMcStats: mcStatsContextRef.current,
-                        simuladoRows: data?.simuladoRows,
-                        allSimulados: data?.simulados,
-                        config: {
-                            contestId: activeId,
-                            MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
-                        }
-                    }
+                    baseCoachOptions
                 );
 
                 // BEST: enrich the suggestion with global MC context for the UI
@@ -585,22 +618,7 @@ export default function Coach() {
                         categories,
                         combinedHistory,
                         studyLogs,
-                        {
-                            contestId: activeId,
-                            user: data?.user,
-                            ...(safeTargetScore !== null ? { targetScore: safeTargetScore } : {}),
-                            maxScore: safeMax,
-                            minScore: safeMin,
-                            calibrationHistoryByCategory: calibrationHistoryRef.current,
-                            onCalibrationMetric: (metric) => collectedMetrics.push(metric),
-                            simuladoRows: data?.simuladoRows,
-                            allSimulados: data?.simulados,
-                            flashcardDecks: flashcardDecks,
-                            config: {
-                                contestId: activeId,
-                                MC_ENABLE_ADAPTIVE_CALIBRATION: data?.settings?.adaptiveCalibrationEnabled !== false
-                            }
-                        }
+                        baseCoachOptions
                     );
 
                     if (Array.isArray(newTasks) && newTasks.length > 0 && isMountedRef.current) {
@@ -609,6 +627,17 @@ export default function Coach() {
                         const existingPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
                             ? currentData.coachPlanner
                             : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+
+                        const isTaskCategoryValid = (taskItem) => {
+                            const cid = taskItem?.categoryId;
+                            if (!cid || ['geral', 'default'].includes(String(cid))) return true;
+                            const safeCid = getSafeCategoryKey(cid);
+                            return categories.some(c => c && (
+                                (c.id && String(c.id) === String(cid)) ||
+                                (safeCid && getSafeCategoryKey(c.id) === safeCid) ||
+                                (taskItem?.category && c.name && isSubjectMatch(c.name, taskItem.category))
+                            ));
+                        };
 
                         // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
                         // e atualizar a telemetria (analysis) caso a tarefa exista nas novas metas calculadas.
@@ -624,14 +653,29 @@ export default function Coach() {
                         const assignedIds = new Set();
                         const refreshedPlanner = {};
                         let plannerTelemetryUpdated = false;
+                        let plannerChanged = false;
                         Object.entries(existingPlanner).forEach(([dayKey, dayArr]) => {
                             if (Array.isArray(dayArr)) {
-                                refreshedPlanner[dayKey] = dayArr.map(t => {
-                                    if (!t) return t;
+                                const nextDay = [];
+                                dayArr.forEach(t => {
+                                    if (!t) {
+                                        plannerChanged = true;
+                                        return;
+                                    }
+                                    if (!isTaskCategoryValid(t)) {
+                                        plannerChanged = true;
+                                        return;
+                                    }
                                     const sid = getSafeCategoryKey(ensureCoachTaskId(t));
                                     if (sid) {
-                                        assignedIds.add(sid);
                                         const fresh = freshTasksById.get(sid);
+                                        const staleAlert = !fresh && !t.completed && isSystemAlertTask(t.text || t.title);
+                                        const staleOnManual = !fresh && !t.completed && isManualRefresh;
+                                        if (staleAlert || staleOnManual) {
+                                            plannerChanged = true;
+                                            return;
+                                        }
+                                        assignedIds.add(sid);
                                         const mergedTask = fresh
                                             ? {
                                                 ...t,
@@ -645,10 +689,12 @@ export default function Coach() {
                                             plannerTelemetryUpdated = true;
                                         }
                                         assignedTasks.push(mergedTask);
-                                        return mergedTask;
+                                        nextDay.push(mergedTask);
+                                        return;
                                     }
-                                    return t;
+                                    nextDay.push(t);
                                 });
+                                refreshedPlanner[dayKey] = nextDay;
                             } else {
                                 refreshedPlanner[dayKey] = [];
                             }
@@ -657,7 +703,7 @@ export default function Coach() {
                         // Preservar status de tarefas previamente concluídas no backlog
                         const existingCompletedMap = new Map();
                         existingPlan.forEach(t => {
-                            if (t && t.completed) {
+                            if (t && t.completed && isTaskCategoryValid(t)) {
                                 const sid = getSafeCategoryKey(ensureCoachTaskId(t));
                                 if (sid) existingCompletedMap.set(sid, t);
                             }
@@ -681,6 +727,7 @@ export default function Coach() {
                         ];
 
                         const hasPlanChanged = plannerTelemetryUpdated ||
+                            plannerChanged ||
                             existingPlan.length !== nextPlan.length ||
                             existingPlan.some((t, i) => {
                                 const next = nextPlan[i];
@@ -690,7 +737,8 @@ export default function Coach() {
                                 return sid1 !== sid2 ||
                                     t.text !== next.text ||
                                     t.priority !== next.priority ||
-                                    Boolean(t.completed) !== Boolean(next.completed);
+                                    Boolean(t.completed) !== Boolean(next.completed) ||
+                                    JSON.stringify(t.analysis || null) !== JSON.stringify(next.analysis || null);
                             });
 
                         if (hasPlanChanged || !currentData?.coachPlanner) {
@@ -742,8 +790,6 @@ export default function Coach() {
         data?.user, 
         currentMaxScore,
         currentMinScore,
-        data?.maxScore, 
-        data?.minScore,
         data?.settings?.adaptiveCalibrationEnabled,
         targetScorePoints,
         flashcardDue,
@@ -768,8 +814,10 @@ export default function Coach() {
 
 
     const handleChangeTab = useCallback((tab) => {
-        setActiveTab(tab === 'analytics' ? 'analytics' : 'insights');
-    }, []);
+        if (tab === 'analytics') setActiveTab('analytics');
+        else if (tab === 'control' && showControlCenter) setActiveTab('control');
+        else setActiveTab('insights');
+    }, [showControlCenter]);
 
     
 
@@ -846,15 +894,16 @@ export default function Coach() {
 
                 <div className="space-y-4 sm:space-y-5">
                     <div className="w-full">
-                        <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} />
+                        <CoachMenuNav activeTab={safeActiveTab} onChangeTab={handleChangeTab} isPremium={isPremium} showControlCenter={showControlCenter} />
 
                         <AnimatePresence mode="wait">
                             <Motion.div 
                                 key={safeActiveTab}
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -8 }}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
                                 transition={{ duration: 0.2, ease: "easeOut" }}
+                                style={{ transform: 'none', filter: 'none', willChange: 'auto' }}
                                 className="min-h-[200px]"
                             >
                                 <div
@@ -901,6 +950,14 @@ export default function Coach() {
                                                 onRegeneratePlan={handleRegeneratePlan}
                                             />
                                         </>
+                                    ) : safeActiveTab === 'control' && showControlCenter ? (
+                                        <CoachControlCenter
+                                            categories={categories}
+                                            simulados={combinedHistory}
+                                            studyLogs={studyLogs}
+                                            maxScore={currentMaxScore}
+                                            targetScore={targetScorePoints}
+                                        />
                                     ) : (
                                         <RaioXDashboard data={data} />
                                     )}
@@ -1027,43 +1084,44 @@ export function RaioXDashboard({ data }) {
             
             // Reúne todas as fontes de simulado para esta categoria de forma unificada sem contagem dupla entre fontes
             const catAttempts = new Set();
-            const seenDatesCrossSource = new Set();
+            const seenBatches = new Set();
+            const seenIds = new Set();
+            const priorSourceDates = new Set();
 
-            const histDates = new Set();
             catStatsHistory.forEach((h, idx) => {
-                if (!h) return;
+                if (!h || h.valid === false) return;
                 const dStr = getDateKey(h.date || h.createdAt);
-                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `d_${dStr || idx}_${h.score}`);
+                if (h.batchId) seenBatches.add(String(h.batchId));
+                if (h.id) seenIds.add(String(h.id));
+                if (dStr) priorSourceDates.add(dStr);
+                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `d_${dStr || idx}_${h.score ?? idx}`);
                 catAttempts.add(dKey);
-                if (dStr) histDates.add(dStr);
             });
-            histDates.forEach(d => seenDatesCrossSource.add(d));
 
-            const simDates = new Set();
-            rawSims.forEach((s, idx) => {
-                if (!s) return;
-                const matches = (cat.id && s.categoryId && String(s.categoryId) === String(cat.id)) ||
-                    isSubjectMatch(s.subject || s.categoryName || s.materia || s.disciplina || '', catName);
-                if (!matches) return;
-                const dStr = getDateKey(s.date || s.createdAt);
-                if (dStr && seenDatesCrossSource.has(dStr)) return;
-                const dKey = s.batchId ? `b_${s.batchId}` : (s.id ? `id_${s.id}` : `d_${dStr || idx}_${s.score}`);
-                catAttempts.add(dKey);
-                if (dStr) simDates.add(dStr);
-            });
-            simDates.forEach(d => seenDatesCrossSource.add(d));
+            const collectExternalSource = (entries, keyPrefix) => {
+                const sourceDates = new Set();
+                entries.forEach((entry, idx) => {
+                    if (!entry || entry.valid === false) return;
+                    const matches = (cat.id && entry.categoryId && String(entry.categoryId) === String(cat.id)) ||
+                        isSubjectMatch(entry.subject || entry.categoryName || entry.materia || entry.disciplina || '', catName);
+                    if (!matches) return;
+                    if (entry.batchId && seenBatches.has(String(entry.batchId))) return;
+                    if (entry.id && seenIds.has(String(entry.id))) return;
+                    const dStr = getDateKey(entry.date || entry.createdAt);
+                    if (!entry.batchId && dStr && priorSourceDates.has(dStr)) return;
+                    if (entry.batchId) seenBatches.add(String(entry.batchId));
+                    if (entry.id) seenIds.add(String(entry.id));
+                    if (dStr) sourceDates.add(dStr);
+                    const dKey = entry.batchId
+                        ? `b_${entry.batchId}`
+                        : (entry.id ? `id_${entry.id}` : `${keyPrefix}_${dStr || idx}_${entry.score ?? idx}`);
+                    catAttempts.add(dKey);
+                });
+                sourceDates.forEach(d => priorSourceDates.add(d));
+            };
 
-            rawRows.forEach((r, idx) => {
-                if (!r) return;
-                const matches = (cat.id && r.categoryId && String(r.categoryId) === String(cat.id)) ||
-                    isSubjectMatch(r.subject || r.categoryName || r.materia || r.disciplina || '', catName);
-                if (!matches) return;
-                const dStr = getDateKey(r.date || r.createdAt);
-                if (dStr && seenDatesCrossSource.has(dStr)) return;
-                // Agrupa linhas do mesmo dia/batch em uma única tentativa de simulado, preservando id quando não há data
-                const dKey = r.batchId ? `b_${r.batchId}` : (dStr ? `row_${dStr}` : (r.id ? `id_${r.id}` : `row_${idx}_${r.score}`));
-                catAttempts.add(dKey);
-            });
+            collectExternalSource(rawSims, 'sim');
+            collectExternalSource(rawRows, 'row');
 
             const count = catAttempts.size;
             return {
@@ -1074,6 +1132,19 @@ export function RaioXDashboard({ data }) {
             };
         }).filter(c => c.name);
     }, [categories, rawSimulados, rawSimuladoRows]);
+
+    const isActiveCategoryEntry = useCallback((rawCat) => {
+        if (activeCategoryIds.size === 0) return true;
+        if (!rawCat) return false;
+        const safeId = getSafeCategoryKey(rawCat);
+        return activeCategoryIds.has(String(rawCat)) ||
+            (safeId && activeCategoryIds.has(safeId)) ||
+            (safeId && activeCategoryIds.has(normalize(safeId))) ||
+            categories.some(c => c && (
+                (c.id && String(c.id) === String(rawCat)) ||
+                (c.name && isSubjectMatch(c.name, rawCat))
+            ));
+    }, [activeCategoryIds, categories]);
 
     // BUG-7 FIX: Derive 'now' from latest calibration timestamp to avoid impure Date.now() in useMemo.
     const calibrationSummary = useMemo(() => {
@@ -1091,17 +1162,7 @@ export function RaioXDashboard({ data }) {
         const now = latestTs;
         const mergedByCanonical = new Map();
         Object.entries(historyByCategory)
-            .filter(([categoryId]) => {
-                if (activeCategoryIds.size === 0) return true;
-                const safeId = getSafeCategoryKey(categoryId);
-                return activeCategoryIds.has(String(categoryId)) ||
-                    (safeId && activeCategoryIds.has(safeId)) ||
-                    (safeId && activeCategoryIds.has(normalize(safeId))) ||
-                    categories.some(c => c && (
-                        (c.id && String(c.id) === String(categoryId)) ||
-                        (c.name && isSubjectMatch(c.name, categoryId))
-                    ));
-            })
+            .filter(([categoryId]) => isActiveCategoryEntry(categoryId))
             .forEach(([categoryId, history]) => {
                 const rows = Array.isArray(history) ? history : [];
                 if (rows.length === 0) return;
@@ -1163,7 +1224,7 @@ export function RaioXDashboard({ data }) {
                 return { categoryId, label, count: validCount, simCount, avgBrier, avgEce, avgPenalty };
             })
             .filter(Boolean);
-    }, [data?.calibrationHistoryByCategory, activeCategoryIds, categories, categorySimCounts]);
+    }, [data?.calibrationHistoryByCategory, isActiveCategoryEntry, categories, categorySimCounts]);
 
     const toPercentLabel = (value) => {
         if (value === null || value === undefined || value === '') return '-';
@@ -1175,8 +1236,10 @@ export function RaioXDashboard({ data }) {
 
     const sortedLogs = useMemo(() => {
         const source = Array.isArray(data?.calibrationAuditLog) ? data.calibrationAuditLog : [];
-        return [...source].sort((a, b) => toTimestampMs(b?.timestamp) - toTimestampMs(a?.timestamp));
-    }, [data?.calibrationAuditLog]);
+        return source
+            .filter(log => log && isActiveCategoryEntry(log.categoryName || log.categoryId))
+            .sort((a, b) => toTimestampMs(b?.timestamp) - toTimestampMs(a?.timestamp));
+    }, [data?.calibrationAuditLog, isActiveCategoryEntry]);
 
     const isLogDegraded = useCallback((log) => {
         if (log?.degraded) return true;
@@ -1218,11 +1281,13 @@ export function RaioXDashboard({ data }) {
         });
 
         // 2. Ingest from calibrationHistoryByCategory
-        Object.entries(historyByCategory).forEach(([rawCat, history]) => {
-            if (Array.isArray(history)) {
-                history.forEach(item => addPoint(rawCat, item));
-            }
-        });
+        Object.entries(historyByCategory)
+            .filter(([rawCat]) => isActiveCategoryEntry(rawCat))
+            .forEach(([rawCat, history]) => {
+                if (Array.isArray(history)) {
+                    history.forEach(item => addPoint(rawCat, item));
+                }
+            });
 
         // Sort ascending by timestamp
         Object.keys(acc).forEach(key => {
@@ -1230,7 +1295,7 @@ export function RaioXDashboard({ data }) {
         });
 
         return acc;
-    }, [sortedLogs, data?.calibrationHistoryByCategory, categories]);
+    }, [sortedLogs, data?.calibrationHistoryByCategory, categories, isActiveCategoryEntry]);
 
     const categoryNames = useMemo(() => Object.keys(categorySeriesMap), [categorySeriesMap]);
     const [seriesCategory, setSeriesCategory] = useState(() => categoryNames[0] || '');

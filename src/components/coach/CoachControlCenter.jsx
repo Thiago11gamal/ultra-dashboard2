@@ -811,6 +811,78 @@ function CausalPanel({ causalModel }) {
 }
 
 // ==========================================================
+// Painel: Explicação LLM
+// ==========================================================
+function LLMPanel({ orchestratorResult, runOrchestrator, loading }) {
+  const llm = orchestratorResult?.llmExplanation || orchestratorResult?.focus?.urgency?.llmExplanation || null;
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <SectionTitle icon="💬">Explicação LLM do Foco</SectionTitle>
+          <p className="text-xs text-slate-400">
+            Gera justificativa estratégica usando LLM quando disponível ou fallback determinístico auditável.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => runOrchestrator?.({ runHealth: true, runLLM: true, runAutoTuner: false, trainCausalModel: false })}
+          disabled={loading}
+          className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {loading ? 'Gerando...' : '▶ Gerar Explicação LLM'}
+        </button>
+      </div>
+
+      {!llm ? (
+        <EmptyState message="Nenhuma explicação LLM gerada ainda. Clique em 'Gerar Explicação LLM' para processar o foco atual." />
+      ) : (
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-base font-semibold text-white">{llm.headline || 'Resumo da Análise'}</h4>
+            <div className="flex items-center gap-2 text-xs">
+              {llm.severity && (
+                <span className="px-2 py-0.5 rounded bg-slate-700/70 text-slate-200 uppercase font-mono">
+                  {llm.severity}
+                </span>
+              )}
+              {llm.source && (
+                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+                  {llm.source}{llm.provider ? ` (${llm.provider})` : ''}
+                </span>
+              )}
+              {Number.isFinite(Number(llm.confidence)) && (
+                <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-mono">
+                  Confiança: {Math.round(Number(llm.confidence) * 100)}%
+                </span>
+              )}
+            </div>
+          </div>
+
+          {llm.recommendation && (
+            <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-700/40 text-sm text-slate-200">
+              {llm.recommendation}
+            </div>
+          )}
+
+          {Array.isArray(llm.causes) && llm.causes.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Fatores Identificados</p>
+              <ul className="space-y-1.5 text-sm text-slate-300 list-disc list-inside">
+                {llm.causes.map((cause, idx) => (
+                  <li key={`llm-cause-${idx}`}>{typeof cause === 'string' ? cause : JSON.stringify(cause)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================================
 // Componente principal
 // ==========================================================
 export default function CoachControlCenter({
@@ -857,6 +929,7 @@ export default function CoachControlCenter({
           <TabButton active={activeTab === 'causal'} onClick={() => setActiveTab('causal')} icon="🔬">Causalidade</TabButton>
           <TabButton active={activeTab === 'autotuner'} onClick={() => setActiveTab('autotuner')} icon="🤖">AutoTuner</TabButton>
           <TabButton active={activeTab === 'backtest'} onClick={() => setActiveTab('backtest')} icon="📈">Backtests</TabButton>
+          <TabButton active={activeTab === 'llm'} onClick={() => setActiveTab('llm')} icon="💬">Explicação LLM</TabButton>
         </div>
 
         {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} />}
@@ -873,6 +946,7 @@ export default function CoachControlCenter({
             <AutoTunerPanel tunerResult={tunerResult} tunerHistory={tunerHistory} runAutoTuner={runAutoTuner} applyRecommendation={applyRecommendation} rollbackToBaseline={rollbackToBaseline} loading={loading} />
           )}
           {activeTab === 'backtest' && <BacktestPanel backtestReport={backtestReport} />}
+          {activeTab === 'llm' && <LLMPanel orchestratorResult={orchestratorResult} runOrchestrator={runOrchestrator} loading={loading} />}
         </div>
       </div>
     </div>

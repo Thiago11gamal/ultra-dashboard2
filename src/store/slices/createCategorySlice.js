@@ -1,10 +1,11 @@
-import { generateId } from '../../utils/idGenerator.js';
+import { generateId, getSafeId } from '../../utils/idGenerator.js';
 import { normalize } from '../../utils/normalization.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
 import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
 import { clearMcCache } from '../../utils/coachAdaptive.js';
+import { getCalibrationKey } from '../../utils/coachSafe.js';
 import { PRESET_CATEGORY_COLORS } from '../../utils/colorHelper.js';
 
 export const createCategorySlice = (set) => ({
@@ -178,6 +179,52 @@ export const createCategorySlice = (set) => ({
         if (Array.isArray(activeData.coachPlan)) {
             activeData.coachPlan = activeData.coachPlan.filter(
                 task => task.categoryId !== id
+            );
+        }
+
+        const toSafeKey = (v) => {
+            const safe = getSafeId(v);
+            return safe && safe !== 'task-null-sentinel' ? String(safe).trim() : '';
+        };
+
+        const deletedKeys = new Set(
+            [id, category?.id, category?.name]
+                .filter(Boolean)
+                .flatMap((v) => [String(v), toSafeKey(String(v)), getCalibrationKey(String(v))])
+                .map((k) => String(k).trim().toLowerCase())
+                .filter((k) => k && k !== 'geral' && k !== 'default' && k !== 'sem_categoria')
+        );
+
+        const matchesDeletedCategory = (candidate) => {
+            if (!candidate || deletedKeys.size === 0) return false;
+            const raw = String(candidate).trim();
+            if (!raw) return false;
+            return (
+                deletedKeys.has(raw.toLowerCase()) ||
+                deletedKeys.has(toSafeKey(raw).toLowerCase()) ||
+                deletedKeys.has(getCalibrationKey(raw).toLowerCase())
+            );
+        };
+
+        if (activeData.calibrationHistoryByCategory && typeof activeData.calibrationHistoryByCategory === 'object') {
+            Object.keys(activeData.calibrationHistoryByCategory).forEach((k) => {
+                if (matchesDeletedCategory(k)) {
+                    delete activeData.calibrationHistoryByCategory[k];
+                }
+            });
+        }
+
+        if (activeData.calibrationOps && typeof activeData.calibrationOps === 'object') {
+            Object.keys(activeData.calibrationOps).forEach((k) => {
+                if (matchesDeletedCategory(k)) {
+                    delete activeData.calibrationOps[k];
+                }
+            });
+        }
+
+        if (Array.isArray(activeData.calibrationAuditLog)) {
+            activeData.calibrationAuditLog = activeData.calibrationAuditLog.filter(
+                (entry) => entry && !matchesDeletedCategory(entry.categoryId || entry.category)
             );
         }
 

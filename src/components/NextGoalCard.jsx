@@ -3,13 +3,54 @@ import { Target, Play, Clock, Info, Sparkles } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 import { toArray } from '../utils/normalize';
 import { normalizePriority } from '../utils/colorHelper';
+import { useAppStore } from '../store/useAppStore';
+import { getFlashcardDueTodayCount } from '../utils/analytics';
+import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
 
 function NextGoalCard({
     categories = [],
     simulados = [],
     studyLogs = [],
-    onStartStudying
+    onStartStudying,
+    maxScore: propMaxScore,
+    minScore: propMinScore,
+    targetScore: propTargetScore,
+    user: propUser,
+    contestId: propContestId,
+    simuladoRows: propSimuladoRows,
+    calibrationHistoryByCategory: propCalibrationHistory,
+    flashcardDecks: propFlashcardDecks
 }) {
+    const storeActiveId = useAppStore(state => state.appState?.activeId);
+    const storeContest = useAppStore(state =>
+        state.appState?.contests?.[state.appState?.activeId] || null
+    );
+
+    const effectiveContestId = propContestId ?? storeActiveId ?? 'default';
+    const effectiveUser = propUser ?? storeContest?.user;
+    const effectiveMaxScore = Number(
+        propMaxScore ?? storeContest?.maxScore ?? storeContest?.settings?.maxScore ?? 100
+    ) || 100;
+    const rawMin = propMinScore ?? storeContest?.minScore ?? storeContest?.settings?.minScore ?? 0;
+    const effectiveMinScore = Number.isFinite(Number(rawMin))
+        ? Math.min(Number(rawMin), effectiveMaxScore - 1)
+        : 0;
+    const effectiveTargetScore = propTargetScore ?? resolveUserTargetScorePoints(
+        effectiveUser,
+        effectiveMinScore,
+        effectiveMaxScore,
+        0.85
+    );
+    const effectiveSimuladoRows = propSimuladoRows ?? storeContest?.simuladoRows;
+    const effectiveAllSimulados = storeContest?.simulados ?? simulados;
+    const effectiveCalibHistory = propCalibrationHistory ?? storeContest?.calibrationHistoryByCategory;
+    const effectiveFlashcardDecks = propFlashcardDecks ?? storeContest?.flashcardDecks;
+    const effectiveFlashcardDue = useMemo(
+        () => getFlashcardDueTodayCount(effectiveFlashcardDecks),
+        [effectiveFlashcardDecks]
+    );
+    const adaptiveCalibrationEnabled = storeContest?.settings?.adaptiveCalibrationEnabled !== false;
+
     const rawCategories = useMemo(() => toArray(categories), [categories]);
     const hasAnyTasks = useMemo(() => {
         return rawCategories.some(cat => toArray(cat?.tasks).length > 0);
@@ -46,7 +87,24 @@ function NextGoalCard({
                 const suggestedCategory = getSuggestedFocus(
                     categoriesWithPending,
                     toArray(simulados),
-                    toArray(studyLogs)
+                    toArray(studyLogs),
+                    {
+                        contestId: effectiveContestId,
+                        user: effectiveUser,
+                        targetScore: effectiveTargetScore,
+                        maxScore: effectiveMaxScore,
+                        minScore: effectiveMinScore,
+                        calibrationHistoryByCategory: effectiveCalibHistory,
+                        flashcardDecks: effectiveFlashcardDecks,
+                        flashcardDue: effectiveFlashcardDue,
+                        simuladoRows: effectiveSimuladoRows,
+                        allSimulados: effectiveAllSimulados,
+                        allCategories: normalizedCategories,
+                        config: {
+                            contestId: effectiveContestId,
+                            MC_ENABLE_ADAPTIVE_CALIBRATION: adaptiveCalibrationEnabled
+                        }
+                    }
                 );
                 if (!suggestedCategory) {
                     setSuggestion(null);
@@ -99,7 +157,23 @@ function NextGoalCard({
         }, 50);
 
         return () => clearTimeout(timer);
-    }, [rawCategories, hasAnyTasks, simulados, studyLogs]);
+    }, [
+        rawCategories,
+        hasAnyTasks,
+        simulados,
+        studyLogs,
+        effectiveContestId,
+        effectiveUser,
+        effectiveTargetScore,
+        effectiveMaxScore,
+        effectiveMinScore,
+        effectiveCalibHistory,
+        effectiveFlashcardDecks,
+        effectiveFlashcardDue,
+        effectiveSimuladoRows,
+        effectiveAllSimulados,
+        adaptiveCalibrationEnabled
+    ]);
 
     if (rawCategories.length === 0 || !hasAnyTasks) {
         return null;

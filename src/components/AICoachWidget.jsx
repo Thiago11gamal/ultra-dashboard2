@@ -95,8 +95,9 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
         const range = Math.max(1e-9, scaleMax - scaleMin);
         return Math.min(100, Math.max(0, ((value - scaleMin) / range) * 100));
     };
-    const safeVolatility = Number.isFinite(Number(mc.volatility)) ? Math.round(Number(mc.volatility)) : 0;
-    const volHalfBand = Math.max(5, Math.min(22, (safeVolatility / Math.max(1, scaleMax - scaleMin)) * 100 * 1.5));
+    const rawVolatility = Number.isFinite(Number(mc.volatility)) ? Math.max(0, Number(mc.volatility)) : 0;
+    const volatilityLabel = rawVolatility > 0 && rawVolatility < 0.5 ? '<1' : String(Math.round(rawVolatility));
+    const volHalfBand = Math.max(5, Math.min(22, (rawVolatility / Math.max(1, scaleMax - scaleMin)) * 100 * 1.5));
 
     // FIX: Usar intervalo conformal de probabilidade (conformalLow / conformalHigh) ou banda probabilística ao redor de `prob`
     // em vez de ci95Low/ci95High (que estão na escala de nota projetada e ficavam deslocados do marcador de probabilidade).
@@ -145,7 +146,7 @@ function MonteCarloGauge({ mc, scaleMax = 100, scaleMin = 0 }) {
                         Volatilidade
                     </span>
                     <span className="inline-block text-xs font-mono font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                        ±{safeVolatility} pts
+                        ±{volatilityLabel} pts
                     </span>
                 </div>
             </div>
@@ -228,8 +229,20 @@ export default function AICoachWidget({ suggestion }) {
     const sortedHumanReadable = Object.entries(urgency.humanReadable || {}).sort(([a], [b]) => a.localeCompare(b, 'pt-BR'));
     const rawGlobalMeanCandidate = suggestion.globalProjectedMean ?? suggestion.urgency?.details?.globalMcContext?.projectedMean;
     const globalMeanRaw = rawGlobalMeanCandidate !== null && rawGlobalMeanCandidate !== undefined && rawGlobalMeanCandidate !== '' ? Number(rawGlobalMeanCandidate) : NaN;
-    const scaleMax = Math.max(1, Number(activeContest?.maxScore ?? suggestion?.maxScore) || 100);
-    const scaleMin = Number.isFinite(Number(activeContest?.minScore ?? suggestion?.minScore)) ? Math.min(Number(activeContest?.minScore ?? suggestion?.minScore), scaleMax - 1) : 0;
+    const scaleMax = Math.max(1, Number(activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? suggestion?.maxScore) || 100);
+    const rawGlobalMin = activeContest?.minScore ?? activeContest?.settings?.minScore ?? suggestion?.minScore;
+    const scaleMin = Number.isFinite(Number(rawGlobalMin)) ? Math.min(Number(rawGlobalMin), scaleMax - 1) : 0;
+    const matchedCategory = Array.isArray(activeContest?.categories)
+        ? activeContest.categories.find(c => c && (
+            (suggestion.id && c.id === suggestion.id) ||
+            (suggestion.categoryId && c.id === suggestion.categoryId) ||
+            (suggestion.name && c.name === suggestion.name) ||
+            (suggestion.subject && c.name === suggestion.subject)
+        ))
+        : null;
+    const categoryScaleMax = Math.max(1, Number(matchedCategory?.maxScore ?? suggestion?.maxScore ?? scaleMax) || 100);
+    const rawCatMin = matchedCategory?.minScore ?? suggestion?.minScore ?? scaleMin;
+    const categoryScaleMin = Number.isFinite(Number(rawCatMin)) ? Math.min(Number(rawCatMin), categoryScaleMax - 1) : 0;
     const globalPct = Number.isFinite(globalMeanRaw)
         ? Math.max(0, Math.min(100, ((globalMeanRaw - scaleMin) / (scaleMax - scaleMin)) * 100))
         : null;
@@ -396,8 +409,8 @@ export default function AICoachWidget({ suggestion }) {
                                 {suggestion.urgency?.details?.monteCarlo && (
                                     <MonteCarloGauge
                                         mc={suggestion.urgency.details.monteCarlo}
-                                        scaleMax={scaleMax}
-                                        scaleMin={scaleMin}
+                                        scaleMax={categoryScaleMax}
+                                        scaleMin={categoryScaleMin}
                                     />
                                 )}
 

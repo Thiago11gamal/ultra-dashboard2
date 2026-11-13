@@ -249,15 +249,15 @@ export const useAppStore = create(
 
           if (nextData !== null && typeof nextData === 'object' && nextData !== currentData) {
             Object.assign(state.appState.contests[contestId], nextData);
-          }
 
-          const nowIso = new Date().toISOString();
-          if (state.appState.contests[contestId]) {
-            state.appState.contests[contestId].lastUpdated = nowIso;
+            const nowIso = new Date().toISOString();
+            if (state.appState.contests[contestId]) {
+              state.appState.contests[contestId].lastUpdated = nowIso;
+            }
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = nowIso;
+            try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
           }
-          state.appState.version = (state.appState.version || 0) + 1;
-          state.appState.lastUpdated = nowIso;
-          try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
         }),
 
         ...createPomodoroSlice(set, get),

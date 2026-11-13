@@ -347,14 +347,41 @@ export const sanitizeContest = (data, contestId = '') => {
       targetProbability: (source.user?.targetProbability != null && Number.isFinite(Number(source.user.targetProbability)))
         ? Math.max(0, Math.min(100, Number(source.user.targetProbability)))
         : 70
-    },
+      },
+    ...(source.maxScore !== undefined && source.maxScore !== null && Number.isFinite(Number(source.maxScore))
+      ? { maxScore: Number(source.maxScore) }
+      : {}),
+    ...(source.minScore !== undefined && source.minScore !== null && Number.isFinite(Number(source.minScore))
+      ? { minScore: Number(source.minScore) }
+      : {}),
+    ...(source.examDurationMinutes !== undefined && source.examDurationMinutes !== null && Number.isFinite(Number(source.examDurationMinutes)) && Number(source.examDurationMinutes) > 0
+      ? { examDurationMinutes: Number(source.examDurationMinutes) }
+      : {}),
+    ...(source.examTotalQuestions !== undefined && source.examTotalQuestions !== null && Number.isFinite(Number(source.examTotalQuestions)) && Number(source.examTotalQuestions) > 0
+      ? { examTotalQuestions: Math.round(Number(source.examTotalQuestions)) }
+      : {}),
     coachPlan: Array.isArray(source.coachPlan)
       ? source.coachPlan
       : (typeof source.coachPlan === 'object' && source.coachPlan !== null)
         ? Object.values(source.coachPlan)
         : [],
-    calibrationMetrics: (source.calibrationMetrics && typeof source.calibrationMetrics === 'object') ? source.calibrationMetrics : {},
-    coachScore: (source.coachScore && typeof source.coachScore === 'object') ? source.coachScore : null,
+    calibrationMetrics: (source.calibrationMetrics && typeof source.calibrationMetrics === 'object' && !Array.isArray(source.calibrationMetrics)) ? source.calibrationMetrics : {},
+    calibrationHistoryByCategory: (source.calibrationHistoryByCategory && typeof source.calibrationHistoryByCategory === 'object' && !Array.isArray(source.calibrationHistoryByCategory))
+      ? Object.fromEntries(
+          Object.entries(source.calibrationHistoryByCategory).map(([catKey, hist]) => [
+            catKey,
+            Array.isArray(hist) ? hist.filter(e => e && typeof e === 'object').slice(-100) : []
+          ])
+        )
+      : {},
+    calibrationOps: (source.calibrationOps && typeof source.calibrationOps === 'object' && !Array.isArray(source.calibrationOps)) ? source.calibrationOps : {},
+    calibrationAuditLog: Array.isArray(source.calibrationAuditLog)
+      ? source.calibrationAuditLog.filter(e => e && typeof e === 'object').slice(-150)
+      : [],
+    coachScore: (source.coachScore !== null && source.coachScore !== undefined && (
+      (typeof source.coachScore === 'object' && !Array.isArray(source.coachScore)) ||
+      (typeof source.coachScore === 'number' && Number.isFinite(source.coachScore))
+    )) ? source.coachScore : null,
     coachPlanner: (source.coachPlanner && typeof source.coachPlanner === 'object')
       ? source.coachPlanner
       : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
@@ -472,6 +499,7 @@ export const sanitizeContest = (data, contestId = '') => {
     // Math / Calibration history (lightweight for continuous calibration)
     calibrationEvents: Array.isArray(source.calibrationEvents) ? source.calibrationEvents.slice(-200) : [], // keep last 200 for walk-forward
     settings: {
+      ...(source.settings && typeof source.settings === 'object' && !Array.isArray(source.settings) ? source.settings : {}),
       darkMode: source.settings?.darkMode ?? true,
       soundEnabled: source.settings?.soundEnabled ?? true,
       pomodoroWork: Number(source.settings?.pomodoroWork) || 25,
@@ -480,6 +508,7 @@ export const sanitizeContest = (data, contestId = '') => {
       longBreakAfter: Number(source.settings?.longBreakAfter) || 4,
       sessions: Number(source.settings?.sessions) || 0,
       completedCycles: Number(source.settings?.completedCycles) || 0,
+      adaptiveCalibrationEnabled: source.settings?.adaptiveCalibrationEnabled ?? true,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
     historicalCutoffs: (Array.isArray(source.historicalCutoffs) ? source.historicalCutoffs : Object.values(source.historicalCutoffs || {}))

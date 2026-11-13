@@ -526,6 +526,56 @@ const mergeCoachPlannerPure = (localPlanner, cloudPlanner, arrayOptions = {}) =>
   return merged;
 };
 
+const mergeCalibrationHistoryPure = (olderHist = {}, newerHist = {}) => {
+  const safeOlder = (olderHist && typeof olderHist === 'object' && !Array.isArray(olderHist)) ? olderHist : {};
+  const safeNewer = (newerHist && typeof newerHist === 'object' && !Array.isArray(newerHist)) ? newerHist : {};
+  const merged = {};
+  const canonicalKeys = new Map();
+
+  const ingest = (source) => {
+    Object.entries(source).forEach(([rawKey, entries]) => {
+      if (!Array.isArray(entries)) return;
+      const lowerKey = String(rawKey).trim().toLowerCase();
+      if (!lowerKey) return;
+      if (!canonicalKeys.has(lowerKey)) canonicalKeys.set(lowerKey, lowerKey);
+      const targetKey = canonicalKeys.get(lowerKey);
+      if (!merged[targetKey]) merged[targetKey] = new Map();
+      entries.forEach((entry, idx) => {
+        if (!entry || typeof entry !== 'object') return;
+        const ts = entry.timestamp || entry.date || '';
+        const dedupKey = ts
+          ? `${ts}|${entry.brierScore ?? ''}|${entry.ece ?? ''}`
+          : `idx:${idx}:${entry.brierScore ?? ''}:${entry.ece ?? ''}`;
+        merged[targetKey].set(dedupKey, entry);
+      });
+    });
+  };
+
+  ingest(safeOlder);
+  ingest(safeNewer);
+
+  return Object.fromEntries(
+    Object.entries(merged).map(([key, map]) => [
+      key,
+      Array.from(map.values())
+        .sort((a, b) => new Date(a?.timestamp || a?.date || 0).getTime() - new Date(b?.timestamp || b?.date || 0).getTime())
+        .slice(-100)
+    ])
+  );
+};
+
+const mergeCalibrationAuditLogPure = (olderLog = [], newerLog = []) => {
+  const map = new Map();
+  [...(Array.isArray(olderLog) ? olderLog : []), ...(Array.isArray(newerLog) ? newerLog : [])].forEach((entry, idx) => {
+    if (!entry || typeof entry !== 'object') return;
+    const key = entry.id || `${entry.timestamp || entry.date || idx}|${entry.categoryId || entry.category || ''}|${entry.type || entry.status || ''}|${entry.message || ''}`;
+    map.set(key, entry);
+  });
+  return Array.from(map.values())
+    .sort((a, b) => new Date(a?.timestamp || a?.date || 0).getTime() - new Date(b?.timestamp || b?.date || 0).getTime())
+    .slice(-150);
+};
+
 const mergeContestPayloadPure = (localContest, cloudContest, preferCloudBase = false, localTrash = []) => {
   const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
   const localContestTime = new Date(localContest?.lastUpdated || 0).getTime();
@@ -550,6 +600,31 @@ const mergeContestPayloadPure = (localContest, cloudContest, preferCloudBase = f
       return {
         settings: { ...(otherSource.settings || {}), ...(settingsSource.settings || {}) },
         mcWeights: { ...(otherSource.mcWeights || {}), ...(settingsSource.mcWeights || {}) },
+        calibrationMetrics: { ...(otherSource.calibrationMetrics || {}), ...(settingsSource.calibrationMetrics || {}) },
+        calibrationOps: { ...(otherSource.calibrationOps || {}), ...(settingsSource.calibrationOps || {}) },
+        calibrationHistoryByCategory: mergeCalibrationHistoryPure(
+          otherSource.calibrationHistoryByCategory,
+          settingsSource.calibrationHistoryByCategory
+        ),
+        calibrationAuditLog: mergeCalibrationAuditLogPure(
+          otherSource.calibrationAuditLog,
+          settingsSource.calibrationAuditLog
+        ),
+        ...(settingsSource.maxScore !== undefined || otherSource.maxScore !== undefined
+          ? { maxScore: settingsSource.maxScore ?? otherSource.maxScore }
+          : {}),
+        ...(settingsSource.minScore !== undefined || otherSource.minScore !== undefined
+          ? { minScore: settingsSource.minScore ?? otherSource.minScore }
+          : {}),
+        ...(settingsSource.examDurationMinutes !== undefined || otherSource.examDurationMinutes !== undefined
+          ? { examDurationMinutes: settingsSource.examDurationMinutes ?? otherSource.examDurationMinutes }
+          : {}),
+        ...(settingsSource.examTotalQuestions !== undefined || otherSource.examTotalQuestions !== undefined
+          ? { examTotalQuestions: settingsSource.examTotalQuestions ?? otherSource.examTotalQuestions }
+          : {}),
+        ...(settingsSource.coachScore !== undefined || otherSource.coachScore !== undefined
+          ? { coachScore: settingsSource.coachScore ?? otherSource.coachScore }
+          : {}),
       };
     })(),
     historicalCutoffs: mergeArraysPure(localContest.historicalCutoffs, cloudContest.historicalCutoffs, arrayOptions),

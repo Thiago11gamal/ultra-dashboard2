@@ -118,6 +118,29 @@ export function getCalibrationKey(id) {
   return String(id ?? '').trim().toLowerCase();
 }
 
+export function getCalibrationHistoryFor(historyMap, ...rawKeys) {
+  if (!historyMap || typeof historyMap !== 'object') return [];
+  const candidates = [];
+  rawKeys.forEach((raw) => {
+    if (raw === null || raw === undefined) return;
+    const str = String(raw).trim();
+    if (!str) return;
+    const lower = getCalibrationKey(str);
+    const sanitized = str.replace(/[.#$[\]/]/g, '_');
+    const sanitizedLower = sanitized.toLowerCase();
+    candidates.push(lower, str, sanitized, sanitizedLower);
+  });
+  for (const key of candidates) {
+    if (Array.isArray(historyMap[key])) return historyMap[key];
+  }
+  if (candidates.length === 0) return [];
+  const lowerSet = new Set(candidates.map((c) => c.toLowerCase()));
+  const matched = Object.entries(historyMap).find(
+    ([k, v]) => Array.isArray(v) && lowerSet.has(String(k).trim().toLowerCase())
+  );
+  return matched ? matched[1] : [];
+}
+
 function safeStringifyForHash(str) {
   if (str === null || str === undefined) return '';
   if (typeof str === 'object') {

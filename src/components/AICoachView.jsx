@@ -479,17 +479,28 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
 
                                 return (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
-                                        {cardTasks.map((task, idx) => (
-                                            <AICoachCard
-                                                key={getSafeId(ensureCoachTaskId(task)) || `coach-card-${idx}`}
-                                                task={task}
-                                                idx={idx}
-                                                onStartPomodoro={handleStartNeural}
-                                                categories={activeContest?.categories}
-                                                maxScore={activeContest?.maxScore ?? 100}
-                                                minScore={activeContest?.minScore ?? 0}
-                                            />
-                                        ))}
+                                        {cardTasks.map((task, idx) => {
+                                            const matchedCat = Array.isArray(activeContest?.categories)
+                                                ? activeContest.categories.find(c => c && (
+                                                    (task.categoryId && c.id === task.categoryId) ||
+                                                    (task.category && c.name === task.category)
+                                                ))
+                                                : null;
+                                            const taskMaxScore = matchedCat?.maxScore ?? task.analysis?.maxScore ?? activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? 100;
+                                            const taskMinScore = matchedCat?.minScore ?? task.analysis?.minScore ?? activeContest?.minScore ?? activeContest?.settings?.minScore ?? 0;
+
+                                            return (
+                                                <AICoachCard
+                                                    key={getSafeId(ensureCoachTaskId(task)) || `coach-card-${idx}`}
+                                                    task={task}
+                                                    idx={idx}
+                                                    onStartPomodoro={handleStartNeural}
+                                                    categories={activeContest?.categories}
+                                                    maxScore={taskMaxScore}
+                                                    minScore={taskMinScore}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 );
                             })()
@@ -505,10 +516,11 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
                 {viewMode === 'planner' && (
                     <Motion.div
                         key="planner"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
+                        style={{ transform: "none", filter: "none", willChange: "auto" }}
                     >
                         <div className="space-y-4 mb-4">
                             {suggestedFocus ? (
