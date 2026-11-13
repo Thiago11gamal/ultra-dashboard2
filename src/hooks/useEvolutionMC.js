@@ -7,14 +7,13 @@ import { parseNoonLocal, addDaysNoon } from '../utils/parseNoonLocal';
 import { runMonteCarloAnalysis } from '../engine/monteCarlo';
 
 const EMPTY_ARRAY = Object.freeze([]);
-const MC_ENGINES = new Set(['compare', 'mc_density', 'bayesian', 'raw_weekly']);
 
 /**
  * Orquestra o motor Monte Carlo do Menu Evolução.
  * Extraído do EvolutionChart.jsx (LOTE-05).
  *
  * Responsabilidades:
- *  - disparar o worker apenas nos engines que consomem o resultado;
+ *  - manter o resultado Monte Carlo e o KPI Chance de Aprovação sincronizados em todas as abas;
  *  - debouncer + cancelamento seguro + cache de assinatura para evitar re-execuções redundantes;
  *  - fallback síncrono quando o worker falha;
  *  - série de projeção futura com parsing de data sem timezone fixo.
@@ -29,8 +28,8 @@ export function useEvolutionMC({
   activeEngine,
   _activeEngine
 }) {
-  const effectiveEngine = activeEngine ?? _activeEngine;
-  const isMcEngineActive = !effectiveEngine || MC_ENGINES.has(effectiveEngine);
+  const _ignoredEngine = activeEngine ?? _activeEngine;
+  void _ignoredEngine;
 
   const { runAnalysis } = useMonteCarloWorker();
   const [mcLoading, setMcLoading] = useState(false);
@@ -56,9 +55,9 @@ export function useEvolutionMC({
           ? h.topics
           : (h?.topics && typeof h.topics === 'object' ? Object.values(h.topics) : EMPTY_ARRAY);
         const topicsSig = rawTopics
-          .map((t) => `${t?.total ?? t?.questoes ?? ''}:${t?.correct ?? t?.acertos ?? ''}:${t?.score ?? ''}:${t?.timeSpent ?? ''}`)
+          .map((t) => `${t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions ?? ''}:${t?.correct ?? t?.acertos ?? t?.correctCount ?? ''}:${t?.isPercentage ? 1 : 0}:${t?.score ?? t?.scorePoints ?? t?.scorePct ?? t?.value ?? ''}:${t?.timeSpent ?? ''}:${t?.timedQuestoes ?? ''}`)
           .join(',');
-        return `${h?.date || h?.createdAt || ''}:${h?.valid === false ? 0 : 1}:${h?.isPercentage ? 1 : 0}:${h?.score ?? ''}:${h?.total ?? h?.questoes ?? ''}:${h?.correct ?? h?.acertos ?? ''}:${h?.timeSpent ?? ''}:${h?.timedQuestoes ?? ''}:[${topicsSig}]`;
+        return `${h?.date || h?.createdAt || ''}:${h?.valid === false ? 0 : 1}:${h?.isPercentage ? 1 : 0}:${h?.unit ?? ''}:${h?.scoreUnit ?? ''}:${h?.score ?? ''}:${h?.scorePoints ?? ''}:${h?.scorePct ?? ''}:${h?.value ?? ''}:${h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions ?? ''}:${h?.correct ?? h?.acertos ?? h?.correctCount ?? ''}:${h?.timeSpent ?? ''}:${h?.timedQuestoes ?? ''}:[${topicsSig}]`;
       })
       .join('|');
   }, [focusCategory?.simuladoStats?.history]);
@@ -91,16 +90,6 @@ export function useEvolutionMC({
       };
     }
 
-    if (!isMcEngineActive) {
-      const timer = setTimeout(() => {
-        if (!cancelled) setMcLoading(false);
-      }, 0);
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-      };
-    }
-
     const globalMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const globalMax = Math.max(globalMin + 1, Number(maxScore) || 100);
     const globalRange = Math.max(1, globalMax - globalMin);
@@ -119,8 +108,12 @@ export function useEvolutionMC({
 
     const signature = `${focusCategoryId}|${historyFingerprint}|${effectiveTarget}|${projectDays}|${safeMin}|${safeMax}|${Math.round(safeCurrentMean * 100)}`;
     if (lastComputedSignatureRef.current === signature && mcResult?.categoryId === focusCategoryId) {
+      const resetLoading = setTimeout(() => {
+        if (!cancelled) setMcLoading(false);
+      }, 0);
       return () => {
         cancelled = true;
+        clearTimeout(resetLoading);
       };
     }
 
@@ -178,6 +171,10 @@ export function useEvolutionMC({
       };
     }
 
+    const immediateLoadingTimer = setTimeout(() => {
+      if (!cancelled) setMcLoading(true);
+    }, 0);
+
     const workerDebounceTimeout = setTimeout(async () => {
       let totalTimeSpent = 0;
       let totalTimedQuestions = 0;
@@ -187,30 +184,19 @@ export function useEvolutionMC({
         let topicsTs = 0;
         let topicsTimedQ = 0;
 
-        if (Array.isArray(rawH.topics)) {
-          for (const t of rawH.topics) {
-            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
-              ? t.timedQuestoes
-              : Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0;
-            if (tTs !== null && tTs > 0 && tTot > 0) {
-              topicsTs += tTs;
-              topicsTimedQ += tTot;
-              hasTopicWithTime = true;
-            }
-          }
-        } else if (rawH.topics && typeof rawH.topics === 'object') {
-          for (const key in rawH.topics) {
-            const t = rawH.topics[key];
-            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
-              ? t.timedQuestoes
-              : Number(t.total) || 0;
-            if (tTs !== null && tTs > 0 && tTot > 0) {
-              topicsTs += tTs;
-              topicsTimedQ += tTot;
-              hasTopicWithTime = true;
-            }
+        const topicEntries = Array.isArray(rawH.topics)
+          ? rawH.topics
+          : (rawH.topics && typeof rawH.topics === 'object' ? Object.values(rawH.topics) : EMPTY_ARRAY);
+        for (const t of topicEntries) {
+          if (!t || typeof t !== 'object') continue;
+          const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
+          const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
+            ? t.timedQuestoes
+            : Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0;
+          if (tTs !== null && tTs > 0 && tTot > 0) {
+            topicsTs += tTs;
+            topicsTimedQ += tTot;
+            hasTopicWithTime = true;
           }
         }
 
@@ -244,7 +230,6 @@ export function useEvolutionMC({
           : 240;
       const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
 
-      setMcLoading(true);
       try {
         const result = await runAnalysis({
           values: hist,
@@ -318,11 +303,11 @@ export function useEvolutionMC({
       }
     }, 600);
 
-    return () => { cancelled = true; clearTimeout(workerDebounceTimeout); };
+    return () => { cancelled = true; clearTimeout(immediateLoadingTimer); clearTimeout(workerDebounceTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     focusCategoryId, historyFingerprint, currentFocusLevel, historyArray,
-    debouncedTarget, projectDays, runAnalysis, minScore, maxScore, isMcEngineActive,
+    debouncedTarget, projectDays, runAnalysis, minScore, maxScore,
     focusCategory?.minScore, focusCategory?.maxScore, focusCategory?.minCutoff
   ]);
 

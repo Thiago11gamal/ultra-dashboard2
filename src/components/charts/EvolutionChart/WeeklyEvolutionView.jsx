@@ -9,6 +9,7 @@ import WeeklyPerformanceChart from './WeeklyPerformanceChart';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
 import { parseNoonLocal, getDateKey } from '../../../utils/dateHelper';
 import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
+import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
 import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 
 const hasValidNumber = (v) =>
@@ -135,6 +136,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
     studyLogs = [],
     showOnlyFocus,
     focusSubjectId,
+    timeWindow = 'all',
     maxScore = 100,
     minScore = 0,
     unit = '%'
@@ -164,6 +166,22 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
             return `top_${clean}`;
         };
 
+        const resolveTaskTopicName = (tasks, taskId) => {
+            const foundTask = toArray(tasks).find(task => task && task.id === taskId);
+            const rawTaskText = foundTask?.text || foundTask?.title || 'Assunto';
+            return String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
+        };
+        const resolveTopicEntryName = (tasks, entry) => {
+            const rawDirect = entry?.name || entry?.topic || entry?.assunto || entry?.subtopic || entry?.topicName;
+            if (rawDirect) {
+                return String(rawDirect).replace(/^\[(.*?)\]\s*/i, '').trim();
+            }
+            if (entry?.taskId != null && String(entry.taskId).trim() !== '') {
+                return resolveTaskTopicName(tasks, entry.taskId);
+            }
+            return '';
+        };
+
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
                 if (!cat?.id) return;
@@ -183,7 +201,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 let colorIdx = 0;
                 const nextColor = () => SUBTOPIC_PALETTE[colorIdx++ % SUBTOPIC_PALETTE.length];
 
-                (cat.tasks || []).forEach(task => {
+                toArray(cat.tasks).forEach(task => {
                     const tName = String(task?.text || task?.title || '').replace(/^\[(.*?)\]\s*/i, '').trim();
                     if (!tName) return;
                     const key = toSafeKey(tName);
@@ -192,14 +210,13 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                     }
                 });
 
-                const hArray = (Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {}))
-                    .filter(h => h && h.valid !== false);
+                const hArray = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 hArray.forEach(h => {
                     const topics = toArray(h.topics);
                     
                     if (topics.length > 0) {
                         topics.forEach(t => {
-                            const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                            const tName = resolveTopicEntryName(cat.tasks, t);
                             if (!tName) return;
                             const key = toSafeKey(tName);
                             if (!itemsMap[key]) {
@@ -207,9 +224,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                             }
                         });
                     } else if (h.taskId) {
-                        const foundTask = cat.tasks?.find(task => task.id === h.taskId);
-                        const rawTaskText = foundTask?.text || foundTask?.title || 'Assunto';
-                        const tName = String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
+                        const tName = resolveTaskTopicName(cat.tasks, h.taskId);
                         const key = toSafeKey(tName);
                         if (!itemsMap[key]) {
                             itemsMap[key] = { name: shortenLabel(tName, 18), color: nextColor(), fullName: tName };
@@ -304,7 +319,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
         if (!showOnlyFocus || !focusSubjectId) {
             categories.forEach(cat => {
-                const hArray = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
+                const hArray = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
                 const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
                 processHistory(hArray, cat.id, cMax, cMin);
@@ -315,14 +330,13 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
                 const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
                 const cRange = Math.max(1e-9, cMax - cMin);
-                const hArray2 = (Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {}))
-                    .filter(h => h && h.valid !== false);
+                const hArray2 = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 hArray2.forEach(h => {
                     const topics = toArray(h.topics);
                     
                     if (topics.length > 0) {
                         topics.forEach(t => {
-                            const tName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').trim();
+                            const tName = resolveTopicEntryName(cat.tasks, t);
                             if (!tName) return;
                             const tId = toSafeKey(tName);
                             const weekStr = getMondayStr(getHistoryDate(h));
@@ -353,8 +367,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                             weeksTemp[weekStr][tId].correct += corr;
                         });
                     } else if (h.taskId) {
-                        const rawTaskText = cat.tasks?.find(task => task.id === h.taskId)?.text || 'Assunto';
-                        const tName = String(rawTaskText).replace(/^\[(.*?)\]\s*/i, '').trim() || 'Assunto';
+                        const tName = resolveTaskTopicName(cat.tasks, h.taskId);
                         const tId = toSafeKey(tName);
                         processHistory([h], tId, cMax, cMin);
                     } else if (h.topic || h.assunto || h.subtopic || h.topicName) {
@@ -464,7 +477,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const rankedKeys = [...effectiveIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
         return { chartData: finalData, activeKeys: filteredActiveKeys, rankedKeys };
-    }, [categories, showOnlyFocus, focusSubjectId, maxScore, minScore]);
+    }, [categories, showOnlyFocus, focusSubjectId, timeWindow, maxScore, minScore]);
 
     const keys = Object.keys(activeKeys);
 

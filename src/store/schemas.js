@@ -2,10 +2,10 @@ import { safeClone } from '../utils/safeClone.js';
 import { INITIAL_DATA } from '../data/initialData.js';
 import { generateId } from '../utils/idGenerator.js';
 import { normalize, aliases } from '../utils/normalization.js';
-import { getDateKey } from '../utils/dateHelper.js';
+import { getDateKey, toDateMs } from '../utils/dateHelper.js';
 import { computeCategoryStats } from '../engine/index.js';
 import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
-import { getSyntheticTotal } from '../utils/scoreHelper.js';
+import { getSyntheticTotal, getSafeScore, extractTopicsTotals } from '../utils/scoreHelper.js';
 import { normalizeHexColor, normalizePriority } from '../utils/colorHelper.js';
 
 export const DEFAULT_TARGET_SCORE = 75; // Unificando como 75 (meio termo entre 70 e 80)
@@ -34,6 +34,98 @@ const extractRowDate = (r) => {
   return r.date || r.createdAt || null;
 };
 
+/**
+ * Normalizes a single history entry into [catMin, catMax] points while resolving
+ * question/correct field aliases, topic fallbacks, and percentage scores safely.
+ */
+const normalizeHistoryEntry = (h, catMax = 100, catMin = 0, options = {}) => {
+  const safeMin = Number.isFinite(Number(catMin)) ? Number(catMin) : 0;
+  const safeMax = Math.max(safeMin + 1e-9, Number(catMax) || 100);
+  const scoreRange = Math.max(1e-9, safeMax - safeMin);
+
+  const hasHeaderScore = (
+    (h.scorePoints != null && Number.isFinite(Number(h.scorePoints))) ||
+    (h.scorePct != null && Number.isFinite(Number(h.scorePct))) ||
+    (h.score != null && h.score !== '' && Number.isFinite(Number(h.score))) ||
+    (h.value != null && h.value !== '' && Number.isFinite(Number(h.value)))
+  );
+
+  let rawTotal = Math.max(0, parseInt(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 10) || 0);
+  const rawCorrectInput = h.correct ?? h.acertos ?? h.correctCount;
+  const hasExplicitCorrect = !h.isPercentage &&
+    rawCorrectInput !== undefined &&
+    rawCorrectInput !== null &&
+    String(rawCorrectInput).trim() !== '' &&
+    Number.isFinite(Number(rawCorrectInput));
+  let rawCorrect = hasExplicitCorrect ? Math.max(0, parseInt(rawCorrectInput, 10) || 0) : 0;
+
+  let resolvedScore = hasHeaderScore ? getSafeScore(h, safeMax, safeMin) : NaN;
+  const usedPctInput = Boolean(
+    h.isPercentage === true ||
+    h.unit === 'pct' ||
+    h.unit === 'percentage' ||
+    h.scoreUnit === 'pct'
+  );
+
+  if (rawTotal <= 0 && h.topics != null) {
+    const tf = extractTopicsTotals(h, safeMax, safeMin);
+    if (tf.total > 0) {
+      rawTotal = tf.total;
+      rawCorrect = tf.correct;
+      if (!Number.isFinite(resolvedScore) || (resolvedScore === safeMin && h.scorePoints == null && h.scorePct == null)) {
+        resolvedScore = tf.score;
+      }
+    } else if (!Number.isFinite(resolvedScore) && tf.hasTopicsScore) {
+      resolvedScore = tf.score;
+    }
+  }
+
+  const hasValidScore = Number.isFinite(resolvedScore);
+  const clampedScore = hasValidScore
+    ? Math.min(safeMax, Math.max(safeMin, resolvedScore))
+    : (rawTotal > 0 ? safeMin + (Math.min(rawTotal, rawCorrect) / rawTotal) * scoreRange : safeMin);
+
+  let total = rawTotal;
+  let correct = Math.min(total, rawCorrect);
+  const ratio = Math.max(0, Math.min(1, (clampedScore - safeMin) / scoreRange));
+
+  if (total > 0 && !hasExplicitCorrect && hasValidScore) {
+    correct = Math.round(ratio * total);
+  }
+
+  let syntheticVolume = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+  if (total === 0 && hasValidScore) {
+    total = typeof getSyntheticTotal === 'function' ? getSyntheticTotal(safeMax) : 20;
+    correct = Math.round(ratio * total);
+    syntheticVolume = true;
+  }
+
+  const normalizedScore = Number(clampedScore.toFixed(2));
+  const out = {
+    ...h,
+    score: normalizedScore,
+    total,
+    correct,
+    syntheticVolume,
+  };
+
+  if (options.preserveDate !== true) {
+    out.date = h.date || h.createdAt;
+  }
+  if (usedPctInput) {
+    out.isPercentage = false;
+    if (h.unit === 'pct' || h.unit === 'percentage') out.unit = 'points';
+    if (h.scoreUnit === 'pct') out.scoreUnit = 'points';
+  }
+  if (h.scorePoints != null) {
+    out.scorePoints = normalizedScore;
+  }
+  if (h.scorePct != null) {
+    out.scorePct = Number((ratio * 100).toFixed(2));
+  }
+  return out;
+};
+
 // ✅ FIX 2 & BUG-01: Reconciliação do Histórico das Categorias com base nos Registros Brutos dos Simulados
 export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
   if (!rawData || typeof rawData !== 'object') return rawData;
@@ -43,27 +135,7 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
     const safeMax = Math.max(safeMin + 1e-9, Number(maxScore) || 100);
     return rawData.map(r => {
       if (!r || typeof r !== 'object') return r;
-      const rawScore = Number(r?.score ?? r?.scorePoints);
-      const hasRawScore = Number.isFinite(rawScore);
-
-      let rawTotal = Math.max(0, parseInt(r?.total, 10) || 0);
-      let rawCorrect = Math.max(0, parseInt(r?.correct, 10) || 0);
-      let isSyntheticVolume = r?.syntheticVolume === true;
-
-      if (rawTotal <= 0 && hasRawScore) {
-        const ratio = Math.max(0, Math.min(1, (rawScore - safeMin) / (safeMax - safeMin)));
-        rawTotal = typeof getSyntheticTotal === 'function' ? getSyntheticTotal(safeMax) : 20;
-        rawCorrect = Math.round(ratio * rawTotal);
-        isSyntheticVolume = true;
-      }
-
-      return {
-        ...r,
-        score: hasRawScore ? Math.min(safeMax, Math.max(safeMin, rawScore)) : safeMin,
-        total: rawTotal,
-        correct: rawCorrect,
-        syntheticVolume: isSyntheticVolume,
-      };
+      return normalizeHistoryEntry(r, safeMax, safeMin, { preserveDate: true });
     });
   }
 
@@ -107,8 +179,10 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
     const hasCorruptedHistory = currentHistory.some(h =>
       !h ||
       typeof h !== 'object' ||
-      !h.date ||
-      (h.total === undefined && h.score === undefined && h.correct === undefined && h.scorePoints === undefined) ||
+      (!h.date && !h.createdAt) ||
+      (h.total === undefined && h.questoes === undefined && h.totalQuestoes === undefined && h.questions === undefined &&
+       h.score === undefined && h.correct === undefined && h.scorePoints === undefined && h.scorePct === undefined &&
+       h.topics === undefined) ||
       (h.score !== undefined && h.score !== null && Number.isNaN(Number(h.score))) ||
       (h.scorePoints !== undefined && h.scorePoints !== null && Number.isNaN(Number(h.scorePoints))) ||
       (h.total !== undefined && h.total !== null && Number.isNaN(Number(h.total)))
@@ -137,16 +211,36 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
 
         if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0, normalRowCount: 0, directScoreCount: 0, directScoreSum: 0 };
 
-        const rawTotal = Number.isFinite(Number(r.total)) ? Number(r.total) : 0;
-        const rawCorrect = Number.isFinite(Number(r.correct)) ? Number(r.correct) : 0;
+        let rawTotal = Math.max(0, parseInt(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions, 10) || 0);
+        const rawCorrectInput = r.correct ?? r.acertos ?? r.correctCount;
+        const hasExplicitCorrect = !r.isPercentage &&
+          rawCorrectInput !== undefined &&
+          rawCorrectInput !== null &&
+          String(rawCorrectInput).trim() !== '' &&
+          Number.isFinite(Number(rawCorrectInput));
+        let rawCorrect = hasExplicitCorrect ? Math.max(0, parseInt(rawCorrectInput, 10) || 0) : 0;
 
-        const scoreCandidate = r.score != null ? r.score : r.scorePoints;
-        const rawScore = Number.isFinite(Number(scoreCandidate)) ? Number(scoreCandidate) : null;
-        const safeScore = rawScore !== null ? Math.min(maxScore, Math.max(minScore, rawScore)) : null;
+        const scoreCandidate = r.score ?? r.scorePoints ?? r.scorePct ?? r.value;
+        let safeScore = scoreCandidate != null && scoreCandidate !== '' && Number.isFinite(Number(scoreCandidate))
+          ? Math.min(maxScore, Math.max(minScore, getSafeScore(r, maxScore, minScore)))
+          : null;
 
-        const corrNorm = (r.isPercentage && safeScore !== null && rawTotal > 0)
+        if (rawTotal <= 0 && r.topics != null) {
+          const tf = extractTopicsTotals(r, maxScore, minScore);
+          if (tf.total > 0) {
+            rawTotal = tf.total;
+            rawCorrect = tf.correct;
+            if (safeScore === null || (safeScore === minScore && r.scorePoints == null && r.scorePct == null)) {
+              safeScore = Math.min(maxScore, Math.max(minScore, tf.score));
+            }
+          } else if (safeScore === null && tf.hasTopicsScore) {
+            safeScore = Math.min(maxScore, Math.max(minScore, tf.score));
+          }
+        }
+
+        const corrNorm = (!hasExplicitCorrect && safeScore !== null && rawTotal > 0)
           ? Math.round((Math.max(0, Math.min(1, (safeScore - minScore) / scoreRange))) * rawTotal)
-          : rawCorrect;
+          : Math.min(rawTotal > 0 ? rawTotal : rawCorrect, rawCorrect);
 
         if (rawTotal === 0 && safeScore !== null) {
           const synTotal = 100;
@@ -218,9 +312,9 @@ export const sanitizeContest = (data, contestId = '') => {
     ? repairContestHistory(data)
     : data;
 
-  const isDireito = contestId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || 
-    source.contestName === 'Direito' || 
-    data?.contestName === 'Direito' || 
+  const isDireito = contestId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' ||
+    source.contestName === 'Direito' ||
+    data?.contestName === 'Direito' ||
     source.user?.name === 'Direito';
 
   if (isDireito && (!source.categories || !Array.isArray(source.categories) || source.categories.length === 0)) {
@@ -300,39 +394,11 @@ export const sanitizeContest = (data, contestId = '') => {
         .filter(h => h && typeof h === 'object' && (h.date || h.createdAt));
 
       const cleanHistory = rawHistory
-        .map(h => {
-          const rawScore = Number(h.score ?? h.scorePoints);
-          const hasRawScore = Number.isFinite(rawScore);
-          let rawTotal = Math.max(0, parseInt(h.total, 10) || 0);
-          let rawCorrect = Math.max(0, parseInt(h.correct, 10) || 0);
-
-          let score = hasRawScore
-            ? Math.min(catMax, Math.max(catMin, rawScore))
-            : (rawTotal > 0 ? catMin + (Math.min(rawTotal, rawCorrect) / rawTotal) * scoreRange : catMin);
-
-          let total = rawTotal;
-          let correct = Math.min(total, rawCorrect);
-
-          if (total === 0 && hasRawScore) {
-            total = typeof getSyntheticTotal === 'function' ? getSyntheticTotal(catMax) : 20;
-            const ratio = Math.max(0, Math.min(1, (score - catMin) / scoreRange));
-            correct = Math.round(ratio * total);
-          }
-
-          const date = h.date || h.createdAt;
-          return {
-            ...h,
-            date,
-            score: Number(score.toFixed(2)),
-            total,
-            correct,
-            syntheticVolume: Boolean(h.syntheticVolume || (rawTotal === 0 && hasRawScore))
-          };
-        })
+        .map(h => normalizeHistoryEntry(h, catMax, catMin))
         .sort((a, b) => {
-          const da = new Date(a.date).getTime() || 0;
-          const db = new Date(b.date).getTime() || 0;
-          return da - db;
+          const da = toDateMs(a.date || a.createdAt);
+          const db = toDateMs(b.date || b.createdAt);
+          return (Number.isFinite(da) ? da : 0) - (Number.isFinite(db) ? db : 0);
         });
 
       let average = Number(cat.simuladoStats?.average);
@@ -384,21 +450,21 @@ export const sanitizeContest = (data, contestId = '') => {
     simuladoRows: (Array.isArray(source.simuladoRows) ? source.simuladoRows : Object.values(source.simuladoRows || {})).filter(r => r && r.id),
     simulados: (Array.isArray(source.simulados) ? source.simulados : Object.values(source.simulados || {})).filter(s => s && s.id),
     studyLogs: (Array.isArray(source.studyLogs) ? source.studyLogs : Object.values(source.studyLogs || {}))
-        .filter(l => l && typeof l === 'object')
-        .map(l => ({
-            ...l,
-            id: String(l.id || generateId('log')),
-            minutes: Math.min(720, Math.max(0, Number(l.minutes ?? l.minutos) || 0)),
-            date: l.date || l.createdAt || new Date().toISOString()
-        })),
+      .filter(l => l && typeof l === 'object')
+      .map(l => ({
+        ...l,
+        id: String(l.id || generateId('log')),
+        minutes: Math.min(720, Math.max(0, Number(l.minutes ?? l.minutos) || 0)),
+        date: l.date || l.createdAt || new Date().toISOString()
+      })),
     studySessions: (Array.isArray(source.studySessions) ? source.studySessions : Object.values(source.studySessions || {}))
-        .filter(s => s && typeof s === 'object')
-        .map(s => ({
-            ...s,
-            id: String(s.id || generateId('session')),
-            duration: Math.min(720, Math.max(0, Number(s.duration) || 0)),
-            startTime: s.startTime || s.date || new Date().toISOString()
-        })),
+      .filter(s => s && typeof s === 'object')
+      .map(s => ({
+        ...s,
+        id: String(s.id || generateId('session')),
+        duration: Math.min(720, Math.max(0, Number(s.duration) || 0)),
+        startTime: s.startTime || s.date || new Date().toISOString()
+      })),
     notes: typeof source.notes === 'string' ? source.notes : "",
     // NEW TOOLS
     flashcardDecks: Array.isArray(source.flashcardDecks) ? source.flashcardDecks : [],
@@ -427,10 +493,10 @@ export const sanitizeContest = (data, contestId = '') => {
         ? raw
         : (raw && typeof raw === 'object'
           ? Object.entries(raw).map(([date, data]) => ({
-              date,
-              probability: typeof data === 'object' ? data?.probability : data,
-              ...(typeof data === 'object' ? data : {})
-            }))
+            date,
+            probability: typeof data === 'object' ? data?.probability : data,
+            ...(typeof data === 'object' ? data : {})
+          }))
           : []);
 
       return arr
@@ -485,13 +551,13 @@ export const validateAppState = (data) => {
 
     // ✅ PATCH 11 FIX: Sanitização das chaves do dicionário para assegurar formato adequado para Firebase e IndexedDB
     Object.keys(rawContests).forEach((id) => {
-        // ✅ Filtrar chaves inválidas ANTES de sanitizar
-        if (id === 'length' || !rawContests[id] || typeof rawContests[id] !== 'object') return;
-        const cleanId = sanitizeContestKey(id);
-        const sanitized = sanitizeContest(rawContests[id], cleanId);
-        if (sanitized) {
-            validatedContests[cleanId] = sanitized;
-        }
+      // ✅ Filtrar chaves inválidas ANTES de sanitizar
+      if (id === 'length' || !rawContests[id] || typeof rawContests[id] !== 'object') return;
+      const cleanId = sanitizeContestKey(id);
+      const sanitized = sanitizeContest(rawContests[id], cleanId);
+      if (sanitized) {
+        validatedContests[cleanId] = sanitized;
+      }
     });
 
     const rawTrash = Array.isArray(d.trash)

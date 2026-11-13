@@ -6,6 +6,7 @@ import {
 import { getDateKey } from "../../../utils/dateHelper";
 import { getSafeScore, getSyntheticTotal } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
+import { filterHistoryByTimeWindow } from "../../../hooks/useSubjectAggData";
 import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
 
 const CustomTooltipStyle = {
@@ -29,7 +30,7 @@ const WEEKS = [
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
-export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0, showOnlyFocus = false, focusSubjectId = null }) => {
+export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0, showOnlyFocus = false, focusSubjectId = null, timeWindow = 'all' }) => {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
     const effectiveCategories = useMemo(() => {
@@ -68,13 +69,11 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const multiCat = effectiveCategories.length > 1;
 
         effectiveCategories.forEach(cat => {
-            const historyRaw = cat.simuladoStats?.history;
-            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
-            if (!history.length) return;
+            const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
+            if (!windowHistory.length) return;
             const tasksList = toArray(cat.tasks);
 
-            const recentHistory = history.filter(h => {
-                if (!h || h.valid === false) return false;
+            const recentHistory = windowHistory.filter(h => {
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
@@ -183,7 +182,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 fill: PALETTE[Math.min(PALETTE.length - 1, Math.floor((i / (arr.length > 1 ? arr.length - 1 : 1)) * (PALETTE.length - 1)))]
             };
         });
-    }, [effectiveCategories, startDateKey, endDateKey, maxScore, minScore]);
+    }, [effectiveCategories, startDateKey, endDateKey, timeWindow, maxScore, minScore]);
 
     const pointLeakageData = useMemo(() => {
         if (!effectiveCategories || !effectiveCategories.length) return [];
@@ -193,11 +192,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const rawData = effectiveCategories.map(cat => {
             let total = 0;
             let correct = 0;
-            const historyRaw = cat.simuladoStats?.history;
-            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
+            const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
 
-            const recentHistory = history.filter(h => {
-                if (!h || h.valid === false) return false;
+            const recentHistory = windowHistory.filter(h => {
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
@@ -291,19 +288,15 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 displayValue: Math.round(item.value * 10) / 10
             };
         });
-    }, [effectiveCategories, startDateKey, endDateKey, maxScore, minScore]);
+    }, [effectiveCategories, startDateKey, endDateKey, timeWindow, maxScore, minScore]);
 
     const hasData = useMemo(() => {
       if (!effectiveCategories) return false;
     
       return effectiveCategories.some(cat => {
-        const historyRaw = cat.simuladoStats?.history;
-        const history = Array.isArray(historyRaw)
-          ? historyRaw
-          : Object.values(historyRaw || {});
+        const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
     
-        return history.some(h => {
-          if (!h || h.valid === false) return false;
+        return windowHistory.some(h => {
           const k = getDateKey(getHistoryDate(h));
           const topics = toArray(h.topics);
     
@@ -323,7 +316,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
           );
         });
       });
-    }, [effectiveCategories, startDateKey, endDateKey]);
+    }, [effectiveCategories, startDateKey, endDateKey, timeWindow]);
 
     const renderLeakageLabel = useCallback((props) => {
         const { x, y, width, value, index } = props;

@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Clock } from 'lucide-react';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 import { getSyntheticTotal } from '../../../utils/scoreHelper';
+import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
 
 const formatTime = (s) => {
     if (s == null || !Number.isFinite(Number(s)) || Number(s) < 0) return 'N/A';
@@ -138,8 +139,38 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data }) {
     );
 });
 
-export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggData, activeCategories = [], categories = [], showOnlyFocus, focusCategory, maxScore = 100, minScore: _minScore = 0 }) {
+export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggData, activeCategories = [], categories = [], showOnlyFocus, focusCategory, timeWindow = 'all', maxScore = 100, minScore: _minScore = 0 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
+
+    const extractEntryTiming = (entry, catMax) => {
+        const rootTs = typeof entry?.timeSpent === 'number' ? entry.timeSpent : null;
+        let topicsTs = 0;
+        let topicsTimedQ = 0;
+        let hasTopicWithTime = false;
+        const safeTopics = Array.isArray(entry?.topics) ? entry.topics : Object.values(entry?.topics || {});
+        for (const t of safeTopics) {
+            if (!t || typeof t !== 'object') continue;
+            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
+            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
+                ? t.timedQuestoes
+                : (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+            if (tTs !== null && tTs > 0 && tTot > 0) {
+                topicsTs += tTs;
+                topicsTimedQ += tTot;
+                hasTopicWithTime = true;
+            }
+        }
+        if (hasTopicWithTime && topicsTimedQ > 0) return { ts: topicsTs, tq: topicsTimedQ };
+        let tot = Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0;
+        if (tot === 0 && safeTopics.length > 0) {
+            tot = safeTopics.reduce((s, t) => s + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
+        }
+        if (tot === 0 && (entry?.score != null || entry?.scorePoints != null || entry?.scorePct != null)) {
+            tot = getSyntheticTotal(catMax);
+        }
+        if (tot > 0 && rootTs !== null && rootTs > 0) return { ts: rootTs, tq: tot };
+        return null;
+    };
 
     const chartData = useMemo(() => {
         const relevantSubjectAggData = (() => {
@@ -165,7 +196,9 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
                 const todayKey = getDateKey(new Date());
                 const todayNoonMs = toDateMs(todayKey) || nowMs;
                 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-                const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
+                const history = timeWindow !== 'all'
+                    ? filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
+                    : Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
 
                 const recentStats = history.reduce((acc, h) => {
                     const hKey = getDateKey(h.date || h.createdAt);
@@ -173,39 +206,8 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
                     if (!hDateMs || !Number.isFinite(hDateMs) || (todayNoonMs - hDateMs) > sevenDaysMs || !hKey || hKey > todayKey) {
                         return acc;
                     }
-
-                    let rootTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
-                    let topicsTs = 0;
-                    let topicsTimedQ = 0;
-                    let hasTopicWithTime = false;
-
-                    const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
-                    if (safeTopics.length > 0) {
-                        for (const t of safeTopics) {
-                            const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                            const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
-                            if (tTs !== null && tTs > 0 && tTot > 0) { // BUG FIX: Ignora tempos exatos de 0s (origem de banco de dados antigo corrompido)
-                                topicsTs += tTs;
-                                topicsTimedQ += tTot;
-                                hasTopicWithTime = true;
-                            }
-                        }
-                    }
-
-                    if (hasTopicWithTime) {
-                        return { ts: acc.ts + topicsTs, tq: acc.tq + topicsTimedQ };
-                    } else {
-                        let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0;
-                        if (tot === 0 && safeTopics.length > 0) {
-                            tot = safeTopics.reduce((s, t) => s + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
-                        }
-                        if (tot === 0 && h.score != null) tot = getSyntheticTotal(catMax);
-                        if (tot > 0 && rootTs !== null && rootTs > 0) {
-                            return { ts: acc.ts + rootTs, tq: acc.tq + tot };
-                        }
-                    }
-
-                    return acc;
+                    const timing = extractEntryTiming(h, catMax);
+                    return timing ? { ts: acc.ts + timing.ts, tq: acc.tq + timing.tq } : acc;
                 }, { ts: 0, tq: 0 });
 
                 if (recentStats.tq > 0) {
@@ -222,33 +224,12 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
 
             if (cat) {
                 const todayKey = getDateKey(new Date());
-                const extractEntryTiming = (entry) => {
-                    let rootTs = typeof entry?.timeSpent === 'number' ? entry.timeSpent : null;
-                    let topicsTs = 0;
-                    let topicsTimedQ = 0;
-                    let hasTopicWithTime = false;
-                    const safeTopics = Array.isArray(entry?.topics) ? entry.topics : Object.values(entry?.topics || {});
-                    for (const t of safeTopics) {
-                        const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-                        const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0 ? t.timedQuestoes : (Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
-                        if (tTs !== null && tTs > 0 && tTot > 0) {
-                            topicsTs += tTs;
-                            topicsTimedQ += tTot;
-                            hasTopicWithTime = true;
-                        }
-                    }
-                    if (hasTopicWithTime && topicsTimedQ > 0) return { ts: topicsTs, tq: topicsTimedQ };
-                    let tot = Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0;
-                    if (tot === 0 && safeTopics.length > 0) {
-                        tot = safeTopics.reduce((s, t) => s + (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0), 0);
-                    }
-                    if (tot === 0 && entry?.score != null) tot = getSyntheticTotal(catMax);
-                    if (tot > 0 && rootTs !== null && rootTs > 0) return { ts: rootTs, tq: tot };
-                    return null;
-                };
+                const baseHistory = timeWindow !== 'all'
+                    ? filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow)
+                    : Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
 
-                const allValidTimed = Object.values(cat.simuladoStats?.history || {})
-                    .filter(h => h && h.valid !== false && toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h) !== null);
+                const allValidTimed = baseHistory
+                    .filter(h => toDateMs(h.date || h.createdAt) != null && extractEntryTiming(h, catMax) !== null);
                 const nonFutureTimed = todayKey
                     ? allValidTimed.filter(h => {
                         const hk = getDateKey(h.date || h.createdAt);
@@ -256,20 +237,26 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
                     })
                     : [];
 
-                // BUG FIX: Garante que o histórico é ordenado cronologicamente, sem datas futuras e possui tempo válido
+                // BUG FIX: Garante que o histórico é ordenado cronologicamente (com desempate por createdAt/lastUpdated)
                 const sortedHistory = (nonFutureTimed.length > 0 ? nonFutureTimed : allValidTimed)
+                    .map((h, idx) => ({ h, idx }))
                     .sort((a, b) => {
-                        const da = toDateMs(a.date || a.createdAt) || 0;
-                        const db = toDateMs(b.date || b.createdAt) || 0;
-                        return da - db;
-                    });
+                        const ka = getDateKey(a.h.date || a.h.createdAt) || '';
+                        const kb = getDateKey(b.h.date || b.h.createdAt) || '';
+                        if (ka !== kb) return ka.localeCompare(kb);
+                        const da = toDateMs(a.h.lastUpdated || a.h.createdAt || a.h.date) || 0;
+                        const db = toDateMs(b.h.lastUpdated || b.h.createdAt || b.h.date) || 0;
+                        if (da !== db) return da - db;
+                        return a.idx - b.idx;
+                    })
+                    .map(x => x.h);
 
                 const latestEntry = sortedHistory[sortedHistory.length - 1];
                 if (latestEntry) {
                     const latestDayKey = getDateKey(latestEntry.date || latestEntry.createdAt);
                     const sameDayEntries = sortedHistory.filter(h => getDateKey(h.date || h.createdAt) === latestDayKey);
                     const dayTotals = sameDayEntries.reduce((acc, h) => {
-                        const timing = extractEntryTiming(h);
+                        const timing = extractEntryTiming(h, catMax);
                         return timing ? { ts: acc.ts + timing.ts, tq: acc.tq + timing.tq } : acc;
                     }, { ts: 0, tq: 0 });
 
@@ -281,7 +268,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
                         absoluteLatestSeconds = Math.round(latestEntry.lastSessionTimeSpent / latestEntry.lastSessionTotal);
                         absoluteTotalTime = latestEntry.lastSessionTimeSpent;
                     } else {
-                        const lastTiming = extractEntryTiming(latestEntry);
+                        const lastTiming = extractEntryTiming(latestEntry, catMax);
                         if (lastTiming && lastTiming.tq > 0) {
                             absoluteLatestSeconds = Math.round(lastTiming.ts / lastTiming.tq);
                             absoluteTotalTime = lastTiming.ts;
@@ -338,7 +325,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
             };
         })
         .sort((a, b) => sortOrder === 'slower' ? b.displaySeconds - a.displaySeconds : a.displaySeconds - b.displaySeconds);
-    }, [subjectAggData, activeCategories, categories, sortOrder, maxScore, showOnlyFocus, focusCategory]);
+    }, [subjectAggData, activeCategories, categories, sortOrder, maxScore, showOnlyFocus, focusCategory, timeWindow]);
 
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {

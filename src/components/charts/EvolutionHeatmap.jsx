@@ -209,16 +209,15 @@ export const EvolutionHeatmap = React.memo(({
 
         // When "Apenas Foco" is active, only keep dates where the focused row actually has activity
         let activeIndices = dates.map((_, idx) => idx);
-        if (showOnlyFocus && focusSubjectId && filteredRowsByFocus.length > 0) {
-            const focusFiltered = activeIndices.filter((idx) =>
-                filteredRowsByFocus.some((row) => {
-                    const cell = row?.cells?.[idx];
-                    return Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
-                })
-            );
-            if (focusFiltered.length > 0) {
-                activeIndices = focusFiltered;
-            }
+        if (showOnlyFocus && focusSubjectId) {
+            activeIndices = filteredRowsByFocus.length > 0
+                ? activeIndices.filter((idx) =>
+                    filteredRowsByFocus.some((row) => {
+                        const cell = row?.cells?.[idx];
+                        return Boolean(cell && Number(cell.total) > 0 && cell.pct !== null);
+                    })
+                )
+                : [];
         }
 
         if (windowSize !== 'all') {
@@ -331,7 +330,7 @@ export const EvolutionHeatmap = React.memo(({
             worker.removeEventListener('error', handleError);
             setIsAggregating(false);
         };
-    }, [filtered, granularity, safeMin, safeMax]);
+    }, [filtered, granularity, safeMin, safeMax, safeTarget, targetScorePct]);
 
     const activeData = useMemo(() => {
         return (granularity === 'daily' || !aggregated) ? filtered : aggregated;
@@ -441,12 +440,21 @@ export const EvolutionHeatmap = React.memo(({
         </div>
     );
 
-    const targetFmt = `${Math.round(targetScorePct)}%`;
-    const t60Fmt = `${Math.round(targetScorePct * 0.6)}%`;
-    const t80Fmt = `${Math.round(targetScorePct * 0.8)}%`;
+    const effectiveLegendTargetPct = (showOnlyFocus && filteredRowsByFocus.length === 1)
+        ? getRowTargetPct(filteredRowsByFocus[0]?.cat)
+        : targetScorePct;
+    const targetFmt = `${Math.round(effectiveLegendTargetPct)}%`;
+    const t60Fmt = `${Math.round(effectiveLegendTargetPct * 0.6)}%`;
+    const t80Fmt = `${Math.round(effectiveLegendTargetPct * 0.8)}%`;
 
     return (
-        <div className="w-full min-h-[240px] rounded-2xl border border-slate-800/80 bg-slate-950 p-4 sm:p-5 shadow-[0_18px_45px_rgba(2,6,23,0.5)]">
+        <div className="w-full min-h-[240px] rounded-2xl border border-slate-800/80 bg-slate-950 p-4 sm:p-5 shadow-[0_18px_45px_rgba(2,6,23,0.5)] relative">
+            {isAggregating && (
+                <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-indigo-300 animate-pulse">
+                    <span className="inline-block w-2 h-2 rounded-full bg-indigo-400" />
+                    Recalculando agregação do mapa...
+                </div>
+            )}
             <div className="flex flex-wrap items-center gap-3.5 mb-5 text-[11px] text-slate-300">
                 <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-lg p-1.5 mr-2 shadow-sm">
                     {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (

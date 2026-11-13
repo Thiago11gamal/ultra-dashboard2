@@ -1,15 +1,18 @@
-import { normalizeDate } from './dateHelper.js';
+import { getDateKey } from './dateHelper.js';
 
 export function getMondayKey(rawKey = '') {
-  const dt = normalizeDate(rawKey) || new Date(0);
+  const dateKey = getDateKey(rawKey);
+  if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return `sem-${rawKey || 'na'}`;
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
   if (Number.isNaN(dt.getTime())) return `sem-${rawKey || 'na'}`;
-  const day = dt.getDay();
-  const diff = dt.getDate() - day + (day === 0 ? -6 : 1);
-  dt.setDate(diff);
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, '0');
-  const d = String(dt.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  const day = dt.getUTCDay();
+  const diff = dt.getUTCDate() - day + (day === 0 ? -6 : 1);
+  dt.setUTCDate(diff);
+  const my = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const md = String(dt.getUTCDate()).padStart(2, '0');
+  return `${my}-${mm}-${md}`;
 }
 
 export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 100) {

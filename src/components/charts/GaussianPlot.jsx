@@ -306,6 +306,7 @@ export const GaussianPlot = React.memo(function GaussianPlot({
         if (!el) return;
 
         const rect = el.getBoundingClientRect();
+        if (!rect || rect.width <= 0) return;
         const percentage = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
 
         const hoverRange = range > 1e-6 ? range : 1;

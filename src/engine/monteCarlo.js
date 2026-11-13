@@ -570,10 +570,10 @@ export function simulateNormalDistribution(
             rawLow = Math.max(minScore, clampedDisplayMean - MIN_SPREAD / 2);
             rawHigh = Math.min(maxScore, clampedDisplayMean + MIN_SPREAD / 2);
 
-            if (rawHigh === maxScore && rawLow < maxScore - MIN_SPREAD) {
-                rawLow = maxScore - MIN_SPREAD;
-            } else if (rawLow === minScore && rawHigh > minScore + MIN_SPREAD) {
-                rawHigh = minScore + MIN_SPREAD;
+            if (rawHigh === maxScore && rawHigh - rawLow < MIN_SPREAD) {
+                rawLow = Math.max(minScore, maxScore - MIN_SPREAD);
+            } else if (rawLow === minScore && rawHigh - rawLow < MIN_SPREAD) {
+                rawHigh = Math.min(maxScore, minScore + MIN_SPREAD);
             }
         }
     }

@@ -7,6 +7,7 @@ import {
 import { normalizeDate, getDateKey, formatDisplayDate, parseNoonLocal } from "../../../utils/dateHelper";
 import { getSafeScore, formatValue, getSyntheticTotal } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
+import { filterHistoryByTimeWindow } from "../../../hooks/useSubjectAggData";
 import { ChartFrame } from "../ChartFrame";
 
 const CustomTooltipStyle = {
@@ -164,21 +165,6 @@ export const SubtopicsPerformanceChart = React.memo(({
         [targetScorePct]
     );
 
-    const limitMs = useMemo(() => {
-        const now = new Date();
-        now.setHours(23, 59, 59, 999);
-        if (timeWindow !== "all") {
-            const days = parseInt(timeWindow, 10);
-            if (Number.isFinite(days) && days > 0) {
-                const pastDate = new Date();
-                pastDate.setDate(pastDate.getDate() - days);
-                pastDate.setHours(0, 0, 0, 0);
-                return pastDate.getTime();
-            }
-        }
-        return 0;
-    }, [timeWindow]);
-
     const relevantCategories = useMemo(() => {
         return categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
     }, [categories, showOnlyFocus, focusSubjectId]);
@@ -187,24 +173,16 @@ export const SubtopicsPerformanceChart = React.memo(({
         const topicMap = {};
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const scopeByCat = !showOnlyFocus && relevantCategories.length > 1;
 
         relevantCategories.forEach(cat => {
-            const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
-            if (!history.length) return;
+            const recentHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
+            if (!recentHistory.length) return;
 
             const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const catRange = Math.max(1e-9, catMax - catMin);
             const tasksList = toArray(cat.tasks);
-            const nowEndMs = new Date().setHours(23, 59, 59, 999);
-
-            const recentHistory = history.filter(h => {
-                if (!h || h.valid === false) return false;
-                const d = normalizeDate(getHistoryDate(h));
-                if (!d || !Number.isFinite(d.getTime()) || d.getTime() > nowEndMs) return false;
-                if (!limitMs) return true;
-                return d.getTime() >= limitMs;
-            });
 
             for (let i = 0; i < recentHistory.length; i++) {
                 const h = recentHistory[i];
@@ -227,10 +205,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const rawName = String(t.name || '').replace(/^\[(.*?)\]\s*/i, '').replace(/<[^>]*>?/gm, '').trim();
                     const n = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!n || n.toLowerCase() === 'nenhum') return;
-                    const key = n.toLowerCase();
+                    const rawKey = n.toLowerCase();
+                    const catScope = String(cat.id || cat.name || '');
+                    const key = scopeByCat ? `${catScope}::${rawKey}` : rawKey;
 
                     if (!topicMap[key]) {
-                        topicMap[key] = { name: n, correct: 0, total: 0, realCorrect: 0, realTotal: 0 };
+                        topicMap[key] = { name: n, rawKey, catName: cat.name || '', correct: 0, total: 0, realCorrect: 0, realTotal: 0 };
                     }
 
                     const rawTotParsed = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
@@ -269,6 +249,11 @@ export const SubtopicsPerformanceChart = React.memo(({
             }
         });
 
+        const nameFrequency = {};
+        Object.values(topicMap).forEach(item => {
+            nameFrequency[item.rawKey] = (nameFrequency[item.rawKey] || 0) + 1;
+        });
+
         return Object.values(topicMap)
             .filter(d => d.total > 0)
             .map(d => {
@@ -277,9 +262,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                 const rawAcc = (effCorrect / effTotal) * 100;
                 const acc = Number.isFinite(rawAcc) ? rawAcc : 0;
                 const isSynthetic = d.realTotal === 0;
+                const displayFullName = (nameFrequency[d.rawKey] > 1 && d.catName)
+                    ? `${d.name} (${d.catName.replace(/Direito /gi, 'D. ')})`
+                    : d.name;
                 return {
-                    name: d.name.length > 25 ? d.name.substring(0, 23) + '...' : d.name,
-                    fullName: d.name,
+                    name: displayFullName.length > 25 ? displayFullName.substring(0, 23) + '...' : displayFullName,
+                    fullName: displayFullName,
                     correct: Math.round(isSynthetic ? d.correct : d.realCorrect),
                     total: Math.round(isSynthetic ? d.total : d.realTotal),
                     realCorrect: Math.round(d.realCorrect),
@@ -289,13 +277,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                 };
             })
             .sort((a, b) => a.accuracy - b.accuracy);
-    }, [relevantCategories, limitMs, maxScore, minScore]);
+    }, [relevantCategories, timeWindow, showOnlyFocus, maxScore, minScore]);
 
     const { timeSeriesData, uniqueTopics } = useMemo(() => {
         const dateMap = {}; 
         const topicVolumeMap = {}; 
         const safeMaxScore = Math.max(1, Number(maxScore) || 100);
         const safeMinScore = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const scopeByCat = !showOnlyFocus && relevantCategories.length > 1;
 
         const toTopicKey = (name) => {
           const normalized = String(name || '').trim().toLowerCase();
@@ -311,22 +300,13 @@ export const SubtopicsPerformanceChart = React.memo(({
         };
 
         relevantCategories.forEach(cat => {
-            const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
-            if (!history.length) return;
+            const recentHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
+            if (!recentHistory.length) return;
 
             const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
             const catRange = Math.max(1e-9, catMax - catMin);
             const tasksList = toArray(cat.tasks);
-            const nowEndMs = new Date().setHours(23, 59, 59, 999);
-
-            const recentHistory = history.filter(h => {
-                if (!h || h.valid === false) return false;
-                const d = normalizeDate(getHistoryDate(h));
-                if (!d || !Number.isFinite(d.getTime()) || d.getTime() > nowEndMs) return false;
-                if (!limitMs) return true;
-                return d.getTime() >= limitMs;
-            });
 
             for (const h of recentHistory) {
                 const d = normalizeDate(getHistoryDate(h));
@@ -368,9 +348,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                     }
                     if (total === 0) return;
 
-                    const sKey = toTopicKey(topicName);
+                    const scopedId = scopeByCat ? `${cat.id || cat.name || ''}::${topicName}` : topicName;
+                    const sKey = toTopicKey(scopedId);
                     if (!topicVolumeMap[sKey]) {
-                        topicVolumeMap[sKey] = { name: topicName, key: sKey, volume: 0 };
+                        topicVolumeMap[sKey] = { name: topicName, rawKey: topicName.toLowerCase(), catName: cat.name || '', key: sKey, volume: 0 };
                     }
                     topicVolumeMap[sKey].volume += total;
 
@@ -403,10 +384,20 @@ export const SubtopicsPerformanceChart = React.memo(({
             }
         });
 
+        const seriesNameFreq = {};
+        Object.values(topicVolumeMap).forEach(item => {
+            seriesNameFreq[item.rawKey] = (seriesNameFreq[item.rawKey] || 0) + 1;
+        });
+
         const topTopics = Object.values(topicVolumeMap)
             .sort((a, b) => b.volume - a.volume)
             .slice(0, 8)
-            .map(({ name, key }) => ({ name, key }));
+            .map(({ name, rawKey, catName, key }) => ({
+                name: (seriesNameFreq[rawKey] > 1 && catName)
+                    ? `${name} (${catName.replace(/Direito /gi, 'D. ')})`
+                    : name,
+                key
+            }));
 
         let series = Object.values(dateMap).sort((a, b) => a.originalDate - b.originalDate);
 
@@ -436,7 +427,7 @@ export const SubtopicsPerformanceChart = React.memo(({
         });
 
         return { timeSeriesData: series, uniqueTopics: topTopics };
-    }, [relevantCategories, limitMs, maxScore, minScore]);
+    }, [relevantCategories, timeWindow, showOnlyFocus, maxScore, minScore]);
 
     const renderYAxisTick = useCallback((props) => {
         const { x, y, payload } = props;

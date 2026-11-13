@@ -6,6 +6,7 @@ import {
 import { getDateKey, toDateMs } from '../../../utils/dateHelper';
 import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals } from '../../../utils/scoreHelper';
 import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.conversions';
+import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
 import { normalize } from '../../../utils/normalization';
 import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
@@ -77,6 +78,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
     focusCategory = null,
     globalMetrics = {}, 
     targetScore = 80,
+    timeWindow = 'all',
     maxScore = 100, 
     minScore = 0,
     unit = '%',
@@ -150,7 +152,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         if (focusCategory) {
             const catMax = hasValidNumber(focusCategory?.maxScore) && Number(focusCategory.maxScore) > 0 ? Number(focusCategory.maxScore) : safeMax;
             const catMin = hasValidNumber(focusCategory?.minScore) ? Math.min(Number(focusCategory.minScore), catMax) : safeMin;
-            const history = Object.values(focusCategory.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
+            const history = filterHistoryByTimeWindow(focusCategory.simuladoStats?.history || [], timeWindow);
             let totalQ = 0;
             let totalC = 0;
             history.forEach(h => {
@@ -166,8 +168,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         const pct = Number(globalMetrics?.globalAccuracy);
         const safePct = Number.isFinite(pct) ? pct : 0;
         return Math.max(safeMin, Math.min(safeMax, ratioToPoints(safePct / 100, safeMax, safeMin)));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [focusCategory, globalMetrics?.globalAccuracy, safeMax, safeMin]);
+    }, [focusCategory, timeWindow, globalMetrics?.globalAccuracy, safeMax, safeMin]);
 
     const scale = safeRange / 100;
     const stabilityMargin = Math.max(0.5, safeRange * 0.02);
@@ -195,14 +196,11 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         const dayMap = {};
         const safeMaxScore = safeMax;
         const safeMinScore = safeMin;
-        const baseNowMs = toDateMs(todayKey) || 0;
-        const localNext = getDateKey(new Date(baseNowMs + 86400000));
-        const utcNext = new Date(baseNowMs + 86400000).toISOString().split('T')[0];
-        const maxAllowedDateKey = localNext > utcNext ? localNext : utcNext;
+        const maxAllowedDateKey = todayKey;
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
-            const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
+            const history = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
                 if (!dKey || dKey > maxAllowedDateKey) return;
@@ -228,8 +226,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;
         return { dailyData: result, lastActiveEntry: lastEntry };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeCategories, safeMax, safeMin, todayKey]);
+    }, [activeCategories, timeWindow, safeMax, safeMin, todayKey]);
 
     const temporalMetrics = useMemo(() => {
         const ms1Week = 7 * 86400000;
@@ -237,10 +234,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         const ms3Months = 90 * 86400000;
         const ms6Months = 180 * 86400000;
         const todayNoonMs = toDateMs(todayKey) || 0;
-        const utcTodayKey = new Date(todayNoonMs).toISOString().split('T')[0];
-        const localNext = getDateKey(new Date(todayNoonMs + 86400000));
-        const utcNext = new Date(todayNoonMs + 86400000).toISOString().split('T')[0];
-        const maxAllowedDateKey = localNext > utcNext ? localNext : utcNext;
+        const maxAllowedDateKey = todayKey;
 
         const buckets = {
             today: { correct: 0, total: 0 },
@@ -265,7 +259,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 const { tot, corr } = resolveEntryQuestionStats(h, catMax, catMin);
                 if (tot <= 0) return;
 
-                const isTodayDate = hDateKey === todayKey || hDateKey === utcTodayKey;
+                const isTodayDate = hDateKey === todayKey;
                 if (isTodayDate) { buckets.today.correct += corr; buckets.today.total += tot; }
                 const dayMs = toDateMs(hDateKey) || time;
                 const ageMs = Math.max(0, todayNoonMs - dayMs);
@@ -276,8 +270,16 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             });
         });
 
+        const hasExplicitTime = (entry) => Boolean(
+            entry?.lastUpdated ||
+            entry?.createdAt ||
+            (typeof entry?.date === 'string' && entry.date.includes('T'))
+        );
+
         let latestAcc = null;
         let latestTimestamp = -Infinity;
+        let latestDayKey = '';
+        let latestHasTime = false;
         let hasRowMatch = false;
         if (Array.isArray(simuladoRows) && simuladoRows.length > 0) {
             const activeCategoryMap = new Set(activeCategories.map(c => normalize(c.name)));
@@ -294,8 +296,11 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                   return subjMatches || idMatches;
                 })
                 .sort((a, b) => {
-                    const timeA = toDateMs(a.createdAt || a.date);
-                    const timeB = toDateMs(b.createdAt || b.date);
+                    const dkA = getDateKey(a.date || a.createdAt) || '';
+                    const dkB = getDateKey(b.date || b.createdAt) || '';
+                    if (dkA !== dkB) return dkB.localeCompare(dkA);
+                    const timeA = toDateMs(a.lastUpdated || a.createdAt || a.date);
+                    const timeB = toDateMs(b.lastUpdated || b.createdAt || b.date);
                     return (Number.isFinite(timeB) ? timeB : -Infinity) - (Number.isFinite(timeA) ? timeA : -Infinity);
                 });
             if (sortedRows.length > 0) {
@@ -306,7 +311,9 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 const lMin = hasValidNumber(matchedCat?.minScore) ? Math.min(Number(matchedCat.minScore), lMax) : safeMinScore;
                 const rawLatest = getSafeScore(latestRow, lMax, lMin);
                 latestAcc = Number.isFinite(rawLatest) ? ratioToPoints(pointsToRatio(rawLatest, lMax, lMin), safeMaxScore, safeMinScore) : null;
-                latestTimestamp = toDateMs(latestRow.createdAt || latestRow.date) || -Infinity;
+                latestTimestamp = toDateMs(latestRow.lastUpdated || latestRow.createdAt || latestRow.date) || -Infinity;
+                latestDayKey = getDateKey(latestRow.date || latestRow.createdAt) || '';
+                latestHasTime = hasExplicitTime(latestRow);
                 hasRowMatch = true;
             }
         }
@@ -318,15 +325,24 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             history.forEach(h => {
                 const hDateKey = getDateKey(h?.date || h?.createdAt);
                 if (!hDateKey || hDateKey > maxAllowedDateKey) return;
-                const ms = toDateMs(h?.createdAt || h?.date);
-                const latestDayKey = Number.isFinite(latestTimestamp) ? getDateKey(new Date(latestTimestamp)) : '';
+                const hHasTime = hasExplicitTime(h);
+                const ms = toDateMs(h?.lastUpdated || h?.createdAt || h?.date);
                 const isNewer = hasRowMatch
-                    ? (Number.isFinite(ms) && (ms > latestTimestamp || hDateKey > latestDayKey))
-                    : (Number.isFinite(ms) && ms >= latestTimestamp);
+                    ? (
+                        hDateKey > latestDayKey ||
+                        (hDateKey === latestDayKey && hHasTime && Number.isFinite(ms) && (!latestHasTime || ms > latestTimestamp))
+                    )
+                    : (
+                        !latestDayKey ||
+                        hDateKey > latestDayKey ||
+                        (hDateKey === latestDayKey && Number.isFinite(ms) && ms >= latestTimestamp)
+                    );
                 if (isNewer) {
                     const rawScore = getSafeScore(h, catMax, catMin);
                     if (Number.isFinite(rawScore)) {
-                        latestTimestamp = ms;
+                        latestTimestamp = Number.isFinite(ms) ? ms : latestTimestamp;
+                        latestDayKey = hDateKey;
+                        latestHasTime = hHasTime;
                         latestAcc = ratioToPoints(pointsToRatio(rawScore, catMax, catMin), safeMaxScore, safeMinScore);
                     }
                 }
@@ -342,7 +358,6 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             { id: 'today', label: 'Hoje', val: getAcc(buckets.today), rIn: 104, rOut: 111 },
             { id: 'last', label: 'Último Teste', val: latestAcc, rIn: 112, rOut: 119 }
         ];
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeCategories, safeMax, safeMin, todayKey, simuladoRows]);
 
     const lastMetric = temporalMetrics.find(t => t.id === 'last');

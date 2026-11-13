@@ -11,7 +11,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
-import { getSafeScore, getSyntheticTotal, formatValue } from '../../../utils/scoreHelper.js';
+import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals } from '../../../utils/scoreHelper.js';
 import { pointsToRatio, ratioToPoints } from '../../../utils/scoreHelper.conversions.js';
 import { getHistoryDate } from '../../../utils/evolutionGuards.js';
 import { isSubjectMatch } from '../../../utils/normalization.js';
@@ -67,10 +67,11 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
             let questionsTotal = 0;
 
             categories.forEach(cat => {
-                if (showOnlyFocus && focusSubjectId && cat.id !== focusSubjectId) return;
+                if (showOnlyFocus && focusSubjectId && String(cat.id) !== String(focusSubjectId)) return;
 
                 const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
                 const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
+                const catRange = Math.max(1e-9, catMax - catMin);
                 const history = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
                 history.forEach(h => {
                     if (!h || h.valid === false) return;
@@ -81,12 +82,21 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                         const hasCorrect = (h.correct !== undefined && h.correct !== null && String(h.correct).trim() !== '') ||
                                           (h.acertos !== undefined && h.acertos !== null && String(h.acertos).trim() !== '') ||
                                           (h.correctCount !== undefined && h.correctCount !== null && String(h.correctCount).trim() !== '');
-                        if (hasCorrect && !h.isPercentage) {
+                        if (q === 0 && h.topics != null) {
+                            const tf = extractTopicsTotals(h, catMax, catMin);
+                            if (tf.total > 0) {
+                                q = tf.total;
+                                corr = tf.correct;
+                            } else if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
+                                q = getSyntheticTotal(catMax);
+                                corr = Math.max(0, Math.min(1, (tf.score - catMin) / catRange)) * q;
+                            }
+                        } else if (hasCorrect && !h.isPercentage) {
                             const rawC = Math.max(0, Number(h.correct ?? h.acertos ?? h.correctCount) || 0);
                             corr = Math.min(q > 0 ? q : rawC, Number.isFinite(rawC) ? rawC : 0);
                             if (q === 0) q = corr > 0 ? corr : getSyntheticTotal(catMax);
                         } else {
-                            if (q === 0 && h.score != null) {
+                            if (q === 0 && (h.score != null || h.scorePoints != null || h.scorePct != null)) {
                                 q = getSyntheticTotal(catMax);
                             }
                             if (q < 1) return;

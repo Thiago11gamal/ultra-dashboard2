@@ -15,17 +15,21 @@ function safeNum(val, fallback) {
 function sanitizeSubjects(subjects) {
     if (!Array.isArray(subjects)) return [];
 
-    return subjects.filter(Boolean).map(s => ({
-        ...s,
-        name: s?.name ? String(s.name) : undefined,
-        mean: safeNum(s?.mean, 0),
-        sd: Math.max(0.01, safeNum(s?.sd, 1)),
-        minCutoff: safeNum(s?.minCutoff, 0),
-        maxScore: safeNum(s?.maxScore, 100),
-        minScore: safeNum(s?.minScore, 0),
-        immunityFactor: safeNum(s?.immunityFactor, 1.0),
-        weight: safeNum(s?.weight, 1.0)
-    }));
+    return subjects.filter(Boolean).map(s => {
+        const rawCutoff = s?.minCutoff;
+        const hasCutoff = rawCutoff !== null && rawCutoff !== undefined && typeof rawCutoff !== 'boolean' && String(rawCutoff).trim() !== '' && Number.isFinite(Number(rawCutoff));
+        return {
+            ...s,
+            name: s?.name ? String(s.name) : undefined,
+            mean: safeNum(s?.mean, 0),
+            sd: Math.max(0.01, safeNum(s?.sd, 1)),
+            minCutoff: hasCutoff ? Number(rawCutoff) : undefined,
+            maxScore: safeNum(s?.maxScore, 100),
+            minScore: safeNum(s?.minScore, 0),
+            immunityFactor: safeNum(s?.immunityFactor, 1.0),
+            weight: safeNum(s?.weight, 1.0)
+        };
+    });
 }
 
 function sanitizeBayesianCI(ci) {
@@ -97,7 +101,7 @@ function sanitizeOptions(options) {
     return newOpts;
 }
 
-self.onmessage = function(e) {
+self.onmessage = function (e) {
     const { type, payload, id } = e.data;
 
     // ✅ PATCH-21: Validação defensiva
@@ -292,8 +296,9 @@ function sanitizePayloadForWorker(obj) {
 }
 
 export const __workerTesting = {
-  safeNum,
-  sanitizeHistory,
-  sanitizeOptions,
+    safeNum,
+    sanitizeHistory,
+    sanitizeSubjects,
+    sanitizeOptions,
 };
 

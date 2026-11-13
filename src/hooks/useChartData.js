@@ -99,7 +99,11 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
         const safeScore = hasScore ? score : NaN;
         if (rawTotal <= 0 && !hasScore) continue;
 
-        const isPercentOnly = rawTotal <= 0 && hasScore;
+        const isPercentOnly =
+            h?.syntheticVolume === true ||
+            h?.isSynthetic === true ||
+            h?.type === 'percent-only' ||
+            (rawTotal <= 0 && hasScore);
 
         let compTotal = rawTotal;
         let compCorrect = rawCorrect;
@@ -547,8 +551,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     h?.type === 'percent-only' ||
                     tot === 0;
                 let corrNorm;
-                if (tot === 0) {
-                    tot = getSyntheticTotal(catMax);
+                if (isSyntheticEntry) {
+                    if (tot <= 0) tot = getSyntheticTotal(catMax);
                     corrNorm = toCatRatio(score) * tot;
                 } else if (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect)) {
                     corrNorm = Math.max(0, Math.min(tot, raw));
@@ -643,8 +647,8 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     tot === 0;
 
                 let corrNorm;
-                if (isSyntheticVolume && tot === 0) {
-                    tot = getSyntheticTotal(catMax);
+                if (isSyntheticVolume) {
+                    if (tot <= 0) tot = getSyntheticTotal(catMax);
                     corrNorm = toCatRatio(score) * tot;
                 } else if (!h.isPercentage && hasExplicitC && Number.isFinite(rawParsedC)) {
                     corrNorm = Math.max(0, Math.min(tot, rawParsedC));
@@ -668,9 +672,11 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 }
             });
         });
-        const globalAccuracy = (totalQuestions > 0)
-            ? (totalCorrect / totalQuestions) * 100
-            : (syntheticQuestions > 0 ? (syntheticCorrect / syntheticQuestions) * 100 : 0);
+        const combinedQuestions = totalQuestions + syntheticQuestions;
+        const combinedCorrect = totalCorrect + syntheticCorrect;
+        const globalAccuracy = combinedQuestions > 0
+            ? (combinedCorrect / combinedQuestions) * 100
+            : 0;
         return {
             totalQuestions: Number.isFinite(totalQuestions) ? totalQuestions : 0,
             totalCorrect: Number.isFinite(totalCorrect) ? totalCorrect : 0,

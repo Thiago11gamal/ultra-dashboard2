@@ -6,6 +6,9 @@ import { useCategoryLevels } from "../hooks/useCategoryLevels";
 import { useSubjectAggData } from "../hooks/useSubjectAggData";
 import { EvolutionHeatmap } from "./charts/EvolutionHeatmap";
 import { getDateKey, toDateMs, normalizeDate } from "../utils/dateHelper";
+import { parseNoonLocal } from "../utils/parseNoonLocal";
+import { normalize, aliases } from "../utils/normalization";
+import { getSafeScore, extractTopicsTotals, getSyntheticTotal } from "../utils/scoreHelper";
 import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { pointsToRatio, ratioToPoints } from "../utils/scoreHelper.conversions";
@@ -38,6 +41,158 @@ import { computeEvolutionStatuses } from '../utils/evolutionStatus';
 
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
+const DEFAULT_CATEGORY_PALETTE = [
+  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+  "#ec4899", "#14b8a6", "#f43f5e", "#84cc16", "#a855f7",
+  "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
+];
+
+function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalMin = 0, globalMax = 100) {
+  const safeBase = Array.isArray(baseCategories) ? baseCategories : [];
+  const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(r => r && r.valid !== false);
+  if (!validRows.length) return safeBase;
+
+  const rowMatchesCategory = (row, cat) => {
+    if (row.categoryId && cat.id && String(row.categoryId) === String(cat.id)) return true;
+    const subNorm = normalize(row.subject || row.categoryName || row.materia);
+    const catNorm = normalize(cat.name);
+    if (!subNorm || !catNorm) return false;
+    const catAliases = aliases[catNorm] || EMPTY_ARRAY;
+    return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
+  };
+
+  let workingCategories = safeBase;
+  if (workingCategories.length === 0) {
+    const seen = new Map();
+    validRows.forEach((row, idx) => {
+      const label = String(row.subject || row.categoryName || row.materia || '').trim();
+      const key = normalize(label) || (row.categoryId ? String(row.categoryId) : '');
+      if (!key || seen.has(key)) return;
+      seen.set(key, {
+        id: row.categoryId || `synth_cat_${seen.size + 1}`,
+        name: label || 'Disciplina',
+        color: DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length],
+        tasks: [],
+        simuladoStats: { history: [] }
+      });
+    });
+    workingCategories = Array.from(seen.values());
+  }
+
+  return workingCategories.map((cat) => {
+    const myRows = validRows.filter(r => rowMatchesCategory(r, cat));
+    if (!myRows.length) return cat;
+
+    const existingHistoryRaw = cat.simuladoStats?.history;
+    const existingHistory = (Array.isArray(existingHistoryRaw)
+      ? existingHistoryRaw
+      : Object.values(existingHistoryRaw || {})).filter(Boolean);
+
+    const existingIds = new Set(existingHistory.map(h => h.id || h.simuladoRowId).filter(Boolean));
+    const existingDateKeys = new Set(existingHistory.map(h => getDateKey(h.date || h.createdAt)).filter(Boolean));
+
+    const missingRows = myRows.filter(r => {
+      if (r.id && existingIds.has(r.id)) return false;
+      const dk = getDateKey(r.date || r.createdAt);
+      return dk && !existingDateKeys.has(dk);
+    });
+    if (!missingRows.length) return cat;
+
+    const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(globalMax) || 100);
+    const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(globalMin)) ? Number(globalMin) : 0);
+    const catRange = Math.max(1e-9, catMax - catMin);
+
+    const byDay = new Map();
+    missingRows.forEach((r) => {
+      const dk = getDateKey(r.date || r.createdAt);
+      if (!dk) return;
+      if (!byDay.has(dk)) {
+        byDay.set(dk, {
+          date: dk,
+          createdAt: r.createdAt || r.date,
+          correct: 0,
+          total: 0,
+          scoreSum: 0,
+          scoreCount: 0,
+          timeSpent: 0,
+          timedQuestoes: 0,
+          hasExplicitTotal: false
+        });
+      }
+      const bucket = byDay.get(dk);
+      let rowTot = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
+      const rawCorr = r.correct ?? r.acertos ?? r.correctCount;
+      const hasExplicitCorr = !r.isPercentage && rawCorr !== undefined && rawCorr !== null && String(rawCorr).trim() !== '' && Number.isFinite(Number(rawCorr));
+      let rowCorr = hasExplicitCorr ? Math.max(0, Number(rawCorr)) : NaN;
+      let rowScore = getSafeScore(r, catMax, catMin);
+
+      if (rowTot <= 0 && r.topics != null) {
+        const tf = extractTopicsTotals(r, catMax, catMin);
+        if (tf.total > 0) {
+          rowTot = tf.total;
+          rowCorr = tf.correct;
+          if (!Number.isFinite(rowScore) || rowScore === catMin) rowScore = tf.score;
+        } else if (!Number.isFinite(rowScore) && tf.hasTopicsScore) {
+          rowScore = tf.score;
+        }
+      }
+
+      if (rowTot > 0) {
+        bucket.hasExplicitTotal = true;
+        if (!Number.isFinite(rowCorr)) {
+          rowCorr = Number.isFinite(rowScore)
+            ? Math.round(Math.max(0, Math.min(1, (rowScore - catMin) / catRange)) * rowTot)
+            : 0;
+        }
+        bucket.total += rowTot;
+        bucket.correct += Math.max(0, Math.min(rowTot, rowCorr));
+      } else if (Number.isFinite(rowScore)) {
+        const synTot = getSyntheticTotal(catMax);
+        const ratio = Math.max(0, Math.min(1, (rowScore - catMin) / catRange));
+        bucket.total += synTot;
+        bucket.correct += Math.round(ratio * synTot);
+        bucket.scoreSum += rowScore;
+        bucket.scoreCount += 1;
+      }
+
+      const ts = Number(r.timeSpent ?? r.durationSeconds ?? 0);
+      if (Number.isFinite(ts) && ts > 0) {
+        const tq = Number(r.timedQuestoes) > 0 ? Number(r.timedQuestoes) : (rowTot > 0 ? rowTot : getSyntheticTotal(catMax));
+        bucket.timeSpent += ts;
+        bucket.timedQuestoes += tq;
+      }
+    });
+
+    const reconstructed = Array.from(byDay.values()).map((b) => {
+      const score = (!b.hasExplicitTotal && b.scoreCount > 0)
+        ? b.scoreSum / b.scoreCount
+        : (b.total > 0 ? catMin + (b.correct / b.total) * catRange : catMin);
+      return {
+        date: b.date,
+        ...(b.createdAt ? { createdAt: b.createdAt } : {}),
+        total: b.total,
+        correct: b.correct,
+        score: Number(Math.max(catMin, Math.min(catMax, score)).toFixed(2)),
+        syntheticVolume: !b.hasExplicitTotal && b.scoreCount > 0,
+        ...(b.timeSpent > 0 ? { timeSpent: b.timeSpent, timedQuestoes: b.timedQuestoes } : {})
+      };
+    });
+
+    const mergedHistory = [...existingHistory, ...reconstructed].sort((a, b) => {
+      const da = toDateMs(a.date || a.createdAt);
+      const db = toDateMs(b.date || b.createdAt);
+      return (Number.isFinite(da) ? da : 0) - (Number.isFinite(db) ? db : 0);
+    });
+
+    return {
+      ...cat,
+      simuladoStats: {
+        ...(cat.simuladoStats || {}),
+        history: mergedHistory
+      }
+    };
+  });
+}
 
 function hasValidNumber(value) {
   return value !== null && value !== undefined && typeof value !== 'boolean' && String(value).trim() !== '' && Number.isFinite(Number(value));
@@ -365,26 +520,26 @@ export default React.memo(function EvolutionChart({
         return contest?.categories ?? EMPTY_ARRAY;
     }));
 
+    const simuladoRowsArray = useMemo(
+        () => (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})),
+        [simuladoRows]
+    );
+
     const categories = useMemo(() => {
-        const DEFAULT_PALETTE = [
-            "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", 
-            "#ec4899", "#14b8a6", "#f43f5e", "#84cc16", "#a855f7",
-            "#06b6d4", "#eab308", "#6366f1", "#d946ef", "#22c55e"
-        ];
         const sourceList = (Array.isArray(propCategories) && propCategories.length > 0) ? propCategories : rawCategories;
         const safeCategories = (
           Array.isArray(sourceList)
             ? sourceList
             : Object.values(sourceList || {})
-        ).filter(Boolean);
-        return safeCategories.map((cat, idx) => {
+        ).filter(Boolean).map((cat, idx) => {
             // FIX 1A-1: cor por índice (puro, sem mutação de variável externa)
-            const color = cat.color || DEFAULT_PALETTE[idx % DEFAULT_PALETTE.length];
+            const color = cat.color || DEFAULT_CATEGORY_PALETTE[idx % DEFAULT_CATEGORY_PALETTE.length];
             // FIX 1A-2: normalizar tasks para array
             const tasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
             return { ...cat, color, tasks };
         });
-    }, [propCategories, rawCategories]);
+        return hydrateCategoriesWithSimuladoRows(safeCategories, simuladoRowsArray, minScore, maxScore);
+    }, [propCategories, rawCategories, simuladoRowsArray, minScore, maxScore]);
 
     const [activeEngine, setActiveEngine] = useState("raw_weekly");
     const [selectedSubjectId, setFocusSubjectId] = useState(null);
@@ -412,11 +567,6 @@ export default React.memo(function EvolutionChart({
     const studyLogsArray = useMemo(
         () => (Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {})),
         [studyLogs]
-    );
-
-    const simuladoRowsArray = useMemo(
-        () => (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})),
-        [simuladoRows]
     );
 
     const projectDays = useMemo(() => {
@@ -610,11 +760,10 @@ export default React.memo(function EvolutionChart({
             realQ += Number(item?.realQuestoes ?? item?.questoes) || 0;
             realC += Number(item?.realAcertos ?? item?.acertos) || 0;
             synthQ += Number(item?.syntheticQuestoes) || 0;
-            synthC += Number(item?.syntheticAcertos) || 0;
+            synthC += Number(item?.syntheticAcertosExact ?? item?.syntheticAcertos) || 0;
         }
-        const acc = realQ > 0
-            ? (realC / realQ) * 100
-            : (synthQ > 0 ? (synthC / synthQ) * 100 : 0);
+        const combinedQ = realQ + synthQ;
+        const acc = combinedQ > 0 ? ((realC + synthC) / combinedQ) * 100 : 0;
         return {
             totalQuestions: realQ,
             totalCorrect: realC,
@@ -704,25 +853,35 @@ export default React.memo(function EvolutionChart({
     const effectiveMcHistoryData = useMemo(() => {
         const rawList = Array.isArray(monteCarloHistoryArray) ? monteCarloHistoryArray : [];
         let filteredList = rawList;
+        const fId = focusCategory?.id;
+        if (fId) {
+            const forFocus = rawList.filter((item) => item?.categoryId && String(item.categoryId) === String(fId));
+            if (forFocus.length > 0) {
+                filteredList = forFocus;
+            } else if (showOnlyFocus) {
+                filteredList = rawList.filter((item) => !item?.categoryId);
+            }
+        }
         if (timeWindow !== "all") {
             const days = Number.parseInt(timeWindow, 10);
-            if (Number.isFinite(days) && days > 0 && rawList.length > 0) {
-                const cutoffDate = new Date();
-                cutoffDate.setHours(12, 0, 0, 0);
-                cutoffDate.setDate(cutoffDate.getDate() - days);
-                const limit = toDateMs(getDateKey(cutoffDate));
-                filteredList = rawList.filter((item) => {
+            if (Number.isFinite(days) && days > 0 && filteredList.length > 0) {
+                const todayKey = getDateKey(new Date());
+                const refMs = toDateMs(todayKey) || (parseNoonLocal(todayKey)?.getTime() ?? Date.now());
+                const limit = refMs - days * 86400000;
+                filteredList = filteredList.filter((item) => {
                     const ms = toDateMs(item?.date);
                     return Number.isFinite(ms) && ms >= limit;
                 });
             }
         }
-        if (filteredList.length >= 2) return filteredList;
+        const uniqueMcDays = new Set(
+            filteredList.map((item) => getDateKey(item?.date)).filter(Boolean)
+        );
+        if (uniqueMcDays.size >= 2) return filteredList;
 
-        // Synthesize trajectory from Bayesian timeline when global monteCarloHistory has <= 1 snapshot
+        // Synthesize trajectory from Bayesian timeline when global monteCarloHistory has <= 1 distinct day
         const pts = Array.isArray(filteredHistoricalData) ? filteredHistoricalData : [];
         if (pts.length < 2) return filteredList;
-        const fId = focusCategory?.id;
         const useFocusDomain = Boolean(fId);
         const effMin = useFocusDomain ? focusMin : minScore;
         const effMax = useFocusDomain ? focusMax : maxScore;
@@ -765,7 +924,7 @@ export default React.memo(function EvolutionChart({
             .filter(Boolean);
 
         return synth.length >= 2 ? synth : filteredList;
-    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
+    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, showOnlyFocus, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
 
     const latestMetricsByCat = useMemo(() => {
         const map = {};
@@ -786,21 +945,43 @@ export default React.memo(function EvolutionChart({
     }, [timeline, activeCategories]);
 
     const radarData = useMemo(() => {
-        const sourceCats = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
+        const baseCats = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
+        const sourceCats = (showOnlyFocus && focusCategory?.id)
+            ? baseCats.filter(c => c.id === focusCategory.id)
+            : baseCats;
         if (!sourceCats || !sourceCats.length) return [];
         const globalMin = hasValidNumber(minScore) ? Number(minScore) : 0;
         const globalMax = hasValidNumber(maxScore) && Number(maxScore) > globalMin ? Number(maxScore) : Math.max(100, globalMin + 100);
+        const aggById = new Map((subjectAggData || []).map(item => [item.id, item]));
+        if (timeWindow !== 'all' && aggById.size === 0) return [];
+
         return sourceCats.map(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : globalMax;
             const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : globalMin;
-            const lvl = categoryLevels?.[cat.id];
-            const hasLvl = hasValidNumber(lvl);
-            // Normaliza da escala da categoria para a escala global do eixo do Radar
-            const rawVal = hasLvl ? Math.max(catMin, Math.min(catMax, Number(lvl))) : catMin;
-            const normalizedVal = (catMax !== globalMax || catMin !== globalMin)
-                ? ratioToPoints(pointsToRatio(rawVal, catMax, catMin), globalMax, globalMin)
-                : rawVal;
-            const val = Number(Math.max(globalMin, Math.min(globalMax, normalizedVal)).toFixed(2));
+            let val;
+            if (timeWindow !== 'all') {
+                const aggItem = aggById.get(cat.id);
+                if (aggItem) {
+                    const realQ = Number(aggItem.realQuestoes) || 0;
+                    const realC = Number(aggItem.realAcertos) || 0;
+                    const synthQ = Number(aggItem.syntheticQuestoes) || 0;
+                    const synthC = Number(aggItem.syntheticAcertosExact ?? aggItem.syntheticAcertos) || 0;
+                    const totQ = realQ + synthQ;
+                    const ratio = totQ > 0 ? Math.max(0, Math.min(1, (realC + synthC) / totQ)) : 0;
+                    val = Number(Math.max(globalMin, Math.min(globalMax, ratioToPoints(ratio, globalMax, globalMin))).toFixed(2));
+                } else {
+                    val = globalMin;
+                }
+            } else {
+                const lvl = categoryLevels?.[cat.id];
+                const hasLvl = hasValidNumber(lvl);
+                // Normaliza da escala da categoria para a escala global do eixo do Radar
+                const rawVal = hasLvl ? Math.max(catMin, Math.min(catMax, Number(lvl))) : catMin;
+                const normalizedVal = (catMax !== globalMax || catMin !== globalMin)
+                    ? ratioToPoints(pointsToRatio(rawVal, catMax, catMin), globalMax, globalMin)
+                    : rawVal;
+                val = Number(Math.max(globalMin, Math.min(globalMax, normalizedVal)).toFixed(2));
+            }
             const fullName = String(cat.name || 'Sem nome');
             const rawMeta = hasValidNumber(cat?.minCutoff)
                 ? ratioToPoints(pointsToRatio(Number(cat.minCutoff), catMax, catMin), globalMax, globalMin)
@@ -813,7 +994,7 @@ export default React.memo(function EvolutionChart({
                 meta
             };
         });
-    }, [activeCategories, categories, targetScore, categoryLevels, minScore, maxScore]);
+    }, [activeCategories, categories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
 
     const insight = useMemo(() => {
         return generateEvolutionInsights({
@@ -1304,12 +1485,12 @@ export default React.memo(function EvolutionChart({
                 {activeEngine === "raw_weekly" ? (
                     <EvolutionHeatmap 
                         heatmapData={heatmapData} 
-                        targetScore={targetScore} 
+                        targetScore={showOnlyFocus ? focusTarget : targetScore} 
                         unit={unit} 
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
-                        maxScore={maxScore}
-                        minScore={minScore}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                        minScore={showOnlyFocus ? focusMin : minScore}
                     />
                 ) : activeEngine === "subtopics" ? (
                     <SubtopicsPerformanceChart
@@ -1328,6 +1509,7 @@ export default React.memo(function EvolutionChart({
                         categories={categories}
                         showOnlyFocus={showOnlyFocus}
                         focusCategory={focusCategory}
+                        timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}
                     />
@@ -1346,6 +1528,7 @@ export default React.memo(function EvolutionChart({
                         studyLogs={studyLogsArray}
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
+                        timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}
                         unit={unit}
@@ -1356,6 +1539,7 @@ export default React.memo(function EvolutionChart({
                         focusCategory={showOnlyFocus ? focusCategory : null}
                         globalMetrics={safeGlobalMetrics}
                         targetScore={targetScore}
+                        timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}   // ✅ LOTE-01
                         unit={unit}
@@ -1569,7 +1753,7 @@ export default React.memo(function EvolutionChart({
                             <div className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-2 px-6 text-center bg-slate-900/50 backdrop-blur-sm pointer-events-none">
                                 <span className="text-2xl mb-2">📉</span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    Cadastre pelo menos 2 registros para ver a densidade
+                                    Cadastre pelo menos 1 simulado na matéria em foco para ver a densidade
                                 </span>
                             </div>
                         )}
@@ -1785,6 +1969,7 @@ export default React.memo(function EvolutionChart({
                     minScore={minScore}
                     showOnlyFocus={showOnlyFocus}
                     focusSubjectId={focusCategory?.id || focusSubjectId}
+                    timeWindow={timeWindow}
                 />
             </div>
         </motion.div>

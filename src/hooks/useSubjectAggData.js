@@ -202,6 +202,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
           realAcertos: Math.round(realC),
           syntheticQuestoes: synthQ,
           syntheticAcertos: Math.round(synthC),
+          syntheticAcertosExact: synthC,
           timedQuestoes: stats.tq,
           acertos: totalCorrect,
           timeSpent: stats.ts,

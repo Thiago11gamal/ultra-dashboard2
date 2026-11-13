@@ -977,5 +977,17 @@ input[type=range].custom-slider::-moz-range-thumb:active {
   display: none !important;
 }
 
+.pdf-render-mode .custom-scrollbar,
+.pdf-render-mode .no-scrollbar {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
 
 
