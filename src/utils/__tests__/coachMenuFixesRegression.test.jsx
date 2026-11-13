@@ -405,7 +405,7 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
     it('runCoachOrchestrator does not leak transient options.features into global coachFeatureStore', async () => {
       replaceFlags({ useStateSpace: false, useBayesianTopics: false }, 'isolated-contest');
 
-      await runCoachOrchestrator({
+      const res = await runCoachOrchestrator({
         contestId: 'isolated-contest',
         force: true,
         loadPersistedFlags: false,
@@ -427,6 +427,7 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
         ],
       });
 
+      expect(res.ok).toBe(true);
       const persistedAfter = readFlags('isolated-contest');
       expect(persistedAfter.useStateSpace).toBe(false);
       expect(persistedAfter.useBayesianTopics).toBe(false);

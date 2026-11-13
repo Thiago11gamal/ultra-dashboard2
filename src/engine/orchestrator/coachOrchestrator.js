@@ -134,7 +134,7 @@ export function clearCoachCaches() {
  * FIX (BUG-34): timeout configurável via options.timeoutMs (default 30s).
  * Passos verificam controller.signal.aborted e pulam adiante se estourar.
  */
-export async function runCoachOrchestrator(input = {}, options = {}) {
+export async function runCoachOrchestrator(input = {}, optionsArg) {
   const startedAt = Date.now();
   const meta = {
     version: ORCHESTRATOR_VERSION,
@@ -143,8 +143,12 @@ export async function runCoachOrchestrator(input = {}, options = {}) {
     flags: {},
   };
 
-  // FIX: validar input antes de processar
+  // FIX: validar input antes de processar (suporta chamada com (input, options) ou objeto único)
   const safeInput = input && typeof input === 'object' ? input : {};
+  const options =
+    optionsArg && typeof optionsArg === 'object' && Object.keys(optionsArg).length > 0
+      ? optionsArg
+      : safeInput;
   const categories = safeArray(safeInput.categories);
   const simulados = safeArray(safeInput.simulados);
   const studyLogs = safeArray(safeInput.studyLogs);

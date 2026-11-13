@@ -83,14 +83,19 @@ export function getCoachFeature(optionsOrKey, keyOrFallback = false, fallbackOrC
   let options = null;
   let key = '';
   let fallback = false;
+  let explicitContestId;
 
   if (typeof optionsOrKey === 'string') {
     key = optionsOrKey;
     fallback = typeof keyOrFallback === 'boolean' ? keyOrFallback : false;
+    if (typeof fallbackOrContestId === 'string' && fallbackOrContestId) {
+      explicitContestId = fallbackOrContestId;
+    }
   } else {
     options = optionsOrKey;
     key = typeof keyOrFallback === 'string' ? keyOrFallback : '';
     fallback = typeof fallbackOrContestId === 'boolean' ? fallbackOrContestId : false;
+    explicitContestId = options?.contestId || options?.config?.contestId;
   }
 
   // FIX: guarda contra key inválida antes de qualquer acesso
@@ -104,7 +109,7 @@ export function getCoachFeature(optionsOrKey, keyOrFallback = false, fallbackOrC
       return options.features[key];
     }
     // 2. Store centralizado (substitui globalThis.__COACH_FEATURES__)
-    const storeValue = getFlag(key, undefined);
+    const storeValue = getFlag(key, undefined, explicitContestId);
     if (typeof storeValue === 'boolean') return storeValue;
     // 3. Defaults
     if (typeof DEFAULT_COACH_FEATURES[key] === 'boolean') {

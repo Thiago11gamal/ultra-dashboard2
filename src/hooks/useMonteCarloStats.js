@@ -91,16 +91,15 @@ function setCachedSubjectSim(key, result) {
 function maybeRecordGlobalCalibrationPrediction({
   result,
   projectDays,
-  timeIndex,
-  timelineDates,
-  activeId,
+  isTimeTraveling,
   pureStatsHash,
   debouncedTarget,
   lastRecordedGlobalPredRef,
 }) {
   try {
-    const setDataFn = useAppStore.getState().setData;
-    const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+    const storeState = useAppStore.getState();
+    const setDataFn = storeState.setData;
+    const activeId = storeState.appState?.activeId;
     if (!(projectDays > 0 && !isTimeTraveling && setDataFn && result?.probability != null)) return;
 
     const hash = `${pureStatsHash}-${debouncedTarget}`;
@@ -110,7 +109,7 @@ function maybeRecordGlobalCalibrationPrediction({
     const prob01 = Number(result.probability) / 100;
     const nextEffN = result.diagnostics?.effectiveN ?? null;
     const today = getDateKey(new Date());
-    const existingContest = useAppStore.getState().appState?.contests?.[activeId];
+    const existingContest = storeState.appState?.contests?.[activeId];
     const existingEvents = Array.isArray(existingContest?.calibrationEvents) ? existingContest.calibrationEvents : [];
     const lastGlobal = [...existingEvents].reverse().find(e => e && (e.category || 'global') === 'global');
 
@@ -730,9 +729,7 @@ export function useMonteCarloStats({
           maybeRecordGlobalCalibrationPrediction({
             result,
             projectDays: projectDaysRef.current,
-            timeIndex,
-            timelineDates,
-            activeId,
+            isTimeTraveling: timeIndex >= 0 && timeIndex < timelineDates.length - 1,
             pureStatsHash,
             debouncedTarget,
             lastRecordedGlobalPredRef,
@@ -843,9 +840,7 @@ export function useMonteCarloStats({
           maybeRecordGlobalCalibrationPrediction({
             result,
             projectDays: projectDaysRef.current,
-            timeIndex,
-            timelineDates,
-            activeId,
+            isTimeTraveling: timeIndex >= 0 && timeIndex < timelineDates.length - 1,
             pureStatsHash,
             debouncedTarget,
             lastRecordedGlobalPredRef,
