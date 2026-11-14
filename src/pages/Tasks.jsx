@@ -196,30 +196,44 @@ export default function Tasks() {
             </div>
           </div>
 
-          {/* Panel Selector (Dois Painéis) */}
-          <div className="flex items-center bg-slate-900/90 border border-white/10 rounded-2xl p-1.5 w-fit gap-1.5 shadow-2xl backdrop-blur-2xl ring-1 ring-white/5">
-            {panels.map((panel) => {
-              const Icon = panel.icon;
-              const isActive = activePanel === panel.id;
-              return (
-                <button
-                  key={panel.id}
-                  type="button"
-                  onClick={() => setActivePanel(panel.id)}
-                  className={`flex items-center gap-2.5 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl transition-all duration-300 cursor-pointer ${isActive
-                          ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 scale-[1.02] ring-1 ring-amber-300/50'
-                          : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
-                  }`}
-                >
-                  <Icon size={16} className={isActive ? 'text-slate-950 fill-current/20' : 'text-amber-400'} />
-                  <span>{panel.label}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block ${isActive ? 'bg-slate-950/25 text-slate-950 font-black' : 'bg-slate-800/80 text-slate-400 border border-white/5'
-                    }`}>
-                    {panel.badge}
-                  </span>
-                </button>
-              );
-            })}
+          {/* Panel Selector (Dois Painéis) & Actions */}
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center bg-slate-900/90 border border-white/10 rounded-2xl p-1.5 w-fit gap-1.5 shadow-2xl backdrop-blur-2xl ring-1 ring-white/5">
+              {panels.map((panel) => {
+                const Icon = panel.icon;
+                const isActive = activePanel === panel.id;
+                return (
+                  <button
+                    key={panel.id}
+                    type="button"
+                    onClick={() => setActivePanel(panel.id)}
+                    className={`flex items-center gap-2.5 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl transition-all duration-300 cursor-pointer ${isActive
+                            ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 scale-[1.02] ring-1 ring-amber-300/50'
+                            : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    <Icon size={16} className={isActive ? 'text-slate-950 fill-current/20' : 'text-amber-400'} />
+                    <span>{panel.label}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block ${isActive ? 'bg-slate-950/25 text-slate-950 font-black' : 'bg-slate-800/80 text-slate-400 border border-white/5'
+                      }`}>
+                      {panel.badge}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {activePanel === 'performance' && overviewStats.hasPerformanceData && (
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                className="group flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-slate-900/90 hover:bg-rose-500/15 border border-white/10 hover:border-rose-500/30 text-slate-400 hover:text-rose-300 text-xs font-bold transition-all duration-200 shadow-xl backdrop-blur-2xl cursor-pointer"
+                title="Resetar dados do quadro"
+              >
+                <RotateCcw size={14} className="text-slate-400 group-hover:text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />
+                <span className="hidden sm:inline">Resetar</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -462,54 +476,7 @@ export default function Tasks() {
         ) : (
           /* ═══ PAINEL 2: Quadro de Performance ═══ */
           <div className="space-y-8 animate-fade-in">
-            {/* Sub-header Painel 2 */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-950/90 border border-white/10 p-5 md:p-6 shadow-xl backdrop-blur-2xl">
-              <div className="pointer-events-none absolute -left-12 -top-12 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl" />
-              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10">
-                    <BarChart3 size={22} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-md shadow-sm">
-                        Painel 2 · Quadro de Performance
-                      </span>
-                      <span className="text-slate-500 text-xs hidden sm:inline-block">•</span>
-                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline-block">
-                        Tópicos & Assuntos
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
-                      Detalhamento quantitativo por disciplina e matriz exaustiva de assuntos do edital.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => overviewStats.hasPerformanceData && setShowResetConfirm(true)}
-                  disabled={!overviewStats.hasPerformanceData}
-                  className={`group self-start sm:self-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 shrink-0 border ${
-                    overviewStats.hasPerformanceData
-                      ? 'bg-slate-800/90 hover:bg-rose-500/15 text-slate-300 hover:text-rose-300 border-white/10 hover:border-rose-500/30 shadow-md hover:shadow-rose-500/10 cursor-pointer active:scale-95'
-                      : 'bg-slate-900/40 text-slate-600 cursor-not-allowed border-white/5 opacity-50'
-                  }`}
-                  title={overviewStats.hasPerformanceData ? 'Resetar dados do quadro' : 'Sem dados de performance para resetar'}
-                >
-                  <RotateCcw
-                    size={14}
-                    className={`transition-transform duration-300 ${
-                      overviewStats.hasPerformanceData
-                        ? 'text-amber-400 group-hover:text-rose-400 group-hover:-rotate-90'
-                        : 'text-slate-600'
-                    }`}
-                  />
-                  <span>Resetar Quadro</span>
-                </button>
-              </div>
-            </div>
-
+            <h2 className="sr-only">Painel 2 · Quadro de Performance</h2>
             <div className="space-y-8">
               <PerformanceTable categories={categories} maxScore={maxScore} minScore={minScore} />
               <SubtopicsTable categories={categories} maxScore={maxScore} minScore={minScore} />
