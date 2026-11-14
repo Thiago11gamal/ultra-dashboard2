@@ -260,9 +260,13 @@ export function generateAnalyticsStats({
             const catMinScore = Number.isFinite(Number(cat.minScore))
               ? Number(cat.minScore)
               : safeMinScore;
-            const catMinCutoff = Number.isFinite(Number(cat.minCutoff))
-              ? Number(cat.minCutoff)
-              : 0;
+            const rawMinCutoff = cat.minCutoff;
+            const hasValidMinCutoff = rawMinCutoff !== null &&
+              rawMinCutoff !== undefined &&
+              typeof rawMinCutoff !== 'boolean' &&
+              String(rawMinCutoff).trim() !== '' &&
+              Number.isFinite(Number(rawMinCutoff));
+            const catMinCutoff = hasValidMinCutoff ? Number(rawMinCutoff) : null;
             const catDomain = Math.max(1e-6, catMaxScore - catMinScore);
 
             const history = [...historyArray]

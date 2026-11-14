@@ -96,14 +96,22 @@ export function useEvolutionMC({
     const safeMin = Number.isFinite(Number(focusCategory?.minScore)) ? Number(focusCategory.minScore) : globalMin;
     const safeMax = Number(focusCategory?.maxScore) > safeMin ? Number(focusCategory.maxScore) : globalMax;
     const safeRange = Math.max(1, safeMax - safeMin);
-    const hasCustomCutoff = focusCategory?.minCutoff !== null && focusCategory?.minCutoff !== undefined && String(focusCategory?.minCutoff).trim() !== '' && Number.isFinite(Number(focusCategory?.minCutoff));
+    const hasCustomCutoff = focusCategory?.minCutoff !== null &&
+      focusCategory?.minCutoff !== undefined &&
+      typeof focusCategory?.minCutoff !== 'boolean' &&
+      String(focusCategory?.minCutoff).trim() !== '' &&
+      Number.isFinite(Number(focusCategory?.minCutoff)) &&
+      Number(focusCategory.minCutoff) > safeMin;
     const effectiveTarget = hasCustomCutoff
-      ? Number(focusCategory.minCutoff)
+      ? Math.max(safeMin, Math.min(safeMax, Number(focusCategory.minCutoff)))
       : (safeMax === globalMax && safeMin === globalMin
           ? debouncedTarget
           : safeMin + ((Number(debouncedTarget) - globalMin) / globalRange) * safeRange);
-    const safeCurrentMean = Number.isFinite(currentFocusLevel)
-      ? currentFocusLevel
+    const rawLevelVal = typeof currentFocusLevel === 'object' && currentFocusLevel !== null
+      ? currentFocusLevel.mean
+      : currentFocusLevel;
+    const safeCurrentMean = rawLevelVal !== null && rawLevelVal !== undefined && Number.isFinite(Number(rawLevelVal))
+      ? Number(rawLevelVal)
       : safeMin;
 
     const signature = `${focusCategoryId}|${historyFingerprint}|${effectiveTarget}|${projectDays}|${safeMin}|${safeMax}|${Math.round(safeCurrentMean * 100)}`;

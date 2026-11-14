@@ -136,10 +136,14 @@ export const GaussianPlot = React.memo(function GaussianPlot({
 
         if (hasValidKDE) {
             const points = [];
+            const inDomainKde = kdeData.filter(
+                p => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y)) && Number(p.x) >= domainMin && Number(p.x) <= domainMax
+            );
+            const sourceKde = inDomainKde.length >= 2 ? inDomainKde : kdeData;
             const safeX = (val) => Math.max(domainMin, Math.min(domainMax, val));
 
-            kdeData.forEach(p => {
-                points.push({ x: xp(safeX(p.x)), y: yp(p.y * baseHeightFactor) });
+            sourceKde.forEach(p => {
+                points.push({ x: xp(safeX(Number(p.x))), y: yp(Number(p.y) * baseHeightFactor) });
             });
             path = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
             pointsForArea = points;

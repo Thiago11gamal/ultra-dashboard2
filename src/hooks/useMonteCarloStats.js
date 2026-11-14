@@ -233,7 +233,12 @@ export function useMonteCarloStats({
   const modelHealth = useMemo(() => {
     if (!calibrationSummary) return 0.5;
 
-    const brierHealth = Number.isFinite(Number(calibrationSummary.avgBrier))
+    const hasValidBrier = calibrationSummary.avgBrier !== null &&
+      calibrationSummary.avgBrier !== undefined &&
+      calibrationSummary.avgBrier !== '' &&
+      Number.isFinite(Number(calibrationSummary.avgBrier));
+
+    const brierHealth = hasValidBrier
       ? Math.max(0, Math.min(1, 1 - (Number(calibrationSummary.avgBrier) - 0.12) / 0.2))
       : 0.5;
     const trendHealth = calibrationSummary.trend === 'improving'
@@ -296,16 +301,22 @@ export function useMonteCarloStats({
     [safeCategories]
   );
 
+  const categoriesIdentityKey = useMemo(
+    () => safeCategories.map(c => `${c?.id || ''}:${c?.name || ''}`).join('|'),
+    [safeCategories]
+  );
+
   const getEqualWeights = useCallback(() => {
-    if (activeCategories.length === 0) return {};
+    if (safeCategories.length === 0) return {};
 
     const newWeights = {};
-    activeCategories.forEach(cat => {
-      newWeights[cat.id || cat.name] = 1;
+    safeCategories.forEach(cat => {
+      if (cat?.id) newWeights[cat.id] = 1;
+      if (cat?.name) newWeights[cat.name] = 1;
     });
 
     return newWeights;
-  }, [activeCategories]);
+  }, [safeCategories]);
 
   const weightsKey = useMemo(() => {
     if (equalWeightsMode) return JSON.stringify(getEqualWeights());
@@ -318,23 +329,17 @@ export function useMonteCarloStats({
 
     const weightsMap = {};
 
-    activeCategories.forEach(cat => {
+    safeCategories.forEach(cat => {
       const stored = weights[cat.id] ?? weights[cat.name];
-      const w = sanitizeWeightUnit(stored);
-      weightsMap[cat.id || cat.name] = (stored !== undefined && stored !== null) ? Math.max(0, w) : 1;
+      const hasStored = stored !== undefined && stored !== null && stored !== '';
+      const w = hasStored ? Math.max(0, sanitizeWeightUnit(stored)) : 1;
+      if (cat?.id) weightsMap[cat.id] = w;
+      if (cat?.name) weightsMap[cat.name] = w;
     });
-
-    const totalWeight = Object.values(weightsMap).reduce((acc, w) => {
-      return acc + (Number.isFinite(w) ? w : 0);
-    }, 0);
-
-    if (totalWeight <= 0) {
-      return getEqualWeights();
-    }
 
     return weightsMap;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weightsKey, activeCategories.length]);
+  }, [weightsKey, categoriesIdentityKey]);
 
   const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
   const [debouncedWeights, setDebouncedWeights] = useState(() => effectiveWeights);
@@ -422,10 +427,16 @@ export function useMonteCarloStats({
     if (!pureStatsData) return null;
 
     if (calibrationPenalty <= 0) {
-      return { ...pureStatsData, calibrationPenalty: 0 };
+      return {
+        ...pureStatsData,
+        rawPooledSD: pureStatsData.pooledSD,
+        calibrationPenalty: 0
+      };
     }
 
-    const domainSpan = Math.max(1e-6, (Number(maxScore) || 100) - (Number(minScore) || 0));
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+    const domainSpan = Math.max(1e-6, safeMax - safeMin);
     const aleatoricFloor = domainSpan * 0.02;
 
     const epistemicPooled = Math.max(0, pureStatsData.pooledSD - aleatoricFloor);
@@ -434,17 +445,50 @@ export function useMonteCarloStats({
     const epistemicDaily = Math.max(0, pureStatsData.dailySD - aleatoricFloor);
     const calibratedDailySD = aleatoricFloor + (epistemicDaily * (1 + calibrationPenalty * 2.5));
 
+    const ratioPooled = pureStatsData.pooledSD > 1e-6
+      ? calibratedPooledSD / pureStatsData.pooledSD
+      : (1 + calibrationPenalty * 2.5);
+
+    const calibratedBayesianCI = pureStatsData.bayesianCI
+      ? (() => {
+          const low = Number(pureStatsData.bayesianCI.ciLow ?? pureStatsData.bayesianCI.low);
+          const high = Number(pureStatsData.bayesianCI.ciHigh ?? pureStatsData.bayesianCI.high);
+          if (!Number.isFinite(low) || !Number.isFinite(high)) return pureStatsData.bayesianCI;
+          const mid = (low + high) / 2;
+          const newLow = Math.max(safeMin, mid - (mid - low) * ratioPooled);
+          const newHigh = Math.min(safeMax, mid + (high - mid) * ratioPooled);
+          return {
+            ...pureStatsData.bayesianCI,
+            ciLow: newLow,
+            ciHigh: newHigh,
+            low: newLow,
+            high: newHigh
+          };
+        })()
+      : pureStatsData.bayesianCI;
+
     return {
       ...pureStatsData,
       pooledSD: calibratedPooledSD,
       dailySD: calibratedDailySD,
       rawPooledSD: pureStatsData.pooledSD,
-      calibrationPenalty
+      bayesianCI: calibratedBayesianCI,
+      calibrationPenalty,
+      __calibratedInStatsData: true
     };
   }, [pureStatsData, calibrationPenalty, maxScore, minScore]);
 
-  // ✅ PATCH-04: Hash deve incluir o timeIndex e target para forçar re-cálculo quando muda a meta ou range de datas
-  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}-pd${projectDays}-st${effectiveSimulateToday ? 1 : 0}`;
+  const cutoffsHashKey = useMemo(
+    () => (Array.isArray(historicalCutoffs) ? historicalCutoffs.join(',') : ''),
+    [historicalCutoffs]
+  );
+  const flashcardDecksHashKey = useMemo(
+    () => (Array.isArray(flashcardDecks) ? flashcardDecks.length : 0),
+    [flashcardDecks]
+  );
+
+  // ✅ PATCH-04: Hash deve incluir o timeIndex, target e configurações de prova/cortes para forçar re-cálculo
+  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}-pd${projectDays}-st${effectiveSimulateToday ? 1 : 0}-ed${examDurationMinutes}-eq${defaultExamTotalQuestions}-hc${cutoffsHashKey}-fd${flashcardDecksHashKey}-cp${Number(calibrationPenalty || 0).toFixed(4)}`;
 
   const pureStatsDataRef = useRef(pureStatsData);
   useEffect(() => {
@@ -535,7 +579,9 @@ export function useMonteCarloStats({
     }
 
     let totalPoints = 0;
-    pureStatsData.categoryStats.forEach(cat => totalPoints += cat.n || 1);
+    pureStatsData.categoryStats.forEach(cat => {
+      totalPoints += Number.isFinite(Number(cat.n)) ? Number(cat.n) : 0;
+    });
     if (totalPoints < 1) return;
 
     let cancelled = false;
@@ -544,6 +590,85 @@ export function useMonteCarloStats({
     const domain = Math.max(1e-6, maxScoreRef.current - minScoreRef.current);
 
     const { globalImmunityFactor, subjectImmunityMap } = getFlashcardImmunity(flashcardDecksRef.current);
+
+    const sanitizeCutoff = (val) => {
+      if (val === null || val === undefined || typeof val === 'boolean') return null;
+      if (typeof val === 'string' && val.trim() === '') return null;
+      const n = Number(val);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const computeProjectedExamTimeSeconds = () => {
+      let totalGlobalTimeSpent = 0;
+      let totalGlobalTimedQuestions = 0;
+
+      const safeTimeCategories = safeCategories;
+      const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
+        ? timelineDates[timeIndex]
+        : getDateKey(new Date());
+
+      safeTimeCategories.forEach(cat => {
+        const w = debouncedWeights?.[cat?.id] ?? debouncedWeights?.[cat?.name] ?? 1;
+        if (Number(w) <= 0) return;
+
+        const rawHistory = cat?.simuladoStats?.history;
+        const histArray = Array.isArray(rawHistory)
+          ? rawHistory
+          : Object.values(rawHistory || {});
+
+        histArray.forEach(h => {
+          if (!h || h.valid === false || h.validated === false) return;
+          if (cutoffDate) {
+            const dk = getDateKey(h.date || h.createdAt);
+            if (!dk || dk > cutoffDate) return;
+          }
+
+          const rawTopics = h?.topics;
+          const topicsList = Array.isArray(rawTopics)
+            ? rawTopics
+            : (rawTopics && typeof rawTopics === 'object' ? Object.values(rawTopics) : []);
+          let usedTopicsTime = false;
+          if (topicsList.length > 0) {
+            let tSum = 0;
+            let qSum = 0;
+            topicsList.forEach(t => {
+              const ts = Number(t?.timeSpent);
+              const tq = Number(t?.timedQuestoes ?? t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions);
+              if (Number.isFinite(ts) && ts > 0 && Number.isFinite(tq) && tq > 0) {
+                tSum += ts;
+                qSum += tq;
+              }
+            });
+            if (tSum > 0 && qSum > 0) {
+              totalGlobalTimeSpent += tSum;
+              totalGlobalTimedQuestions += qSum;
+              usedTopicsTime = true;
+            }
+          }
+
+          if (!usedTopicsTime) {
+            const timeSpent = Number(h?.timeSpent);
+            const timedQuestoes = Number(h?.timedQuestoes ?? h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions);
+
+            if (
+              Number.isFinite(timeSpent) &&
+              Number.isFinite(timedQuestoes) &&
+              timeSpent > 0 &&
+              timedQuestoes > 0
+            ) {
+              totalGlobalTimeSpent += timeSpent;
+              totalGlobalTimedQuestions += timedQuestoes;
+            }
+          }
+        });
+      });
+
+      const globalAvgSeconds = totalGlobalTimedQuestions > 0
+        ? (totalGlobalTimeSpent / totalGlobalTimedQuestions)
+        : 0;
+
+      return examQuestionsRef.current * globalAvgSeconds;
+    };
 
     const applyConservativeTrendCap = (result) => {
       if (
@@ -564,6 +689,8 @@ export function useMonteCarloStats({
     };
 
     const doAnalysis = async () => {
+      const projectedTotalTimeSeconds = isFuture ? computeProjectedExamTimeSeconds() : 0;
+
       try {
         let result;
 
@@ -583,56 +710,13 @@ export function useMonteCarloStats({
               name: subjName,
               mean: c.bayesianMean ?? c.mean,
               sd: c.volatility ?? c.sd,
-              minCutoff: c.minCutoff || 0,
+              minCutoff: sanitizeCutoff(c.minCutoff),
               maxScore: c.maxScore || maxScoreRef.current,
               minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
               immunityFactor: immunity,
               weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
             };
           });
-
-          let totalGlobalTimeSpent = 0;
-          let totalGlobalTimedQuestions = 0;
-
-          // T-018/T-024 FIX: usar categorias já normalizadas no hook
-          const safeTimeCategories = safeCategories;
-          const cutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
-            ? timelineDates[timeIndex]
-            : getDateKey(new Date());
-
-          safeTimeCategories.forEach(cat => {
-            const rawHistory = cat?.simuladoStats?.history;
-
-            const histArray = Array.isArray(rawHistory)
-              ? rawHistory
-              : Object.values(rawHistory || {});
-
-            histArray.forEach(h => {
-              if (!h || h.valid === false || h.validated === false) return;
-              if (cutoffDate) {
-                const dk = getDateKey(h.date || h.createdAt);
-                if (!dk || dk > cutoffDate) return;
-              }
-              const timeSpent = Number(h?.timeSpent);
-              const timedQuestoes = Number(h?.timedQuestoes);
-
-              if (
-                Number.isFinite(timeSpent) &&
-                Number.isFinite(timedQuestoes) &&
-                timeSpent > 0 &&
-                timedQuestoes > 0
-              ) {
-                totalGlobalTimeSpent += timeSpent;
-                totalGlobalTimedQuestions += timedQuestoes;
-              }
-            });
-          });
-
-          const globalAvgSeconds = totalGlobalTimedQuestions > 0
-            ? (totalGlobalTimeSpent / totalGlobalTimedQuestions)
-            : 0;
-
-          const projectedTotalTimeSeconds = examQuestionsRef.current * globalAvgSeconds;
 
           const effectiveDays = projectDaysRef.current === 0 ? 1 : projectDaysRef.current;
 
@@ -665,7 +749,7 @@ export function useMonteCarloStats({
               name: subjName,
               mean: c.bayesianMean ?? c.mean,
               sd: c.bayesianSd ?? c.sd,
-              minCutoff: c.minCutoff || 0,
+              minCutoff: sanitizeCutoff(c.minCutoff),
               maxScore: c.maxScore || maxScoreRef.current,
               minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
               immunityFactor: immunity,
@@ -759,7 +843,7 @@ export function useMonteCarloStats({
                 name: subjName,
                 mean: c.bayesianMean ?? c.mean,
                 sd: c.volatility ?? c.sd,
-                minCutoff: c.minCutoff || 0,
+                minCutoff: sanitizeCutoff(c.minCutoff),
                 maxScore: c.maxScore || maxScoreRef.current,
                 minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
                 immunityFactor: immunity,
@@ -781,10 +865,13 @@ export function useMonteCarloStats({
               minScore: minScoreRef.current,
               maxScore: maxScoreRef.current,
               subjects: subjectsOpts,
+              projectedTotalTimeSeconds,
+              examDurationMinutes: examDurationRef.current,
               simuladoRows: rawSimuladoRowsRef.current,
               categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
               flashcardImmunity: globalImmunityFactor,
-              historicalCutoffs: historicalCutoffsRef.current
+              historicalCutoffs: historicalCutoffsRef.current,
+              cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${Math.min(dynamicSimulationsRef.current, 2000)}-tgt${debouncedTarget}`
             });
           } else {
             const subjectsOpts = pureStatsData.categoryStats.map(c => {
@@ -795,7 +882,7 @@ export function useMonteCarloStats({
                 name: subjName,
                 mean: c.bayesianMean ?? c.mean,
                 sd: c.bayesianSd ?? c.sd,
-                minCutoff: c.minCutoff || 0,
+                minCutoff: sanitizeCutoff(c.minCutoff),
                 maxScore: c.maxScore || maxScoreRef.current,
                 minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
                 immunityFactor: immunity,
@@ -994,7 +1081,7 @@ export function useMonteCarloStats({
 
     let totalPoints = 0;
     statsData.categoryStats.forEach(cat => {
-      totalPoints += cat.n || 1;
+      totalPoints += Number.isFinite(Number(cat.n)) ? Number(cat.n) : 0;
     });
 
     if (totalPoints < 1) return { status: 'waiting', missing: 'count', count: totalPoints };
@@ -1312,7 +1399,7 @@ export function useMonteCarloStats({
 
     const effectiveDrift = simulationData?.data?.diagnostics?.effectiveDriftSlope ?? (simulationData?.data?.drift / 30 || 0);
 
-    if (calibrationPenalty > 0) {
+    if (calibrationPenalty > 0 && !statsData?.__calibratedInStatsData) {
       const ciMid = (ci95Low + ci95High) / 2;
       const ciExpand = 1 + (calibrationPenalty * 2.5);
 
@@ -1560,8 +1647,9 @@ function useMonteCarloHistoryRecorder({
         const hash = `${activeId}-${today}-${currentProb}-${safeTargetNum.toFixed(1)}`;
         if (hash === lastRecordHash.current) return;
 
-        const history = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
-        const existing = Array.isArray(history) ? history.find(h => h.date === today) : null;
+        const rawHistory = useAppStore.getState().appState?.contests?.[activeId]?.monteCarloHistory || [];
+        const safeHistory = Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {});
+        const existing = safeHistory.find(h => h && h.date === today && !h.categoryId) || null;
 
         const currentTarget = Number(safeTargetNum.toFixed(1));
         const existingProb = Number((existing?.probability ?? existing?.prob ?? 0).toFixed(1));
@@ -1589,7 +1677,9 @@ function useMonteCarloHistoryRecorder({
             targetDate: goalDate,
             trendType: trendType || 'linear',
             effectiveDrift: Number((effectiveDrift || 0).toFixed(4)),
-            calibrationBrier: calibrationSummary ? Number(calibrationSummary.avgBrier || 0).toFixed(4) : null,
+            calibrationBrier: (calibrationSummary && calibrationSummary.avgBrier !== null && calibrationSummary.avgBrier !== undefined && Number.isFinite(Number(calibrationSummary.avgBrier)))
+              ? Number(calibrationSummary.avgBrier).toFixed(4)
+              : null,
             modelHealth: Number((modelHealth || 0.5).toFixed(3)),
             modelWeight: Number((modelWeight || 0.25).toFixed(3))
           });

@@ -1187,9 +1187,32 @@ export function computeAgilityMetrics(history, targetSeconds = 120) {
     let totalTimedQuestions = 0;
 
     for (const h of safeHistory) {
-        if (h.timeSpent != null && h.timedQuestoes != null) {
+        if (!h || typeof h !== 'object') continue;
+        const rawTopics = h.topics;
+        const topicsList = Array.isArray(rawTopics)
+            ? rawTopics
+            : (rawTopics && typeof rawTopics === 'object' ? Object.values(rawTopics) : []);
+        let usedTopics = false;
+        if (topicsList.length > 0) {
+            let tSum = 0;
+            let qSum = 0;
+            for (const t of topicsList) {
+                const ts = Number(t?.timeSpent);
+                const tq = Number(t?.timedQuestoes ?? t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions);
+                if (Number.isFinite(ts) && Number.isFinite(tq) && ts > 0 && tq > 0) {
+                    tSum += ts;
+                    qSum += tq;
+                }
+            }
+            if (tSum > 0 && qSum > 0) {
+                totalTimeSpent += tSum;
+                totalTimedQuestions += qSum;
+                usedTopics = true;
+            }
+        }
+        if (!usedTopics && h.timeSpent != null) {
             const ts = Number(h.timeSpent);
-            const tq = Number(h.timedQuestoes);
+            const tq = Number(h.timedQuestoes ?? h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions);
 
             if (Number.isFinite(ts) && Number.isFinite(tq) && ts > 0 && tq > 0) {
                 totalTimeSpent += ts;

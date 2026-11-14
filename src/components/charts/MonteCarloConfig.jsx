@@ -111,15 +111,20 @@ export const MonteCarloConfig = ({
     const modalRef = useRef(null);
     const closeButtonRef = useRef(null);
 
+    const safeCategories = useMemo(
+        () => (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean),
+        [categories]
+    );
+
     // Otimização O(N) via useMemo para evitar loop no render do slider
     const manualTotal = useMemo(() => {
-        if (!Array.isArray(categories)) return 0;
-        return categories.reduce((acc, cat) => {
+        if (safeCategories.length === 0) return 0;
+        return safeCategories.reduce((acc, cat) => {
             const val = weights?.[cat.id] ?? weights?.[cat.name];
             const parsed = val !== undefined && val !== null ? Number(val) : 1;
             return acc + Math.max(0, Number.isFinite(parsed) ? parsed : 0);
         }, 0);
-    }, [categories, weights]);
+    }, [safeCategories, weights]);
 
     useEffect(() => {
         if (!isDragging.current) {
@@ -456,9 +461,11 @@ export const MonteCarloConfig = ({
                                     // ✅ LOTE-02 FIX (M10): restaurar apenas chaves que ainda
                                     // existem nas categorias (pesos salvos podem estar obsoletos
                                     // se matérias foram removidas/renomeadas durante o modo igual)
-                                    const validIds = new Set(
-                                        (Array.isArray(categories) ? categories : []).map(c => c.id || c.name)
-                                    );
+                                    const validIds = new Set();
+                                    safeCategories.forEach(c => {
+                                        if (c.id) validIds.add(c.id);
+                                        if (c.name) validIds.add(c.name);
+                                    });
                                     const restored = {};
                                     Object.entries(savedCustomWeights.current).forEach(([k, v]) => {
                                         if (validIds.has(k)) restored[k] = v;
@@ -482,8 +489,8 @@ export const MonteCarloConfig = ({
                                 <p className="text-sm text-slate-500 px-10">No modo automático, todas as matérias possuem o mesmo peso de relevância.</p>
                             </div>
                         ) : (
-                            Array.isArray(categories) && categories.length > 0 ? (
-                                categories.map(cat => {
+                            safeCategories.length > 0 ? (
+                                safeCategories.map(cat => {
                                     const rawW = weights ? (weights[cat.id] ?? weights[cat.name]) : undefined;
                                     const safeW = rawW !== undefined && rawW !== null
                                         ? (Number.isFinite(Number(rawW)) ? Number(rawW) : 0)

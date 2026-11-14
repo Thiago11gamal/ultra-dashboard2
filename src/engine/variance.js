@@ -141,7 +141,8 @@ export function computeWeightedVariance(statsRaw, totalWeight, optionsOrRho = IN
                 optionsOrRho.simuladoRows,
                 optionsOrRho.categoryNames,
                 INTER_SUBJECT_CORRELATION,
-                optionsOrRho.maxScore ?? 100
+                optionsOrRho.maxScore ?? 100,
+                optionsOrRho.minScore ?? 0
             );
         }
     } else {
@@ -510,7 +511,8 @@ export function buildCovarianceMatrix(stats, rhoMatrix = null, defaultRho = INTE
         adaptiveContext.simuladoRows,
         adaptiveContext.categoryNames,
         defaultRho,
-        adaptiveContext.maxScore ?? 100
+        adaptiveContext.maxScore ?? 100,
+        adaptiveContext.minScore ?? 0
       );
     }
     

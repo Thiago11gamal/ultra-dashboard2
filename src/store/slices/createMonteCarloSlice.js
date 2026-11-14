@@ -30,9 +30,10 @@ export const createMonteCarloSlice = (set) => ({
       const targetCategoryId = snapshot.categoryId || null;
       const existingHistory = Array.isArray(activeData.monteCarloHistory)
         ? activeData.monteCarloHistory
-        : [];
+        : Object.values(activeData.monteCarloHistory || {});
 
       const idx = existingHistory.findIndex(h => {
+        if (!h) return false;
         const hDateKey = getDateKey(normalizeDate(h.date));
         if (!hDateKey || !targetDateStr) return false;
         return hDateKey === targetDateStr &&
@@ -47,12 +48,14 @@ export const createMonteCarloSlice = (set) => ({
       }
 
       newHistory.sort((a, b) => {
-        const timeA = new Date(a.date).getTime() || 0;
-        const timeB = new Date(b.date).getTime() || 0;
+        const timeA = normalizeDate(a?.date)?.getTime() || 0;
+        const timeB = normalizeDate(b?.date)?.getTime() || 0;
         return timeA - timeB;
       });
 
-      const categoryCount = (activeData.categories || []).length || 1;
+      const rawCats = activeData.categories;
+      const safeCats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats || {});
+      const categoryCount = safeCats.length || 1;
       const MAX_SNAPSHOTS = 30 * categoryCount;
       if (newHistory.length > MAX_SNAPSHOTS) {
         newHistory = newHistory.slice(-MAX_SNAPSHOTS);

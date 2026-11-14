@@ -176,36 +176,32 @@ const MonteCarloGaugeBase = ({
     const pAdjustedSafe = Math.max(0, Math.min(100, safe(pAdjusted)));
     // T-009 FIX: setWeights da store pode não aceitar função updater.
     // Usamos o valor atual de `weights` diretamente para evitar corrupção de estado.
-    const stableUpdateWeight = useCallback((name, p) => {
-        const numeric = Number(p);
-        const sanitized = Number.isFinite(numeric) ? Math.max(0, Math.min(999, numeric)) : 0;
-        setWeights({ ...(weights || {}), [name]: sanitized });
-    }, [setWeights, weights]);
-
-    const getEqualWeights = useCallback(() => {
-        const newWeights = {};
-
-        // T-018 FIX: normalizar categories
-        const safeCategories = Array.isArray(categories)
-            ? categories
-            : Object.values(categories || {});
-
-        safeCategories.filter(c => {
-            const h = c.simuladoStats?.history;
-            return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-        }).forEach(cat => {
-            newWeights[cat.id || cat.name] = 1;
-        });
-        return newWeights;
-    }, [categories]);
-
     // T-032 FIX: diagnóstico mais preciso do estado de espera.
     // ✅ FIX: memoizar para evitar recálculo a cada render
     const safeCategories = useMemo(() => {
-        return Array.isArray(categories)
+        return (Array.isArray(categories)
             ? categories
-            : Object.values(categories || {});
+            : Object.values(categories || {})).filter(Boolean);
     }, [categories]);
+
+    const stableUpdateWeight = useCallback((nameOrId, p) => {
+        const numeric = Number(p);
+        const sanitized = Number.isFinite(numeric) ? Math.max(0, Math.min(999, numeric)) : 0;
+        const matched = safeCategories.find(c => c.id === nameOrId || c.name === nameOrId);
+        const next = { ...(weights || {}), [nameOrId]: sanitized };
+        if (matched?.id) next[matched.id] = sanitized;
+        if (matched?.name) next[matched.name] = sanitized;
+        setWeights(next);
+    }, [setWeights, weights, safeCategories]);
+
+    const getEqualWeights = useCallback(() => {
+        const newWeights = {};
+        safeCategories.forEach(cat => {
+            if (cat.id) newWeights[cat.id] = 1;
+            if (cat.name) newWeights[cat.name] = 1;
+        });
+        return newWeights;
+    }, [safeCategories]);
 
     const hasHistory = useMemo(() => safeCategories.some(cat => {
         const h = cat.simuladoStats?.history;
@@ -261,9 +257,31 @@ const MonteCarloGaugeBase = ({
         return (
             <div className="glass px-6 pb-6 pt-10 rounded-3xl relative overflow-hidden flex flex-col items-center justify-between border-l-4 border-slate-600 bg-slate-900 w-full min-h-[300px]">
                 {waitingKind === 'empty' && <EmptyPredictionState />}
-                {waitingKind === 'zeroWeights' && <AllWeightsZeroState />}
+                {waitingKind === 'zeroWeights' && (
+                    <AllWeightsZeroState onOpenConfig={!forcedMode ? () => setShowConfig(true) : undefined} />
+                )}
                 {waitingKind === 'insufficient' && <InsufficientHistoryState />}
                 {waitingKind === 'loading' && <MonteCarloLoading />}
+                {!forcedMode && (
+                    <MonteCarloConfig
+                        show={showConfig}
+                        onClose={() => setShowConfig(false)}
+                        targetScore={targetScore}
+                        setTargetScore={onTargetScoreChange}
+                        equalWeightsMode={equalWeightsMode}
+                        setEqualWeightsMode={setEqualWeightsMode}
+                        getEqualWeights={getEqualWeights}
+                        weights={weights}
+                        setWeights={setWeights}
+                        updateWeight={stableUpdateWeight}
+                        categories={categories}
+                        user={activeUser}
+                        minScore={minScore}
+                        maxScore={maxScore}
+                        historicalCutoffs={historicalCutoffs}
+                        setHistoricalCutoffs={setHistoricalCutoffs}
+                    />
+                )}
             </div>
         );
     }
@@ -746,7 +764,7 @@ function EmptyPredictionState() {
 }
 
 // T-032 FIX: Estado específico para pesos zerados.
-function AllWeightsZeroState() {
+function AllWeightsZeroState({ onOpenConfig }) {
     return (
         <div className="rounded-3xl p-6 border border-amber-500/20 bg-amber-950/10 flex flex-col items-center justify-center text-center h-full flex-1 w-full my-auto">
             <div className="text-3xl mb-3">⚖️</div>
@@ -760,9 +778,19 @@ function AllWeightsZeroState() {
                 Ajuste os pesos em Configuração para calcular a simulação Monte Carlo.
             </p>
 
-            <div className="mt-4 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 font-bold uppercase tracking-wider">
-                Abra Configurar Classificações e Meta
-            </div>
+            {onOpenConfig ? (
+                <button
+                    type="button"
+                    onClick={onOpenConfig}
+                    className="mt-4 px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-[9px] text-amber-300 font-bold uppercase tracking-wider transition-all active:scale-95"
+                >
+                    Abra Configurar Classificações e Meta
+                </button>
+            ) : (
+                <div className="mt-4 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 font-bold uppercase tracking-wider">
+                    Abra Configurar Classificações e Meta
+                </div>
+            )}
         </div>
     );
 }

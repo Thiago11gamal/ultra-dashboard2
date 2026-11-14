@@ -38,6 +38,8 @@ export default function MonteCarloDebugger({ stats }) {
 
     const rawProbability = stats.rawProbability ?? stats.simulationData?.data?.probability ?? stats.effectiveSimulationData?.data?.probability ?? 0;
     const isOverconfident = (calibrationPenalty || 0) > 0.05;
+    const isFiniteMetric = (v) => v !== null && v !== undefined && v !== '' && typeof v !== 'boolean' && Number.isFinite(Number(v));
+    const rawPooledSdVal = statsData?.rawPooledSD ?? statsData?.pooledSD;
 
     return (
         <div ref={containerRef} className="relative font-mono text-[11px] select-none shrink-0">
@@ -96,12 +98,12 @@ export default function MonteCarloDebugger({ stats }) {
 
                         <span className="text-slate-400 font-medium">Desvio Padrão Atual</span>
                         <span className="text-right font-bold text-slate-200 tabular-nums">
-                            {Number.isFinite(Number(statsData?.rawPooledSD)) ? Number(statsData.rawPooledSD).toFixed(2) : '0.00'}
+                            {isFiniteMetric(rawPooledSdVal) ? Number(rawPooledSdVal).toFixed(2) : '0.00'}
                         </span>
                         
                         <span className="text-slate-400 font-medium">Desvio Padrão Inflado</span>
                         <span className="text-right font-bold text-amber-400 tabular-nums">
-                            {Number.isFinite(Number(statsData?.pooledSD)) ? Number(statsData.pooledSD).toFixed(2) : '0.00'}
+                            {isFiniteMetric(statsData?.pooledSD) ? Number(statsData.pooledSD).toFixed(2) : '0.00'}
                         </span>
                         
                         <span className="col-span-2 border-t border-white/10 my-1"></span>

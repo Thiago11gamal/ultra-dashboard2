@@ -727,7 +727,7 @@ export default React.memo(function EvolutionChart({
     }, [focusCategory?.minScore, focusMax, minScore]);
 
     const focusTarget = useMemo(() => {
-        if (hasValidNumber(focusCategory?.minCutoff)) {
+        if (hasValidNumber(focusCategory?.minCutoff) && Number(focusCategory.minCutoff) > focusMin) {
             return Math.max(focusMin, Math.min(focusMax, Number(focusCategory.minCutoff)));
         }
         if (focusMax !== maxScore || focusMin !== minScore) {
@@ -857,10 +857,12 @@ export default React.memo(function EvolutionChart({
         if (fId) {
             const forFocus = rawList.filter((item) => item?.categoryId && String(item.categoryId) === String(fId));
             if (forFocus.length > 0) {
-                filteredList = forFocus;
-            } else if (showOnlyFocus) {
+                filteredList = forFocus.map((item) => ({ ...item, __fromFocus: true }));
+            } else {
                 filteredList = rawList.filter((item) => !item?.categoryId);
             }
+        } else {
+            filteredList = rawList.filter((item) => !item?.categoryId);
         }
         if (timeWindow !== "all") {
             const days = Number.parseInt(timeWindow, 10);
@@ -891,16 +893,22 @@ export default React.memo(function EvolutionChart({
         const safeRange = Math.max(1, safeMax - safeMin);
         const safeTarget = hasValidNumber(effTarget) ? Number(effTarget) : safeMin + safeRange * 0.8;
 
-        const synth = pts
+        const validPts = pts.filter((pt) => {
+            const meanVal = fId
+                ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`])
+                : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw);
+            return hasValidNumber(meanVal);
+        });
+
+        const synth = validPts
             .map((pt, idx) => {
                 const meanVal = fId
                     ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`])
                     : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw);
-                if (!hasValidNumber(meanVal)) return null;
                 const m = Number(meanVal);
                 const low = fId && hasValidNumber(pt[`bay_ci_low_${fId}`]) ? Number(pt[`bay_ci_low_${fId}`]) : Math.max(safeMin, m - safeRange * 0.06);
                 const high = fId && hasValidNumber(pt[`bay_ci_high_${fId}`]) ? Number(pt[`bay_ci_high_${fId}`]) : Math.min(safeMax, m + safeRange * 0.06);
-                const isLast = idx === pts.length - 1;
+                const isLast = idx === validPts.length - 1;
                 const proj = isLast && hasValidNumber(activeMcResult?.projectedMean)
                     ? Number(activeMcResult.projectedMean)
                     : m;
