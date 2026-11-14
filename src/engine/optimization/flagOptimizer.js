@@ -16,7 +16,7 @@ const ACTIVE_FLAGS_KEY = 'coach_active_flags_v1';
 
 import { writeFlags, readFlags } from '../../utils/coachFeatureStore.js';
 import { safeSetItem, safeGetJSON, safeRemoveItem } from '../../utils/coachStorage.js';
-import { hashSeed, mulberry32, sampleGamma, sampleBeta } from '../random.js';
+import { hashSeed, mulberry32, sampleBeta } from '../random.js';
 
 export const EXPERIMENTAL_MATH_FLAGS = [
   'useStateSpace',

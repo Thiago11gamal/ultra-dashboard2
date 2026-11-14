@@ -1,5 +1,5 @@
 import { kahanSum } from '../engine/math/kahan.js';
-import { logGamma, logBeta } from '../engine/math/gaussian.js';
+import { logBeta } from '../engine/math/gaussian.js';
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
 import { isSubjectMatch } from './normalization.js';
