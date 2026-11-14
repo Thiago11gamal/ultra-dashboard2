@@ -263,30 +263,31 @@ const getHistoryDateLabel = (h) => {
                             {lastPctSub}
                         </span>
                     ) : history.length > 1 && Number.isFinite(lastNum) && Number.isFinite(avgNum) ? (
+                        <span className={`text-[10px] font-semibold mt-0.5 tabular-nums flex items-center gap-0.5 ${
                             lastNum - avgNum >= 0.05 ? 'text-emerald-400' : avgNum - lastNum >= 0.05 ? 'text-rose-400' : 'text-slate-400'
                         }`}>
-                    {lastNum - avgNum >= 0.05 ? `+${(lastNum - avgNum).toFixed(1)} vs média` : avgNum - lastNum >= 0.05 ? `${(lastNum - avgNum).toFixed(1)} vs média` : '= à média'}
-                </span>
-                ) : (
-                <span className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
-                    recente
-                </span>
+                            {lastNum - avgNum >= 0.05 ? `+${(lastNum - avgNum).toFixed(1)} vs média` : avgNum - lastNum >= 0.05 ? `${(lastNum - avgNum).toFixed(1)} vs média` : '= à média'}
+                        </span>
+                    ) : (
+                        <span className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
+                            recente
+                        </span>
                     )}
-            </div>
+                </div>
 
-            <div className={`px-3 py-2.5 rounded-lg border flex flex-col items-center justify-center text-center shadow-sm transition-colors ${levelInfo.badgeClasses}`}>
-                <span className="text-xs font-medium mb-1 opacity-80">
-                    Nível
-                </span>
-                <span className="text-base font-semibold leading-tight">
-                    {levelInfo.label}
-                </span>
-            </div>
+                <div className={`px-3 py-2.5 rounded-lg border flex flex-col items-center justify-center text-center shadow-sm transition-colors ${levelInfo.badgeClasses}`}>
+                    <span className="text-xs font-medium mb-1 opacity-80">
+                        Nível
+                    </span>
+                    <span className="text-base font-semibold leading-tight">
+                        {levelInfo.label}
+                    </span>
+                </div>
 
-            <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors px-3 py-2.5 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
-                <span className="text-xs text-slate-400 font-medium mb-1">
-                    Tendência
-                </span>
+                <div className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors px-3 py-2.5 rounded-lg border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-xs text-slate-400 font-medium mb-1">
+                        Tendência
+                    </span>
 
                 <div className="flex items-center gap-1.5">
                     {trendIcon}

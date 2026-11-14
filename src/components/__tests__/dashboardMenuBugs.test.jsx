@@ -911,6 +911,22 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(contest.coachPlanner.Segunda[0].subject).toBe('Tecnologia da Informação');
             expect(contest.flashcardDecks[0].categoryName).toBe('Tecnologia da Informação');
         });
+
+        it('all Meu Painel JSX modules parse and export valid React components', async () => {
+            const checklistMod = await import('../Checklist.jsx');
+            const statsCardsMod = await import('../StatsCards.jsx');
+            const nextGoalMod = await import('../NextGoalCard.jsx');
+            const priorityMod = await import('../PriorityProgress.jsx');
+            const catEditorMod = await import('../CategoryEditor.jsx');
+            const dashboardMod = await import('../../pages/Dashboard.jsx');
+
+            expect(checklistMod.default).toBeDefined();
+            expect(statsCardsMod.default).toBeDefined();
+            expect(nextGoalMod.default).toBeDefined();
+            expect(priorityMod.default).toBeDefined();
+            expect(catEditorMod.default).toBeDefined();
+            expect(dashboardMod.default).toBeDefined();
+        });
     });
 });
 

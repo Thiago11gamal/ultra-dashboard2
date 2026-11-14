@@ -11,7 +11,8 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { toArray } from '../utils/normalize';
 import { normalizePriority } from '../utils/colorHelper';
-import { clearUrgencyCache, clearTopicsCache, clearMcCache } from '../utils/coachCaches';
+import { clearUrgencyCache, clearTopicsCache } from '../utils/coachCaches';
+import { clearMcCache } from '../utils/coachAdaptive';
 
 export default function Dashboard() {
     // P06 PERF FIX: Group store actions with useShallow to prevent re-rendering Dashboard on every store mutation
