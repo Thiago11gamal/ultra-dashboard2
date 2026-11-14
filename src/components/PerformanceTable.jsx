@@ -221,7 +221,7 @@ const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => 
                                         onClick={() => setFocusedRow(index)}
                                     >
                                         <td className="p-5 pl-8 text-center" role="gridcell">
-                                            <div className={`flex items - center justify - center font - black ${rankColor} `}>
+                                            <div className={`flex items-center justify-center font-black ${rankColor}`}>
                                                 {isTopThree ? <Trophy size={16} className="mr-1 drop-shadow-[0_0_5px_rgba(234,179,8,0.3)]" /> : null}
                                                 {index + 1}º
                                             </div>
@@ -243,7 +243,7 @@ const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => 
                                         </td>
                                         <td className="p-5 text-center" role="gridcell">
                                             <div className="flex flex-col items-center">
-                                                <span className="font-mono text-sm font-black text-slate-300">{totalQuestions}</span>
+                                                <span className="font-mono text-sm font-black text-slate-300">{(totalQuestions || 0).toLocaleString('pt-BR')}</span>
                                                 <span className="text-[8px] text-slate-500 uppercase tracking-widest font-black opacity-60">Questões</span>
                                             </div>
                                         </td>
@@ -253,14 +253,14 @@ const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => 
                                                     <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden flex border border-white/5 shadow-inner">
                                                         {pctBar > 0 && (
                                                             <div
-                                                                className="h-full bg-gradient-to-r from-green-600 to-green-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
-                                                                style={{ width: `${pctBar}% ` }}
+                                                                className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                                                                style={{ width: `${pctBar}%` }}
                                                             />
                                                         )}
                                                         {pctBar < 100 && (
                                                             <div
-                                                                className="h-full bg-gradient-to-r from-red-600 to-red-400 opacity-80"
-                                                                style={{ width: `${100 - pctBar}% ` }}
+                                                                className="h-full bg-gradient-to-r from-rose-600 to-rose-400 opacity-80"
+                                                                style={{ width: `${100 - pctBar}%` }}
                                                             />
                                                         )}
                                                     </div>
@@ -268,24 +268,24 @@ const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => 
                                                     <div className="h-1.5 w-full bg-slate-900/50 rounded-full overflow-hidden opacity-50" />
                                                 )}
                                                 <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter opacity-80">
-                                                    <span className="text-green-500">{totalCorrect} AC</span>
-                                                    <span className="text-red-500">{Math.round(totalWrong)} ER</span>
+                                                    <span className="text-emerald-400 font-bold">{totalCorrect.toLocaleString('pt-BR')} AC</span>
+                                                    <span className="text-rose-400 font-bold">{Math.round(totalWrong).toLocaleString('pt-BR')} ER</span>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="p-5 text-center border-l border-white/5" role="gridcell">
-                                            <div className={`inline - flex items - center justify - center gap - 2 px - 3 py - 1.5 rounded - lg border font - black font - mono shadow - xl transition - all duration - 500 group - hover:scale-110 ${netBalance > 0 ? 'bg-green-500/10 border-green-500/20 text-green-400 shadow-green-500/5' :
-                                                netBalance < 0 ? 'bg-red-500/10 border-red-500/20 text-red-400 shadow-red-500/5' :
-                                                    'bg-slate-800/50 border-white/5 text-slate-500'
+                                            <div className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl border font-black font-mono shadow-xl transition-all duration-300 group-hover:scale-105 ${netBalance > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-emerald-500/5' :
+                                                netBalance < 0 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 shadow-rose-500/5' :
+                                                    'bg-slate-800/50 border-white/5 text-slate-400'
                                                 }`}>
-                                                <span className="text-[11px]">{netBalance > 0 ? '+' : ''}{netBalance}</span>
-                                                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${netBalance > 0 ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]' : netBalance < 0 ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]' : 'bg-slate-600'}`} />
+                                                <span className="text-[11px]">{netBalance > 0 ? '+' : ''}{netBalance.toLocaleString('pt-BR')}</span>
+                                                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${netBalance > 0 ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)]' : netBalance < 0 ? 'bg-rose-400 shadow-[0_0_6px_rgba(244,63,94,0.8)]' : 'bg-slate-600'}`} />
                                             </div>
                                         </td>
                                         <td className="p-5 text-center" role="gridcell">
-                                            <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]' :
+                                            <div className={`relative inline-block px-3 py-1.5 rounded-lg font-black font-mono transition-all duration-500 ${percentCorrect >= 80 ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' :
                                                 percentCorrect >= 60 ? 'text-yellow-400' :
-                                                    percentCorrect > 0 ? 'text-red-500' :
+                                                    percentCorrect > 0 ? 'text-rose-400' :
                                                         'text-slate-500'
                                                 }`}>
                                                 <span className="text-sm tracking-tight">{percentCorrect}%</span>

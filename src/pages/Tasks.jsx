@@ -109,6 +109,19 @@ export default function Tasks() {
     showToast('Resetado com sucesso!', 'success');
   };
 
+  const formatCount = (val) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return '0';
+    return val.toLocaleString('pt-BR');
+  };
+
+  const formatBalance = (val) => {
+    if (typeof val !== 'number' || !Number.isFinite(val)) return '0';
+    const formatted = Math.abs(val).toLocaleString('pt-BR');
+    if (val > 0) return `+${formatted}`;
+    if (val < 0) return `-${formatted}`;
+    return '0';
+  };
+
   const panels = [
     {
       id: 'rankings',
@@ -159,28 +172,32 @@ export default function Tasks() {
         <div className="pointer-events-none absolute top-40 -right-20 w-96 h-96 bg-amber-500/5 rounded-full blur-[140px] -z-10" />
 
         {/* Top Header & Panel Switcher */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-4 border-b border-white/10">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/25 via-amber-500/15 to-orange-500/5 flex items-center justify-center border border-amber-500/30 shadow-xl shadow-amber-500/15 shrink-0">
-              <CheckSquare size={24} className="text-amber-400" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-5 border-b border-white/10">
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              <div className="absolute -inset-1 rounded-2xl bg-amber-500/20 blur-md opacity-70 group-hover:opacity-100 transition-opacity" />
+              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/25 via-amber-500/15 to-orange-500/10 flex items-center justify-center border border-amber-500/30 shadow-xl shadow-amber-500/15 shrink-0">
+                <CheckSquare size={24} className="text-amber-400" />
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                   Tarefas & Performance
                 </h1>
-                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 hidden sm:inline-block shadow-sm">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 hidden sm:inline-flex shadow-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                   Edital Analytics
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
                 Acompanhe rankings, volume e o quadro analítico detalhado do seu edital
               </p>
             </div>
           </div>
 
           {/* Panel Selector (Dois Painéis) */}
-          <div className="flex items-center bg-slate-900/90 border border-white/10 rounded-2xl p-1.5 w-fit gap-1 shadow-2xl backdrop-blur-2xl ring-1 ring-white/5">
+          <div className="flex items-center bg-slate-900/90 border border-white/10 rounded-2xl p-1.5 w-fit gap-1.5 shadow-2xl backdrop-blur-2xl ring-1 ring-white/5">
             {panels.map((panel) => {
               const Icon = panel.icon;
               const isActive = activePanel === panel.id;
@@ -190,13 +207,13 @@ export default function Tasks() {
                   type="button"
                   onClick={() => setActivePanel(panel.id)}
                   className={`flex items-center gap-2.5 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl transition-all duration-300 cursor-pointer ${isActive
-                          ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 scale-[1.02] ring-1 ring-amber-300/40'
-                          : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                          ? 'bg-gradient-to-r from-amber-400 via-amber-500 to-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 scale-[1.02] ring-1 ring-amber-300/50'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
                   }`}
                 >
                   <Icon size={16} className={isActive ? 'text-slate-950 fill-current/20' : 'text-amber-400'} />
                   <span>{panel.label}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block ${isActive ? 'bg-black/20 text-slate-950 font-black' : 'bg-slate-800/80 text-slate-400 border border-white/5'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block ${isActive ? 'bg-slate-950/25 text-slate-950 font-black' : 'bg-slate-800/80 text-slate-400 border border-white/5'
                     }`}>
                     {panel.badge}
                   </span>
@@ -209,178 +226,295 @@ export default function Tasks() {
         {/* Executive KPI Summary Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Progresso do Edital */}
-          <div className="group relative overflow-hidden p-5 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/30 backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/5">
-            <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-amber-500/0 via-amber-400/50 to-amber-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center gap-3.5 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 shadow-inner">
-                <CheckSquare size={18} />
+          <div className="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/80 border border-white/10 hover:border-amber-500/40 backdrop-blur-xl transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/10 hover:-translate-y-0.5 flex flex-col justify-between min-h-[156px]">
+            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-amber-500/0 via-amber-400/70 to-amber-500/0" />
+            <div className="absolute -top-12 -right-12 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/20 transition-all duration-500" />
+            
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-400 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                    <CheckSquare size={17} />
+                  </div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Progresso do Edital</p>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 shrink-0 shadow-sm">
+                  {overviewStats.syllabusPct}%
+                </span>
               </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Progresso do Edital</p>
-                <p className="text-xl font-black text-white tabular-nums tracking-tight">
-                  {overviewStats.completedTasks}/{overviewStats.totalTasks}{' '}
-                  <span className="text-xs font-bold text-amber-400">({overviewStats.syllabusPct}%)</span>
-                </p>
-              </div>
+              <p className="text-2xl font-black text-white tabular-nums tracking-tight">
+                {formatCount(overviewStats.completedTasks)}
+                <span className="text-slate-400 text-xs font-semibold ml-1.5 tracking-normal">
+                  / {formatCount(overviewStats.totalTasks)} tópicos
+                </span>
+              </p>
             </div>
-            <div className="h-1.5 w-full bg-slate-950/70 rounded-full mt-3 overflow-hidden border border-white/5">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
-                style={{ width: `${Math.min(100, Math.max(0, overviewStats.syllabusPct))}%` }}
-              />
+
+            <div className="mt-4 space-y-1.5">
+              <div className="h-1.5 w-full bg-slate-950/80 rounded-full overflow-hidden border border-white/5">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+                  style={{ width: `${Math.min(100, Math.max(overviewStats.syllabusPct > 0 ? 3 : 0, overviewStats.syllabusPct))}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                <span className="text-amber-400/90">{overviewStats.syllabusPct}% concluído</span>
+                <span>{Math.max(0, overviewStats.totalTasks - overviewStats.completedTasks)} pendentes</span>
+              </div>
             </div>
           </div>
 
           {/* Card 2: Volume Total */}
-            <div className="group relative overflow-hidden p-5 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-amber-500/30 backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/5">
-              <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-amber-500/0 via-amber-400/50 to-amber-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center gap-3.5 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 shadow-inner">
-                    <Hash size={18} />
+          <div className="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/80 border border-white/10 hover:border-sky-500/40 backdrop-blur-xl transition-all duration-300 hover:shadow-2xl hover:shadow-sky-500/10 hover:-translate-y-0.5 flex flex-col justify-between min-h-[156px]">
+            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-sky-500/0 via-sky-400/70 to-sky-500/0" />
+            <div className="absolute -top-12 -right-12 w-28 h-28 bg-sky-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-sky-500/20 transition-all duration-500" />
+            
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/25 text-sky-400 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                    <Hash size={17} />
+                  </div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Volume Total</p>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/30 shrink-0 shadow-sm">
+                  {overviewStats.totalCategories} Matérias
+                </span>
+              </div>
+              <p
+                className="text-2xl font-black text-white tabular-nums tracking-tight truncate"
+                title={`${formatCount(overviewStats.totalQuestions)} questões`}
+              >
+                {formatCount(overviewStats.totalQuestions)}
+                <span className="text-slate-400 text-xs font-semibold ml-1.5 tracking-normal">questões</span>
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-1.5">
+              <div className="h-1.5 w-full bg-slate-950/80 rounded-full overflow-hidden border border-white/5">
+                <div className="h-full bg-gradient-to-r from-sky-500 to-blue-400 rounded-full w-full opacity-80 shadow-[0_0_8px_rgba(56,189,248,0.3)]" />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                <span className="flex items-center gap-1.5 text-sky-400/90">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                  Questões acumuladas
+                </span>
+                <span>{overviewStats.totalCategories} matérias no plano</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Aproveitamento */}
+          <div className="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/80 border border-white/10 hover:border-emerald-500/40 backdrop-blur-xl transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/10 hover:-translate-y-0.5 flex flex-col justify-between min-h-[156px]">
+            <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-emerald-400/70 to-emerald-500/0" />
+            <div className="absolute -top-12 -right-12 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all duration-500" />
+            
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                    <Target size={17} />
+                  </div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Aproveitamento</p>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0 shadow-sm" title={`${formatCount(overviewStats.totalCorrect)} acertos`}>
+                  {formatCount(overviewStats.totalCorrect)} AC
+                </span>
+              </div>
+              <p className="text-2xl font-black text-white tabular-nums tracking-tight">
+                {overviewStats.overallAccuracy}%
+                <span className="text-slate-400 text-xs font-semibold ml-1.5 tracking-normal">
+                  {overviewStats.overallAccuracy >= 80 ? '• Alta precisão' : overviewStats.overallAccuracy >= 65 ? '• Regular' : overviewStats.totalQuestions > 0 ? '• Atenção' : '• Sem dados'}
+                </span>
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-1.5">
+              <div className="h-1.5 w-full bg-slate-950/80 rounded-full overflow-hidden border border-white/5">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-300 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+                  style={{ width: `${Math.min(100, Math.max(overviewStats.overallAccuracy > 0 ? 3 : 0, overviewStats.overallAccuracy))}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                <span className="text-emerald-400/90">{formatCount(overviewStats.totalCorrect)} acertos</span>
+                <span className="text-slate-400">{formatCount(overviewStats.totalWrong)} erros</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Saldo Global */}
+          <div className="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-950/80 border border-white/10 hover:border-blue-500/40 backdrop-blur-xl transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-0.5 flex flex-col justify-between min-h-[156px]">
+            <div className={`absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r ${
+              overviewStats.netBalance > 0
+                ? 'from-emerald-500/0 via-emerald-400/70 to-emerald-500/0'
+                : overviewStats.netBalance < 0
+                  ? 'from-rose-500/0 via-rose-400/70 to-rose-500/0'
+                  : 'from-blue-500/0 via-cyan-400/70 to-blue-500/0'
+            }`} />
+            <div className={`absolute -top-12 -right-12 w-28 h-28 rounded-full blur-2xl pointer-events-none transition-all duration-500 ${
+              overviewStats.netBalance > 0
+                ? 'bg-emerald-500/10 group-hover:bg-emerald-500/20'
+                : overviewStats.netBalance < 0
+                  ? 'bg-rose-500/10 group-hover:bg-rose-500/20'
+                  : 'bg-blue-500/10 group-hover:bg-blue-500/20'
+            }`} />
+            
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform ${
+                    overviewStats.netBalance > 0
+                      ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400'
+                      : overviewStats.netBalance < 0
+                        ? 'bg-rose-500/15 border-rose-500/25 text-rose-400'
+                        : 'bg-blue-500/15 border-blue-500/25 text-blue-400'
+                  }`}>
+                    <Wallet size={17} />
+                  </div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Saldo Global</p>
+                </div>
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shrink-0 shadow-sm ${
+                  overviewStats.netBalance > 0
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    : overviewStats.netBalance < 0
+                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      : 'bg-slate-800 text-slate-400 border-white/10'
+                }`}>
+                  {overviewStats.netBalance > 0 ? 'Saldo Positivo (+Acertos)' : overviewStats.netBalance < 0 ? 'Saldo Negativo (-Erros)' : 'Equilíbrio'}
+                </span>
+              </div>
+              <p
+                className={`text-2xl font-black tabular-nums tracking-tight truncate ${
+                  overviewStats.netBalance > 0
+                    ? 'text-emerald-400'
+                    : overviewStats.netBalance < 0
+                      ? 'text-rose-400'
+                      : 'text-slate-300'
+                }`}
+                title={formatBalance(overviewStats.netBalance)}
+              >
+                {formatBalance(overviewStats.netBalance)}
+                <span className="text-slate-400 text-xs font-semibold ml-1.5 tracking-normal">líquido</span>
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-1.5">
+              <div className="h-1.5 w-full bg-slate-950/80 rounded-full overflow-hidden border border-white/5 flex">
+                {overviewStats.totalQuestions > 0 ? (
+                  <>
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${Math.round((overviewStats.totalCorrect / overviewStats.totalQuestions) * 100)}%` }}
+                      title={`Acertos: ${formatCount(overviewStats.totalCorrect)}`}
+                    />
+                    <div
+                      className="h-full bg-rose-500/80 transition-all duration-500"
+                      style={{ width: `${Math.round((overviewStats.totalWrong / overviewStats.totalQuestions) * 100)}%` }}
+                      title={`Erros: ${formatCount(overviewStats.totalWrong)}`}
+                    />
+                  </>
+                ) : (
+                  <div className="h-full w-full bg-slate-800/40" />
+                )}
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                <span className="text-emerald-400/90">+{formatCount(overviewStats.totalCorrect)} acertos</span>
+                <span className="text-rose-400/90">-{formatCount(overviewStats.totalWrong)} erros</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══ PAINEL 1: Rankings & Destaques ═══ */}
+        {activePanel === 'rankings' ? (
+          <div className="space-y-6 animate-fade-in">
+            {/* Sub-header Painel 1 */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-950/90 border border-white/10 p-5 md:p-6 shadow-xl backdrop-blur-2xl">
+              <div className="pointer-events-none absolute -left-12 -top-12 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl" />
+              <div className="relative z-10 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10">
+                  <Trophy size={22} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-md shadow-sm">
+                      Painel 1 · Rankings & Destaques
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse hidden sm:inline-block" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+                    Identifique suas matérias de maior domínio, pontos fracos e liderança em volume de questões.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                <PersonalRanking categories={categories} maxScore={maxScore} minScore={minScore} />
+              </div>
+              <div className="lg:col-span-1 h-full">
+                <VolumeRanking categories={categories} maxScore={maxScore} minScore={minScore} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ═══ PAINEL 2: Quadro de Performance ═══ */
+          <div className="space-y-8 animate-fade-in">
+            {/* Sub-header Painel 2 */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-950/90 border border-white/10 p-5 md:p-6 shadow-xl backdrop-blur-2xl">
+              <div className="pointer-events-none absolute -left-12 -top-12 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl" />
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/10">
+                    <BarChart3 size={22} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Volume Total</p>
-                    <p className="text-xl font-black text-white tabular-nums tracking-tight">
-                      {overviewStats.totalQuestions}{' '}
-                      <span className="text-xs font-bold text-slate-400">questões</span>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 rounded-md shadow-sm">
+                        Painel 2 · Quadro de Performance
+                      </span>
+                      <span className="text-slate-500 text-xs hidden sm:inline-block">•</span>
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline-block">
+                        Tópicos & Assuntos
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed">
+                      Detalhamento quantitativo por disciplina e matriz exaustiva de assuntos do edital.
                     </p>
                   </div>
                 </div>
-                  <div className="flex items-center gap-1.5 mt-3 text-[10px] font-bold text-slate-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                    <span>{overviewStats.totalCategories} matérias no plano</span>
-                  </div>
-                </div>
 
-                {/* Card 3: Aproveitamento */}
-                <div className="group relative overflow-hidden p-5 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-emerald-500/30 backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/5">
-                  <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-emerald-500/0 via-emerald-400/50 to-emerald-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center gap-3.5 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
-                      <Target size={18} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Aproveitamento</p>
-                      <p className="text-xl font-black text-white tabular-nums tracking-tight">
-                        {overviewStats.overallAccuracy}%{' '}
-                        <span className="text-xs font-bold text-emerald-400">{overviewStats.totalCorrect} AC</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="h-1.5 w-full bg-slate-950/70 rounded-full mt-3 overflow-hidden border border-white/5">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-700 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
-                      style={{ width: `${Math.min(100, Math.max(0, overviewStats.overallAccuracy))}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Card 4: Saldo Global */}
-                <div className="group relative overflow-hidden p-5 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-blue-500/30 backdrop-blur-xl transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/5">
-                  <div className="absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r from-blue-500/0 via-cyan-400/50 to-blue-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="flex items-center gap-3.5 mb-2">
-                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-inner ${overviewStats.netBalance > 0
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                        : overviewStats.netBalance < 0
-                          ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                          : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
-                      }`}>
-                      <Wallet size={18} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Saldo Global</p>
-                      <p className={`text-xl font-black tabular-nums tracking-tight ${overviewStats.netBalance > 0
-                          ? 'text-emerald-400'
-                          : overviewStats.netBalance < 0
-                            ? 'text-rose-400'
-                            : 'text-slate-300'
-                        }`}>
-                        {overviewStats.netBalance > 0 ? `+${overviewStats.netBalance}` : overviewStats.netBalance}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border ${overviewStats.netBalance > 0
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : overviewStats.netBalance < 0
-                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                          : 'bg-slate-800 text-slate-400 border-white/5'
-                      }`}>
-                      {overviewStats.netBalance > 0 ? 'Saldo Positivo (+Acertos)' : overviewStats.netBalance < 0 ? 'Saldo Negativo (-Erros)' : 'Equilíbrio'}
-                    </span>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => overviewStats.hasPerformanceData && setShowResetConfirm(true)}
+                  disabled={!overviewStats.hasPerformanceData}
+                  className={`group self-start sm:self-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 flex items-center gap-2.5 shrink-0 border ${
+                    overviewStats.hasPerformanceData
+                      ? 'bg-slate-800/90 hover:bg-rose-500/15 text-slate-300 hover:text-rose-300 border-white/10 hover:border-rose-500/30 shadow-md hover:shadow-rose-500/10 cursor-pointer active:scale-95'
+                      : 'bg-slate-900/40 text-slate-600 cursor-not-allowed border-white/5 opacity-50'
+                  }`}
+                  title={overviewStats.hasPerformanceData ? 'Resetar dados do quadro' : 'Sem dados de performance para resetar'}
+                >
+                  <RotateCcw
+                    size={14}
+                    className={`transition-transform duration-300 ${
+                      overviewStats.hasPerformanceData
+                        ? 'text-amber-400 group-hover:text-rose-400 group-hover:-rotate-90'
+                        : 'text-slate-600'
+                    }`}
+                  />
+                  <span>Resetar Quadro</span>
+                </button>
               </div>
+            </div>
 
-              {/* ═══ PAINEL 1: Rankings & Destaques ═══ */}
-              {activePanel === 'rankings' ? (
-                <div className="space-y-6 animate-fade-in">
-                  {/* Sub-header Painel 1 */}
-                        <div className="flex items-center gap-3.5 p-5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-slate-900/70 to-slate-900/90 border border-amber-500/25 shadow-xl shadow-amber-500/5 backdrop-blur-2xl">
-                          <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0 shadow-lg shadow-amber-500/10">
-                            <Trophy size={20} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
-                                Painel 1 · Rankings & Destaques
-                              </h3>
-                              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse hidden sm:inline-block" />
-                            </div>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              Identifique suas matérias de maior domínio, pontos fracos e liderança em volume de questões.
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                          <div className="lg:col-span-2">
-                            <PersonalRanking categories={categories} maxScore={maxScore} minScore={minScore} />
-                          </div>
-                          <div className="lg:col-span-1 h-full">
-                            <VolumeRanking categories={categories} maxScore={maxScore} minScore={minScore} />
-                          </div>
-                        </div>
-                      </div>
-                      ) : (
-                      /* ═══ PAINEL 2: Quadro de Performance ═══ */
-                      <div className="space-y-8 animate-fade-in">
-                        {/* Sub-header Painel 2 */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-slate-900/70 to-slate-900/90 border border-amber-500/25 shadow-xl shadow-amber-500/5 backdrop-blur-2xl">
-                            <div className="flex items-center gap-3.5">
-                                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0 shadow-lg shadow-amber-500/10">
-                                  <BarChart3 size={20} />
-                                </div>
-                                <div>
-                                  <h3 className="text-sm sm:text-base font-black text-white uppercase tracking-wider">
-                                    Painel 2 · Quadro de Performance & Tópicos
-                                  </h3>
-                                  <p className="text-xs text-slate-400 mt-0.5">
-                                    Detalhamento quantitativo por disciplina e matriz exaustiva de assuntos do edital.
-                                  </p>
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => overviewStats.hasPerformanceData && setShowResetConfirm(true)}
-                                disabled={!overviewStats.hasPerformanceData}
-                                className={`self-start sm:self-auto px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${overviewStats.hasPerformanceData
-                                    ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/5 cursor-pointer shadow-sm hover:border-amber-500/20'
-                                    : 'bg-slate-900/30 text-slate-600 cursor-not-allowed opacity-50 border border-transparent'
-                                  }`}
-                                title={overviewStats.hasPerformanceData ? 'Resetar dados do quadro' : 'Sem dados de performance para resetar'}
-                              >
-                                <RotateCcw size={14} className={overviewStats.hasPerformanceData ? 'text-amber-400' : 'text-slate-600'} />
-                                <span>Resetar Quadro</span>
-                              </button>
-                            </div>
-
-                            <div className="space-y-8">
-                              <PerformanceTable categories={categories} maxScore={maxScore} minScore={minScore} />
-                              <SubtopicsTable categories={categories} maxScore={maxScore} minScore={minScore} />
-                            </div>
-                          </div>
+            <div className="space-y-8">
+              <PerformanceTable categories={categories} maxScore={maxScore} minScore={minScore} />
+              <SubtopicsTable categories={categories} maxScore={maxScore} minScore={minScore} />
+            </div>
+          </div>
         )}
                         </div>
 
