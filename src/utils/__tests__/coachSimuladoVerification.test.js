@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useAppStore } from '../../store/useAppStore.js';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper.js';
 import { createSimuladoSlice } from '../../store/slices/createSimuladoSlice.js';
 import {
@@ -7,7 +6,6 @@ import {
   getSuggestedFocus,
   generateDailyGoals,
   extractMetrics,
-  calculateUrgency,
   getWeakestTopic,
   clearUrgencyCache,
   clearTopicsCache,

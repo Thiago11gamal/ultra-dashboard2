@@ -64,7 +64,9 @@ export const createTaskSlice = (set, get) => ({
                         try {
                             localStorage.removeItem('pomodoroState');
                             localStorage.removeItem('pomodoro-endsAt');
-                        } catch { }
+                        } catch {
+                            // ignore storage removal errors
+                        }
                     }
                 }
             } else {
@@ -346,7 +348,9 @@ export const createTaskSlice = (set, get) => ({
                         try {
                             localStorage.removeItem('pomodoroState');
                             localStorage.removeItem('pomodoro-endsAt');
-                        } catch { }
+                        } catch {
+                            // ignore storage removal errors
+                        }
                     }
                 }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);

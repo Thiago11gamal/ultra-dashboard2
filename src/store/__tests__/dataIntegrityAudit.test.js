@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeContest, repairContestHistory, validateAppState } from '../schemas.js';
+import { sanitizeContest } from '../schemas.js';
 import { normalizeSimuladoLevel } from '../../utils/colorHelper.js';
 import { RECOVERED_DIREITO_CONTEST } from '../../data/recoveredContests.js';
 

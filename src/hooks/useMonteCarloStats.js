@@ -292,15 +292,6 @@ export function useMonteCarloStats({
       : Object.values(categories || {});
   }, [categories]);
 
-  const activeCategories = useMemo(() =>
-    safeCategories.filter(c => {
-      const h = c.simuladoStats?.history;
-      const hLen = h ? (Array.isArray(h) ? h.length : Object.values(h).length) : 0;
-      return hLen > 0;
-    }),
-    [safeCategories]
-  );
-
   const categoriesIdentityKey = useMemo(
     () => safeCategories.map(c => `${c?.id || ''}:${c?.name || ''}`).join('|'),
     [safeCategories]

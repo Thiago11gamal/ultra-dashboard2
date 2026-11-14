@@ -36,18 +36,13 @@ import { normalize } from '../utils/normalization';
 import { useToast } from '../hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import {
-    hexToRgba,
     normalizeHexColor,
     getCategoryColorStyles,
-    normalizePriority,
     getPriorityConfig,
-    normalizeSimuladoLevel,
-    PRIORITY_CONFIG
+    normalizeSimuladoLevel
 } from '../utils/colorHelper';
 import { pointsToPct, getSafeScore } from '../utils/scoreHelper';
 import { normalizeDate } from '../utils/dateHelper';
-
-const priorityColors = PRIORITY_CONFIG;
 
 const getHistoryDateLabel = (h) => {
     try {
@@ -358,14 +353,14 @@ const TaskItem = ({
     onTogglePriority,
     onTriggerPlay
 }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    if (!task) return null;
     const taskTitle = task?.title || task?.text || 'Tarefa sem nome';
+    const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(taskTitle);
-    const [editNotes, setEditNotes] = useState(task.notes || '');
-    const [showNotesField, setShowNotesField] = useState(Boolean(task.notes));
+    const [editNotes, setEditNotes] = useState(task?.notes || '');
+    const [showNotesField, setShowNotesField] = useState(Boolean(task?.notes));
 
-    const safePriority = normalizePriority(task.priority);
+    if (!task) return null;
+
     const priority = getPriorityConfig(task.priority);
 
     const handleStartEditing = (e) => {
@@ -626,7 +621,7 @@ const CategoryAccordion = React.memo(({
     onTogglePriority,
     onPlayContext,
     showSimuladoStats,
-    filter,
+    _filter,
     forceExpandState,
     onOpenTaskModal,
     onOpenDeleteCategoryModal,
@@ -637,6 +632,7 @@ const CategoryAccordion = React.memo(({
 
     useEffect(() => {
         if (forceExpandState && typeof forceExpandState.expanded === 'boolean') {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsOpen(forceExpandState.expanded);
         }
     }, [forceExpandState]);
@@ -894,6 +890,7 @@ function Checklist({
         if (isImportModalOpen && !importSourceContest && contests) {
             const otherIds = Object.keys(contests).filter(id => id !== activeId);
             if (otherIds.length === 1) {
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setImportSourceContest(otherIds[0]);
             }
         }

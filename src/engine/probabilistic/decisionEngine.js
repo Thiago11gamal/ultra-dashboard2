@@ -57,11 +57,11 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
   let priorityScore = clampFinite(candidate.priorityValue, 0, 1, NaN);
 
   if (!Number.isFinite(priorityScore)) {
-    const priority = String(candidate.priority || '').toLowerCase();
+    const priority = String(candidate.priority || '').toLowerCase().trim();
 
-    if (priority === 'high') priorityScore = 1;
-    else if (priority === 'medium') priorityScore = 0.55;
-    else if (priority === 'low') priorityScore = 0.2;
+    if (priority === 'high' || priority === 'alta' || priority === 'alto' || priority === 'urgente') priorityScore = 1;
+    else if (priority === 'medium' || priority === 'media' || priority === 'média') priorityScore = 0.55;
+    else if (priority === 'low' || priority === 'baixa' || priority === 'baixo') priorityScore = 0.2;
     else priorityScore = 0.45;
   }
 

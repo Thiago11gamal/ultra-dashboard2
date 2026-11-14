@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BrainCircuit, Clock, AlertTriangle, CheckCircle2, TrendingDown, Zap, Calendar, ChevronDown, BookOpen, Play, Info } from 'lucide-react';
 import { formatTimeAgo } from '../utils/dateHelper';
 import { formatValue } from '../utils/scoreHelper';
-import { hexToRgba, normalizeHexColor } from '../utils/colorHelper';
+import { hexToRgba } from '../utils/colorHelper';
 import {
     clamp,
     normalizeArray,

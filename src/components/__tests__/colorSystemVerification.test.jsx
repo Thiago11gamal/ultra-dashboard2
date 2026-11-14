@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import {
-    normalizeHexColor,
-    hexToRgba,
-    getCategoryColorStyles,
     normalizePriority,
     getPriorityConfig,
     normalizeSimuladoLevel,
@@ -52,7 +49,6 @@ describe('Suíte de Verificação Abrangente do Sistema de Cores e Prioridades',
         });
 
         it('togglePriority no store aceita tarefas com prioridade em português e avança para a próxima corretamente', () => {
-            const state = useAppStore.getState();
             // Cria contest de teste isolado
             useAppStore.setState({
                 appState: {
