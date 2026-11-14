@@ -319,5 +319,61 @@ describe('RaioXDashboard (Raio-X Técnico no Coach)', () => {
         expect(html).toContain('n=9');
         expect(html).toContain('n=12');
     });
+
+    it('11. Displays both calibrated categories and uncalibrated categories in mixed state without hiding uncalibrated disciplines', () => {
+        const mockMixedData = {
+            categories: [
+                { id: 'cat-const', name: 'Direito Constitucional' },
+                { id: 'cat-port', name: 'Língua Portuguesa' }
+            ],
+            calibrationOps: {
+                'cat-const': { degraded: false }
+            },
+            calibrationHistoryByCategory: {
+                'cat-const': [
+                    { timestamp: 1700000000000, avgBrier: 0.14, ece: 0.04, calibrationPenalty: 0 }
+                ]
+            },
+            simulados: [
+                { id: 's1', categoryId: 'cat-const', score: 90 },
+                { id: 's2', categoryId: 'cat-port', score: 60 },
+                { id: 's3', categoryId: 'cat-port', score: 65 }
+            ]
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockMixedData} />);
+
+        // Must display Monitor de Calibração with Direito Constitucional
+        expect(html).toContain('Monitor de Calibração');
+        expect(html).toContain('Direito Constitucional');
+
+        // Crucial: Must ALSO display Língua Portuguesa with its formation progress (2/8, Faltam 6 simulados)
+        expect(html).toContain('Amostra em formação (n &lt; 8)');
+        expect(html).toContain('Língua Portuguesa');
+        expect(html).toContain('2/8');
+        expect(html).toContain('Faltam 6 simulados');
+    });
+
+    it('12. Deduplicates rows across category aliases in mergedByCanonical to prevent count doubling', () => {
+        const mockAliasData = {
+            categories: [
+                { id: 'cat-penal', name: 'Direito Penal' }
+            ],
+            calibrationHistoryByCategory: {
+                // Same timestamp row saved under both ID and categoryName
+                'cat-penal': [
+                    { timestamp: 1700000000000, avgBrier: 0.16, ece: 0.04 }
+                ],
+                'Direito Penal': [
+                    { timestamp: 1700000000000, avgBrier: 0.16, ece: 0.04 }
+                ]
+            }
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockAliasData} />);
+        expect(html).toContain('Direito Penal');
+        // Count must be 1, not 2
+        expect(html).toContain('1 auditoria(s) registrada(s)');
+    });
 });
 

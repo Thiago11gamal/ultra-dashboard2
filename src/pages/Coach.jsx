@@ -1057,7 +1057,7 @@ export function RaioXDashboard({ data }) {
 
     const categories = useMemo(() => {
         const raw = data?.categories || [];
-        return (Array.isArray(raw) ? raw : Object.values(raw || {})).map(c => ({
+        return (Array.isArray(raw) ? raw : Object.values(raw || {})).filter(Boolean).map(c => ({
             ...c,
             tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {})
         }));
@@ -1195,7 +1195,18 @@ export function RaioXDashboard({ data }) {
 
         return Array.from(mergedByCanonical.values())
             .map(({ categoryId, matchedCategory, rows: rawRows }) => {
-                const rows = [...rawRows].sort((a, b) => toTimestampMs(a?.timestamp) - toTimestampMs(b?.timestamp));
+                const seenRowKeys = new Set();
+                const dedupedRows = [];
+                rawRows.forEach((r, rIdx) => {
+                    if (!r) return;
+                    const ts = toTimestampMs(r.timestamp);
+                    const k = r.id ? `id_${r.id}` : (ts > 0 ? `ts_${ts}_${r.avgBrier ?? ''}_${r.ece ?? ''}` : `idx_${rIdx}`);
+                    if (!seenRowKeys.has(k)) {
+                        seenRowKeys.add(k);
+                        dedupedRows.push(r);
+                    }
+                });
+                const rows = dedupedRows.sort((a, b) => toTimestampMs(a?.timestamp) - toTimestampMs(b?.timestamp));
                 const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
                 const recent = rows.filter(h => toTimestampMs(h?.timestamp) >= sevenDaysAgo);
                 const base = recent.length > 0 ? recent : rows;
@@ -1236,6 +1247,33 @@ export function RaioXDashboard({ data }) {
             })
             .filter(Boolean);
     }, [data?.calibrationHistoryByCategory, isActiveCategoryEntry, categories, categorySimCounts]);
+
+    const calibratedCategoryKeys = useMemo(() => {
+        const set = new Set();
+        calibrationSummary.forEach(row => {
+            if (row.categoryId) {
+                set.add(String(row.categoryId));
+                const sKey = getSafeCategoryKey(row.categoryId);
+                if (sKey) set.add(sKey);
+            }
+            if (row.label) {
+                set.add(String(row.label));
+                set.add(normalize(row.label));
+            }
+        });
+        return set;
+    }, [calibrationSummary]);
+
+    const categoriesInFormation = useMemo(() => {
+        return categorySimCounts.filter(item => {
+            const safeId = getSafeCategoryKey(item.id);
+            const isCalibrated = calibratedCategoryKeys.has(String(item.id)) ||
+                (safeId && calibratedCategoryKeys.has(safeId)) ||
+                calibratedCategoryKeys.has(item.name) ||
+                calibratedCategoryKeys.has(normalize(item.name));
+            return item.count < item.target || !isCalibrated;
+        });
+    }, [categorySimCounts, calibratedCategoryKeys]);
 
     const toPercentLabel = (value) => {
         if (value === null || value === undefined || value === '') return '-';
@@ -1460,6 +1498,43 @@ export function RaioXDashboard({ data }) {
                             );
                         })}
                     </div>
+
+                    {categoriesInFormation.length > 0 && (
+                        <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                                <h4 className="text-[10.5px] font-black text-indigo-300 uppercase tracking-widest flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                    Amostra em formação (n &lt; 8)
+                                </h4>
+                                <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
+                                    Requer 8 simulados por disciplina para calibração estocástica
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {categoriesInFormation.map((item, idx) => {
+                                    const count = Math.max(0, Number(item.count) || 0);
+                                    const target = Math.max(1, Number(item.target) || 8);
+                                    const pct = Math.min(100, Math.round((count / target) * 100));
+                                    const missing = Math.max(0, target - count);
+                                    return (
+                                        <div key={item.id || item.name || idx} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/[0.05] flex flex-col gap-2">
+                                            <div className="flex justify-between items-center text-[11px]">
+                                                <span className="font-bold text-slate-200 truncate">{item.name}</span>
+                                                <span className="font-mono font-black text-indigo-400 shrink-0">{count}/{target}</span>
+                                            </div>
+                                            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                                            </div>
+                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-right">
+                                                {missing > 0 ? `Faltam ${missing} simulados` : 'Calibrado'}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="py-8 px-5 rounded-2xl border border-white/5 bg-slate-900/40 space-y-4">
@@ -1472,13 +1547,13 @@ export function RaioXDashboard({ data }) {
 
                     {categorySimCounts.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                            {categorySimCounts.map(item => {
+                            {categorySimCounts.map((item, idx) => {
                                 const count = Math.max(0, Number(item.count) || 0);
                                 const target = Math.max(1, Number(item.target) || 8);
                                 const pct = Math.min(100, Math.round((count / target) * 100));
                                 const missing = Math.max(0, target - count);
                                 return (
-                                    <div key={item.id} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/[0.05] flex flex-col gap-2">
+                                    <div key={item.id || item.name || idx} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/[0.05] flex flex-col gap-2">
                                         <div className="flex justify-between items-center text-[11px]">
                                             <span className="font-bold text-slate-200 truncate">{item.name}</span>
                                             <span className="font-mono font-black text-indigo-400 shrink-0">{count}/{target}</span>
