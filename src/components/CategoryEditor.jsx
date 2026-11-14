@@ -91,13 +91,18 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                 `[CategoryEditor] minCutoff (${parsedMin}) > maxScore (${parsedMax}). ` +
                 `Clampado para ${safeMin}.`
             );
+            showToast(`Nota mínima ajustada para o limite máximo (${parsedMax}).`, 'warning');
         }
         const safeColor = normalizeHexColor(color, DEFAULT_CATEGORY_COLOR);
+        const preservedMinScore = Number.isFinite(Number(category.minScore))
+            ? Math.min(Number(category.minScore), Number(parsedMax.toFixed(2)) - 1)
+            : 0;
 
         updateCategoryFields(category.id || category.name, {
             name: cleanName,
             color: safeColor,
             minCutoff: Number(safeMin.toFixed(2)),
+            minScore: preservedMinScore,
             maxScore: Number(parsedMax.toFixed(2))
         });
 
@@ -237,11 +242,10 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                                         key={preset}
                                         type="button"
                                         onClick={() => setColor(preset)}
-                                        className={`h-8 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer hover:scale-110 active:scale-95 ${
-                                            isSelected
+                                        className={`h-8 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer hover:scale-110 active:scale-95 ${isSelected
                                                 ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 shadow-md scale-105'
                                                 : 'hover:opacity-90'
-                                        }`}
+                                            }`}
                                         style={{ backgroundColor: preset }}
                                         title={`Selecionar cor ${preset}`}
                                         aria-label={`Cor ${preset}`}
@@ -279,7 +283,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                                 }}
                                 title="Pré-visualização do tema da disciplina"
                             >
-                                <span className="text-sm">📚</span>
+                                <span className="text-sm">{category?.icon || '📚'}</span>
                                 <span className="truncate">{name.trim() || 'Exemplo'}</span>
                             </div>
                         </div>

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Play, Clock, Info, Sparkles } from 'lucide-react';
 import { getSuggestedFocus } from '../utils/coachLogic';
 import { toArray } from '../utils/normalize';
-import { normalizePriority } from '../utils/colorHelper';
+import { normalizePriority, getPriorityConfig } from '../utils/colorHelper';
 import { useAppStore } from '../store/useAppStore';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
@@ -112,12 +112,17 @@ function NextGoalCard({
                 }
                 const priorityOrder = { high: 0, medium: 1, low: 2 };
                 const sortedTasks = toArray(suggestedCategory.tasks)
-                    .filter(t => t && !t.completed)
+                    .filter(t => t && !t.completed && (t.title || t.text || t.id))
                     .slice()
                     .sort((a, b) => {
                         const pA = normalizePriority(a?.priority);
                         const pB = normalizePriority(b?.priority);
-                        return (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
+                        const diff = (priorityOrder[pA] ?? 1) - (priorityOrder[pB] ?? 1);
+                        if (diff !== 0) return diff;
+                        // Em caso de mesma prioridade, prioriza tarefa já em andamento ("studying")
+                        if (a?.status === 'studying' && b?.status !== 'studying') return -1;
+                        if (b?.status === 'studying' && a?.status !== 'studying') return 1;
+                        return 0;
                     });
                 const nextTask = sortedTasks[0];
                 if (!nextTask) {
@@ -137,10 +142,12 @@ function NextGoalCard({
                 const meta = hasDetails
                     ? (parts[0]?.trim() || 'Revisão e exercícios')
                     : 'Revisão e exercícios';
+                const taskPriority = normalizePriority(nextTask.priority);
                 setSuggestion({
                     category: suggestedCategory,
                     task: nextTask,
                     urgency: suggestedCategory.urgency,
+                    priorityConfig: getPriorityConfig(taskPriority),
                     display: {
                         assunto: actionPart.length > 80
                             ? `${actionPart.substring(0, 77)}...`
@@ -216,14 +223,15 @@ function NextGoalCard({
         );
     }
 
-    const { category, task, urgency, display } = suggestion || {};
+    const { category, task, urgency, display, priorityConfig } = suggestion || {};
     if (!category || !task) return null;
 
     const rawUrgencyScore = urgency?.normalizedScore ?? urgency?.score ?? 0;
     const urgencyScore = Number.isFinite(rawUrgencyScore) ? rawUrgencyScore : 0;
     const hasSimuladoData = Boolean(urgency?.details?.hasData);
     const daysSinceLastStudy = Number(urgency?.details?.daysSinceLastStudy || 0);
-    const hasStudyHistory = hasSimuladoData || !urgency?.details?.recencyUnknown || daysSinceLastStudy > 0 || Boolean(category?.lastStudiedAt);
+    const recencyKnown = urgency?.details?.recencyUnknown === false;
+    const hasStudyHistory = hasSimuladoData || recencyKnown || daysSinceLastStudy > 0 || Boolean(category?.lastStudiedAt);
 
     let urgencyStyle = {
         gradient: 'from-blue-500/15 via-blue-500/5 to-transparent',
@@ -326,6 +334,12 @@ function NextGoalCard({
                                         : 'Nunca'}
                                 </strong>
                             </span>
+
+                            {priorityConfig && (
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${priorityConfig.color} ${priorityConfig.bg} ${priorityConfig.border}`}>
+                                    Prioridade {priorityConfig.label}
+                                </span>
+                            )}
                         </div>
 
                         {/* Title & Topic */}
@@ -379,7 +393,7 @@ function NextGoalCard({
                             aria-hidden="true"
                         />
                         <span className="relative z-10">
-                            Iniciar sessão
+                            {task.status === 'studying' ? 'Continuar sessão' : 'Iniciar sessão'}
                         </span>
                     </button>
                 </div>

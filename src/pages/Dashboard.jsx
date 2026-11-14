@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 import { toArray } from '../utils/normalize';
 import { normalizePriority } from '../utils/colorHelper';
+import { clearUrgencyCache, clearTopicsCache, clearMcCache } from '../utils/coachCaches';
 
 export default function Dashboard() {
     // P06 PERF FIX: Group store actions with useShallow to prevent re-rendering Dashboard on every store mutation
@@ -75,7 +76,7 @@ export default function Dashboard() {
     const safeCategories = React.useMemo(() => {
         return toArray(categories).map(c => ({
             ...c,
-            tasks: toArray(c.tasks)
+            tasks: toArray(c.tasks).filter(t => t && typeof t === 'object' && (t.title || t.text || t.id))
         }));
     }, [categories]);
 
@@ -117,8 +118,9 @@ export default function Dashboard() {
         safeStudySessions
     ]);
 
-    const setGoalDate = React.useCallback((d) => setData(contest => {
-        if (!contest) return contest;
+        const setGoalDate = React.useCallback((d) => {
+            setData(contest => {
+                if (!contest) return contest;
 
         return {
             ...contest,
@@ -127,46 +129,73 @@ export default function Dashboard() {
                 goalDate: d || null
             }
         };
-    }), [setData]);
+    });
+    clearUrgencyCache();
+    clearTopicsCache();
+    clearMcCache();
+    if (d) {
+        showToast('Data da prova atualizada!', 'success');
+    } else {
+        showToast('Data da prova removida.', 'info');
+    }
+}, [setData, showToast]);
 
-    const handleStartStudying = React.useCallback((categoryId, taskId) => {
-        const currentCategories = useAppStore.getState().appState?.contests?.[
-            useAppStore.getState().appState?.activeId
-        ]?.categories || [];
-        const safeCategoriesList = Array.isArray(currentCategories)
-            ? currentCategories
-            : Object.values(currentCategories || {});
-        const cat = safeCategoriesList.find(c => c && (c.id === categoryId || c.name === categoryId));
-        const tsk = toArray(cat?.tasks).find(t => t && (t.id === taskId || t.text === taskId || t.title === taskId));
+const handleStartStudying = React.useCallback((categoryId, taskId) => {
+    const currentCategories = useAppStore.getState().appState?.contests?.[
+        useAppStore.getState().appState?.activeId
+    ]?.categories || [];
+    const safeCategoriesList = Array.isArray(currentCategories)
+        ? currentCategories
+        : Object.values(currentCategories || {});
+    const cat = safeCategoriesList.find(c => c && (c.id === categoryId || c.name === categoryId));
+    const tsk = toArray(cat?.tasks).find(t => t && (
+        (Boolean(taskId) && t.id === taskId) ||
+        (Boolean(taskId) && t.text === taskId) ||
+        (Boolean(taskId) && t.title === taskId)
+    ));
 
-        if (!cat || !tsk) return;
+    if (!cat || !tsk) return;
 
-        const currentActiveSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
-        const taskMatchesActive = Boolean(currentActiveSubject && (
-            (tsk.id && currentActiveSubject.taskId === tsk.id) ||
-            (taskId && currentActiveSubject.taskId === taskId) ||
-            (currentActiveSubject.task && (currentActiveSubject.task === tsk.title || currentActiveSubject.task === tsk.text))
+    const currentActiveSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
+        const categoryMatchesActive = Boolean(currentActiveSubject && (
+            (Boolean(cat.id) && currentActiveSubject.categoryId === cat.id) ||
+            (Boolean(cat.name) && (currentActiveSubject.category === cat.name || currentActiveSubject.categoryId === cat.name))
         ));
-        const isAlreadyActive = taskMatchesActive && tsk.status === 'studying';
-        if (isAlreadyActive) {
-            navigate('/pomodoro');
-            return;
+    const taskMatchesActive = Boolean(currentActiveSubject && categoryMatchesActive && (
+        (Boolean(tsk.id) && currentActiveSubject.taskId === tsk.id) ||
+        (Boolean(taskId) && currentActiveSubject.taskId === taskId) ||
+        (Boolean(currentActiveSubject.task) && (
+            (Boolean(tsk.title) && currentActiveSubject.task === tsk.title) ||
+            (Boolean(tsk.text) && currentActiveSubject.task === tsk.text)
+        ))
+    ));
+    const isAlreadyActive = taskMatchesActive && tsk.status === 'studying';
+    if (isAlreadyActive) {
+        navigate('/pomodoro');
+        return;
+    }
+
+    // BUG-FIX: setData ANTES de startPomodoroSession (ordem correta)
+    setData(activeContest => {
+        if (!activeContest || activeContest.categories == null) {
+            return activeContest;
         }
 
-        // BUG-FIX: setData ANTES de startPomodoroSession (ordem correta)
-        setData(activeContest => {
-            if (!activeContest || activeContest.categories == null) {
-                return activeContest;
-            }
-
-            return {
-                ...activeContest,
-                categories: toArray(activeContest.categories).map(c => {
-                    return {
-                        ...c,
-                        tasks: toArray(c.tasks).map(t => {
-                            const isMatchingCategory = (c.id && cat.id && c.id === cat.id) || (c.name && cat.name && c.name === cat.name);
-                            if (isMatchingCategory && (t.id === tsk.id || t.id === taskId || (tsk.text && t.text === tsk.text) || (tsk.title && t.title === tsk.title))) {
+        return {
+            ...activeContest,
+            categories: toArray(activeContest.categories).map(c => {
+                return {
+                    ...c,
+                    tasks: toArray(c.tasks).map(t => {
+                            if (!t || typeof t !== 'object') return t;
+                            const isMatchingCategory = (Boolean(c.id) && Boolean(cat.id) && c.id === cat.id) || (Boolean(c.name) && Boolean(cat.name) && c.name === cat.name);
+                            const isTargetTask = isMatchingCategory && (
+                                (Boolean(tsk.id) && t.id === tsk.id) ||
+                                (Boolean(taskId) && t.id === taskId) ||
+                                (Boolean(tsk.text) && t.text === tsk.text) ||
+                                (Boolean(tsk.title) && t.title === tsk.title)
+                            );
+                            if (isTargetTask) {
                                 return { ...t, status: 'studying' };
                             }
 
@@ -176,154 +205,154 @@ export default function Dashboard() {
 
                             return t;
                         })
-                    };
-                })
-            };
-        });
-
-        startPomodoroSession({
-            categoryId: cat.id || cat.name,
-            taskId: tsk.id || taskId,
-            category: cat.name,
-            task: tsk.title || tsk.text || 'Estudo',
-            priority: normalizePriority(tsk.priority),
-            source: 'dashboard'
-        });
-
-        const taskLabel = tsk.title || tsk.text || 'Estudo';
-        showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');
-        navigate('/pomodoro');
-    }, [startPomodoroSession, setData, showToast, navigate]);
-
-    const [bannerDismissed, setBannerDismissed] = React.useState(() => {
-        try {
-            return localStorage.getItem('dismissed_feature_banner_v1') === 'true';
-        } catch {
-            return false;
-        }
+                };
+            })
+        };
     });
 
-    const handleDismissBanner = React.useCallback(() => {
-        setBannerDismissed(true);
-        try {
-            localStorage.setItem('dismissed_feature_banner_v1', 'true');
-        } catch {
-            // ignore
-        }
-    }, []);
+    startPomodoroSession({
+        categoryId: cat.id || cat.name,
+        taskId: tsk.id || taskId,
+        category: cat.name,
+        task: tsk.title || tsk.text || 'Estudo',
+        priority: normalizePriority(tsk.priority),
+        source: 'dashboard'
+    });
 
-    const hasTasks = React.useMemo(() => safeCategories.some(c => (c.tasks || []).length > 0), [safeCategories]);
+    const taskLabel = tsk.title || tsk.text || 'Estudo';
+    showToast(`Iniciando estudos: ${cat.name} - ${taskLabel}`, 'success');
+    navigate('/pomodoro');
+}, [startPomodoroSession, setData, showToast, navigate]);
 
-    if (!isHydrated) {
-        return (
-            <div className="flex items-center justify-center h-[70vh] w-full animate-fade-in">
-                <div className="flex flex-col items-center gap-5 p-12">
-                    <div className="relative">
-                        <div className="w-12 h-12 border-4 border-indigo-500/20 rounded-full"></div>
-                        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-                    </div>
-                    <div className="flex flex-col items-center">
-                        <p className="text-indigo-300 font-semibold text-sm">
-                            Calibrando o motor
-                        </p>
-                        <p className="text-slate-500 text-xs mt-1">
-                            Carregando seu perfil de aprendizagem
-                        </p>
-                    </div>
+const [bannerDismissed, setBannerDismissed] = React.useState(() => {
+    try {
+        return localStorage.getItem('dismissed_feature_banner_v1') === 'true';
+    } catch {
+        return false;
+    }
+});
+
+const handleDismissBanner = React.useCallback(() => {
+    setBannerDismissed(true);
+    try {
+        localStorage.setItem('dismissed_feature_banner_v1', 'true');
+    } catch {
+        // ignore
+    }
+}, []);
+
+const hasTasks = React.useMemo(() => safeCategories.some(c => (c.tasks || []).length > 0), [safeCategories]);
+
+if (!isHydrated) {
+    return (
+        <div className="flex items-center justify-center h-[70vh] w-full animate-fade-in">
+            <div className="flex flex-col items-center gap-5 p-12">
+                <div className="relative">
+                    <div className="w-12 h-12 border-4 border-indigo-500/20 rounded-full"></div>
+                    <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                </div>
+                <div className="flex flex-col items-center">
+                    <p className="text-indigo-300 font-semibold text-sm">
+                        Calibrando o motor
+                    </p>
+                    <p className="text-slate-500 text-xs mt-1">
+                        Carregando seu perfil de aprendizagem
+                    </p>
                 </div>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
-    return (
-        <PageErrorBoundary pageName="Dashboard">
-            <div className="space-y-4 sm:space-y-5 animate-fade-in">
-                {!bannerDismissed && (
-                    <div className="hidden lg:flex items-center justify-between text-[13px] text-teal-300/90 bg-teal-500/10 border border-teal-500/20 px-3.5 py-2 rounded-xl mb-1 shadow-sm">
-                        <div className="flex items-center gap-2">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
-                            <span>
-                                <strong className="font-semibold text-teal-200">Novo:</strong>{' '}
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/flashcards')}
-                                    className="font-semibold text-teal-200 hover:text-white underline underline-offset-2 decoration-teal-400/50 hover:decoration-white transition-colors cursor-pointer"
-                                    title="Acessar Flashcards"
-                                >
-                                    Flashcards
-                                </button>
-                                {' '}e{' '}
-                                <button
-                                    type="button"
-                                    onClick={() => navigate('/agenda')}
-                                    className="font-semibold text-teal-200 hover:text-white underline underline-offset-2 decoration-teal-400/50 hover:decoration-white transition-colors cursor-pointer"
-                                    title="Acessar Agenda de Estudos"
-                                >
-                                    Agenda de Estudos
-                                </button>
-                                {' '}disponíveis no menu
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
+return (
+    <PageErrorBoundary pageName="Dashboard">
+        <div className="space-y-4 sm:space-y-5 animate-fade-in">
+            {!bannerDismissed && (
+                <div className="hidden lg:flex items-center justify-between text-[13px] text-teal-300/90 bg-teal-500/10 border border-teal-500/20 px-3.5 py-2 rounded-xl mb-1 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+                        <span>
+                            <strong className="font-semibold text-teal-200">Novo:</strong>{' '}
                             <button
                                 type="button"
                                 onClick={() => navigate('/flashcards')}
-                                className="text-xs text-teal-200 hover:text-white bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium flex items-center gap-1.5"
+                                className="font-semibold text-teal-200 hover:text-white underline underline-offset-2 decoration-teal-400/50 hover:decoration-white transition-colors cursor-pointer"
+                                title="Acessar Flashcards"
                             >
-                                <span>Acessar Flashcards</span>
-                                <ArrowRight size={13} />
+                                Flashcards
                             </button>
+                            {' '}e{' '}
                             <button
                                 type="button"
-                                onClick={handleDismissBanner}
-                                className="text-teal-400/60 hover:text-teal-200 p-0.5 rounded-md hover:bg-teal-500/20 transition-colors cursor-pointer"
-                                title="Dispensar aviso"
-                                aria-label="Dispensar aviso"
+                                onClick={() => navigate('/agenda')}
+                                className="font-semibold text-teal-200 hover:text-white underline underline-offset-2 decoration-teal-400/50 hover:decoration-white transition-colors cursor-pointer"
+                                title="Acessar Agenda de Estudos"
                             >
-                                <X size={14} />
+                                Agenda de Estudos
                             </button>
-                        </div>
+                            {' '}disponíveis no menu
+                        </span>
                     </div>
-                )}
-
-                <div className="tour-step-4">
-                    <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/flashcards')}
+                            className="text-xs text-teal-200 hover:text-white bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer font-medium flex items-center gap-1.5"
+                        >
+                            <span>Acessar Flashcards</span>
+                            <ArrowRight size={13} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDismissBanner}
+                            className="text-teal-400/60 hover:text-teal-200 p-0.5 rounded-md hover:bg-teal-500/20 transition-colors cursor-pointer"
+                            title="Dispensar aviso"
+                            aria-label="Dispensar aviso"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
                 </div>
+            )}
 
-                {hasTasks && (
-                    <div className="tour-step-5">
-                        <NextGoalCard
-                            categories={data.categories}
-                            simulados={data.simulados}
-                            studyLogs={data.studyLogs}
-                            onStartStudying={handleStartStudying}
-                        />
-                    </div>
-                )}
+            <div className="tour-step-4">
+                <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
+            </div>
 
-                <PriorityProgress categories={data.categories} />
-
-                <div className="tour-step-6">
-                    <Checklist
+            {hasTasks && (
+                <div className="tour-step-5">
+                    <NextGoalCard
                         categories={data.categories}
-                        onToggleTask={toggleTask}
-                        onUpdateTask={updateTask}
-                        onDeleteTask={deleteTask}
-                        onAddCategory={addCategory}
-                        onDeleteCategory={deleteCategory}
-                        onAddTask={addTask}
-                        onTogglePriority={togglePriority}
-                        onPlayContext={handleStartStudying}
-                        showSimuladoStats
-                        filter={filter}
-                        setFilter={setDashboardFilter}
-                        contests={contests}
-                        activeId={activeId}
-                        onImportCategory={importCategory}
+                        simulados={data.simulados}
+                        studyLogs={data.studyLogs}
+                        onStartStudying={handleStartStudying}
                     />
                 </div>
+            )}
+
+            <PriorityProgress categories={data.categories} />
+
+            <div className="tour-step-6">
+                <Checklist
+                    categories={data.categories}
+                    onToggleTask={toggleTask}
+                    onUpdateTask={updateTask}
+                    onDeleteTask={deleteTask}
+                    onAddCategory={addCategory}
+                    onDeleteCategory={deleteCategory}
+                    onAddTask={addTask}
+                    onTogglePriority={togglePriority}
+                    onPlayContext={handleStartStudying}
+                    showSimuladoStats
+                    filter={filter}
+                    setFilter={setDashboardFilter}
+                    contests={contests}
+                    activeId={activeId}
+                    onImportCategory={importCategory}
+                />
             </div>
-        </PageErrorBoundary>
-    );
+        </div>
+    </PageErrorBoundary>
+);
 }
 

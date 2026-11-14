@@ -5,6 +5,7 @@ import { getTaskXP } from '../../utils/gamification.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { normalizePriority } from '../../utils/colorHelper.js';
 import { normalize } from '../../utils/normalization.js';
+import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
@@ -46,12 +47,24 @@ export const createTaskSlice = (set, get) => ({
                 }
                 const activeSubject = state.appState.pomodoro?.activeSubject;
                 if (activeSubject) {
-                    const isMatchingActiveTask = (activeSubject.taskId && (activeSubject.taskId === taskId || activeSubject.taskId === task.id || activeSubject.taskId === task.text || activeSubject.taskId === task.title)) ||
-                        (activeSubject.task && (activeSubject.task === task.title || activeSubject.task === task.text));
+                    const isMatchingActiveTask =
+                        (Boolean(activeSubject.taskId) && (
+                            (Boolean(taskId) && activeSubject.taskId === taskId) ||
+                            (Boolean(task.id) && activeSubject.taskId === task.id) ||
+                            (Boolean(task.text) && activeSubject.taskId === task.text) ||
+                            (Boolean(task.title) && activeSubject.taskId === task.title)
+                        )) ||
+                        (Boolean(activeSubject.task) && (
+                            (Boolean(task.title) && activeSubject.task === task.title) ||
+                            (Boolean(task.text) && activeSubject.task === task.text)
+                        ));
                     if (isMatchingActiveTask) {
                         state.appState.pomodoro.activeSubject = null;
                         state.appState.pomodoro.isRunning = false;
-                        try { localStorage.removeItem('pomodoroState'); } catch { }
+                        try {
+                            localStorage.removeItem('pomodoroState');
+                            localStorage.removeItem('pomodoro-endsAt');
+                        } catch { }
                     }
                 }
             } else {
@@ -60,6 +73,8 @@ export const createTaskSlice = (set, get) => ({
                 delete task.awardedXP;
             }
 
+            clearUrgencyCache();
+            clearTopicsCache();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -137,6 +152,8 @@ export const createTaskSlice = (set, get) => ({
             }
 
             if (found) {
+                clearUrgencyCache();
+                clearTopicsCache();
                 activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = nowIso;
@@ -183,6 +200,8 @@ export const createTaskSlice = (set, get) => ({
                 priority: 'medium'
             });
 
+            clearUrgencyCache();
+            clearTopicsCache();
             const nowIso = new Date().toISOString();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
@@ -249,20 +268,32 @@ export const createTaskSlice = (set, get) => ({
         }
 
         const activeSubject = state.appState.pomodoro?.activeSubject;
-        if (activeSubject && (activeSubject.taskId === taskId || activeSubject.taskId === currentTask.id || activeSubject.task === currentTask.title || activeSubject.task === currentTask.text)) {
-            state.appState.pomodoro.activeSubject = {
-                ...activeSubject,
-                task: newTitle,
-                priority: newPriority
-            };
-        }
+            const isMatchingActiveTask = activeSubject && (
+                (Boolean(activeSubject.taskId) && (
+                    (Boolean(taskId) && activeSubject.taskId === taskId) ||
+                    (Boolean(currentTask.id) && activeSubject.taskId === currentTask.id)
+                )) ||
+                (Boolean(activeSubject.task) && (
+                    (Boolean(currentTask.title) && activeSubject.task === currentTask.title) ||
+                    (Boolean(currentTask.text) && activeSubject.task === currentTask.text)
+                ))
+            );
+            if (isMatchingActiveTask) {
+                state.appState.pomodoro.activeSubject = {
+                    ...activeSubject,
+                    task: newTitle,
+                    priority: newPriority
+                };
+            }
 
-        const nowIso = new Date().toISOString();
-        activeData.lastUpdated = nowIso;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = nowIso;
-        markStorageDirty();
-    }),
+            clearUrgencyCache();
+            clearTopicsCache();
+            const nowIso = new Date().toISOString();
+            activeData.lastUpdated = nowIso;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = nowIso;
+            markStorageDirty();
+        }),
 
     deleteTask: (categoryId, taskId) => {
         let pendingXpDeduction = 0;
@@ -296,15 +327,32 @@ export const createTaskSlice = (set, get) => ({
                 }
                 const activeSubject = state.appState.pomodoro?.activeSubject;
                 if (activeSubject) {
-                    const isMatchingActiveTask = (activeSubject.taskId && (activeSubject.taskId === taskId || (task && (activeSubject.taskId === task.id || activeSubject.taskId === task.text || activeSubject.taskId === task.title)))) ||
-                        (task && activeSubject.task && (activeSubject.task === task.title || activeSubject.task === task.text));
+                    const isMatchingActiveTask =
+                        (Boolean(activeSubject.taskId) && (
+                            (Boolean(taskId) && activeSubject.taskId === taskId) ||
+                            (task && (
+                                (Boolean(task.id) && activeSubject.taskId === task.id) ||
+                                (Boolean(task.text) && activeSubject.taskId === task.text) ||
+                                (Boolean(task.title) && activeSubject.taskId === task.title)
+                            ))
+                        )) ||
+                        (Boolean(activeSubject.task) && task && (
+                            (Boolean(task.title) && activeSubject.task === task.title) ||
+                            (Boolean(task.text) && activeSubject.task === task.text)
+                        ));
                     if (isMatchingActiveTask) {
                         state.appState.pomodoro.activeSubject = null;
                         state.appState.pomodoro.isRunning = false;
+                        try {
+                            localStorage.removeItem('pomodoroState');
+                            localStorage.removeItem('pomodoro-endsAt');
+                        } catch { }
                     }
                 }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
 
+                clearUrgencyCache();
+                clearTopicsCache();
                 const nowIso = new Date().toISOString();
                 activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
@@ -365,24 +413,36 @@ export const createTaskSlice = (set, get) => ({
                 tasks[taskIndex] = task;
 
                 const activeSubject = state.appState.pomodoro?.activeSubject;
-                if (activeSubject && (activeSubject.taskId === taskId || activeSubject.taskId === task.id || activeSubject.task === task.title || activeSubject.task === task.text)) {
-                    state.appState.pomodoro.activeSubject = {
-                        ...activeSubject,
-                        priority: newPriority
-                    };
+                    const isMatchingActiveTask = activeSubject && (
+                        (Boolean(activeSubject.taskId) && (
+                            (Boolean(taskId) && activeSubject.taskId === taskId) ||
+                            (Boolean(task.id) && activeSubject.taskId === task.id)
+                        )) ||
+                        (Boolean(activeSubject.task) && (
+                            (Boolean(task.title) && activeSubject.task === task.title) ||
+                            (Boolean(task.text) && activeSubject.task === task.text)
+                        ))
+                    );
+                    if (isMatchingActiveTask) {
+                        state.appState.pomodoro.activeSubject = {
+                            ...activeSubject,
+                            priority: newPriority
+                        };
+                    }
+
+                    // Garante novas referências de array e de objeto para Zustand / React shallow memoization
+                    category.tasks = [...tasks];
+                    activeData.categories = [...categories];
+
+                    clearUrgencyCache();
+                    clearTopicsCache();
+                    const nowIso = new Date().toISOString();
+                    activeData.lastUpdated = nowIso;
+                    state.appState.version = (state.appState.version || 0) + 1;
+                    state.appState.lastUpdated = nowIso;
+                    markStorageDirty();
                 }
-
-                // Garante novas referências de array e de objeto para Zustand / React shallow memoization
-                category.tasks = [...tasks];
-                activeData.categories = [...categories];
-
-                const nowIso = new Date().toISOString();
-                activeData.lastUpdated = nowIso;
-                state.appState.version = (state.appState.version || 0) + 1;
-                state.appState.lastUpdated = nowIso;
-                markStorageDirty();
-            }
-        });
+            });
 
         if (pendingXpDiff !== 0 && typeof get().awardExperience === 'function') {
             get().awardExperience(pendingXpDiff);

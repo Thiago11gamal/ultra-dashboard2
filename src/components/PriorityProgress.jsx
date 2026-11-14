@@ -5,42 +5,44 @@ import { PRIORITY_CONFIG, normalizePriority } from '../utils/colorHelper';
 
 const priorityColors = PRIORITY_CONFIG;
 
-export default function PriorityProgress({ categories = [] }) {
-    const stats = useMemo(() => {
-        const taskCounts = {
-            high: { total: 0, completed: 0 },
-            medium: { total: 0, completed: 0 },
-            low: { total: 0, completed: 0 }
-        };
-        const weightedCounts = {
-            high: { total: 0, completed: 0 },
-            medium: { total: 0, completed: 0 },
-            low: { total: 0, completed: 0 }
-        };
-        let totalRealTasks = 0;
-        let totalRealCompleted = 0;
-        let totalWeightedTasks = 0;
-        let totalWeightedCompleted = 0;
+    function PriorityProgress({ categories = [] }) {
+        const stats = useMemo(() => {
+            const taskCounts = {
+                high: { total: 0, completed: 0 },
+                medium: { total: 0, completed: 0 },
+                low: { total: 0, completed: 0 }
+            };
+            const weightedCounts = {
+                high: { total: 0, completed: 0 },
+                medium: { total: 0, completed: 0 },
+                low: { total: 0, completed: 0 }
+            };
+            let totalRealTasks = 0;
+            let totalRealCompleted = 0;
+            let totalWeightedTasks = 0;
+            let totalWeightedCompleted = 0;
 
-        toArray(categories).forEach(cat => {
-            const weight = Number(cat?.weight) || 5; // padrão 5 se ausente
-            toArray(cat?.tasks).forEach(task => {
-                const priorityKey = normalizePriority(task?.priority);
+            toArray(categories).forEach(cat => {
+                const weight = Number(cat?.weight) || 5; // padrão 5 se ausente
+                    toArray(cat?.tasks)
+                        .filter(task => task && typeof task === 'object' && (task.title || task.text || task.id))
+                        .forEach(task => {
+                            const priorityKey = normalizePriority(task?.priority);
 
-                taskCounts[priorityKey].total += 1;
-                totalRealTasks += 1;
+                            taskCounts[priorityKey].total += 1;
+                            totalRealTasks += 1;
 
-                weightedCounts[priorityKey].total += weight;
-                totalWeightedTasks += weight;
+                            weightedCounts[priorityKey].total += weight;
+                            totalWeightedTasks += weight;
 
-                if (task?.completed) {
-                    taskCounts[priorityKey].completed += 1;
-                    totalRealCompleted += 1;
+                                if (task?.completed) {
+                                    taskCounts[priorityKey].completed += 1;
+                                    totalRealCompleted += 1;
 
                     weightedCounts[priorityKey].completed += weight;
                     totalWeightedCompleted += weight;
                 }
-            });
+                });
         });
 
         return { taskCounts, weightedCounts, totalRealTasks, totalRealCompleted, totalWeightedTasks, totalWeightedCompleted };
@@ -207,4 +209,6 @@ export default function PriorityProgress({ categories = [] }) {
         </div>
     );
 }
+
+export default React.memo(PriorityProgress);
 

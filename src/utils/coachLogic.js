@@ -1584,6 +1584,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
         relevantSimulados,
         averageScore,
         daysSinceLastStudy,
+        recencyUnknown,
         categoryStudyLogs,
         trend,
         mssdVolatility,
@@ -1691,6 +1692,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             averageScore: safeFixedNumber(averageScore),
             globalProjectedMean: globalProjectedMean != null ? safeFixedNumber(globalProjectedMean, 1) : null,
             daysSinceLastStudy,
+            recencyUnknown: Boolean(recencyUnknown),
             standardDeviation: safeFixedNumber(mssdVolatility),
             mssdVolatility: safeFixedNumber(mssdVolatility),
             posteriorMonteCarlo: metrics.posteriorMc
@@ -1785,7 +1787,7 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
             },
             humanReadable: {
                 "Média": formatPercent(((averageScore - minScore) / domain) * 100),
-                "Recência": daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`,
+                "Recência": recencyUnknown ? "Nunca" : (daysSinceLastStudy === 0 ? "Hoje" : `${daysSinceLastStudy} dias`),
                 "Tendência": trend > (0.5 * (domain / 100)) ? `↑ +${formatValue(trend)}` : trend < (-0.5 * (domain / 100)) ? `↓ ${formatValue(trend)}` : "→ Estável",
                 "Instabilidade": `±${formatValue(mssdVolatility)} pts`,
                 "Probabilidade (MC)": mcHasData ? formatPercent(mcProbability) : "Dados insuf.",
@@ -1867,7 +1869,10 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const lastLog = logsForChecksum.length > 0
             ? (logsForChecksum[logsForChecksum.length - 1]?.date || logsForChecksum[logsForChecksum.length - 1]?.createdAt || '')
             : '';
-        const tasksHash = safeTasks.reduce((acc, t) => acc + (t?.completed ? 0 : 1) + (normalizePriority(t?.priority) === 'high' ? 5 : 0), 0);
+        const pendingCount = safeTasks.filter(t => t && !t.completed).length;
+        const completedCount = safeTasks.filter(t => t?.completed).length;
+        const pendingHighCount = safeTasks.filter(t => t && !t.completed && normalizePriority(t.priority) === 'high').length;
+        const tasksHash = `${safeTasks.length}_${completedCount}_${pendingCount}_${pendingHighCount}`;
         // FIX: a soma de minutos impacta a urgência (balance bridge,
         // burnout/dynamicBurnoutThreshold, totalHours). Antes, editar a
         // duração de um log existente não invalidava o cache — só

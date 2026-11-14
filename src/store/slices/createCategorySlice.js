@@ -296,6 +296,39 @@ export const createCategorySlice = (set) => ({
                     if (activeSub && (activeSub.categoryId === id || normalize(activeSub.category || '') === normalize(oldName))) {
                         activeSub.category = fields.name;
                     }
+                    if (activeData.coachPlan) {
+                        const planList = Array.isArray(activeData.coachPlan) ? activeData.coachPlan : Object.values(activeData.coachPlan || {});
+                        planList.forEach(item => {
+                            if (item && (item.categoryId === id || normalize(item.subject || item.category || item.categoryName || '') === normalize(oldName))) {
+                                if (item.subject) item.subject = fields.name;
+                                if (item.category) item.category = fields.name;
+                                if (item.categoryName) item.categoryName = fields.name;
+                            }
+                        });
+                    }
+                    if (activeData.coachPlanner && typeof activeData.coachPlanner === 'object') {
+                        Object.values(activeData.coachPlanner).forEach(dayTasks => {
+                            if (Array.isArray(dayTasks)) {
+                                dayTasks.forEach(item => {
+                                    if (item && (item.categoryId === id || normalize(item.subject || item.category || item.categoryName || '') === normalize(oldName))) {
+                                        if (item.subject) item.subject = fields.name;
+                                        if (item.category) item.category = fields.name;
+                                        if (item.categoryName) item.categoryName = fields.name;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    if (activeData.flashcardDecks) {
+                        const decks = Array.isArray(activeData.flashcardDecks) ? activeData.flashcardDecks : Object.values(activeData.flashcardDecks || {});
+                        decks.forEach(deck => {
+                            if (deck && (deck.categoryId === id || normalize(deck.subject || deck.category || deck.categoryName || '') === normalize(oldName))) {
+                                if (deck.subject) deck.subject = fields.name;
+                                if (deck.category) deck.category = fields.name;
+                                if (deck.categoryName) deck.categoryName = fields.name;
+                            }
+                        });
+                    }
                 }
             }
             clearUrgencyCache();

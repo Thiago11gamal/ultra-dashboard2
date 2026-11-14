@@ -6,7 +6,8 @@ import {
     Trophy,
     Calendar,
     Info,
-    BookOpen
+    BookOpen,
+    X
 } from 'lucide-react';
 import {
     calculateStudyStreak,
@@ -352,15 +353,17 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 tooltip={(
                     <>
                         <strong className="text-white">{efficiencyLabel}:</strong>{' '}
-                        {efficiency?.efficiency === 'excelente'
-                            ? 'Fluxo e velocidade de conclusão de tarefas ideais.'
-                            : efficiency?.efficiency === 'boa'
-                                ? 'Bom ritmo de resolução de tarefas.'
-                                : efficiency?.efficiency === 'regular'
-                                    ? 'Produtividade na média. Pode melhorar o foco para concluir mais tarefas.'
-                                    : efficiency?.efficiency === 'precisa_melhorar'
-                                        ? 'Baixa taxa de tarefas concluídas por tempo. Verifique distrações.'
-                                        : (efficiency?.message || 'Faça sessões com o cronômetro para medir.')}
+                        {efficiency?.message
+                            ? efficiency.message
+                            : efficiency?.efficiency === 'excelente'
+                                ? 'Fluxo e velocidade de conclusão de tarefas ideais.'
+                                : efficiency?.efficiency === 'boa'
+                                    ? 'Bom ritmo de resolução de tarefas.'
+                                    : efficiency?.efficiency === 'regular'
+                                        ? 'Produtividade na média. Pode melhorar o foco para concluir mais tarefas.'
+                                        : efficiency?.efficiency === 'precisa_melhorar'
+                                            ? 'Baixa taxa de tarefas concluídas por tempo. Verifique distrações.'
+                                            : 'Faça sessões com o cronômetro para medir.'}
                     </>
                 )}
                 footer={(
@@ -374,7 +377,15 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                                 ~{efficiency.metrics.minutesPerTask} min/tarefa
                             </span>
                         ) : (
-                            <span className="text-slate-500 shrink-0">{hasEffData ? 'Ritmo regular' : 'Aguardando estudos'}</span>
+                            <span className="text-slate-500 shrink-0">
+                                {!hasEffData
+                                    ? 'Aguardando estudos'
+                                    : (efficiency?.metrics?.totalStudied === 0 && (efficiency?.metrics?.totalCompleted || 0) > 0)
+                                        ? 'Sem cronômetro'
+                                        : ((efficiency?.metrics?.totalStudied || 0) > 0 && efficiency?.metrics?.totalCompleted === 0)
+                                            ? '0 concluídas'
+                                            : 'Ritmo regular'}
+                            </span>
                         )}
                     </>
                 )}
@@ -445,6 +456,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                 tooltip={(
                     <>
                         <strong className="text-white">Indicadores SRS:</strong> Revisões totais, taxa de retenção e cartões pendentes de hoje via repetição espaçada.
+                        {(fcStats.flashcardDueToday || 0) > 0 && (
+                            <span className="block mt-1 text-amber-300 font-medium">
+                                • {fcStats.flashcardDueToday} {fcStats.flashcardDueToday === 1 ? 'cartão pendente' : 'cartões pendentes'} para hoje.
+                            </span>
+                        )}
                     </>
                 )}
                 footer={(
@@ -457,7 +473,11 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                         </span>
 
                         <span className="shrink-0">
-                            Hoje: <strong className="font-semibold text-slate-200 tabular-nums">{fcStats.flashcardReviewsToday || 0}</strong>
+                            {(fcStats.flashcardDueToday || 0) > 0 && (fcStats.flashcardReviewsToday || 0) === 0 ? (
+                                <>Pendentes: <strong className="font-semibold text-amber-400 tabular-nums">{fcStats.flashcardDueToday}</strong></>
+                            ) : (
+                                <>Hoje: <strong className="font-semibold text-slate-200 tabular-nums">{fcStats.flashcardReviewsToday || 0}</strong></>
+                            )}
                         </span>
                     </>
                 )}
@@ -567,13 +587,30 @@ const StatsCards = ({ data, onUpdateGoalDate }) => {
                             {user.goalDate ? displayDate : 'Definir data'}
                         </span>
 
-                        <span className={`font-semibold shrink-0 pointer-events-none ${daysRemaining !== null && daysRemaining < 0
-                            ? 'text-slate-500'
-                            : isExamClose
-                                ? 'text-rose-400'
-                                : 'text-slate-400'}`}>
-                            {daysRemaining === null ? 'Editar' : daysRemaining < 0 ? 'Atrasado' : daysRemaining === 0 ? 'Hoje' : 'Alvo'}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`font-semibold pointer-events-none ${daysRemaining !== null && daysRemaining < 0
+                                ? 'text-slate-500'
+                                : isExamClose
+                                    ? 'text-rose-400'
+                                    : 'text-slate-400'}`}>
+                                {daysRemaining === null ? 'Editar' : daysRemaining < 0 ? 'Atrasado' : daysRemaining === 0 ? 'Hoje' : 'Alvo'}
+                            </span>
+                            {user.goalDate && typeof onUpdateGoalDate === 'function' && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        onUpdateGoalDate('');
+                                    }}
+                                    className="relative z-[55] p-0.5 rounded hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors pointer-events-auto"
+                                    title="Limpar data da prova"
+                                    aria-label="Limpar data da prova"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
                     </>
                 )}
             >

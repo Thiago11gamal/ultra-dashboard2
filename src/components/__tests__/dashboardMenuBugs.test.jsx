@@ -755,6 +755,163 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(localStorage.getItem('pomodoroState')).toBeNull();
         });
     });
+
+    describe('14. Deep Meu Painel Audit Fixes (Recency, Efficiency, Streak, Pomodoro Sync & Renaming)', () => {
+        it('calculateUrgency exposes recencyUnknown=true and Recência="Nunca" for brand new discipline', async () => {
+            const { calculateUrgency } = await import('../../utils/coachLogic.js');
+            const category = {
+                id: 'cat-new',
+                name: 'Direito Tributário',
+                tasks: [{ id: 't-1', text: 'CTN', completed: false, priority: 'medium' }]
+            };
+            const urgency = calculateUrgency(category, [], []);
+            expect(urgency.details.recencyUnknown).toBe(true);
+            expect(urgency.details.humanReadable['Recência']).toBe('Nunca');
+        });
+
+        it('analyzeEfficiency ignores flashcard logs and falls back to category.totalMinutes', async () => {
+            const { analyzeEfficiency } = await import('../../utils/analytics.js');
+            const categories = [
+                {
+                    id: 'cat-1',
+                    name: 'Português',
+                    totalMinutes: 60,
+                    tasks: [
+                        { id: 't-1', text: 'Crase', completed: true, priority: 'high' },
+                        { id: 't-2', text: 'Sintaxe', completed: true, priority: 'medium' }
+                    ]
+                }
+            ];
+            const studyLogs = [
+                { id: 'log-fc', type: 'flashcard', minutes: 0, date: new Date().toISOString() }
+            ];
+            const eff = analyzeEfficiency(categories, studyLogs);
+            expect(eff.score).toBeGreaterThan(0);
+            expect(eff.metrics.totalStudied).toBe(60);
+        });
+
+        it('calculateStudyStreak ignores corrupted future log dates and preserves current streak', async () => {
+            const { calculateStudyStreak } = await import('../../utils/analytics.js');
+            const { getDateKey } = await import('../../utils/dateHelper.js');
+            const todayKey = getDateKey(new Date());
+            const studyLogs = [
+                { date: todayKey, minutes: 45 },
+                { date: '2099-12-31', minutes: 30 }
+            ];
+            const streak = calculateStudyStreak(studyLogs);
+            expect(streak.current).toBe(1);
+            expect(streak.isActive).toBe(true);
+        });
+
+        it('parseGoalDateUnified supports DD/MM/YYYY and YYYY-MM-DD formats', async () => {
+            const { parseGoalDateUnified } = await import('../../utils/dateHelper.js');
+            const iso = parseGoalDateUnified('2027-05-15');
+            expect(iso).toBeInstanceOf(Date);
+            expect(iso.getFullYear()).toBe(2027);
+            expect(iso.getMonth()).toBe(4);
+            expect(iso.getDate()).toBe(15);
+
+            const br = parseGoalDateUnified('15/05/2027');
+            expect(br).toBeInstanceOf(Date);
+            expect(br.getFullYear()).toBe(2027);
+            expect(br.getMonth()).toBe(4);
+            expect(br.getDate()).toBe(15);
+        });
+
+        it('createTaskSlice updateTask does not corrupt activeSubject when task.title and activeSubject.task are undefined', () => {
+            const mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    pomodoro: {
+                        activeSubject: { taskId: 'other-task', categoryId: 'cat-1' }
+                    },
+                    contests: {
+                        'contest-1': {
+                            categories: [
+                                {
+                                    id: 'cat-1',
+                                    tasks: [{ id: 't-legacy', text: 'Apenas texto sem title', priority: 'low' }]
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            const setFn = (fn) => fn(mockState);
+            const taskSlice = createTaskSlice(setFn, () => ({}));
+            taskSlice.updateTask('cat-1', 't-legacy', { text: 'Texto atualizado', priority: 'high' });
+
+            expect(mockState.appState.pomodoro.activeSubject.taskId).toBe('other-task');
+            expect(mockState.appState.pomodoro.activeSubject.task).toBeUndefined();
+        });
+
+        it('createPomodoroSlice setPomodoroActiveSubject syncs and clears task.status studying', async () => {
+            const { createPomodoroSlice } = await import('../../store/slices/createPomodoroSlice.js');
+            const mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    pomodoro: {
+                        activeSubject: null,
+                        isRunning: false
+                    },
+                    contests: {
+                        'contest-1': {
+                            categories: [
+                                {
+                                    id: 'cat-1',
+                                    name: 'Constitucional',
+                                    tasks: [
+                                        { id: 't-1', title: 'Controle', completed: false, status: null },
+                                        { id: 't-2', title: 'Direitos', completed: false, status: 'studying' }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                }
+            };
+            const setFn = (fn) => fn(mockState);
+            const pomoSlice = createPomodoroSlice(setFn, () => ({}));
+
+            pomoSlice.setPomodoroActiveSubject({
+                categoryId: 'cat-1',
+                taskId: 't-1',
+                category: 'Constitucional',
+                task: 'Controle',
+                sessionInstanceId: 'sess-1'
+            });
+            expect(mockState.appState.contests['contest-1'].categories[0].tasks[0].status).toBe('studying');
+            expect(mockState.appState.contests['contest-1'].categories[0].tasks[1].status).toBeNull();
+
+            pomoSlice.setPomodoroActiveSubject(null);
+            expect(mockState.appState.contests['contest-1'].categories[0].tasks[0].status).toBeNull();
+        });
+
+        it('createCategorySlice updateCategoryFields cascades category rename to coachPlan, coachPlanner and flashcardDecks', () => {
+            const mockState = {
+                appState: {
+                    activeId: 'contest-1',
+                    pomodoro: {},
+                    contests: {
+                        'contest-1': {
+                            categories: [{ id: 'cat-1', name: 'Informática', tasks: [] }],
+                            coachPlan: [{ id: 'cp-1', categoryId: 'cat-1', subject: 'Informática' }],
+                            coachPlanner: { Segunda: [{ id: 'day-1', subject: 'Informática' }] },
+                            flashcardDecks: [{ id: 'deck-1', categoryId: 'cat-1', categoryName: 'Informática' }]
+                        }
+                    }
+                }
+            };
+            const setFn = (fn) => fn(mockState);
+            const catSlice = createCategorySlice(setFn, () => ({}));
+            catSlice.updateCategoryFields('cat-1', { name: 'Tecnologia da Informação' });
+
+            const contest = mockState.appState.contests['contest-1'];
+            expect(contest.coachPlan[0].subject).toBe('Tecnologia da Informação');
+            expect(contest.coachPlanner.Segunda[0].subject).toBe('Tecnologia da Informação');
+            expect(contest.flashcardDecks[0].categoryName).toBe('Tecnologia da Informação');
+        });
+    });
 });
 
 
