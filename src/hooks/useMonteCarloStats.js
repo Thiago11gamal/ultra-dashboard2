@@ -574,7 +574,11 @@ export function useMonteCarloStats({
     const pureStatsData = statsDataRef.current || rawPureStatsData;
 
     if (!pureStatsData) {
-      setSimulationData({ status: 'waiting', missing: 'data' });
+      setSimulationData(prev =>
+        prev?.status === 'waiting' && prev?.missing === 'data'
+          ? prev
+          : { status: 'waiting', missing: 'data' }
+      );
       return;
     }
 

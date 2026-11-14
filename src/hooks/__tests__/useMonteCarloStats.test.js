@@ -166,17 +166,19 @@ describe('useMonteCarloStats', () => {
       }
     }));
 
+    const timelineDates = ['2026-07-01', '2026-07-05', '2026-07-10'];
+    const simuladoRows = [];
     const { result } = renderHook(() =>
       useMonteCarloStats({
         categories,
         goalDate: '2026-12-31',
         targetScore: 80,
         timeIndex: -1,
-        timelineDates: ['2026-07-01', '2026-07-05', '2026-07-10'],
+        timelineDates,
         minScore: 0,
         maxScore: 100,
         effectiveSimulateToday: true,
-        simuladoRows: []
+        simuladoRows
       })
     );
 
@@ -221,17 +223,19 @@ describe('useMonteCarloStats', () => {
       }
     }));
 
+    const timelineDates = ['2026-07-01'];
+    const simuladoRows = [];
     const { result } = renderHook(() =>
       useMonteCarloStats({
         categories,
         goalDate: '2026-12-31',
         targetScore: 80,
         timeIndex: -1,
-        timelineDates: ['2026-07-01'],
+        timelineDates,
         minScore: 0,
         maxScore: 100,
         effectiveSimulateToday: true,
-        simuladoRows: []
+        simuladoRows
       })
     );
 
