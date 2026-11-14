@@ -1,5 +1,5 @@
 import { PageErrorBoundary } from '../components/ErrorBoundary';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PersonalRanking from '../components/PersonalRanking';
 import VolumeRanking from '../components/VolumeRanking';
@@ -7,7 +7,7 @@ import PerformanceTable from '../components/PerformanceTable';
 import SubtopicsTable from '../components/SubtopicsTable';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
-import { RotateCcw, CheckSquare, Target, Hash, Wallet, PlusCircle } from 'lucide-react';
+import { RotateCcw, CheckSquare, Target, Hash, Wallet, PlusCircle, Trophy, BarChart3, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import ConfirmModal from '../components/ConfirmModal';
 import {
@@ -20,6 +20,21 @@ export default function Tasks() {
   const navigate = useNavigate();
   const showToast = useToast();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [activePanel, setActivePanel] = useState(() => {
+    try {
+      return localStorage.getItem('tasks_active_panel') || 'rankings';
+    } catch {
+      return 'rankings';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('tasks_active_panel', activePanel);
+    } catch {
+      // Ignora falha em ambientes com storage restrito
+    }
+  }, [activePanel]);
 
   const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
 
@@ -94,6 +109,21 @@ export default function Tasks() {
     showToast('Resetado com sucesso!', 'success');
   };
 
+  const panels = [
+    {
+      id: 'rankings',
+      label: 'Rankings & Destaques',
+      icon: Trophy,
+      badge: `${overviewStats.totalCategories} Matérias`
+    },
+    {
+      id: 'performance',
+      label: 'Quadro de Performance',
+      icon: BarChart3,
+      badge: `${overviewStats.totalTasks} Tópicos`
+    }
+  ];
+
   if (categories.length === 0) {
     return (
       <PageErrorBoundary pageName="Tarefas">
@@ -122,7 +152,52 @@ export default function Tasks() {
 
   return (
     <PageErrorBoundary pageName="Tarefas">
-      <div className="space-y-10">
+      <div className="space-y-8 animate-fade-in pb-12">
+        {/* Top Header & Panel Switcher */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center border border-amber-500/30 shadow-lg shadow-amber-500/10 shrink-0">
+              <CheckSquare size={22} className="text-amber-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                Tarefas & Performance
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Acompanhe rankings, volume e o quadro analítico detalhado do seu edital
+              </p>
+            </div>
+          </div>
+
+          {/* Panel Selector (Dois Painéis) */}
+          <div className="flex items-center bg-slate-900/80 border border-white/10 rounded-2xl p-1.5 w-fit gap-1 shadow-inner backdrop-blur-xl">
+            {panels.map((panel) => {
+              const Icon = panel.icon;
+              const isActive = activePanel === panel.id;
+              return (
+                <button
+                  key={panel.id}
+                  type="button"
+                  onClick={() => setActivePanel(panel.id)}
+                  className={`flex items-center gap-2.5 px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-black rounded-xl transition-all duration-300 cursor-pointer ${
+                    isActive
+                      ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 shadow-lg shadow-amber-500/30 scale-[1.02]'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Icon size={16} className={isActive ? 'text-slate-950 fill-current/20' : 'text-amber-400'} />
+                  <span>{panel.label}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-block ${
+                    isActive ? 'bg-black/20 text-slate-950 font-black' : 'bg-slate-800/80 text-slate-400 border border-white/5'
+                  }`}>
+                    {panel.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Executive KPI Summary Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 rounded-2xl bg-slate-900/50 border border-white/5 backdrop-blur-xl flex items-center gap-3.5">
@@ -182,35 +257,83 @@ export default function Tasks() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
-          <div className="lg:col-span-2">
-            <PersonalRanking categories={categories} maxScore={maxScore} minScore={minScore} />
-          </div>
-          <div className="lg:col-span-1 h-full">
-            <VolumeRanking categories={categories} maxScore={maxScore} minScore={minScore} />
-          </div>
-        </div>
+        {/* ═══ PAINEL 1: Rankings & Destaques ═══ */}
+        {activePanel === 'rankings' ? (
+          <div className="space-y-6 animate-fade-in">
+            {/* Sub-header Painel 1 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-slate-900/40 to-slate-900/60 border border-amber-500/20 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                  <Trophy size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Painel 1 · Rankings & Destaques</h3>
+                  <p className="text-[11px] text-slate-400">Identifique suas matérias de maior domínio, pontos fracos e liderança em volume de questões.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePanel('performance')}
+                className="self-start sm:self-auto text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5 transition-colors cursor-pointer group px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20"
+              >
+                <span>Quadro de Performance</span>
+                <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
 
-        <div className="pb-8 border-t border-white/5 pt-10 mt-10">
-          <h2 className="text-2xl font-bold mb-10 flex items-center gap-3">
-            📊 Quadro de Performance
-            <button
-              type="button"
-              onClick={() => overviewStats.hasPerformanceData && setShowResetConfirm(true)}
-              disabled={!overviewStats.hasPerformanceData}
-              className={`p-1.5 rounded-lg transition-colors ${overviewStats.hasPerformanceData
-                ? 'bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer'
-                : 'bg-slate-900/30 text-slate-600 cursor-not-allowed opacity-50'
-                }`}
-              title={overviewStats.hasPerformanceData ? 'Resetar dados do quadro' : 'Sem dados de performance para resetar'}
-            >
-              <RotateCcw size={16} />
-            </button>
-          </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-12">
+              <div className="lg:col-span-2">
+                <PersonalRanking categories={categories} maxScore={maxScore} minScore={minScore} />
+              </div>
+              <div className="lg:col-span-1 h-full">
+                <VolumeRanking categories={categories} maxScore={maxScore} minScore={minScore} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ═══ PAINEL 2: Quadro de Performance ═══ */
+          <div className="space-y-8 animate-fade-in">
+            {/* Sub-header Painel 2 */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-purple-500/10 via-slate-900/40 to-slate-900/60 border border-purple-500/20 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30 shrink-0">
+                  <BarChart3 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    Painel 2 · Quadro de Performance & Tópicos
+                    <button
+                      type="button"
+                      onClick={() => overviewStats.hasPerformanceData && setShowResetConfirm(true)}
+                      disabled={!overviewStats.hasPerformanceData}
+                      className={`p-1.5 rounded-lg transition-colors ${overviewStats.hasPerformanceData
+                        ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer border border-white/5'
+                        : 'bg-slate-900/30 text-slate-600 cursor-not-allowed opacity-50'
+                        }`}
+                      title={overviewStats.hasPerformanceData ? 'Resetar dados do quadro' : 'Sem dados de performance para resetar'}
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Detalhamento quantitativo por disciplina e matriz exaustiva de assuntos do edital.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePanel('rankings')}
+                className="self-start sm:self-auto text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1.5 transition-colors cursor-pointer group px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/20"
+              >
+                <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+                <span>Rankings & Destaques</span>
+              </button>
+            </div>
 
-          <PerformanceTable categories={categories} maxScore={maxScore} minScore={minScore} />
-          <SubtopicsTable categories={categories} maxScore={maxScore} minScore={minScore} />
-        </div>
+            <div className="space-y-10">
+              <PerformanceTable categories={categories} maxScore={maxScore} minScore={minScore} />
+              <SubtopicsTable categories={categories} maxScore={maxScore} minScore={minScore} />
+            </div>
+          </div>
+        )}
       </div>
 
       <ConfirmModal
