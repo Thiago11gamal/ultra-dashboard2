@@ -1,56 +1,47 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion'; // eslint-disable-line no-unused-vars
-import { Trophy, TrendingUp, Target, Award, Play, BarChart3, Hash, Medal, AlertCircle, Info } from 'lucide-react';
+import { TrendingUp, Target, BarChart3, Hash, Medal, Info } from 'lucide-react';
 import { formatValue } from '../utils/scoreHelper';
+import { computeCategoryPerformanceStats, toSafeArray } from '../utils/tasksStatsHelper';
 
-const VolumeRanking = ({ categories = [] }) => {
+const VolumeRanking = ({ categories = [], maxScore = 100, minScore = 0 }) => {
     const safeCategories = useMemo(() => {
-        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+        return toSafeArray(categories);
     }, [categories]);
 
-    // FIX: Estabilização de referências por fingerprint abrangente (inclui volume, nome e cor).
-    const categoriesFingerprint = useMemo(() => {
-        return safeCategories.map(c => {
-            const h = c.simuladoStats?.history;
-            const history = Array.isArray(h) ? h : Object.values(h || {});
-            const total = history.reduce((acc, item) => {
-                const parsed = parseInt(item?.total, 10);
-                if (Number.isFinite(parsed) && parsed > 0) return acc + parsed;
-                const fallback = (Number(item?.correct) || 0) + (Number(item?.wrong) || 0);
-                return acc + Math.max(0, fallback);
-            }, 0);
-            return `${c.id}:${c.name || ''}:${c.color || ''}:${history.length}:${total}`;
-        }).join('|');
-    }, [safeCategories]);
-
     const sorted = useMemo(() => {
-        const stats = safeCategories.map(cat => {
-            const simStats = cat.simuladoStats || { history: [] };
-            const historyRaw = simStats.history || [];
-            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
-            const total = history.reduce((acc, h) => {
-                const parsedTotal = parseInt(h.total, 10);
-                if (Number.isFinite(parsedTotal) && parsedTotal > 0) return acc + parsedTotal;
-
-                const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
-                return acc + Math.max(0, fallback);
-            }, 0);
-            return { ...cat, totalVolume: total };
-        });
+        const stats = safeCategories.map(cat =>
+            computeCategoryPerformanceStats(cat, maxScore, minScore)
+        );
 
         return stats.slice().sort((a, b) => {
             if (b.totalVolume !== a.totalVolume) {
                 return b.totalVolume - a.totalVolume;
             }
+            if (b.percentCorrect !== a.percentCorrect) {
+                return b.percentCorrect - a.percentCorrect;
+            }
             return (a.name || '').localeCompare(b.name || '');
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [safeCategories, categoriesFingerprint]);
+    }, [safeCategories, maxScore, minScore]);
 
-    const totalVolumeOverall = useMemo(() => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0), [sorted]);
-    const leaderPercentage = totalVolumeOverall > 0 ? Math.min(100, Math.max(0, ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100)) : 0;
+    const totalVolumeOverall = useMemo(
+        () => sorted.reduce((acc, curr) => acc + curr.totalVolume, 0),
+        [sorted]
+    );
+    const leaderPercentage = totalVolumeOverall > 0
+        ? Math.min(100, Math.max(0, ((sorted[0]?.totalVolume || 0) / totalVolumeOverall) * 100))
+        : 0;
 
-    const getRankStyles = (index) => {
+    const getRankStyles = (index, hasVolume = true) => {
+        if (!hasVolume) {
+            return {
+                icon: <span className="text-[10px] font-black text-slate-600 font-mono">#{index + 1}</span>,
+                color: 'text-slate-500',
+                barCol: 'bg-slate-700',
+                glow: 'shadow-transparent'
+            };
+        }
         if (index === 0) return { icon: <Medal size={20} className="text-purple-400 fill-purple-400/20" />, color: 'text-purple-400', barCol: 'bg-purple-500', glow: 'shadow-purple-500/30' };
         if (index === 1) return { icon: <Medal size={20} className="text-slate-300 fill-slate-300/20" />, color: 'text-slate-300', barCol: 'bg-slate-400', glow: 'shadow-slate-400/20' };
         if (index === 2) return { icon: <Medal size={20} className="text-amber-600 fill-amber-600/20" />, color: 'text-amber-600', barCol: 'bg-amber-600', glow: 'shadow-amber-600/20' };
@@ -59,7 +50,7 @@ const VolumeRanking = ({ categories = [] }) => {
 
     const container = {
         hidden: { opacity: 0 },
-        show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+        show: { opacity: 1, transition: { staggerChildren: 0.08 } }
     };
 
     const itemVariant = {
@@ -84,8 +75,8 @@ const VolumeRanking = ({ categories = [] }) => {
                         <BarChart3 size={14} className="text-purple-500" />
                         Volume de Treino
                         <div className="relative group/tooltip cursor-help ml-1 inline-flex">
-                            <Info size={12} className="text-slate-500/50 hover:text-slate-500 transition-colors" />
-                            <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 font-normal tracking-normal normal-case leading-relaxed">
+                            <Info size={12} className="text-slate-500/50 hover:text-slate-400 transition-colors" />
+                            <div className="absolute top-full left-0 mt-2 w-56 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 font-normal tracking-normal normal-case leading-relaxed">
                                 <strong className="text-white">Volume de Treino:</strong> Ranking das matérias baseado no número total de questões resolvidas e atividades concluídas.
                             </div>
                         </div>
@@ -126,14 +117,18 @@ const VolumeRanking = ({ categories = [] }) => {
                 className="flex-1 overflow-y-auto px-4 py-4 space-y-2 custom-scrollbar"
             >
                 {sorted.map((item, index) => {
-                    const styles = getRankStyles(index);
-                    const percentage = totalVolumeOverall > 0 ? Math.min(100, Math.max(0, (item.totalVolume / totalVolumeOverall) * 100)) : 0;
+                    const hasVolume = item.totalVolume > 0;
+                    const isTopThree = index < 3 && hasVolume;
+                    const styles = getRankStyles(index, hasVolume);
+                    const percentage = totalVolumeOverall > 0
+                        ? Math.min(100, Math.max(0, (item.totalVolume / totalVolumeOverall) * 100))
+                        : 0;
 
                     return (
                         <motion.div
-                            key={item.id}
+                            key={item.id || item.name || index}
                             variants={itemVariant}
-                            className={`group flex items-center gap-4 p-3 rounded-xl transition-all duration-300 hover:bg-white/[0.03] ${index < 3 ? 'bg-white/[0.02]' : ''}`}
+                            className={`group flex items-center gap-4 p-3 rounded-xl transition-all duration-300 hover:bg-white/[0.03] ${isTopThree ? 'bg-white/[0.02]' : ''}`}
                         >
                             {/* Rank Icon */}
                             <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-black/40 rounded-xl border border-white/5 group-hover:border-white/10 transition-colors">
@@ -142,45 +137,36 @@ const VolumeRanking = ({ categories = [] }) => {
 
                             {/* Info & Bar */}
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className={`text-[11px] font-bold break-words line-clamp-2 tracking-tight uppercase ${index < 3 ? 'text-slate-200' : 'text-slate-500'}`} style={index < 3 ? {} : { color: item.color }}>
+                                <div className="flex items-center justify-between mb-2 gap-2">
+                                    <span
+                                        className={`text-[11px] font-bold break-words line-clamp-2 tracking-tight uppercase ${isTopThree ? 'text-slate-200' : 'text-slate-400'}`}
+                                        style={isTopThree ? {} : (item.color ? { color: item.color } : {})}
+                                        title={item.name}
+                                    >
                                         {item.name}
                                     </span>
-                                    {item.totalVolume > 0 ? (
-                                        <div className="flex items-center gap-1.5 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
-                                            <Hash size={10} className="text-slate-600" />
-                                            <span className={`text-[10px] font-black font-mono ${styles.color}`}>
-                                                {item.totalVolume}
-                                            </span>
-                                            <span className={`text-[9px] font-bold ${styles.color} opacity-70 ml-1`}>
-                                                {formatValue(percentage)}%
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1.5 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
-                                            <Hash size={10} className="text-slate-600" />
-                                            <span className={`text-[10px] font-black font-mono ${styles.color}`}>
-                                                0
-                                            </span>
-                                            <span className={`text-[9px] font-bold ${styles.color} opacity-70 ml-1`}>
-                                                0%
-                                            </span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-1.5 bg-black/20 px-2 py-0.5 rounded-full border border-white/5 flex-shrink-0">
+                                        <Hash size={10} className="text-slate-600" />
+                                        <span className={`text-[10px] font-black font-mono ${styles.color}`}>
+                                            {item.totalVolume}
+                                        </span>
+                                        <span className={`text-[9px] font-bold ${styles.color} opacity-70 ml-1`}>
+                                            {hasVolume ? `${formatValue(percentage)}%` : '0%'}
+                                        </span>
+                                    </div>
                                 </div>
 
-                                {item.totalVolume > 0 ? (
+                                {hasVolume ? (
                                     <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden shadow-inner border border-white/[0.02]">
                                         <motion.div
                                             initial={{ width: 0 }}
-                                            whileInView={{ width: `${percentage}%` }}
-                                            viewport={{ once: true }}
-                                            transition={{ duration: 1.5, ease: "easeOut" }}
+                                            animate={{ width: `${percentage}%` }}
+                                            transition={{ duration: 0.8, ease: 'easeOut' }}
                                             className={`h-full rounded-full ${styles.barCol} shadow-[0_0_15px_rgba(0,0,0,0.5)] ${styles.glow}`}
                                         />
                                     </div>
                                 ) : (
-                                    <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden opacity-50"></div>
+                                    <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden opacity-50" />
                                 )}
                             </div>
                         </motion.div>
@@ -199,5 +185,3 @@ const VolumeRanking = ({ categories = [] }) => {
 };
 
 export default React.memo(VolumeRanking);
-
-

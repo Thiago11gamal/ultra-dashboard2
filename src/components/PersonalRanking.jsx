@@ -1,8 +1,8 @@
 import React from 'react';
 import { Trophy, Zap, Skull, ShieldAlert, Target, Star, Crown, TrendingUp } from 'lucide-react';
-import { getSafeScore } from '../utils/scoreHelper';
+import { computeCategoryPerformanceStats, toSafeArray } from '../utils/tasksStatsHelper';
 
-const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, isMVP = false, subtitle }) => {
+const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, isMVP = false, subtitle, badgeText }) => {
     return (
         <div className={`relative overflow-hidden rounded-2xl p-6 group transition-all duration-700 hover:scale-[1.02] border backdrop-blur-xl ${isMVP ? 'bg-slate-900/60 border-purple-500/30 hover:border-purple-400/60 shadow-[0_0_40px_rgba(168,85,247,0.1)] hover:shadow-[0_0_60px_rgba(168,85,247,0.2)]' :
             isNegative ? 'bg-slate-900/60 border-red-500/20 hover:border-red-500/40 shadow-xl shadow-red-950/10' :
@@ -16,11 +16,9 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
 
             {/* Decorative Elements for MVP */}
             {isMVP && (
-                <>
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity duration-700">
-                        <TrendingUp size={80} className="rotate-12" />
-                    </div>
-                </>
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-30 transition-opacity duration-700">
+                    <TrendingUp size={80} className="rotate-12" />
+                </div>
             )}
 
             <div className="relative z-10">
@@ -53,13 +51,23 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
                                 {isMVP && <Crown size={16} className="absolute -top-2 -right-2 text-purple-400 drop-shadow-lg" />}
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className={`text-xl font-black truncate tracking-tight uppercase ${isMVP ? 'text-purple-600' : 'text-slate-100'
-                                    }`} style={(!isMVP && !isNegative) ? { color: item.color } : {}}>
+                                <span
+                                    className={`text-xl font-black truncate tracking-tight uppercase ${isMVP ? 'text-purple-300' : 'text-slate-100'}`}
+                                    style={(!isMVP && !isNegative && item.color) ? { color: item.color } : {}}
+                                    title={item.name}
+                                >
                                     {item.name}
                                 </span>
-                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
-                                    {subtitle}
-                                </span>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                        {subtitle}
+                                    </span>
+                                    {badgeText && (
+                                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/5">
+                                            {badgeText}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -77,7 +85,7 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
                                     }`}>
                                     {label}
                                 </span>
-                                <div className={`h-1 rounded-full mt-1 w-12 ${isMVP ? 'bg-slate-500' : isNegative ? 'bg-red-500' : 'bg-blue-500'
+                                <div className={`h-1 rounded-full mt-1 w-12 ${isMVP ? 'bg-purple-500' : isNegative ? 'bg-red-500' : 'bg-blue-500'
                                     } opacity-30`} />
                             </div>
                         </div>
@@ -94,62 +102,47 @@ const StatCard = ({ title, item, metric, label, icon: Icon, isNegative = false, 
 };
 
 function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
-    // MELHORIA: proteger contra categories vazio
     const safeCategories = React.useMemo(() => {
-        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+        return toSafeArray(categories);
     }, [categories]);
 
     const categoryStats = React.useMemo(() => {
-        const fallbackMax = Number(maxScore) > 0 ? Number(maxScore) : 100;
-        const fallbackMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-        return safeCategories.map(cat => {
-            const stats = cat.simuladoStats || { history: [] };
-            const historyRaw = stats.history || [];
-            const history = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw);
-            const total = history.reduce((acc, h) => {
-                const parsedTotal = Number(h.total);
-                if (Number.isFinite(parsedTotal) && parsedTotal > 0) return acc + parsedTotal;
-                const fallback = (Number(h.correct) || 0) + (Number(h.wrong) || 0);
-                return acc + Math.max(0, fallback);
-            }, 0);
-            const ms = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : fallbackMax;
-            const minS = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : fallbackMin;
-            const range = Math.max(1e-9, ms - minS);
-            const correctRaw = history.reduce((acc, h) => {
-                const parsedTotal = Number(h.total);
-                const t = (Number.isFinite(parsedTotal) && parsedTotal > 0)
-                    ? parsedTotal
-                    : Math.max(0, (Number(h.correct) || 0) + (Number(h.wrong) || 0));
-                
-                const rawC = Number(h?.correct);
-                let c = (Number.isFinite(rawC) && !h?.isPercentage) ? rawC : NaN;
-                if (!Number.isFinite(c)) {
-                    const score = getSafeScore(h, ms, minS);
-                    if (Number.isFinite(score) && t > 0) {
-                        c = Math.round(((score - minS) / range) * t);
-                    }
-                }
-                c = Math.max(0, Math.min(t, Number.isFinite(c) ? c : 0));
-                return acc + c;
-            }, 0);
-            const correct = Math.max(0, Math.round(correctRaw));
-            const wrong = Math.max(0, total - correct);
-            const balance = correct - wrong;
-            const percentCorrect = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
-
-            return { ...cat, total, correct, wrong, balance, percentCorrect };
-        });
-    }, [safeCategories, maxScore, minScore]);
+        return safeCategories.map(cat =>
+            computeCategoryPerformanceStats(cat, maxScore, minScore)
+        );
+    }, [safeCategories]);
 
     const withData = categoryStats.filter(c => c.total > 0);
-    const sortedByBalance = [...withData].sort((a, b) => b.balance - a.balance || b.percentCorrect - a.percentCorrect || b.total - a.total);
-    const sortedByVolume = [...withData].sort((a, b) => b.total - a.total);
-    const sortedByErrors = [...withData].sort((a, b) => b.wrong - a.wrong);
+    const sortedByBalance = [...withData].sort(
+        (a, b) =>
+            b.balance - a.balance ||
+            b.percentCorrect - a.percentCorrect ||
+            b.total - a.total ||
+            (a.name || '').localeCompare(b.name || '')
+    );
+    const sortedByVolume = [...withData].sort(
+        (a, b) =>
+            b.total - a.total ||
+            b.percentCorrect - a.percentCorrect ||
+            b.balance - a.balance ||
+            (a.name || '').localeCompare(b.name || '')
+    );
+    const sortedByErrors = [...withData].sort(
+        (a, b) =>
+            b.wrong - a.wrong ||
+            a.percentCorrect - b.percentCorrect ||
+            b.total - a.total ||
+            (a.name || '').localeCompare(b.name || '')
+    );
 
-    const strongest = sortedByBalance[0] || null;
-    const weakest = sortedByBalance.length > 1 ? sortedByBalance[sortedByBalance.length - 1] : null;
+    const strongest = sortedByBalance.length === 1 && sortedByBalance[0].balance < 0
+        ? null
+        : (sortedByBalance[0] || null);
+    const weakest = sortedByBalance.length > 1
+        ? sortedByBalance[sortedByBalance.length - 1]
+        : (sortedByBalance.length === 1 && sortedByBalance[0].balance < 0 ? sortedByBalance[0] : null);
     const mostProductive = sortedByVolume[0] || null;
-    const mostBehind = sortedByErrors[0]?.wrong > 0 ? sortedByErrors[0] : null;
+    const mostBehind = sortedByErrorImpact[0] || null;
 
     if (safeCategories.length === 0) {
         return (
@@ -161,7 +154,7 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
 
     return (
         <div className="w-full">
-            <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
                         <Trophy size={20} />
@@ -183,6 +176,7 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
                     metric={strongest ? (strongest.balance > 0 ? `+${strongest.balance}` : strongest.balance) : 0}
                     label="Saldo Líquido"
                     subtitle="Maior Eficiência"
+                    badgeText={strongest ? `${strongest.percentCorrect}% acerto` : null}
                     isMVP={true}
                 />
 
@@ -194,6 +188,7 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
                     metric={mostProductive?.total || 0}
                     label="Questões"
                     subtitle="Maior Produção"
+                    badgeText={mostProductive ? `${mostProductive.correct}/${mostProductive.total} AC` : null}
                 />
 
                 <StatCard
@@ -205,6 +200,7 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
                     label="Saldo Líquido"
                     isNegative
                     subtitle="Foco em Melhoria"
+                    badgeText={weakest ? `${weakest.percentCorrect}% acerto` : null}
                 />
 
                 <StatCard
@@ -216,6 +212,7 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
                     label="Erros Acumulados"
                     isNegative
                     subtitle="Análise Reversa"
+                    badgeText={mostBehind ? `${100 - mostBehind.percentCorrect}% taxa de erro` : null}
                 />
             </div>
         </div>
@@ -223,5 +220,3 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
 }
 
 export default React.memo(PersonalRanking);
-
-

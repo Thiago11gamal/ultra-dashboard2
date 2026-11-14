@@ -1,126 +1,153 @@
-import React, { useState, useMemo } from 'react';
-import { Target, Hash, Wallet, Minus, TrendingUp, TrendingDown, Search, Filter, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Target, Hash, Wallet, Minus, TrendingUp, TrendingDown, Search, Filter, X, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope, getSortedHistory } from '../engine';
+import { resolveCategoryDomain, extractQuestionCounts, toSafeArray } from '../utils/tasksStatsHelper';
+
+const normalizeTopicKey = (value) =>
+    String(value || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
 
 const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ALL');
+    const [statusFilter, setStatusFilter] = useState('ALL');
     const [sortColumn, setSortColumn] = useState('balance');
     const [sortDirection, setSortDirection] = useState('desc');
 
     const safeCategories = useMemo(() => {
-        return Array.isArray(categories) ? categories.filter(Boolean) : Object.values(categories || {}).filter(Boolean);
+        return toSafeArray(categories);
     }, [categories]);
 
     // 1. Normalizar e estabilizar categories
     const stableCategories = useMemo(() => {
         return safeCategories.map(cat => ({
             ...cat,
-            tasks: Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {}),
+            tasks: toSafeArray(cat?.tasks),
         }));
     }, [safeCategories]);
 
-    // 2. Criar fingerprint estável para evitar re-execução por referência
+    // 2. Criar fingerprint abrangente (inclui tarefas, status e tópicos do histórico)
     const categoriesFingerprint = useMemo(() => {
         return stableCategories.map(c => {
-            const h = c.simuladoStats?.history || [];
-            const history = Array.isArray(h) ? h : Object.values(h || {});
-            const scoresHash = history.map(item =>
-                `${item?.score ?? ''}:${item?.correct ?? ''}:${item?.total ?? ''}`
-            ).join('|');
-            return `${c.id || c.name}:${c.name || ''}:${(c.tasks || []).length}:${history.length}:${scoresHash}`;
+        const history = toSafeArray(c.simuladoStats?.history);
+        const tasksHash = (c.tasks || []).map(tsk =>
+            `${tsk?.id ?? ''}:${tsk?.title || tsk?.text || ''}:${tsk?.completed ? 1 : 0}`
+        ).join(',');
+        const scoresHash = history.map(item => {
+            const topicsList = toSafeArray(item?.topics);
+            const topicsPart = topicsList.map(t =>
+                `${t?.taskId ?? ''}:${t?.name ?? ''}:${t?.score ?? ''}:${t?.correct ?? ''}:${t?.wrong ?? ''}:${t?.total ?? ''}`
+            ).join(';');
+            return `${item?.date || item?.createdAt || ''}:${item?.score ?? ''}:${item?.correct ?? ''}:${item?.total ?? ''}:[${topicsPart}]`;
         }).join('|');
-    }, [stableCategories]);
+        return `${c.id || c.name}:${c.name || ''}:${c.color || ''}:${c.icon || ''}:${c.maxScore ?? ''}:${c.minScore ?? ''}:${tasksHash}:${scoresHash}`;
+    }).join('||');
+}, [stableCategories]);
 
-    // 3. useMemo com fingerprint estável e escopo seguro por disciplina
-    const subtopics = useMemo(() => {
-        const topicMap = {};
-        stableCategories.forEach(cat => {
-            const catMinScore = Number.isFinite(Number(cat.minScore))
-                ? Number(cat.minScore)
-                : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
-            const catMaxScore = Number(cat.maxScore) > 0
-                ? Number(cat.maxScore)
-                : (Number(maxScore) || 100);
-            const catId = cat.id || cat.name || 'default';
+// 3. useMemo com fingerprint estável e escopo seguro por disciplina
+const subtopics = useMemo(() => {
+    const topicMap = {};
+    const taskIdToKeyMap = {};
 
-            const tasks = cat.tasks || [];
-            tasks.forEach(tsk => {
-                const name = String(tsk?.title || tsk?.text || '').trim();
-                if (!name) return;
-                // FIX: Chave escopada pela categoria para evitar colisão entre disciplinas distintas
-                const key = `${catId}:::${name.toLowerCase()}`;
-                if (!topicMap[key]) {
-                    topicMap[key] = {
-                        id: key,
-                        name,
-                        categoryId: catId,
-                        parentCategory: cat.name || 'Disciplina',
-                        categoryColor: cat.color,
-                        categoryIcon: cat.icon,
-                        catMaxScore,
-                        catMinScore,
-                        correct: 0,
-                        wrong: 0,
-                        total: 0,
-                        trendHistory: [],
-                    };
-                }
-            });
+    stableCategories.forEach(cat => {
+        const { maxScore: catMaxScore, minScore: catMinScore, range: catRange } = resolveCategoryDomain(
+            cat,
+            maxScore,
+            minScore
+        );
+        const catId = cat.id || cat.name || 'default';
 
-            const historyRaw = cat.simuladoStats?.history;
-            const history = historyRaw
-                ? (Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw))
-                : [];
+        const tasks = cat.tasks || [];
+        tasks.forEach(tsk => {
+            const rawName = String(tsk?.title || tsk?.text || '').trim();
+            if (!rawName) return;
+            const normName = normalizeTopicKey(rawName);
+            const key = `${catId}:::${normName}`;
+            if (tsk?.id) {
+                taskIdToKeyMap[`${catId}:::${String(tsk.id).trim()}`] = key;
+            }
+            if (!topicMap[key]) {
+                topicMap[key] = {
+                    id: key,
+                    taskId: tsk?.id || null,
+                    name: rawName,
+                    completed: Boolean(tsk?.completed),
+                    priority: tsk?.priority || null,
+                    categoryId: catId,
+                    parentCategory: cat.name || 'Disciplina',
+                    categoryColor: cat.color,
+                    categoryIcon: cat.icon,
+                    catMaxScore,
+                    catMinScore,
+                    catRange,
+                    correct: 0,
+                    wrong: 0,
+                    total: 0,
+                    trendHistory: [],
+                };
+            } else if (tsk?.completed) {
+                topicMap[key].completed = true;
+            }
+        });
 
-            history.forEach(h => {
-                const histDate = h.date || h.createdAt;
-                (h.topics || []).forEach(t => {
-                    const name = String(t.name || '').trim();
-                    if (!name) return;
-                    const key = `${catId}:::${name.toLowerCase()}`;
+        const history = toSafeArray(cat.simuladoStats?.history).filter(
+            h => h && typeof h === 'object' && h.valid !== false && h.validated !== false
+        );
+
+        history.forEach(h => {
+            const histDate = h.date || h.createdAt;
+                const topicsList = toSafeArray(h.topics);
+
+                topicsList.forEach(t => {
+                    if (!t || typeof t !== 'object') return;
+                    const rawName = String(t.name || t.topic || t.title || '').trim();
+                    const rawTaskId = t.taskId || t.topicId || null;
+
+                    let key = null;
+                    if (rawTaskId && taskIdToKeyMap[`${catId}:::${String(rawTaskId).trim()}`]) {
+                        key = taskIdToKeyMap[`${catId}:::${String(rawTaskId).trim()}`];
+                    } else if (rawName) {
+                        key = `${catId}:::${normalizeTopicKey(rawName)}`;
+                    }
+
+                    if (!key) return;
+
                     if (!topicMap[key]) {
                         topicMap[key] = {
                             id: key,
-                            name,
+                            taskId: rawTaskId,
+                            name: rawName,
+                            completed: false,
+                            priority: null,
                             categoryId: catId,
                             parentCategory: cat.name || 'Disciplina',
                             categoryColor: cat.color,
                             categoryIcon: cat.icon,
                             catMaxScore,
                             catMinScore,
+                            catRange,
                             correct: 0,
                             wrong: 0,
                             total: 0,
                             trendHistory: [],
                         };
                     }
-                    const totalParsed = Number.isFinite(parseInt(t.total, 10)) ? parseInt(t.total, 10) : 0;
-                    const total = totalParsed > 0 ? totalParsed : Math.max(0, (Number(t.correct) || 0) + (Number(t.wrong) || 0));
-                    const catRange = Math.max(1e-9, catMaxScore - catMinScore);
 
-                    const rawC = Number(t.correct);
-                    let correctCount = (Number.isFinite(rawC) && !t.isPercentage) ? rawC : NaN;
-                    if (!Number.isFinite(correctCount)) {
-                        const score = getSafeScore(t, catMaxScore, catMinScore);
-                        if (Number.isFinite(score) && total > 0) {
-                            correctCount = Math.round(((score - catMinScore) / catRange) * total);
-                        } else {
-                            correctCount = 0;
+                        const counts = extractQuestionCounts(t, catMaxScore, catMinScore);
+                        if (counts.valid && counts.total > 0) {
+                            topicMap[key].correct += counts.correct;
+                            topicMap[key].wrong += counts.wrong;
+                            topicMap[key].total += counts.total;
                         }
-                    }
-                    correctCount = Math.max(0, Math.min(total, Number.isFinite(correctCount) ? correctCount : 0));
-                    const wrongCount = Math.max(0, total - correctCount);
-                    topicMap[key].correct += correctCount;
-                    topicMap[key].wrong += wrongCount;
-                    topicMap[key].total += total;
 
-                    // FIX: Aceita h.date ou h.createdAt para não perder histórico de tendência
-                    if (histDate && Number.isFinite(Number(getSafeScore(t, catMaxScore, catMinScore)))) {
-                        topicMap[key].trendHistory.push({ date: histDate, score: getSafeScore(t, catMaxScore, catMinScore) });
-                    }
-                });
+                            const topicScore = getSafeScore(t, catMaxScore, catMinScore);
+                            if (histDate && Number.isFinite(topicScore)) {
+                                topicMap[key].trendHistory.push({ date: histDate, score: topicScore });
+                            }
+                        });
             });
         });
 
@@ -129,77 +156,105 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                 const balance = t.correct - t.wrong;
                 const percent = t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0;
                 const sortedTrend = getSortedHistory(t.trendHistory || []).slice(-10);
-                // FIX: Passa catMinScore para calculateSlope para não distorcer escalas com piso != 0
-                const trendValue = sortedTrend.length >= 3 ? calculateSlope(sortedTrend, t.catMaxScore, { minScore: t.catMinScore }) : 0;
-                const safeCatRange = Number.isFinite(t.catRange) && t.catRange > 0 ? t.catRange : Math.max(1e-9, t.catMaxScore - (t.catMinScore || 0));
+                const trendValue = sortedTrend.length >= 3
+                    ? calculateSlope(sortedTrend, t.catMaxScore, { minScore: t.catMinScore })
+                    : 0;
+                const safeCatRange = Number.isFinite(t.catRange) && t.catRange > 0
+                    ? t.catRange
+                    : Math.max(1e-9, t.catMaxScore - (t.catMinScore || 0));
                 const trendTolerance = 0.0167 * (safeCatRange / 100);
-                const trend = trendValue > trendTolerance ? 'up' : trendValue < -trendTolerance ? 'down' : 'stable';
+                const trend = trendValue > trendTolerance
+                    ? 'up'
+                    : trendValue < -trendTolerance
+                        ? 'down'
+                        : 'stable';
                 return { ...t, balance, percent, trendValue, trend };
             })
-            .sort((a, b) => b.balance - a.balance);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stableCategories, categoriesFingerprint, maxScore, minScore]);
+            .sort((a, b) => b.balance - a.balance || b.percent - a.percent || b.total - a.total || (a.name || '').localeCompare(b.name || ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [stableCategories, categoriesFingerprint, maxScore, minScore]);
 
-    // Opções de disciplinas para o filtro
-    const categoryOptions = useMemo(() => {
-        return stableCategories.map(c => ({
-            id: c.id || c.name,
-            name: c.name || 'Sem Nome'
-        }));
-    }, [stableCategories]);
+// Opções de disciplinas para o filtro
+const categoryOptions = useMemo(() => {
+    return stableCategories.map(c => ({
+        id: c.id || c.name,
+        name: c.name || 'Sem Nome'
+    }));
+}, [stableCategories]);
 
-    // Filtragem e ordenação dinâmica
-    const filteredSubtopics = useMemo(() => {
-        return subtopics.filter(item => {
-            const term = searchTerm.trim().toLowerCase();
-            const matchesSearch = !term ||
-                item.name.toLowerCase().includes(term) ||
-                (item.parentCategory || '').toLowerCase().includes(term);
+// Resetar filtro de categoria se a disciplina selecionada não existir mais (ex: troca de concurso ou exclusão)
+useEffect(() => {
+    if (selectedCategory !== 'ALL' && !categoryOptions.some(opt => opt.id === selectedCategory)) {
+        setSelectedCategory('ALL');
+    }
+}, [selectedCategory, categoryOptions]);
 
-            const matchesCategory = selectedCategory === 'ALL' ||
-                item.categoryId === selectedCategory ||
-                item.parentCategory === selectedCategory;
+// Filtragem e ordenação dinâmica
+const filteredSubtopics = useMemo(() => {
+    return subtopics.filter(item => {
+        const term = searchTerm.trim().toLowerCase();
+        const matchesSearch = !term ||
+            item.name.toLowerCase().includes(term) ||
+            (item.parentCategory || '').toLowerCase().includes(term);
 
-            return matchesSearch && matchesCategory;
-        }).sort((a, b) => {
-            let comparison = 0;
-            switch (sortColumn) {
-                case 'name':
-                    comparison = (a.name || '').localeCompare(b.name || '');
-                    break;
-                case 'parentCategory':
-                    comparison = (a.parentCategory || '').localeCompare(b.parentCategory || '');
-                    break;
-                case 'total':
-                    comparison = a.total - b.total;
-                    break;
-                case 'balance':
-                    comparison = a.balance - b.balance;
-                    break;
-                case 'percent':
-                    comparison = a.percent - b.percent;
-                    break;
-                case 'trendValue':
-                    comparison = a.trendValue - b.trendValue;
-                    break;
-                default:
-                    comparison = a.balance - b.balance;
-            }
-            return sortDirection === 'desc' ? -comparison : comparison;
-        });
-    }, [subtopics, searchTerm, selectedCategory, sortColumn, sortDirection]);
+        const matchesCategory = selectedCategory === 'ALL' ||
+            item.categoryId === selectedCategory ||
+            item.parentCategory === selectedCategory;
 
-    const handleSort = (column) => {
-        if (!column) return;
-        if (sortColumn === column) {
-            setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
-        } else {
-            setSortColumn(column);
-            setSortDirection('desc');
+        let matchesStatus = true;
+        if (statusFilter === 'WITH_DATA') {
+            matchesStatus = item.total > 0;
+        } else if (statusFilter === 'COMPLETED') {
+            matchesStatus = Boolean(item.completed);
+        } else if (statusFilter === 'PENDING') {
+            matchesStatus = !item.completed;
         }
-    };
 
-    const renderSortableHeader = (column, title, className = '') => (
+        return matchesSearch && matchesCategory && matchesStatus;
+    }).sort((a, b) => {
+        let comparison = 0;
+        switch (sortColumn) {
+            case 'name':
+                comparison = (a.name || '').localeCompare(b.name || '');
+                break;
+            case 'parentCategory':
+                comparison = (a.parentCategory || '').localeCompare(b.parentCategory || '');
+                break;
+            case 'total':
+                comparison = a.total - b.total;
+                break;
+            case 'balance':
+                comparison = a.balance - b.balance;
+                break;
+            case 'percent':
+                comparison = a.percent - b.percent;
+                break;
+            case 'trendValue':
+                comparison = a.trendValue - b.trendValue;
+                break;
+            default:
+                comparison = a.balance - b.balance;
+        }
+        if (comparison !== 0) {
+            return sortDirection === 'desc' ? -comparison : comparison;
+        }
+        if (b.percent !== a.percent) return b.percent - a.percent;
+        if (b.total !== a.total) return b.total - a.total;
+        return (a.name || '').localeCompare(b.name || '');
+    });
+    }, [subtopics, searchTerm, selectedCategory, statusFilter, sortColumn, sortDirection]);
+
+const handleSort = (column) => {
+    if (!column) return;
+    if (sortColumn === column) {
+        setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+        setSortColumn(column);
+        setSortDirection(column === 'name' ? 'asc' : 'desc');
+    }
+};
+
+    const renderSortableHeader = (column, title, className = '', alignCenter = true) => (
         <th
             className={`p-5 cursor-pointer hover:bg-white/5 transition-colors select-none ${className}`}
             role="columnheader"
@@ -213,66 +268,85 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
             }}
             tabIndex={0}
         >
-            <div className="flex items-center gap-1.5 justify-center">
-                <span>{title}</span>
-                {sortColumn === column ? (
-                    sortDirection === 'desc' ? <ChevronDown size={12} className="text-amber-400" /> : <ChevronUp size={12} className="text-amber-400" />
-                ) : (
-                    <ArrowUpDown size={10} className="text-slate-600 opacity-60" />
-                )}
-            </div>
+                <div className={`flex items-center gap-1.5 ${alignCenter ? 'justify-center' : ''}`}>
+                    <span>{title}</span>
+                    {sortColumn === column ? (
+                        sortDirection === 'desc' ? <ChevronDown size={12} className="text-amber-400" /> : <ChevronUp size={12} className="text-amber-400" />
+                    ) : (
+                        <ArrowUpDown size={10} className="text-slate-600 opacity-60" />
+                    )}
+                </div>
         </th>
     );
 
-    if (safeCategories.length === 0) {
-        return (
-            <div className="flex items-center justify-center p-12 text-slate-500 w-full rounded-2xl border border-white/5 bg-slate-950/40">
-                Nenhuma disciplina cadastrada ainda.
-            </div>
-        );
-    }
-
+if (safeCategories.length === 0) {
     return (
-        <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">
-            {/* Header da Tabela com Barra de Pesquisa e Filtros */}
-            <div className="bg-slate-900/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5">
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 shadow-sm">
-                        <Target size={18} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-slate-200 text-sm md:text-base flex items-center gap-2">
-                            Rendimento por Assuntos Específicos
-                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5">
-                                {filteredSubtopics.length} {filteredSubtopics.length === 1 ? 'assunto' : 'assuntos'}
-                            </span>
-                        </h3>
-                        <p className="text-[11px] text-slate-500">Métricas analíticas consolidadas por tópico do edital</p>
-                    </div>
-                </div>
+        <div className="flex items-center justify-center p-12 text-slate-500 w-full rounded-2xl border border-white/5 bg-slate-950/40">
+            Nenhuma disciplina cadastrada ainda.
+        </div>
+    );
+}
 
-                {/* Controles: Busca e Filtro de Matéria */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                    {/* Campo de Busca */}
-                    <div className="relative flex-1 sm:w-60 min-w-[180px]">
+const hasActiveFilters = Boolean(searchTerm || selectedCategory !== 'ALL' || statusFilter !== 'ALL');
+
+return (
+    <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">
+        {/* Header da Tabela com Barra de Pesquisa e Filtros */}
+        <div className="bg-slate-900/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5">
+            <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20 text-amber-500 shadow-sm">
+                    <Target size={18} />
+                </div>
+                <div>
+                    <h3 className="font-bold text-slate-200 text-sm md:text-base flex items-center gap-2">
+                        Rendimento por Assuntos Específicos
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5">
+                            {filteredSubtopics.length} {filteredSubtopics.length === 1 ? 'assunto' : 'assuntos'}
+                        </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500">Métricas analíticas consolidadas por tópico do edital</p>
+                </div>
+            </div>
+
+            {/* Controles: Busca e Filtros */}
+            <div className="flex flex-wrap items-center gap-2.5">
+                {/* Campo de Busca */}
+                    <div className="relative flex-1 sm:w-56 min-w-[170px]">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Buscar assunto..."
+                            aria-label="Buscar assunto"
                             className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-8 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 transition-colors"
                         />
                         {searchTerm && (
                             <button
                                 type="button"
                                 onClick={() => setSearchTerm('')}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-0.5"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer"
                                 title="Limpar busca"
                             >
                                 <X size={12} />
                             </button>
                         )}
+                    </div>
+
+                    {/* Filtro por Status */}
+                    <div className="relative min-w-[140px]">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            aria-label="Filtrar por status do assunto"
+                            className="w-full appearance-none bg-slate-950/80 border border-white/10 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-amber-500/50 transition-colors cursor-pointer"
+                        >
+                            <option value="ALL">Todos os Status</option>
+                            <option value="WITH_DATA">Com Questões</option>
+                            <option value="COMPLETED">Concluídos</option>
+                            <option value="PENDING">Pendentes</option>
+                        </select>
+                        <Filter size={11} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
                     </div>
 
                     {/* Filtro por Disciplina */}
@@ -281,6 +355,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                             <select
                                 value={selectedCategory}
                                 onChange={(e) => setSelectedCategory(e.target.value)}
+                                aria-label="Filtrar por disciplina"
                                 className="w-full appearance-none bg-slate-950/80 border border-white/10 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-amber-500/50 transition-colors cursor-pointer"
                             >
                                 <option value="ALL">Todas as Matérias</option>
@@ -301,22 +376,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                     <thead className="bg-slate-900/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-white/5 sticky top-0 z-10">
                         <tr>
                             <th className="p-5 pl-8 w-16 text-center">#</th>
-                            <th
-                                className="p-5 w-72 md:w-80 border-r border-white/5 cursor-pointer hover:bg-white/5 transition-colors select-none"
-                                role="columnheader"
-                                aria-sort={sortColumn === 'name' ? (sortDirection === 'desc' ? 'descending' : 'ascending') : 'none'}
-                                onClick={() => handleSort('name')}
-                                tabIndex={0}
-                            >
-                                <div className="flex items-center gap-1.5">
-                                    <span>Assunto</span>
-                                    {sortColumn === 'name' ? (
-                                        sortDirection === 'desc' ? <ChevronDown size={12} className="text-amber-400" /> : <ChevronUp size={12} className="text-amber-400" />
-                                    ) : (
-                                        <ArrowUpDown size={10} className="text-slate-600 opacity-60" />
-                                    )}
-                                </div>
-                            </th>
+                            {renderSortableHeader('name', 'Assunto', 'w-72 md:w-80 border-r border-white/5', false)}
                             {renderSortableHeader('total', <div className="flex items-center justify-center gap-1.5"><Hash size={12} className="text-slate-600" /> Volume</div>, 'text-center w-28 md:w-32')}
                             <th className="p-5 text-center w-32 md:w-40"><div className="flex items-center justify-center gap-2"><Target size={12} className="text-slate-600" /> Desempenho</div></th>
                             {renderSortableHeader('balance', <div className="flex items-center justify-center gap-1.5"><Wallet size={12} className="text-slate-600" /> Saldo</div>, 'text-center w-32 md:w-36 border-l border-white/5')}
@@ -327,7 +387,10 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                     <tbody className="divide-y divide-white/[0.03] text-xs" role="rowgroup">
                         {filteredSubtopics.map((item, index) => {
                             const { total: totalQuestions, correct: totalCorrect, wrong: totalWrong, balance: netBalance, percent: percentCorrect } = item;
-                            const rankColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : index === 2 ? 'text-amber-600' : 'text-slate-600';
+                            const isTopThree = index < 3 && totalQuestions > 0;
+                            const rankColor = isTopThree
+                                ? (index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-300' : 'text-amber-600')
+                                : 'text-slate-600';
 
                             return (
                                 <tr key={item.id} className="group hover:bg-white/[0.02] transition-all duration-300">
@@ -336,9 +399,18 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                                     </td>
                                     <td className="p-5 border-r border-white/5 align-middle">
                                         <div className="flex flex-col justify-center min-w-0">
-                                            <span className="font-bold text-sm truncate text-slate-300" title={item.name}>
-                                                {item.name}
-                                            </span>
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <span className="font-bold text-sm truncate text-slate-300" title={item.name}>
+                                                    {item.name}
+                                                </span>
+                                                {item.completed && (
+                                                    <CheckCircle2
+                                                        size={13}
+                                                        className="text-emerald-400 flex-shrink-0"
+                                                        title="Tópico concluído no edital"
+                                                    />
+                                                )}
+                                            </div>
                                             <span className="text-[10px] text-slate-500 font-medium tracking-tight truncate mt-0.5 max-w-[250px]" style={{ color: item.categoryColor || '#cbd5e1' }}>
                                                 {item.categoryIcon || '📚'} {item.parentCategory}
                                             </span>
@@ -411,19 +483,23 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                                     <div className="flex flex-col items-center gap-3 opacity-40">
                                         <Target size={40} className="text-slate-500" />
                                         <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                                            {searchTerm || selectedCategory !== 'ALL'
+                                            {hasActiveFilters
                                                 ? 'Nenhum assunto encontrado para os filtros selecionados'
                                                 : 'Nenhum assunto registrado na base'}
                                         </span>
-                                        {(searchTerm || selectedCategory !== 'ALL') && (
-                                            <button
-                                                type="button"
-                                                onClick={() => { setSearchTerm(''); setSelectedCategory('ALL'); }}
-                                                className="text-[11px] text-amber-400 hover:underline cursor-pointer"
-                                            >
-                                                Limpar filtros de busca
-                                            </button>
-                                        )}
+                                            { hasActiveFilters && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSearchTerm('');
+                                                        setSelectedCategory('ALL');
+                                                        setStatusFilter('ALL');
+                                                    }}
+                                                    className="text-[11px] text-amber-400 hover:underline cursor-pointer"
+                                                >
+                                                    Limpar filtros de busca
+                                                </button>
+                                            )}
                                     </div>
                                 </td>
                             </tr>
@@ -432,7 +508,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
                 </table>
             </div>
         </div>
-    );
+        );
 };
 
-export default SubtopicsTable;
+        export default React.memo(SubtopicsTable);
