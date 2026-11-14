@@ -110,7 +110,7 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
         return safeCategories.map(cat =>
             computeCategoryPerformanceStats(cat, maxScore, minScore)
         );
-    }, [safeCategories]);
+    }, [safeCategories, maxScore, minScore]);
 
     const withData = categoryStats.filter(c => c.total > 0);
     const sortedByBalance = [...withData].sort(
@@ -142,7 +142,7 @@ function PersonalRanking({ categories = [], maxScore = 100, minScore = 0 }) {
         ? sortedByBalance[sortedByBalance.length - 1]
         : (sortedByBalance.length === 1 && sortedByBalance[0].balance < 0 ? sortedByBalance[0] : null);
     const mostProductive = sortedByVolume[0] || null;
-    const mostBehind = sortedByErrorImpact[0] || null;
+    const mostBehind = sortedByErrors[0]?.wrong > 0 ? sortedByErrors[0] : null;
 
     if (safeCategories.length === 0) {
         return (
