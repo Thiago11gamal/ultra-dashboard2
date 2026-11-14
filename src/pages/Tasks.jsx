@@ -23,13 +23,16 @@ export default function Tasks() {
 
   const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
 
-  const { rawCategories, contestMaxScore, contestMinScore } = useAppStore(useShallow(state => {
+  const { rawCategories, contestMaxScore, contestMinScore, hasContestSimulados } = useAppStore(useShallow(state => {
     const currentActiveId = state.appState?.activeId || 'default';
     const activeContest = state.appState?.contests?.[currentActiveId];
     return {
       rawCategories: activeContest?.categories || [],
       contestMaxScore: activeContest?.maxScore ?? activeContest?.user?.maxScore,
-      contestMinScore: activeContest?.minScore ?? activeContest?.user?.minScore
+      contestMinScore: activeContest?.minScore ?? activeContest?.user?.minScore,
+      hasContestSimulados:
+        toSafeArray(activeContest?.simuladoRows).length > 0 ||
+        toSafeArray(activeContest?.simulados).length > 0
     };
   }));
 
@@ -81,9 +84,9 @@ export default function Tasks() {
       totalTasks,
       completedTasks,
       syllabusPct,
-      hasPerformanceData: totalQuestions > 0 || hasHistoryEntries
+      hasPerformanceData: totalQuestions > 0 || hasHistoryEntries || hasContestSimulados
     };
-  }, [categories, maxScore, minScore]);
+  }, [categories, maxScore, minScore, hasContestSimulados]);
 
   const handleResetConfirm = () => {
     resetSimuladoStats();
