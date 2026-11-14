@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
-import logo from '../assets/logo.png';
+import AnimatedMantaRay from './AnimatedMantaRay';
 
 export default function WelcomeScreen({ onDismiss }) {
     const [isExiting, setIsExiting] = useState(false);
@@ -113,24 +113,14 @@ export default function WelcomeScreen({ onDismiss }) {
                     <div className="flex flex-col items-center z-10 gap-8">
                         {/* Manta Ray Animation */}
                         <motion.div
-                            initial={{ y: 30, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
+                            initial={{ y: 30, opacity: 0, scale: 0.92 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
                             transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
                             className="relative"
                         >
-                            <motion.img 
-                                src={logo} 
-                                alt="Manta Logo" 
-                                animate={{ 
-                                    y: [0, -15, 0],
-                                    rotateZ: [0, 2, -2, 0]
-                                }}
-                                transition={{ 
-                                    duration: 6, 
-                                    repeat: Infinity,
-                                    ease: "easeInOut" 
-                                }}
-                                className="w-64 md:w-80 rounded-3xl filter drop-shadow-[0_20px_50px_rgba(99,102,241,0.5)]"
+                            <AnimatedMantaRay
+                                ariaLabel="Manta Logo"
+                                className="w-60 sm:w-64 md:w-72"
                             />
                         </motion.div>
 

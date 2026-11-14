@@ -30,10 +30,14 @@
     position: relative;
 }
 
+.left .manta-logo-img,
 .left img {
-    width: 320px;
-    animation: float 4s ease-in-out infinite;
-    filter: drop-shadow(0 0 25px rgba(0, 150, 255, 0.7));
+    width: 265px;
+    max-width: 100%;
+}
+
+.left img {
+    filter: drop-shadow(0 0 30px rgba(99, 102, 241, 0.45)) drop-shadow(0 0 18px rgba(0, 150, 255, 0.35));
 }
 
 .left h1 {
@@ -199,18 +203,6 @@
     }
 }
 
-@keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-20px);
-    }
-}
-
 @keyframes pulse {
 
     0%,
@@ -241,8 +233,9 @@
         padding: 60px 20px;
     }
 
+    .left .manta-logo-img,
     .left img {
-        width: 180px;
+        width: 175px;
     }
 
     .left h1 {

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/useAuth';
 import { isLocalMode } from '../services/firebase';
 import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import logo from '../assets/logo.png';
+import AnimatedMantaRay from './AnimatedMantaRay';
 import './Login.css';
 // ✅ FIX S01: Sanitização mais robusta usando DOMPurify
 import DOMPurify from 'dompurify';
@@ -186,11 +186,10 @@ export default function Login() {
         }}>
             <div className="login-container" role="main" aria-label="Autenticação Método Arraia">
                 <div className="left">
-                    <img src={logo} alt="Método Arraia" className="manta-logo-img" style={{
-                        width: '320px',
-                        filter: 'drop-shadow(0 0 40px rgba(99,102,241,0.4))',
-                        animation: 'float 6s ease-in-out infinite'
-                    }} />
+                    <AnimatedMantaRay
+                        className="manta-logo-img"
+                        ariaLabel="Método Arraia"
+                    />
                     <h1 suppressHydrationWarning>MÉTODO ARRAIA</h1>
                 </div>
                 <div className="right">
