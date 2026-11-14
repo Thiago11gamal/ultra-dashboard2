@@ -1,40 +1,11 @@
 import { kahanSum } from '../engine/math/kahan.js';
+import { logGamma, logBeta } from '../engine/math/gaussian.js';
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { getSafeScore } from './scoreHelper.js';
 import { isSubjectMatch } from './normalization.js';
 import { generateId } from './idGenerator.js';
 
 const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
-
-const LANCZOS_COEFFS = [
-  676.5203681218851,
-  -1259.1392167224028,
-  771.32342877765313,
-  -176.61502916214059,
-  12.507343278686905,
-  -0.13857109526572012,
-  9.9843695780195716e-6,
-  1.5056327351493116e-7
-];
-
-function logGamma(z) {
-  const x = Number(z);
-  if (!Number.isFinite(x) || x <= 0) return 0;
-  if (x < 0.5) {
-    return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
-  }
-  const shifted = x - 1;
-  let acc = 0.99999999999980993;
-  for (let i = 0; i < LANCZOS_COEFFS.length; i++) {
-    acc += LANCZOS_COEFFS[i] / (shifted + i + 1);
-  }
-  const t = shifted + LANCZOS_COEFFS.length - 0.5;
-  return 0.5 * Math.log(2 * Math.PI) + (shifted + 0.5) * Math.log(t) - t + Math.log(acc);
-}
-
-function logBeta(a, b) {
-  return logGamma(a) + logGamma(b) - logGamma(a + b);
-}
 
 // [LOTE 5] PAV extraído para reuso com restrição de bloco mínimo
 function pavBlocks(blocks) {

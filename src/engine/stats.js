@@ -33,9 +33,14 @@ function safeMinScoreValue(minScore, fallback = 0) {
 }
 
 export function computeImprovedRetentionProbability(historyLength, lastGapDays = 7, maxAlpha = 0.9) {
-    const shortDecay = Math.pow(RETENTION_DECAY_SHORT, Math.max(0, lastGapDays));
-    const longDecay = Math.pow(RETENTION_DECAY_LONG, Math.max(0, lastGapDays * 0.6));
-    const blended = 0.6 * shortDecay + 0.4 * longDecay;
+    const safeGap = Math.max(0, Number(lastGapDays) || 0);
+    const shortDecay = Math.pow(RETENTION_DECAY_SHORT, safeGap);
+    const longDecay = Math.pow(RETENTION_DECAY_LONG, safeGap * 0.6);
+    const safeHistory = Math.max(0, Number(historyLength) || 0);
+    const consolidationBonus = Math.min(0.2, (safeHistory / (safeHistory + 10)) * 0.2);
+    const shortWeight = 0.6 - consolidationBonus;
+    const longWeight = 0.4 + consolidationBonus;
+    const blended = shortWeight * shortDecay + longWeight * longDecay;
     return Math.max(0.15, Math.min(maxAlpha, blended * maxAlpha));
 }
 
@@ -586,8 +591,8 @@ export function computeBayesianLevel(
             const timeEntry = itemsToProcess[i].time;
             const timePrev = i > 0 ? itemsToProcess[i - 1].time : timeEntry;
 
-            const gapDays = Number.isFinite(timeEntry) && Number.isFinite(timePrev)
-                ? Math.max(0, Math.floor((timeEntry - timePrev) / 86400000))
+            const gapDays = Number.isFinite(timeEntry) && Number.isFinite(timePrev) && timeEntry > 1e8 && timePrev > 1e8
+                ? Math.max(0, (timeEntry - timePrev) / 86400000)
                 : 0;
 
             const lambda = Math.max(0.01, Math.min(0.08, baseAdaptiveLambda));
@@ -1150,9 +1155,20 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
 
     if (!validCategories.length) return safeCategories;
 
-    const globalMean = kahanSum(validCategories.map(c => c.mean || 0)) / Math.max(1, validCategories.length);
+    const getCatBounds = (c) => {
+        const cMin = Number.isFinite(Number(c?.minScore)) ? Number(c.minScore) : 0;
+        const cMax = Number.isFinite(Number(c?.maxScore)) && Number(c.maxScore) > cMin ? Number(c.maxScore) : 100;
+        return { cMin, cRange: cMax - cMin };
+    };
 
-    const tau2 = kahanSum(validCategories.map(c => Math.pow((c.mean || 0) - globalMean, 2))) /
+    const normMeans = validCategories.map(c => {
+        const { cMin, cRange } = getCatBounds(c);
+        return cRange === 100 && cMin === 0 ? (c.mean || 0) : (((c.mean || 0) - cMin) / cRange) * 100;
+    });
+
+    const globalMean = kahanSum(normMeans) / Math.max(1, validCategories.length);
+
+    const tau2 = kahanSum(normMeans.map(m => Math.pow(m - globalMean, 2))) /
         Math.max(1, validCategories.length - 1);
 
     return safeCategories.map(cat => {
@@ -1160,15 +1176,23 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
             return { ...cat, bayesianMean: cat.mean, bayesianSd: cat.sd };
         }
 
+        const { cMin, cRange } = getCatBounds(cat);
+        const isStandardScale = cRange === 100 && cMin === 0;
+        const normMean = isStandardScale ? cat.mean : ((cat.mean - cMin) / cRange) * 100;
+
         const safePooled = Number.isFinite(pooledSD) && pooledSD >= 0 ? pooledSD : 15;
-        const localSD = Number.isFinite(cat.sd) ? cat.sd : safePooled;
-        const localVar = Math.pow(localSD, 2) / Math.max(1, cat.n);
+        const rawLocalSD = Number.isFinite(cat.sd) ? cat.sd : (isStandardScale ? safePooled : (safePooled / 100) * cRange);
+        const normLocalSD = isStandardScale ? rawLocalSD : (rawLocalSD / cRange) * 100;
+        const localVar = Math.pow(normLocalSD, 2) / Math.max(1, cat.n);
         const denom = localVar + tau2;
         const B = denom > 1e-15 ? localVar / denom : 0;
 
-        const bayesianMean = B * globalMean + (1 - B) * cat.mean;
+        const normBayesianMean = B * globalMean + (1 - B) * normMean;
         const popVar = Math.pow(safePooled, 2);
-        const bayesianSd = Math.sqrt(Math.max(0, B * popVar + (1 - B) * Math.pow(localSD, 2)));
+        const normBayesianSd = Math.sqrt(Math.max(0, B * popVar + (1 - B) * Math.pow(normLocalSD, 2)));
+
+        const bayesianMean = isStandardScale ? normBayesianMean : cMin + (normBayesianMean / 100) * cRange;
+        const bayesianSd = isStandardScale ? normBayesianSd : (normBayesianSd / 100) * cRange;
 
         return {
             ...cat,

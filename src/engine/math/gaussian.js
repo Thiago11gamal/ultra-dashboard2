@@ -11,9 +11,18 @@ export function normalCDF_complement(z) {
     if (z === Number.POSITIVE_INFINITY) return 0;
     if (z === Number.NEGATIVE_INFINITY) return 1;
     if (Number.isNaN(z)) return 0.5;
-    if (z > 8) return 0;
-    if (z < -8) return 1;
-    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    if (z > 37) return 0;
+    if (z < -37) return 1;
+    const absZ = Math.abs(z);
+    if (absZ > 8) {
+        let cf = absZ;
+        for (let k = 15; k >= 1; k--) {
+            cf = absZ + k / cf;
+        }
+        const pTail = (0.3989422804014327 * Math.exp(-0.5 * absZ * absZ)) / cf;
+        return z > 0 ? pTail : 1 - pTail;
+    }
+    const t = 1 / (1 + 0.2316419 * absZ);
     const d = 0.3989422804014327 * Math.exp(-z * z / 2);
     let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
     return z > 0 ? p : 1 - p;
@@ -251,28 +260,34 @@ export function generateKDE(allScores, projectedMean, projectedSD, safeSimulatio
     return finalPlot;
 }
 
+// Coeficientes da aproximação racional de Peter Acklam para a CDF normal inversa
+const ACKLAM_A = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+const ACKLAM_B = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+const ACKLAM_C = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+const ACKLAM_D = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+
 export function inverseNormalCDF(p) {
+    if (!Number.isFinite(p)) return 0;
     if (p <= 0) return -8; 
     if (p >= 1) return 8;  
 
-    const a = [2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637];
-    const b = [-8.47351093090, 23.08336743743, -21.06224101826, 3.13082909833];
-    const c = [0.3374754822726147, 0.9761690190917186, 0.1607979714918209,
-        0.0276438810333863, 0.0038405729373609, 0.0003951896511919,
-        0.0000321767881768, 0.0000002888167364, 3.960315187e-7]; // Wichura coefficient fix
+    const pLow = 0.02425;
+    const pHigh = 1 - pLow;
 
-    let x = p - 0.5;
-    if (Math.abs(x) < 0.42) {
-        let r = x * x;
-        return x * (((a[3] * r + a[2]) * r + a[1]) * r + a[0]) /
-            ((((b[3] * r + b[2]) * r + b[1]) * r + b[0]) * r + 1.0);
-    } else {
-        let r = p;
-        if (x > 0) r = 1.0 - p;
-        r = Math.log(-Math.log(r));
-        let z = c[0] + r * (c[1] + r * (c[2] + r * (c[3] + r * (c[4] + r * (c[5] + r * (c[6] + r * (c[7] + r * c[8])))))));
-        return x < 0 ? -z : z;
+    if (p < pLow) {
+        const q = Math.sqrt(-2 * Math.log(p));
+        return (((((ACKLAM_C[0] * q + ACKLAM_C[1]) * q + ACKLAM_C[2]) * q + ACKLAM_C[3]) * q + ACKLAM_C[4]) * q + ACKLAM_C[5]) /
+               ((((ACKLAM_D[0] * q + ACKLAM_D[1]) * q + ACKLAM_D[2]) * q + ACKLAM_D[3]) * q + 1);
     }
+    if (p <= pHigh) {
+        const q = p - 0.5;
+        const r = q * q;
+        return (((((ACKLAM_A[0] * r + ACKLAM_A[1]) * r + ACKLAM_A[2]) * r + ACKLAM_A[3]) * r + ACKLAM_A[4]) * r + ACKLAM_A[5]) * q /
+               (((((ACKLAM_B[0] * r + ACKLAM_B[1]) * r + ACKLAM_B[2]) * r + ACKLAM_B[3]) * r + ACKLAM_B[4]) * r + 1);
+    }
+    const q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((ACKLAM_C[0] * q + ACKLAM_C[1]) * q + ACKLAM_C[2]) * q + ACKLAM_C[3]) * q + ACKLAM_C[4]) * q + ACKLAM_C[5]) /
+            ((((ACKLAM_D[0] * q + ACKLAM_D[1]) * q + ACKLAM_D[2]) * q + ACKLAM_D[3]) * q + 1);
 }
 
 export function sampleTruncatedNormal(mean, sd, min, max, rng, options = {}) {
@@ -543,4 +558,132 @@ export function applyCovariance(choleskyLower, zVector, targetVector) {
     }
     return result;
 }
+
+const LANCZOS_COEFFS = [
+    676.5203681218851,
+    -1259.1392167224028,
+    771.32342877765313,
+    -176.61502916214059,
+    12.507343278686905,
+    -0.13857109526572012,
+    9.9843695780195716e-6,
+    1.5056327351493116e-7,
+];
+
+/**
+ * Log-Gamma function ln(Γ(z)) via Lanczos approximation (g=7, n=9) + Euler reflection for z < 0.5.
+ */
+export function logGamma(z) {
+    const x = Number(z);
+    if (!Number.isFinite(x) || x <= 0) return 0;
+    if (x < 0.5) {
+        return Math.log(Math.PI) - Math.log(Math.sin(Math.PI * x)) - logGamma(1 - x);
+    }
+    const shifted = x - 1;
+    let sum = 0.99999999999980993;
+    for (let i = 0; i < LANCZOS_COEFFS.length; i++) {
+        sum += LANCZOS_COEFFS[i] / (shifted + i + 1);
+    }
+    const t = shifted + 7.5;
+    return 0.5 * Math.log(2 * Math.PI) + (shifted + 0.5) * Math.log(t) - t + Math.log(sum);
+}
+
+export function logBeta(a, b) {
+    return logGamma(a) + logGamma(b) - logGamma(a + b);
+}
+
+function betacf(a, b, x) {
+    const MAXIT = 200;
+    const EPS = 3e-14;
+    const FPMIN = 1e-30;
+    const qab = a + b;
+    const qap = a + 1.0;
+    const qam = a - 1.0;
+    let c = 1.0;
+    let d = 1.0 - (qab * x) / qap;
+    if (Math.abs(d) < FPMIN) d = FPMIN;
+    d = 1.0 / d;
+    let h = d;
+
+    for (let m = 1; m <= MAXIT; m++) {
+        const m2 = 2 * m;
+        let aa = (m * (b - m) * x) / ((qam + m2) * (a + m2));
+        d = 1.0 + aa * d;
+        if (Math.abs(d) < FPMIN) d = FPMIN;
+        c = 1.0 + aa / c;
+        if (Math.abs(c) < FPMIN) c = FPMIN;
+        d = 1.0 / d;
+        h *= d * c;
+
+        aa = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2));
+        d = 1.0 + aa * d;
+        if (Math.abs(d) < FPMIN) d = FPMIN;
+        c = 1.0 + aa / c;
+        if (Math.abs(c) < FPMIN) c = FPMIN;
+        d = 1.0 / d;
+        const del = d * c;
+        h *= del;
+        if (Math.abs(del - 1.0) < EPS) break;
+    }
+    return h;
+}
+
+/**
+ * Regularized Incomplete Beta function I_x(a, b) via Lentz's continued fraction.
+ */
+export function regularizedIncompleteBeta(x, a, b) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    const lnBeta = logBeta(a, b);
+    const bt = Math.exp(a * Math.log(x) + b * Math.log(1.0 - x) - lnBeta);
+    if (x < (a + 1.0) / (a + b + 2.0)) {
+        return (bt * betacf(a, b, x)) / a;
+    }
+    return 1.0 - (bt * betacf(b, a, 1.0 - x)) / b;
+}
+
+/**
+ * Quantil exato da distribuição Beta(a, b) via aproximação inicial de Wilson-Hilferty
+ * refinada por Newton-Raphson salvaguardado com bisseção.
+ */
+export function betaQuantile(p, alpha, beta) {
+    const a = Math.max(1e-4, Number(alpha) || 1);
+    const b = Math.max(1e-4, Number(beta) || 1);
+    const prob = Math.max(1e-6, Math.min(1 - 1e-6, Number(p) || 0.5));
+
+    const mean = a / (a + b);
+    const variance = (a * b) / ((a + b) ** 2 * (a + b + 1));
+    const sd = Math.sqrt(Math.max(1e-12, variance));
+
+    const z = inverseNormalCDF(prob);
+    let x = Math.max(1e-6, Math.min(1 - 1e-6, mean + z * sd));
+
+    const lnB = logBeta(a, b);
+    let lo = 1e-9;
+    let hi = 1 - 1e-9;
+
+    for (let iter = 0; iter < 25; iter++) {
+        const cdf = regularizedIncompleteBeta(x, a, b);
+        const err = cdf - prob;
+        if (Math.abs(err) < 1e-9) break;
+        if (err < 0) lo = Math.max(lo, x);
+        else hi = Math.min(hi, x);
+
+        const logPdf = (a - 1) * Math.log(x) + (b - 1) * Math.log(1 - x) - lnB;
+        const pdf = Math.exp(logPdf);
+        if (Number.isFinite(pdf) && pdf > 1e-12) {
+            const nextX = x - err / pdf;
+            if (nextX > lo && nextX < hi) {
+                x = nextX;
+            } else {
+                x = 0.5 * (lo + hi);
+            }
+        } else {
+            x = 0.5 * (lo + hi);
+        }
+    }
+
+    return Math.max(0, Math.min(1, x));
+}
+
 

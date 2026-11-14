@@ -24,6 +24,9 @@
  * - horizon = dias até o horizonte efetivo.
  */
 
+import { kahanSum as kahanSumLocal } from '../math/kahan.js';
+import { hashSeed, mulberry32, createGaussianSampler } from '../random.js';
+
 function clampFinite(value, min, max, fallback = min) {
   if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
     return fallback;
@@ -31,79 +34,6 @@ function clampFinite(value, min, max, fallback = min) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
-}
-
-function kahanSumLocal(values) {
-  let sum = 0;
-  let c = 0;
-
-  for (const value of values) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) continue;
-
-    const y = n - c;
-    const t = sum + y;
-    c = (t - sum) - y;
-    sum = t;
-  }
-
-  return sum;
-}
-
-function hashSeed(str) {
-  let h = 0x811c9dc5;
-  const s = String(str || '');
-
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-
-  return h >>> 0;
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function createGaussianSampler(rng) {
-  let spare = null;
-
-  return function gaussian() {
-    if (spare !== null) {
-      const value = spare;
-      spare = null;
-      return value;
-    }
-
-    let u = rng();
-    let v = rng();
-
-    let attemptsU = 0;
-    while (u === 0 && attemptsU < 100) { u = rng(); attemptsU++; }
-    if (u <= 0) u = 1e-15;
-
-    let attemptsV = 0;
-    while (v === 0 && attemptsV < 100) { v = rng(); attemptsV++; }
-    if (v <= 0) v = 1e-15;
-
-    const magnitude = Math.sqrt(-2.0 * Math.log(u));
-    const z0 = magnitude * Math.cos(2.0 * Math.PI * v);
-    const z1 = magnitude * Math.sin(2.0 * Math.PI * v);
-
-    spare = z1;
-    return z0;
-  };
 }
 
 function quantileSorted(sortedValues, p) {

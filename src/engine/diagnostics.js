@@ -182,6 +182,38 @@ function _interSessionGaps(historyRaw) {
   return gaps;
 }
 
+function expectedAnisLloydRS(tau) {
+  const n = Math.max(2, Math.floor(tau));
+  let sum = 0;
+  for (let r = 1; r < n; r++) {
+    sum += Math.sqrt((n - r) / r);
+  }
+  // Para n <= 300, usa razão exata via série de Stirling/Wallis; para n > 300, assintótico exato
+  let gammaRatio;
+  if (n <= 300) {
+    // Γ((n-1)/2) / (√π · Γ(n/2)) recursivo exato
+    let prod = 1;
+    if (n % 2 === 0) {
+      // n par: m = n/2, Γ(m - 1/2) / (√π Γ(m)) = (2m-2)! / (4^(m-1) (m-1)!^2)
+      const m = n / 2;
+      for (let k = 1; k < m; k++) {
+        prod *= (2 * k - 1) / (2 * k);
+      }
+      gammaRatio = prod;
+    } else {
+      // n ímpar: m = (n-1)/2, Γ(m) / (√π Γ(m + 1/2)) = 4^m (m!)^2 / (π (2m)!) / m
+      const m = (n - 1) / 2;
+      for (let k = 1; k <= m; k++) {
+        prod *= (2 * k) / (2 * k - 1);
+      }
+      gammaRatio = (2 / Math.PI) * (prod / (2 * m));
+    }
+  } else {
+    gammaRatio = 1 / Math.sqrt(Math.PI * (n / 2));
+  }
+  return ((n - 0.5) / n) * gammaRatio * sum;
+}
+
 export function computeHurstExponent(scores) {
   const fallback = { H: 0.5, confidence: 'low', interpretation: 'Dados insuficientes', rSquared: 0 };
   if (!Array.isArray(scores)) return fallback;
@@ -194,6 +226,7 @@ export function computeHurstExponent(scores) {
   if (maxLag < minLag) return fallback;
 
   const logRS = [];
+  const logExpectedRS = [];
   const logN = [];
 
   for (let tau = minLag; tau <= maxLag; tau = Math.ceil(tau * 1.4)) {
@@ -209,8 +242,9 @@ export function computeHurstExponent(scores) {
 
       const mu = _mean(block);
       let accum = 0;
-      let maxAccum = -Infinity;
-      let minAccum = Infinity;
+      // Inclui Y_0 = 0 na amplitude acumulada R(τ) = max_{0<=k<=τ} Y_k - min_{0<=k<=τ} Y_k
+      let maxAccum = 0;
+      let minAccum = 0;
       for (const v of block) {
         accum += v - mu;
         if (accum > maxAccum) maxAccum = accum;
@@ -218,43 +252,52 @@ export function computeHurstExponent(scores) {
       }
 
       const range = maxAccum - minAccum;
-      const sigma = _std(block, mu);
+      // Desvio padrão populacional por definição de Hurst (1951) e Anis-Lloyd (1976)
+      const popSigma = Math.sqrt(kahanSum(block.map(x => (x - mu) ** 2)) / block.length);
 
-      if (sigma > 1e-9) {
-        rsSum += range / sigma;
+      if (popSigma > 1e-9) {
+        rsSum += range / popSigma;
         validBlocks++;
       }
     }
 
     if (validBlocks > 0) {
       logRS.push(Math.log(Math.max(1e-9, rsSum / validBlocks)));
+      logExpectedRS.push(Math.log(Math.max(1e-9, expectedAnisLloydRS(tau))));
       logN.push(Math.log(tau));
     }
   }
 
   if (logRS.length < 3) return fallback;
 
-  const cleanPairs = logN.map((x, i) => ({ x, y: logRS[i] }))
-    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const cleanPairs = logN.map((x, i) => ({
+    x,
+    y: logRS[i],
+    yAdj: logRS[i] - logExpectedRS[i],
+  })).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.yAdj));
 
   if (cleanPairs.length < 3) return fallback;
 
   const muX = _mean(cleanPairs.map(p => p.x));
   const muY = _mean(cleanPairs.map(p => p.y));
+  const muYAdj = _mean(cleanPairs.map(p => p.yAdj));
 
-  const Sxy = kahanSum(cleanPairs.map(p => (p.x - muX) * (p.y - muY)));
+  const SxyRaw = kahanSum(cleanPairs.map(p => (p.x - muX) * (p.y - muY)));
+  const SxyAdj = kahanSum(cleanPairs.map(p => (p.x - muX) * (p.yAdj - muYAdj)));
   const Sxx = kahanSum(cleanPairs.map(p => (p.x - muX) ** 2));
 
-  const H = Sxx > 1e-10 ? Sxy / Sxx : 0.5;
+  const rawSlope = Sxx > 1e-10 ? SxyRaw / Sxx : 0.5;
+  // Estimador de Anis-Lloyd corrigido para viés de amostra finita: H = 0.5 + slope(ln(R/S) - ln E[R/S])
+  const H = Sxx > 1e-10 ? 0.5 + (SxyAdj / Sxx) : 0.5;
   const clampedH = Math.max(0.1, Math.min(0.9, H));
 
   let interpretation = 'Passeio Aleatório (Random Walk)';
   if (clampedH > 0.65) interpretation = 'Série Persistente (Tendência Robusta)';
   else if (clampedH < 0.4) interpretation = 'Reversão à Média (Alta Instabilidade / Efeito Ioiô)';
 
-  const SSR = kahanSum(cleanPairs.map((p) => (p.y - (muY + H * (p.x - muX))) ** 2));
+  const SSR = kahanSum(cleanPairs.map((p) => (p.y - (muY + rawSlope * (p.x - muX))) ** 2));
   const SST = kahanSum(cleanPairs.map((p) => (p.y - muY) ** 2));
-  const rSquared = SST > 0 ? 1 - (SSR / SST) : 0;
+  const rSquared = SST > 0 ? Math.max(0, 1 - (SSR / SST)) : 0;
 
   return {
     H: Number(clampedH.toFixed(3)),
@@ -428,22 +471,39 @@ export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
   const lastThree = data.slice(-3).map((d) => d.y);
   const plateauEst = Math.min(maxScore, Math.max(minScore + domain * 0.5, Math.max(...lastThree) + domain * 0.05));
 
-  const linearPts = data.filter((d) => d.y < plateauEst * 0.98 && d.y > minScore);
+  // Filtro invariante de escala para escalas com minScore != 0 (ex: ENEM 200-1000 ou CEBRASPE -100..100)
+  const linearPts = data.filter((d) => d.y < minScore + (plateauEst - minScore) * 0.98 && d.y >= minScore);
   if (linearPts.length < 3) return { ...fallback, plateau: plateauEst };
 
   const effectiveRange = Math.max(1e-6, plateauEst - minScore);
   const ys = linearPts.map((d) => Math.log(Math.max(1e-6, 1 - (d.y - minScore) / effectiveRange)));
   const ts = linearPts.map((d) => d.t);
 
-  const Sty = kahanSum(ts.map((t, i) => t * ys[i]));
-  const Stt = kahanSum(ts.map((t) => t * t));
-  const k = Stt > 1e-15 ? Math.max(1e-4, -Sty / Stt) : 1e-3;
+  const meanT = _mean(ts);
+  const meanY = _mean(ys);
+  const SttCentered = kahanSum(ts.map((t) => (t - meanT) ** 2));
+  const StyCentered = kahanSum(ts.map((t, i) => (t - meanT) * (ys[i] - meanY)));
+
+  const StyOrigin = kahanSum(ts.map((t, i) => t * ys[i]));
+  const SttOrigin = kahanSum(ts.map((t) => t * t));
+  const kOrigin = SttOrigin > 1e-15 ? Math.max(1e-4, -StyOrigin / SttOrigin) : 1e-3;
+
+  let k = kOrigin;
+  let interceptA = 0;
+  if (SttCentered > 1e-12) {
+    const kCentered = -StyCentered / SttCentered;
+    if (Number.isFinite(kCentered) && kCentered > 1e-4) {
+      k = kCentered;
+      interceptA = Math.min(0, meanY + k * meanT);
+    }
+  }
 
   const tNow = data[data.length - 1].t;
-  // Derivada analítica exata: d/dt [minScore + effectiveRange*(1 - exp(-k*t))] = effectiveRange * k * exp(-k*t)
-  const velocity = effectiveRange * k * Math.exp(-k * tNow);
+  // Derivada analítica exata com offset inicial y0: d/dt [P - (P - y0)*exp(-k*t)] = effectiveRange * k * exp(a - k*t)
+  const remFraction = Math.min(1, Math.max(1e-6, Math.exp(interceptA - k * tNow)));
+  const velocity = effectiveRange * k * remFraction;
 
-  const timeToPlateauDays = tNow < 1 ? null : Math.max(0, Math.round(Math.log(0.1) / -k) - tNow);
+  const timeToPlateauDays = tNow < 1 ? null : Math.max(0, Math.round((interceptA - Math.log(0.1)) / k) - tNow);
 
   let velocityLabel;
   const vPerMonth = velocity * 30;

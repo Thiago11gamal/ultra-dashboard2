@@ -18,6 +18,9 @@
  * - isUntested: se o tópico não possui evidência.
  */
 
+import { kahanSum } from '../math/kahan.js';
+import { logGamma, regularizedIncompleteBeta } from '../math/gaussian.js';
+
 function clampFinite(value, min, max, fallback = min) {
   if (value === null || value === undefined || value === '' || typeof value === 'boolean') return fallback;
   const n = Number(value);
@@ -45,7 +48,7 @@ function toFiniteNumber(value, fallback = 0) {
     }
   } else if (hasComma) {
     str = str.replace(/\./g, '').replace(',', '.');
-  } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+  } else if (/^[+-]?[1-9]\d{0,2}(\.\d{3}){2,}$/.test(str)) {
     str = str.replace(/\./g, '');
   }
   const n = Number(str);
@@ -53,17 +56,7 @@ function toFiniteNumber(value, fallback = 0) {
 }
 
 function sumValues(values) {
-  let sum = 0;
-  let c = 0;
-  for (const value of values) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) continue;
-    const y = n - c;
-    const t = sum + y;
-    c = (t - sum) - y;
-    sum = t;
-  }
-  return sum;
+  return kahanSum(values);
 }
 
 function meanValues(values) {
@@ -85,91 +78,11 @@ function varianceValues(values) {
 }
 
 // ============================================================
-// NOVO: logGamma (Lanczos approximation)
-// Necessário para a função beta regularizada incompleta.
-// ============================================================
-function logGamma(z) {
-  /* eslint-disable no-loss-of-precision */
-  const cof = [
-    57.15623566586292, -59.59796035547549, 14.136097974741747,
-    -0.4919138160976202, 0.3399464998481189e-4, 0.4652362892704858e-4,
-    -0.9837447530487956e-4, 0.1580887032249125e-3,
-    -0.2102644417241049e-3, 0.2174396181152126e-3,
-    -0.1643181065367639e-3, 0.8441822398385274e-4,
-    -0.2619083840158141e-4, 0.3689918265953162e-5,
-  ];
-  /* eslint-enable no-loss-of-precision */
-  if (z <= 0) return NaN;
-  let x = z;
-  let y = x;
-  let tmp = x + 5.2421875;
-  tmp = (x + 0.5) * Math.log(tmp) - tmp;
-  let ser = 0.9999999999999971;
-  for (let j = 0; j < cof.length; j++) ser += cof[j] / ++y;
-  return tmp + Math.log(2.5066282746310007 * ser / x);
-}
-
-// ============================================================
-// NOVO: Fração continuada da função beta incompleta (Lentz)
-// ============================================================
-function betaContinuedFraction(a, b, x) {
-  const MAX_ITER = 200;
-  const EPS = 3e-14;
-  const FPMIN = 1e-300;
-  let qab = a + b;
-  let qap = a + 1;
-  let qam = a - 1;
-  let c = 1;
-  let d = 1 - qab * x / qap;
-  if (Math.abs(d) < FPMIN) d = FPMIN;
-  d = 1 / d;
-  let h = d;
-  for (let m = 1; m <= MAX_ITER; m++) {
-    const m2 = 2 * m;
-    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
-    d = 1 + aa * d;
-    if (Math.abs(d) < FPMIN) d = FPMIN;
-    c = 1 + aa / c;
-    if (Math.abs(c) < FPMIN) c = FPMIN;
-    d = 1 / d;
-    h *= d * c;
-    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
-    d = 1 + aa * d;
-    if (Math.abs(d) < FPMIN) d = FPMIN;
-    c = 1 + aa / c;
-    if (Math.abs(c) < FPMIN) c = FPMIN;
-    d = 1 / d;
-    const del = d * c;
-    h *= del;
-    if (Math.abs(del - 1) < EPS) break;
-  }
-  return h;
-}
-
-// ============================================================
-// NOVO: Função beta regularizada incompleta I_x(a, b)
-// ============================================================
-function regularizedIncompleteBeta(x, a, b) {
-  if (!(a > 0) || !(b > 0) || !Number.isFinite(x)) return NaN;
-  if (x <= 0) return 0;
-  if (x >= 1) return 1;
-  const bt = Math.exp(
-    logGamma(a + b) - logGamma(a) - logGamma(b) +
-    a * Math.log(x) + b * Math.log1p(-x)
-  );
-  if (x < (a + 1) / (a + b + 2)) {
-    return bt * betaContinuedFraction(a, b, x) / a;
-  }
-  return 1 - bt * betaContinuedFraction(b, a, 1 - x) / b;
-}
-
-// ============================================================
-// NOVO: Quantil da distribuição Beta por busca binária
-// Substitui a aproximação simétrica mean ± 1.96*sd.
+// Quantil da distribuição Beta por busca binária com logGamma/Lentz compartilhados
 // ============================================================
 function betaQuantile(p, a, b) {
   const safeP = Math.max(1e-8, Math.min(1 - 1e-8, Number(p) || 0.5));
-  if (!(a > 0) || !(b > 0)) return 0.5;
+  if (!(a > 0) || !(b > 0) || !Number.isFinite(logGamma(a))) return 0.5;
 
   let lo = 0;
   let hi = 1;

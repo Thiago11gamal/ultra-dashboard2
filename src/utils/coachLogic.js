@@ -328,7 +328,7 @@ export const sanitizeNum = (val) => {
         } else {
             str = str.replace(/\./g, '').replace(/,/g, '.');
         }
-    } else if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+    } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(str)) {
         str = str.replace(/\./g, '');
     }
     const n = Number(str);

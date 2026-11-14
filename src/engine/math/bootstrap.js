@@ -1,4 +1,5 @@
 import { kahanSum } from './kahan.js';
+import { mulberry32 } from '../random.js';
 
 function extractFiniteNumbers(arr) {
   if (!Array.isArray(arr)) return [];
@@ -45,12 +46,8 @@ export function bootstrapCI(samples, statFn, {
     return { estimate, low: estimate, high: estimate, n, iterations: 0, method: 'degenerate' };
   }
 
-  // PRNG determinístico (LCG)
-  let state = (Number(seed) >>> 0) || 42;
-  const rand = () => {
-    state = (1664525 * state + 1013904223) >>> 0;
-    return state / 4294967296;
-  };
+  // PRNG determinístico unificado (Mulberry32)
+  const rand = mulberry32((Number(seed) >>> 0) || 42);
 
   // ✅ Bootstrap percentílico puro — sem ruído artificial
   const dist = new Array(iters);

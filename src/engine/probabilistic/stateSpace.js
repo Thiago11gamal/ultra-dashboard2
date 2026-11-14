@@ -21,6 +21,7 @@
  */
 
 import { getSafeScore } from '../../utils/scoreHelper.js';
+import { kahanSum } from '../math/kahan.js';
 
 /**
  * State Space Model para estimativa de habilidade latente.
@@ -145,15 +146,27 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
   // Var((y_t - y_{t-1}) - drift) ≈ 2 * sigma_eps^2, isolando ruído observacional da evolução real.
   let observationVariance = Math.pow(domain * 0.08, 2);
 
+  const qAbility = Math.pow(domain * 0.005, 2);
+  const qTrend = Math.pow(domain * 0.001, 2);
+
   if (scores.length >= 3) {
     const diffs = [];
-    for (let i = 1; i < scores.length; i++) {
+    const dts = [];
+    for (let i = 1; i < obs.length; i++) {
+      const dt = clampNumber((obs[i].time - obs[i - 1].time) / 86400000, 0.25, 60);
       diffs.push(scores[i] - scores[i - 1]);
+      dts.push(dt);
     }
-    const meanDiff = kahanMean(diffs) ?? 0;
-    const diffVar =
-      diffs.reduce((acc, d) => acc + Math.pow(d - meanDiff, 2), 0) /
-      Math.max(1, diffs.length - 1);
+    const totalDt = kahanSum(dts);
+    const driftPerDay = totalDt > 1e-6 ? kahanSum(diffs) / totalDt : 0;
+    let sumNoiseSq = 0;
+    for (let i = 0; i < diffs.length; i++) {
+      const detrended = diffs[i] - driftPerDay * dts[i];
+      // Subtrai difusão de processo esperada qAbility * dt_i para isolar 2 * sigma_eps^2
+      const pureMeasSq = Math.max(0, detrended * detrended - qAbility * dts[i]);
+      sumNoiseSq += pureMeasSq;
+    }
+    const diffVar = sumNoiseSq / Math.max(1, diffs.length - 1);
     const estMeasurementVar = 0.5 * diffVar;
 
     observationVariance = Math.max(
@@ -172,8 +185,6 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
   let P01 = 0;
   let P11 = Math.pow(domain * 0.01, 2);
 
-  const qAbility = Math.pow(domain * 0.005, 2);
-  const qTrend = Math.pow(domain * 0.001, 2);
   // FIX-PARAM: maxTrendPerDay reduzido de 0.015 para 0.005 do domínio.
   // Antes: domain=100 → 1.5 pts/dia = 45 pts/mês (irrealista).
   // Agora: domain=100 → 0.5 pts/dia = 15 pts/mês (realista).
@@ -216,12 +227,21 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
     const K0 = P00 / S;
     const K1 = P01 / S;
 
+    const prevAbilityStep = ability;
+    const prevTrendStep = trend;
     ability = clampNumber(ability + K0 * innovation, minScore, maxScore);
     trend = clampNumber(trend + K1 * innovation, -maxTrendPerDay, maxTrendPerDay);
 
-    const A00 = 1 - K0;
+    // Ganho efetivo sob restrição de caixa (evita colapso artificial de variância na fronteira)
+    const hasInnovation = Math.abs(innovation) > 1e-9;
+    const K0Eff = hasInnovation ? clampNumber((ability - prevAbilityStep) / innovation, 0, K0) : K0;
+    const K1Eff = hasInnovation
+      ? (K1 >= 0 ? clampNumber((trend - prevTrendStep) / innovation, 0, K1) : clampNumber((trend - prevTrendStep) / innovation, K1, 0))
+      : K1;
+
+    const A00 = 1 - K0Eff;
     const A01 = 0;
-    const A10 = -K1;
+    const A10 = -K1Eff;
     const A11 = 1;
 
     const AP00 = A00 * P00 + A01 * P01;
@@ -232,17 +252,17 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
     const newP00 =
       AP00 * A00 +
       AP01 * A01 +
-      K0 * observationVariance * K0;
+      K0Eff * observationVariance * K0Eff;
 
     const newP01 =
       AP00 * A10 +
       AP01 * A11 +
-      K0 * observationVariance * K1;
+      K0Eff * observationVariance * K1Eff;
 
     const newP11 =
       AP10 * A10 +
       AP11 * A11 +
-      K1 * observationVariance * K1;
+      K1Eff * observationVariance * K1Eff;
 
     P00 = Math.max(1e-12, newP00);
     P01 = newP01;
@@ -302,11 +322,15 @@ export function runStateSpaceModel(scores, options = {}) {
 
   const fallbackMean = (safeMax + safeMin) / 2;
 
-  const validScores = (Array.isArray(scores) ? scores : [])
-    .map(s => typeof s === 'number' ? s : getSafeScore(s, safeMax, safeMin))
-    .filter(Number.isFinite);
+  const rawEntries = (Array.isArray(scores) ? scores : [])
+    .map((s) => {
+      const score = typeof s === 'number' ? s : getSafeScore(s, safeMax, safeMin);
+      const time = parseObservationTime(s);
+      return { score, time };
+    })
+    .filter((item) => Number.isFinite(item.score));
 
-  if (validScores.length === 0) {
+  if (rawEntries.length === 0) {
     return {
       ability: fallbackMean,
       variance: initialVariance,
@@ -315,17 +339,30 @@ export function runStateSpaceModel(scores, options = {}) {
     };
   }
 
+  // Ordena cronologicamente se todos os itens possuírem timestamp válido
+  const allHaveTime = rawEntries.every((item) => Number.isFinite(item.time));
+  const validEntries = allHaveTime
+    ? rawEntries.slice().sort((a, b) => a.time - b.time)
+    : rawEntries;
+
   // Inicialização causal sem usar média futura da série inteira como prior
   let ability = fallbackMean;
   let variance = Math.max(initialVariance, Math.pow((safeMax - safeMin) * 0.35, 2));
 
   let trendSum = 0;
+  let trendTimeSum = 0;
   let trendCount = 0;
   let prevAbility = ability;
+  let prevTime = validEntries[0].time;
 
-  for (const score of validScores) {
-    // Predição
-    const predictedVariance = variance + processNoise;
+  for (let i = 0; i < validEntries.length; i++) {
+    const { score, time } = validEntries[i];
+    const dtDays = i > 0 && Number.isFinite(time) && Number.isFinite(prevTime)
+      ? clampNumber((time - prevTime) / 86400000, 0.25, 60)
+      : 1;
+
+    // Predição escalada pelo intervalo temporal dtDays
+    const predictedVariance = variance + processNoise * dtDays;
 
     // Atualização (gain)
     const gain = predictedVariance / (predictedVariance + observationNoise);
@@ -340,21 +377,23 @@ export function runStateSpaceModel(scores, options = {}) {
     // Trend
     if (trendCount > 0) {
       trendSum += ability - prevAbility;
+      trendTimeSum += dtDays;
     }
     trendCount++;
 
     prevAbility = ability;
+    if (Number.isFinite(time)) prevTime = time;
   }
 
-  const trend = trendCount > 1 ? trendSum / (trendCount - 1) : 0;
+  const trend = trendCount > 1 && trendTimeSum > 0 ? trendSum / trendTimeSum : 0;
 
   return {
     ability,
     variance,
     std: Math.sqrt(variance),
     trend,
-    n: validScores.length,
-    insufficientData: validScores.length < 3,
+    n: validEntries.length,
+    insufficientData: validEntries.length < 3,
   };
 }
 

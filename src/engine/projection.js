@@ -3,17 +3,17 @@
 // Seed fixa para estabilidade visual
 // ==========================================
 
-import { mulberry32 } from './random.js';
+import { mulberry32, hashSeed } from './random.js';
 import { safeDateParse, getDateKey } from '../utils/dateHelper.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
-import { sampleTruncatedNormal, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian, generateKDE } from './math/gaussian.js';
+import { sampleTruncatedNormal, truncatedNormalFromUniform, normalCDF_complement, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian, generateKDE } from './math/gaussian.js';
 // ✅ LOTE-04 FIX: Z_95 e MIN_SD_FLOOR removidos — não eram usados aqui
 // (Z_95 vive em stats.js; MIN_SD_FLOOR vive em gaussian.js)
 import { kahanSum, kahanMean } from './math/kahan.js';
-import { weightedRegression, getSortedHistory, calculateSlopePerDay } from './stats.js';
+import { weightedRegression, getSortedHistory, calculateSlopePerDay, calcularAssimetria } from './stats.js';
 import { buildCovarianceMatrix, INTER_SUBJECT_CORRELATION } from './variance.js';
 import { getConfidenceMultiplier } from '../utils/adaptiveMath.js';
 // ✅ LOTE-04 FIX: re-export removido. Estes símbolos já são exportados por
@@ -729,14 +729,10 @@ export function monteCarloSimulation(
     const empResidualSD = Math.sqrt(kahanSum(empDevs) / Math.max(1, safeResiduals.length));
     const standardizer = empResidualSD > 0 ? empResidualSD : 1;
 
-    const results = [];
+    const results = new Float64Array(safeSimulations);
     const lastEntry = sortedHistory[sortedHistory.length - 1];
     const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore, minScore)}-${sortedHistory.length}`;
-    let seedValue = 2166136261;
-    for (let i = 0; i < seedStr.length; i++) {
-        seedValue ^= seedStr.charCodeAt(i);
-        seedValue = Math.imul(seedValue, 16777619);
-    }
+    const seedValue = hashSeed(seedStr);
     const rng = mulberry32(Math.abs(seedValue >>> 0));
 
     let medianGap = 7;
@@ -786,57 +782,34 @@ export function monteCarloSimulation(
     const rangeVolClamp = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
     const maxVolSqClamp = Math.pow(rangeVolClamp * 0.2, 2);
 
-    // FIX #3: Prepare Cholesky for correlated subject minCutoffs (disciplines with minCutoff)
+    // FIX #3: Prepare Cholesky on correlation matrix (unit SD) for Gaussian Copula subject minCutoffs
     const hasValidMinCutoff = (s) => s != null && s.minCutoff !== undefined && s.minCutoff !== null && s.minCutoff !== '' && Number.isFinite(Number(s.minCutoff)) && (minScore < 0 ? Number(s.minCutoff) >= minScore : Number(s.minCutoff) > 0);
     const cutoffSubjects = (options.subjects || []).filter(hasValidMinCutoff);
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
       const stats = cutoffSubjects.map(s => ({
-          ...s, // Bug 4.2 Fix: Preserve properties to allow empirical Pearson correlation later
-          sd: (Number(s.sd) || 1) * Math.max(0.80, s.immunityFactor || 1.0)
+          ...s,
+          sd: 1,
       }));
       
-      // FIX APLICADO: Utilizando cutoffSubjects para resgatar os nomes corretamente
       const adaptiveRhoContext = options?.simuladoRows ? { 
           simuladoRows: options.simuladoRows, 
           categoryNames: cutoffSubjects.map(s => String(s?.name ?? s?.id ?? 'subject')) 
       } : null;
       
       try {
-        const cov = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
-        const psdCov = ensurePositiveSemiDefinite(cov);
-        subjectCholesky = choleskyDecomposition(psdCov);
+        const corrMatrix = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
+        const psdCorr = ensurePositiveSemiDefinite(corrMatrix);
+        subjectCholesky = choleskyDecomposition(psdCorr);
       } catch (err) {
         console.warn('[Projection] Cholesky falhou, usando disciplinas independentes:', err?.message || err);
         subjectCholesky = null;
       }
     }
 
-    function calculateSkewness(residuals, mean) {
-        if (!residuals || residuals.length < 3) return 0;
-        const n = residuals.length;
-        let sumSquared = 0;
-        for (let i = 0; i < n; i++) sumSquared += Math.pow(residuals[i] - mean, 2);
-        const variance = sumSquared / n;
-        const standardizer = Math.sqrt(variance);
-        
-        if (standardizer === 0) return 0;
+    const residualsSkew = calcularAssimetria(safeResiduals);
 
-        let m3 = 0;
-        for (let i = 0; i < n; i++) m3 += Math.pow(residuals[i] - mean, 3);
-        m3 /= n;
-
-        return m3 / Math.pow(standardizer, 3);
-    }
-    
-    // PATCH 1: Recalcular a média real do subconjunto filtrado
-    const subsetMean = safeResiduals.length > 0 
-        ? safeResiduals.reduce((acc, val) => acc + val, 0) / safeResiduals.length 
-        : 0;
-
-    const residualsSkew = calculateSkewness(safeResiduals, subsetMean);
-
-    const minCutoffFailures = [];
+    const minCutoffFailures = new Uint8Array(safeSimulations);
 
     // CORREÇÃO GC THRASHING: Alocação estática fora do loop de Monte Carlo
     const choleskySize = cutoffSubjects.length;
@@ -935,13 +908,16 @@ export function monteCarloSimulation(
         // Aplica os limites físicos da prova APENAS no resultado assintótico final
         // Preservação de sinal estrito: O backend mantém o valor bruto. 
         // O clamping ocorre apenas na camada de UI (MonteCarloGauge.jsx).
-        results.push(currentSimScore);
+        results[i] = currentSimScore;
         
         let passedMins = true;
         if (choleskySize > 0) {
+            const trajShiftRatio = simulationDays > 0
+                ? ((currentSimScore - baselineScore) / Math.max(1e-6, maxScore - minScore)) * 0.25
+                : 0;
             if (subjectCholesky) {
                 // Reutilização extrema de memória: mutar o array em vez de re-alocar
-                for(let k = 0; k < choleskySize; k++) {
+                for (let k = 0; k < choleskySize; k++) {
                     zVecStatic[k] = generateGaussian(rng);
                 }
                 applyCovariance(subjectCholesky, zVecStatic, zCorrStatic);
@@ -949,10 +925,11 @@ export function monteCarloSimulation(
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    // PATCH 2: Cholesky L matrix already contains standard deviations on its diagonal
-                    const raw = Number(s.mean) + zCorrStatic[j];
-                    const subjScore = Math.max(sMin, Math.min(sMax, raw));
-                    if (subjScore < Number(s.minCutoff)) {
+                    const effSd = Math.max(1e-6, (Number(s.sd) || 1) * Math.max(0.80, s.immunityFactor || 1.0));
+                    const sMeanProjected = Math.max(sMin, Math.min(sMax, Number(s.mean) + trajShiftRatio * (sMax - sMin)));
+                    const u = 1 - normalCDF_complement(zCorrStatic[j]);
+                    const subjScore = truncatedNormalFromUniform(sMeanProjected, effSd, sMin, sMax, u);
+                    if (!Number.isFinite(subjScore) || subjScore < Number(s.minCutoff)) {
                         passedMins = false;
                         break;
                     }
@@ -963,17 +940,18 @@ export function monteCarloSimulation(
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const effSd = s.sd * Math.max(0.80, s.immunityFactor || 1.0);
-                    const subjScore = sampleTruncatedNormal(s.mean, effSd, sMin, sMax, rng);
+                    const effSd = Math.max(1e-6, (Number(s.sd) || 1) * Math.max(0.80, s.immunityFactor || 1.0));
+                    const sMeanProjected = Math.max(sMin, Math.min(sMax, Number(s.mean) + trajShiftRatio * (sMax - sMin)));
+                    const subjScore = sampleTruncatedNormal(sMeanProjected, effSd, sMin, sMax, rng);
                     // G-08 FIX: Verificar se subjScore é finito antes de comparar
-                    if (!Number.isFinite(subjScore) || subjScore < s.minCutoff) {
+                    if (!Number.isFinite(subjScore) || subjScore < Number(s.minCutoff)) {
                         passedMins = false;
                         break;
                     }
                 }
             }
         }
-        minCutoffFailures.push(!passedMins);
+        minCutoffFailures[i] = passedMins ? 0 : 1;
     }
 
     // 4. Agregação Estatística
@@ -990,12 +968,20 @@ export function monteCarloSimulation(
         }
     }
 
-    results.sort((a, b) => a - b);
+    results.sort();
     const meanResult = kahanMean(results);
 
-    // BUG-3 FIX: Calcular a probabilidade analítica real usando a Normal Truncada
-    // em vez de copiar a empírica como fallback.
-    const finalSD = calculateVolatility(results.map(r => ({ score: r })), maxScore, minScore);
+    let varAcc = 0, varComp = 0;
+    for (let i = 0; i < safeSimulations; i++) {
+        const diff = results[i] - meanResult;
+        const term = (diff * diff) - varComp;
+        const next = varAcc + term;
+        varComp = (next - varAcc) - term;
+        varAcc = next;
+    }
+    const finalSD = safeSimulations >= 2
+        ? Math.sqrt(Math.max(0, varAcc / (safeSimulations - 1)))
+        : 0.05 * ((maxScore - minScore > 0) ? (maxScore - minScore) : maxScore);
     const empiricalProb = (successes / safeSimulations) * 100;
 
     // FIX BUG 4: Simulações O-U com choques difusos e Clamping diário não formam 

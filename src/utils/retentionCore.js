@@ -97,7 +97,7 @@ export function toDateMs(value) {
   return null;
 }
 
-export function normalizeAccuracy(value, maxScore = 100, minScore = 0) {
+export function normalizeAccuracy(value, maxScore = 100, minScore = 0, options = {}) {
   const raw = toFiniteNumber(value, null);
 
   if (raw == null) return 0;
@@ -106,10 +106,11 @@ export function normalizeAccuracy(value, maxScore = 100, minScore = 0) {
   const max = Math.max(min + 1, toFiniteNumber(maxScore, 100));
   const domain = Math.max(1, max - min);
 
-  // Heurística:
-  // Se maxScore > 1 e o valor está entre 0 e 1, provavelmente é uma razão/probabilidade.
+  // Heurística segura:
+  // Se options?.isRatio for explícito, segue a diretiva.
+  // Se maxScore >= 10 e minScore === 0 e raw > 0 e raw < 1, e não strictPoints, trata como razão/probabilidade.
   // Ex.: bayesianStats.mean = 0.82 => 82%.
-  if (min === 0 && max > 1 && raw >= 0 && raw <= 1) {
+  if (options?.isRatio === true || (min === 0 && max >= 10 && raw > 0 && raw < 1 && !options?.strictPoints)) {
     return clamp(raw, 0, 1);
   }
 

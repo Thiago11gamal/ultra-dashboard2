@@ -11,6 +11,7 @@
  */
 
 import { safeGetItem, safeSetItem, safeRemoveItem } from '../../utils/coachStorage.js';
+import { hashSeed, mulberry32, createGaussianSampler, sampleBeta } from '../random.js';
 
 function clampFinite(value, min, max, fallback = min) {
   if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
@@ -21,107 +22,6 @@ function clampFinite(value, min, max, fallback = min) {
   return Math.min(max, Math.max(min, n));
 }
 
-function hashSeed(str) {
-  let h = 0x811c9dc5;
-  const s = String(str || '');
-
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-
-  return h >>> 0;
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function createGaussianSampler(rng) {
-  let spare = null;
-
-  return function gaussian() {
-    if (spare !== null) {
-      const value = spare;
-      spare = null;
-      return value;
-    }
-
-    let u = rng();
-    let v = rng();
-
-    let attemptsU = 0;
-    while (u === 0 && attemptsU < 100) { u = rng(); attemptsU++; }
-    if (u <= 0) u = 1e-15;
-
-    let attemptsV = 0;
-    while (v === 0 && attemptsV < 100) { v = rng(); attemptsV++; }
-    if (v <= 0) v = 1e-15;
-
-    const magnitude = Math.sqrt(-2.0 * Math.log(u));
-    const z0 = magnitude * Math.cos(2.0 * Math.PI * v);
-    const z1 = magnitude * Math.sin(2.0 * Math.PI * v);
-
-    spare = z1;
-    return z0;
-  };
-}
-
-/**
- * Amostragem Gamma exata via Marsaglia & Tsang (2000) com boost para shape < 1.
- */
-function sampleGamma(shape, rng, gaussian) {
-  const k = Math.max(1e-4, Number(shape) || 1);
-  if (k < 1) {
-    const u = Math.max(1e-15, rng());
-    return sampleGamma(k + 1, rng, gaussian) * Math.pow(u, 1 / k);
-  }
-  const d = k - 1 / 3;
-  const c = 1 / Math.sqrt(9 * d);
-  for (let iter = 0; iter < 64; iter++) {
-    const x = gaussian();
-    const vBase = 1 + c * x;
-    if (vBase <= 0) continue;
-    const v = vBase * vBase * vBase;
-    const u = Math.max(1e-15, rng());
-    if (u < 1 - 0.0331 * (x * x) * (x * x)) {
-      return d * v;
-    }
-    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) {
-      return d * v;
-    }
-  }
-  return k;
-}
-
-/**
- * Amostra exata de uma distribuição Beta(alpha, beta) via razão de Gammas independentes.
- */
-function sampleBeta(alpha, beta, rng, gaussianSampler) {
-  const a = Math.max(1e-4, Number(alpha) || 1);
-  const b = Math.max(1e-4, Number(beta) || 1);
-  const mean = a / (a + b);
-
-  const gaussian = typeof gaussianSampler === 'function'
-    ? gaussianSampler
-    : createGaussianSampler(rng);
-
-  const ga = sampleGamma(a, rng, gaussian);
-  const gb = sampleGamma(b, rng, gaussian);
-  const denom = ga + gb;
-  if (!Number.isFinite(denom) || denom <= 0) return mean;
-  return clampFinite(ga / denom, 0, 1, mean);
-}
 
 const BANDIT_STORAGE_KEY = 'coach_decision_bandit_v1';
 

@@ -532,15 +532,11 @@ export function simulateNormalDistribution(
 
     allScores.sort();
 
-    const nScores = allScores.length;
-
-    const at = (p) => allScores[Math.max(0, Math.min(nScores - 1, Math.floor(nScores * p)))];
-
-    const statisticalCi95Low = at(0.025);
-    const statisticalCi95High = at(0.975);
-    const empMedian = at(0.5);
-    const rawLeft = at(0.16);
-    const rawRight = at(0.84);
+    const statisticalCi95Low = getPercentile(allScores, 0.025, true);
+    const statisticalCi95High = getPercentile(allScores, 0.975, true);
+    const empMedian = getPercentile(allScores, 0.5, true);
+    const rawLeft = getPercentile(allScores, 0.158655, true);
+    const rawRight = getPercentile(allScores, 0.841345, true);
 
     let rawLow = statisticalCi95Low;
     let rawHigh = statisticalCi95High;

@@ -1,3 +1,13 @@
+export function hashSeed(str) {
+  const text = String(str ?? '');
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
 export function mulberry32(seed) {
     let state = Number.isFinite(Number(seed)) ? (Number(seed) | 0) : 0;
     return function () {
@@ -12,8 +22,6 @@ export function mulberry32(seed) {
 // BUGFIX H3: Box-Muller completo com cache do 2° valor.
 // Antes: sin() era calculado e descartado, dobrando as chamadas ao RNG.
 // Agora: o 2° valor é guardado em closure e retornado na próxima chamada.
-// ⚠️ ATENÇÃO: altera a sequência do RNG — seeds existentes produzirão valores diferentes.
-// Se reprodutibilidade de seeds históricas for crítica, manter o código antigo e comentar esta mudança.
 export function makeNormalRng(rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
   let spare;
@@ -55,5 +63,52 @@ export function makeNormalRng(rng = Math.random) {
   next.reset = reset;
   return next;
 }
+
+export const createGaussianSampler = makeNormalRng;
+
+/**
+ * Amostrador Gamma(shape, scale=1) via Marsaglia & Tsang (2000).
+ */
+export function sampleGamma(shape, rng = Math.random, gaussianSampler = null) {
+  const safeShape = Number(shape);
+  if (!Number.isFinite(safeShape) || safeShape <= 0) return 0;
+  const safeRng = typeof rng === 'function' ? rng : Math.random;
+  const nextGaussian = typeof gaussianSampler === 'function' ? gaussianSampler : makeNormalRng(safeRng);
+
+  if (safeShape < 1) {
+    const u = Math.max(1e-12, safeRng());
+    return sampleGamma(safeShape + 1, safeRng, nextGaussian) * Math.pow(u, 1 / safeShape);
+  }
+
+  const d = safeShape - 1 / 3;
+  const c = 1 / Math.sqrt(9 * d);
+
+  for (let iter = 0; iter < 10000; iter++) {
+    const x = nextGaussian();
+    let v = 1 + c * x;
+    if (v <= 0) continue;
+    v = v * v * v;
+    const u = Math.max(1e-12, safeRng());
+    if (u < 1 - 0.0331 * (x * x) * (x * x)) return d * v;
+    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+  }
+  return safeShape;
+}
+
+/**
+ * Amostrador Beta(alpha, beta) via razão de variáveis Gamma independentes.
+ */
+export function sampleBeta(alpha, beta, rng = Math.random, gaussianSampler = null) {
+  const a = Math.max(1e-3, Number(alpha) || 1);
+  const b = Math.max(1e-3, Number(beta) || 1);
+  const safeRng = typeof rng === 'function' ? rng : Math.random;
+  const nextGaussian = typeof gaussianSampler === 'function' ? gaussianSampler : makeNormalRng(safeRng);
+  const x = sampleGamma(a, safeRng, nextGaussian);
+  const y = sampleGamma(b, safeRng, nextGaussian);
+  const denom = x + y;
+  if (!(denom > 0) || !Number.isFinite(denom)) return a / (a + b);
+  return x / denom;
+}
+
 
 
