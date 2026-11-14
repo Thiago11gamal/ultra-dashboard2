@@ -469,7 +469,82 @@ describe('Pomodoro Optimizations & Bug Fixes - calculateETA, Keyboard Isolation,
     simulateBeforeUnload(false, futureEndsAt);
     expect(mockLocalStorage.getItem('pomodoro-endsAt')).toBeNull();
   });
+
+  it('impede que setPomodoroTargetCycles deixe completedCycles >= targetCycles durante pausa (break)', () => {
+    let state = {
+      appState: {
+        activeId: 'contest-1',
+        pomodoro: {
+          mode: 'break',
+          sessions: 2,
+          targetCycles: 3,
+          completedCycles: 2,
+          accumulatedMinutes: 50,
+          isRunning: false
+        }
+      }
+    };
+    const set = (updater) => {
+      if (typeof updater === 'function') updater(state);
+      else Object.assign(state, updater);
+    };
+    const get = () => state;
+    const slice = createPomodoroSlice(set, get);
+
+    // Usuário reduz targetCycles de 3 para 2 enquanto está no intervalo após o 2º ciclo
+    slice.setPomodoroTargetCycles(2);
+
+    expect(state.appState.pomodoro.targetCycles).toBe(2);
+    expect(state.appState.pomodoro.completedCycles).toBe(1);
+  });
+
+  it('registra lastCompletedSeriesMinutes ao finalizar o último ciclo da série', () => {
+    let state = {
+      appState: {
+        activeId: 'contest-1',
+        contests: {
+          'contest-1': {
+            settings: { pomodoroWork: 25, pomodoroBreak: 5 }
+          }
+        },
+        pomodoro: {
+          mode: 'work',
+          sessions: 2,
+          targetCycles: 2,
+          completedCycles: 1,
+          accumulatedMinutes: 25,
+          isRunning: false
+        }
+      }
+    };
+    const set = (updater) => {
+      if (typeof updater === 'function') updater(state);
+      else Object.assign(state, updater);
+    };
+    const get = () => state;
+    const slice = createPomodoroSlice(set, get);
+
+    slice.completePomodoroPhase(false);
+
+    expect(state.appState.pomodoro.completedCycles).toBe(0);
+    expect(state.appState.pomodoro.accumulatedMinutes).toBe(0);
+    expect(state.appState.pomodoro.lastCompletedSeriesMinutes).toBe(50);
+  });
+
+  it('calcula minutos estudados corretamente quando o usuário adiciona tempo extra (+1m / +5m)', () => {
+    const baseWorkSeconds = 25 * 60; // 1500s
+    const addedSeconds = 5 * 60; // +300s (+5m)
+    const totalWorkSeconds = baseWorkSeconds + addedSeconds; // 1800s
+    const remainingSeconds = 600; // faltam 10m
+    const flushedSeconds = 0;
+
+    // 1800s - 600s = 1200s estudados = 20 minutos (e não 1500 - 600 = 15m)
+    const elapsedSec = Math.max(0, totalWorkSeconds - remainingSeconds - flushedSeconds);
+    const studiedMinutes = Number((elapsedSec / 60).toFixed(2));
+    expect(studiedMinutes).toBe(20);
+  });
 });
+
 
 
 

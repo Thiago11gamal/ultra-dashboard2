@@ -322,6 +322,9 @@ function PomodoroTimer({
     const svgCircleRef = useRef(null);
     const workFillsRef = useRef([]);
     const breakBallsRef = useRef([]);
+    const activeSubjectRef = useRef(activeSubject);
+    const isTransitioningRef = useRef(false);
+    const hasFlushedRef = useRef(false);
 
     useEffect(() => {
         const w = safeSettings.pomodoroWork;
@@ -539,7 +542,6 @@ function PomodoroTimer({
         };
     }, [syncChannel]);
 
-    const activeSubjectRef = useRef(activeSubject);
     useEffect(() => {
         activeSubjectRef.current = activeSubject;
     }, [activeSubject]);
@@ -586,7 +588,6 @@ function PomodoroTimer({
     const transitionTimeoutRef = useRef(null);
     const completionTimeoutRef = useRef(null);
     const [isTransitioning, setIsTransitioning] = useState(false);
-    const isTransitioningRef = useRef(false);
     const transitionRetriesRef = useRef(0);
 
     const isMountedRef = useRef(true);
@@ -662,7 +663,6 @@ function PomodoroTimer({
         mode
     });
     const transitionLockRef = useRef(0);
-    const hasFlushedRef = useRef(false);
 
     const flushPendingStudyTime = useCallback((subjectOverride = null) => {
         // C-08 FIX: hasFlushedRef já protege, mas também verificar se
@@ -1021,12 +1021,14 @@ function PomodoroTimer({
             // em transição de fase (que faz seu próprio flush).
             if (hasFlushedRef.current || isTransitioningRef.current) return;
             const currentSub = activeSubjectRef.current;
+            if (!currentSub) return;
+
             const currentSpeed = speedRef.current || 1;
             const liveRemaining = (stateRefs.current.isRunning && endsAtRef.current)
                 ? Math.max(0, Math.ceil(((endsAtRef.current - Date.now()) * currentSpeed) / 1000))
                 : Number(timeRef.current ?? stateRefs.current.timeLeft);
 
-            if (currentSub && stateRefs.current.mode === 'work') {
+            if (stateRefs.current.mode === 'work') {
                 const totalWorkSeconds = ((safeSettings.pomodoroWork || 25) * 60) + (addedSecondsInPhaseRef.current || 0);
                 const totalElapsedSec = Math.max(0, totalWorkSeconds - liveRemaining);
                 const unflushedSec = Math.max(0, totalElapsedSec - (flushedSecondsInPhaseRef.current || 0));
@@ -1045,15 +1047,25 @@ function PomodoroTimer({
                     }
                 }
             }
-            savePomodoroState({
-                isRunning: false,
-                timeLeft: liveRemaining,
-                flushedSeconds: flushedSecondsInPhaseRef.current || 0,
-                addedSeconds: addedSecondsInPhaseRef.current || 0
-            });
-            setPomodoroRunning(false);
-            endsAtRef.current = null;
-            try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+
+            const storeActiveSub = useAppStore.getState().appState?.pomodoro?.activeSubject;
+            const isStillSameSession = Boolean(
+                storeActiveSub &&
+                storeActiveSub.taskId === currentSub.taskId &&
+                (!currentSub.sessionInstanceId || storeActiveSub.sessionInstanceId === currentSub.sessionInstanceId)
+            );
+
+            if (isStillSameSession) {
+                savePomodoroState({
+                    isRunning: false,
+                    timeLeft: liveRemaining,
+                    flushedSeconds: flushedSecondsInPhaseRef.current || 0,
+                    addedSeconds: addedSecondsInPhaseRef.current || 0
+                });
+                setPomodoroRunning(false);
+                endsAtRef.current = null;
+                try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+            }
         };
     }, [savePomodoroState, safeSettings, safeOnUpdateStudyTime, onSessionComplete, setPomodoroRunning]);
 

@@ -24,7 +24,11 @@ import { hexToRgba, normalizePriority } from '../utils/colorHelper';
 const EMPTY_ARRAY = Object.freeze([]);
 const EMPTY_OBJECT = Object.freeze({});
 
-const ALLOWED_RETURN_PATHS = ['/', '/pomodoro', '/coach', '/simulados', '/revisao', '/desempenho', '/calendario', '/configuracoes'];
+const ALLOWED_RETURN_PATHS = [
+    '/', '/dashboard', '/pomodoro', '/tasks', '/simulados', '/stats', '/evolution',
+    '/coach', '/history', '/sessions', '/heatmap', '/retention', '/notes',
+    '/flashcards', '/agenda', '/revisao', '/desempenho', '/calendario', '/configuracoes'
+];
 
 const resolveReturnPath = (source, forceDashboard = false) => {
     if (forceDashboard) return '/';
@@ -602,7 +606,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
                     </p>
                     <button
                         type="button"
-                        onClick={() => onStartTask(recommendedTask, null, 'neural_core')}
+                        onClick={() => onStartTask(recommendedTask, null, 'neural_core', true)}
                         className="w-full relative overflow-hidden py-3 bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-2xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(79,70,229,0.2)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)] active:scale-[0.985] group/btn z-10"
                     >
                         <span className="absolute inset-0 w-full h-full -ml-[100%] bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover/btn:animate-[shimmer_1.5s_infinite] skew-x-[-20deg]" />
@@ -811,19 +815,36 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
         localStorage.removeItem('focusPanelPosition');
     };
 
-    // Contagem de pendências para o badge do tab de ações
+    // Contagem de pendências para o badge do tab de ações (sincronizada com ActionsAndMentorView)
     const pendingCount = useMemo(() => {
-        let count = 0;
-        (categories || []).forEach(cat => {
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const recTask = (!activeSubject && safeCats.length > 0) ? getBestTask(safeCats) : null;
+        const recommendedId = recTask ? String(recTask.id || recTask.text || recTask.title || '') : null;
+        const currentTaskId = activeSubject?.taskId ? String(activeSubject.taskId) : null;
+
+        if (neuralMode && neuralQueue && neuralQueue.length > 0) {
+            const safeQueue = Array.isArray(neuralQueue) ? neuralQueue : Object.values(neuralQueue || {});
+            const normalizedQueue = safeQueue.filter(Boolean);
+            const currentIndex = normalizedQueue.findIndex(t => String(t.id || t.text || t.title) === currentTaskId);
+            const pendingQueue = currentIndex >= 0 ? normalizedQueue.slice(currentIndex) : normalizedQueue;
+            return pendingQueue.filter(t => String(t.id || t.text || t.title) !== currentTaskId).length;
+        }
+
+        let highCount = 0;
+        let mediumCount = 0;
+        safeCats.filter(Boolean).forEach(cat => {
             const safeTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
             safeTasks.forEach(t => {
-                if (t && !t.completed && normalizePriority(t.priority) === 'high' && (t.id || t.text) !== activeSubject?.taskId) {
-                    count++;
-                }
+                if (!t || t.completed) return;
+                const tid = String(t.id || t.text || t.title);
+                if (tid === recommendedId || tid === currentTaskId) return;
+                const prio = normalizePriority(t.priority);
+                if (prio === 'high') highCount++;
+                else if (prio === 'medium') mediumCount++;
             });
         });
-        return count;
-    }, [categories, activeSubject]);
+        return highCount > 0 ? highCount : mediumCount;
+    }, [categories, activeSubject, neuralMode, neuralQueue]);
 
     return (
         <Motion.div
@@ -978,6 +999,7 @@ const PomodoroSidePanel = React.memo(function PomodoroSidePanel({
                                 settings={settings}
                                 simulados={simulados}
                                 speed={speed}
+                                onStartTask={onStartTask}
                             />
                         </Motion.div>
                     )}
@@ -1147,7 +1169,46 @@ export default function Pomodoro() {
         return getBestTask(safeCats);
     }, [categories]);
 
-    const handleStartFreeFocus = useCallback(() => {
+    const scheduleAutoStart = useCallback(() => {
+        const store = useAppStore.getState();
+        const p = store.appState?.pomodoro;
+        const subject = p?.activeSubject;
+        if (!subject?.taskId) return;
+
+        const workDurationSeconds = Math.max(1, (Number(settings?.pomodoroWork) || 25) * 60);
+        const currentSpeed = Math.max(1, Number(p?.speed) || 1);
+        const endsAt = Date.now() + Math.round((workDurationSeconds * 1000) / currentSpeed);
+
+        store.setPomodoroRunning(true);
+        try {
+            localStorage.setItem('pomodoro-endsAt', JSON.stringify({
+                endsAt,
+                taskId: subject.taskId,
+                sessionInstanceId: subject.sessionInstanceId || null
+            }));
+            localStorage.setItem('pomodoroState', JSON.stringify({
+                activeTaskId: subject.taskId,
+                sessionInstanceId: subject.sessionInstanceId || null,
+                mode: 'work',
+                timeLeft: workDurationSeconds,
+                isRunning: true,
+                sessions: p?.sessions || 1,
+                targetCycles: Math.max(1, Number(p?.targetCycles) || 1),
+                completedCycles: p?.completedCycles || 0,
+                accumulatedMinutes: p?.accumulatedMinutes || 0,
+                speed: currentSpeed,
+                savedAt: Date.now()
+            }));
+        } catch {
+            // ignore storage errors
+        }
+    }, [settings?.pomodoroWork]);
+
+    const handleStartFreeFocus = useCallback((autoStart = false) => {
+        const prevSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
+        if (prevSubject) {
+            setData(prev => clearStudyingStatusInContest(prev, prevSubject));
+        }
         useAppStore.getState().setPomodoroActiveSubject({
             categoryId: 'geral',
             taskId: `estudo_livre_${Date.now()}`,
@@ -1157,8 +1218,11 @@ export default function Pomodoro() {
             source: 'pomodoro',
             sessionInstanceId: Date.now().toString()
         });
+        if (autoStart) {
+            scheduleAutoStart();
+        }
         showToast('Sessão de Foco Livre iniciada! ⏱️', 'info');
-    }, [showToast]);
+    }, [showToast, setData, scheduleAutoStart]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -1192,7 +1256,7 @@ export default function Pomodoro() {
         return () => {
             if (ro) ro.disconnect();
         };
-    }, []);
+    }, [isHydrated]);
 
     // Estado do Tab do Painel Lateral (Missões & Mentor vs Telemetria)
     const [activeSideTab, setActiveSideTab] = useState(() => {
@@ -1405,7 +1469,7 @@ export default function Pomodoro() {
         navigate(returnPath, { replace: Boolean(options.forceDashboard) });
     }, [setData, setPomodoroActiveSubject, navigate]);
 
-    const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro') => {
+    const handleStartTask = (task, forcedSessionId = null, source = 'pomodoro', autoStart = false) => {
         const sessionId = forcedSessionId || Date.now().toString();
         const pomodoroState = useAppStore.getState().appState?.pomodoro || {};
         const effectiveSource = (pomodoroState.neuralMode && source !== 'dashboard') ? 'neural_core' : source;
@@ -1415,6 +1479,11 @@ export default function Pomodoro() {
         if (activeSubject && String(activeSubject.taskId) === String(taskId)) {
             showToast('Esta meta já está em foco! 🎯', 'info');
             return;
+        }
+
+        const prevSubject = activeSubject || pomodoroState.activeSubject;
+        if (prevSubject) {
+            setData(prev => clearStudyingStatusInContest(prev, prevSubject));
         }
 
         let catId = task.catId || task.categoryId;
@@ -1462,6 +1531,10 @@ export default function Pomodoro() {
                 sessionInstanceId: sessionId
             });
         }
+
+        if (autoStart) {
+            scheduleAutoStart();
+        }
     };
 
     const handleTimerStateChange = useCallback((newState) => {
@@ -1475,7 +1548,8 @@ export default function Pomodoro() {
                 prev.mode === newState.mode &&
                 prev.sessions === newState.sessions &&
                 prev.targetCycles === newState.targetCycles &&
-                prev.completedCycles === newState.completedCycles
+                prev.completedCycles === newState.completedCycles &&
+                prev.speed === newState.speed
             ) {
                 return prev;
             }
@@ -1610,7 +1684,7 @@ export default function Pomodoro() {
                             timeLeft={liveTimerState !== null ? liveTimerState.timeLeft : (pomodoroState.timeLeft || (settings?.pomodoroWork || 25) * 60)}
                             targetCycles={liveTimerState?.targetCycles || pomodoroState.targetCycles || 1}
                             completedCycles={liveTimerState?.completedCycles ?? pomodoroState.completedCycles ?? 0}
-                            speed={pomodoroState.speed || 1}
+                            speed={liveTimerState?.speed || pomodoroState.speed || 1}
                         />
                         <PomodoroTimer
                             settings={settings}
@@ -1625,8 +1699,8 @@ export default function Pomodoro() {
                             onToggleLock={toggleLayoutLock}
                             defaultTargetCycles={1}
                             recommendedTask={recommendedTask}
-                            onStartRecommended={(task) => handleStartTask(task, null, 'neural_core')}
-                            onStartFreeFocus={handleStartFreeFocus}
+                            onStartRecommended={(task, autoStart = false) => handleStartTask(task, null, 'neural_core', autoStart)}
+                            onStartFreeFocus={(autoStart = false) => handleStartFreeFocus(autoStart)}
                             key={activeSubject?.sessionInstanceId || 'idle'}
                         />
                     </div>
@@ -1664,7 +1738,7 @@ export default function Pomodoro() {
                             isLayoutLocked={isLayoutLocked}
                             onToggleLock={toggleLayoutLock}
                             settings={settings}
-                            speed={pomodoroState.speed || 1}
+                            speed={liveTimerState?.speed || pomodoroState.speed || 1}
                         />
                     </div>
                 </div>
