@@ -58,7 +58,7 @@ export const PomodoroProgress = React.memo(function PomodoroProgress({
                         <button
                             type="button"
                             onClick={() => {
-                                const minAllowed = mode === 'work' ? safeCompletedCycles + 1 : Math.max(1, safeCompletedCycles);
+                                const minAllowed = Math.min(MAX_TARGET_CYCLES, safeCompletedCycles + 1);
                                 const newTarget = Math.max(minAllowed, safeTargetCycles - 1);
                                 if (typeof setTargetCycles === 'function') {
                                     setTargetCycles(newTarget);
@@ -78,7 +78,7 @@ export const PomodoroProgress = React.memo(function PomodoroProgress({
                                     console.warn('[PomodoroProgress] Falha ao sincronizar:', err);
                                 }
                             }}
-                            disabled={safeTargetCycles <= (mode === 'work' ? safeCompletedCycles + 1 : Math.max(1, safeCompletedCycles))}
+                            disabled={safeTargetCycles <= Math.min(MAX_TARGET_CYCLES, safeCompletedCycles + 1)}
                             className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-[#2d1a12]/10 hover:bg-[#2d1a12]/20 active:scale-95 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed border border-[#2d1a12]/20 shadow-inner"
                             title="Reduzir meta de ciclos"
                             aria-label={`Reduzir meta de ciclos para ${safeTargetCycles - 1}`}

@@ -169,7 +169,7 @@ export const createPomodoroSlice = (set, get) => ({
             p.targetCycles = normalizedTarget;
             p.completedCycles = Math.min(normalizedTarget, Math.max(0, p.completedCycles || 0));
 
-            if (p.mode === 'work' && p.completedCycles >= normalizedTarget) {
+            if (p.completedCycles >= normalizedTarget) {
                 p.completedCycles = Math.max(0, normalizedTarget - 1);
             }
 
@@ -413,10 +413,7 @@ export const createPomodoroSlice = (set, get) => ({
                     Math.max(0, Number(payload.completedCycles) || 0)
                 );
 
-                if (
-                    p.mode === 'work' &&
-                    p.completedCycles >= (p.targetCycles || 1)
-                ) {
+                if (p.completedCycles >= (p.targetCycles || 1)) {
                     p.completedCycles = Math.max(0, (p.targetCycles || 1) - 1);
                 }
             }

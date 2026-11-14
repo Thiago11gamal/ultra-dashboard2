@@ -56,7 +56,8 @@ export const PomodoroClock = React.memo(function PomodoroClock({
     isNotifEnabled,
     toggleNotifications,
     onSelectPreset,
-    activePresetId
+    activePresetId,
+    onAdjustTime
 }) {
     const rawId = useId();
     const gradientId = `timerGradient_${rawId.replace(/:/g, '')}`;
@@ -103,9 +104,9 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                 </div>
 
                 <div className="flex items-center flex-wrap gap-1 sm:gap-2">
-                    {/* Seletor de Presets Rápidos (Apenas quando pausado para preservar integridade da sessão) */}
-                    {!isRunning && typeof onSelectPreset === 'function' && (
-                        <div className="flex items-center gap-0.5 sm:gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title="Cadência de Foco / Pausa">
+                    {/* Seletor de Presets Rápidos */}
+                    {typeof onSelectPreset === 'function' && (
+                        <div className="flex items-center gap-0.5 sm:gap-1 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title={isRunning ? "Pause o cronômetro para alterar a cadência" : "Cadência de Foco / Pausa"}>
                             {POMODORO_PRESETS.map(preset => {
                                 const isCurrent = activePresetId === preset.id ||
                                     (Number(safeSettings?.pomodoroWork) === preset.work && Number(safeSettings?.pomodoroBreak) === preset.break);
@@ -118,13 +119,47 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                                         className={`px-1.5 sm:px-2 h-6 sm:h-7 rounded-md text-[9px] sm:text-[10px] font-black transition-all duration-200 active:scale-95 ${
                                             isCurrent
                                                 ? 'bg-[#b08e6b] text-[#2d1a12] shadow-sm font-black scale-[1.02]'
-                                                : 'text-white/50 hover:text-white hover:bg-white/10'
+                                                : isRunning
+                                                    ? 'text-white/30 cursor-not-allowed'
+                                                    : 'text-white/50 hover:text-white hover:bg-white/10'
                                         }`}
                                     >
                                         {preset.label}
                                     </button>
                                 );
                             })}
+                            {activePresetId === 'custom' && (
+                                <span
+                                    className="px-1.5 sm:px-2 h-6 sm:h-7 rounded-md text-[9px] sm:text-[10px] font-black bg-[#b08e6b] text-[#2d1a12] shadow-sm flex items-center justify-center"
+                                    title="Cadência personalizada nas Configurações"
+                                >
+                                    {safeSettings?.pomodoroWork || 25}/{safeSettings?.pomodoroBreak || 5}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Ajuste Rápido de Tempo (+1m / +5m) */}
+                    {!isProtocolInactive && typeof onAdjustTime === 'function' && (
+                        <div className="flex items-center gap-0.5 bg-black/60 p-0.5 rounded-lg border border-[#3f2e26]/80 shadow-inner backdrop-blur-md" title="Adicionar tempo extra ao bloco atual">
+                            <button
+                                type="button"
+                                onClick={() => onAdjustTime(60)}
+                                aria-label="Adicionar 1 minuto"
+                                title="Adicionar +1 minuto ao bloco atual"
+                                className="px-1.5 h-6 sm:h-7 rounded-md text-[9px] sm:text-[10px] font-black text-emerald-300/90 hover:text-white hover:bg-emerald-500/20 transition-all active:scale-95"
+                            >
+                                +1m
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onAdjustTime(300)}
+                                aria-label="Adicionar 5 minutos"
+                                title="Adicionar +5 minutos ao bloco atual"
+                                className="px-1.5 h-6 sm:h-7 rounded-md text-[9px] sm:text-[10px] font-black text-emerald-300/90 hover:text-white hover:bg-emerald-500/20 transition-all active:scale-95"
+                            >
+                                +5m
+                            </button>
                         </div>
                     )}
 

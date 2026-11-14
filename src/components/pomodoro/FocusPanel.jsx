@@ -18,7 +18,7 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import {
     Target, Clock, Trophy, TrendingUp, TrendingDown,
     Minus, Zap, Brain, BookOpen, CheckCircle2,
-    Flame, Award, ChevronDown, ChevronUp, Activity, Coffee,
+    Flame, Award, ChevronDown, ChevronUp, ChevronRight, Activity, Coffee,
     Plus, Trash2
 } from 'lucide-react';
 import { calculateStudyStreak } from '../../utils/analytics';
@@ -26,6 +26,7 @@ import { getDateKey } from '../../utils/dateHelper';
 import { parseTaskDisplay } from '../../utils/taskTitleHelper';
 import { getXPProgress } from '../../utils/gamification';
 import { calculateETA, SPEED_OPTIONS } from '../../utils/pomodoroHelpers';
+import { normalizePriority } from '../../utils/colorHelper';
 
 // ============================================================================
 // SUBCOMPONENTE: Status da Sessão Atual & Previsões em Tempo Real
@@ -500,28 +501,38 @@ const PomodoroCycleProgress = React.memo(function PomodoroCycleProgress({ target
 // ============================================================================
 // SUBCOMPONENTE: Tempo de Estudo Hoje & Previsão de Impacto
 // ============================================================================
-const TodayStudyTime = React.memo(function TodayStudyTime({ studyLogs, categoryId, taskId, isRunning, mode, nominalWorkMinutes = 25 }) {
+const TodayStudyTime = React.memo(function TodayStudyTime({ studyLogs, categoryId, categoryName, taskId, isRunning, mode, nominalWorkMinutes = 25 }) {
     const todayData = useMemo(() => {
         const todayKey = getDateKey(new Date());
+        const getLogMins = (log) => Math.max(0, Number(log?.minutes ?? log?.minutos ?? log?.duration) || 0);
 
         const safeLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
         const todayLogs = safeLogs.filter(log => {
-            if (!log) return false;
+            if (!log || log.type === 'flashcard') return false;
             const rawDate = log.date || log.createdAt || log.timestamp;
             if (!rawDate) return false;
-            return getDateKey(rawDate) === todayKey;
+            return getDateKey(rawDate) === todayKey && getLogMins(log) > 0;
         });
 
-        const totalMinutes = todayLogs.reduce((acc, log) => acc + (Number(log.minutes) || 0), 0);
-        const categoryMinutes = (categoryId || taskId)
+        const totalMinutes = todayLogs.reduce((acc, log) => acc + getLogMins(log), 0);
+        const normCatName = categoryName ? String(categoryName).trim().toLowerCase() : '';
+        const categoryMinutes = (categoryId || taskId || normCatName)
             ? todayLogs
-                .filter(log => (categoryId && log.categoryId === categoryId) || (taskId && log.taskId === taskId))
-                .reduce((acc, log) => acc + (Number(log.minutes) || 0), 0)
+                .filter(log => {
+                    if (categoryId && log.categoryId === categoryId) return true;
+                    if (taskId && String(log.taskId) === String(taskId)) return true;
+                    if (normCatName) {
+                        const logCat = String(log.categoryName || log.subject || '').trim().toLowerCase();
+                        if (logCat && logCat === normCatName) return true;
+                    }
+                    return false;
+                })
+                .reduce((acc, log) => acc + getLogMins(log), 0)
             : 0;
         const sessionCount = todayLogs.length;
 
         return { totalMinutes, categoryMinutes, sessionCount };
-    }, [studyLogs, categoryId, taskId]);
+    }, [studyLogs, categoryId, categoryName, taskId]);
 
     const formatTime = (minutes) => {
         const total = Math.max(0, Math.round(Number(minutes) || 0));
@@ -626,17 +637,19 @@ const SessionXP = React.memo(function SessionXP({ user }) {
 // ============================================================================
 // SUBCOMPONENTE: Próxima Tarefa
 // ============================================================================
-const NextTaskPreview = React.memo(function NextTaskPreview({ categories, currentTaskId }) {
+const NextTaskPreview = React.memo(function NextTaskPreview({ categories, currentTaskId, onStartTask }) {
     const nextTask = useMemo(() => {
         if (!categories) return null;
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories);
+        const currentIdStr = currentTaskId != null ? String(currentTaskId) : null;
         // Prioridade 1: Tarefas de alta prioridade não concluídas
         for (const cat of safeCats) {
             if (!cat) continue;
             const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
             for (const task of tasks) {
-                if (task && !task.completed && (task.id || task.text) !== currentTaskId && task.priority === 'high') {
-                    return { ...task, catName: cat.name };
+                const tid = String(task?.id ?? task?.text ?? task?.title ?? '');
+                if (task && !task.completed && tid && tid !== currentIdStr && normalizePriority(task.priority) === 'high') {
+                    return { ...task, id: task.id || task.text || task.title, catName: cat.name, catId: cat.id };
                 }
             }
         }
@@ -646,8 +659,9 @@ const NextTaskPreview = React.memo(function NextTaskPreview({ categories, curren
             if (!cat) continue;
             const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
             for (const task of tasks) {
-                if (task && !task.completed && (task.id || task.text) !== currentTaskId && task.priority === 'medium') {
-                    return { ...task, catName: cat.name };
+                const tid = String(task?.id ?? task?.text ?? task?.title ?? '');
+                if (task && !task.completed && tid && tid !== currentIdStr && normalizePriority(task.priority) === 'medium') {
+                    return { ...task, id: task.id || task.text || task.title, catName: cat.name, catId: cat.id };
                 }
             }
         }
@@ -656,10 +670,12 @@ const NextTaskPreview = React.memo(function NextTaskPreview({ categories, curren
 
     if (!nextTask) return null;
 
-    const isHighPriority = nextTask.priority === 'high';
+    const isHighPriority = normalizePriority(nextTask.priority) === 'high';
+    const { displayTopic } = parseTaskDisplay(nextTask.title || nextTask.text, nextTask.catName, categories);
+    const isInteractive = typeof onStartTask === 'function';
 
-    return (
-        <div className="bg-slate-800/30 rounded-xl p-3 border border-dashed border-white/10 flex items-center gap-3">
+    const content = (
+        <>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-sm ${
                 isHighPriority
                     ? 'bg-rose-500/15 border-rose-500/25 text-rose-400'
@@ -667,7 +683,7 @@ const NextTaskPreview = React.memo(function NextTaskPreview({ categories, curren
             }`}>
                 <Target size={15} />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 text-left">
                 <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                         {isHighPriority ? 'Próxima Tarefa Crítica' : 'Próxima Tarefa'}
@@ -676,13 +692,37 @@ const NextTaskPreview = React.memo(function NextTaskPreview({ categories, curren
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                     )}
                 </div>
-                <div className="text-xs text-slate-200 font-semibold truncate">
-                    {nextTask.title || nextTask.text || 'Próxima atividade'}
+                <div className="text-xs text-slate-200 font-semibold truncate group-hover/next:text-white transition-colors">
+                    {displayTopic || nextTask.title || nextTask.text || 'Próxima atividade'}
                 </div>
                 {nextTask.catName && (
                     <div className="text-[10px] text-slate-500 font-medium truncate">{nextTask.catName}</div>
                 )}
             </div>
+            {isInteractive && (
+                <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover/next:text-white group-hover/next:bg-indigo-500/20 group-hover/next:border-indigo-500/30 transition-all shrink-0">
+                    <ChevronRight size={13} />
+                </div>
+            )}
+        </>
+    );
+
+    if (isInteractive) {
+        return (
+            <button
+                type="button"
+                onClick={() => onStartTask(nextTask, null, 'side_panel')}
+                title="Iniciar esta tarefa no cronômetro"
+                className="w-full bg-slate-800/30 hover:bg-slate-800/60 rounded-xl p-3 border border-dashed border-white/10 hover:border-indigo-500/30 flex items-center gap-3 transition-all group/next cursor-pointer"
+            >
+                {content}
+            </button>
+        );
+    }
+
+    return (
+        <div className="bg-slate-800/30 rounded-xl p-3 border border-dashed border-white/10 flex items-center gap-3">
+            {content}
         </div>
     );
 });
@@ -694,7 +734,8 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
     const [notes, setNotes] = useState(() => {
         try {
             const saved = localStorage.getItem('pomodoro_brain_dump');
-            return saved ? JSON.parse(saved) : [];
+            const parsed = saved ? JSON.parse(saved) : [];
+            return Array.isArray(parsed) ? parsed : [];
         } catch {
             return [];
         }
@@ -730,24 +771,44 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
         saveNotes(newNotes);
     };
 
+    const clearCompletedNotes = () => {
+        const newNotes = notes.filter(n => !n.completed);
+        saveNotes(newNotes);
+    };
+
+    const completedCount = notes.filter(n => n.completed).length;
+    const pendingCount = notes.length - completedCount;
+
     return (
         <div className="bg-slate-800/50 rounded-xl p-3 border border-white/5">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                     <div className="w-6 h-6 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center text-cyan-400 shrink-0">
                         <Brain size={13} />
                     </div>
-                    <div>
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block truncate">
                             Anti-Distração (Brain Dump)
                         </span>
-                        <span className="text-[9px] text-slate-500 font-medium">Capture pensamentos sem parar o foco</span>
+                        <span className="text-[9px] text-slate-500 font-medium block truncate">Capture pensamentos sem parar o foco</span>
                     </div>
                 </div>
                 {notes.length > 0 && (
-                    <span className="text-[9px] font-bold text-slate-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
-                        {notes.filter(n => !n.completed).length} pendentes
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        {completedCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={clearCompletedNotes}
+                                className="text-[9px] font-bold text-rose-300/80 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded-md border border-rose-500/20 transition-colors"
+                                title="Limpar anotações concluídas"
+                            >
+                                Limpar ({completedCount})
+                            </button>
+                        )}
+                        <span className="text-[9px] font-bold text-slate-400 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                            {pendingCount} pendentes
+                        </span>
+                    </div>
                 )}
             </div>
             <form onSubmit={handleAdd} className="flex items-center gap-1.5 mb-2">
@@ -813,7 +874,8 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
     targetCycles,
     completedCycles,
     settings,
-    speed = 1
+    speed = 1,
+    onStartTask
 }) {
     const [showMoreStats, setShowMoreStats] = useState(false);
 
@@ -823,6 +885,25 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
     const parsedTask = useMemo(() => {
         return parseTaskDisplay(activeSubject?.task, activeSubject?.category, currentCategory || safeCats);
     }, [activeSubject?.task, activeSubject?.category, currentCategory, safeCats]);
+
+    const normalizedActivePriority = useMemo(() => {
+        return activeSubject?.priority ? normalizePriority(activeSubject.priority) : null;
+    }, [activeSubject?.priority]);
+
+    const liveSeriesStats = useMemo(() => {
+        const workMin = Math.max(1, Number(settings?.pomodoroWork) || 25);
+        const safeTarget = Math.max(1, Number(targetCycles) || 1);
+        const safeCompleted = Math.max(0, Math.min(safeTarget, Number(completedCycles) || 0));
+        const safeTotalSec = Number.isFinite(totalTime) && totalTime > 0 ? totalTime : workMin * 60;
+        const safeLeftSec = Number.isFinite(timeLeft) && timeLeft >= 0 ? timeLeft : safeTotalSec;
+        const currentWorkElapsedMin = mode === 'work'
+            ? Math.max(0, (safeTotalSec - safeLeftSec) / 60)
+            : 0;
+        const totalFocusMin = Math.round((safeCompleted * workMin) + currentWorkElapsedMin);
+        const targetTotalMin = safeTarget * workMin;
+        const metaPct = Math.min(100, Math.max(0, Math.round((((safeCompleted * workMin) + currentWorkElapsedMin) / targetTotalMin) * 100)));
+        return { totalFocusMin, metaPct };
+    }, [settings?.pomodoroWork, targetCycles, completedCycles, totalTime, timeLeft, mode]);
 
     const activeModeBadge = useMemo(() => {
         if (parsedTask.alertBadge) return parsedTask.alertBadge;
@@ -878,15 +959,15 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
                                     <span>{activeModeBadge.label}</span>
                                 </span>
                             )}
-                            {activeSubject.priority && (
+                            {normalizedActivePriority && (
                                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
-                                    activeSubject.priority === 'high'
+                                    normalizedActivePriority === 'high'
                                         ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                        : activeSubject.priority === 'medium'
+                                        : normalizedActivePriority === 'medium'
                                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                             : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 }`}>
-                                    {activeSubject.priority === 'high' ? 'Alta' : activeSubject.priority === 'medium' ? 'Média' : 'Baixa'}
+                                    {normalizedActivePriority === 'high' ? 'Alta' : normalizedActivePriority === 'medium' ? 'Média' : 'Baixa'}
                                 </span>
                             )}
                         </div>
@@ -969,6 +1050,7 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
             <TodayStudyTime
                 studyLogs={studyLogs || []}
                 categoryId={activeSubject?.categoryId || currentCategory?.id}
+                categoryName={activeSubject?.category || currentCategory?.name}
                 taskId={activeSubject?.taskId}
                 isRunning={isRunning}
                 mode={mode}
@@ -987,6 +1069,7 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
             <NextTaskPreview
                 categories={categories}
                 currentTaskId={activeSubject?.taskId}
+                onStartTask={onStartTask}
             />
 
             {/* Painel Anti-Distração (Brain Dump) */}
@@ -1016,21 +1099,21 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
                                 <div className="flex items-center gap-2 mb-2">
                                     <CheckCircle2 size={14} className="text-emerald-400" />
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                        Progresso Geral
+                                        Progresso Geral da Série
                                     </span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="text-center">
                                         <div className="text-lg font-black text-white">
-                                            {completedCycles * (Math.max(1, Number(settings?.pomodoroWork) || 25))}min
+                                            {liveSeriesStats.totalFocusMin}min
                                         </div>
-                                        <div className="text-[9px] text-slate-500 uppercase font-medium">Foco total</div>
+                                        <div className="text-[9px] text-slate-500 uppercase font-medium">Foco acumulado</div>
                                     </div>
                                     <div className="text-center">
                                         <div className="text-lg font-black text-white">
-                                            {Math.round((completedCycles / Math.max(1, targetCycles || 1)) * 100)}%
+                                            {liveSeriesStats.metaPct}%
                                         </div>
-                                        <div className="text-[9px] text-slate-500 uppercase font-medium">Meta</div>
+                                        <div className="text-[9px] text-slate-500 uppercase font-medium">Meta da série</div>
                                     </div>
                                 </div>
                             </div>
