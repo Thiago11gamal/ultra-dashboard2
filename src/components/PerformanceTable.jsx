@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Wallet, Trophy, Target, Hash, ArrowUpDown, ChevronUp, ChevronDown, BarChart3 } from 'lucide-react';
 import { computeCategoryPerformanceStats, toSafeArray } from '../utils/tasksStatsHelper';
 
 const PerformanceTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
@@ -147,12 +147,34 @@ const resolveCategorySubtitle = (category) => {
 
 return (
     <div
-        className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8"
+        className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl"
         ref={tableRef}
         onKeyDown={handleKeyDown}
         tabIndex={0}
         aria-label="Quadro de performance por disciplina"
     >
+        {/* Header da Tabela com Identificação e Dica */}
+        <div className="bg-slate-900/80 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5">
+            <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-400 shadow-sm">
+                    <BarChart3 size={18} />
+                </div>
+                <div>
+                    <h3 className="font-bold text-slate-200 text-sm md:text-base flex items-center gap-2">
+                        Quadro Consolidado por Disciplina
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-white/5">
+                            {sortedCategories.length} {sortedCategories.length === 1 ? 'disciplina' : 'disciplinas'}
+                        </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500">Métricas consolidadas de volume, acertos, saldo líquido e tendência recente</p>
+                </div>
+            </div>
+            <div className="hidden md:flex items-center gap-2 text-[10px] font-bold text-slate-500 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-white/5">
+                <span className="text-amber-400">Dica:</span>
+                <span>Clique nos títulos das colunas para ordenar</span>
+            </div>
+        </div>
+
         <div className="overflow-x-auto max-h-[500px] overflow-y-auto w-full custom-scrollbar">
             <table className="w-full text-left border-collapse table-fixed min-w-[900px]" role="grid">
                 <thead className="bg-slate-900/50 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-white/5 sticky top-0 z-10">

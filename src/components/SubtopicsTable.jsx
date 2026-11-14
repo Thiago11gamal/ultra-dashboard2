@@ -289,7 +289,7 @@ if (safeCategories.length === 0) {
 const hasActiveFilters = Boolean(searchTerm || effectiveSelectedCategory !== 'ALL' || statusFilter !== 'ALL');
 
 return (
-    <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">
+    <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl">
         {/* Header da Tabela com Barra de Pesquisa e Filtros */}
         <div className="bg-slate-900/80 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5">
             <div className="flex items-center gap-3">
