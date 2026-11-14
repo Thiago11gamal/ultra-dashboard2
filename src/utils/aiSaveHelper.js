@@ -129,9 +129,10 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         if (!Array.isArray(existing.topics)) existing.topics = [];
         
         for (const t of existing.topics) {
-          const isMatch = (taskId && t.taskId === taskId) || (!taskId && normalize(t.name) === normalize(assunto));
+          const isMatch = (taskId && t.taskId && t.taskId === taskId) || (normalize(t.name) === normalize(assunto));
           if (isMatch) {
               topicFound = true;
+              if (taskId && !t.taskId) t.taskId = taskId;
               const newTTotal = (Number(t.total) || 0) + total;
               const newTCorrect = (Number(t.correct) || 0) + correct;
               const prevTWeight = (Number(t.difficulty) || 1.0) * (Number(t.total) || 0);

@@ -259,15 +259,18 @@ export default function Simulados() {
     if (!categoriesArray.length || !categories) return [];
     const todayKey = getDateKey(normalizeDate(new Date()));
     const rawTodayRows = simuladoRowsArray.filter(
-      r => getDateKey(r.date || r.createdAt) === todayKey
+      r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
     );
     const rows = [];
     const savedManualRows = {};
     rawTodayRows.forEach(r => {
       if (!r.isAuto && r.source !== 'ai-generated') {
-        // Fallback to string if IDs are missing for legacy records
-        const key = (r.categoryId && r.topicId) ? `${r.categoryId}-${r.topicId}` : `${normalize(r.subject)}-${normalize(r.topic)}`;
-        savedManualRows[key] = r;
+        if (r.categoryId && r.topicId) {
+          savedManualRows[`${r.categoryId}-${r.topicId}`] = r;
+        }
+        if (r.subject && r.topic) {
+          savedManualRows[`${normalize(r.subject)}-${normalize(r.topic)}`] = r;
+        }
       }
     });
     categoriesArray.forEach(cat => {
@@ -276,7 +279,14 @@ export default function Simulados() {
       if (tasks.length === 0) {
         const keyStr = `${normalize(cat.name)}-${normalize('nenhum')}`;
         const keyId = `${cat.id}-nenhum`;
-        rows.push(savedManualRows[keyId] || savedManualRows[keyStr] || {
+        const existing = savedManualRows[keyId] || savedManualRows[keyStr];
+        rows.push(existing ? {
+          ...existing,
+          categoryId: existing.categoryId || cat.id,
+          topicId: existing.topicId || 'nenhum',
+          subject: cat.name,
+          topic: 'nenhum'
+        } : {
           id: `manual-fallback-${cat.id}`, categoryId: cat.id, topicId: 'nenhum', subject: cat.name, topic: 'nenhum',
           correct: 0, total: 0, isAuto: false, source: 'manual'
         });
@@ -286,7 +296,14 @@ export default function Simulados() {
           if (!title) return;
           const keyStr = `${normalize(cat.name)}-${normalize(title)}`;
           const keyId = `${cat.id}-${task.id}`;
-          rows.push(savedManualRows[keyId] || savedManualRows[keyStr] || {
+          const existing = savedManualRows[keyId] || savedManualRows[keyStr];
+          rows.push(existing ? {
+            ...existing,
+            categoryId: existing.categoryId || cat.id,
+            topicId: existing.topicId || task.id,
+            subject: cat.name,
+            topic: title
+          } : {
             id: `manual-${cat.id}-${task.id}`, categoryId: cat.id, topicId: task.id, subject: cat.name, topic: title,
             correct: 0, total: 0, isAuto: false, source: 'manual'
           });
@@ -341,11 +358,13 @@ export default function Simulados() {
       
       resultRows = simuladoRowsArray.filter((r) => {
         if (!r || typeof r !== 'object') return false;
-        // Para manual, queremos agrupar todos do dia
-        const isManual =
+        // Para manual, queremos agrupar todos do dia excluindo linhas de IA
+        const isAi = r?.source === 'ai-generated' || (r?.batchId && r?.source !== 'manual' && !String(r?.id || '').startsWith('manual'));
+        const isManual = !isAi && (
           r?.source === 'manual' ||
           r?.isAuto === false ||
-          (r?.source == null && r?.isAuto == null && r?.id?.startsWith('manual'));
+          (r?.source == null && r?.isAuto == null && r?.id?.startsWith('manual'))
+        );
         if (!isManual) return false;
         return getRowDateKey(r) === refDateKey;
       });
@@ -410,11 +429,11 @@ export default function Simulados() {
           (r) => r && r.subject && r.topic && Number.isFinite(Number(r.total)) && Number(r.total) > 0
         );
         const submittedIds = new Set(actuallySubmittedRows.map(r => r.id).filter(Boolean));
-        const submittedKeys = new Set(actuallySubmittedRows.map(r => {
-          if (r.categoryId && r.topicId) return `${r.categoryId}-${r.topicId}`;
-          if (r.subject && r.topic) return `${normalize(r.subject)}-${normalize(r.topic)}`;
-          return null;
-        }).filter(Boolean));
+        const submittedKeys = new Set();
+        actuallySubmittedRows.forEach(r => {
+          if (r.categoryId && r.topicId) submittedKeys.add(`${r.categoryId}-${r.topicId}`);
+          if (r.subject && r.topic) submittedKeys.add(`${normalize(r.subject)}-${normalize(r.topic)}`);
+        });
 
         const rowsToKeep = prevSimuladoRowsArray.filter((r) => {
           const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
@@ -439,7 +458,7 @@ export default function Simulados() {
             const total = Math.max(0, Number(r.total) || 0);
             const correct = Math.max(0, Math.min(Number(r.correct) || 0, total));
             return {
-              ...r, id: r.id || generateId('row'), batchId: r.batchId || batchId,
+              ...r, id: r.id || generateId('row'), batchId: batchId,
               date: r.date || todayKey, createdAt: nowIso, lastUpdated: nowIso,
               validated: true, isAuto: false, source: 'manual',
               subject: String(r.subject || '').trim(), topic: String(r.topic || '').trim(),
@@ -490,7 +509,12 @@ export default function Simulados() {
           const topicsMap = {};
           todayRows.forEach((r) => {
             const tName = String(r.topic || '').trim();
-            if (!topicsMap[tName]) topicsMap[tName] = { correct: 0, total: 0, difficulty: [], timeSpent: 0, timedQuestoes: 0 };
+            if (!topicsMap[tName]) {
+              topicsMap[tName] = {
+                correct: 0, total: 0, difficulty: [], timeSpent: 0, timedQuestoes: 0,
+                taskId: r.taskId || r.topicId || null
+              };
+            }
             topicsMap[tName].correct += Number(r.correct) || 0;
             topicsMap[tName].total += Number(r.total) || 0;
             const diff = Number(r.difficulty);
@@ -500,7 +524,7 @@ export default function Simulados() {
           });
 
           const finalTopics = Object.entries(topicsMap).map(([name, td]) => ({
-            name, correct: td.correct, total: td.total,
+            name, taskId: td.taskId, correct: td.correct, total: td.total,
             percentage: td.total > 0 ? (td.correct / td.total) * 100 : 0,
             difficulty: td.difficulty.length > 0 ? td.difficulty.reduce((a, b) => a + b, 0) / td.difficulty.length : 1.0,
             timeSpent: td.timeSpent, timedQuestoes: td.timedQuestoes
@@ -579,6 +603,9 @@ export default function Simulados() {
             scorePoints: globalPoints,
             scorePct: globalPct,
             total: totalQ, correct: totalC, type: 'auto-analyzer', subject: 'Simulado Geral',
+            source: 'manual',
+            scoreUnit: 'points',
+            isPercentage: false,
             createdAt: nowIso, lastUpdated: nowIso
           };
           updatedSimulados = [...updatedSimulados.filter(s => !(getDateKey(normalizeDate(s?.date || s?.createdAt)) === todayKey && s?.type === 'auto-analyzer')), newSimuladoEvent]
@@ -590,6 +617,7 @@ export default function Simulados() {
 
       if (totalQForToast > 0) {
         showToast('Simulado processado com sucesso!', 'success');
+        setMode('analyzer');
         try {
           useAppStore.getState().awardExperience?.(500);
         } catch (xpErr) {

@@ -415,7 +415,7 @@ const StudyHistory = React.memo(function StudyHistory({
                                 if (!r.validated && !hasData) return acc;
                                 const rDate = normalizeDate(r.date || r.createdAt);
                                 if (!rDate) return acc;
-                                const isAi = r.source === 'ai-generated' || (r.batchId && r.source !== 'manual');
+                                const isAi = r.source === 'ai-generated' || (r.batchId && r.source !== 'manual' && !String(r.id || '').startsWith('manual'));
                                 const key = (isAi && r.batchId) ? String(r.batchId) : (isAi ? `ai-${getDateKey(rDate)}` : `manual-${getDateKey(rDate)}`);
                                 if (!acc[key]) {
                                     acc[key] = { key, date: rDate, rows: [], isAi };

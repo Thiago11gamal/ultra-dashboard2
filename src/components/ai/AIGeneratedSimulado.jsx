@@ -803,6 +803,7 @@ export default function AIGeneratedSimulado() {
       setStep('finished');
       setTimerActive(false);
       localStorage.removeItem(getAiSimStorageKey());
+    localStorage.removeItem(getAiGenStorageKey());
       showToast(`Simulado finalizado! ${correctCount}/${total} acertos`, 'success');
       try {
         useAppStore.getState().awardExperience?.(500);
@@ -888,6 +889,7 @@ export default function AIGeneratedSimulado() {
     setTimerActive(false);
     setShowReview(false);
     localStorage.removeItem(getAiSimStorageKey());
+    localStorage.removeItem(getAiGenStorageKey());
   }, [form.quantidade]);
 
   const retrySameQuestions = () => {

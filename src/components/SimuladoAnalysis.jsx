@@ -252,12 +252,16 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         // Somente processar linhas onde o TOTAL foi explicitamente digitado e é maior que zero.
         const rowsToProcess = rows.filter(r => r?.subject && parseInt(r?.total, 10) > 0);
         
-        // Validação: avisar o usuário se preencheu acertos mas esqueceu do total
+        // Validação: avisar o usuário se preencheu acertos mas esqueceu do total (apenas em modo form/both)
         const rowsWithMissingTotal = rows.filter(r => r?.subject && parseInt(r?.correct, 10) > 0 && !(parseInt(r?.total, 10) > 0));
         if (rowsWithMissingTotal.length > 0) {
-            setError(`O campo "Total" deve ser preenchido para o assunto '${rowsWithMissingTotal[0].topic || rowsWithMissingTotal[0].subject}'.`);
-            setLoading(false);
-            return;
+            if (viewMode === 'report') {
+                rowsWithMissingTotal.forEach(r => { r.total = r.correct; });
+            } else {
+                setError(`O campo "Total" deve ser preenchido para o assunto '${rowsWithMissingTotal[0].topic || rowsWithMissingTotal[0].subject}'.`);
+                setLoading(false);
+                return;
+            }
         }
 
         if (rowsToProcess.length === 0) {
@@ -420,7 +424,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             } finally {
                 setLoading(false);
             }
-        }, viewMode === 'report' ? 0 : 800); // Remove delay when just viewing report
+        }, viewMode === 'report' ? 0 : 100);
          
     }, [categoriesArray, rows, viewMode, onAnalysisComplete]);
 
@@ -609,9 +613,8 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             <h3 className="text-lg font-black text-slate-100 tracking-tight flex items-center gap-3">
                                 Relatório de Performance
                                 {(() => {
-                                    const originTypes = rows.map(r => r.source === 'ai-generated' ? 'AI' : 'Manual');
-                                    const hasAI = originTypes.includes('AI');
-                                    const hasManual = originTypes.includes('Manual');
+                                    const hasAI = rows.some(r => r.source === 'ai-generated' || (r.batchId && r.source !== 'manual' && !String(r.id || '').startsWith('manual')));
+                                    const hasManual = rows.some(r => r.source === 'manual' || (!r.batchId && r.source !== 'ai-generated') || String(r.id || '').startsWith('manual'));
                                     let badge = null;
                                     
                                     if (hasAI && !hasManual) {
@@ -690,7 +693,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                             {/* Cards por disciplina */}
                             {analysisData.disciplines.map((disc, idx) => {
                                 const discPct = disc.percentage || 0;
-                                const category = categoriesArray.find(c => c.name === disc.name);
+                                const category = categoriesArray.find(c => c && (c.name === disc.name || isSubjectMatch(c.name, disc.name)));
                                 const subjectColor = category?.color || '#3b82f6';
 
                                 const discCfg =

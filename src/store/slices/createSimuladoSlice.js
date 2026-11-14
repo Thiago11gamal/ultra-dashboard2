@@ -77,7 +77,10 @@ export const createSimuladoSlice = (set) => ({
         const prefixStripped = normalizedInput.replace(/^(ai|manual)-/, '');
         const strippedDatePart = prefixStripped.includes('T') ? prefixStripped.split('T')[0] : prefixStripped;
         if (dateRegex.test(strippedDatePart) && rawDatePart === strippedDatePart) {
-          const itemIsAi = item.source === 'ai-generated' || (item.batchId && item.source !== 'manual');
+          const itemIsAi =
+            item.source === 'ai-generated' ||
+            item.type === 'ai-simulado' ||
+            (Boolean(item.batchId) && item.source !== 'manual' && item.type !== 'auto-analyzer' && !String(item.id || '').startsWith('manual'));
           if (normalizedInput.startsWith('ai-') && itemIsAi) return true;
           if (normalizedInput.startsWith('manual-') && !itemIsAi) return true;
         }
@@ -245,6 +248,11 @@ if (c.simuladoStats?.history) {
         );
 
       newStatsObj.level = newStats.level || 'BAIXO';
+    } else {
+      newStatsObj.average = 0;
+      newStatsObj.trend = 'stable';
+      newStatsObj.lastAttempt = catMinScore;
+      newStatsObj.level = 'BAIXO';
     }
   } else {
     newStatsObj.average = 0;

@@ -31,7 +31,7 @@ export default function SimuladoPlayer({
   const currentQuestion = questions[currentIndex];
   const answeredCount = Object.keys(answers || {}).length;
   const timeColor = timeLeft < 180 ? 'text-red-400 border-red-500/30' : timeLeft < 300 ? 'text-amber-400 border-amber-500/30' : 'text-slate-300 border-white/10';
-  const difficultyLabel = DIFFICULTIES.find(d => d.value === form.dificuldade)?.label || form.dificuldade;
+  const difficultyLabel = DIFFICULTIES.find(d => d.value === form?.dificuldade)?.label || form?.dificuldade || 'Médio';
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
