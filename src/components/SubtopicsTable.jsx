@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Target, Hash, Wallet, Minus, TrendingUp, TrendingDown, Search, Filter, X, ArrowUpDown, ChevronUp, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { getSafeScore } from '../utils/scoreHelper';
 import { calculateSlope, getSortedHistory } from '../engine';
@@ -182,11 +182,10 @@ const categoryOptions = useMemo(() => {
     }));
 }, [stableCategories]);
 
-// Resetar filtro de categoria se a disciplina selecionada não existir mais (ex: troca de concurso ou exclusão)
-useEffect(() => {
-    if (selectedCategory !== 'ALL' && !categoryOptions.some(opt => opt.id === selectedCategory)) {
-        setSelectedCategory('ALL');
-    }
+// Resolver categoria selecionada válida sem setState em useEffect
+const effectiveSelectedCategory = useMemo(() => {
+    if (selectedCategory === 'ALL') return 'ALL';
+    return categoryOptions.some(opt => opt.id === selectedCategory) ? selectedCategory : 'ALL';
 }, [selectedCategory, categoryOptions]);
 
 // Filtragem e ordenação dinâmica
@@ -197,9 +196,9 @@ const filteredSubtopics = useMemo(() => {
             item.name.toLowerCase().includes(term) ||
             (item.parentCategory || '').toLowerCase().includes(term);
 
-        const matchesCategory = selectedCategory === 'ALL' ||
-            item.categoryId === selectedCategory ||
-            item.parentCategory === selectedCategory;
+        const matchesCategory = effectiveSelectedCategory === 'ALL' ||
+            item.categoryId === effectiveSelectedCategory ||
+            item.parentCategory === effectiveSelectedCategory;
 
         let matchesStatus = true;
         if (statusFilter === 'WITH_DATA') {
@@ -242,7 +241,7 @@ const filteredSubtopics = useMemo(() => {
         if (b.total !== a.total) return b.total - a.total;
         return (a.name || '').localeCompare(b.name || '');
     });
-    }, [subtopics, searchTerm, selectedCategory, statusFilter, sortColumn, sortDirection]);
+    }, [subtopics, searchTerm, effectiveSelectedCategory, statusFilter, sortColumn, sortDirection]);
 
 const handleSort = (column) => {
     if (!column) return;
@@ -287,7 +286,7 @@ if (safeCategories.length === 0) {
     );
 }
 
-const hasActiveFilters = Boolean(searchTerm || selectedCategory !== 'ALL' || statusFilter !== 'ALL');
+const hasActiveFilters = Boolean(searchTerm || effectiveSelectedCategory !== 'ALL' || statusFilter !== 'ALL');
 
 return (
     <div className="w-full rounded-2xl border border-white/5 bg-slate-950/40 backdrop-blur-xl overflow-hidden shadow-2xl mt-8">
@@ -353,7 +352,7 @@ return (
                     {categoryOptions.length > 1 && (
                         <div className="relative min-w-[150px]">
                             <select
-                                value={selectedCategory}
+                                value={effectiveSelectedCategory}
                                 onChange={(e) => setSelectedCategory(e.target.value)}
                                 aria-label="Filtrar por disciplina"
                                 className="w-full appearance-none bg-slate-950/80 border border-white/10 rounded-xl pl-3 pr-8 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-amber-500/50 transition-colors cursor-pointer"
