@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, act } from '@testing-library/react';
 import AnimatedMantaRay from '../AnimatedMantaRay';
 import { LEFT_TIP_INDEX, buildMantaPath, buildWakeData } from '../mantaKinematics';
 import WelcomeScreen from '../WelcomeScreen';
@@ -152,6 +152,49 @@ describe('AnimatedMantaRay kinematics and entrance screens', () => {
         const pathEl = container.querySelector('path[data-manta-body="true"]');
         expect(pathEl.getAttribute('d')).toBe(buildMantaPath(0, 0, 0, 0, true));
         expect(rafCallbacks.size).toBe(0);
+    });
+
+    it('resets body gradient, shadow, and wake motes to rest pose when OS toggles prefers-reduced-motion dynamically', () => {
+        const listeners = [];
+        const originalMatchMedia = window.matchMedia;
+        window.matchMedia = vi.fn().mockImplementation((query) => ({
+            matches: false,
+            media: query,
+            onchange: null,
+            addEventListener: (_event, cb) => listeners.push(cb),
+            removeEventListener: (_event, cb) => {
+                const idx = listeners.indexOf(cb);
+                if (idx >= 0) listeners.splice(idx, 1);
+            },
+            addListener: (cb) => listeners.push(cb),
+            removeListener: (cb) => {
+                const idx = listeners.indexOf(cb);
+                if (idx >= 0) listeners.splice(idx, 1);
+            },
+            dispatchEvent: vi.fn()
+        }));
+
+        try {
+            const { container } = render(<AnimatedMantaRay respectReducedMotion />);
+            expect(listeners.length).toBeGreaterThan(0);
+
+            act(() => {
+                listeners.forEach((cb) => cb({ matches: true }));
+            });
+
+            const shadowEl = container.querySelector('g[transform*="translate(268 292)"]');
+            expect(shadowEl).not.toBeNull();
+            expect(shadowEl.getAttribute('transform')).toBe('translate(268 292) rotate(-31)');
+            expect(shadowEl.getAttribute('opacity')).toBe('0.32');
+
+            const motes = container.querySelectorAll('circle[r]');
+            expect(motes.length).toBeGreaterThan(0);
+            motes.forEach((mote) => {
+                expect(mote.getAttribute('opacity')).toBe('0');
+            });
+        } finally {
+            window.matchMedia = originalMatchMedia;
+        }
     });
 
     it('renders AnimatedMantaRay on both Login and WelcomeScreen entrance views', () => {

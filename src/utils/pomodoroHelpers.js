@@ -59,6 +59,57 @@ export function matchesSubjectTask(t, subject) {
   );
 }
 
+/**
+ * Checks if a category is compatible with the active Pomodoro subject.
+ * Allows legacy/mock subjects without category metadata to still match.
+ */
+export function isActiveSubjectInCategory(category, subject) {
+  if (!subject) return false;
+  const hasSubjectCat = Boolean(subject.categoryId || subject.category);
+  if (!hasSubjectCat) return true;
+  if (!category) return false;
+
+  const sCatId = subject.categoryId != null ? String(subject.categoryId) : null;
+  const sCatName = subject.category != null ? String(subject.category) : null;
+  const cId = category.id != null ? String(category.id) : null;
+  const cName = category.name != null ? String(category.name) : null;
+
+  return Boolean(
+    (sCatId && (cId === sCatId || cName === sCatId)) ||
+    (sCatName && (cName === sCatName || cId === sCatName))
+  );
+}
+
+/**
+ * Matches a task inside a specific category against the active Pomodoro subject,
+ * preventing cross-category collisions when tasks share the same title/id.
+ */
+export function matchesActiveSubjectTask(category, task, subject, taskIdOverride = null) {
+  if (!subject || !isActiveSubjectInCategory(category, subject)) return false;
+
+  const candidateIds = new Set(
+    [taskIdOverride, task?.id, task?.text, task?.title]
+      .filter(v => v !== undefined && v !== null && v !== '')
+      .map(v => String(v))
+  );
+
+  if (subject.taskId !== undefined && subject.taskId !== null && subject.taskId !== '') {
+    if (candidateIds.has(String(subject.taskId))) return true;
+  }
+
+  if (subject.task !== undefined && subject.task !== null && subject.task !== '' && task) {
+    const sTask = String(subject.task);
+    if (
+      (task.title !== undefined && task.title !== null && String(task.title) === sTask) ||
+      (task.text !== undefined && task.text !== null && String(task.text) === sTask)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function findSubjectTaskInContest(contestData, subject) {
   if (!contestData || !subject) return { catTask: null, targetTask: null };
   const safeCats = asArray(contestData.categories);

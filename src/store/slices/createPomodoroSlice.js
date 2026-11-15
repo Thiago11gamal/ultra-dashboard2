@@ -1,6 +1,32 @@
 import { cleanTaskTitle } from '../../utils/taskTitleHelper.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
-import { safeArray, MAX_TARGET_CYCLES } from '../../utils/pomodoroHelpers.js';
+import { safeArray, MAX_TARGET_CYCLES, matchesActiveSubjectTask } from '../../utils/pomodoroHelpers.js';
+
+const syncStudyingStatusInContest = (activeData, targetSubject) => {
+    if (!activeData || !activeData.categories) return;
+    const cats = Array.isArray(activeData.categories)
+        ? activeData.categories
+        : Object.values(activeData.categories || {});
+    const hasSubjectCategory = Boolean(targetSubject && (targetSubject.categoryId || targetSubject.category));
+
+    cats.forEach(cat => {
+        if (!cat || !cat.tasks) return;
+        const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
+        tasks.forEach(t => {
+            if (!t || typeof t !== 'object') return;
+            const isTaskMatch = Boolean(
+                hasSubjectCategory &&
+                !t.completed &&
+                matchesActiveSubjectTask(cat, t, targetSubject)
+            );
+            if (isTaskMatch) {
+                t.status = 'studying';
+            } else if (t.status === 'studying') {
+                t.status = null;
+            }
+        });
+    });
+};
 
 const clearPomodoroStorage = () => {
     try {
@@ -93,32 +119,6 @@ export const createPomodoroSlice = (set, get) => ({
             if (!p) return;
 
             const activeData = state.appState?.contests?.[state.appState?.activeId];
-            const syncStudyingStatus = (targetSubject) => {
-                if (!activeData || !activeData.categories) return;
-                const cats = Array.isArray(activeData.categories)
-                    ? activeData.categories
-                    : Object.values(activeData.categories || {});
-                cats.forEach(cat => {
-                    if (!cat || !cat.tasks) return;
-                    const tasks = Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {});
-                    const isCatMatch = Boolean(targetSubject && (
-                        (Boolean(targetSubject.categoryId) && (cat.id === targetSubject.categoryId || cat.name === targetSubject.categoryId)) ||
-                        (Boolean(targetSubject.category) && (cat.name === targetSubject.category || cat.id === targetSubject.category))
-                    ));
-                    tasks.forEach(t => {
-                        if (!t || typeof t !== 'object') return;
-                        const isTaskMatch = Boolean(targetSubject && isCatMatch && !t.completed && (
-                            (Boolean(targetSubject.taskId) && (t.id === targetSubject.taskId || t.text === targetSubject.taskId || t.title === targetSubject.taskId)) ||
-                            (Boolean(targetSubject.task) && (t.title === targetSubject.task || t.text === targetSubject.task))
-                        ));
-                        if (isTaskMatch) {
-                            t.status = 'studying';
-                        } else if (t.status === 'studying') {
-                            t.status = null;
-                        }
-                    });
-                });
-            };
 
             if (!subject) {
                 clearPomodoroStorage();
@@ -130,7 +130,7 @@ export const createPomodoroSlice = (set, get) => ({
                 p.neuralMode = false;
                 p.neuralQueue = [];
                 p.isRunning = false;
-                syncStudyingStatus(null);
+                syncStudyingStatusInContest(activeData, null);
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
@@ -160,7 +160,7 @@ export const createPomodoroSlice = (set, get) => ({
             }
 
             p.activeSubject = subject;
-            syncStudyingStatus(subject);
+            syncStudyingStatusInContest(activeData, subject);
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
@@ -503,6 +503,9 @@ export const createPomodoroSlice = (set, get) => ({
             p.completedCycles = 0;
             p.accumulatedMinutes = 0;
 
+            const currentActiveData = state.appState?.contests?.[state.appState?.activeId];
+            syncStudyingStatusInContest(currentActiveData, subject);
+
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();
             markStorageDirty();
@@ -532,6 +535,9 @@ export const createPomodoroSlice = (set, get) => ({
                 p.neuralMode = false;
                 p.neuralQueue = [];
                 p.isRunning = false;
+
+                const currentActiveData = state.appState?.contests?.[state.appState?.activeId];
+                syncStudyingStatusInContest(currentActiveData, null);
 
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = new Date().toISOString();
@@ -568,6 +574,9 @@ export const createPomodoroSlice = (set, get) => ({
             p.completedCycles = 0;
             p.accumulatedMinutes = 0;
             p.isRunning = false;
+
+            const currentActiveData = state.appState?.contests?.[state.appState?.activeId];
+            syncStudyingStatusInContest(currentActiveData, nextSubject);
 
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = new Date().toISOString();

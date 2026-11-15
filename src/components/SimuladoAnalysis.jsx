@@ -248,21 +248,21 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             }
         }
 
-        // BUG FIX: Separation of row validation for Analytics vs Storage/Audit
-        // Somente processar linhas onde o TOTAL foi explicitamente digitado e é maior que zero.
-        const rowsToProcess = rows.filter(r => r?.subject && parseInt(r?.total, 10) > 0);
-        
         // Validação: avisar o usuário se preencheu acertos mas esqueceu do total (apenas em modo form/both)
         const rowsWithMissingTotal = rows.filter(r => r?.subject && parseInt(r?.correct, 10) > 0 && !(parseInt(r?.total, 10) > 0));
-        if (rowsWithMissingTotal.length > 0) {
-            if (viewMode === 'report') {
-                rowsWithMissingTotal.forEach(r => { r.total = r.correct; });
-            } else {
-                setError(`O campo "Total" deve ser preenchido para o assunto '${rowsWithMissingTotal[0].topic || rowsWithMissingTotal[0].subject}'.`);
-                setLoading(false);
-                return;
-            }
+        if (rowsWithMissingTotal.length > 0 && viewMode !== 'report') {
+            setError(`O campo "Total" deve ser preenchido para o assunto '${rowsWithMissingTotal[0].topic || rowsWithMissingTotal[0].subject}'.`);
+            setLoading(false);
+            return;
         }
+
+        // BUG FIX: Em modo report, inclui linhas com correct > 0 sem mutar os objetos originais;
+        // em form/both, processa apenas linhas com TOTAL > 0 explicitamente digitado.
+        const rowsToProcess = viewMode === 'report'
+            ? rows
+                .filter(r => r?.subject && (parseInt(r?.total, 10) > 0 || parseInt(r?.correct, 10) > 0))
+                .map(r => (parseInt(r?.total, 10) > 0 ? r : { ...r, total: parseInt(r.correct, 10) }))
+            : rows.filter(r => r?.subject && parseInt(r?.total, 10) > 0);
 
         if (rowsToProcess.length === 0) {
             setError("Preencha o desempenho em pelo menos um assunto.");

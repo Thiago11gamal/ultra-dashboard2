@@ -93,6 +93,68 @@ describe('Menu Simulados Full Audit - Bug Suite', () => {
       expect(contest.simulados).toHaveLength(0);
     });
 
+    it('normalizes whitespace-only topic to "Geral" and preserves later-row taskId when deleteSimulado rebuilds history', () => {
+      const contest = mockState.appState.contests['contest-1'];
+      contest.categories[0].simuladoStats.history = [
+        {
+          date: '2026-11-10T10:00:00.000Z',
+          correct: 12,
+          total: 20,
+          score: 60,
+          topics: []
+        }
+      ];
+      contest.simuladoRows = [
+        {
+          id: 'row-to-delete',
+          batchId: 'batch-ai-del',
+          categoryId: 'cat-1',
+          subject: 'Direito Constitucional',
+          topic: 'Controle',
+          correct: 5,
+          total: 10,
+          score: 50,
+          date: '2026-11-10T09:00:00.000Z',
+          source: 'ai-generated'
+        },
+        {
+          id: 'row-keep-1',
+          batchId: 'batch-keep',
+          categoryId: 'cat-1',
+          subject: 'Direito Constitucional',
+          topic: '   ',
+          correct: 3,
+          total: 5,
+          score: 3,
+          date: '2026-11-10T10:00:00.000Z',
+          source: 'manual'
+        },
+        {
+          id: 'row-keep-2',
+          batchId: 'batch-keep',
+          categoryId: 'cat-1',
+          subject: 'Direito Constitucional',
+          topic: '',
+          taskId: 't-geral',
+          correct: 4,
+          total: 5,
+          score: 4,
+          date: '2026-11-10T10:00:00.000Z',
+          source: 'manual'
+        }
+      ];
+
+      slice.deleteSimulado('ai-2026-11-10');
+
+      const history = contest.categories[0].simuladoStats.history;
+      expect(history).toHaveLength(1);
+      expect(history[0].topics).toHaveLength(1);
+      expect(history[0].topics[0].name).toBe('Geral');
+      expect(history[0].topics[0].taskId).toBe('t-geral');
+      expect(history[0].topics[0].correct).toBe(7);
+      expect(history[0].topics[0].total).toBe(10);
+    });
+
     it('should NOT delete manual event with type "auto-analyzer" when deleteSimulado is called with ai-YYYY-MM-DD', () => {
       const contest = mockState.appState.contests['contest-1'];
       const todayKey = '2026-11-14';

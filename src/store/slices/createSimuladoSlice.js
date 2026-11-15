@@ -183,15 +183,18 @@ if (c.simuladoStats?.history) {
       const topicsMap = {};
       let totalDiffWeight = 0;
       catRowsForDay.forEach(r => {
-        const tName = String(r.topic || 'Geral').trim();
+        const tName = String(r.topic || '').trim() || 'Geral';
         const rTot = parseInt(r.total, 10) || 0;
         const rCor = Math.min(parseInt(r.correct, 10) || 0, rTot);
         const rDiff = Number.isFinite(Number(r.difficulty)) && Number(r.difficulty) > 0 ? Number(r.difficulty) : 1.0;
         const rTime = Number(r.timeSpent) || 0;
+        const rowTaskId = r.taskId || r.topicId || null;
         totalDiffWeight += rDiff * rTot;
 
         if (!topicsMap[tName]) {
-          topicsMap[tName] = { name: tName, correct: 0, total: 0, diffWeight: 0, timeSpent: 0, taskId: r.taskId || r.topicId || null };
+          topicsMap[tName] = { name: tName, correct: 0, total: 0, diffWeight: 0, timeSpent: 0, taskId: rowTaskId };
+        } else if (!topicsMap[tName].taskId && rowTaskId) {
+          topicsMap[tName].taskId = rowTaskId;
         }
         topicsMap[tName].correct += rCor;
         topicsMap[tName].total += rTot;

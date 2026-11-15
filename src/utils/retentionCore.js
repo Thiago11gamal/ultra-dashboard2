@@ -106,11 +106,7 @@ export function normalizeAccuracy(value, maxScore = 100, minScore = 0, options =
   const max = Math.max(min + 1, toFiniteNumber(maxScore, 100));
   const domain = Math.max(1, max - min);
 
-  // Heurística segura:
-  // Se options?.isRatio for explícito, segue a diretiva.
-  // Se maxScore >= 10 e minScore === 0 e raw > 0 e raw < 1, e não strictPoints, trata como razão/probabilidade.
-  // Ex.: bayesianStats.mean = 0.82 => 82%.
-  if (options?.isRatio === true || (min === 0 && max >= 10 && raw > 0 && raw < 1 && !options?.strictPoints)) {
+  if (options?.isRatio === true) {
     return clamp(raw, 0, 1);
   }
 
@@ -137,19 +133,37 @@ export function getMasterySignal(entity, fallbackEntity = null) {
     getTotalQuestions(entity) ||
     getTotalQuestions(fallbackEntity);
 
+  const minScore = toFiniteNumber(entity?.minScore ?? fallbackEntity?.minScore, 0);
   const maxScore = Math.max(
-    1,
+    minScore + 1,
     toFiniteNumber(entity?.maxScore ?? fallbackEntity?.maxScore, 100)
   );
 
+  const bayesObj = entity?.bayesianStats?.mean != null
+    ? entity.bayesianStats
+    : (fallbackEntity?.bayesianStats?.mean != null ? fallbackEntity.bayesianStats : null);
+
   const accuracyRaw =
-    entity?.bayesianStats?.mean ??
+    bayesObj?.mean ??
     entity?.simuladoStats?.average ??
-    fallbackEntity?.bayesianStats?.mean ??
     fallbackEntity?.simuladoStats?.average ??
     null;
 
-  const accuracy = normalizeAccuracy(accuracyRaw, maxScore);
+  const isLegacyBayesRatio = Boolean(
+    bayesObj &&
+    bayesObj.unit !== 'points' &&
+    minScore === 0 &&
+    maxScore >= 10 &&
+    toFiniteNumber(bayesObj.mean, -1) >= 0 &&
+    toFiniteNumber(bayesObj.mean, -1) <= 1
+  );
+
+  const accuracy = normalizeAccuracy(
+    accuracyRaw,
+    maxScore,
+    minScore,
+    isLegacyBayesRatio ? { isRatio: true } : { strictPoints: true }
+  );
 
   const qNorm = clamp(totalQ / 120, 0, 1);
   const accNorm = clamp((accuracy - 0.5) / 0.4, 0, 1);

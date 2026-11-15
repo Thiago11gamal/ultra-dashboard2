@@ -1,6 +1,7 @@
 import { computeCalibrationPenalty, generateAnalyticsStats } from '../../engine/analyticsStats.js';
 import { conformalPredictionInterval } from '../../engine/math/bootstrap.js';
 import { computeHierarchicalAdjustment } from '../../engine/stats.js';
+import { normalizeAccuracy, getMasterySignal } from '../retentionCore.js';
 import { compareEvaluationSummaries } from '../../engine/evaluation/coachEvaluator.js';
 import { deriveAdaptiveRiskThresholds } from '../coachAdaptive.js';
 import { calculateTimeWeightedEMA } from '../../engine/stats.js';
@@ -510,5 +511,95 @@ describe('Auditoria Matemática - Fixes Cirúrgicos Verificados', () => {
     const b2 = computeLegacyMcBoost(40, 20, 85); // Acima de danger=20 -> boost < 8
     expect(b1).toBeGreaterThan(8);
     expect(b2).toBeLessThan(8);
+  });
+
+  it('32. analyticsStats & stats: shrinkage e pooledSD permanecem invariantes entre escalas e limites heterogêneos', () => {
+    const buildStats = (scale) => generateAnalyticsStats({
+      categories: [
+        {
+          id: 'a',
+          name: 'Matéria A',
+          maxScore: scale,
+          minScore: 0,
+          simuladoStats: { history: [{ score: 0.4 * scale, date: '2026-01-01' }] }
+        },
+        {
+          id: 'b',
+          name: 'Matéria B',
+          maxScore: scale,
+          minScore: 0,
+          simuladoStats: {
+            history: [
+              { score: 0.6 * scale, date: '2026-01-01' },
+              { score: 0.8 * scale, date: '2026-01-05' },
+              { score: 0.9 * scale, date: '2026-01-10' },
+              { score: 0.7 * scale, date: '2026-01-12' }
+            ]
+          }
+        }
+      ],
+      debouncedWeights: { a: 1, b: 1 },
+      timeIndex: 0,
+      timelineDates: ['2026-01-12'],
+      minScore: 0,
+      maxScore: scale
+    });
+
+    const stats100 = buildStats(100);
+    const stats1000 = buildStats(1000);
+    expect(stats100.categoryStats[0].shrinkage).toBeCloseTo(stats1000.categoryStats[0].shrinkage, 6);
+    expect(stats100.categoryStats[0].bayesianMean).toBeCloseTo(stats1000.categoryStats[0].bayesianMean / 10, 6);
+
+    // Heterogeneous scales within the same contest (0..10 vs 0..100) + high minScore fallback
+    const mixedStats = generateAnalyticsStats({
+      categories: [
+        {
+          id: 'small',
+          name: 'Escala 0-10',
+          maxScore: 10,
+          minScore: 0,
+          simuladoStats: { history: [{ score: 6, date: '2026-01-01' }, { score: 8, date: '2026-01-05' }, { score: 10, date: '2026-01-10' }] }
+        },
+        {
+          id: 'std',
+          name: 'Escala 0-100',
+          maxScore: 100,
+          minScore: 0,
+          simuladoStats: { history: [{ score: 60, date: '2026-01-01' }, { score: 80, date: '2026-01-05' }, { score: 100, date: '2026-01-10' }] }
+        }
+      ],
+      debouncedWeights: { small: 1, std: 1 },
+      timeIndex: 0,
+      timelineDates: ['2026-01-10'],
+      minScore: 0,
+      maxScore: 100
+    });
+    expect(mixedStats.categoryStats[0].bayesianMean).toBeCloseTo(8, 2);
+    expect(mixedStats.categoryStats[1].bayesianMean).toBeCloseTo(80, 2);
+
+    const highMinAdjusted = computeHierarchicalAdjustment([
+      { key: 'a', mean: 125, sd: 5, n: 2, weight: 1, minScore: 120 },
+      { key: 'b', mean: 180, sd: 10, n: 6, weight: 1, minScore: 120, maxScore: 220 }
+    ], 10);
+    expect(Number.isFinite(highMinAdjusted[0].bayesianMean)).toBe(true);
+    expect(highMinAdjusted[0].bayesianSd).toBeGreaterThan(0);
+  });
+
+  it('33. retentionCore: normalizeAccuracy e getMasterySignal preservam decimais em escalas numéricas e respeitam minScore', () => {
+    expect(normalizeAccuracy(0.5, 10, 0)).toBeCloseTo(0.05, 6);
+    expect(normalizeAccuracy(0.5, 100, 0)).toBeCloseTo(0.005, 6);
+    expect(normalizeAccuracy(0.5, 100, 0, { isRatio: true })).toBeCloseTo(0.5, 6);
+
+    const decimalPts = getMasterySignal({ simuladoStats: { average: 0.5 }, maxScore: 10, minScore: 0 });
+    expect(decimalPts.accuracy).toBeCloseTo(0.05, 6);
+
+    const shiftedScale = getMasterySignal({ simuladoStats: { average: 60 }, maxScore: 100, minScore: 20 });
+    expect(shiftedScale.accuracy).toBeCloseTo(0.5, 6);
+
+    const legacyBayesian = getMasterySignal({ bayesianStats: { mean: 0.6 }, maxScore: 100, minScore: 0 });
+    expect(legacyBayesian.accuracy).toBeCloseTo(0.6, 6);
+
+    const explicitPointBayesian = getMasterySignal({ bayesianStats: { mean: 0.6, unit: 'points' }, maxScore: 10, minScore: 0 });
+    expect(explicitPointBayesian.accuracy).toBeCloseTo(0.06, 6);
   });
 });

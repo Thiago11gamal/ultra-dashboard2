@@ -616,6 +616,8 @@ const TaskItem = ({
 
 const CategoryAccordion = React.memo(({
     category,
+    contestMaxScore = 100,
+    contestMinScore = 0,
     onToggleTask,
     onUpdateTask,
     onTogglePriority,
@@ -783,8 +785,8 @@ const CategoryAccordion = React.memo(({
                             <PerformancePanel
                                 stats={category.simuladoStats || { history: [] }}
                                 color={catStyles.hex}
-                                maxScore={category.maxScore ?? 100}
-                                minScore={category.minScore ?? 0}
+                                maxScore={category.maxScore ?? contestMaxScore}
+                                minScore={category.minScore ?? contestMinScore}
                             />
                         </div>
                     )}
@@ -885,6 +887,10 @@ function Checklist({
     const [taskModalCatId, setTaskModalCatId] = useState(null);
     const [deleteCatModal, setDeleteCatModal] = useState(null); // { id, name }
     const [deleteTaskModal, setDeleteTaskModal] = useState(null); // { catId, task }
+
+    const activeContest = contests && activeId ? contests[activeId] : null;
+    const contestMaxScore = activeContest?.maxScore ?? activeContest?.user?.maxScore ?? 100;
+    const contestMinScore = activeContest?.minScore ?? activeContest?.user?.minScore ?? 0;
 
     useEffect(() => {
         if (isImportModalOpen && !importSourceContest && contests) {
@@ -1302,6 +1308,8 @@ return (
                                         <CategoryAccordion
                                             key={category.id || category.name || `category-${catIdx}`}
                                             category={category}
+                                            contestMaxScore={contestMaxScore}
+                                            contestMinScore={contestMinScore}
                                             onToggleTask={onToggleTask}
                                             onUpdateTask={handleUpdateTask}
                                             onDeleteTask={onDeleteTask}

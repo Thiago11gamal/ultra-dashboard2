@@ -94,16 +94,24 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             showToast(`Nota mínima ajustada para o limite máximo (${parsedMax}).`, 'warning');
         }
         const safeColor = normalizeHexColor(color, DEFAULT_CATEGORY_COLOR);
-        const preservedMinScore = Number.isFinite(Number(category.minScore))
-            ? Math.min(Number(category.minScore), Number(parsedMax.toFixed(2)) - 1)
-            : 0;
+        const roundedMax = Number(parsedMax.toFixed(2));
+        const hasExistingMinScore =
+            category.minScore !== null &&
+            category.minScore !== undefined &&
+            typeof category.minScore !== 'boolean' &&
+            String(category.minScore).trim() !== '' &&
+            Number.isFinite(Number(category.minScore));
+        const existingMinScore = hasExistingMinScore ? Number(category.minScore) : 0;
+        const preservedMinScore = existingMinScore < roundedMax
+            ? existingMinScore
+            : (roundedMax > 1 ? Number((roundedMax - 1).toFixed(2)) : 0);
 
         updateCategoryFields(category.id || category.name, {
             name: cleanName,
             color: safeColor,
             minCutoff: Number(safeMin.toFixed(2)),
             minScore: preservedMinScore,
-            maxScore: Number(parsedMax.toFixed(2))
+            maxScore: roundedMax
         });
 
         showToast('Disciplina atualizada com sucesso!', 'success');

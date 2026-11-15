@@ -6,6 +6,7 @@ import { markStorageDirty } from '../../utils/storageSafe.js';
 import { normalizePriority } from '../../utils/colorHelper.js';
 import { normalize } from '../../utils/normalization.js';
 import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
+import { matchesActiveSubjectTask } from '../../utils/pomodoroHelpers.js';
 
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
@@ -46,27 +47,14 @@ export const createTaskSlice = (set, get) => ({
                     task.status = null;
                 }
                 const activeSubject = state.appState.pomodoro?.activeSubject;
-                if (activeSubject) {
-                    const isMatchingActiveTask =
-                        (Boolean(activeSubject.taskId) && (
-                            (Boolean(taskId) && activeSubject.taskId === taskId) ||
-                            (Boolean(task.id) && activeSubject.taskId === task.id) ||
-                            (Boolean(task.text) && activeSubject.taskId === task.text) ||
-                            (Boolean(task.title) && activeSubject.taskId === task.title)
-                        )) ||
-                        (Boolean(activeSubject.task) && (
-                            (Boolean(task.title) && activeSubject.task === task.title) ||
-                            (Boolean(task.text) && activeSubject.task === task.text)
-                        ));
-                    if (isMatchingActiveTask) {
-                        state.appState.pomodoro.activeSubject = null;
-                        state.appState.pomodoro.isRunning = false;
-                        try {
-                            localStorage.removeItem('pomodoroState');
-                            localStorage.removeItem('pomodoro-endsAt');
-                        } catch {
-                            // ignore storage removal errors
-                        }
+                if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
+                    state.appState.pomodoro.activeSubject = null;
+                    state.appState.pomodoro.isRunning = false;
+                    try {
+                        localStorage.removeItem('pomodoroState');
+                        localStorage.removeItem('pomodoro-endsAt');
+                    } catch {
+                        // ignore storage removal errors
                     }
                 }
             } else {
@@ -270,17 +258,7 @@ export const createTaskSlice = (set, get) => ({
         }
 
         const activeSubject = state.appState.pomodoro?.activeSubject;
-            const isMatchingActiveTask = activeSubject && (
-                (Boolean(activeSubject.taskId) && (
-                    (Boolean(taskId) && activeSubject.taskId === taskId) ||
-                    (Boolean(currentTask.id) && activeSubject.taskId === currentTask.id)
-                )) ||
-                (Boolean(activeSubject.task) && (
-                    (Boolean(currentTask.title) && activeSubject.task === currentTask.title) ||
-                    (Boolean(currentTask.text) && activeSubject.task === currentTask.text)
-                ))
-            );
-            if (isMatchingActiveTask) {
+            if (activeSubject && matchesActiveSubjectTask(category, currentTask, activeSubject, taskId)) {
                 state.appState.pomodoro.activeSubject = {
                     ...activeSubject,
                     task: newTitle,
@@ -328,29 +306,14 @@ export const createTaskSlice = (set, get) => ({
                     }
                 }
                 const activeSubject = state.appState.pomodoro?.activeSubject;
-                if (activeSubject) {
-                    const isMatchingActiveTask =
-                        (Boolean(activeSubject.taskId) && (
-                            (Boolean(taskId) && activeSubject.taskId === taskId) ||
-                            (task && (
-                                (Boolean(task.id) && activeSubject.taskId === task.id) ||
-                                (Boolean(task.text) && activeSubject.taskId === task.text) ||
-                                (Boolean(task.title) && activeSubject.taskId === task.title)
-                            ))
-                        )) ||
-                        (Boolean(activeSubject.task) && task && (
-                            (Boolean(task.title) && activeSubject.task === task.title) ||
-                            (Boolean(task.text) && activeSubject.task === task.text)
-                        ));
-                    if (isMatchingActiveTask) {
-                        state.appState.pomodoro.activeSubject = null;
-                        state.appState.pomodoro.isRunning = false;
-                        try {
-                            localStorage.removeItem('pomodoroState');
-                            localStorage.removeItem('pomodoro-endsAt');
-                        } catch {
-                            // ignore storage removal errors
-                        }
+                if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
+                    state.appState.pomodoro.activeSubject = null;
+                    state.appState.pomodoro.isRunning = false;
+                    try {
+                        localStorage.removeItem('pomodoroState');
+                        localStorage.removeItem('pomodoro-endsAt');
+                    } catch {
+                        // ignore storage removal errors
                     }
                 }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
@@ -417,17 +380,7 @@ export const createTaskSlice = (set, get) => ({
                 tasks[taskIndex] = task;
 
                 const activeSubject = state.appState.pomodoro?.activeSubject;
-                    const isMatchingActiveTask = activeSubject && (
-                        (Boolean(activeSubject.taskId) && (
-                            (Boolean(taskId) && activeSubject.taskId === taskId) ||
-                            (Boolean(task.id) && activeSubject.taskId === task.id)
-                        )) ||
-                        (Boolean(activeSubject.task) && (
-                            (Boolean(task.title) && activeSubject.task === task.title) ||
-                            (Boolean(task.text) && activeSubject.task === task.text)
-                        ))
-                    );
-                    if (isMatchingActiveTask) {
+                    if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
                         state.appState.pomodoro.activeSubject = {
                             ...activeSubject,
                             priority: newPriority

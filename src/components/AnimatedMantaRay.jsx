@@ -58,6 +58,22 @@ export default function AnimatedMantaRay({
             setBodyPath(restPath);
             if (leftWakeRef.current) leftWakeRef.current.setAttribute('d', '');
             if (rightWakeRef.current) rightWakeRef.current.setAttribute('d', '');
+            if (gradRef.current) {
+                gradRef.current.setAttribute('y1', '12%');
+                gradRef.current.setAttribute('x2', '84%');
+            }
+            if (shadowRef.current) {
+                shadowRef.current.setAttribute('transform', 'translate(268 292) rotate(-31)');
+                shadowRef.current.setAttribute('opacity', '0.32');
+            }
+            for (let i = 0; i < FLOW_MOTES.length; i++) {
+                const el = moteRefs.current[i];
+                if (!el) continue;
+                const m = FLOW_MOTES[i];
+                el.setAttribute('cx', String(m.startX));
+                el.setAttribute('cy', String(m.startY));
+                el.setAttribute('opacity', '0');
+            }
         };
 
         const step = (timestamp) => {

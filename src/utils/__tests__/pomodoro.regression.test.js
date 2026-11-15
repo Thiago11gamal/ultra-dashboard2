@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPomodoroSlice } from '../../store/slices/createPomodoroSlice';
+import { createTaskSlice } from '../../store/slices/createTaskSlice';
 import { formatTime, calculateETA, SPEED_OPTIONS, MAX_TARGET_CYCLES } from '../pomodoroHelpers';
 import { calculateStudyStreak, countPomodorosToday } from '../analytics';
 
@@ -542,6 +543,112 @@ describe('Pomodoro Optimizations & Bug Fixes - calculateETA, Keyboard Isolation,
     const elapsedSec = Math.max(0, totalWorkSeconds - remainingSeconds - flushedSeconds);
     const studiedMinutes = Number((elapsedSec / 60).toFixed(2));
     expect(studiedMinutes).toBe(20);
+  });
+});
+
+describe('Pomodoro Cross-Category Guard & Neural Queue Task Status Sync', () => {
+  it('createTaskSlice não confunde tarefa ativa do Pomodoro em outra categoria pelo mesmo título/id', () => {
+    const state = {
+      appState: {
+        activeId: 'c1',
+        version: 1,
+        pomodoro: {
+          isRunning: true,
+          activeSubject: {
+            categoryId: 'cat-const',
+            category: 'Constitucional',
+            taskId: 'shared-task',
+            task: 'Revisão Geral'
+          }
+        },
+        contests: {
+          c1: {
+            categories: [
+              {
+                id: 'cat-const',
+                name: 'Constitucional',
+                tasks: [{ id: 'shared-task', text: 'Revisão Geral', completed: false, status: 'studying', priority: 'high' }]
+              },
+              {
+                id: 'cat-penal',
+                name: 'Penal',
+                tasks: [{ id: 'shared-task', text: 'Revisão Geral', completed: false, status: 'pending', priority: 'low' }]
+              }
+            ]
+          }
+        }
+      }
+    };
+    const set = (updater) => (typeof updater === 'function' ? updater(state) : Object.assign(state, updater));
+    const slice = createTaskSlice(set, () => state);
+
+    // Operating on cat-penal's task with same id/title must NOT alter Pomodoro activeSubject
+    slice.togglePriority('cat-penal', 'shared-task');
+    expect(state.appState.pomodoro.activeSubject.priority).not.toBe('medium');
+
+    slice.updateTask('cat-penal', 'shared-task', { text: 'Revisão Penal Atualizada' });
+    expect(state.appState.pomodoro.activeSubject.task).toBe('Revisão Geral');
+    expect(state.appState.pomodoro.isRunning).toBe(true);
+
+    slice.toggleTask('cat-penal', 'shared-task');
+    expect(state.appState.pomodoro.activeSubject).not.toBeNull();
+    expect(state.appState.pomodoro.isRunning).toBe(true);
+
+    slice.deleteTask('cat-penal', 'shared-task');
+    expect(state.appState.pomodoro.activeSubject).not.toBeNull();
+    expect(state.appState.pomodoro.isRunning).toBe(true);
+  });
+
+  it('startNeuralSession e advanceNeuralQueue sincronizam e limpam task.status === "studying" sem colisão entre categorias', () => {
+    const state = {
+      appState: {
+        activeId: 'c1',
+        contests: {
+          c1: {
+            categories: [
+              {
+                id: 'cat-1',
+                name: 'Dir. Constitucional',
+                tasks: [
+                  { id: 't1', title: 'Controle', status: 'pending', completed: false },
+                  { id: 't2', title: 'Direitos', status: 'pending', completed: false }
+                ]
+              },
+              {
+                id: 'cat-2',
+                name: 'Dir. Penal',
+                tasks: [
+                  { id: 't1', title: 'Controle', status: 'pending', completed: false }
+                ]
+              }
+            ]
+          }
+        },
+        pomodoro: { isRunning: false, neuralMode: false, neuralQueue: [] }
+      }
+    };
+    const set = (updater) => (typeof updater === 'function' ? updater(state) : Object.assign(state, updater));
+    const slice = createPomodoroSlice(set, () => state);
+
+    slice.startNeuralSession([
+      { id: 't1', title: 'Controle', categoryId: 'cat-1', category: 'Dir. Constitucional' },
+      { id: 't2', title: 'Direitos', categoryId: 'cat-1', category: 'Dir. Constitucional' }
+    ], 0);
+
+    expect(state.appState.contests.c1.categories[0].tasks[0].status).toBe('studying');
+    expect(state.appState.contests.c1.categories[0].tasks[1].status).toBe('pending');
+    expect(state.appState.contests.c1.categories[1].tasks[0].status).toBe('pending');
+
+    const hasNext = slice.advanceNeuralQueue();
+    expect(hasNext).toBe(true);
+    expect(state.appState.contests.c1.categories[0].tasks[0].status).toBeNull();
+    expect(state.appState.contests.c1.categories[0].tasks[1].status).toBe('studying');
+
+    // Finishing the neural queue clears 'studying' status cleanly
+    const finished = slice.advanceNeuralQueue();
+    expect(finished).toBe(false);
+    expect(state.appState.contests.c1.categories[0].tasks[1].status).toBeNull();
+    expect(state.appState.contests.c1.categories[1].tasks[0].status).toBe('pending');
   });
 });
 

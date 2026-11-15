@@ -17,7 +17,7 @@ import {
 import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
-import { calculateETA, findSubjectTaskInContest, clearStudyingStatusInContest } from '../utils/pomodoroHelpers';
+import { calculateETA, findSubjectTaskInContest, clearStudyingStatusInContest, isActiveSubjectInCategory, matchesSubjectTask } from '../utils/pomodoroHelpers';
 import { hexToRgba, normalizePriority } from '../utils/colorHelper';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
@@ -427,7 +427,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
         const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
         const totalMinutes = currentCategory?.totalMinutes || 0;
         const remaining = Math.max(total - completed, 0);
-        const currentTask = categoryTasks.find(t => (t.id || t.text) === activeSubject.taskId);
+        const currentTask = categoryTasks.find(t => matchesSubjectTask(t, activeSubject));
         const isCurrentCompleted = currentTask?.completed || false;
         const gainIfComplete = (total > 0 && !isCurrentCompleted) ? Number((100 / total).toFixed(1)) : 0;
         const quality = completionPct >= 80 ? 'Maestria' : completionPct >= 40 ? 'Evolução' : 'Fase Inicial';
@@ -1476,16 +1476,6 @@ export default function Pomodoro() {
         const taskId = task?.id || task?.text || task?.title;
         if (!taskId) return;
 
-        if (activeSubject && String(activeSubject.taskId) === String(taskId)) {
-            showToast('Esta meta já está em foco! 🎯', 'info');
-            return;
-        }
-
-        const prevSubject = activeSubject || pomodoroState.activeSubject;
-        if (prevSubject) {
-            setData(prev => clearStudyingStatusInContest(prev, prevSubject));
-        }
-
         let catId = task.catId || task.categoryId;
         let catName = task.catName || task.category;
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -1493,6 +1483,7 @@ export default function Pomodoro() {
             const foundCat = safeCats.find(c => {
                 if (!c) return false;
                 if (catId && c.id === catId) return true;
+                if (catName && c.name === catName) return true;
                 const tasks = Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {});
                 return tasks.some(t => t && (String(t?.id) === String(taskId) || String(t?.text) === String(taskId) || String(t?.title) === String(taskId)));
             });
@@ -1504,6 +1495,20 @@ export default function Pomodoro() {
 
         catId = catId || 'geral';
         catName = catName || 'Geral';
+
+        if (
+            activeSubject &&
+            String(activeSubject.taskId) === String(taskId) &&
+            isActiveSubjectInCategory({ id: catId, name: catName }, activeSubject)
+        ) {
+            showToast('Esta meta já está em foco! 🎯', 'info');
+            return;
+        }
+
+        const prevSubject = activeSubject || pomodoroState.activeSubject;
+        if (prevSubject) {
+            setData(prev => clearStudyingStatusInContest(prev, prevSubject));
+        }
 
         if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
             const highPriority = [];

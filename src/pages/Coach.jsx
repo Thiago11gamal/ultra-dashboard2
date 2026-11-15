@@ -1105,7 +1105,7 @@ export function RaioXDashboard({ data }) {
                 if (h.batchId) seenBatches.add(String(h.batchId));
                 if (h.id) seenIds.add(String(h.id));
                 if (dStr) priorSourceDates.add(dStr);
-                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `d_${dStr || idx}_${h.score ?? idx}`);
+                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `hist_${dStr || 'nodate'}_${idx}`);
                 catAttempts.add(dKey);
             });
 
@@ -1125,7 +1125,7 @@ export function RaioXDashboard({ data }) {
                     if (dStr) sourceDates.add(dStr);
                     const dKey = entry.batchId
                         ? `b_${entry.batchId}`
-                        : (entry.id ? `id_${entry.id}` : `${keyPrefix}_${dStr || idx}_${entry.score ?? idx}`);
+                        : (entry.id ? `id_${entry.id}` : `${keyPrefix}_${dStr || 'nodate'}_${idx}`);
                     catAttempts.add(dKey);
                 });
                 sourceDates.forEach(d => priorSourceDates.add(d));
@@ -1265,14 +1265,16 @@ export function RaioXDashboard({ data }) {
     }, [calibrationSummary]);
 
     const categoriesInFormation = useMemo(() => {
-        return categorySimCounts.filter(item => {
-            const safeId = getSafeCategoryKey(item.id);
-            const isCalibrated = calibratedCategoryKeys.has(String(item.id)) ||
-                (safeId && calibratedCategoryKeys.has(safeId)) ||
-                calibratedCategoryKeys.has(item.name) ||
-                calibratedCategoryKeys.has(normalize(item.name));
-            return item.count < item.target || !isCalibrated;
-        });
+        return categorySimCounts
+            .map(item => {
+                const safeId = getSafeCategoryKey(item.id);
+                const isCalibrated = calibratedCategoryKeys.has(String(item.id)) ||
+                    (safeId && calibratedCategoryKeys.has(safeId)) ||
+                    calibratedCategoryKeys.has(item.name) ||
+                    calibratedCategoryKeys.has(normalize(item.name));
+                return { ...item, isCalibrated };
+            })
+            .filter(item => item.count < item.target || !item.isCalibrated);
     }, [categorySimCounts, calibratedCategoryKeys]);
 
     const toPercentLabel = (value) => {
@@ -1504,7 +1506,9 @@ export function RaioXDashboard({ data }) {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                                 <h4 className="text-[10.5px] font-black text-indigo-300 uppercase tracking-widest flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                                    Amostra em formação (n &lt; 8)
+                                    {categoriesInFormation.some(c => (Number(c.count) || 0) < (Number(c.target) || 8))
+                                        ? 'Amostra em formação (n < 8)'
+                                        : 'Calibração estocástica pendente'}
                                 </h4>
                                 <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
                                     Requer 8 simulados por disciplina para calibração estocástica
@@ -1527,7 +1531,7 @@ export function RaioXDashboard({ data }) {
                                                 <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                                             </div>
                                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-right">
-                                                {missing > 0 ? `Faltam ${missing} simulados` : 'Calibrado'}
+                                                {missing > 0 ? `Faltam ${missing} simulados` : (item.isCalibrated ? 'Calibrado' : 'Aguardando calibração')}
                                             </span>
                                         </div>
                                     );
@@ -1562,7 +1566,7 @@ export function RaioXDashboard({ data }) {
                                             <div className="h-full bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
                                         </div>
                                         <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider text-right">
-                                            {missing > 0 ? `Faltam ${missing} simulados` : 'Calibrado'}
+                                            {missing > 0 ? `Faltam ${missing} simulados` : 'Aguardando calibração'}
                                         </span>
                                     </div>
                                 );

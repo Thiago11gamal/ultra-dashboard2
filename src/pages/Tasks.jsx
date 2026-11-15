@@ -188,7 +188,7 @@ export default function Tasks() {
                 <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                   Tarefas & Performance
                 </h1>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 hidden sm:inline-flex shadow-sm">
+                <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                   Edital Analytics
                 </span>

@@ -1010,6 +1010,27 @@ function PomodoroTimer({
         savePomodoroStateRef.current = savePomodoroState;
     }, [savePomodoroState]);
 
+    const safeSettingsRef = useRef(safeSettings);
+    const safeOnUpdateStudyTimeRef = useRef(safeOnUpdateStudyTime);
+    const onSessionCompleteRef = useRef(onSessionComplete);
+    const setPomodoroRunningRef = useRef(setPomodoroRunning);
+
+    useEffect(() => {
+        safeSettingsRef.current = safeSettings;
+    }, [safeSettings]);
+
+    useEffect(() => {
+        safeOnUpdateStudyTimeRef.current = safeOnUpdateStudyTime;
+    }, [safeOnUpdateStudyTime]);
+
+    useEffect(() => {
+        onSessionCompleteRef.current = onSessionComplete;
+    }, [onSessionComplete]);
+
+    useEffect(() => {
+        setPomodoroRunningRef.current = setPomodoroRunning;
+    }, [setPomodoroRunning]);
+
     useEffect(() => {
         return () => {
             if (handoffRef.current) {
@@ -1029,21 +1050,21 @@ function PomodoroTimer({
                 : Number(timeRef.current ?? stateRefs.current.timeLeft);
 
             if (stateRefs.current.mode === 'work') {
-                const totalWorkSeconds = ((safeSettings.pomodoroWork || 25) * 60) + (addedSecondsInPhaseRef.current || 0);
+                const totalWorkSeconds = ((safeSettingsRef.current.pomodoroWork || 25) * 60) + (addedSecondsInPhaseRef.current || 0);
                 const totalElapsedSec = Math.max(0, totalWorkSeconds - liveRemaining);
                 const unflushedSec = Math.max(0, totalElapsedSec - (flushedSecondsInPhaseRef.current || 0));
                 const elapsedMins = Number((unflushedSec / 60).toFixed(2));
                 if (elapsedMins >= 0.25) {
                     hasFlushedRef.current = true;
                     flushedSecondsInPhaseRef.current = (flushedSecondsInPhaseRef.current || 0) + (elapsedMins * 60);
-                    safeOnUpdateStudyTime(
+                    safeOnUpdateStudyTimeRef.current?.(
                         currentSub.categoryId,
                         elapsedMins,
                         currentSub.taskId,
                         currentSub.task || currentSub.title || currentSub.name || ''
                     );
-                    if (typeof onSessionComplete === 'function') {
-                        onSessionComplete();
+                    if (typeof onSessionCompleteRef.current === 'function') {
+                        onSessionCompleteRef.current();
                     }
                 }
             }
@@ -1056,18 +1077,18 @@ function PomodoroTimer({
             );
 
             if (isStillSameSession) {
-                savePomodoroState({
+                savePomodoroStateRef.current?.({
                     isRunning: false,
                     timeLeft: liveRemaining,
                     flushedSeconds: flushedSecondsInPhaseRef.current || 0,
                     addedSeconds: addedSecondsInPhaseRef.current || 0
                 });
-                setPomodoroRunning(false);
+                setPomodoroRunningRef.current?.(false);
                 endsAtRef.current = null;
                 try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
             }
         };
-    }, [savePomodoroState, safeSettings, safeOnUpdateStudyTime, onSessionComplete, setPomodoroRunning]);
+    }, []);
 
     useEffect(() => {
         const handleBeforeUnload = () => {

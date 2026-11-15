@@ -1157,8 +1157,9 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
 
     const getCatBounds = (c) => {
         const cMin = Number.isFinite(Number(c?.minScore)) ? Number(c.minScore) : 0;
-        const cMax = Number.isFinite(Number(c?.maxScore)) && Number(c.maxScore) > cMin ? Number(c.maxScore) : 100;
-        return { cMin, cRange: cMax - cMin };
+        const rawMax = Number(c?.maxScore);
+        const cMax = Number.isFinite(rawMax) && rawMax > cMin ? rawMax : Math.max(cMin + 1, 100);
+        return { cMin, cRange: Math.max(1e-9, cMax - cMin) };
     };
 
     const normMeans = validCategories.map(c => {

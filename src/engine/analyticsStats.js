@@ -403,7 +403,10 @@ export function generateAnalyticsStats({
                     weight
                 });
 
-                bayesianStats.push({ sd: baye.sd, weight, n: history.length });
+                const catScaledBayesSD = globalDomain > 0 && catDomain > 0
+                    ? (Number(baye.sd || 0) / catDomain) * globalDomain
+                    : Number(baye.sd || 0);
+                bayesianStats.push({ sd: catScaledBayesSD, weight, n: history.length });
             }
         }
     });
@@ -428,15 +431,25 @@ export function generateAnalyticsStats({
         safeMinScore
     );
 
+    const scaleCategorySd = (cat, targetDomain) => {
+        const rawSD = Number(cat.sd ?? cat.volatility ?? 0);
+        if (!Number.isFinite(rawSD) || rawSD < 0) return 0;
+        const cMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMinScore;
+        const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMaxScore;
+        const cRange = Math.max(1e-6, cMax - cMin);
+        return (rawSD / cRange) * targetDomain;
+    };
+
     const pooledVariance = computeWeightedVariance(
-        categoryStats.map(cat => ({ sd: cat.sd ?? cat.volatility, weight: cat.weight })),
+        categoryStats.map(cat => ({ sd: scaleCategorySd(cat, globalDomain), weight: cat.weight })),
         totalWeight,
         estimatedRho
     );
 
     const pooledSD = totalWeight > 0 ? Math.sqrt(Math.max(0, pooledVariance)) : 0;
+    const normPooledSD = globalDomain > 0 ? (pooledSD / globalDomain) * 100 : pooledSD;
 
-    categoryStats = computeHierarchicalAdjustment(categoryStats, pooledSD);
+    categoryStats = computeHierarchicalAdjustment(categoryStats, normPooledSD);
 
     // FIX: média bayesiana global em proporção, mapeada para o domínio global
     // respeitando minScore. Sem dados, assume o ponto médio (não zero).

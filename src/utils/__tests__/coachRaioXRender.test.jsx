@@ -375,5 +375,81 @@ describe('RaioXDashboard (Raio-X Técnico no Coach)', () => {
         // Count must be 1, not 2
         expect(html).toContain('1 auditoria(s) registrada(s)');
     });
+
+    it('11. Preserves distinct same-day same-score entries in catStatsHistory without collapsing count', () => {
+        const mockSameDayData = {
+            categories: [
+                {
+                    id: 'cat-const',
+                    name: 'Direito Constitucional',
+                    simuladoStats: {
+                        history: [
+                            { date: '2026-10-01', score: 75 },
+                            { date: '2026-10-01', score: 75 }
+                        ]
+                    }
+                }
+            ]
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockSameDayData} />);
+        expect(html).toContain('2/8');
+        expect(html).toContain('Faltam 6 simulados');
+    });
+
+    it('12. Shows Aguardando calibração when n >= 8 but stochastic calibration metrics are not yet calibrated', () => {
+        const mockPendingOnlyData = {
+            categories: [
+                {
+                    id: 'cat-adm',
+                    name: 'Direito Administrativo',
+                    simuladoStats: {
+                        history: Array.from({ length: 8 }, (_, i) => ({
+                            date: `2026-10-${String(i + 1).padStart(2, '0')}`,
+                            score: 75
+                        }))
+                    }
+                }
+            ],
+            calibrationHistoryByCategory: {
+                'cat-adm': [
+                    { timestamp: 1700000000000, avgBrier: null, ece: null, calibrationPenalty: 0, probability: 0.65 }
+                ]
+            }
+        };
+
+        const emptySummaryHtml = renderToStaticMarkup(<RaioXDashboard data={mockPendingOnlyData} />);
+        expect(emptySummaryHtml).toContain('Aguardando calibração');
+        expect(emptySummaryHtml).not.toContain('>Calibrado<');
+
+        const mockMixedPendingData = {
+            categories: [
+                mockPendingOnlyData.categories[0],
+                {
+                    id: 'cat-pen',
+                    name: 'Direito Penal',
+                    simuladoStats: {
+                        history: Array.from({ length: 8 }, (_, i) => ({
+                            date: `2026-10-${String(i + 1).padStart(2, '0')}`,
+                            score: 80
+                        }))
+                    }
+                }
+            ],
+            calibrationHistoryByCategory: {
+                'cat-adm': [
+                    { timestamp: 1700000000000, avgBrier: null, ece: null, calibrationPenalty: 0, probability: 0.65 }
+                ],
+                'cat-pen': [
+                    { timestamp: 1700000000000, categoryName: 'Direito Penal', avgBrier: 0.14, ece: 0.04, calibrationPenalty: 0, probability: 0.78 }
+                ]
+            }
+        };
+
+        const mixedHtml = renderToStaticMarkup(<RaioXDashboard data={mockMixedPendingData} />);
+        expect(mixedHtml).toContain('Aguardando calibração');
+        expect(mixedHtml).toContain('Calibração estocástica pendente');
+        expect(mixedHtml).not.toContain('>Calibrado<');
+    });
 });
 

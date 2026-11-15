@@ -43,7 +43,7 @@ const SubtopicsTable = ({ categories = [], maxScore = 100, minScore = 0 }) => {
             ).join(';');
             return `${item?.date || item?.createdAt || ''}:${item?.score ?? ''}:${item?.correct ?? ''}:${item?.total ?? ''}:[${topicsPart}]`;
         }).join('|');
-        return `${c.id || c.name}:${c.name || ''}:${c.color || ''}:${c.icon || ''}:${c.maxScore ?? ''}:${c.minScore ?? ''}:${tasksHash}:${scoresHash}`;
+        return `${c.id ?? c.name}:${c.name || ''}:${c.color || ''}:${c.icon || ''}:${c.maxScore ?? ''}:${c.minScore ?? ''}:${tasksHash}:${scoresHash}`;
     }).join('||');
 }, [stableCategories]);
 
@@ -58,7 +58,7 @@ const subtopics = useMemo(() => {
             maxScore,
             minScore
         );
-        const catId = cat.id || cat.name || 'default';
+        const catId = String(cat.id ?? cat.name ?? 'default');
 
         const tasks = cat.tasks || [];
         tasks.forEach(tsk => {
@@ -177,7 +177,7 @@ const subtopics = useMemo(() => {
 // Opções de disciplinas para o filtro
 const categoryOptions = useMemo(() => {
     return stableCategories.map(c => ({
-        id: c.id || c.name,
+        id: String(c.id ?? c.name),
         name: c.name || 'Sem Nome'
     }));
 }, [stableCategories]);
@@ -403,11 +403,13 @@ return (
                                                     {item.name}
                                                 </span>
                                                 {item.completed && (
-                                                    <CheckCircle2
-                                                        size={13}
-                                                        className="text-emerald-400 flex-shrink-0"
-                                                        title="Tópico concluído no edital"
-                                                    />
+                                                    <span title="Tópico concluído no edital" className="inline-flex flex-shrink-0">
+                                                        <CheckCircle2
+                                                            size={13}
+                                                            className="text-emerald-400"
+                                                            aria-hidden="true"
+                                                        />
+                                                    </span>
                                                 )}
                                             </div>
                                             <span className="text-[10px] text-slate-500 font-medium tracking-tight truncate mt-0.5 max-w-[250px]" style={{ color: item.categoryColor || '#cbd5e1' }}>

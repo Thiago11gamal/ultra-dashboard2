@@ -41,10 +41,14 @@ const formatDateTime = (r) => {
   });
 };
 
+const isAiSimuladoRow = (r) =>
+  r?.source === 'ai-generated' ||
+  (Boolean(r?.batchId) && r?.source !== 'manual' && !String(r?.id || '').startsWith('manual'));
+
 const getSimuladoSource = (rows) => {
   if (!rows || rows.length === 0) return null;
-  const hasAI = rows.some(r => r.source === 'ai-generated' || (r.batchId && r.source !== 'manual'));
-  const hasManual = rows.some(r => r.source === 'manual' || (!r.batchId && r.source !== 'ai-generated'));
+  const hasAI = rows.some(r => isAiSimuladoRow(r));
+  const hasManual = rows.some(r => r?.source === 'manual' || !isAiSimuladoRow(r));
   if (hasAI && hasManual) return 'mixed';
   if (hasAI) return 'ai';
   return 'manual';
@@ -359,7 +363,7 @@ export default function Simulados() {
       resultRows = simuladoRowsArray.filter((r) => {
         if (!r || typeof r !== 'object') return false;
         // Para manual, queremos agrupar todos do dia excluindo linhas de IA
-        const isAi = r?.source === 'ai-generated' || (r?.batchId && r?.source !== 'manual' && !String(r?.id || '').startsWith('manual'));
+        const isAi = isAiSimuladoRow(r);
         const isManual = !isAi && (
           r?.source === 'manual' ||
           r?.isAuto === false ||
@@ -508,12 +512,15 @@ export default function Simulados() {
 
           const topicsMap = {};
           todayRows.forEach((r) => {
-            const tName = String(r.topic || '').trim();
+            const tName = String(r.topic || '').trim() || 'Geral';
+            const rowTaskId = r.taskId || r.topicId || null;
             if (!topicsMap[tName]) {
               topicsMap[tName] = {
                 correct: 0, total: 0, difficulty: [], timeSpent: 0, timedQuestoes: 0,
-                taskId: r.taskId || r.topicId || null
+                taskId: rowTaskId
               };
+            } else if (!topicsMap[tName].taskId && rowTaskId) {
+              topicsMap[tName].taskId = rowTaskId;
             }
             topicsMap[tName].correct += Number(r.correct) || 0;
             topicsMap[tName].total += Number(r.total) || 0;
