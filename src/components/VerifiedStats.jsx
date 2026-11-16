@@ -572,7 +572,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             clearTimeout(timer);
             clearTimeout(safetyTimer);
         };
-    }, [targetScore, setUserData, storeTarget, normalizeTargetToScale]);
+    }, [targetScore, setUserData, storeTarget, normalizeTargetToScale, minScore, maxScore]);
 
     const baseHistoryStats = useMemo(() => {
         let allHistory = [];

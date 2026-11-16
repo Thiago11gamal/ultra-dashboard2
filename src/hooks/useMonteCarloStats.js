@@ -930,6 +930,7 @@ export function useMonteCarloStats({
     projectDays,
     effectiveSimulateToday,
     safeCategories,
+    debouncedWeights,
     statsDataFingerprint,
     statsData?.estimatedRho,
     timeIndex,
