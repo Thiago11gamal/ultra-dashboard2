@@ -58,6 +58,20 @@ const sanitizeCategory = (cat) => {
     const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
     const rawWeight = Number(cat.weight);
     const weight = Number.isFinite(rawWeight) && rawWeight > 0 ? rawWeight : 10;
+    const hasExplicitMinCutoff =
+        cat.minCutoff !== undefined &&
+        cat.minCutoff !== null &&
+        typeof cat.minCutoff !== 'boolean' &&
+        String(cat.minCutoff).trim() !== '' &&
+        Number.isFinite(Number(cat.minCutoff));
+
+    const sanitizeAwardedXP = (val) => {
+        if (typeof val === 'number' && Number.isFinite(val)) return val;
+        if (typeof val === 'string' && val.trim() !== '' && Number.isFinite(Number(val))) return Number(val);
+        if (typeof val === 'boolean') return val;
+        return undefined;
+    };
+    const catAwardedXP = sanitizeAwardedXP(cat.awardedXP);
 
     return {
         ...cat,
@@ -65,12 +79,12 @@ const sanitizeCategory = (cat) => {
         name: sanitizedName.substring(0, 100), // ✅ 100 chars, não 50
         maxScore,
         weight,
-        minCutoff: Number.isFinite(Number(cat.minCutoff)) ? Number(cat.minCutoff) : 0,
+        minCutoff: hasExplicitMinCutoff ? Number(cat.minCutoff) : null,
         // PRESERVE: Mantemos propriedades inerentes através do spread acima
         priority: cat.priority || 'medium',
         completedAt: cat.completedAt || null,
         lastStudiedAt: cat.lastStudiedAt || null,
-        awardedXP: !!cat.awardedXP,
+        ...(catAwardedXP !== undefined ? { awardedXP: catAwardedXP } : { awardedXP: undefined }),
         status: cat.status || 'active',
         totalMinutes: Math.max(0, Number(cat.totalMinutes) || 0),
         simuladoStats: cat.simuladoStats && typeof cat.simuladoStats === 'object'
@@ -80,6 +94,7 @@ const sanitizeCategory = (cat) => {
             if (!t || typeof t !== 'object') return null;
             const taskText = DOMPurify.sanitize(String(t.text || "")).trim();
             const taskTitle = DOMPurify.sanitize(String(t.title || t.text || "")).trim();
+            const taskAwardedXP = sanitizeAwardedXP(t.awardedXP);
             return {
                 ...t,
                 id: String(t.id || generateId('task')),
@@ -90,7 +105,7 @@ const sanitizeCategory = (cat) => {
                 priority: t.priority || 'medium',
                 completedAt: t.completedAt || null,
                 lastStudiedAt: t.lastStudiedAt || null,
-                awardedXP: !!t.awardedXP
+                ...(taskAwardedXP !== undefined ? { awardedXP: taskAwardedXP } : { awardedXP: undefined })
             };
         }).filter(Boolean) : []
     };

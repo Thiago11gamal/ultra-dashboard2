@@ -105,12 +105,15 @@ export function parseGoalDateUnified(value) {
       if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
         return trimmed;
       }
-      // YY-MM-DD → previne regressão para ano 1900
+      // YY-MM-DD ou DD-MM-YY → alinhado com normalizeDate (p0 > 31 => YY-MM-DD, caso contrário DD-MM-YY)
       if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
         const parts = trimmed.split('-');
-        const year = parseInt(parts[0], 10);
-        const fullYear = year < 100 ? 2000 + year : year;
-        return `${fullYear}-${parts[1]}-${parts[2]}`;
+        const p0 = parseInt(parts[0], 10);
+        const p2 = parseInt(parts[2], 10);
+        if (p0 > 31) {
+          return `${2000 + p0}-${parts[1]}-${parts[2]}`;
+        }
+        return `${2000 + p2}-${parts[1]}-${parts[0]}`;
       }
     }
 
@@ -142,17 +145,15 @@ export function parseGoalDateUnified(value) {
     const dt = normalizeDate(date);
     if (!dt || Number.isNaN(dt.getTime())) return null;
 
-    // BUG: a função mutava a data original recebida.
-    const safeDate = new Date(dt.getTime());
+    // Ancorar ao calendário de Manaus (UTC-4) para evitar drift de semana entre fusos horários
+    const manausDate = new Date(dt.getTime() - (4 * 3600000));
+    const dayOfWeek = manausDate.getUTCDay();
+    const diff = manausDate.getUTCDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    manausDate.setUTCDate(diff);
 
-    const dayOfWeek = dt.getDay();
-    const diff = safeDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    safeDate.setDate(diff);
-    safeDate.setHours(12, 0, 0, 0);
-
-    const y = safeDate.getFullYear();
-    const m = String(safeDate.getMonth() + 1).padStart(2, '0');
-    const d = String(safeDate.getDate()).padStart(2, '0');
+    const y = manausDate.getUTCFullYear();
+    const m = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(manausDate.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   };
 
@@ -265,6 +266,12 @@ export function parseGoalDateUnified(value) {
 
   export const toDateMs = (value) => {
     if (!value) return Number.NaN;
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) return Number.NaN;
+      if (value > 1e14) return Math.floor(value / 1000);
+      if (value >= 100_000_000_000) return value;
+      return value * 1000;
+    }
     if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
       const secs = value.seconds != null ? value.seconds : value._seconds;
       return Number(secs) * 1000;

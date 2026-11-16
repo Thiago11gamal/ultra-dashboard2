@@ -1729,7 +1729,7 @@ function useMonteCarloHistoryRecorder({
             trendType: trendType || 'linear',
             effectiveDrift: Number((effectiveDrift || 0).toFixed(4)),
             calibrationBrier: (calibrationSummary && calibrationSummary.avgBrier !== null && calibrationSummary.avgBrier !== undefined && Number.isFinite(Number(calibrationSummary.avgBrier)))
-              ? Number(calibrationSummary.avgBrier).toFixed(4)
+              ? Number(Number(calibrationSummary.avgBrier).toFixed(4))
               : null,
             modelHealth: Number((modelHealth || 0.5).toFixed(3)),
             modelWeight: Number((modelWeight || 0.25).toFixed(3))

@@ -441,7 +441,18 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     score = safeMin + (Math.max(0, Math.min(100, Number(row.scorePct))) / 100) * range;
   } else if (row.score != null) {
     score = parseNum(row.score);
-    const isPct = Boolean(row.isPercentage || row.unit === 'pct' || row.unit === 'percentage' || row.scoreUnit === 'pct');
+    let isPct = Boolean(row.isPercentage || row.unit === 'pct' || row.unit === 'percentage' || row.scoreUnit === 'pct');
+    // Compatibilidade com linhas manuais legadas gravadas pelo SimuladoAnalysis em [0..100] sem flag isPercentage
+    if (!isPct && Number.isFinite(score) && row.source === 'manual' && row.scoreUnit !== 'points' && row.isPercentage === undefined && row.unit == null) {
+      const total = Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions);
+      const correct = Number(row.correct ?? row.acertos ?? row.correctCount);
+      if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
+        const expectedPct = Math.min(100, (Math.max(0, Math.min(total, correct)) / total) * 100);
+        if (Math.abs(score - expectedPct) <= 0.1) {
+          isPct = true;
+        }
+      }
+    }
     if (isPct && Number.isFinite(score)) {
       score = safeMin + (Math.max(0, Math.min(100, score)) / 100) * range;
     }

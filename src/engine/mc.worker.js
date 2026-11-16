@@ -156,21 +156,21 @@ self.onmessage = function (e) {
                         }) : [],
                         dates: Array.isArray(input.dates) ? input.dates.map(d => d == null ? '' : String(d)) : [],
                         meta: safeNum(input.meta, 0),
-                        targetScore: input.targetScore !== undefined ? safeNum(input.targetScore, 0) : undefined,
+                        targetScore: input.targetScore != null ? safeNum(input.targetScore, 0) : undefined,
                         simulations: safeNum(input.simulations, 5000),
                         projectionDays: safeNum(input.projectionDays, 90),
-                        forcedVolatility: input.forcedVolatility !== undefined ? safeNum(input.forcedVolatility, 0) : undefined,
-                        forcedBaseline: input.forcedBaseline !== undefined ? safeNum(input.forcedBaseline, 0) : undefined,
-                        currentMean: input.currentMean !== undefined ? safeNum(input.currentMean, 0) : undefined,
-                        minScore: input.minScore !== undefined ? safeNum(input.minScore, 0) : undefined,
-                        maxScore: input.maxScore !== undefined ? safeNum(input.maxScore, 100) : undefined,
-                        historicalCutoffs: input.historicalCutoffs !== undefined
+                        forcedVolatility: input.forcedVolatility != null ? safeNum(input.forcedVolatility, 0) : undefined,
+                        forcedBaseline: input.forcedBaseline != null ? safeNum(input.forcedBaseline, 0) : undefined,
+                        currentMean: input.currentMean != null ? safeNum(input.currentMean, 0) : undefined,
+                        minScore: input.minScore != null ? safeNum(input.minScore, 0) : undefined,
+                        maxScore: input.maxScore != null ? safeNum(input.maxScore, 100) : undefined,
+                        historicalCutoffs: input.historicalCutoffs != null
                             ? (Array.isArray(input.historicalCutoffs)
                                 ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n))
                                 : [])
                             : undefined,
-                        flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
-                        subjects: input.subjects !== undefined ? sanitizeSubjects(input.subjects) : undefined
+                        flashcardImmunity: input.flashcardImmunity != null ? safeNum(input.flashcardImmunity, 1.0) : undefined,
+                        subjects: input.subjects != null ? sanitizeSubjects(input.subjects) : undefined
                     };
 
                     result = runMonteCarloAnalysis(sanitizedInput);

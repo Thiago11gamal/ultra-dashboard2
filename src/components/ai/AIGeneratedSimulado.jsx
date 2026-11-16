@@ -13,6 +13,8 @@ import ConfirmModal from '../ConfirmModal';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { safeGetJSON, markStorageDirty } from '../../utils/storageSafe';
 import { safeDomain } from '../../utils/measurement';
+import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches';
+import { clearMcCache } from '../../utils/coachAdaptive';
 
 const normalizeAlternative = (value) =>
   String(value ?? '').trim().toUpperCase();
@@ -782,7 +784,7 @@ export default function AIGeneratedSimulado() {
           const existingSims = Array.isArray(currentDraft.simulados) ? currentDraft.simulados : Object.values(currentDraft.simulados || {});
           nextContests[state.appState.activeId] = {
             ...currentDraft,
-            simulados: [...existingSims, globalMixedEvent].slice(-100),
+            simulados: [...existingSims, globalMixedEvent].slice(-150),
             lastUpdated: new Date().toISOString()
           };
           return {
@@ -801,6 +803,10 @@ export default function AIGeneratedSimulado() {
     } else {
       await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent, false, sessionBatchId);
     }
+
+      clearUrgencyCache();
+      clearTopicsCache();
+      clearMcCache();
 
       setResults({
         correct: correctCount, total, scorePercent,

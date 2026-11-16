@@ -95,8 +95,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         isPercentage: false,
       };
       draft.simulados.push(newSimEvent);
-      if (draft.simulados.length > 100) {
-          draft.simulados = draft.simulados.slice(-100);
+      if (draft.simulados.length > 150) {
+          draft.simulados = draft.simulados.slice(-150);
       }
   }
 
@@ -187,8 +187,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         const kb = getDateKey(normalizeDate(b?.date || b?.createdAt)) || '';
         return ka.localeCompare(kb);
       });
-      if (history.length > 50) {
-         cat.simuladoStats.history = history.slice(-50);
+      if (history.length > 150) {
+         cat.simuladoStats.history = history.slice(-150);
          history = cat.simuladoStats.history;
       }
 

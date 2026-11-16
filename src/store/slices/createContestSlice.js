@@ -5,6 +5,7 @@ import { current, isDraft } from 'immer';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { RECOVERED_DIREITO_CONTEST } from '../../data/recoveredContests.js';
 import { clearCoachCaches } from '../../utils/coachCaches.js';
+import { clearMcCache } from '../../utils/coachAdaptive.js';
 
 // BUG-FIX: Pomodoro reset shape estava incompleto (mode/neuralQueue/neuralMode ausentes),
 // causando crash silencioso no timer quando o concurso era trocado/deletado.
@@ -66,6 +67,8 @@ export const createContestSlice = (set) => ({
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
+        clearCoachCaches();
+        clearMcCache();
         markStorageDirty();
     }),
 
@@ -91,6 +94,8 @@ export const createContestSlice = (set) => ({
         try { clearCoachCaches(); } catch { /* ignore */ }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
+        clearCoachCaches();
+        clearMcCache();
         markStorageDirty();
     }),
 
@@ -132,6 +137,8 @@ export const createContestSlice = (set) => ({
         
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
+        clearCoachCaches();
+        clearMcCache();
         markStorageDirty();
     }),
 
@@ -150,6 +157,8 @@ export const createContestSlice = (set) => ({
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
+        clearCoachCaches();
+        clearMcCache();
         markStorageDirty();
     }),
 
@@ -164,6 +173,8 @@ export const createContestSlice = (set) => ({
         contest.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
+        clearCoachCaches();
+        clearMcCache();
         markStorageDirty();
     }),
 });

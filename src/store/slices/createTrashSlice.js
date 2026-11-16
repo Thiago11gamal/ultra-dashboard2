@@ -2,6 +2,8 @@ import { generateId } from '../../utils/idGenerator.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
+import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
+import { clearMcCache } from '../../utils/coachAdaptive.js';
 
 export const createTrashSlice = (set) => ({
     restoreFromTrash: (trashId) => set((state) => {
@@ -127,6 +129,9 @@ export const createTrashSlice = (set) => ({
         state.appState.trash.splice(index, 1);
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = new Date().toISOString();
+        clearUrgencyCache();
+        clearTopicsCache();
+        clearMcCache();
         markStorageDirty();
     }),
 

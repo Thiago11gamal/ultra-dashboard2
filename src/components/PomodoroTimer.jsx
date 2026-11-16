@@ -1135,11 +1135,21 @@ function PomodoroTimer({
             }
             transitionLockRef.current = now;
             try {
-                const lockKey = `pomodoro_transition_lock_${activeSubjectRef.current?.taskId || 'global'}`;
+                const lockPrefix = 'pomodoro_transition_lock_';
+                const lockKey = `${lockPrefix}${activeSubjectRef.current?.taskId || 'global'}`;
                 const lastTransition = Number(localStorage.getItem(lockKey) || 0);
                 if (now - lastTransition < 2000) {
                     return;
                 }
+                // Remove locks expirados (> 60s) para não acumular chaves órfãs por taskId
+                Object.keys(localStorage).forEach((k) => {
+                    if (k.startsWith(lockPrefix) && k !== lockKey) {
+                        const ts = Number(localStorage.getItem(k) || 0);
+                        if (!Number.isFinite(ts) || now - ts > 60_000) {
+                            localStorage.removeItem(k);
+                        }
+                    }
+                });
                 localStorage.setItem(lockKey, now.toString());
             } catch {
                 // se storage falhar, segue apenas com lock em memória

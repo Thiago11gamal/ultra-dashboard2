@@ -409,13 +409,31 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
     // FIX Bug 7: Ao trocar de concurso ativo, redefinir targetScore imediatamente para a meta do novo concurso
     const lastActiveId = React.useRef(activeId);
+    const targetSyncTimerRef = React.useRef(null);
+    const scheduleTargetSync = React.useCallback((nextVal) => {
+        if (targetSyncTimerRef.current) clearTimeout(targetSyncTimerRef.current);
+        targetSyncTimerRef.current = setTimeout(() => {
+            targetSyncTimerRef.current = null;
+            setTargetScore(nextVal);
+        }, 0);
+    }, []);
+
+    React.useEffect(() => {
+        return () => {
+            if (targetSyncTimerRef.current) {
+                clearTimeout(targetSyncTimerRef.current);
+                targetSyncTimerRef.current = null;
+            }
+        };
+    }, []);
+
     React.useEffect(() => {
         if (lastActiveId.current !== activeId) {
             lastActiveId.current = activeId;
             pendingLocalSave.current = false;
-            setTimeout(() => setTargetScore(normalizeTargetToScale(resolveStoreTarget(user))), 0);
+            scheduleTargetSync(normalizeTargetToScale(resolveStoreTarget(user)));
         }
-    }, [activeId, user, resolveStoreTarget, normalizeTargetToScale]);
+    }, [activeId, user, resolveStoreTarget, normalizeTargetToScale, scheduleTargetSync]);
 
     // FIX: Wrapper para setTargetScore que trava a sincronização IMEDIATAMENTE ao interagir,
     // evitando que o useEffect de leitura atropele o estado local antes do debounce salvar.
@@ -439,7 +457,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
             if (!pendingLocalSave.current) {
                 const fallback = normalizeTargetToScale(null);
                 if (Math.abs(fallback - targetScore) > 0.01) {
-                    setTimeout(() => setTargetScore(fallback), 0);
+                    scheduleTargetSync(fallback);
                 }
             }
             return;
@@ -462,9 +480,9 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
 
         // Se o cadeado está aberto e o valor da Store mudou (ex: vindo de outro dispositivo)
         if (Math.abs(normalizedStore - targetScore) > 0.01) {
-            setTimeout(() => setTargetScore(normalizedStore), 0);
+            scheduleTargetSync(normalizedStore);
         }
-    }, [storeTarget, targetScore, normalizeTargetToScale]);
+    }, [storeTarget, targetScore, normalizeTargetToScale, scheduleTargetSync]);
     const [showConfig, setShowConfig] = React.useState(false);
     const [showSubjects, setShowSubjects] = React.useState(false);
 

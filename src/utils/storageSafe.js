@@ -1,9 +1,27 @@
 const QUARANTINE_PREFIX = 'quarantine:';
+const QUARANTINE_MAX_ENTRIES = 10;
+const QUARANTINE_MAX_CHARS = 50_000;
 
 export function quarantineRaw(key, raw, reason = null) {
   try {
+    if (typeof localStorage === 'undefined') return;
+    // Evita esgotamento da quota do localStorage por quarentenas antigas acumuladas
+    const existingKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(QUARANTINE_PREFIX)) existingKeys.push(k);
+    }
+    if (existingKeys.length >= QUARANTINE_MAX_ENTRIES) {
+      const getTs = (qKey) => Number(qKey.split(':').pop()) || 0;
+      existingKeys.sort((a, b) => getTs(a) - getTs(b));
+      const toRemove = existingKeys.length - QUARANTINE_MAX_ENTRIES + 1;
+      for (let i = 0; i < toRemove; i++) {
+        localStorage.removeItem(existingKeys[i]);
+      }
+    }
+    const safeRaw = String(raw ?? '').slice(0, QUARANTINE_MAX_CHARS);
     const qKey = `${QUARANTINE_PREFIX}${key}:${Date.now()}`;
-    localStorage.setItem(qKey, String(raw));
+    localStorage.setItem(qKey, safeRaw);
     console.warn(`[Storage] Dado corrompido em quarentena: ${qKey}`, reason);
   } catch (err) {
     console.error('[Storage] Falha ao criar quarentena', err);

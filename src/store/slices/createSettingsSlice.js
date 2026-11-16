@@ -1,5 +1,7 @@
 import { validateAppState } from '../schemas.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
+import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
+import { clearMcCache } from '../../utils/coachAdaptive.js';
 
 const applyDarkModeToggle = (state, mode) => {
   if (!state.appState) return;
@@ -74,6 +76,13 @@ export const createSettingsSlice = (set) => ({
     
     const hasExplicitHistory = Array.isArray(nextState.history);
     const incomingHistory = nextState.history;
+    const rawIncomingVersion = nextState.version;
+    const hasExplicitVersion =
+      rawIncomingVersion !== undefined &&
+      rawIncomingVersion !== null &&
+      typeof rawIncomingVersion !== 'boolean' &&
+      String(rawIncomingVersion).trim() !== '' &&
+      Number.isFinite(Number(rawIncomingVersion));
 
     nextState = validateAppState(nextState);
     
@@ -89,14 +98,23 @@ export const createSettingsSlice = (set) => ({
       ? incomingHistory
       : (state.appState.history || []);
     
+    const prevVersion = Number(state.appState.version) || 0;
+    const resolvedVersion = hasExplicitVersion
+      ? Math.max(prevVersion, Number(rawIncomingVersion))
+      : prevVersion + 1;
+
     Object.assign(state.appState, {
       ...otherState,
       contests: nextContests,
       activeId: nextActiveId,
-      history: finalHistory
+      history: finalHistory,
+      version: resolvedVersion
     });
     
     state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
+    clearUrgencyCache();
+    clearTopicsCache();
+    clearMcCache();
     markStorageDirty();
   }),
   

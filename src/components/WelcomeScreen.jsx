@@ -9,9 +9,12 @@ export default function WelcomeScreen({ onDismiss }) {
     const containerRef = useRef(null);
     const buttonRef = useRef(null);
     const previousFocusRef = useRef(null); // FIX 5.4a: Guardar elemento com foco anterior
+    const exitTimerRef = useRef(null);
+    const isMountedRef = useRef(true);
 
     // FIX 5.4a: Gerenciar foco ao abrir/fechar
     useEffect(() => {
+        isMountedRef.current = true;
         previousFocusRef.current = document.activeElement;
         
         // Mover foco para o botão principal
@@ -22,7 +25,12 @@ export default function WelcomeScreen({ onDismiss }) {
         }, 100);
 
         return () => {
+            isMountedRef.current = false;
             clearTimeout(timer);
+            if (exitTimerRef.current) {
+                clearTimeout(exitTimerRef.current);
+                exitTimerRef.current = null;
+            }
             // Devolver foco ao elemento anterior ao fechar
             if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
                 previousFocusRef.current.focus();
@@ -35,13 +43,15 @@ export default function WelcomeScreen({ onDismiss }) {
         if (isExitingRef.current) return;
         isExitingRef.current = true;
         setIsExiting(true);
-        setTimeout(() => {
+        if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+        exitTimerRef.current = setTimeout(() => {
+            exitTimerRef.current = null;
             try {
                 sessionStorage.setItem('hasSeenWelcomeScreen', 'true');
             } catch (err) {
                 console.warn('[Welcome] Falha ao salvar hasSeenWelcomeScreen:', err);
             }
-            onDismiss();
+            if (isMountedRef.current) onDismiss();
         }, 800); 
     }, [onDismiss]);
 

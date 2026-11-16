@@ -7,6 +7,7 @@ import { useAppStore } from '../store/useAppStore';
 import { normalize } from '../utils/normalization';
 import { safeClone } from '../utils/safeClone.js';
 import { getSafeScore } from '../utils/scoreHelper.js';
+import { computeCategoryStats } from '../engine/stats.js';
 import { toArray } from '../utils/normalize.js';
 import { isCategoryTombstoned } from '../utils/tombstones.js';
 import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
@@ -488,15 +489,28 @@ const mergeContestCategoriesPure = (localCats = [], cloudCats = [], preferCloudB
         ? c.simuladoStats.history : Object.values(c.simuladoStats?.history || {});
       safeLocalHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
       safeCloudHistory.forEach(h => { if (h?.date) historyMap.set(getStableHistoryKey(h), h); });
+      const mergedHistory = Array.from(historyMap.values())
+        .map(h => ({ ...h, score: getSafeScore(h, catMaxScore, catMinScore) }))
+        .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
+      const catWeight = Number(baseCat.weight) > 0 ? Number(baseCat.weight) : 10;
+      const computedStats = mergedHistory.length > 0
+        ? computeCategoryStats(mergedHistory, catWeight, 60, catMaxScore, catMinScore)
+        : null;
+      const lastEntry = mergedHistory.length > 0 ? mergedHistory[mergedHistory.length - 1] : null;
+      const lastScore = lastEntry && Number.isFinite(lastEntry.score)
+        ? Number(Number(lastEntry.score).toFixed(2))
+        : catMinScore;
       mergedCatsMap.set(c.id, {
         ...baseCat,
         tasks: mergeCategoryTasksPure(localCat.tasks, c.tasks),
         simuladoStats: {
           ...(localCat.simuladoStats || c.simuladoStats || {}),
           ...(c.simuladoStats || {}),
-          history: Array.from(historyMap.values())
-            .map(h => ({ ...h, score: getSafeScore(h, catMaxScore, catMinScore) }))
-            .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
+          history: mergedHistory,
+          average: computedStats ? Number((computedStats.mean || 0).toFixed(2)) : 0,
+          trend: computedStats?.trend || 'stable',
+          lastAttempt: lastScore,
+          level: computedStats?.level || 'BAIXO'
         }
       });
     } else {
@@ -513,7 +527,7 @@ const mergeContestCategoriesPure = (localCats = [], cloudCats = [], preferCloudB
       });
 
       const isTombstoned = isCategoryTombstoned(c.id, c.name, cloudCatTime);
-      const isLocallyPruned = !preferCloudBase && localContestTime > 0 && cloudCatTime <= localContestTime;
+      const isLocallyPruned = !preferCloudBase && localContestTime > 0 && cloudCatTime > 0 && cloudCatTime <= localContestTime;
 
       if (!isDeletedInTrash && !isTombstoned && !isLocallyPruned) {
         mergedCatsMap.set(c.id, c);
@@ -930,9 +944,25 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }
   }, []);
 
+  const uiSyncTimersRef = useRef(new Set());
+
+  const scheduleUiUpdate = useCallback((fn) => {
+    const id = setTimeout(() => {
+      uiSyncTimersRef.current.delete(id);
+      if (isMountedRef.current) fn();
+    }, 0);
+    uiSyncTimersRef.current.add(id);
+    return id;
+  }, []);
+
   useEffect(() => {
     isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
+    const timers = uiSyncTimersRef.current;
+    return () => {
+      isMountedRef.current = false;
+      timers.forEach(clearTimeout);
+      timers.clear();
+    };
   }, []);
 
   const mergeAppState = useCallback((local, cloud, options = {}) => {
@@ -942,18 +972,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   useEffect(() => {
     if (isLocalMode || !currentUser?.uid || !setAppState || !db || db?.app?.options?.projectId === 'config-missing') {
       if (isLocalMode) {
-        setTimeout(() => { setCloudStatus('idle'); }, 0);
+        scheduleUiUpdate(() => { setCloudStatus('idle'); });
       } else if (currentUser?.uid && (!db || db?.app?.options?.projectId === 'config-missing')) {
         console.error("[Sync] Erro: Configuração do Firebase incompleta.");
-        setTimeout(() => { setCloudStatus('error'); setCloudError('Configuração incompleta (.env)'); }, 0);
+        scheduleUiUpdate(() => { setCloudStatus('error'); setCloudError('Configuração incompleta (.env)'); });
       } else if (!currentUser?.uid) {
-        setTimeout(() => { setCloudStatus('idle'); }, 0);
+        scheduleUiUpdate(() => { setCloudStatus('idle'); });
       }
       confirmParity();
       return;
     }
 
-    setTimeout(() => { setCloudStatus('connecting'); setCloudError(null); }, 0);
+    scheduleUiUpdate(() => { setCloudStatus('connecting'); setCloudError(null); });
 
     let docRef;
     try {
@@ -1250,21 +1280,21 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       unsubscribe();
       clearTimeout(safetyBootTimeout);
     };
-  }, [currentUser?.uid, setAppState, confirmParity, mergeAppState]);
+  }, [currentUser?.uid, setAppState, confirmParity, mergeAppState, scheduleUiUpdate]);
 
   useEffect(() => {
     if (!currentUser?.uid) {
-      setTimeout(() => { setCloudStatus('idle'); setCloudError(null); }, 0);
+      scheduleUiUpdate(() => { setCloudStatus('idle'); setCloudError(null); });
     }
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, scheduleUiUpdate]);
 
   useEffect(() => {
     isParityValidatedRef.current = false;
-    setTimeout(() => { setParityTick(t => t + 1); setHasConflict(false); }, 0);
+    scheduleUiUpdate(() => { setParityTick(t => t + 1); setHasConflict(false); });
     lastSyncedRef.current = null;
     lastLocalMutationRef.current = 0;
     lastAutoHealVersionRef.current = null;
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, scheduleUiUpdate]);
 
   const currentUid = currentUser?.uid;
   const performEmergencySync = useCallback(async () => {
@@ -1339,6 +1369,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         });
     } catch (e) {
       logger.error("[Sync] Erro na montagem do emergency-save:", e);
+      isInternalSyncingRef.current = false;
+      if (isMountedRef.current) {
+        setIsInternalSyncing(false);
+      }
     }
   }, [currentUid]);
 
@@ -1422,8 +1456,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     lastLocalMutationRef.current = Date.now();
 
     const MAX_SYNC_REENTRY = 3;
+    let cancelled = false;
+    let retryTimer = null;
+    const syncUid = currentUser.uid;
+
     const syncToCloud = async () => {
-      if (!db) return;
+      if (!db || cancelled || !isMountedRef.current || currentUser?.uid !== syncUid) return;
       if (isInternalSyncingRef.current) {
         needsSyncRef.current = true;
         return;
@@ -1441,6 +1479,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
       try {
         while (attempt < MAX_RETRIES) {
+          if (cancelled || !isMountedRef.current || currentUser?.uid !== syncUid) break;
           try {
             const freshState = useAppStore.getState().appState;
             const currentStateString = stateStringForSync(freshState);
@@ -1506,13 +1545,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           } catch (e) {
             lastError = e;
             attempt++;
-            if (attempt < MAX_RETRIES) {
-              await new Promise(r => setTimeout(r, attempt * 2000));
+            if (attempt < MAX_RETRIES && !cancelled && isMountedRef.current && currentUser?.uid === syncUid) {
+              await new Promise(r => {
+                retryTimer = setTimeout(() => {
+                  retryTimer = null;
+                  r();
+                }, attempt * 2000);
+              });
+            } else {
+              break;
             }
           }
         }
 
-        if (lastError) {
+        if (lastError && !cancelled && isMountedRef.current) {
           logger.error("[Sync] Todas as tentativas falharam:", lastError);
           if (showToastRef.current && lastError.code !== 'unavailable' && lastError.message !== 'timeout') {
             showToastRef.current(`Falha ao salvar: ${lastError.message || lastError.code || 'Erro desconhecido'}`, 'error');
@@ -1523,10 +1569,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       } finally {
         // ✅ SEMPRE liberar o mutex
         syncMutexRef.current = false;
+        isInternalSyncingRef.current = false;
         if (isMountedRef.current) {
           setIsInternalSyncing(false);
-          isInternalSyncingRef.current = false;
-          if (needsSyncRef.current && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
+          if (!cancelled && needsSyncRef.current && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
             syncReentryCountRef.current++;
             syncToCloud();
           } else {
@@ -1543,6 +1589,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     debounceRef.current = setTimeout(syncToCloud, delay);
 
     return () => {
+      cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [syncTrigger, parityTick, currentUser?.uid, mergeAppState]);

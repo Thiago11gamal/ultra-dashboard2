@@ -14,7 +14,7 @@ const safeDateKey = (raw) => {
   return key && typeof key === 'string' && key.trim() !== '' ? key : null;
 };
 
-// Helper para merge de tópicos
+// Reconcilia tópicos de um mesmo dia sem dupla contagem entre history e simuladoRows
 const mergeTopics = (oldTopics = [], incomingTopics = []) => {
   const safeOld = Array.isArray(oldTopics)
     ? oldTopics
@@ -24,29 +24,64 @@ const mergeTopics = (oldTopics = [], incomingTopics = []) => {
     ? incomingTopics
     : Object.values(incomingTopics || {});
 
-  const map = new Map();
-
-  [...safeOld, ...safeIncoming].forEach(topic => {
+  // 1) Agrega linhas de simuladoRows no dia por tópico normalizado (batches distintos no mesmo dia)
+  const incomingByKey = new Map();
+  safeIncoming.forEach(topic => {
     const name = String(topic?.name ?? topic?.topic ?? topic ?? '').trim();
     if (!name) return;
-
     const key = normalize(name);
-
-    const prev = map.get(key) || {
+    const prev = incomingByKey.get(key) || {
       name,
       correct: 0,
       total: 0,
       score: topic?.score,
       isPercentage: !!topic?.isPercentage
     };
-
     prev.correct += Math.max(0, Number(topic?.correct) || 0);
     prev.total += Math.max(0, Number(topic?.total) || 0);
-
-    map.set(key, prev);
+    incomingByKey.set(key, prev);
   });
 
-  return [...map.values()];
+  // 2) Indexa tópicos já existentes no histórico sem duplicar caso existam entradas repetidas
+  const merged = new Map();
+  safeOld.forEach(topic => {
+    const name = String(topic?.name ?? topic?.topic ?? topic ?? '').trim();
+    if (!name) return;
+    const key = normalize(name);
+    const curTotal = Math.max(0, Number(topic?.total) || 0);
+    const curCorrect = Math.max(0, Number(topic?.correct) || 0);
+    const prev = merged.get(key);
+    if (!prev || curTotal > prev.total) {
+      merged.set(key, {
+        name,
+        correct: curCorrect,
+        total: curTotal,
+        score: topic?.score,
+        isPercentage: !!topic?.isPercentage
+      });
+    }
+  });
+
+  // 3) Reconcilia: usa o registro mais completo por tópico sem somar duplicado
+  incomingByKey.forEach((inc, key) => {
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, inc);
+      return;
+    }
+    if (inc.total >= existing.total) {
+      merged.set(key, {
+        ...existing,
+        name: existing.name || inc.name,
+        correct: inc.correct,
+        total: inc.total,
+        score: inc.score ?? existing.score,
+        isPercentage: inc.total > 0 ? inc.isPercentage : existing.isPercentage
+      });
+    }
+  });
+
+  return [...merged.values()];
 };
 
 export default function Notes() {
@@ -154,16 +189,30 @@ export default function Notes() {
                 }
 
                 const entry = mergedHistoryMap[dateKey];
+                const prevEntryTotal = Math.max(0, Number(entry.total) || 0);
+                const prevEntryCorrect = Math.max(0, Number(entry.correct) || 0);
                 entry.topics = mergeTopics(entry.topics, topics);
                 const combinedC = entry.topics.reduce((s, t) => s + (Number(t.correct) || 0), 0);
                 const combinedQ = entry.topics.reduce((s, t) => s + (Number(t.total) || 0), 0);
 
-                entry.correct = combinedQ > 0 ? combinedC : (entry.correct + Math.max(0, Number(totalC) || 0));
-                entry.total = combinedQ > 0 ? combinedQ : (entry.total + Math.max(0, Number(totalQ) || 0));
-                entry.score = entry.total > 0
-                    ? catMin + (entry.correct / entry.total) * catRange
-                    : calcScore;
-                entry.isPercentage = false;
+                if (combinedQ > 0 && combinedQ >= prevEntryTotal) {
+                    entry.correct = combinedC;
+                    entry.total = combinedQ;
+                    entry.score = catMin + (entry.correct / entry.total) * catRange;
+                    entry.isPercentage = false;
+                } else if (prevEntryTotal > 0) {
+                    entry.correct = prevEntryCorrect;
+                    entry.total = prevEntryTotal;
+                    if (entry.score == null || !Number.isFinite(Number(entry.score))) {
+                        entry.score = catMin + (prevEntryCorrect / prevEntryTotal) * catRange;
+                        entry.isPercentage = false;
+                    }
+                } else if (totalQ > 0) {
+                    entry.correct = totalC;
+                    entry.total = totalQ;
+                    entry.score = calcScore;
+                    entry.isPercentage = false;
+                }
             });
 
             // 4. Cleanup: If an entry still has no topics, add a "Geral" topic
@@ -180,8 +229,7 @@ export default function Notes() {
             });
 
             const rebuiltHistory = Object.values(mergedHistoryMap)
-                .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date))
-                .slice(-50);
+                .sort((a, b) => toDateMs(a?.date) - toDateMs(b?.date));
 
             cat.simuladoStats = {
                 ...existingStats,

@@ -53,6 +53,7 @@ export const INITIAL_DATA = {
 };
 
 let exportRevokeTimeoutId = null;
+let exportRevokeUrl = null;
 
 // Export data as JSON file
 export const exportData = (state) => {
@@ -84,11 +85,16 @@ export const exportData = (state) => {
     document.body.removeChild(a);
 
     // Fix: Delay URL revocation so the browser has time to start the download
-    // BUGFIX (memory/data): evitar acúmulo de timeouts de revogação em exports sequenciais.
+    // BUGFIX (memory/data): evitar acúmulo de timeouts/Blob URLs em exports sequenciais.
     if (exportRevokeTimeoutId) clearTimeout(exportRevokeTimeoutId);
+    if (exportRevokeUrl) {
+        try { URL.revokeObjectURL(exportRevokeUrl); } catch { /* ignore */ }
+    }
+    exportRevokeUrl = url;
     exportRevokeTimeoutId = setTimeout(() => {
-        URL.revokeObjectURL(url);
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+        if (exportRevokeUrl === url) exportRevokeUrl = null;
         exportRevokeTimeoutId = null;
-    }, 100);
+    }, 10_000);
 };
 

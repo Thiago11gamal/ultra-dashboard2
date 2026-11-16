@@ -169,14 +169,21 @@ if (c.simuladoStats?.history) {
         return null; // Nenhuma row restante para esse dia
       }
 
-      const dayTotal = catRowsForDay.reduce((sum, r) => sum + (parseInt(r.total, 10) || 0), 0);
-      const dayCorrect = catRowsForDay.reduce((sum, r) => sum + Math.min(parseInt(r.correct, 10) || 0, parseInt(r.total, 10) || 0), 0);
+      const getRowTotal = (r) => Math.max(0, Math.round(Number(r?.total ?? r?.questoes ?? r?.totalQuestoes ?? r?.questions) || 0));
+      const getRowCorrect = (r) => {
+        const t = getRowTotal(r);
+        const c = Math.max(0, Math.round(Number(r?.correct ?? r?.acertos ?? r?.correctCount) || 0));
+        return Math.min(c, t);
+      };
+
+      const dayTotal = catRowsForDay.reduce((sum, r) => sum + getRowTotal(r), 0);
+      const dayCorrect = catRowsForDay.reduce((sum, r) => sum + getRowCorrect(r), 0);
 
       if (dayTotal <= 0) return null;
 
       const dayTimeSpent = catRowsForDay.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
       const dayTimedQuestoes = catRowsForDay.reduce(
-        (sum, r) => sum + (Number(r.timeSpent) > 0 ? (parseInt(r.total, 10) || 0) : 0),
+        (sum, r) => sum + (Number(r.timeSpent) > 0 ? getRowTotal(r) : 0),
         0
       );
 
@@ -184,8 +191,8 @@ if (c.simuladoStats?.history) {
       let totalDiffWeight = 0;
       catRowsForDay.forEach(r => {
         const tName = String(r.topic || '').trim() || 'Geral';
-        const rTot = parseInt(r.total, 10) || 0;
-        const rCor = Math.min(parseInt(r.correct, 10) || 0, rTot);
+        const rTot = getRowTotal(r);
+        const rCor = getRowCorrect(r);
         const rDiff = Number.isFinite(Number(r.difficulty)) && Number(r.difficulty) > 0 ? Number(r.difficulty) : 1.0;
         const rTime = Number(r.timeSpent) || 0;
         const rowTaskId = r.taskId || r.topicId || null;

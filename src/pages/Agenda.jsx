@@ -5,6 +5,7 @@ import { Calendar, Plus, Trash2, Clock, Target, ChevronLeft, ChevronRight } from
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateId } from '../utils/idGenerator';
+import { getDateKey } from '../utils/dateHelper';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -53,7 +54,7 @@ export default function Agenda() {
   }, [currentMonth]);
 
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayStr = getDateKey(new Date()) || format(new Date(), 'yyyy-MM-dd');
 
   const eventsForSelected = useMemo(() => {
     return agenda

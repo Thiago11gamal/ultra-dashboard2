@@ -7,8 +7,10 @@ import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { normalize, isSubjectMatch } from '../utils/normalization';
 import { computeCategoryStats } from '../engine';
-import { getDateKey, normalizeDate } from '../utils/dateHelper';
+import { getDateKey, normalizeDate, toDateMs } from '../utils/dateHelper';
 import { generateId } from '../utils/idGenerator';
+import { clearUrgencyCache, clearTopicsCache } from '../utils/coachCaches';
+import { clearMcCache } from '../utils/coachAdaptive';
 import {
   ListChecks, Brain, History as HistoryIcon,
   ChevronRight, Clock, Target, TrendingUp, TrendingDown,
@@ -461,12 +463,15 @@ export default function Simulados() {
           .map((r) => {
             const total = Math.max(0, Number(r.total) || 0);
             const correct = Math.max(0, Math.min(Number(r.correct) || 0, total));
+            const pct = total > 0 ? Math.min(100, (correct / total) * 100) : 0;
+            const hasExplicitPoints = r.scorePoints != null && Number.isFinite(Number(r.scorePoints));
             return {
               ...r, id: r.id || generateId('row'), batchId: batchId,
               date: r.date || todayKey, createdAt: nowIso, lastUpdated: nowIso,
               validated: true, isAuto: false, source: 'manual',
               subject: String(r.subject || '').trim(), topic: String(r.topic || '').trim(),
-              correct, total
+              correct, total,
+              ...(hasExplicitPoints ? {} : { score: pct, scorePct: pct, isPercentage: true, scoreUnit: 'pct' })
             };
           });
 
@@ -554,7 +559,9 @@ export default function Simulados() {
             });
           }
 
-          const historyWithCurrent = historyWithoutToday.slice(-50);
+          const historyWithCurrent = [...historyWithoutToday]
+            .sort((a, b) => (toDateMs(a?.date || a?.createdAt) || 0) - (toDateMs(b?.date || b?.createdAt) || 0))
+            .slice(-150);
           const statsResult = computeCategoryStats(
               historyWithCurrent, 
               Number(cat.weight) > 0 ? Number(cat.weight) : 10, 
@@ -616,11 +623,15 @@ export default function Simulados() {
             createdAt: nowIso, lastUpdated: nowIso
           };
           updatedSimulados = [...updatedSimulados.filter(s => !(getDateKey(normalizeDate(s?.date || s?.createdAt)) === todayKey && s?.type === 'auto-analyzer')), newSimuladoEvent]
-            .sort((a, b) => getMs(a) - getMs(b)).slice(-100);
+            .sort((a, b) => getMs(a) - getMs(b)).slice(-150);
         }
 
         return { ...prev, categories: newCategories, simuladoRows: validatedRows, simulados: updatedSimulados, lastUpdated: nowIso };
       });
+
+      clearUrgencyCache();
+      clearTopicsCache();
+      clearMcCache();
 
       if (totalQForToast > 0) {
         showToast('Simulado processado com sucesso!', 'success');

@@ -100,6 +100,9 @@ export async function secureLogout() {
             'ultra-dashboard-storage',
             'ultra-sync-dirty',
             'pomodoroState',
+            'pomodoro-endsAt',
+            'tasks_active_panel',
+            'dismissed_feature_banner_v1',
             'focusPanelLocked',
             'pomodoroLayoutLocked',
             'ultra_local_session',
@@ -132,7 +135,10 @@ export async function secureLogout() {
                 if (
                     k.startsWith('ai_simulado_draft:') ||
                     k.startsWith('ai_simulado_generating:') ||
-                    k.startsWith('coach_features_v1::')
+                    k.startsWith('coach_features_v1::') ||
+                    k.startsWith('pomodoro_transition_lock_') ||
+                    k.startsWith('lastRoute_') ||
+                    k.startsWith('quarantine:')
                 ) {
                     localStorage.removeItem(k);
                 }

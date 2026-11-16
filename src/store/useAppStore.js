@@ -32,6 +32,11 @@ const flushPendingStorage = () => {
       clearTimeout(saveTimeouts[name]);
       delete saveTimeouts[name];
     }
+    if (savePromises[name]) {
+      try { savePromises[name].resolve(); } catch { /* ignore */ }
+      delete savePromises[name];
+    }
+    delete currentWriteTokens[name];
     if (latestValues[name]) {
       const valToFlush = latestValues[name];
       delete latestValues[name];
@@ -193,13 +198,24 @@ export const useAppStore = create(
         // ✅ FIX: resetStore COMPLETO — limpa TODOS os campos
         resetStore: () => {
           try {
+            if (saveTimeouts['ultra-dashboard-storage']) {
+              clearTimeout(saveTimeouts['ultra-dashboard-storage']);
+              delete saveTimeouts['ultra-dashboard-storage'];
+            }
+            if (savePromises['ultra-dashboard-storage']) {
+              try { savePromises['ultra-dashboard-storage'].resolve(); } catch { /* ignore */ }
+              delete savePromises['ultra-dashboard-storage'];
+            }
+            delete latestValues['ultra-dashboard-storage'];
+            delete currentWriteTokens['ultra-dashboard-storage'];
             if (typeof localStorage !== 'undefined') {
               localStorage.removeItem('pomodoroState');
               localStorage.removeItem('pomodoro-endsAt');
+              localStorage.removeItem('ultra-dashboard-storage');
             }
           } catch { /* ignore */ }
           try {
-            idbDel('appState_indexedDB').catch(() => {});
+            idbDel('ultra-dashboard-storage').catch(() => {});
           } catch { /* ignore */ }
           clearCoachCaches();
           try {

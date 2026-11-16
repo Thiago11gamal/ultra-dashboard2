@@ -38,15 +38,27 @@ export function useSubscription(user) {
     
     let unsub = null;
     let isMounted = true;
+    const pendingTimers = new Set();
+    const scheduleTimeout = (fn) => {
+      const id = setTimeout(() => {
+        pendingTimers.delete(id);
+        if (isMounted) fn();
+      }, 0);
+      pendingTimers.add(id);
+      return id;
+    };
 
     try {
       if (typeof user.getIdTokenResult !== 'function') {
-        setTimeout(() => {
-          if (!isMounted) return;
+        scheduleTimeout(() => {
           setIsPremium(true);
           setLoading(false);
-        }, 0);
-        return;
+        });
+        return () => {
+          isMounted = false;
+          pendingTimers.forEach(clearTimeout);
+          pendingTimers.clear();
+        };
       }
       // Ler claims do token JWT (definidas server-side via Cloud Functions)
       user.getIdTokenResult(true).then((tokenResult) => {
@@ -96,6 +108,10 @@ export function useSubscription(user) {
             if (error?.code === 'permission-denied') {
                 const userRef = doc(db, 'users', user.uid);
                 if (!isMounted) return;
+                if (fallbackUnsubRef.current) {
+                    fallbackUnsubRef.current();
+                    fallbackUnsubRef.current = null;
+                }
                 fallbackUnsubRef.current = onSnapshot(userRef, (userDoc) => {
                     if (!isMounted) return;
                     const profile = userDoc.exists() ? userDoc.data() : {};
@@ -133,15 +149,16 @@ export function useSubscription(user) {
           setLoading(false); 
       });
     } catch {
-      setTimeout(() => {
-        if (!isMounted) return;
+      scheduleTimeout(() => {
         setIsPremium(false);
         setLoading(false);
-      }, 0);
+      });
     }
 
     return () => { 
         isMounted = false;
+        pendingTimers.forEach(clearTimeout);
+        pendingTimers.clear();
         if (unsub) unsub(); 
         if (fallbackUnsubRef.current) {
             fallbackUnsubRef.current();

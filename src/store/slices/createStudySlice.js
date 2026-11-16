@@ -14,7 +14,7 @@ export const createStudySlice = (set, get) => ({
       console.warn('[StudySlice] minutes inválido, ignorando:', minutes);
       return;
     }
-    const safeMinutes = Math.min(1440, Math.max(0.1, rawMinutes));
+    const safeMinutes = Math.min(720, Math.max(0.1, rawMinutes));
 
     let pendingXp = 0;
 
@@ -27,7 +27,11 @@ export const createStudySlice = (set, get) => ({
       const logId = generateId('log');
       const sessionId = generateId('session');
 
-      const category = activeData?.categories?.find(c =>
+      const catsArray = Array.isArray(activeData.categories)
+        ? activeData.categories
+        : Object.values(activeData.categories || {});
+
+      const category = catsArray.find(c =>
         c && (
           c.id === categoryId ||
           (categoryId === 'geral' && c.name?.toLowerCase() === 'geral') ||
@@ -143,7 +147,10 @@ export const createStudySlice = (set, get) => ({
         xpToDeduct = baseXP + bonusXP;
       }
 
-      const category = (activeData.categories || []).find(c => c.id === session.categoryId);
+      const catsForSession = Array.isArray(activeData.categories)
+        ? activeData.categories
+        : Object.values(activeData.categories || {});
+      const category = catsForSession.find(c => c && c.id === session.categoryId);
 
       if (category) {
         category.totalMinutes = Math.max(0, (category.totalMinutes || 0) - (session.duration || 0));
@@ -230,7 +237,7 @@ export const createStudySlice = (set, get) => ({
       activeData.studyLogs = [...safeLogs, newLog].slice(-LOG_CAP);
 
       if (categoryId) {
-        const cat = activeData.categories.find(c => c.id === categoryId);
+        const cat = catsArray.find(c => c && c.id === categoryId);
 
         if (cat) {
           cat.flashcardReviews = (cat.flashcardReviews || 0) + 1;

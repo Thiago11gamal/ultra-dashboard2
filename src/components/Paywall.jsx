@@ -24,11 +24,20 @@ export default function Paywall({ user, onLogout }) {
     // BUG-22 FIX: Armazenar unsubscribe para limpar listeners
     const unsubRef = useRef(null);
     const timeoutRef = useRef(null);
+    const isMountedRef = useRef(true);
 
     useEffect(() => {
+        isMountedRef.current = true;
         return () => {
-            if (unsubRef.current) unsubRef.current();
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            isMountedRef.current = false;
+            if (unsubRef.current) {
+                unsubRef.current();
+                unsubRef.current = null;
+            }
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
         };
     }, []);
 
@@ -40,8 +49,14 @@ export default function Paywall({ user, onLogout }) {
         setLoading(true);
         setError(null);
         // BUG-22 FIX: Limpar listener/timeout anteriores antes de criar novos
-        if (unsubRef.current) unsubRef.current();
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        if (unsubRef.current) {
+            unsubRef.current();
+            unsubRef.current = null;
+        }
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
         try {
             logger.log("[Stripe] Criando sessão para:", user.uid);
 
@@ -59,21 +74,32 @@ export default function Paywall({ user, onLogout }) {
                 mode: 'payment' // 👈 Garante o suporte ao Pagamento Único
             });
 
+            if (!isMountedRef.current) return;
+
             logger.log("[Stripe] Documento criado com ID:", docRef.id);
 
             let isResolved = false;
 
-            // Timer de segurança: Se a extensão não funcionar em 25s (tolerando Cold Start do Firebase), desarma a tela.
+            // Timer de segurança: Se a extensão não funcionar em 25s (tolerando Cold Start do Firebase), desarma a tela e cancela o listener.
             timeoutRef.current = setTimeout(() => {
+                timeoutRef.current = null;
                 if (!isResolved) {
+                    isResolved = true;
+                    if (unsubRef.current) {
+                        unsubRef.current();
+                        unsubRef.current = null;
+                    }
                     logger.error("[Stripe] Timeout atingido. A extensão não respondeu em 25s.");
-                    setError("O servidor de pagamentos demorou para responder (possível Cold Start na região). Tente clicar novamente ou verifique os logs de 'createCheckoutSession' no Firebase Console.");
-                    setLoading(false);
+                    if (isMountedRef.current) {
+                        setError("O servidor de pagamentos demorou para responder (possível Cold Start na região). Tente clicar novamente ou verifique os logs de 'createCheckoutSession' no Firebase Console.");
+                        setLoading(false);
+                    }
                 }
             }, 25000);
 
             // Aguardar a extensão popular a sessão
             unsubRef.current = onSnapshot(docRef, async (snap) => {
+                if (!isMountedRef.current || isResolved) return;
                 const data = snap.data();
                 if (!data) return;
 
@@ -85,24 +111,30 @@ export default function Paywall({ user, onLogout }) {
                     // C-12 FIX: Limpar listener em caso de erro
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
+                    timeoutRef.current = null;
                     if (unsubRef.current) { unsubRef.current(); unsubRef.current = null; }
-                    setError(`Erro da Stripe: ${error.message}`);
-                    setLoading(false);
+                    if (isMountedRef.current) {
+                        setError(`Erro da Stripe: ${error.message}`);
+                        setLoading(false);
+                    }
                     return; // ← Parar processamento
                 }
 
                 if (url) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
-                    if (unsubRef.current) unsubRef.current(); // ← Cleanup imediato
+                    timeoutRef.current = null;
+                    if (unsubRef.current) { unsubRef.current(); unsubRef.current = null; } // ← Cleanup imediato
                     logger.log("[Stripe] Redirecionando via URL...");
                     window.location.assign(url);
                 } else if (sessionId) {
                     isResolved = true;
                     clearTimeout(timeoutRef.current);
-                    if (unsubRef.current) unsubRef.current(); // ← Cleanup imediato
+                    timeoutRef.current = null;
+                    if (unsubRef.current) { unsubRef.current(); unsubRef.current = null; } // ← Cleanup imediato
                     logger.log("[Stripe] Redirecionando via SessionId...");
                     const stripe = await getStripe();
+                    if (!isMountedRef.current) return;
                     
                     // ✅ FIX: Verificar null
                     if (!stripe) {
@@ -116,8 +148,10 @@ export default function Paywall({ user, onLogout }) {
             });
         } catch (err) {
             logger.error("[Stripe] Erro Crítico:", err);
-            setError(`Falha local: ${err.message || 'Erro de conexão com Firebase.'}`);
-            setLoading(false);
+            if (isMountedRef.current) {
+                setError(`Falha local: ${err.message || 'Erro de conexão com Firebase.'}`);
+                setLoading(false);
+            }
         }
     };
 

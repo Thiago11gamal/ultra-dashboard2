@@ -4,6 +4,19 @@ import ConfirmModal from './ConfirmModal';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 
+const computeRowPercentage = (correct, total) => (total > 0 ? Math.min(100, (correct / total) * 100) : 0);
+
+const withPctScore = (row, correct, total) => {
+    const pct = computeRowPercentage(correct, total);
+    return {
+        ...row,
+        score: pct,
+        scorePct: pct,
+        isPercentage: true,
+        scoreUnit: 'pct'
+    };
+};
+
 export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both' }) {
     const categoriesArray = useMemo(
         () => (Array.isArray(categories) ? categories : Object.values(categories || {})),
@@ -85,7 +98,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;
                 // If Total is reduced below Correct, clamp Correct
                 if (val !== '' && val < currentCorrect) {
-                    const newRows = rows.map((r, i) => i === index ? { ...r, total: val, correct: val, score: val > 0 ? 100 : 0 } : r);
+                    const numTotal = Math.max(0, Number(val) || 0);
+                    const newRows = rows.map((r, i) => i === index
+                        ? withPctScore({ ...r, total: val, correct: val }, numTotal, numTotal)
+                        : r);
                     setRows(newRows);
                     return;
                 }
@@ -107,8 +123,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     updatedRow.correct = c;
                 }
                 
-                updatedRow.score = t > 0 ? Math.min(100, (c / t) * 100) : 0;
-                return updatedRow;
+                return withPctScore(updatedRow, c, t);
             }
             return row;
         });
@@ -125,7 +140,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     };
 
     const handleConfirmResetScores = () => {
-        const newRows = rows.map(row => ({ ...row, correct: 0, total: 0, score: 0, difficulty: 1.0 }));
+        const newRows = rows.map(row => withPctScore({ ...row, correct: 0, total: 0, difficulty: 1.0 }, 0, 0));
         setRows(newRows);
         setShowResetScoresConfirm(false);
     };
@@ -134,11 +149,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         const newRows = rows.map(row => {
             const newTotal = Math.min(10000, (parseInt(row.total, 10) || 0) + 10);
             const currentCorrect = parseInt(row.correct, 10) || 0;
-            return {
-                ...row,
-                total: newTotal,
-                score: newTotal > 0 ? Math.min(100, (currentCorrect / newTotal) * 100) : 0
-            };
+            return withPctScore({ ...row, total: newTotal }, currentCorrect, newTotal);
         });
         setRows(newRows);
     };
@@ -156,12 +167,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 }
             }
             
-            return {
-                ...row,
-                correct: newCorrect,
-                total: currentTotal,
-                score: currentTotal > 0 ? Math.min(100, (newCorrect / currentTotal) * 100) : 0
-            };
+            return withPctScore({ ...row, correct: newCorrect, total: currentTotal }, newCorrect, currentTotal);
         });
         setRows(newRows);
     };

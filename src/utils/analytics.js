@@ -215,54 +215,75 @@ export const calculateStudyStreak = (studyLogs) => {
             return Math.max(0, Math.min(t, c));
         };
 
-        const validSimulados = toArray(contestData?.simuladoRows).filter(
-            r => r?.validated && Number(r?.total) > 0 && r?.correct !== undefined
-        );
+        const getRowTotal = (row) => Number(row?.total ?? row?.questoes ?? row?.totalQuestoes ?? row?.questions);
+        const getRowCorrect = (row) => Number(row?.correct ?? row?.acertos ?? row?.correctCount);
+
+        const validSimulados = toArray(contestData?.simuladoRows).filter(r => {
+            if (!r || r.validated === false || r.valid === false || !r.validated) return false;
+            const t = getRowTotal(r);
+            const rawC = r.correct ?? r.acertos ?? r.correctCount;
+            return Number.isFinite(t) && t > 0 && rawC !== undefined && rawC !== null;
+        });
 
         let totalQuestions = 0;
         let totalCorrect = 0;
+        const coveredCatDates = new Set();
 
         validSimulados.forEach(r => {
-            const t = Number(r.total);
+            const t = getRowTotal(r);
             if (!Number.isFinite(t) || t <= 0) return;
 
             totalQuestions += t;
-            totalCorrect += clampCorrect(r.correct, t);
+            totalCorrect += clampCorrect(getRowCorrect(r), t);
+            const dKey = getDateKey(r?.date || r?.createdAt);
+            if (dKey) {
+                if (r.categoryId) coveredCatDates.add(`id:${r.categoryId}|${dKey}`);
+                if (r.subject) coveredCatDates.add(`sub:${String(r.subject).trim().toLowerCase()}|${dKey}`);
+            }
         });
 
-        // Only supplement from history if we have no explicit validated rows
-        if (validSimulados.length === 0 || totalQuestions === 0) {
-            toArray(contestData?.categories).forEach(cat => {
-                const maxS = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0
-                    ? Number(cat.maxScore) : 100;
-                const minS = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), maxS) : 0;
-                const rangeS = Math.max(1e-9, maxS - minS);
-                const syntheticTotal = getSyntheticTotal(maxS);
+        // Complementa com entradas do histórico das categorias que não estejam cobertas por simuladoRows
+        toArray(contestData?.categories).forEach(cat => {
+            const maxS = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0
+                ? Number(cat.maxScore) : 100;
+            const minS = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), maxS) : 0;
+            const rangeS = Math.max(1e-9, maxS - minS);
+            const syntheticTotal = getSyntheticTotal(maxS);
 
-                const histArr = toArray(cat?.simuladoStats?.history);
+            const histArr = toArray(cat?.simuladoStats?.history);
 
-                histArr.forEach(e => {
-                    let t = Number(e?.total) || 0;
-                    let c = 0;
-
-                    if (t > 0) {
-                        c = e?.correct !== undefined
-                            ? Number(e.correct)
-                            : Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
-                    } else if (e?.score != null) {
-                        t = syntheticTotal;
-                        c = Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
+            histArr.forEach(e => {
+                if (!e || e.valid === false || e.validated === false) return;
+                const dKey = getDateKey(e?.date || e?.createdAt);
+                if (validSimulados.length > 0 && dKey) {
+                    const catIdKey = cat?.id ? `id:${cat.id}|${dKey}` : null;
+                    const catSubKey = cat?.name ? `sub:${String(cat.name).trim().toLowerCase()}|${dKey}` : null;
+                    if ((catIdKey && coveredCatDates.has(catIdKey)) || (catSubKey && coveredCatDates.has(catSubKey))) {
+                        return;
                     }
+                }
+                const rawTot = getRowTotal(e);
+                let t = Number.isFinite(rawTot) && rawTot > 0 ? rawTot : 0;
+                let c = 0;
 
-                    if (!Number.isFinite(t) || t <= 0) return;
+                if (t > 0) {
+                    const rawCor = e?.correct ?? e?.acertos ?? e?.correctCount;
+                    c = rawCor !== undefined && rawCor !== null
+                        ? Number(rawCor)
+                        : Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
+                } else if (e?.score != null) {
+                    t = syntheticTotal;
+                    c = Math.round(((getSafeScore(e, maxS, minS) - minS) / rangeS) * t);
+                }
 
-                    c = clampCorrect(c, t);
+                if (!Number.isFinite(t) || t <= 0) return;
 
-                    totalQuestions += t;
-                    totalCorrect += c;
-                });
+                c = clampCorrect(c, t);
+
+                totalQuestions += t;
+                totalCorrect += c;
             });
-        }
+        });
 
         // T-011 FIX: blindagem final contra dados corrompidos
         totalCorrect = Math.max(0, Math.min(totalQuestions, totalCorrect));
@@ -307,6 +328,13 @@ export const calculateStudyStreak = (studyLogs) => {
         // Garante que studiedWeekend é setado a partir dos logs
         const logsArrayForWeekend = toArray(studyLogs);
         logsArrayForWeekend.forEach(log => {
+            const dKey = getDateKey(log?.date || log?.createdAt);
+            if (dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey)) {
+                const [y, m, dayNum] = dKey.split('-').map(Number);
+                const utcDay = new Date(Date.UTC(y, m - 1, dayNum)).getUTCDay();
+                if (utcDay === 0 || utcDay === 6) studiedWeekend = true;
+                return;
+            }
             const d = safeDate(log?.date);
             if (!d) return;
             const day = d.getDay();
