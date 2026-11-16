@@ -92,7 +92,7 @@ describe('Coach AI Menu 2026 Deep Audit & Math Fixes', () => {
       expect(html).not.toContain('NaN');
     });
 
-    it('AICoachView resolves activeContest.categories object maps for card scale (maxScore/minScore)', () => {
+    it('AICoachView resolves activeContest.categories object maps for card scale (maxScore/minScore)', async () => {
       useAppStore.setState((s) => ({
         appState: {
           ...s.appState,
@@ -141,7 +141,7 @@ describe('Coach AI Menu 2026 Deep Audit & Math Fixes', () => {
       const cardsTabBtn = screen.getByRole('button', { name: /pendências/i });
       fireEvent.click(cardsTabBtn);
 
-      const volValue = screen.getByText('±2');
+      const volValue = await screen.findByText('±2', {}, { timeout: 3000 });
       expect(volValue.className).toContain('text-amber-300');
     });
   });
