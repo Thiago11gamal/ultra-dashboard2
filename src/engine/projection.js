@@ -409,18 +409,23 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const sortedHistory = getSortedHistory(history);
     if (!sortedHistory || sortedHistory.length === 0) return { projected: minScore, marginOfError: 0 };
 
-    const logisticFit = logisticRegression(sortedHistory, maxScore, options);
+    // FIX: propagar minScore explicitamente para logisticRegression e calculateSlope (suporte a escalas negativas)
+    const hasOptMin = options?.minScore !== undefined && options?.minScore !== null && options?.minScore !== '' && Number.isFinite(Number(options.minScore));
+    const effectiveMinScore = hasOptMin ? Number(options.minScore) : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
+    const resolvedOptions = hasOptMin ? options : { ...options, minScore: effectiveMinScore };
+
+    const logisticFit = logisticRegression(sortedHistory, maxScore, resolvedOptions);
     let projectedScore;
     const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     
-    const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, { ...options, minScore }) : { slopeStdError: 0 };
-    let eventVolatility = calculateMSSD(sortedHistory, maxScore, minScore);
+    const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, resolvedOptions) : { slopeStdError: 0 };
+    let eventVolatility = calculateMSSD(sortedHistory, maxScore, effectiveMinScore);
 
     // Bug 2.3 Fix: Divergência Asintótica no Amortecimento
     let linearSlope = 0;
     if (!(logisticFit.isLogistic && logisticFit.k > 0)) {
-        let trend = calculateSlopePerDay(sortedHistory, maxScore, minScore);
-        linearSlope = calculateSlope(trend, maxScore, options);
+        let trend = calculateSlopePerDay(sortedHistory, maxScore, effectiveMinScore);
+        linearSlope = calculateSlope(trend, maxScore, resolvedOptions);
     }
 
     const dampingBase = computeAdaptiveDampingBase({
@@ -439,7 +444,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const targetTimeX = ((now - t0) / 86400000) + projectDays;
         const exponent = -(k * targetTimeX + intercept);
         const safeExponent = Math.max(-50, Math.min(50, exponent));
-        const safeMin = options.minScore !== undefined ? options.minScore : (minScore || 0);
+        const safeMin = effectiveMinScore;
         projectedScore = safeMin + ((L - safeMin) / (1 + Math.exp(safeExponent)));
     } else {
         // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`

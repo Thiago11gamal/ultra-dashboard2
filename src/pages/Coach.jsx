@@ -490,7 +490,8 @@ export default function Coach() {
                 const latest = history[history.length - 1];
                 const brier = latest?.avgBrier != null && latest?.avgBrier !== '' ? Number(latest.avgBrier) : NaN;
                 const pen = latest?.calibrationPenalty != null && latest?.calibrationPenalty !== '' ? Number(latest.calibrationPenalty) : NaN;
-                if ((Number.isFinite(brier) && brier >= CRITICAL_BRIER_THRESHOLD) || (Number.isFinite(pen) && pen >= HIGH_PENALTY_THRESHOLD)) {
+                // FIX: considerar também latest.degraded para manter paridade com isLogDegraded do log de auditoria
+                if (Boolean(latest?.degraded) || (Number.isFinite(brier) && brier >= CRITICAL_BRIER_THRESHOLD) || (Number.isFinite(pen) && pen >= HIGH_PENALTY_THRESHOLD)) {
                     count++;
                 }
             }
@@ -1424,7 +1425,20 @@ export function RaioXDashboard({ data }) {
 
                     <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                         {calibrationSummary.map(row => {
-                            const op = ops[row.categoryId] || ops[getSafeId(row.categoryId)] || (row.label && ops[getSafeId(row.label)]) || (row.label && ops[row.label]) || {};
+                            const safeRowId = getSafeCategoryKey(row.categoryId);
+                            const safeRowLabel = row.label ? getSafeCategoryKey(row.label) : '';
+                            // FIX: buscar também com getCalibrationKey (lowercase), paridade com calibrationAlertCount
+                            const op = ops[row.categoryId]
+                                || (safeRowId && ops[safeRowId])
+                                || ops[getCalibrationKey(row.categoryId)]
+                                || (safeRowId && ops[getCalibrationKey(safeRowId)])
+                                || ops[getSafeId(row.categoryId)]
+                                || (row.label && ops[getSafeId(row.label)])
+                                || (row.label && ops[row.label])
+                                || (safeRowLabel && ops[safeRowLabel])
+                                || (row.label && ops[getCalibrationKey(row.label)])
+                                || (safeRowLabel && ops[getCalibrationKey(safeRowLabel)])
+                                || {};
                             const hasBrier = row.avgBrier !== null && Number.isFinite(row.avgBrier);
                             const avgBrier = hasBrier ? Number(row.avgBrier) : null;
                             const penVal = toFiniteNumber(row.avgPenalty);
@@ -1434,7 +1448,7 @@ export function RaioXDashboard({ data }) {
                             const radius = 14;
                             const circ = 2 * Math.PI * radius;
                             const offset = Number.isFinite(circ - (brierPct / 100) * circ) ? circ - (brierPct / 100) * circ : circ;
-                            const colorClass = isDegraded ? 'text-rose-500' : (!hasBrier ? 'text-slate-400' : (avgBrier >= CRITICAL_BRIER_THRESHOLD ? 'text-rose-500' : (avgBrier > 0.18 || penVal > 0.001 ? 'text-amber-500' : 'text-emerald-500')));
+                            const colorClass = isDegraded ? 'text-rose-500' : (!hasBrier ? 'text-slate-400' : (avgBrier >= CRITICAL_BRIER_THRESHOLD ? 'text-rose-500' : (avgBrier > 0.18 || Math.round(penVal * 100) >= 1 ? 'text-amber-500' : 'text-emerald-500')));
 
                             return (
                                 <div key={row.categoryId} className="group/card relative rounded-2xl border border-white/[0.05] bg-slate-900/50 p-4 sm:p-5 hover:bg-slate-800/60 transition-all duration-300 flex flex-col justify-between">
@@ -1488,10 +1502,12 @@ export function RaioXDashboard({ data }) {
                                         </div>
 
                                         {(() => {
-                                            if (penVal <= 0.001) return null;
+                                            // FIX: evitar exibir "-0%" quando penalidade arredonda para 0% (< 0.5%)
+                                            const roundedPenPct = Math.round(penVal * 100);
+                                            if (roundedPenPct < 1) return null;
                                             return (
                                                 <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-500/20 bg-amber-500/10 shrink-0">
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Pena: <span className="font-mono">-{Math.round(penVal * 100)}%</span></span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Pena: <span className="font-mono">-{roundedPenPct}%</span></span>
                                                 </div>
                                             );
                                         })()}
@@ -1637,7 +1653,7 @@ export function RaioXDashboard({ data }) {
                                         <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${brierColor}`}>{brierVal !== null ? brierVal.toFixed(3) : '-'}</td>
                                         <td className={`py-3 px-4 text-[10px] font-mono whitespace-nowrap font-bold ${eceColor}`}>{eceVal !== null ? eceVal.toFixed(3) : '-'}</td>
                                         <td className="py-3 px-4 text-[10px] text-amber-400 font-bold whitespace-nowrap">
-                                            {toFiniteNumber(log?.calibrationPenalty) > 0.001 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (calibração)` : '-'}
+                                            {Math.round(toFiniteNumber(log?.calibrationPenalty) * 100) >= 1 ? `-${Math.round(toFiniteNumber(log.calibrationPenalty) * 100)}% (calibração)` : '-'}
                                         </td>
                                         <td className="py-3 pl-4 pr-4 text-[10px] text-white font-black whitespace-nowrap text-right tabular-nums">{toPercentLabel(log?.probability)}</td>
                                     </tr>

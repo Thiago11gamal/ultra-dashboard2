@@ -91,6 +91,13 @@ const safeFixedNumber = (value, digits = 2, fallback = 0) => {
     const n = Number(value);
     return Number.isFinite(n) ? Number(n.toFixed(digits)) : fallback;
 };
+// FIX: parse opcional estrito — evita que null, "" ou strings vazias virem 0 via Number()
+const parseOptionalFinite = (val) => {
+    if (val === null || val === undefined || typeof val === 'boolean' || typeof val === 'object') return null;
+    if (typeof val === 'string' && val.trim() === '') return null;
+    const n = Number(val);
+    return Number.isFinite(n) ? n : null;
+};
 
 // simpleHash moved to coachSafe.js as hashString (canonical)
 const simpleHash = hashString;
@@ -448,23 +455,28 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     const referenceNow = referenceDate.getTime();
 
     // ✅ FIX: Priorizar maxScore, minScore e minCutoff da categoria sobre options global
-    const rawMaxScore = Number(safeCategory.maxScore ?? safeOptions.maxScore ?? 100);
-    const maxScore = Number.isFinite(rawMaxScore) && rawMaxScore > 0 ? rawMaxScore : 100;
+    const rawCatMax = parseOptionalFinite(safeCategory.maxScore);
+    const rawOptMax = parseOptionalFinite(safeOptions.maxScore);
+    const maxScore = (rawCatMax !== null && rawCatMax > 0)
+        ? rawCatMax
+        : ((rawOptMax !== null && rawOptMax > 0) ? rawOptMax : 100);
 
-    const rawMinScore = Number(safeCategory.minScore ?? safeOptions.minScore ?? 0);
-    const minScore = Number.isFinite(rawMinScore) ? Math.min(rawMinScore, maxScore) : 0;
+    const rawCatMin = parseOptionalFinite(safeCategory.minScore);
+    const rawOptMin = parseOptionalFinite(safeOptions.minScore);
+    const rawMinScore = rawCatMin ?? rawOptMin ?? 0;
+    const minScore = Math.min(rawMinScore, maxScore);
 
     const domain = Math.max(1e-9, maxScore - minScore);
-    const globalMaxScore = Number.isFinite(Number(safeOptions.maxScore)) && Number(safeOptions.maxScore) > 0
-        ? Number(safeOptions.maxScore)
+    const globalMaxScore = (rawOptMax !== null && rawOptMax > 0)
+        ? rawOptMax
         : maxScore;
-    const globalMinScore = Number.isFinite(Number(safeOptions.minScore))
-        ? Math.min(Number(safeOptions.minScore), globalMaxScore)
+    const globalMinScore = rawOptMin !== null
+        ? Math.min(rawOptMin, globalMaxScore)
         : minScore;
     const globalDomain = Math.max(1e-9, globalMaxScore - globalMinScore);
     const mapGlobalToCategoryScale = (globalVal) => {
-        if (globalVal === null || globalVal === undefined || globalVal === '' || !Number.isFinite(Number(globalVal))) return null;
-        const val = Number(globalVal);
+        const val = parseOptionalFinite(globalVal);
+        if (val === null) return null;
         if (Math.abs(globalMaxScore - maxScore) < 1e-6 && Math.abs(globalMinScore - minScore) < 1e-6) {
             return val;
         }
@@ -473,11 +485,12 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     };
 
     const fallbackTarget = minScore + domain * 0.8;
-    const mappedGlobalTarget = safeCategory.minCutoff == null && safeOptions.targetScore != null
-        ? mapGlobalToCategoryScale(safeOptions.targetScore)
+    const catMinCutoff = parseOptionalFinite(safeCategory.minCutoff);
+    const optTargetScore = parseOptionalFinite(safeOptions.targetScore);
+    const mappedGlobalTarget = catMinCutoff === null && optTargetScore !== null
+        ? mapGlobalToCategoryScale(optTargetScore)
         : null;
-    const rawTargetScore = Number(safeCategory.minCutoff ?? mappedGlobalTarget ?? safeOptions.targetScore ?? fallbackTarget);
-    const unclampedTarget = Number.isFinite(rawTargetScore) ? rawTargetScore : fallbackTarget;
+    const unclampedTarget = catMinCutoff ?? mappedGlobalTarget ?? optTargetScore ?? fallbackTarget;
     const targetScore = Math.min(maxScore, Math.max(minScore, unclampedTarget));
     const targetScoreLabel = safeOptions.targetScoreLabel ?? Math.round(((targetScore - minScore) / domain) * 100);
 
@@ -601,7 +614,7 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                     correct: 0,
                     total: 0,
                     batchId: r.batchId,
-                    explicitScore: Number.isFinite(Number(r.score)) ? getSafeScore(r, maxScore, minScore) : null
+                    explicitScore: parseOptionalFinite(r.score) !== null ? getSafeScore(r, maxScore, minScore) : null
                 };
             }
             grouped[groupKey].correct += Number(r.correct ?? r.acertos ?? r.correctCount) || 0;
@@ -654,14 +667,15 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     // Global baseline antes da média inicial, para âncora mais justa em categorias sem dados
     let globalBaselinePct = 50;
-    const validCatNorms = new Set((options.allCategories || []).map(c => normalize(c?.name || "")));
+    const safeAllCats = safeArray(options.allCategories);
+    const validCatNorms = new Set(safeAllCats.map(c => normalize(c?.name || "")));
     const allSimsForBaseline = validCatNorms.size > 0
         ? safeSimulados.filter(s => s && validCatNorms.has(normalize(s.subject || s.categoryName || s.materia || s.disciplina || "")))
         : safeSimulados;
 
     // FIX: normalizar cada score para [0,1] usando os limites da própria matéria antes de somar.
     const catMap = new Map();
-    (options.allCategories || []).forEach(c => {
+    safeAllCats.forEach(c => {
         if (c?.name) catMap.set(normalize(c.name), c);
         if (c?.id) catMap.set(String(c.id), c);
     });
@@ -1394,7 +1408,7 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
         : (recentBaselineLogs.length > 0 ? Math.min(8.33, recentBaselineHours / activeWeeks) : 5.0);
     const dynamicBurnoutThreshold = Math.max(15.0, baselineHoursPerWeek * 1.8);
     // Balance bridge boost
-    const allCategoriesSafe = options.allCategories || [];
+    const allCategoriesSafe = safeArray(options.allCategories);
     const activeCount = allCategoriesSafe.length > 0 ? allCategoriesSafe.length : 1;
     // ✅ PATCH-11 & 29: Validação explícita de decayK
     const rawLambda = metrics.mcAdaptive?.decayK;
@@ -1844,12 +1858,16 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
             return timeA - timeB;
         });
-        const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
-            ? Number(safeCat.maxScore)
-            : (Number(options?.maxScore) || 100);
-        const catMin = Number.isFinite(Number(safeCat.minScore))
-            ? Math.min(Number(safeCat.minScore), catMax)
-            : (Number(options?.minScore) || 0);
+        const urgencyCatMax = parseOptionalFinite(safeCat.maxScore);
+        const urgencyOptMax = parseOptionalFinite(options?.maxScore);
+        const catMax = (urgencyCatMax !== null && urgencyCatMax > 0)
+            ? urgencyCatMax
+            : ((urgencyOptMax !== null && urgencyOptMax > 0) ? urgencyOptMax : 100);
+        const urgencyCatMin = parseOptionalFinite(safeCat.minScore);
+        const urgencyOptMin = parseOptionalFinite(options?.minScore);
+        const catMin = urgencyCatMin !== null
+            ? Math.min(urgencyCatMin, catMax)
+            : (urgencyOptMin !== null ? Math.min(urgencyOptMin, catMax) : 0);
         const scoreChecksum = simsForChecksum.reduce((acc, s, index) => {
             if (!s) return acc;
             const parsed = getSafeScore(s, catMax, catMin);
@@ -1883,7 +1901,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         // FIX (BUG-13): activeId deve vir de options prioritariamente para manter pureza
         const activeId = options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default';
         const weightsHash = simpleHash(
-            (options.allCategories || [])
+            safeArray(options.allCategories)
                 .map(c => `${c?.id || c?.name || '?'}:${c?.weight ?? ''}`)
                 .join('|')
         );
@@ -1930,12 +1948,14 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             ? simpleHash(JSON.stringify(options.config))
             : 'defcfg';
         // ✅ FIX: Incluir hash dos simulados da categoria para que novo simulado invalide o cache imediatamente
-        const catStatsHistoryLen = safeArray(safeCat.simuladoStats?.history).length;
-        const lastCatStat = catStatsHistoryLen > 0 ? safeCat.simuladoStats.history[catStatsHistoryLen - 1] : null;
+        const catStatsHistory = safeArray(safeCat.simuladoStats?.history);
+        const catStatsHistoryLen = catStatsHistory.length;
+        const lastCatStat = catStatsHistoryLen > 0 ? catStatsHistory[catStatsHistoryLen - 1] : null;
         const catStatsHash = `${catStatsHistoryLen}_${lastCatStat?.date || lastCatStat?.createdAt || ''}_${lastCatStat?.score ?? ''}`;
 
         // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
-        const minCutoffKey = safeCat.minCutoff ?? 'na';
+        const parsedMinCutoffForKey = parseOptionalFinite(safeCat.minCutoff);
+        const minCutoffKey = parsedMinCutoffForKey !== null ? parsedMinCutoffForKey : 'na';
         const cacheKeyRaw = JSON.stringify([
             activeId, catId, simCount, logCount, scoreChecksum, catStatsHash,
             refDateStr, optKey, targetKey, lastSim, lastLog,
@@ -1952,8 +1972,9 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
             Number.isFinite(cachedUrgency?.score)
         ) {
             // ✅ FIX: Validar que o cache não está stale verificando se a categoria ainda existe
+            const allCatsForExistCheck = safeArray(options.allCategories);
             const categoryStillExists = options.allCategories
-                ? options.allCategories.some(c => c && (c.id === catId || c.name === catId))
+                ? allCatsForExistCheck.some(c => c && (c.id === catId || c.name === catId))
                 : true;
             if (!categoryStillExists) {
                 _urgencyCache.delete(cacheKey);
@@ -2152,12 +2173,15 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
 function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore = 0, options = {}) {
     const safeCat = category || {};
     const catId = safeCat.id || safeCat.name || 'unknown';
-    const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
-        ? Number(safeCat.maxScore)
-        : (Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100);
-    const passedMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const catMin = Number.isFinite(Number(safeCat.minScore))
-        ? Math.min(Number(safeCat.minScore), catMax)
+    const optCatMax = parseOptionalFinite(safeCat.maxScore);
+    const optParamMax = parseOptionalFinite(maxScore);
+    const catMax = (optCatMax !== null && optCatMax > 0)
+        ? optCatMax
+        : ((optParamMax !== null && optParamMax > 0) ? optParamMax : 100);
+    const passedMin = parseOptionalFinite(minScore) ?? 0;
+    const optCatMin = parseOptionalFinite(safeCat.minScore);
+    const catMin = optCatMin !== null
+        ? Math.min(optCatMin, catMax)
         : passedMin;
     const safeTasks = Array.isArray(safeCat.tasks)
         ? safeCat.tasks
@@ -2239,12 +2263,16 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
 
 const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minScore = 0, options = {}) => {
     const safeCat = category || {};
-    const catMax = Number.isFinite(Number(safeCat.maxScore)) && Number(safeCat.maxScore) > 0
-        ? Number(safeCat.maxScore)
-        : (Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100);
-    const catMin = Number.isFinite(Number(safeCat.minScore))
-        ? Math.min(Number(safeCat.minScore), catMax)
-        : (Number.isFinite(Number(minScore)) ? Math.min(Number(minScore), catMax) : 0);
+    const optCatMax = parseOptionalFinite(safeCat.maxScore);
+    const optParamMax = parseOptionalFinite(maxScore);
+    const catMax = (optCatMax !== null && optCatMax > 0)
+        ? optCatMax
+        : ((optParamMax !== null && optParamMax > 0) ? optParamMax : 100);
+    const optCatMin = parseOptionalFinite(safeCat.minScore);
+    const optParamMin = parseOptionalFinite(minScore);
+    const catMin = optCatMin !== null
+        ? Math.min(optCatMin, catMax)
+        : (optParamMin !== null ? Math.min(optParamMin, catMax) : 0);
     const catRange = Math.max(1e-9, catMax - catMin);
     const tasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
     const topicMap = {};
@@ -2312,18 +2340,21 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     });
     const parsedRefNow = options?.now ? normalizeDate(options.now) : null;
     const todayForTopics = (parsedRefNow && !Number.isNaN(parsedRefNow.getTime())) ? parsedRefNow : new Date();
-    const historyWithTime = history.map(h => {
-        const time = (normalizeDate(h?.date || h?.createdAt) || new Date(0)).getTime();
-        return { entry: h, time: Number.isFinite(time) ? time : 0 };
-    }).sort((a, b) => a.time - b.time);
+    // FIX: alinhar timestamp de entradas sem data na ordenação com todayForTopics (evita scores fora de ordem cronológica)
+    const fallbackTopicTime = todayForTopics.getTime();
+    const historyWithTime = history.map((h, idx) => {
+        const rawTime = (normalizeDate(h?.date || h?.createdAt) || new Date(0)).getTime();
+        const safeTime = Number.isFinite(rawTime) && rawTime > 0 ? rawTime : fallbackTopicTime;
+        return { entry: h, time: safeTime, idx };
+    }).sort((a, b) => (a.time !== b.time ? a.time - b.time : a.idx - b.idx));
     const sortedTopicsHistory = historyWithTime.map(item => item.entry);
     sortedTopicsHistory.forEach(entry => {
         if (!entry) return;
-        let entryTime = todayForTopics.getTime();
+        let entryTime = fallbackTopicTime;
         if (entry.date || entry.createdAt) {
             entryTime = (normalizeDate(entry.date || entry.createdAt) || new Date(0)).getTime();
         }
-        const safeEntryTime = Number.isFinite(entryTime) && entryTime > 0 ? entryTime : todayForTopics.getTime();
+        const safeEntryTime = Number.isFinite(entryTime) && entryTime > 0 ? entryTime : fallbackTopicTime;
         const entryDate = normalizeDate(safeEntryTime) || new Date(safeEntryTime);
         const daysOld = Math.max(0, (todayForTopics.getTime() - safeEntryTime) / (1000 * 60 * 60 * 24));
         const timeWeight = Math.max(0.01, Math.exp(-0.015 * daysOld));
@@ -2364,15 +2395,18 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             let topicCorrect = 0;
             const isTotalMissing = candidateTotal === undefined || candidateTotal === null || String(candidateTotal).trim() === "" || Number(candidateTotal) === 0;
             const candidateCorrect = t.correct ?? t.acertos ?? t.correctCount;
-            if (t.score != null && isTotalMissing) {
+            const isScoreMissing = t.score === undefined || t.score === null || (typeof t.score === 'string' && t.score.trim() === '');
+            if (!isScoreMissing && isTotalMissing) {
                 topicTotal = getSyntheticTotal(catMax);
                 topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
             } else if (topicTotal > 0) {
-                if (candidateCorrect !== undefined && candidateCorrect !== null && !t.isPercentage) {
-                    const rawC = sanitizeNum(candidateCorrect);
-                    topicCorrect = Math.min(topicTotal, Number.isFinite(rawC) ? rawC : 0);
-                } else {
+                const rawC = !t.isPercentage ? sanitizeNum(candidateCorrect) : NaN;
+                if (Number.isFinite(rawC)) {
+                    topicCorrect = Math.min(topicTotal, rawC);
+                } else if (!isScoreMissing) {
                     topicCorrect = ((getSafeScore(t, catMax, catMin) - catMin) / catRange) * topicTotal;
+                } else {
+                    topicCorrect = 0;
                 }
             } else {
                 return;
@@ -2721,10 +2755,13 @@ const getWeakestTopicsList = (category, simulados = [], maxScore = 100, limit = 
 };
 
 export const generateDailyGoals = (categories, simulados, studyLogs = [], options = {}) => {
-    const minScore = Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : 0;
-    const maxScore = Number.isFinite(Number(options.maxScore)) && Number(options.maxScore) > minScore ? Number(options.maxScore) : (minScore + 100);
+    const optMin = parseOptionalFinite(options.minScore);
+    const optMax = parseOptionalFinite(options.maxScore);
+    const optTarget = parseOptionalFinite(options.targetScore);
+    const minScore = optMin !== null ? optMin : 0;
+    const maxScore = (optMax !== null && optMax > minScore) ? optMax : (minScore + 100);
     const domain = Math.max(1e-9, maxScore - minScore);
-    const targetScore = Number.isFinite(Number(options.targetScore)) ? Number(options.targetScore) : (minScore + domain * 0.8);
+    const targetScore = optTarget !== null ? optTarget : (minScore + domain * 0.8);
     const cfg = { ...DEFAULT_CONFIG, ...(options.config || {}) };
     const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
     if (safeCategories.length === 0) return [];
@@ -2786,11 +2823,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
             recentSims.push(s);
         });
 
-        const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0
-            ? Number(category.maxScore)
+        const deepCatMax = parseOptionalFinite(category?.maxScore);
+        const deepCatMin = parseOptionalFinite(category?.minScore);
+        const catMax = (deepCatMax !== null && deepCatMax > 0)
+            ? deepCatMax
             : (maxScore > minScore ? maxScore : minScore + 100);
-        const catMin = Number.isFinite(Number(category?.minScore))
-            ? Math.min(Number(category.minScore), catMax)
+        const catMin = deepCatMin !== null
+            ? Math.min(deepCatMin, catMax)
             : minScore;
         const catRange = Math.max(1e-9, catMax - catMin);
         const totalHours = recentLogs.reduce((acc, l) => acc + sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration), 0) / 60;
@@ -2817,8 +2856,10 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         let localPriorityCounter = 0;
         const safeCatKey = cat.id || normalize(cat.name) || 'cat';
         const safeCategoryId = cat.id || safeCatKey;
-        const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
-        const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : minScore;
+        const optCatMax = parseOptionalFinite(cat?.maxScore);
+        const optCatMin = parseOptionalFinite(cat?.minScore);
+        const catMax = (optCatMax !== null && optCatMax > 0) ? optCatMax : maxScore;
+        const catMin = optCatMin !== null ? Math.min(optCatMin, catMax) : minScore;
         const catRange = Math.max(1e-9, catMax - catMin);
         const allCategoryTopics = _buildSortedTopics(cat, safeSimulados, catMax, catMin, options) || [];
         const weakTopics = allCategoryTopics.slice(0, tasksPerCategory);
@@ -2839,12 +2880,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
         if (mc && mc.probabilityRaw < adaptiveDanger) {
             const probPct = Math.round(mc.probabilityRaw);
-            const catTargetScore = Number.isFinite(Number(cat?.minCutoff))
-                ? clamp(Number(cat.minCutoff), catMin, catMax)
+            const parsedCatCutoff = parseOptionalFinite(cat?.minCutoff);
+            const catTargetScore = parsedCatCutoff !== null
+                ? clamp(parsedCatCutoff, catMin, catMax)
                 : (Math.abs(catMax - maxScore) < 1e-6 && Math.abs(catMin - minScore) < 1e-6
                     ? targetScore
                     : catMin + clamp((targetScore - minScore) / domain, 0, 1) * catRange);
-            const mcEffTarget = Number.isFinite(Number(mc?.effectiveMCTarget)) ? Number(mc.effectiveMCTarget) : catTargetScore;
+            const parsedMcEffTarget = parseOptionalFinite(mc?.effectiveMCTarget);
+            const mcEffTarget = parsedMcEffTarget !== null ? parsedMcEffTarget : catTargetScore;
             const zdpNote = mcEffTarget < catTargetScore - 1e-6
                 ? ` (Meta ZDP: ${catMin === 0 && catMax === 100 ? `${Math.round(mcEffTarget)}%` : `${formatValue(mcEffTarget)} pts`})`
                 : '';

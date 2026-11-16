@@ -575,7 +575,7 @@ export function computeStudyEfficiency(studySessions, simulados, maxScore = 100,
   const totalCorrect = relevantSims.reduce((acc, s) => {
     const total = Number(s?.total) || 0;
     if (total === 0) return acc;
-    if (s?.correct != null) {
+    if (s?.correct !== undefined && s?.correct !== null && String(s.correct).trim() !== '' && typeof s.correct !== 'boolean') {
       const correctNum = Number(s.correct);
       if (Number.isFinite(correctNum)) return acc + Math.min(total, Math.max(0, correctNum));
     }

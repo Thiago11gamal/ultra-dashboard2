@@ -76,12 +76,12 @@ const ReliabilityCurveChart = ({ buckets }) => {
             .map(b => {
                 const rawPred = Number(b.meanPred);
                 const rawObs = Number(b.observedRate);
-                const pred = rawPred > 1 ? rawPred / 100 : Math.max(0, Math.min(1, rawPred));
-                const obs = rawObs > 1 ? rawObs / 100 : Math.max(0, Math.min(1, rawObs));
+                const pred = Math.max(0, Math.min(1, rawPred > 1 ? rawPred / 100 : rawPred));
+                const obs = Math.max(0, Math.min(1, rawObs > 1 ? rawObs / 100 : rawObs));
                 const rawGap = b?.gap !== null && b?.gap !== undefined && b?.gap !== '' && Number.isFinite(Number(b.gap))
                     ? Math.abs(Number(b.gap))
                     : Math.abs(pred - obs);
-                const gap = rawGap > 1 ? rawGap / 100 : rawGap;
+                const gap = Math.max(0, Math.min(1, rawGap > 1 ? rawGap / 100 : rawGap));
                 return {
                     pred,
                     obs,

@@ -480,8 +480,9 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
                                 return (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
                                         {cardTasks.map((task, idx) => {
-                                            const matchedCat = Array.isArray(activeContest?.categories)
-                                                ? activeContest.categories.find(c => c && (
+                                            // FIX: aceitar activeContest.categories como array ou mapa objeto do Firebase
+                                            const matchedCat = (activeContest?.categories && typeof activeContest.categories === 'object')
+                                                ? (Array.isArray(activeContest.categories) ? activeContest.categories : Object.values(activeContest.categories)).find(c => c && (
                                                     (task.categoryId && c.id === task.categoryId) ||
                                                     (task.category && c.name === task.category)
                                                 ))

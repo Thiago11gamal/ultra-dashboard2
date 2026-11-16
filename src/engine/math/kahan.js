@@ -70,7 +70,7 @@ export function average(arr) {
     let c = 0.0;
     for (let i = 0; i < arr.length; i++) {
         const raw = arr[i];
-        if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') continue;
+        if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean' || (typeof raw === 'string' && raw.trim() === '')) continue;
         const val = Number(raw);
         if (!Number.isFinite(val)) continue;
         const y = val - c;

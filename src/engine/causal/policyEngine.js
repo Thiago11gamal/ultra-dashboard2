@@ -325,6 +325,7 @@ export function buildPolicyReport(selectedActions = [], causalModel = null, opti
   return {
     generatedAt: Date.now(),
     maxScore: options.maxScore ?? 100,
+    minScore: options.minScore ?? 0,
     healthStatus: options.healthStatus || null,
     selectedActions,
     globalUplift: causalModel?.global?.uplift ?? null,

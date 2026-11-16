@@ -418,6 +418,7 @@ export function runCausalPolicyCycle(input = {}) {
 
   const report = buildPolicyReport(selectedActions, model, {
     maxScore: input.options?.maxScore ?? 100,
+    minScore: input.options?.minScore ?? 0,
     healthStatus: input.health?.status || null,
   });
 

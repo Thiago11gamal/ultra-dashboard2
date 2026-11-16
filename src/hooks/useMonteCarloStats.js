@@ -1647,8 +1647,11 @@ function useMonteCarloHistoryRecorder({
         const existing = safeHistory.find(h => h && h.date === today && !h.categoryId) || null;
 
         const currentTarget = Number(safeTargetNum.toFixed(1));
-        const existingProb = Number((existing?.probability ?? existing?.prob ?? 0).toFixed(1));
-        const existingTarget = Number((existing?.target ?? 0).toFixed(1));
+        // FIX: converter existing.probability/prob/target para Number antes de .toFixed(1)
+        const rawExistingProb = Number(existing?.probability ?? existing?.prob ?? 0);
+        const rawExistingTarget = Number(existing?.target ?? 0);
+        const existingProb = Number((Number.isFinite(rawExistingProb) ? rawExistingProb : 0).toFixed(1));
+        const existingTarget = Number((Number.isFinite(rawExistingTarget) ? rawExistingTarget : 0).toFixed(1));
 
         const targetChanged = !existing || Math.abs(existingTarget - currentTarget) > 0.05;
 
