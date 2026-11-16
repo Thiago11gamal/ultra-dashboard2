@@ -472,7 +472,7 @@ describe('Auditoria de Integridade de Dados & Vazamentos — Regressão', () => 
         c1: {
           contestName: 'Contract Test',
           categories: [{ id: 'cat-1', name: 'Dir' }],
-          extraField: 42
+          notes: 'keep-me'
         }
       }
     });
@@ -483,17 +483,18 @@ describe('Auditoria de Integridade de Dados & Vazamentos — Regressão', () => 
     store.patchData({ coachPlan: [{ id: 'p1' }] });
     expect(_urgencyCache.size).toBe(0);
     expect(_topicsCache.size).toBe(0);
-    expect(useAppStore.getState().appState.contests.c1.extraField).toBe(42);
+    expect(useAppStore.getState().appState.contests.c1.notes).toBe('keep-me');
+    expect(useAppStore.getState().appState.contests.c1.coachPlan).toEqual([{ id: 'p1' }]);
     expect(useAppStore.getState().appState.version).toBe(11);
 
     cacheSet(_urgencyCache, 80, 'u2', { urgencyScore: 60 });
     store.setData((prev) => {
       const next = { ...prev };
-      delete next.extraField;
+      delete next.notes;
       return next;
     });
     expect(_urgencyCache.size).toBe(0);
-    expect(useAppStore.getState().appState.contests.c1.extraField).toBeUndefined();
+    expect(useAppStore.getState().appState.contests.c1.notes).toBeUndefined();
     expect(useAppStore.getState().appState.version).toBe(12);
   });
 
