@@ -4,8 +4,23 @@ import { render, fireEvent, screen, act } from '@testing-library/react';
 import { getSafeScore } from '../measurement.js';
 import { parseImportedData } from '../backupManager.js';
 import { mergeAppStatePure } from '../../hooks/useCloudSync.js';
-import { getDateKey, normalizeDate, toDateMs as dateHelperToDateMs, getWeekKey } from '../dateHelper.js';
+import {
+  getDateKey,
+  normalizeDate,
+  toDateMs as dateHelperToDateMs,
+  getWeekKey,
+  DEFAULT_APP_TIMEZONE,
+  getAppTimezone,
+  setAppTimezone
+} from '../dateHelper.js';
 import { toDateMs as retentionToDateMs } from '../retentionCore.js';
+import {
+  computeCategorySimuladoStats,
+  reconcileContestCategoriesHistory,
+  DEFAULT_SIMULADO_HISTORY_CAP
+} from '../simuladoReconciler.js';
+import { computeContestSyncHash } from '../cloudSyncMerge.js';
+import * as coachLogicApi from '../coachLogic.js';
 import { buildAchievementStats } from '../analytics.js';
 import { quarantineRaw } from '../storageSafe.js';
 import { useAppStore } from '../../store/useAppStore.js';
@@ -27,6 +42,7 @@ describe('Auditoria de Integridade de Dados & Vazamentos — Regressão', () => 
   });
 
   afterEach(() => {
+    setAppTimezone(DEFAULT_APP_TIMEZONE);
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -400,5 +416,106 @@ describe('Auditoria de Integridade de Dados & Vazamentos — Regressão', () => 
     expect(mergedCats[0].simuladoStats.lastAttempt).toBe(90);
     expect(mergedCats[0].simuladoStats.average).toBeGreaterThan(60);
     expect(mergedCats[0].simuladoStats.average).toBeLessThan(90);
+  });
+
+  it('12. dateHelper suporta timezone configurável e rejeita identificador inválido', () => {
+    expect(getAppTimezone()).toBe(DEFAULT_APP_TIMEZONE);
+    const utcBoundary = '2026-06-15T03:30:00.000Z';
+    expect(getDateKey(utcBoundary)).toBe('2026-06-14');
+
+    setAppTimezone('America/Sao_Paulo');
+    expect(getAppTimezone()).toBe('America/Sao_Paulo');
+    expect(getDateKey(utcBoundary)).toBe('2026-06-15');
+
+    setAppTimezone('Invalid/Timezone_Name');
+    expect(getAppTimezone()).toBe('America/Sao_Paulo');
+  });
+
+  it('13. simuladoReconciler ordena, aplica cap e respeita domínio customizado', () => {
+    const entries = Array.from({ length: DEFAULT_SIMULADO_HISTORY_CAP + 5 }, (_, idx) => {
+      const d = new Date(Date.UTC(2026, 0, 1 + idx));
+      return {
+        date: d.toISOString().slice(0, 10),
+        correct: 8,
+        total: 10,
+        score: idx === DEFAULT_SIMULADO_HISTORY_CAP + 4 ? 75 : 50
+      };
+    }).reverse();
+
+    const stats = computeCategorySimuladoStats(
+      { id: 'cat-1', weight: 10, minScore: -10, maxScore: 100 },
+      entries,
+      100,
+      -10,
+      { maxHistory: DEFAULT_SIMULADO_HISTORY_CAP }
+    );
+    expect(stats.history).toHaveLength(DEFAULT_SIMULADO_HISTORY_CAP);
+    expect(stats.lastAttempt).toBe(75);
+    expect(stats.average).toBeGreaterThan(40);
+
+    const reconciled = reconcileContestCategoriesHistory(
+      [{ id: 'cat-1', name: 'Português', simuladoStats: { history: [] } }],
+      [{ id: 'r1', categoryId: 'cat-1', subject: 'Português', topic: 'Crase', date: '2026-07-01', correct: 7, total: 10 }],
+      100,
+      0
+    );
+    expect(reconciled[0].simuladoStats.history).toHaveLength(1);
+    expect(reconciled[0].simuladoStats.history[0].correct).toBe(7);
+  });
+
+  it('14. useAppStore.patchData/setData respeitam contratos e invalidam caches via version', () => {
+    const store = useAppStore.getState();
+    store.setAppState({
+      activeId: 'c1',
+      version: 10,
+      contests: {
+        c1: {
+          contestName: 'Contract Test',
+          categories: [{ id: 'cat-1', name: 'Dir' }],
+          extraField: 42
+        }
+      }
+    });
+
+    cacheSet(_urgencyCache, 80, 'u1', { urgencyScore: 50 });
+    cacheSet(_topicsCache, 50, 't1', [{ name: 'Topico' }]);
+
+    store.patchData({ coachPlan: [{ id: 'p1' }] });
+    expect(_urgencyCache.size).toBe(0);
+    expect(_topicsCache.size).toBe(0);
+    expect(useAppStore.getState().appState.contests.c1.extraField).toBe(42);
+    expect(useAppStore.getState().appState.version).toBe(11);
+
+    cacheSet(_urgencyCache, 80, 'u2', { urgencyScore: 60 });
+    store.setData((prev) => {
+      const next = { ...prev };
+      delete next.extraField;
+      return next;
+    });
+    expect(_urgencyCache.size).toBe(0);
+    expect(useAppStore.getState().appState.contests.c1.extraField).toBeUndefined();
+    expect(useAppStore.getState().appState.version).toBe(12);
+  });
+
+  it('15. cloudSyncMerge.computeContestSyncHash e re-exports de coachLogic funcionam sem regressão', () => {
+    const base = { contestName: 'A', categories: [{ id: '1', tasks: [{ id: 't1', completed: false }] }] };
+    const cloneSame = { contestName: 'A', categories: [{ id: '1', tasks: [{ id: 't1', completed: false }] }] };
+    const modified = { contestName: 'A', categories: [{ id: '1', tasks: [{ id: 't1', completed: true }] }] };
+
+    const h1 = computeContestSyncHash(base);
+    const h2 = computeContestSyncHash(cloneSame);
+    const h3 = computeContestSyncHash(modified);
+    expect(h1).toBeTruthy();
+    expect(h1).toBe(h2);
+    expect(h3).not.toBe(h1);
+
+    expect(coachLogicApi.DEFAULT_CONFIG).toBeTypeOf('object');
+    expect(coachLogicApi.sanitizeNum('12,5')).toBe(12.5);
+    expect(coachLogicApi.getCoachPriorities).toBeTypeOf('function');
+    expect(coachLogicApi.computeRobustVolatilityForCoach).toBeTypeOf('function');
+    expect(coachLogicApi.analisarDesempenhoHistorico).toBeTypeOf('function');
+    expect(coachLogicApi.getCognitiveState).toBeTypeOf('function');
+    expect(coachLogicApi.getBestTask).toBeTypeOf('function');
+    expect(coachLogicApi.getCombinedHistory).toBeTypeOf('function');
   });
 });

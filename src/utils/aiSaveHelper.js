@@ -1,7 +1,7 @@
 import { getDateKey, normalizeDate } from './dateHelper.js';
 import { generateId } from './idGenerator.js';
 import { normalize, isSubjectMatch } from './normalization.js';
-import { computeCategoryStats } from '../engine/index.js';
+import { computeCategorySimuladoStats, DEFAULT_SIMULADO_HISTORY_CAP, resolveCategoryScoreDomain } from './simuladoReconciler.js';
 import { mergeQuestionResult, safeDomain } from './measurement.js';
 
 function safeArray(val) {
@@ -95,8 +95,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         isPercentage: false,
       };
       draft.simulados.push(newSimEvent);
-      if (draft.simulados.length > 150) {
-          draft.simulados = draft.simulados.slice(-150);
+      if (draft.simulados.length > DEFAULT_SIMULADO_HISTORY_CAP) {
+          draft.simulados = draft.simulados.slice(-DEFAULT_SIMULADO_HISTORY_CAP);
       }
   }
 
@@ -107,9 +107,11 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     const nameMatch = !idMatch && isSubjectMatch(cat.name, materia);
     
     if (idMatch || nameMatch) {
-      const catMaxScore = Number(cat.maxScore) || Number(draft.maxScore) || 100;
-      const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : (Number.isFinite(Number(draft.minScore)) ? Number(draft.minScore) : 0);
-      const catScoreRange = Math.max(1e-9, catMaxScore - catMinScore);
+      const { maxScore: catMaxScore, minScore: catMinScore, range: catScoreRange } = resolveCategoryScoreDomain(
+        cat,
+        draft.maxScore,
+        draft.minScore
+      );
       
       if (!cat.simuladoStats) {
          cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
@@ -182,23 +184,13 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         });
       }
 
-      history.sort((a, b) => {
-        const ka = getDateKey(normalizeDate(a?.date || a?.createdAt)) || '';
-        const kb = getDateKey(normalizeDate(b?.date || b?.createdAt)) || '';
-        return ka.localeCompare(kb);
-      });
-      if (history.length > 150) {
-         cat.simuladoStats.history = history.slice(-150);
-         history = cat.simuladoStats.history;
-      }
-
-      const statsResult = computeCategoryStats(history, Number(cat.weight) > 0 ? Number(cat.weight) : 10, 60, catMaxScore, catMinScore);
-      const todayEntry = history.find(h => getDateKey(normalizeDate(h?.date || h?.createdAt)) === todayKey);
-
-      cat.simuladoStats.average = statsResult ? Number((statsResult.mean || 0).toFixed(2)) : 0;
-      cat.simuladoStats.trend = statsResult?.trend || 'stable';
-      cat.simuladoStats.lastAttempt = todayEntry ? Number(todayEntry.score || 0) : (total > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (correct / total) * catScoreRange)) : catMinScore);
-      cat.simuladoStats.level = statsResult?.level || 'BAIXO';
+      cat.simuladoStats = computeCategorySimuladoStats(
+        cat,
+        history,
+        draft.maxScore,
+        draft.minScore,
+        { maxHistory: DEFAULT_SIMULADO_HISTORY_CAP }
+      );
     }
   }
 

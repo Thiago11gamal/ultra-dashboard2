@@ -1,10 +1,12 @@
-import { computeCategoryStats } from '../../engine/stats.js';
-import { getSafeScore } from '../../utils/scoreHelper.js';
+import {
+  computeCategorySimuladoStats,
+  getSimuladoRowCorrect,
+  getSimuladoRowTotal,
+  resolveCategoryScoreDomain
+} from '../../utils/simuladoReconciler.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
 import { isSubjectMatch } from '../../utils/normalization.js';
-import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
-import { clearMcCache } from '../../utils/coachAdaptive.js';
 
 export const createSimuladoSlice = (set) => ({
   resetSimuladoStats: () => set((state) => {
@@ -36,10 +38,6 @@ export const createSimuladoSlice = (set) => ({
     activeData.simuladoRows = [];
     activeData.simulados = [];
     activeData.lastUpdated = nowIso;
-
-    clearUrgencyCache();
-    clearTopicsCache();
-    clearMcCache();
 
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = nowIso;
@@ -134,15 +132,11 @@ export const createSimuladoSlice = (set) => ({
           : Object.values(activeData.categories || {});
 
         activeData.categories = safeCategories.filter(Boolean).map(c => {
-          const catMaxScore = Number.isFinite(Number(c.maxScore)) && Number(c.maxScore) > 0
-            ? Number(c.maxScore)
-            : (Number(activeData.maxScore) || 100);
-          const hasCatMin = c.minScore !== undefined && c.minScore !== null && String(c.minScore).trim() !== '' && Number.isFinite(Number(c.minScore));
-          const hasActiveMin = activeData.minScore !== undefined && activeData.minScore !== null && String(activeData.minScore).trim() !== '' && Number.isFinite(Number(activeData.minScore));
-          const catMinScore = hasCatMin
-            ? Math.min(Number(c.minScore), catMaxScore)
-          : (hasActiveMin ? Number(activeData.minScore) : 0);
-const catRange = Math.max(1e-9, catMaxScore - catMinScore);
+          const {
+            maxScore: catMaxScore,
+            minScore: catMinScore,
+            range: catRange
+          } = resolveCategoryScoreDomain(c, activeData.maxScore, activeData.minScore);
 
 if (c.simuladoStats?.history) {
   const safeHistory = Array.isArray(c.simuladoStats.history)
@@ -169,21 +163,14 @@ if (c.simuladoStats?.history) {
         return null; // Nenhuma row restante para esse dia
       }
 
-      const getRowTotal = (r) => Math.max(0, Math.round(Number(r?.total ?? r?.questoes ?? r?.totalQuestoes ?? r?.questions) || 0));
-      const getRowCorrect = (r) => {
-        const t = getRowTotal(r);
-        const c = Math.max(0, Math.round(Number(r?.correct ?? r?.acertos ?? r?.correctCount) || 0));
-        return Math.min(c, t);
-      };
-
-      const dayTotal = catRowsForDay.reduce((sum, r) => sum + getRowTotal(r), 0);
-      const dayCorrect = catRowsForDay.reduce((sum, r) => sum + getRowCorrect(r), 0);
+      const dayTotal = catRowsForDay.reduce((sum, r) => sum + getSimuladoRowTotal(r), 0);
+      const dayCorrect = catRowsForDay.reduce((sum, r) => sum + getSimuladoRowCorrect(r), 0);
 
       if (dayTotal <= 0) return null;
 
       const dayTimeSpent = catRowsForDay.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
       const dayTimedQuestoes = catRowsForDay.reduce(
-        (sum, r) => sum + (Number(r.timeSpent) > 0 ? getRowTotal(r) : 0),
+        (sum, r) => sum + (Number(r.timeSpent) > 0 ? getSimuladoRowTotal(r) : 0),
         0
       );
 
@@ -191,8 +178,8 @@ if (c.simuladoStats?.history) {
       let totalDiffWeight = 0;
       catRowsForDay.forEach(r => {
         const tName = String(r.topic || '').trim() || 'Geral';
-        const rTot = getRowTotal(r);
-        const rCor = getRowCorrect(r);
+        const rTot = getSimuladoRowTotal(r);
+        const rCor = getSimuladoRowCorrect(r);
         const rDiff = Number.isFinite(Number(r.difficulty)) && Number(r.difficulty) > 0 ? Number(r.difficulty) : 1.0;
         const rTime = Number(r.timeSpent) || 0;
         const rowTaskId = r.taskId || r.topicId || null;
@@ -235,41 +222,12 @@ if (c.simuladoStats?.history) {
     })
     .filter(Boolean);
 
-  const newStatsObj = { ...c.simuladoStats, history: newHistory };
-
-  if (newHistory.length > 0) {
-    const newStats = computeCategoryStats(newHistory, c.weight || 10, 60, catMaxScore, catMinScore);
-
-    if (newStats) {
-      const last = newHistory[newHistory.length - 1];
-      const lastScore = last ? getSafeScore(last, catMaxScore, catMinScore) : NaN;
-
-      newStatsObj.average = Number((newStats.mean || 0).toFixed(2));
-      newStatsObj.trend = newStats.trend || 'stable';
-
-      newStatsObj.lastAttempt = Number.isFinite(lastScore)
-        ? lastScore
-        : Number(
-          last?.score ?? (
-            (Number(last?.total) > 0)
-              ? catMinScore + (Number(last?.correct || 0) / Number(last?.total)) * catRange
-              : catMinScore
-          )
-        );
-
-      newStatsObj.level = newStats.level || 'BAIXO';
-    } else {
-      newStatsObj.average = 0;
-      newStatsObj.trend = 'stable';
-      newStatsObj.lastAttempt = catMinScore;
-      newStatsObj.level = 'BAIXO';
-    }
-  } else {
-    newStatsObj.average = 0;
-    newStatsObj.trend = 'stable';
-    newStatsObj.lastAttempt = catMinScore;
-    newStatsObj.level = 'BAIXO';
-  }
+  const newStatsObj = computeCategorySimuladoStats(
+    c,
+    newHistory,
+    activeData.maxScore,
+    activeData.minScore
+  );
 
   return { ...c, simuladoStats: newStatsObj };
 }
@@ -277,10 +235,6 @@ if (c.simuladoStats?.history) {
 return c;
       });
     }
-
-clearUrgencyCache();
-clearTopicsCache();
-clearMcCache();
 
 const nowIso = new Date().toISOString();
 activeData.lastUpdated = nowIso;

@@ -932,7 +932,7 @@ export default React.memo(function EvolutionChart({
             .filter(Boolean);
 
         return synth.length >= 2 ? synth : filteredList;
-    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, showOnlyFocus, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
+    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
 
     const latestMetricsByCat = useMemo(() => {
         const map = {};

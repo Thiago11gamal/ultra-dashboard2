@@ -300,6 +300,7 @@ const Sidebar = React.memo(function Sidebar({
             await del('ultra-dashboard-storage');
             const appKeys = [
                 'ultra-dashboard-storage',
+                'ultra-dashboard-storage:meta',
                 'ultra-sync-dirty',
                 'pomodoroState',
                 'pomodoro_muted',

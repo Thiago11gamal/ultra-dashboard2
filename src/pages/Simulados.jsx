@@ -6,8 +6,8 @@ import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { normalize, isSubjectMatch } from '../utils/normalization';
-import { computeCategoryStats } from '../engine';
-import { getDateKey, normalizeDate, toDateMs } from '../utils/dateHelper';
+import { computeCategorySimuladoStats, DEFAULT_SIMULADO_HISTORY_CAP, resolveCategoryScoreDomain } from '../utils/simuladoReconciler';
+import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { generateId } from '../utils/idGenerator';
 import { clearUrgencyCache, clearTopicsCache } from '../utils/coachCaches';
 import { clearMcCache } from '../utils/coachAdaptive';
@@ -542,11 +542,11 @@ export default function Simulados() {
             timeSpent: td.timeSpent, timedQuestoes: td.timedQuestoes
           }));
 
-          const maxScore = Number(cat.maxScore) || Number(prev?.maxScore) || 100;
-          const minScore = Number.isFinite(Number(cat.minScore))
-            ? Number(cat.minScore)
-            : (Number.isFinite(Number(prev?.minScore)) ? Number(prev.minScore) : 0);
-          const scoreRange = Math.max(1e-9, maxScore - minScore);
+          const { maxScore, minScore, range: scoreRange } = resolveCategoryScoreDomain(
+            cat,
+            prev?.maxScore,
+            prev?.minScore
+          );
           if (finalQ > 0) {
             const totalDifficultyWeight = finalTopics.reduce((acc, t) => acc + (Number(t.difficulty) || 1.0) * (Number(t.total) || 0), 0);
             const avgDifficulty = finalTopics.length > 0 && totalDifficultyWeight > 0 ? totalDifficultyWeight / finalQ : 1.0;
@@ -559,24 +559,13 @@ export default function Simulados() {
             });
           }
 
-          const historyWithCurrent = [...historyWithoutToday]
-            .sort((a, b) => (toDateMs(a?.date || a?.createdAt) || 0) - (toDateMs(b?.date || b?.createdAt) || 0))
-            .slice(-150);
-          const statsResult = computeCategoryStats(
-              historyWithCurrent, 
-              Number(cat.weight) > 0 ? Number(cat.weight) : 10, 
-              60, 
-              maxScore,
-              minScore
+          cat.simuladoStats = computeCategorySimuladoStats(
+            cat,
+            historyWithoutToday,
+            prev?.maxScore,
+            prev?.minScore,
+            { maxHistory: DEFAULT_SIMULADO_HISTORY_CAP }
           );
-          const lastScore = finalQ > 0 ? (minScore + (finalC / finalQ) * scoreRange) : (cat.simuladoStats?.lastAttempt ?? 0);
-          cat.simuladoStats = {
-            ...cat.simuladoStats, history: historyWithCurrent,
-            average: Number((statsResult?.mean || 0).toFixed(2)),
-            trend: statsResult?.trend || 'stable',
-            lastAttempt: Number(Number(lastScore).toFixed(2)),
-            level: statsResult?.level || 'BAIXO'
-          };
         };
 
         const subjectsToProcess = new Set();
@@ -623,7 +612,7 @@ export default function Simulados() {
             createdAt: nowIso, lastUpdated: nowIso
           };
           updatedSimulados = [...updatedSimulados.filter(s => !(getDateKey(normalizeDate(s?.date || s?.createdAt)) === todayKey && s?.type === 'auto-analyzer')), newSimuladoEvent]
-            .sort((a, b) => getMs(a) - getMs(b)).slice(-150);
+            .sort((a, b) => getMs(a) - getMs(b)).slice(-DEFAULT_SIMULADO_HISTORY_CAP);
         }
 
         return { ...prev, categories: newCategories, simuladoRows: validatedRows, simulados: updatedSimulados, lastUpdated: nowIso };

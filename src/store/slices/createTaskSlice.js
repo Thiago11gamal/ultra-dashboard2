@@ -5,7 +5,6 @@ import { getTaskXP } from '../../utils/gamification.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { normalizePriority } from '../../utils/colorHelper.js';
 import { normalize } from '../../utils/normalization.js';
-import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
 import { matchesActiveSubjectTask } from '../../utils/pomodoroHelpers.js';
 
 export const createTaskSlice = (set, get) => ({
@@ -63,8 +62,6 @@ export const createTaskSlice = (set, get) => ({
                 delete task.awardedXP;
             }
 
-            clearUrgencyCache();
-            clearTopicsCache();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -142,8 +139,6 @@ export const createTaskSlice = (set, get) => ({
             }
 
             if (found) {
-                clearUrgencyCache();
-                clearTopicsCache();
                 activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = nowIso;
@@ -190,8 +185,6 @@ export const createTaskSlice = (set, get) => ({
                 priority: 'medium'
             });
 
-            clearUrgencyCache();
-            clearTopicsCache();
             const nowIso = new Date().toISOString();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
@@ -266,8 +259,6 @@ export const createTaskSlice = (set, get) => ({
                 };
             }
 
-            clearUrgencyCache();
-            clearTopicsCache();
             const nowIso = new Date().toISOString();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
@@ -318,8 +309,6 @@ export const createTaskSlice = (set, get) => ({
                 }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
 
-                clearUrgencyCache();
-                clearTopicsCache();
                 const nowIso = new Date().toISOString();
                 activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
@@ -391,8 +380,6 @@ export const createTaskSlice = (set, get) => ({
                     category.tasks = [...tasks];
                     activeData.categories = [...categories];
 
-                    clearUrgencyCache();
-                    clearTopicsCache();
                     const nowIso = new Date().toISOString();
                     activeData.lastUpdated = nowIso;
                     state.appState.version = (state.appState.version || 0) + 1;

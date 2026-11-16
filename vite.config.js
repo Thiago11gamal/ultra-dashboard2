@@ -70,14 +70,20 @@ export default defineConfig({
   test: {
     // FIX 6: Transição para jsdom, libertando o acesso a APIs de browser (window, document)
     // requeridas imperativamente por ficheiros 'src/**/*.test.jsx' que testam componentes React.
-    environment: 'jsdom',        
-    globals: true,              
+    environment: 'jsdom',
+    globals: true,
+    maxWorkers: 2,
     include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'src/**/*.spec.js', 'tests/**/*.test.js'],
-    globalTeardown: './tests/teardown.js',
     testTimeout: 20000,
     coverage: {
       provider: 'v8',
-      include: ['src/engine/**', 'src/utils/coachLogic.js'],
+      include: [
+        'src/engine/**',
+        'src/utils/coachLogic.js',
+        'src/utils/coach/**',
+        'src/utils/simuladoReconciler.js',
+        'src/utils/cloudSyncMerge.js',
+      ],
     },
   },
   // ──────────────────────────────────────────────────────────────────────────

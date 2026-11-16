@@ -158,6 +158,7 @@ export default function Coach() {
     }));
     const isHydrated = useAppStore(state => state.appState.isHydrated);
     const setData = useAppStore(state => state.setData);
+    const patchData = useAppStore(state => state.patchData);
     const showToast = useToast();
     const showToastRef = useRef(showToast); // FIX: Estabilização de referência para evitar loops
 
@@ -774,7 +775,7 @@ useEffect(() => {
                         });
 
                     if (hasPlanChanged || !currentData?.coachPlanner) {
-                        setData(() => ({
+                        patchData(() => ({
                             coachPlan: nextPlan,
                             coachPlanner: refreshedPlanner
                         }));
@@ -827,7 +828,7 @@ useEffect(() => {
     flashcardDue,
     flashcardDecks,
     persistCalibrationMetric,
-    setData,
+    patchData,
     planRefreshTick
 ]);
 
@@ -860,16 +861,16 @@ const handleChangeTab = useCallback((tab) => {
 
 
 
-// BUG-8 FIX: Merge both operations into a single setData call to prevent desync
+// BUG-8 FIX: Merge both operations into a single patchData call to prevent desync
 const handleClearHistory = useCallback(() => {
     clearMcCache();
     clearUrgencyCache();
     clearTopicsCache();
-    setData(() => ({
+    patchData(() => ({
         coachPlan: [],
         coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
     }));
-}, [setData]);
+}, [patchData]);
 
 const handleRegeneratePlan = useCallback(() => {
     clearMcCache();

@@ -477,6 +477,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     }, [activeCategories, weights, safeMax, safeMin, categoriesVersion]);
 
     const heatmapData = useMemo(() => {
+        void categoriesVersion;
         if (!activeCategories.length) return { dates: [], rows: [] };
         const todayKey = getDateKey(new Date());
         const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -588,6 +589,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
     }, [activeCategories, safeMax, safeMin, categoriesVersion]);
 
     const globalMetrics = useMemo(() => {
+        void categoriesVersion;
         let totalQuestions = 0;
         let totalCorrect = 0;
         let syntheticQuestions = 0;

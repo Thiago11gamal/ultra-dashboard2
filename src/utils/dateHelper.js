@@ -1,18 +1,104 @@
 import { addDays } from 'date-fns';
 
-export const APP_TIMEZONE = 'America/Manaus';
+export const DEFAULT_APP_TIMEZONE = 'America/Manaus';
+export let APP_TIMEZONE = DEFAULT_APP_TIMEZONE;
 
-const manausDayFormatter = new Intl.DateTimeFormat('en-CA', {
-  timeZone: APP_TIMEZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit'
-});
+const FORMATTER_CACHE_MAX = 24;
+const formatterCache = new Map();
+
+function getCachedFormatter(timeZone, optionsKey, options) {
+  const key = `${timeZone}|${optionsKey}`;
+  let fmt = formatterCache.get(key);
+  if (!fmt) {
+    if (formatterCache.size >= FORMATTER_CACHE_MAX) {
+      const oldestKey = formatterCache.keys().next().value;
+      if (oldestKey !== undefined) formatterCache.delete(oldestKey);
+    }
+    fmt = new Intl.DateTimeFormat(options.locale || 'en-CA', {
+      ...options.intl,
+      timeZone
+    });
+    formatterCache.set(key, fmt);
+  }
+  return fmt;
+}
+
+export function getAppTimezone() {
+  return APP_TIMEZONE;
+}
+
+export function setAppTimezone(timeZone) {
+  if (typeof timeZone !== 'string' || !timeZone.trim()) return APP_TIMEZONE;
+  const candidate = timeZone.trim();
+  if (candidate === 'auto' && typeof Intl !== 'undefined') {
+    const resolved = Intl.DateTimeFormat().resolvedOptions()?.timeZone;
+    if (resolved) {
+      APP_TIMEZONE = resolved;
+      return APP_TIMEZONE;
+    }
+  }
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: candidate }).format(new Date());
+    APP_TIMEZONE = candidate;
+  } catch {
+    // Mantém timezone válido anterior se identificador IANA for inválido
+  }
+  return APP_TIMEZONE;
+}
+
+function getTimezoneOffsetMs(utcMs, timeZone = APP_TIMEZONE) {
+  try {
+    const fmt = getCachedFormatter(timeZone, 'parts', {
+      locale: 'en-US',
+      intl: {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23'
+      }
+    });
+    const parts = fmt.formatToParts(new Date(utcMs));
+    const map = {};
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].type !== 'literal') map[parts[i].type] = Number(parts[i].value);
+    }
+    const tzAsUtc = Date.UTC(map.year, map.month - 1, map.day, map.hour, map.minute, map.second, 0);
+    return tzAsUtc - utcMs;
+  } catch {
+    return -4 * 3600 * 1000;
+  }
+}
+
+function formatOffsetString(offsetMs) {
+  const totalMinutes = Math.round(offsetMs / 60000);
+  const sign = totalMinutes >= 0 ? '+' : '-';
+  const abs = Math.abs(totalMinutes);
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+  const mm = String(abs % 60).padStart(2, '0');
+  return `${sign}${hh}:${mm}`;
+}
+
+function createNoonInTimezone(year, month, day, timeZone = APP_TIMEZONE) {
+  const utcNoon = Date.UTC(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+  const offsetMs = getTimezoneOffsetMs(utcNoon, timeZone);
+  return new Date(utcNoon - offsetMs);
+}
+
+function formatDayKeyInTimezone(date, timeZone = APP_TIMEZONE) {
+  const fmt = getCachedFormatter(timeZone, 'dayKey', {
+    locale: 'en-CA',
+    intl: { year: 'numeric', month: '2-digit', day: '2-digit' }
+  });
+  return fmt.format(date);
+}
 
 export function getManausDateKey(date = new Date()) {
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return getDateKey(date);
-  return manausDayFormatter.format(d);
+  return formatDayKeyInTimezone(d, APP_TIMEZONE);
 }
 
 export function getStreakDateKey(date = new Date()) {
@@ -28,7 +114,9 @@ export function getManausDayRange(dateInput = new Date()) {
     return null;
   }
   const [year, month, day] = key.split('-').map(Number);
-  const start = Date.UTC(year, month - 1, day, 4, 0, 0, 0);
+  const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
+  const offsetMs = getTimezoneOffsetMs(utcMidnight + 12 * 3600000, APP_TIMEZONE);
+  const start = utcMidnight - offsetMs;
   return {
     key,
     start,
@@ -121,40 +209,32 @@ export function parseGoalDateUnified(value) {
       const secs = rawDate.seconds != null ? rawDate.seconds : rawDate._seconds;
       const d = new Date(secs * 1000);
       if (Number.isNaN(d.getTime())) return null;
-      const manausDate = new Date(d.getTime() - (4 * 3600000));
-      const year = manausDate.getUTCFullYear();
-      const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(manausDate.getUTCDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return formatDayKeyInTimezone(d, APP_TIMEZONE);
     }
 
     try {
       const d = normalizeDate(rawDate);
       if (!d || Number.isNaN(d.getTime())) return null;
-      const manausDate = new Date(d.getTime() - (4 * 3600000));
-      const year = manausDate.getUTCFullYear();
-      const month = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(manausDate.getUTCDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      return formatDayKeyInTimezone(d, APP_TIMEZONE);
     } catch {
       return null;
     }
   };
 
   export const getWeekKey = (date) => {
-    const dt = normalizeDate(date);
-    if (!dt || Number.isNaN(dt.getTime())) return null;
+    const dayKey = getDateKey(date);
+    if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return null;
 
-    // Ancorar ao calendário de Manaus (UTC-4) para evitar drift de semana entre fusos horários
-    const manausDate = new Date(dt.getTime() - (4 * 3600000));
-    const dayOfWeek = manausDate.getUTCDay();
-    const diff = manausDate.getUTCDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    manausDate.setUTCDate(diff);
+    const [y, m, d] = dayKey.split('-').map(Number);
+    const utcCalendar = new Date(Date.UTC(y, m - 1, d));
+    const dayOfWeek = utcCalendar.getUTCDay();
+    const diff = utcCalendar.getUTCDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    utcCalendar.setUTCDate(diff);
 
-    const y = manausDate.getUTCFullYear();
-    const m = String(manausDate.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(manausDate.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    const wy = utcCalendar.getUTCFullYear();
+    const wm = String(utcCalendar.getUTCMonth() + 1).padStart(2, '0');
+    const wd = String(utcCalendar.getUTCDate()).padStart(2, '0');
+    return `${wy}-${wm}-${wd}`;
   };
 
   export const getLocalMidnight = (date = new Date()) => {
@@ -227,8 +307,7 @@ export function parseGoalDateUnified(value) {
     } else if (typeof raw === "string" && /^\d{2}-\d{2}-\d{4}$/.test(raw)) {
       // DD-MM-YYYY com traços (formato pt-BR)
       const parts = raw.split('-');
-      const isoBr = `${parts[2]}-${parts[1]}-${parts[0]}T12:00:00-04:00`;
-      d = new Date(isoBr);
+      d = createNoonInTimezone(parts[2], parts[1], parts[0], APP_TIMEZONE);
     } else if (typeof raw === "string" && raw.includes("/")) {
       const parts = raw.trim().split(/[/-]/);
       if (parts.length >= 3 && parts[0].length <= 2) {
@@ -236,13 +315,15 @@ export function parseGoalDateUnified(value) {
         const year = yearWithTime[0];
         const timePart = yearWithTime.slice(1).join(' ');
         if (year.length === 4) {
-          const timeFormatted = timePart && timePart.includes(':') ? timePart : '12:00:00-04:00';
+          const offsetStr = formatOffsetString(
+            getTimezoneOffsetMs(Date.UTC(Number(year), Number(parts[1]) - 1, Number(parts[0]), 12), APP_TIMEZONE)
+          );
+          const timeFormatted = timePart && timePart.includes(':') ? timePart : `12:00:00${offsetStr}`;
           const hasOffset = timeFormatted.includes('-') || timeFormatted.includes('+') || timeFormatted.endsWith('Z');
-          const isoBr = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${hasOffset ? timeFormatted : timeFormatted + '-04:00'}`;
+          const isoBr = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T${hasOffset ? timeFormatted : timeFormatted + offsetStr}`;
           d = new Date(isoBr);
           if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
-            const fallbackIso = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}T12:00:00-04:00`;
-            d = new Date(fallbackIso);
+            d = createNoonInTimezone(year, parts[1], parts[0], APP_TIMEZONE);
           }
         } else {
           d = new Date(raw);
@@ -251,11 +332,12 @@ export function parseGoalDateUnified(value) {
         d = new Date(raw);
       }
     } else if (typeof raw === "string") {
-      // ✅ FIX: YYYY-MM-DD → meio-dia de Manaus (UTC-4)
-      const isoNoon = `${normalizedRaw}T12:00:00-04:00`;
-      d = isDateOnly
-        ? new Date(isoNoon)
-        : new Date(raw);
+      if (isDateOnly && /^\d{4}-\d{2}-\d{2}$/.test(normalizedRaw)) {
+        const [y, m, dayNum] = normalizedRaw.split('-').map(Number);
+        d = createNoonInTimezone(y, m, dayNum, APP_TIMEZONE);
+      } else {
+        d = new Date(raw);
+      }
     } else {
       d = new Date(raw);
     }
@@ -362,8 +444,9 @@ export function parseGoalDateUnified(value) {
   export const getFlashcardNextDueKey = (intervalDays = 1) => {
     const raw = Number(intervalDays);
     const safeDays = Number.isFinite(raw) ? Math.max(1, Math.min(3650, Math.floor(raw))) : 1;
-    const anchorIso = `${getDateKey(new Date())}T12:00:00-04:00`;
-    const anchor = new Date(anchorIso);
+    const todayKey = getDateKey(new Date());
+    const [y, m, d] = (todayKey || '').split('-').map(Number);
+    const anchor = (y && m && d) ? createNoonInTimezone(y, m, d, APP_TIMEZONE) : new Date();
     const future = addDays(anchor, safeDays);
     const key = getDateKey(future);
     return key || getFlashcardTodayKey();

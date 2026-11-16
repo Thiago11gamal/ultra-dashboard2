@@ -182,6 +182,7 @@ function FactoryResetButton() {
                 onConfirm={async () => {
                     [
                         'ultra-dashboard-storage',
+                        'ultra-dashboard-storage:meta',
                         'ultra-dashboard-data',
                         'ultra-dashboard-v8',
                         'ultra-dashboard-storage-v8',

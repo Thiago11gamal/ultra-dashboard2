@@ -3,13 +3,9 @@ import { normalize } from '../../utils/normalization.js';
 import { safeClone } from '../../utils/safeClone.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { addCategoryTombstones, removeCategoryTombstone } from '../../utils/tombstones.js';
-import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
-import { clearMcCache } from '../../utils/coachAdaptive.js';
 import { getCalibrationKey } from '../../utils/coachSafe.js';
 import { PRESET_CATEGORY_COLORS } from '../../utils/colorHelper.js';
-import { computeCategoryStats } from '../../engine/stats.js';
-import { getSafeScore } from '../../utils/scoreHelper.js';
-import { toDateMs } from '../../utils/dateHelper.js';
+import { computeCategorySimuladoStats } from '../../utils/simuladoReconciler.js';
 
 export const createCategorySlice = (set) => ({
     addCategory: (name) => {
@@ -61,18 +57,12 @@ export const createCategorySlice = (set) => ({
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
             markStorageDirty();
-            clearUrgencyCache();
-            clearTopicsCache();
-            clearMcCache();
             added = true;
         });
         return added;
     },
 
     deleteCategory: (id) => set((state) => {
-        clearUrgencyCache();
-        clearTopicsCache();
-        clearMcCache();
         const activeData = state.appState.contests[state.appState.activeId];
         if (!activeData) return;
         if (!Array.isArray(activeData.categories)) {
@@ -339,9 +329,6 @@ export const createCategorySlice = (set) => ({
                     }
                 }
             }
-            clearUrgencyCache();
-            clearTopicsCache();
-            clearMcCache();
             const nowIso = new Date().toISOString();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
@@ -482,13 +469,13 @@ export const createCategorySlice = (set) => ({
                     }
                 }
 
-      (cat.tasks || []).forEach(t => {
-        const taskTitle = normalize(t.title || t.text || '');
+                (cat.tasks || []).forEach(t => {
+                    const taskTitle = normalize(t.title || t.text || '');
 
-        if (!taskTitle || !mergedTasks.some(mt => normalize(mt.title || mt.text || '') === taskTitle)) {
-          mergedTasks.push(t);
-        }
-      });
+                    if (!taskTitle || !mergedTasks.some(mt => normalize(mt.title || mt.text || '') === taskTitle)) {
+                        mergedTasks.push(t);
+                    }
+                });
 
                 getHistoryArr(cat).forEach(h => {
                     const key = historyKey(h);
@@ -567,43 +554,24 @@ export const createCategorySlice = (set) => ({
                 }
             });
 
-            const sortedHistory = [...mergedHistory].sort(
-                (a, b) => (toDateMs(a?.date || a?.createdAt) || 0) - (toDateMs(b?.date || b?.createdAt) || 0)
+            const mergedStatsObj = computeCategorySimuladoStats(
+                primary,
+                mergedHistory,
+                activeData.maxScore,
+                activeData.minScore
             );
-            const catMax = Number.isFinite(Number(primary.maxScore)) && Number(primary.maxScore) > 0
-                ? Number(primary.maxScore)
-                : (Number(activeData.maxScore) || 100);
-            const catMin = Number.isFinite(Number(primary.minScore))
-                ? Math.min(Number(primary.minScore), catMax)
-                : (Number.isFinite(Number(activeData.minScore)) ? Number(activeData.minScore) : 0);
-            const catWeight = Number(primary.weight) > 0 ? Number(primary.weight) : 10;
-            const mergedStats = sortedHistory.length > 0
-                ? computeCategoryStats(sortedHistory, catWeight, 60, catMax, catMin)
-                : null;
-            const lastEntry = sortedHistory.length > 0 ? sortedHistory[sortedHistory.length - 1] : null;
-            const lastScore = lastEntry ? getSafeScore(lastEntry, catMax, catMin) : NaN;
 
             newCategories.push({
                 ...primary,
                 totalMinutes: mergedTotalMinutes,
                 lastStudiedAt: mergedLastStudiedAt,
                 tasks: mergedTasks,
-                simuladoStats: {
-                    ...primary.simuladoStats,
-                    history: sortedHistory,
-                    average: mergedStats ? Number((mergedStats.mean || 0).toFixed(2)) : 0,
-                    trend: mergedStats?.trend || 'stable',
-                    lastAttempt: Number.isFinite(lastScore) ? Number(lastScore.toFixed(2)) : catMin,
-                    level: mergedStats?.level || 'BAIXO'
-                }
+                simuladoStats: mergedStatsObj
             });
         });
 
         if (changed) {
             activeData.categories = newCategories;
-            clearUrgencyCache();
-            clearTopicsCache();
-            clearMcCache();
 
             if (activeData.mcWeights) {
                 const validKeys = new Set();
@@ -629,76 +597,73 @@ export const createCategorySlice = (set) => ({
         }
     }),
 
-    importCategory: (sourceContestId, categoryId) => {
-        let result = false;
-        set((state) => {
-            const sourceData = state.appState.contests[sourceContestId];
-            const activeData = state.appState.contests[state.appState.activeId];
+importCategory: (sourceContestId, categoryId) => {
+    let result = false;
+    set((state) => {
+        const sourceData = state.appState.contests[sourceContestId];
+        const activeData = state.appState.contests[state.appState.activeId];
 
-            if (!sourceData || !activeData) return;
-            const sourceCategories = Array.isArray(sourceData.categories)
-                ? sourceData.categories
-                : Object.values(sourceData.categories || {});
+        if (!sourceData || !activeData) return;
+        const sourceCategories = Array.isArray(sourceData.categories)
+            ? sourceData.categories
+            : Object.values(sourceData.categories || {});
 
-            const categoryToImport = sourceCategories.find(c => c && (c.id === categoryId || c.name === categoryId));
-            if (!categoryToImport) return;
+        const categoryToImport = sourceCategories.find(c => c && (c.id === categoryId || c.name === categoryId));
+        if (!categoryToImport) return;
 
-            if (!Array.isArray(activeData.categories)) {
-                activeData.categories = activeData.categories && typeof activeData.categories === 'object'
-                    ? Object.values(activeData.categories)
-                    : [];
-            }
+        if (!Array.isArray(activeData.categories)) {
+            activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                ? Object.values(activeData.categories)
+                : [];
+        }
 
-            // Check duplicates
-            const normName = normalize(categoryToImport.name || '');
-            if (activeData.categories.some(c => normalize(c?.name || '') === normName)) {
-                console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
-                return;
-            }
+        // Check duplicates
+        const normName = normalize(categoryToImport.name || '');
+        if (activeData.categories.some(c => normalize(c?.name || '') === normName)) {
+            console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
+            return;
+        }
 
-            const newId = generateId('cat');
-            const importedCat = safeClone(categoryToImport);
-            importedCat.id = newId;
+        const newId = generateId('cat');
+        const importedCat = safeClone(categoryToImport);
+        importedCat.id = newId;
 
-            // Resetar histórico, tempo e estatísticas para o novo concurso
-            importedCat.totalMinutes = 0;
-            importedCat.lastStudiedAt = null;
-            importedCat.simuladoStats = {
-                history: [],
-                average: 0,
-                lastAttempt: 0,
-                trend: 'stable',
-                level: 'BAIXO'
+        // Resetar histórico, tempo e estatísticas para o novo concurso
+        importedCat.totalMinutes = 0;
+        importedCat.lastStudiedAt = null;
+        importedCat.simuladoStats = {
+            history: [],
+            average: 0,
+            lastAttempt: 0,
+            trend: 'stable',
+            level: 'BAIXO'
+        };
+
+        // Regenerar IDs das tarefas e resetar progresso para o novo certame
+        const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
+        importedCat.tasks = rawTasks.map(t => {
+            const taskClone = safeClone(t);
+            return {
+                ...taskClone,
+                id: generateId('task'),
+                completed: false,
+                completedAt: null,
+                status: null,
+                awardedXP: undefined
             };
-
-            // Regenerar IDs das tarefas e resetar progresso para o novo certame
-            const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
-            importedCat.tasks = rawTasks.map(t => {
-                const taskClone = safeClone(t);
-                return {
-                    ...taskClone,
-                    id: generateId('task'),
-                    completed: false,
-                    completedAt: null,
-                    status: null,
-                    awardedXP: undefined
-                };
-            });
-
-            activeData.categories.push(importedCat);
-            removeCategoryTombstone(newId, importedCat.name);
-
-            const nowIso = new Date().toISOString();
-            activeData.lastUpdated = nowIso;
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = nowIso;
-            markStorageDirty();
-            clearUrgencyCache();
-            clearTopicsCache();
-            clearMcCache();
-            result = true;
         });
-        return result;
-    },
+
+        activeData.categories.push(importedCat);
+        removeCategoryTombstone(newId, importedCat.name);
+
+        const nowIso = new Date().toISOString();
+        activeData.lastUpdated = nowIso;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = nowIso;
+        markStorageDirty();
+        result = true;
+    });
+    return result;
+},
 });
 

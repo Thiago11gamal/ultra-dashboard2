@@ -98,6 +98,7 @@ export async function secureLogout() {
         // ✅ FIX N-01: Limpar TODAS as chaves relevantes, incluindo IndexedDB
         const keysToRemove = [
             'ultra-dashboard-storage',
+            'ultra-dashboard-storage:meta',
             'ultra-sync-dirty',
             'pomodoroState',
             'pomodoro-endsAt',

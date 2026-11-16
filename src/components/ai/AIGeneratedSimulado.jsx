@@ -13,6 +13,7 @@ import ConfirmModal from '../ConfirmModal';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { safeGetJSON, markStorageDirty } from '../../utils/storageSafe';
 import { safeDomain } from '../../utils/measurement';
+import { DEFAULT_SIMULADO_HISTORY_CAP } from '../../utils/simuladoReconciler';
 import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches';
 import { clearMcCache } from '../../utils/coachAdaptive';
 
@@ -784,7 +785,7 @@ export default function AIGeneratedSimulado() {
           const existingSims = Array.isArray(currentDraft.simulados) ? currentDraft.simulados : Object.values(currentDraft.simulados || {});
           nextContests[state.appState.activeId] = {
             ...currentDraft,
-            simulados: [...existingSims, globalMixedEvent].slice(-150),
+            simulados: [...existingSims, globalMixedEvent].slice(-DEFAULT_SIMULADO_HISTORY_CAP),
             lastUpdated: new Date().toISOString()
           };
           return {

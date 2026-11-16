@@ -18,6 +18,24 @@ import { createSettingsSlice } from './slices/createSettingsSlice.js';
 import { createMonteCarloSlice } from './slices/createMonteCarloSlice.js';
 import { clearCoachCaches } from '../utils/coachPipeline.js';
 
+const STORAGE_META_SUFFIX = ':meta';
+const getStorageMetaKey = (name) => `${name}${STORAGE_META_SUFFIX}`;
+const hasIndexedDbSupport = () => typeof indexedDB !== 'undefined';
+
+const buildStorageMetaJson = (value) => {
+  try {
+    const parsed = JSON.parse(value);
+    const appState = parsed?.state?.appState;
+    return JSON.stringify({
+      version: Number(appState?.version || 0),
+      lastUpdated: appState?.lastUpdated || null,
+      storedIn: 'idb'
+    });
+  } catch {
+    return JSON.stringify({ version: 0, lastUpdated: null, storedIn: 'idb' });
+  }
+};
+
 // --- IndexedDB Adapter ---
 const saveTimeouts = {};
 const savePromises = {};
@@ -40,14 +58,15 @@ const flushPendingStorage = () => {
     if (latestValues[name]) {
       const valToFlush = latestValues[name];
       delete latestValues[name];
+      // Gravação síncrona de emergência no descarregamento da aba (antes que a prorrogação assíncrona do IDB conclua);
+      // no próximo ciclo debounced bem-sucedido no IDB, a chave cheia é removida mantendo apenas :meta.
       try {
         if (typeof localStorage !== 'undefined') localStorage.setItem(name, valToFlush);
       } catch { /* ignore */ }
       try {
-        // C-11 FIX: await não é possível em beforeunload, mas podemos
-        // usar navigator.sendBeacon como sinal de que dados estão pendentes.
-        // O IDB set é best-effort; o localStorage já salvou sincronamente.
-        idbSet(name, valToFlush).catch(() => {});
+        if (hasIndexedDbSupport()) {
+          idbSet(name, valToFlush).catch(() => {});
+        }
       } catch { /* ignore */ }
     }
   }
@@ -66,9 +85,16 @@ if (typeof window !== 'undefined') {
 
 const idbStorage = {
   getItem: async (name) => {
+    const readLocalFull = () => {
+      try {
+        return typeof localStorage !== 'undefined' ? localStorage.getItem(name) : null;
+      } catch {
+        return null;
+      }
+    };
     try {
-      const val = await idbGet(name);
-      const localVal = typeof localStorage !== 'undefined' ? localStorage.getItem(name) : null;
+      const val = hasIndexedDbSupport() ? await idbGet(name) : null;
+      const localVal = readLocalFull();
       if (!val) return localVal || null;
       if (!localVal) return val;
       try {
@@ -91,13 +117,7 @@ const idbStorage = {
       return val;
     } catch (e) {
       console.warn('[Storage] Falha ao ler IDB. Tentando fallback localStorage:', e);
-      try {
-        const localVal = typeof localStorage !== 'undefined' ? localStorage.getItem(name) : null;
-        return localVal || null;
-      } catch (fallbackErr) {
-        console.error('[Storage] Falha no fallback getItem:', fallbackErr);
-        return null;
-      }
+      return readLocalFull();
     }
   },
   setItem: (name, value) => {
@@ -114,16 +134,19 @@ const idbStorage = {
 
       saveTimeouts[name] = setTimeout(async () => {
         try {
-          // Persiste localStorage junto ao ciclo debounced para evitar bloqueio síncrono na UI thread;
-          // flushPendingStorage garante gravação síncrona imediata em beforeunload/pagehide/visibilitychange.
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem(name, value);
+          if (hasIndexedDbSupport()) {
+            await idbSet(name, value);
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(getStorageMetaKey(name), buildStorageMetaJson(value));
+                localStorage.removeItem(name);
+              }
+            } catch {
+              // Metadados no localStorage são best-effort
             }
-          } catch {
-            // Ignorar possíveis exceções de quota (o IDB ainda tentará persistir)
+          } else if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(name, value);
           }
-          await idbSet(name, value);
           if (currentWriteTokens[name] === opToken) {
             currentPromise.resolve();
           }
@@ -157,7 +180,12 @@ const idbStorage = {
     if (savePromises[name]) savePromises[name].reject(new Error('Removed'));
     delete latestValues[name];
     try { await idbDel(name); } catch { /* ignore */ }
-    try { if (typeof localStorage !== 'undefined') localStorage.removeItem(name); } catch { /* ignore */ }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(name);
+        localStorage.removeItem(getStorageMetaKey(name));
+      }
+    } catch { /* ignore */ }
   },
 };
 
@@ -212,6 +240,7 @@ export const useAppStore = create(
               localStorage.removeItem('pomodoroState');
               localStorage.removeItem('pomodoro-endsAt');
               localStorage.removeItem('ultra-dashboard-storage');
+              localStorage.removeItem('ultra-dashboard-storage:meta');
             }
           } catch { /* ignore */ }
           try {
@@ -252,7 +281,11 @@ export const useAppStore = create(
           });
         },
 
-        // ✅ FIX: setData suporta tanto retorno de objeto quanto mutação direta (Immer draft)
+        /**
+         * Substitui ou atualiza o concurso ativo.
+         * Quando o retorno inclui chaves estruturais do concurso (`categories`, `contestName` ou `user`),
+         * substitui o objeto completo preservando deleções de chaves; para atualizações parciais prefira `patchData`.
+         */
         setData: (newDataCallback) => set((state) => {
           const contestId = state.appState.activeId;
           const currentData = state.appState.contests[contestId];
@@ -268,12 +301,40 @@ export const useAppStore = create(
             : newDataCallback;
 
           if (nextData !== null && typeof nextData === 'object' && nextData !== currentData) {
-            Object.assign(state.appState.contests[contestId], nextData);
-
             const nowIso = new Date().toISOString();
-            if (state.appState.contests[contestId]) {
+            const isFullContest = 'categories' in nextData || 'contestName' in nextData || 'user' in nextData;
+            if (isFullContest) {
+              state.appState.contests[contestId] = {
+                ...nextData,
+                lastUpdated: nowIso
+              };
+            } else {
+              Object.assign(state.appState.contests[contestId], nextData);
               state.appState.contests[contestId].lastUpdated = nowIso;
             }
+
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = nowIso;
+            try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+          }
+        }),
+
+        /**
+         * Aplica patch parcial superficial no concurso ativo (`Object.assign`).
+         */
+        patchData: (partialCallback) => set((state) => {
+          const contestId = state.appState.activeId;
+          const currentData = state.appState.contests[contestId];
+          if (!currentData || partialCallback === undefined || partialCallback === null) return;
+
+          const patch = typeof partialCallback === 'function'
+            ? partialCallback(currentData)
+            : partialCallback;
+
+          if (patch !== null && typeof patch === 'object' && patch !== currentData) {
+            Object.assign(state.appState.contests[contestId], patch);
+            const nowIso = new Date().toISOString();
+            state.appState.contests[contestId].lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
             try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
@@ -336,7 +397,10 @@ export const useAppStore = create(
             }
           } catch (e) {
             console.error("[Zustand] Falha estrutural CRÍTICA:", e);
-            try { localStorage.removeItem('ultra-dashboard-storage'); } catch { /* ignore */ }
+            try {
+              localStorage.removeItem('ultra-dashboard-storage');
+              localStorage.removeItem('ultra-dashboard-storage:meta');
+            } catch { /* ignore */ }
             try { idbDel('ultra-dashboard-storage').catch(() => {}); } catch { /* ignore */ }
             targetId = 'default';
             targetContests = { 'default': safeClone(INITIAL_DATA) };
@@ -365,12 +429,15 @@ export const useTemporalStore = (selector) => {
   return useStore(useAppStore.temporal, selector);
 };
 
-// MATH-03: Invalidate cache quando activeId muda
+// MATH-03: Invalidação centralizada dos caches do Coach/MC sempre que activeId ou version mudar
 let previousActiveId = useAppStore.getState().appState.activeId;
+let previousVersion = useAppStore.getState().appState.version;
 useAppStore.subscribe((state) => {
   const currentActiveId = state.appState.activeId;
-  if (currentActiveId !== previousActiveId) {
+  const currentVersion = state.appState.version;
+  if (currentActiveId !== previousActiveId || currentVersion !== previousVersion) {
     previousActiveId = currentActiveId;
+    previousVersion = currentVersion;
     clearCoachCaches();
   }
 });

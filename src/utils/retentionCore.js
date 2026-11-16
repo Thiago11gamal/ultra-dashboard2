@@ -1,3 +1,5 @@
+import { toDateMs as parseBaseDateMs } from './dateHelper.js';
+
 export const MS_PER_DAY = 86_400_000;
 
 export function clamp(value, min, max) {
@@ -41,31 +43,12 @@ export function normalizeArray(value) {
 export function toDateMs(value) {
   if (value == null) return null;
 
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value.getTime();
-  }
-
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) return null;
-
-    if (value > 1e14) {
-      return Math.floor(value / 1000);
-    }
-    if (value >= 100_000_000_000) return value;
-    return value * 1000;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-
   if (typeof value?.toMillis === 'function') {
     try {
       const ms = value.toMillis();
       return Number.isFinite(ms) ? ms : null;
     } catch {
-      // ignore
+      return null;
     }
   }
 
@@ -76,11 +59,11 @@ export function toDateMs(value) {
         ? (Number.isNaN(date.getTime()) ? null : date.getTime())
         : null;
     } catch {
-      // ignore
+      return null;
     }
   }
 
-  if (typeof value === 'object') {
+  if (typeof value === 'object' && !(value instanceof Date)) {
     if (Number.isFinite(value?.seconds)) {
       return value.seconds * 1000 + Math.round((value.nanoseconds || 0) / 1_000_000);
     }
@@ -94,7 +77,8 @@ export function toDateMs(value) {
     }
   }
 
-  return null;
+  const ms = parseBaseDateMs(value);
+  return Number.isFinite(ms) ? ms : null;
 }
 
 export function normalizeAccuracy(value, maxScore = 100, minScore = 0, options = {}) {

@@ -1,7 +1,6 @@
 import { validateAppState } from '../schemas.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
-import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches.js';
-import { clearMcCache } from '../../utils/coachAdaptive.js';
+import { clearCoachCaches } from '../../utils/coachPipeline.js';
 
 const applyDarkModeToggle = (state, mode) => {
   if (!state.appState) return;
@@ -112,9 +111,7 @@ export const createSettingsSlice = (set) => ({
     });
     
     state.appState.lastUpdated = nextState.lastUpdated ?? new Date().toISOString();
-    clearUrgencyCache();
-    clearTopicsCache();
-    clearMcCache();
+    if (resolvedVersion === prevVersion) clearCoachCaches();
     markStorageDirty();
   }),
   
