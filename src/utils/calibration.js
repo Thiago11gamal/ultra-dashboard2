@@ -228,11 +228,12 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
   if (!Array.isArray(simuladoRows) || simuladoRows.length === 0) return calibrationEvents;
   const timed = simuladoRows
     .map(row => {
+      if (!row || row.valid === false || row.validated === false) return null;
       // Priorizar createdAt se disponível para timestamp exato; fallback para date
       const parsed = normalizeDate(row?.createdAt || row?.timestamp || row?.date);
       return { row, ts: parsed ? parsed.getTime() : NaN };
     })
-    .filter(x => Number.isFinite(x.ts))
+    .filter(x => x && Number.isFinite(x.ts))
     .sort((a, b) => a.ts - b.ts);
   if (timed.length === 0) return calibrationEvents;
   return calibrationEvents.map(ev => {
@@ -262,11 +263,25 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
           const key = getDateKey(x.row.date || x.row.createdAt);
           return key !== null && dayKeys.includes(key);
         });
+        const safeGlobalMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const safeGlobalMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeGlobalMin ? Number(maxScore) : Math.max(safeGlobalMin + 1, 100);
+        const globalRange = Math.max(1e-9, safeGlobalMax - safeGlobalMin);
+
         let sumScore = 0;
         let sumWeight = 0;
         allDays.forEach(x => {
-          const s = getSafeScore(x.row, maxScore, minScore);
-          if (!Number.isFinite(s)) return;
+          const rowSubj = x.row.subject || x.row.categoryName || x.row.materia || x.row.disciplina;
+          const catMeta = Array.isArray(categories) && rowSubj
+            ? categories.find(c => isSubjectMatch(rowSubj, c?.name || c?.id || c?.subject || c?.categoryName))
+            : null;
+          const catMin = catMeta?.minScore != null && Number.isFinite(Number(catMeta.minScore)) ? Number(catMeta.minScore) : safeGlobalMin;
+          const catMax = catMeta?.maxScore != null && Number.isFinite(Number(catMeta.maxScore)) && Number(catMeta.maxScore) > catMin ? Number(catMeta.maxScore) : safeGlobalMax;
+          const rawScore = getSafeScore(x.row, catMax, catMin);
+          if (!Number.isFinite(rawScore)) return;
+          const catRange = Math.max(1e-9, catMax - catMin);
+          const s = (catMin === safeGlobalMin && catMax === safeGlobalMax)
+            ? rawScore
+            : safeGlobalMin + Math.max(0, Math.min(1, (rawScore - catMin) / catRange)) * globalRange;
           const w = Math.max(1, Number(x.row.total ?? x.row.questoes ?? x.row.totalQuestoes) || 1);
           sumScore += s * w;
           sumWeight += w;

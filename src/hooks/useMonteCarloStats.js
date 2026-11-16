@@ -59,6 +59,80 @@ const shrinkToNeutral = (p, factor, neutral = 50) => {
   return neutral + (safeP - neutral) * (1 - safeFactor);
 };
 
+const calibrateSpreadWithFloor = (rawSD, aleatoricFloor, penalty) => {
+  const safeSD = Number.isFinite(Number(rawSD)) ? Math.max(0, Number(rawSD)) : 0;
+  if (safeSD <= 0 || penalty <= 0) return safeSD;
+  const epistemic = Math.max(0, safeSD - aleatoricFloor);
+  return Math.min(safeSD, aleatoricFloor) + (epistemic * (1 + penalty * 2.5));
+};
+
+const expandCIWithRatio = (ci, ratio, minBound, maxBound) => {
+  if (!ci || !Number.isFinite(ratio) || ratio <= 1) return ci;
+  const low = Number(ci.ciLow ?? ci.low);
+  const high = Number(ci.ciHigh ?? ci.high);
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return ci;
+  const mid = (low + high) / 2;
+  const newLow = Math.max(minBound, mid - (mid - low) * ratio);
+  const newHigh = Math.min(maxBound, mid + (high - mid) * ratio);
+  return { ...ci, ciLow: newLow, ciHigh: newHigh, low: newLow, high: newHigh };
+};
+
+const sanitizeCutoffValue = (val) => {
+  if (val === null || val === undefined || typeof val === 'boolean') return null;
+  if (typeof val === 'string' && val.trim() === '') return null;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : null;
+};
+
+const buildSubjectsOpts = (statsObj, subjectImmunityMap, { isFuture, minScoreVal, maxScoreVal }) => {
+  const cats = Array.isArray(statsObj?.categoryStats) ? statsObj.categoryStats : [];
+  const baseSubjects = cats.map(c => {
+    const subjName = c.name || c.key || '';
+    const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
+    const catMin = Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreVal;
+    const catMax = Number.isFinite(Number(c.maxScore)) && Number(c.maxScore) > catMin ? Number(c.maxScore) : Math.max(catMin + 1, maxScoreVal);
+    const rawMean = isFuture
+      ? (c.bayesianMean ?? c.mean)
+      : (c.temporalBayesianMean ?? c.bayesianMean ?? c.mean);
+    return {
+      name: subjName,
+      mean: rawMean,
+      sd: isFuture ? (c.volatility ?? c.sd) : (c.bayesianSd ?? c.sd),
+      minCutoff: sanitizeCutoffValue(c.minCutoff),
+      maxScore: catMax,
+      minScore: catMin,
+      immunityFactor: immunity,
+      weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
+    };
+  });
+
+  if (isFuture || baseSubjects.length === 0 || !Number.isFinite(Number(statsObj?.bayesianMean))) {
+    return baseSubjects;
+  }
+
+  // Alinhar o nível composto das matérias no modo "Hoje" com pureStatsData.bayesianMean
+  // (que agrega com decaimento temporal), preservando o spread relativo entre disciplinas.
+  const globalSpan = Math.max(1e-9, maxScoreVal - minScoreVal);
+  const targetProp = clamp((Number(statsObj.bayesianMean) - minScoreVal) / globalSpan, 0, 1);
+  let wSum = 0;
+  let propSum = 0;
+  const props = baseSubjects.map(s => {
+    const sSpan = Math.max(1e-9, s.maxScore - s.minScore);
+    const p = clamp((Number(s.mean) - s.minScore) / sSpan, 0, 1);
+    wSum += s.weight;
+    propSum += p * s.weight;
+    return { p, sSpan };
+  });
+  const compositeProp = wSum > 0 ? propSum / wSum : targetProp;
+  const shiftProp = targetProp - compositeProp;
+  if (Math.abs(shiftProp) <= 1e-6) return baseSubjects;
+
+  return baseSubjects.map((s, idx) => {
+    const adjustedProp = clamp(props[idx].p + shiftProp, 0, 1);
+    return { ...s, mean: s.minScore + adjustedProp * props[idx].sSpan };
+  });
+};
+
 // Cache com TTL para simulações por matéria (evita recalculação redundante)
 const SUBJECT_SIM_CACHE = new Map();
 const SUBJECT_SIM_TTL_MS = 60000;
@@ -430,36 +504,39 @@ export function useMonteCarloStats({
     const domainSpan = Math.max(1e-6, safeMax - safeMin);
     const aleatoricFloor = domainSpan * 0.02;
 
-    const epistemicPooled = Math.max(0, pureStatsData.pooledSD - aleatoricFloor);
-    const calibratedPooledSD = aleatoricFloor + (epistemicPooled * (1 + calibrationPenalty * 2.5));
-
-    const epistemicDaily = Math.max(0, pureStatsData.dailySD - aleatoricFloor);
-    const calibratedDailySD = aleatoricFloor + (epistemicDaily * (1 + calibrationPenalty * 2.5));
+    const calibratedPooledSD = calibrateSpreadWithFloor(pureStatsData.pooledSD, aleatoricFloor, calibrationPenalty);
+    const calibratedDailySD = calibrateSpreadWithFloor(pureStatsData.dailySD, aleatoricFloor, calibrationPenalty);
 
     const ratioPooled = pureStatsData.pooledSD > 1e-6
       ? calibratedPooledSD / pureStatsData.pooledSD
       : (1 + calibrationPenalty * 2.5);
 
-    const calibratedBayesianCI = pureStatsData.bayesianCI
-      ? (() => {
-          const low = Number(pureStatsData.bayesianCI.ciLow ?? pureStatsData.bayesianCI.low);
-          const high = Number(pureStatsData.bayesianCI.ciHigh ?? pureStatsData.bayesianCI.high);
-          if (!Number.isFinite(low) || !Number.isFinite(high)) return pureStatsData.bayesianCI;
-          const mid = (low + high) / 2;
-          const newLow = Math.max(safeMin, mid - (mid - low) * ratioPooled);
-          const newHigh = Math.min(safeMax, mid + (high - mid) * ratioPooled);
+    const calibratedBayesianCI = expandCIWithRatio(pureStatsData.bayesianCI, ratioPooled, safeMin, safeMax);
+
+    const calibratedCategoryStats = Array.isArray(pureStatsData.categoryStats)
+      ? pureStatsData.categoryStats.map(cat => {
+          const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+          const cMax = Number.isFinite(Number(cat.maxScore)) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : Math.max(cMin + 1, safeMax);
+          const cFloor = Math.max(1e-6, cMax - cMin) * 0.02;
+          const calSd = calibrateSpreadWithFloor(cat.sd, cFloor, calibrationPenalty);
+          const calBayesSd = cat.bayesianSd != null ? calibrateSpreadWithFloor(cat.bayesianSd, cFloor, calibrationPenalty) : cat.bayesianSd;
+          const calVol = cat.volatility != null ? calibrateSpreadWithFloor(cat.volatility, cFloor, calibrationPenalty) : cat.volatility;
+          const catBaseSd = Number(cat.bayesianSd ?? cat.sd ?? 0);
+          const catNextSd = Number(calBayesSd ?? calSd ?? 0);
+          const catRatio = catBaseSd > 1e-6 ? catNextSd / catBaseSd : ratioPooled;
           return {
-            ...pureStatsData.bayesianCI,
-            ciLow: newLow,
-            ciHigh: newHigh,
-            low: newLow,
-            high: newHigh
+            ...cat,
+            sd: calSd,
+            bayesianSd: calBayesSd,
+            volatility: calVol,
+            bayesianCI: expandCIWithRatio(cat.bayesianCI, catRatio, cMin, cMax)
           };
-        })()
-      : pureStatsData.bayesianCI;
+        })
+      : pureStatsData.categoryStats;
 
     return {
       ...pureStatsData,
+      categoryStats: calibratedCategoryStats,
       pooledSD: calibratedPooledSD,
       dailySD: calibratedDailySD,
       rawPooledSD: pureStatsData.pooledSD,
@@ -473,10 +550,23 @@ export function useMonteCarloStats({
     () => (Array.isArray(historicalCutoffs) ? historicalCutoffs.join(',') : ''),
     [historicalCutoffs]
   );
-  const flashcardDecksHashKey = useMemo(
-    () => (Array.isArray(flashcardDecks) ? flashcardDecks.length : 0),
-    [flashcardDecks]
-  );
+  const flashcardDecksHashKey = useMemo(() => {
+    const decks = Array.isArray(flashcardDecks) ? flashcardDecks : [];
+    let totalCards = 0;
+    let mastered = 0;
+    let reviews = 0;
+    decks.forEach(d => {
+      const cards = Array.isArray(d?.cards) ? d.cards : Object.values(d?.cards || {});
+      cards.forEach(c => {
+        if (!c || typeof c !== 'object') return;
+        totalCards++;
+        const r = Number(c.reviews) || 0;
+        reviews += r;
+        if (r >= 3 && (Number(c.interval) || 1) >= 6) mastered++;
+      });
+    });
+    return `${decks.length}:${totalCards}:${mastered}:${reviews}`;
+  }, [flashcardDecks]);
 
   // ✅ PATCH-04: Hash deve incluir o timeIndex, target e configurações de prova/cortes para forçar re-cálculo
   const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}-pd${projectDays}-st${effectiveSimulateToday ? 1 : 0}-ed${examDurationMinutes}-eq${defaultExamTotalQuestions}-hc${cutoffsHashKey}-fd${flashcardDecksHashKey}-cp${Number(calibrationPenalty || 0).toFixed(4)}`;
@@ -586,13 +676,6 @@ export function useMonteCarloStats({
 
     const { globalImmunityFactor, subjectImmunityMap } = getFlashcardImmunity(flashcardDecksRef.current);
 
-    const sanitizeCutoff = (val) => {
-      if (val === null || val === undefined || typeof val === 'boolean') return null;
-      if (typeof val === 'string' && val.trim() === '') return null;
-      const n = Number(val);
-      return Number.isFinite(n) ? n : null;
-    };
-
     const computeProjectedExamTimeSeconds = () => {
       let totalGlobalTimeSpent = 0;
       let totalGlobalTimedQuestions = 0;
@@ -686,106 +769,84 @@ export function useMonteCarloStats({
     const doAnalysis = async () => {
       const projectedTotalTimeSeconds = isFuture ? computeProjectedExamTimeSeconds() : 0;
 
-      try {
-        let result;
+      const buildRunConfig = (simCount) => {
+        const useFuturePath = isFuture && pureStatsData.globalHistory?.length > 0;
+        const subjectsOpts = buildSubjectsOpts(pureStatsData, subjectImmunityMap, {
+          isFuture: useFuturePath,
+          minScoreVal: minScoreRef.current,
+          maxScoreVal: maxScoreRef.current
+        });
 
-        if (isFuture && pureStatsData.globalHistory?.length > 0) {
+        if (useFuturePath) {
           const regularizedSD = regularizeVolatility(
             pureStatsData.dailySD,
             projectDaysRef.current,
             pureStatsData.globalHistory.length,
             domain
           );
-
-          const subjectsOpts = pureStatsData.categoryStats.map(c => {
-            const subjName = c.name || c.key || '';
-            const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
-
-            return {
-              name: subjName,
-              mean: c.bayesianMean ?? c.mean,
-              sd: c.volatility ?? c.sd,
-              minCutoff: sanitizeCutoff(c.minCutoff),
-              maxScore: c.maxScore || maxScoreRef.current,
-              minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
-              immunityFactor: immunity,
-              weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
-            };
-          });
-
           const effectiveDays = projectDaysRef.current === 0 ? 1 : projectDaysRef.current;
+          return {
+            useFuturePath: true,
+            payload: {
+              values: pureStatsData.globalHistory,
+              dates: pureStatsData.globalHistory.map(h => h.date),
+              meta: debouncedTarget,
+              simulations: simCount,
+              projectionDays: effectiveDays,
+              forcedVolatility: regularizedSD,
+              forcedBaseline: pureStatsData.bayesianMean,
+              currentMean: pureStatsData.bayesianMean,
+              minScore: minScoreRef.current,
+              maxScore: maxScoreRef.current,
+              subjects: subjectsOpts,
+              projectedTotalTimeSeconds,
+              examDurationMinutes: examDurationRef.current,
+              flashcardImmunity: globalImmunityFactor,
+              historicalCutoffs: historicalCutoffsRef.current,
+              simuladoRows: rawSimuladoRowsRef.current,
+              categoryNames: subjectsOpts.map(s => s.name),
+              cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${simCount}-tgt${debouncedTarget}`
+            }
+          };
+        }
 
-          result = await runAnalysis({
-            values: pureStatsData.globalHistory,
-            dates: pureStatsData.globalHistory.map(h => h.date),
-            meta: debouncedTarget,
-            simulations: dynamicSimulationsRef.current,
-            projectionDays: effectiveDays,
-            forcedVolatility: regularizedSD,
-            forcedBaseline: pureStatsData.bayesianMean,
-            currentMean: pureStatsData.bayesianMean,
-            minScore: minScoreRef.current,
-            maxScore: maxScoreRef.current,
-            subjects: subjectsOpts,
-            projectedTotalTimeSeconds,
-            examDurationMinutes: examDurationRef.current,
-            flashcardImmunity: globalImmunityFactor,
-            historicalCutoffs: historicalCutoffsRef.current,
-            simuladoRows: rawSimuladoRowsRef.current,
-            categoryNames: subjectsOpts.map(s => s.name),
-            cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${dynamicSimulationsRef.current}-tgt${debouncedTarget}`
-          });
-        } else {
-          const subjectsOpts = pureStatsData.categoryStats.map(c => {
-            const subjName = c.name || c.key || '';
-            const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
+        const normalSD = regularizeVolatility(
+          pureStatsData.pooledSD,
+          0, // horizonte "hoje"
+          pureStatsData.globalHistory?.length || 1,
+          domain
+        );
 
-            return {
-              name: subjName,
-              mean: c.bayesianMean ?? c.mean,
-              sd: c.bayesianSd ?? c.sd,
-              minCutoff: sanitizeCutoff(c.minCutoff),
-              maxScore: c.maxScore || maxScoreRef.current,
-              minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
-              immunityFactor: immunity,
-              weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
-            };
-          });
-
-          const normalSD = regularizeVolatility(
-            pureStatsData.pooledSD,
-            0, // horizonte "hoje"
-            pureStatsData.globalHistory?.length || 1,
-            domain
-          );
-
-          const normalPayload = {
+        return {
+          useFuturePath: false,
+          payload: {
             mode: 'normal',
             mean: pureStatsData.bayesianMean,
             sd: normalSD,
             targetScore: debouncedTarget,
-            simulations: dynamicSimulationsRef.current,
+            simulations: simCount,
             currentMean: pureStatsData.bayesianMean,
             bayesianCI: pureStatsData.bayesianCI,
             minScore: minScoreRef.current,
             maxScore: maxScoreRef.current,
             subjects: subjectsOpts,
             flashcardImmunity: globalImmunityFactor,
-            // T-014 FIX: cortes históricos também no modo normal
             historicalCutoffs: historicalCutoffsRef.current,
             simuladoRows: rawSimuladoRowsRef.current,
-            categoryNames: subjectsOpts.map(s => s.name)
-          };
-
-          // Compatibilidade dupla:
-          // 1) tenta API por objeto
-          // 2) se não retornar probabilidade válida, tenta API posicional antiga
-          result = await runAnalysis(normalPayload);
-
-          if (!result || result.probability == null) {
-            // ✅ LOTE-01 FIX: fallback síncrono com a MESMA API de objeto
-            result = simulateNormalDistribution({ ...normalPayload, historicalCutoffs: historicalCutoffsRef.current });
+            categoryNames: subjectsOpts.map(s => s.name),
+            historyLength: pureStatsData.globalHistory?.length || 0
           }
+        };
+      };
+
+      try {
+        let result;
+        const { useFuturePath, payload } = buildRunConfig(dynamicSimulationsRef.current);
+
+        result = await runAnalysis(payload);
+
+        if (!useFuturePath && (!result || result.probability == null)) {
+          result = simulateNormalDistribution({ ...payload, historicalCutoffs: historicalCutoffsRef.current });
         }
 
         if (!cancelled) {
@@ -818,90 +879,10 @@ export function useMonteCarloStats({
         console.warn('[MC Worker] Simulation failed, using sync fallback:', err);
 
         if (!cancelled) {
-          let result;
-
-          const regularizedSD = isFuture && pureStatsData.globalHistory?.length > 0
-            ? regularizeVolatility(
-              pureStatsData.dailySD,
-              projectDaysRef.current,
-              pureStatsData.globalHistory.length,
-              domain
-            )
-            : pureStatsData.dailySD;
-
-          if (isFuture && pureStatsData.globalHistory?.length > 0) {
-            const subjectsOpts = pureStatsData.categoryStats.map(c => {
-              const subjName = c.name || c.key || '';
-              const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
-
-              return {
-                name: subjName,
-                mean: c.bayesianMean ?? c.mean,
-                sd: c.volatility ?? c.sd,
-                minCutoff: sanitizeCutoff(c.minCutoff),
-                maxScore: c.maxScore || maxScoreRef.current,
-                minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
-                immunityFactor: immunity,
-                weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
-              };
-            });
-
-            const effectiveDays = projectDaysRef.current === 0 ? 1 : projectDaysRef.current;
-
-            result = runMonteCarloAnalysis({
-              values: pureStatsData.globalHistory,
-              dates: pureStatsData.globalHistory.map(h => h.date),
-              meta: debouncedTarget,
-              simulations: Math.min(dynamicSimulationsRef.current, 2000),
-              projectionDays: effectiveDays,
-              forcedVolatility: regularizedSD,
-              forcedBaseline: pureStatsData.bayesianMean,
-              currentMean: pureStatsData.bayesianMean,
-              minScore: minScoreRef.current,
-              maxScore: maxScoreRef.current,
-              subjects: subjectsOpts,
-              projectedTotalTimeSeconds,
-              examDurationMinutes: examDurationRef.current,
-              simuladoRows: rawSimuladoRowsRef.current,
-              categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
-              flashcardImmunity: globalImmunityFactor,
-              historicalCutoffs: historicalCutoffsRef.current,
-              cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${Math.min(dynamicSimulationsRef.current, 2000)}-tgt${debouncedTarget}`
-            });
-          } else {
-            const subjectsOpts = pureStatsData.categoryStats.map(c => {
-              const subjName = c.name || c.key || '';
-              const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
-
-              return {
-                name: subjName,
-                mean: c.bayesianMean ?? c.mean,
-                sd: c.bayesianSd ?? c.sd,
-                minCutoff: sanitizeCutoff(c.minCutoff),
-                maxScore: c.maxScore || maxScoreRef.current,
-                minScore: Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreRef.current,
-                immunityFactor: immunity,
-                weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
-              };
-            });
-
-            result = simulateNormalDistribution({
-              mean: pureStatsData.bayesianMean,
-              sd: regularizeVolatility(pureStatsData.pooledSD, 0, pureStatsData.globalHistory?.length || 1, domain),
-              targetScore: debouncedTarget,
-              simulations: Math.min(dynamicSimulationsRef.current, 2000),
-              currentMean: pureStatsData.bayesianMean,
-              bayesianCI: pureStatsData.bayesianCI,
-              historicalCutoffs: historicalCutoffsRef.current,
-              subjects: subjectsOpts,
-              minScore: minScoreRef.current,
-              maxScore: maxScoreRef.current,
-              simuladoRows: rawSimuladoRowsRef.current,
-              categoryNames: pureStatsData.categoryStats.map(c => c.name || c.key),
-              flashcardImmunity: globalImmunityFactor,
-              historyLength: pureStatsData.globalHistory?.length || 0
-            });
-          }
+          const { useFuturePath, payload } = buildRunConfig(Math.min(dynamicSimulationsRef.current, 2000));
+          const result = useFuturePath
+            ? runMonteCarloAnalysis(payload)
+            : simulateNormalDistribution(payload);
 
           if (!isMountedRef.current) return;
 
@@ -1199,6 +1180,7 @@ export function useMonteCarloStats({
           catMinScore,
           catMaxScore,
           cat.n || 0,
+          Number(calibrationPenalty || 0).toFixed(4),
           rawSimuladoRows?.length || 0
         ].join('|');
 
@@ -1216,9 +1198,8 @@ export function useMonteCarloStats({
             minScore: catMinScore,
             maxScore: catMaxScore,
             simuladoRows: rawSimuladoRows,
-            subjects: [{ name: cat.name }],
             historyLength: cat.n || 0,
-            bayesianCI: cat.bayesianCI || null
+            bayesianCI: cat.bayesianCI ? { ...cat.bayesianCI, n: cat.bayesianCI.n ?? (cat.n || 1) } : null
           });
           setCachedSubjectSim(simKey, result);
         }

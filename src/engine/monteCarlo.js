@@ -50,6 +50,41 @@ function sanitizeDomain(minScore, maxScore) {
     return { minScore: rawMax, maxScore: rawMin };
 }
 
+/**
+ * Solves for the underlying Gaussian location parameter `mu` such that the truncated normal
+ * on [domainMin, domainMax] matches `targetMean`.
+ */
+function solveTruncatedNormalMu(targetMean, sd, domainMin, domainMax) {
+    const safeTarget = clamp(toFiniteNumber(targetMean, (domainMin + domainMax) / 2), domainMin, domainMax);
+    if (!Number.isFinite(sd) || sd <= 0) return safeTarget;
+
+    const distMin = safeTarget - domainMin;
+    const distMax = domainMax - safeTarget;
+    if (distMin >= sd * 1.5 && distMax >= sd * 1.5) return safeTarget;
+
+    const domainSpan = Math.max(1e-9, domainMax - domainMin);
+    const spread = Math.max(sd * 30, domainSpan * 3);
+    let muLow = domainMin - spread;
+    let muHigh = domainMax + spread;
+    let muParam = safeTarget;
+    const tol = Math.max(1e-7, domainSpan * 0.0001);
+
+    for (let iter = 0; iter < 35; iter++) {
+        const currentTruncMean = truncatedNormalMean(muParam, sd, domainMin, domainMax);
+        if (!Number.isFinite(currentTruncMean)) break;
+
+        const error = currentTruncMean - safeTarget;
+        if (Math.abs(error) < tol) break;
+
+        if (error > 0) muHigh = muParam;
+        else muLow = muParam;
+
+        muParam = (muLow + muHigh) / 2;
+    }
+
+    return Number.isFinite(muParam) ? muParam : safeTarget;
+}
+
 function sanitizeSimulations(simulations) {
     const normalized = Math.floor(toFiniteNumber(simulations, DEFAULT_SIMULATIONS));
     return clamp(normalized, 1, MAX_SIMULATIONS);
@@ -311,35 +346,7 @@ export function simulateNormalDistribution(
 
     const allScores = new Float64Array(safeSimulations);
 
-    let muParam = safeMean;
-
-    if (safeSD > 0) {
-        const distMin = safeMean - minScore;
-        const distMax = maxScore - safeMean;
-
-        if (distMin < safeSD * 1.5 || distMax < safeSD * 1.5) {
-            const domainSpan = Math.max(1e-9, maxScore - minScore);
-            const spread = Math.max(safeSD * 30, domainSpan * 3);
-            let muLow = minScore - spread;
-            let muHigh = maxScore + spread;
-            const tol = Math.max(1e-7, domainSpan * 0.0001);
-
-            for (let iter = 0; iter < 35; iter++) {
-                const currentTruncMean = truncatedNormalMean(muParam, safeSD, minScore, maxScore);
-                if (!Number.isFinite(currentTruncMean)) break;
-
-                const error = currentTruncMean - safeMean;
-                if (Math.abs(error) < tol) break;
-
-                if (error > 0) muHigh = muParam;
-                else muLow = muParam;
-
-                muParam = (muLow + muHigh) / 2;
-            }
-        }
-    }
-
-    if (!Number.isFinite(muParam)) muParam = safeMean;
+    const muParam = solveTruncatedNormalMu(safeMean, safeSD, minScore, maxScore);
 
     let cutoffsMean = 0;
     let cutoffsSD = 0;
@@ -386,7 +393,9 @@ export function simulateNormalDistribution(
         const adaptiveRhoContext = meanOrObj?.simuladoRows
             ? {
                 simuladoRows: meanOrObj.simuladoRows,
-                categoryNames: subjectStats.map(s => String(s?.name ?? s?.id ?? 'subject'))
+                categoryNames: subjectStats.map(s => String(s?.name ?? s?.id ?? 'subject')),
+                minScore,
+                maxScore
             }
             : null;
 
@@ -436,17 +445,30 @@ export function simulateNormalDistribution(
     const latentBuffer = choleskySize > 0 ? new Float64Array(choleskySize) : null;
     const sampledSubjectsBuffer = choleskySize > 0 ? new Float64Array(choleskySize) : null;
 
-    // Pré-computar parâmetros das marginais (não mudam entre simulações)
-    const subjectParams = subjectStats.map(s => ({
-        mean: toFiniteNumber(s.mean, 0),
-        sd: Math.max(1e-6, toFiniteNumber(s.sd, 1)),
-        minScore: clamp(toFiniteNumber(s.minScore, minScore), minScore, maxScore),
-        maxScore: clamp(toFiniteNumber(s.maxScore, maxScore), minScore, maxScore),
-        hasMinCutoff: s.hasMinCutoff ?? (s?.minCutoff !== undefined && s?.minCutoff !== null && s?.minCutoff !== ''),
-        minCutoff: toFiniteNumber(s.minCutoff, 0),
-        weight: Math.max(1e-6, toFiniteNumber(s.weight, 1)),
-        immunityFactor: toFiniteNumber(s.immunityFactor, 1.0)
-    }));
+    const globalRange = Math.max(1e-9, maxScore - minScore);
+
+    // Pré-computar parâmetros das marginais mantendo o domínio nativo de cada matéria
+    const subjectParams = subjectStats.map(s => {
+        const subjDomain = sanitizeDomain(
+            toFiniteNumber(s.minScore, minScore),
+            toFiniteNumber(s.maxScore, maxScore)
+        );
+        const sRange = Math.max(1e-9, subjDomain.maxScore - subjDomain.minScore);
+        const effMean = clamp(toFiniteNumber(s.mean, subjDomain.minScore), subjDomain.minScore, subjDomain.maxScore);
+        const effSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
+        return {
+            mean: effMean,
+            muParam: solveTruncatedNormalMu(effMean, effSd, subjDomain.minScore, subjDomain.maxScore),
+            sd: effSd,
+            minScore: subjDomain.minScore,
+            maxScore: subjDomain.maxScore,
+            sRange,
+            hasMinCutoff: s.hasMinCutoff ?? (s?.minCutoff !== undefined && s?.minCutoff !== null && s?.minCutoff !== ''),
+            minCutoff: toFiniteNumber(s.minCutoff, 0),
+            weight: Math.max(1e-6, toFiniteNumber(s.weight, 1)),
+            immunityFactor: toFiniteNumber(s.immunityFactor, 1.0)
+        };
+    });
 
     for (let i = 0; i < safeSimulations; i++) {
         let currentTarget = effectiveTarget;
@@ -466,49 +488,44 @@ export function simulateNormalDistribution(
             let weightSum = 0;
 
             if (subjectCholesky && choleskySize > 1) {
-                // Preencher buffer de normais independentes
                 for (let k = 0; k < choleskySize; k++) {
                     const rawU = rng();
                     const u = Number.isFinite(rawU) ? Math.max(1e-12, Math.min(1 - 1e-12, rawU)) : 0.5;
                     independentBuffer[k] = inverseNormalCDF(u);
                 }
 
-                // Aplicar correlação via Cholesky (reutilizando buffers)
                 applyCovariance(subjectCholesky, independentBuffer, latentBuffer);
 
-                // Transformar cada marginal para normal truncada (reutilizando buffer)
                 for (let j = 0; j < choleskySize; j++) {
                     const sp = subjectParams[j];
                     const u = 1 - normalCDF_complement(latentBuffer[j]);
                     sampledSubjectsBuffer[j] = truncatedNormalFromUniform(
-                        sp.mean, sp.sd, sp.minScore, sp.maxScore, u
+                        sp.muParam, sp.sd, sp.minScore, sp.maxScore, u
                     );
                 }
-
-                // Calcular média ponderada e verificar mínimos
-                for (let j = 0; j < choleskySize; j++) {
-                    const sp = subjectParams[j];
-                    const subjScore = clamp(sampledSubjectsBuffer[j], sp.minScore, sp.maxScore);
-                    subjectSum += subjScore * sp.weight;
-                    weightSum += sp.weight;
-                    // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
-                    if (!Number.isFinite(subjScore) || (sp.hasMinCutoff && sp.minCutoff !== null && subjScore < sp.minCutoff)) {
-                        passedMins = false;
-                    }
-                }
             } else {
-                // Caminho independente (sem correlação)
                 for (let j = 0; j < choleskySize; j++) {
                     const sp = subjectParams[j];
-                    const effSd = sp.sd;
-                    const sScore = sampleTruncatedNormal(sp.mean, effSd, sp.minScore, sp.maxScore, rng);
-                    subjectSum += sScore * sp.weight;
-                    weightSum += sp.weight;
-                    // ✅ LOTE-01: corte só reprova quando existe (minCutoff > 0)
-                    if (!Number.isFinite(sScore) || (sp.hasMinCutoff && sp.minCutoff !== null && sScore < sp.minCutoff)) {
-                        passedMins = false;
-                    }
+                    sampledSubjectsBuffer[j] = sampleTruncatedNormal(
+                        sp.muParam, sp.sd, sp.minScore, sp.maxScore, rng
+                    );
                 }
+            }
+
+            for (let j = 0; j < choleskySize; j++) {
+                const sp = subjectParams[j];
+                const rawSample = sampledSubjectsBuffer[j];
+                const subjScore = Number.isFinite(rawSample)
+                    ? clamp(rawSample, sp.minScore, sp.maxScore)
+                    : sp.mean;
+                if (!Number.isFinite(rawSample) || (sp.hasMinCutoff && sp.minCutoff !== null && subjScore < sp.minCutoff)) {
+                    passedMins = false;
+                }
+                const globalSubjScore = (sp.minScore === minScore && sp.maxScore === maxScore)
+                    ? subjScore
+                    : minScore + ((subjScore - sp.minScore) / sp.sRange) * globalRange;
+                subjectSum += globalSubjScore * sp.weight;
+                weightSum += sp.weight;
             }
 
             score = weightSum > 0 ? subjectSum / weightSum : score;

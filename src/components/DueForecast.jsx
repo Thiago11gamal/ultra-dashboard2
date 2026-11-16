@@ -15,7 +15,7 @@ function DueForecast({ decks = [], horizon = 14, compact = false }) {
         const decksArray = toArray(decks);
         const res = computeFlashcardDueForecast(decksArray, safeHorizon);
         const cardsCount = decksArray.reduce(
-            (sum, d) => sum + toArray(d?.cards).filter(c => c && (c.front || c.back)).length,
+            (sum, d) => sum + toArray(d?.cards).filter(c => c && typeof c === 'object').length,
             0
         );
         return {

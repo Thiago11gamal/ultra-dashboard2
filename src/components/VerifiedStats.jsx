@@ -15,7 +15,7 @@ import { useAppStore } from '../store/useAppStore';
 // ✅ LOTE-02 FIX (A1): shallow comparison para seletores que retornam arrays novos
 import { useShallow } from 'zustand/react/shallow';
 import { analyzeProgressState } from '../utils/ProgressStateEngine';
-import { getSafeScore, formatValue } from '../utils/scoreHelper';
+import { getSafeScore, formatValue, isPhantomZeroTimeAttempt } from '../utils/scoreHelper';
 import { calculateSlope } from '../engine';
 import { getDateKey, normalizeDate, parseNoonLocal, APP_TIMEZONE } from '../utils/dateHelper';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
@@ -329,9 +329,12 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categoriesHash, contestSettings?.maxScore]);
     const minScore = useMemo(() => {
-        const cMin = Number(contestSettings?.minScore);
+        const toOptNum = (v) => (v !== null && v !== undefined && v !== '' && typeof v !== 'boolean' && Number.isFinite(Number(v)))
+            ? Number(v)
+            : NaN;
+        const cMin = toOptNum(contestSettings?.minScore);
         if (Number.isFinite(cMin)) return cMin;
-        const scores = safeCategories.map(c => Number(c.minScore)).filter(s => Number.isFinite(s));
+        const scores = safeCategories.map(c => toOptNum(c.minScore)).filter(s => Number.isFinite(s));
         if (scores.length > 0 && scores.length === safeCategories.length && new Set(scores).size === 1) {
             return scores[0];
         }
@@ -536,9 +539,10 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
         // T-026 FIX: comparar valores já normalizados para a escala atual
         const parsedStore = parseFloat(storeTarget);
         const currentStoreTarget = normalizeTargetToScale(parsedStore);
+        const isStoreTargetInScale = !isNaN(parsedStore) && parsedStore >= minScore && parsedStore <= maxScore;
 
-        // Se o valor local já é igual ao da Store (e a store não está vazia), não fazemos nada
-        if (!isNaN(parsedStore) && Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
+        // Se o valor local já é igual ao da Store e o valor da Store pertence à escala atual, não fazemos nada
+        if (isStoreTargetInScale && Number.isFinite(currentStoreTarget) && Math.abs(parsed - currentStoreTarget) <= 0.01) return;
 
         // Ativa a trava: "Não aceite valores da Store até que eu termine de salvar"
         pendingLocalSave.current = true;
@@ -591,9 +595,8 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     // ✅ LOTE-02 FIX (C2): `>= 0` aceitava o NaN→0 do getSafeScore antigo
                     // e qualquer zero falso. Number.isFinite é o filtro correto.
                     if (parsedDate && Number.isFinite(safeScore)) {
-                        // 0s Bug Filter: Proteção contra Corrupção de Dados
-                        const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
-                        if (tTs !== null && tTs <= 0 && safeScore === 0) return;
+                        // 0s Bug Filter: Proteção contra Corrupção de Dados (preserva simulados manuais com questões e nota 0)
+                        if (isPhantomZeroTimeAttempt(h, safeScore)) return;
                         // Normalização pela proporção no intervalo útil com piso
                         const catRange = Math.max(1e-9, catMaxScore - catMinScore);
                         const globalRange = Math.max(1e-9, maxScore - minScore);
@@ -922,9 +925,7 @@ export default function VerifiedStats({ categories = [], user, flashcardDecks: p
                     if (!dk || (todayKey && dk > todayKey)) return false;
                     const safeScore = getSafeScore(h, catMaxScore, catMinScore2);
                     if (!Number.isFinite(safeScore)) return false;
-                    const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
-                    if (tTs !== null && tTs <= 0 && safeScore === 0) return false;
-                    return true;
+                    return !isPhantomZeroTimeAttempt(h, safeScore);
                 })
                 .sort((a, b) => (normalizeDate(a.date || a.createdAt)?.getTime() ?? 0) - (normalizeDate(b.date || b.createdAt)?.getTime() ?? 0));
 

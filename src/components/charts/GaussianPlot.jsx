@@ -58,12 +58,16 @@ export const GaussianPlot = React.memo(function GaussianPlot({
         domainMin, domainMax, curveY
     } = useMemo(() => {
         const domainMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-        const rawTargetVal = targetScore ?? 70;
+        const parsedMax = Number(maxScore);
+        const baseMax = Number.isFinite(parsedMax) && parsedMax > domainMin ? parsedMax : Math.max(domainMin + 1, 100);
+        const hasValidTarget = targetScore !== null && targetScore !== undefined && targetScore !== '' && typeof targetScore !== 'boolean' && Number.isFinite(Number(targetScore));
+        const fallbackTarget = (domainMin === 0 && baseMax === 100) ? 70 : Math.round(domainMin + (baseMax - domainMin) * 0.7);
+        const rawTargetVal = hasValidTarget ? Number(targetScore) : fallbackTarget;
         const rawMean = Number.isFinite(Number(mean)) ? Number(mean) : domainMin;
 
         let rawMax = unit === '%' 
-            ? Math.max(domainMin + 1, Number(maxScore) || 100) 
-            : Math.max(Number(maxScore) || 100, rawTargetVal > (Number(maxScore) || 100) ? rawTargetVal * 1.05 : (Number(maxScore) || 100), rawMean > (Number(maxScore) || 100) ? rawMean * 1.05 : (Number(maxScore) || 100));
+            ? Math.max(domainMin + 1, baseMax) 
+            : Math.max(baseMax, rawTargetVal > baseMax ? rawTargetVal * 1.05 : baseMax, rawMean > baseMax ? rawMean * 1.05 : baseMax);
 
         const domainMax = Math.max(domainMin + 1e-9, rawMax);
         const meanVal = Math.max(domainMin, Math.min(domainMax, rawMean));
@@ -79,7 +83,10 @@ export const GaussianPlot = React.memo(function GaussianPlot({
         let vizSdLeft = Math.max(sdFloor, Number(propSdLeft) || safeVolatility);
         let vizSdRight = Math.max(sdFloor, Number(propSdRight) || safeVolatility);
 
-        const hasValidKDE = kdeData && kdeData.length > 5;
+        const finiteKde = Array.isArray(kdeData)
+            ? kdeData.filter(p => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y)))
+            : [];
+        const hasValidKDE = finiteKde.length > 5;
 
         if (!hasValidKDE && prob != null && prob > 0 && prob < 100) {
             const targetProb = prob / 100;
@@ -136,10 +143,10 @@ export const GaussianPlot = React.memo(function GaussianPlot({
 
         if (hasValidKDE) {
             const points = [];
-            const inDomainKde = kdeData.filter(
-                p => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y)) && Number(p.x) >= domainMin && Number(p.x) <= domainMax
+            const inDomainKde = finiteKde.filter(
+                p => Number(p.x) >= domainMin && Number(p.x) <= domainMax
             );
-            const sourceKde = inDomainKde.length >= 2 ? inDomainKde : kdeData;
+            const sourceKde = inDomainKde.length >= 2 ? inDomainKde : finiteKde;
             const safeX = (val) => Math.max(domainMin, Math.min(domainMax, val));
 
             sourceKde.forEach(p => {
@@ -301,9 +308,11 @@ export const GaussianPlot = React.memo(function GaussianPlot({
     };
 
     const formatUnitValue = (val, u) => {
-        if (u === 'horas') return formatDuration(val);
-        if (u === '%') return `${formatValue(val)}%`;
-        return `${Number.isInteger(val) ? val : Number(val).toFixed(2)}${u || ''}`;
+        const num = Number(val);
+        if (!Number.isFinite(num)) return `0${u || ''}`;
+        if (u === 'horas') return formatDuration(num);
+        if (u === '%') return `${formatValue(num)}%`;
+        return `${Number.isInteger(num) ? num : num.toFixed(2)}${u || ''}`;
     };
 
     const updateHoverFromClientX = (clientX, el) => {

@@ -6,7 +6,7 @@ import {
     getAdaptiveInterSubjectCorrelation,
     computeHierarchicalAdjustment
 } from './index.js';
-import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper.js';
+import { getSafeScore, getSyntheticTotal, isPhantomZeroTimeAttempt } from '../utils/scoreHelper.js';
 import { getDateKey, normalizeDate } from '../utils/dateHelper.js';
 import {
     getConfidenceMultiplier,
@@ -287,7 +287,7 @@ export function generateAnalyticsStats({
             const weight = sanitizeWeightUnit(debouncedWeights[cat.id] ?? debouncedWeights[cat.name] ?? 1);
 
             // ✅ LOTE-01 FIX (C3): propagar o piso da disciplina para o nível bayesiano
-            const baye = computeBayesianLevel(history, 1, 1, catMaxScore, { minScore: catMinScore });
+            const baye = computeBayesianLevel(history, 1, 1, catMaxScore, { minScore: catMinScore, referenceDate: cutoffDate });
             const stats = computeCategoryStats(history, weight, 60, catMaxScore, catMinScore);
             const vol = calculateVolatility(history, catMaxScore, catMinScore);
 
@@ -327,9 +327,8 @@ export function generateAnalyticsStats({
                     if (!Number.isFinite(currentScore)) return;
 
                     // 2. Filtramos o infame "0s bug" originário do simulado timer
-                    // para não desabar artificialmente a projeção do Monte Carlo.
-                    const tTs = typeof h.timeSpent === 'number' ? h.timeSpent : null;
-                    if (tTs !== null && tTs <= 0 && currentScore === 0) return;
+                    // sem descartar simulados manuais legítimos com questões registradas e nota 0.
+                    if (isPhantomZeroTimeAttempt(h, currentScore)) return;
 
                     const dk = getDateKey(getHistoryDate(h));
 
@@ -398,6 +397,7 @@ export function generateAnalyticsStats({
                     minScore: catMinScore,
                     minCutoff: catMinCutoff,
                     bayesianMean: baye.mean,
+                    temporalBayesianMean: baye.mean,
                     bayesianSd: baye.sd,
                     volatility: vol,
                     weight
@@ -556,7 +556,13 @@ export function generateAnalyticsStats({
         bayesianMean,
         pooledSD,
         totalWeight,
-        bayesianCI: { ciLow: weightedLow, ciHigh: weightedHigh },
+        bayesianCI: {
+            ciLow: weightedLow,
+            ciHigh: weightedHigh,
+            n: Number.isFinite(adaptiveSignal.effectiveN) && adaptiveSignal.effectiveN > 0
+                ? adaptiveSignal.effectiveN
+                : Math.max(1, globalHistory.length)
+        },
         globalHistory,
         dailySD,
         estimatedRho,

@@ -37,6 +37,24 @@ export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
+/**
+ * Detects corrupted 0s timer entries (timeSpent <= 0, score === 0, and zero recorded questions)
+ * while preserving legitimate manual 0-score simulados that include question counts or topics.
+ */
+export function isPhantomZeroTimeAttempt(entry, safeScore) {
+  const tTs = typeof entry?.timeSpent === 'number' ? entry.timeSpent : null;
+  if (tTs === null || tTs > 0 || safeScore !== 0) return false;
+  const rawTotal = Number(entry?.total ?? entry?.questoes ?? entry?.totalQuestoes ?? entry?.questions) || 0;
+  if (rawTotal > 0) return false;
+  if (entry?.topics != null) {
+    const topicsList = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
+    if (topicsList.some(t => (Number(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions) || 0) > 0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function toFiniteNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;

@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, startTransition } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Check,
     Minus,
@@ -62,9 +63,25 @@ export const MonteCarloConfig = ({
     const [newCutoff, setNewCutoff] = useState('');
 
     // Seletores Reativos da Store
+    const activeId = useAppStore(state => state.appState?.activeId);
     const examDurationMinutes = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examDurationMinutes || 240);
     const examTotalQuestions = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.examTotalQuestions || 100);
+    const contestSavedCustomWeights = useAppStore(state => state.appState?.contests?.[state.appState?.activeId]?.mcSavedCustomWeights || null);
     const setExamConfig = useAppStore(state => state.setExamConfig);
+    const setUserData = useAppStore(state => state.setData);
+
+    useEffect(() => {
+        savedCustomWeights.current = null;
+    }, [activeId]);
+
+    const [localTotalQuestions, setLocalTotalQuestions] = useState(String(examTotalQuestions));
+    const isEditingQuestions = useRef(false);
+
+    useEffect(() => {
+        if (!isEditingQuestions.current) {
+            setLocalTotalQuestions(String(examTotalQuestions));
+        }
+    }, [examTotalQuestions]);
 
     const examDurationLabel = useMemo(() => {
         return formatDuration(examDurationMinutes / 60);
@@ -76,11 +93,25 @@ export const MonteCarloConfig = ({
     };
 
     const updateExamTotalQuestions = (e) => {
-        const q = parseInt(e.target.value, 10);
+        const raw = e.target.value;
+        isEditingQuestions.current = true;
+        setLocalTotalQuestions(raw);
+        if (raw.trim() === '') return;
 
-        if (!isNaN(q) && setExamConfig) {
-            // T-027 FIX: clamp defensivo, independente do input HTML
-            const safeQ = Math.max(10, Math.min(500, q));
+        const q = parseInt(raw, 10);
+        if (Number.isFinite(q) && q >= 10 && q <= 500 && setExamConfig) {
+            setExamConfig(examDurationMinutes, q);
+        }
+    };
+
+    const commitExamTotalQuestions = () => {
+        isEditingQuestions.current = false;
+        const parsed = parseInt(localTotalQuestions, 10);
+        const safeQ = Number.isFinite(parsed)
+            ? Math.max(10, Math.min(500, parsed))
+            : Math.max(10, Math.min(500, Number(examTotalQuestions) || 100));
+        setLocalTotalQuestions(String(safeQ));
+        if (setExamConfig && safeQ !== examTotalQuestions) {
             setExamConfig(examDurationMinutes, safeQ);
         }
     };
@@ -198,11 +229,16 @@ export const MonteCarloConfig = ({
         }
     };
 
+    const handleCloseModal = () => {
+        commitExamTotalQuestions();
+        onClose(false);
+    };
+
     // T-043 FIX: Escape fecha e Tab mantém foco dentro do modal
     const handleModalKeyDown = (e) => {
         if (e.key === 'Escape') {
             e.stopPropagation();
-            onClose(false);
+            handleCloseModal();
             return;
         }
 
@@ -230,9 +266,9 @@ export const MonteCarloConfig = ({
 
     if (!show) return null;
 
-    return (
+    const modalContent = (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 lg:p-8 animate-in fade-in duration-300">
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => onClose(false)} />
+            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={handleCloseModal} />
 
             <div
                 ref={modalRef}
@@ -259,7 +295,7 @@ export const MonteCarloConfig = ({
                     <button
                         ref={closeButtonRef}
                         type="button"
-                        onClick={() => onClose(false)}
+                        onClick={handleCloseModal}
                         className="shrink-0 flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 group/close focus:outline-none focus:ring-2 focus:ring-emerald-300/70"
                         title="Salvar e Fechar"
                         aria-label="Salvar e fechar configuração"
@@ -428,8 +464,10 @@ export const MonteCarloConfig = ({
                                         type="number"
                                         min="10"
                                         max="500"
-                                        value={examTotalQuestions}
+                                        value={localTotalQuestions}
                                         onChange={updateExamTotalQuestions}
+                                        onFocus={() => { isEditingQuestions.current = true; }}
+                                        onBlur={commitExamTotalQuestions}
                                         aria-label="Total de questões da prova"
                                         className="bg-transparent text-white font-bold text-sm w-full outline-none py-2.5 pr-3 placeholder:text-slate-600"
                                     />
@@ -444,6 +482,9 @@ export const MonteCarloConfig = ({
                             onClick={() => {
                                 if (!equalWeightsMode) {
                                     savedCustomWeights.current = weights;
+                                    if (setUserData && weights && Object.keys(weights).length > 0) {
+                                        setUserData(contest => contest ? { ...contest, mcSavedCustomWeights: { ...weights } } : contest, false);
+                                    }
                                     const ew = getEqualWeights();
                                     setWeights(ew);
                                 }
@@ -457,7 +498,8 @@ export const MonteCarloConfig = ({
                         <button
                             type="button"
                             onClick={() => {
-                                if (equalWeightsMode && savedCustomWeights.current) {
+                                const savedSource = savedCustomWeights.current || contestSavedCustomWeights;
+                                if (equalWeightsMode && savedSource) {
                                     // ✅ LOTE-02 FIX (M10): restaurar apenas chaves que ainda
                                     // existem nas categorias (pesos salvos podem estar obsoletos
                                     // se matérias foram removidas/renomeadas durante o modo igual)
@@ -467,7 +509,7 @@ export const MonteCarloConfig = ({
                                         if (c.name) validIds.add(c.name);
                                     });
                                     const restored = {};
-                                    Object.entries(savedCustomWeights.current).forEach(([k, v]) => {
+                                    Object.entries(savedSource).forEach(([k, v]) => {
                                         if (validIds.has(k)) restored[k] = v;
                                     });
                                     if (Object.keys(restored).length > 0) setWeights(restored);
@@ -522,5 +564,9 @@ export const MonteCarloConfig = ({
             </div>
         </div>
     );
+
+    return typeof document !== 'undefined' && document.body
+        ? createPortal(modalContent, document.body)
+        : modalContent;
 };
 

@@ -3,7 +3,7 @@ import { Gauge, TrendingUp, TrendingDown, Settings2, ChevronDown, AlertTriangle,
 import { useAppStore } from '../store/useAppStore';
 import { GaussianPlot } from './charts/GaussianPlot';
 import { MonteCarloConfig } from './charts/MonteCarloConfig';
-import { formatValue } from '../utils/scoreHelper';
+import { formatValue, getSafeScore, isPhantomZeroTimeAttempt } from '../utils/scoreHelper';
 import { getDateKey, formatDatePtBR, normalizeDate, parseNoonLocal } from '../utils/dateHelper';
 import { useMonteCarloStats } from '../hooks/useMonteCarloStats';
 
@@ -203,10 +203,32 @@ const MonteCarloGaugeBase = ({
         return newWeights;
     }, [safeCategories]);
 
-    const hasHistory = useMemo(() => safeCategories.some(cat => {
-        const h = cat.simuladoStats?.history;
-        return h && (Array.isArray(h) ? h.length > 0 : Object.keys(h).length > 0);
-    }), [safeCategories]);
+    const { hasHistory, hasValidHistory } = useMemo(() => {
+        const todayKey = getDateKey(new Date());
+        let rawAny = false;
+        let validAny = false;
+        safeCategories.forEach(cat => {
+            const h = cat.simuladoStats?.history;
+            const arr = h ? (Array.isArray(h) ? h : Object.values(h)) : [];
+            if (arr.length > 0) rawAny = true;
+            if (!validAny && arr.length > 0) {
+                const catMax = Number(cat.maxScore) || maxScore;
+                const catMin = (cat.minScore !== null && cat.minScore !== undefined && cat.minScore !== '' && typeof cat.minScore !== 'boolean' && Number.isFinite(Number(cat.minScore)))
+                    ? Number(cat.minScore)
+                    : minScore;
+                validAny = arr.some(entry => {
+                    if (!entry || entry.valid === false || entry.validated === false) return false;
+                    const parsedDate = normalizeDate(entry.date || entry.createdAt);
+                    const dk = parsedDate ? getDateKey(parsedDate) : null;
+                    if (!dk || (todayKey && dk > todayKey)) return false;
+                    const safeScore = getSafeScore(entry, catMax, catMin);
+                    if (!Number.isFinite(safeScore)) return false;
+                    return !isPhantomZeroTimeAttempt(entry, safeScore);
+                });
+            }
+        });
+        return { hasHistory: rawAny, hasValidHistory: validAny };
+    }, [safeCategories, maxScore, minScore]);
 
     // ✅ FIX: memoizar cálculo pesado que percorre todas as categorias
     const totalActiveWeight = useMemo(() => {
@@ -250,7 +272,7 @@ const MonteCarloGaugeBase = ({
             waitingKind = 'empty';
         } else if (totalActiveWeight === 0) {
             waitingKind = 'zeroWeights';
-        } else if (simulationData?.missing === 'count') {
+        } else if (simulationData?.missing === 'count' || stats.statsData === null || !hasValidHistory) {
             waitingKind = 'insufficient';
         }
 
@@ -463,8 +485,8 @@ const MonteCarloGaugeBase = ({
                         </div>
                     </div>
                     
-                    {/* Insights & Drift Alerts Container - Balanced Height */}
-                    <div className="w-full bg-slate-900/50 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5 h-[92px] justify-center overflow-hidden">
+                    {/* Insights & Drift Alerts Container */}
+                    <div className="w-full bg-slate-900/50 rounded-xl p-3 border border-white/5 flex flex-col gap-1.5 min-h-[92px] justify-center">
                         <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                             <Activity size={11} className="text-blue-400" />
                             <span>Diagnóstico & Sinais</span>

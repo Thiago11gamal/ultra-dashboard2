@@ -799,7 +799,9 @@ export function monteCarloSimulation(
       
       const adaptiveRhoContext = options?.simuladoRows ? { 
           simuladoRows: options.simuladoRows, 
-          categoryNames: cutoffSubjects.map(s => String(s?.name ?? s?.id ?? 'subject')) 
+          categoryNames: cutoffSubjects.map(s => String(s?.name ?? s?.id ?? 'subject')),
+          minScore,
+          maxScore
       } : null;
       
       try {

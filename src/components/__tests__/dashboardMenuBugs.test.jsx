@@ -364,7 +364,7 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
             expect(contest.studySessions).toHaveLength(0);
         });
 
-        it('syncs minScore with minCutoff on updateCategoryFields and renames studyLogs and studySessions', () => {
+        it('preserves minScore independently when updating minCutoff and cascades rename to studyLogs and studySessions', () => {
             catSlice.updateCategoryFields('cat-firebase-1', {
                 name: 'Direito Penal Parte Geral',
                 minCutoff: 15
@@ -377,7 +377,7 @@ describe('Meu Painel (Dashboard) Menu Bugs Audit & Fixes', () => {
 
             expect(cat.name).toBe('Direito Penal Parte Geral');
             expect(cat.minCutoff).toBe(15);
-            expect(cat.minScore).toBe(15);
+            expect(cat.minScore).toBeUndefined();
             expect(contest.studyLogs[0].subject).toBe('Direito Penal Parte Geral');
             expect(contest.studySessions[0].subject).toBe('Direito Penal Parte Geral');
             expect(mockState.appState.pomodoro.activeSubject.category).toBe('Direito Penal Parte Geral');

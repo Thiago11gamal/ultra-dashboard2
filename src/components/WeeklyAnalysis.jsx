@@ -121,6 +121,7 @@ function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
             return undefined;
         };
 
+        const rawCategoryNames = new Map();
         const resolveCategoryInfo = (log) => {
             const category = findCategoryForLog(log);
             if (category) {
@@ -131,12 +132,17 @@ function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
                     color: category.color || '#a855f7'
                 };
             }
-            const rawName = String(log?.categoryName || log?.category || log?.catName || log?.subject || 'Outros').trim();
-            const id = `raw:${rawName}`;
+            const rawCandidate = log?.categoryName || log?.category || log?.catName || log?.subject || 'Outros';
+            const trimmed = String(rawCandidate).trim();
+            const rawName = (trimmed && trimmed !== 'undefined' && trimmed !== 'null') ? trimmed : 'Outros';
+            const normKey = rawName.toLowerCase().normalize('NFC');
+            if (!rawCategoryNames.has(normKey)) {
+                rawCategoryNames.set(normKey, rawName);
+            }
             return {
                 category: undefined,
-                id,
-                name: rawName,
+                id: `raw:${normKey}`,
+                name: rawCategoryNames.get(normKey),
                 color: '#a855f7'
             };
         };

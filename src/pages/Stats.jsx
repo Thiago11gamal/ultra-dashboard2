@@ -103,7 +103,7 @@ export default function Stats() {
             const cards = Array.isArray(d?.cards)
                 ? d.cards
                 : Object.values(d?.cards || {});
-            return cards.some(c => c && (c.front || c.back));
+            return cards.some(c => c && typeof c === 'object');
         });
     }, [flashcardDecks]);
 

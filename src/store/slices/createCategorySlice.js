@@ -247,9 +247,6 @@ export const createCategorySlice = (set) => ({
         const category = activeData.categories.find(c => c && (c.id === id || c.name === id));
         if (category) {
             const oldName = category.name;
-            if (fields.minCutoff !== undefined && fields.minScore === undefined) {
-                fields.minScore = fields.minCutoff;
-            }
             Object.assign(category, fields);
             if (fields.name) {
                 removeCategoryTombstone(category.id, fields.name);

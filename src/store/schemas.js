@@ -326,6 +326,15 @@ export const sanitizeContest = (data, contestId = '') => {
     };
   }
 
+  const hasOptNum = (v) => v !== undefined && v !== null && v !== '' && typeof v !== 'boolean' && Number.isFinite(Number(v));
+  const contestMin = hasOptNum(source.minScore) ? Number(source.minScore) : 0;
+  const contestMax = (hasOptNum(source.maxScore) && Number(source.maxScore) > contestMin)
+    ? Number(source.maxScore)
+    : Math.max(contestMin + 1, 100);
+  const scaleDefaultTarget = (contestMin === 0 && contestMax === 100)
+    ? DEFAULT_TARGET_SCORE
+    : Math.round(contestMin + 0.75 * (contestMax - contestMin));
+
   // FORTRESS-01: Defensive initialization for all top-level keys
   return {
     user: {
@@ -334,9 +343,9 @@ export const sanitizeContest = (data, contestId = '') => {
       avatar: source.user?.avatar || "👤",
       startDate: source.user?.startDate || getDateKey(new Date()),
       goalDate: source.user?.goalDate || null,
-      targetScore: (source.user?.targetScore != null && Number.isFinite(Number(source.user.targetScore)))
+      targetScore: (source.user?.targetScore != null && source.user?.targetScore !== '' && typeof source.user?.targetScore !== 'boolean' && Number.isFinite(Number(source.user.targetScore)))
         ? Number(source.user.targetScore)
-        : DEFAULT_TARGET_SCORE,
+        : scaleDefaultTarget,
       xp: Number.isFinite(Number(source.user?.xp)) ? Math.max(0, Number(source.user.xp)) : 0,
       level: Number.isFinite(Number(source.user?.level)) ? Math.max(1, Math.floor(Number(source.user.level))) : 1,
       achievements: (Array.isArray(source.user?.achievements) ? source.user.achievements : [])
@@ -452,6 +461,12 @@ export const sanitizeContest = (data, contestId = '') => {
             : 'BAIXO';
       }
 
+      const hasExplicitMinCutoff = cat.minCutoff !== undefined &&
+        cat.minCutoff !== null &&
+        cat.minCutoff !== '' &&
+        typeof cat.minCutoff !== 'boolean' &&
+        Number.isFinite(Number(cat.minCutoff));
+
       return {
         id: cat.id || generateId('cat'),
         name: cat.name || "Sem Nome",
@@ -461,7 +476,7 @@ export const sanitizeContest = (data, contestId = '') => {
         weight: (cat.weight !== undefined && cat.weight !== null && Number.isFinite(Number(cat.weight))) ? Math.max(0, Number(cat.weight)) : 10,
         maxScore: catMax,
         minScore: catMin,
-        minCutoff: Number(cat.minCutoff) || 0,
+        minCutoff: hasExplicitMinCutoff ? Math.max(catMin, Math.min(catMax, Number(cat.minCutoff))) : null,
         level: Number(cat.level) || 0,
         totalMinutes: Number(cat.totalMinutes) || 0,
         lastStudiedAt: cat.lastStudiedAt || null,
@@ -511,9 +526,13 @@ export const sanitizeContest = (data, contestId = '') => {
       adaptiveCalibrationEnabled: source.settings?.adaptiveCalibrationEnabled ?? true,
     },
     mcWeights: (source.mcWeights && typeof source.mcWeights === 'object') ? source.mcWeights : {},
+    mcSavedCustomWeights: (source.mcSavedCustomWeights && typeof source.mcSavedCustomWeights === 'object' && !Array.isArray(source.mcSavedCustomWeights))
+      ? source.mcSavedCustomWeights
+      : {},
     historicalCutoffs: (Array.isArray(source.historicalCutoffs) ? source.historicalCutoffs : Object.values(source.historicalCutoffs || {}))
+      .filter(v => v !== null && v !== undefined && v !== '' && typeof v !== 'boolean')
       .map(Number)
-      .filter(n => Number.isFinite(n) && n > 0),
+      .filter(n => Number.isFinite(n)),
     // BUG-10 REVERSION: monteCarloHistory MUST be an Array for charts and slices to work.
     // Migration: If it's an object (legacy), convert it to an array of {date, probability}.
     monteCarloHistory: (() => {
