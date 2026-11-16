@@ -87,7 +87,7 @@ export default function WelcomeScreen({ onDismiss }) {
                     ref={containerRef}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
+                    exit={{ opacity: 0, scale: 1.06 }}
                     transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
                     className="fixed inset-0 z-[100000] flex flex-col items-center justify-center bg-[#020617] overflow-hidden"
                     role="dialog" // FIX 5.4a: Role de dialog
@@ -95,18 +95,21 @@ export default function WelcomeScreen({ onDismiss }) {
                     aria-labelledby="welcome-title" // FIX 5.4a: Título anunciado
                     aria-describedby="welcome-description" // FIX 5.4a: Descrição anunciada
                 >
-                    {/* Background Ambient Glow Subaquático */}
+                    {/* Background Ambient Glow Subaquático (radial gradient sem CSS blur dinâmico) */}
                     <motion.div 
                         animate={{ 
-                            scale: [1, 1.2, 1],
-                            opacity: [0.1, 0.25, 0.1] 
+                            scale: [1, 1.15, 1],
+                            opacity: [0.22, 0.42, 0.22] 
                         }}
                         transition={{ 
                             duration: 8, 
                             repeat: Infinity,
                             ease: "easeInOut" 
                         }}
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/20 blur-[120px] rounded-full pointer-events-none" 
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full pointer-events-none"
+                        style={{
+                            background: 'radial-gradient(closest-side, rgba(99, 102, 241, 0.26) 0%, rgba(56, 189, 248, 0.08) 50%, rgba(2, 6, 23, 0) 100%)',
+                        }}
                         aria-hidden="true"
                     />
                     

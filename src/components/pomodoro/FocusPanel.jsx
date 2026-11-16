@@ -27,6 +27,7 @@ import { parseTaskDisplay } from '../../utils/taskTitleHelper';
 import { getXPProgress } from '../../utils/gamification';
 import { calculateETA, SPEED_OPTIONS } from '../../utils/pomodoroHelpers';
 import { normalizePriority } from '../../utils/colorHelper';
+import { useLivePomodoroTimeLeft } from '../../utils/pomodoroLiveStore';
 
 // ============================================================================
 // SUBCOMPONENTE: Status da Sessão Atual & Previsões em Tempo Real
@@ -42,9 +43,11 @@ const SessionStatus = React.memo(function SessionStatus({
     activeSubject = null,
     speed = 1
 }) {
+    const liveTimeLeft = useLivePomodoroTimeLeft(timeLeft, isRunning);
     const safeTotal = Number.isFinite(totalTime) && totalTime > 0 ? totalTime : 25 * 60;
-    const safeLeft = Number.isFinite(timeLeft) && timeLeft >= 0 ? timeLeft : safeTotal;
-    const progress = Math.max(0, Math.min(100, ((safeTotal - safeLeft) / safeTotal) * 100));
+    const safeLeft = Number.isFinite(liveTimeLeft) && liveTimeLeft >= 0 ? liveTimeLeft : safeTotal;
+    const progressRatio = Math.max(0, Math.min(1, (safeTotal - safeLeft) / safeTotal));
+    const progress = progressRatio * 100;
 
     const statusConfig = {
         work: {
@@ -209,13 +212,12 @@ const SessionStatus = React.memo(function SessionStatus({
                 </div>
             </div>
 
-            {/* Barra de Progresso com Glow */}
+            {/* Barra de Progresso com Glow (transform scaleX GPU-composited) */}
             <div className="w-full flex flex-col gap-1.5">
                 <div className="h-2.5 bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-white/5 shadow-inner">
-                    <Motion.div
-                        className={`h-full rounded-full ${config.barClass} shadow-[0_0_12px_rgba(16,185,129,0.5)]`}
-                        animate={{ width: `${progress}%` }}
-                        transition={{ duration: 0.35, ease: 'easeOut' }}
+                    <div
+                        className={`h-full w-full rounded-full transition-transform duration-300 ease-out ${config.barClass} shadow-[0_0_12px_rgba(16,185,129,0.5)]`}
+                        style={{ transform: `scaleX(${progressRatio})`, transformOrigin: 'left center' }}
                     />
                 </div>
                 <div className="flex justify-between items-center text-[10px] font-semibold text-slate-400 px-0.5">
@@ -858,6 +860,46 @@ export const BrainDumpNotes = React.memo(function BrainDumpNotes() {
     );
 });
 
+const SeriesLiveStats = React.memo(function SeriesLiveStats({
+    settings,
+    targetCycles,
+    completedCycles,
+    totalTime,
+    fallbackTimeLeft,
+    mode,
+    isRunning
+}) {
+    const liveTimeLeft = useLivePomodoroTimeLeft(fallbackTimeLeft, isRunning);
+    const workMin = Math.max(1, Number(settings?.pomodoroWork) || 25);
+    const safeTarget = Math.max(1, Number(targetCycles) || 1);
+    const safeCompleted = Math.max(0, Math.min(safeTarget, Number(completedCycles) || 0));
+    const safeTotalSec = Number.isFinite(totalTime) && totalTime > 0 ? totalTime : workMin * 60;
+    const safeLeftSec = Number.isFinite(liveTimeLeft) && liveTimeLeft >= 0 ? liveTimeLeft : safeTotalSec;
+    const currentWorkElapsedMin = mode === 'work'
+        ? Math.max(0, (safeTotalSec - safeLeftSec) / 60)
+        : 0;
+    const totalFocusMin = Math.round((safeCompleted * workMin) + currentWorkElapsedMin);
+    const targetTotalMin = safeTarget * workMin;
+    const metaPct = Math.min(100, Math.max(0, Math.round((((safeCompleted * workMin) + currentWorkElapsedMin) / targetTotalMin) * 100)));
+
+    return (
+        <div className="grid grid-cols-2 gap-2">
+            <div className="text-center">
+                <div className="text-lg font-black text-white">
+                    {totalFocusMin}min
+                </div>
+                <div className="text-[9px] text-slate-500 uppercase font-medium">Foco acumulado</div>
+            </div>
+            <div className="text-center">
+                <div className="text-lg font-black text-white">
+                    {metaPct}%
+                </div>
+                <div className="text-[9px] text-slate-500 uppercase font-medium">Meta da série</div>
+            </div>
+        </div>
+    );
+});
+
 // ============================================================================
 // FOCUS PANEL PRINCIPAL (Visualização de Telemetria e Foco da Sessão)
 // ============================================================================
@@ -889,21 +931,6 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
     const normalizedActivePriority = useMemo(() => {
         return activeSubject?.priority ? normalizePriority(activeSubject.priority) : null;
     }, [activeSubject?.priority]);
-
-    const liveSeriesStats = useMemo(() => {
-        const workMin = Math.max(1, Number(settings?.pomodoroWork) || 25);
-        const safeTarget = Math.max(1, Number(targetCycles) || 1);
-        const safeCompleted = Math.max(0, Math.min(safeTarget, Number(completedCycles) || 0));
-        const safeTotalSec = Number.isFinite(totalTime) && totalTime > 0 ? totalTime : workMin * 60;
-        const safeLeftSec = Number.isFinite(timeLeft) && timeLeft >= 0 ? timeLeft : safeTotalSec;
-        const currentWorkElapsedMin = mode === 'work'
-            ? Math.max(0, (safeTotalSec - safeLeftSec) / 60)
-            : 0;
-        const totalFocusMin = Math.round((safeCompleted * workMin) + currentWorkElapsedMin);
-        const targetTotalMin = safeTarget * workMin;
-        const metaPct = Math.min(100, Math.max(0, Math.round((((safeCompleted * workMin) + currentWorkElapsedMin) / targetTotalMin) * 100)));
-        return { totalFocusMin, metaPct };
-    }, [settings?.pomodoroWork, targetCycles, completedCycles, totalTime, timeLeft, mode]);
 
     const activeModeBadge = useMemo(() => {
         if (parsedTask.alertBadge) return parsedTask.alertBadge;
@@ -1102,20 +1129,15 @@ export const SessionFocusPanel = React.memo(function SessionFocusPanel({
                                         Progresso Geral da Série
                                     </span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="text-center">
-                                        <div className="text-lg font-black text-white">
-                                            {liveSeriesStats.totalFocusMin}min
-                                        </div>
-                                        <div className="text-[9px] text-slate-500 uppercase font-medium">Foco acumulado</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-lg font-black text-white">
-                                            {liveSeriesStats.metaPct}%
-                                        </div>
-                                        <div className="text-[9px] text-slate-500 uppercase font-medium">Meta da série</div>
-                                    </div>
-                                </div>
+                                <SeriesLiveStats
+                                    settings={settings}
+                                    targetCycles={targetCycles}
+                                    completedCycles={completedCycles}
+                                    totalTime={totalTime}
+                                    fallbackTimeLeft={timeLeft}
+                                    mode={mode}
+                                    isRunning={isRunning}
+                                />
                             </div>
                         </div>
                     </Motion.div>

@@ -37,6 +37,7 @@ import { playPomodoroAlarm, unlockAudio } from '../utils/audioAlert';
 import { formatTime, toPositiveMinutes, SPEED_OPTIONS, POMODORO_PRESETS } from '../utils/pomodoroHelpers';
 import { sendPomodoroNotification, requestNotificationPermission } from '../utils/browserNotifications';
 import { cleanTaskTitle } from '../utils/taskTitleHelper';
+import { publishLiveTimeLeft, clearLiveTimeLeft } from '../utils/pomodoroLiveStore';
 import { PomodoroProgress } from './pomodoro/PomodoroProgress';
 import { PomodoroControls } from './pomodoro/PomodoroControls';
 import { PomodoroHeader } from './pomodoro/PomodoroHeader';
@@ -306,6 +307,7 @@ function PomodoroTimer({
         if (stateRefs.current) {
             stateRefs.current.timeLeft = safe;
         }
+        clearLiveTimeLeft();
         setTimeLeft(safe);
     }, []);
 
@@ -505,6 +507,7 @@ function PomodoroTimer({
                 endsAtRef.current = endsAt;
                 const remaining = Math.max(0, Math.ceil(((endsAt - now) * currentSpeed) / 1000));
                 commitTimeLeft(remaining);
+                publishLiveTimeLeft(remaining);
                 if (stateRefs.current) {
                     stateRefs.current.isRunning = true;
                 }
@@ -564,11 +567,22 @@ function PomodoroTimer({
         postSyncRef.current = postSync;
     }, [postSync]);
 
+    const rawSubjectTask = activeSubject?.task;
+    const rawSubjectCategory = activeSubject?.category;
+    const cleanTitleTopic = useMemo(
+        () => (rawSubjectTask ? cleanTaskTitle(rawSubjectTask, rawSubjectCategory) : ''),
+        [rawSubjectTask, rawSubjectCategory]
+    );
+    const cleanTitleTopicRef = useRef(cleanTitleTopic);
+    useEffect(() => {
+        cleanTitleTopicRef.current = cleanTitleTopic;
+    }, [cleanTitleTopic]);
+
     useEffect(() => {
         if (speedRef.current !== speed) {
             speedRef.current = speed;
+            const currentLeft = Number(stateRefs.current?.timeLeft ?? timeRef.current) || 0;
             if (isRunning && endsAtRef.current) {
-                const currentLeft = Number(stateRefs.current?.timeLeft ?? timeLeft) || 0;
                 endsAtRef.current = Date.now() + (currentLeft * 1000) / (speed || 1);
                 try {
                     localStorage.setItem('pomodoro-endsAt', JSON.stringify({
@@ -577,13 +591,15 @@ function PomodoroTimer({
                         sessionInstanceId: activeSubjectRef.current?.sessionInstanceId || null
                     }));
                 } catch { /* ignore */ }
+                commitTimeLeft(currentLeft);
+                publishLiveTimeLeft(currentLeft);
             }
             postSync({
                 type: 'SPEED_CHANGE',
                 speed
             });
         }
-    }, [speed, isRunning, postSync, timeLeft]);
+    }, [speed, isRunning, postSync, commitTimeLeft]);
 
     const transitionTimeoutRef = useRef(null);
     const completionTimeoutRef = useRef(null);
@@ -596,6 +612,7 @@ function PomodoroTimer({
         isMountedRef.current = true;
         return () => {
             isMountedRef.current = false;
+            clearLiveTimeLeft();
             if (transitionTimeoutRef.current) {
                 clearTimeout(transitionTimeoutRef.current);
                 transitionTimeoutRef.current = null;
@@ -918,7 +935,7 @@ function PomodoroTimer({
                 : (safeSettings.pomodoroBreak || 5) * 60;
         const currentTotalTime = baseTotalTime + (addedSeconds || 0);
         const fraction = Math.max(0, Math.min(1, timeLeft / (currentTotalTime || 1)));
-        const currentPercent = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+        const activeRatio = Math.max(0, Math.min(1, 1 - fraction));
 
         if (Array.isArray(workFillsRef.current)) {
             workFillsRef.current.forEach((el, i) => {
@@ -927,11 +944,11 @@ function PomodoroTimer({
                     i < currentSessions - 1 ||
                     (i === currentSessions - 1 && currentMode !== 'work')
                 ) {
-                    el.style.width = '100%';
+                    el.style.transform = 'scaleX(1)';
                 } else if (i === currentSessions - 1 && currentMode === 'work') {
-                    if (!isRunning) el.style.width = currentPercent;
+                    if (!isRunning) el.style.transform = `scaleX(${activeRatio})`;
                 } else {
-                    el.style.width = '0%';
+                    el.style.transform = 'scaleX(0)';
                 }
             });
         }
@@ -940,11 +957,11 @@ function PomodoroTimer({
             breakBallsRef.current.forEach((el, i) => {
                 if (!el || !el.style) return;
                 if (i < currentSessions - 1) {
-                    el.style.height = '100%';
+                    el.style.transform = 'scaleY(1)';
                 } else if (i === currentSessions - 1 && currentMode !== 'work') {
-                    if (!isRunning) el.style.height = currentPercent;
+                    if (!isRunning) el.style.transform = `scaleY(${activeRatio})`;
                 } else {
-                    el.style.height = '0%';
+                    el.style.transform = 'scaleY(0)';
                 }
             });
         }
@@ -1351,11 +1368,16 @@ function PomodoroTimer({
             if (next !== timeRef.current) {
                 stateRefs.current.timeLeft = next;
                 timeRef.current = next;
-                setTimeLeft(next);
+                publishLiveTimeLeft(next);
                 if (clockRef.current) {
                     clockRef.current.__lastSec = next;
                     clockRef.current.textContent = formatTime(next);
                 }
+                const prefix = stateRefs.current.mode === 'work' ? '🎯' : '☕';
+                const cleanTopic = cleanTitleTopicRef.current;
+                document.title = cleanTopic
+                    ? `${prefix} ${formatTime(next)} | ${cleanTopic}`
+                    : `${prefix} ${formatTime(next)} - Pomodoro`;
             }
             if (next <= 0) {
                 handlePhaseEnd();
@@ -1431,17 +1453,17 @@ function PomodoroTimer({
                 clockRef.current.textContent = formatTime(wholeSec);
             }
 
-            // 3. Atualização fluida do indicador de ciclo ativo
-            const currentPercent = `${Math.max(0, Math.min(100, (1 - fraction) * 100))}%`;
+            // 3. Atualização fluida GPU-composited (scaleX / scaleY) do indicador de ciclo ativo
+            const clampedRatio = Math.max(0, Math.min(1, 1 - fraction));
             if (currentMode === 'work') {
                 const fillEl = workFillsRef.current?.[currentSessions - 1];
                 if (fillEl?.style) {
-                    fillEl.style.width = currentPercent;
+                    fillEl.style.transform = `scaleX(${clampedRatio})`;
                 }
             } else {
                 const breakEl = breakBallsRef.current?.[currentSessions - 1];
                 if (breakEl?.style) {
-                    breakEl.style.height = currentPercent;
+                    breakEl.style.transform = `scaleY(${clampedRatio})`;
                 }
             }
 
@@ -1482,6 +1504,9 @@ function PomodoroTimer({
         addedSecondsInPhaseRef.current = Math.max(0, (addedSecondsInPhaseRef.current || 0) + actualDelta);
         setAddedSeconds(addedSecondsInPhaseRef.current);
         commitTimeLeft(nextLeft);
+        if (isRunning) {
+            publishLiveTimeLeft(nextLeft);
+        }
 
         if (clockRef.current) {
             clockRef.current.__lastSec = nextLeft;
@@ -1574,17 +1599,18 @@ function PomodoroTimer({
             setPomodoroRunning(false);
             endsAtRef.current = null;
             try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+            clearLiveTimeLeft();
             setTimeLeft(resetTime);
 
             if (Array.isArray(workFillsRef.current)) {
                 workFillsRef.current.forEach((el, i) => {
                     if (el && el.style) {
-                        el.style.width =
+                        el.style.transform =
                             i < (newState.sessions || 1) - 1 ||
                             (i === (newState.sessions || 1) - 1 &&
                                 (currentNewMode === 'break' || currentNewMode === 'long_break'))
-                                ? '100%'
-                                : '0%';
+                                ? 'scaleX(1)'
+                                : 'scaleX(0)';
                     }
                 });
             }
@@ -1592,7 +1618,7 @@ function PomodoroTimer({
             if (Array.isArray(breakBallsRef.current)) {
                 breakBallsRef.current.forEach((el, i) => {
                     if (el && el.style) {
-                        el.style.height = i < (newState.sessions || 1) - 1 ? '100%' : '0%';
+                        el.style.transform = i < (newState.sessions || 1) - 1 ? 'scaleY(1)' : 'scaleY(0)';
                     }
                 });
             }
@@ -1628,11 +1654,11 @@ function PomodoroTimer({
 
             if (currentMode === 'work') {
                 if (workFillsRef.current?.[currentSessions - 1]?.style) {
-                    workFillsRef.current[currentSessions - 1].style.width = '0%';
+                    workFillsRef.current[currentSessions - 1].style.transform = 'scaleX(0)';
                 }
             } else {
                 if (breakBallsRef.current?.[currentSessions - 1]?.style) {
-                    breakBallsRef.current[currentSessions - 1].style.height = '0%';
+                    breakBallsRef.current[currentSessions - 1].style.transform = 'scaleY(0)';
                 }
             }
 
@@ -1642,6 +1668,7 @@ function PomodoroTimer({
             setPomodoroRunning(false);
             endsAtRef.current = null;
             try { localStorage.removeItem('pomodoro-endsAt'); } catch { /* ignore */ }
+            clearLiveTimeLeft();
             setTimeLeft(baseTotalTime);
 
             if (clockRef.current) {
@@ -1667,11 +1694,11 @@ function PomodoroTimer({
 
         if (currentMode === 'work') {
             if (workFillsRef.current?.[s - 1]?.style) {
-                workFillsRef.current[s - 1].style.width = '100%';
+                workFillsRef.current[s - 1].style.transform = 'scaleX(1)';
             }
         } else {
             if (breakBallsRef.current?.[s - 1]?.style) {
-                breakBallsRef.current[s - 1].style.height = '100%';
+                breakBallsRef.current[s - 1].style.transform = 'scaleY(1)';
             }
         }
 
@@ -1699,6 +1726,7 @@ function PomodoroTimer({
             }));
         } catch { /* ignore */ }
         stateRefs.current.isRunning = true;
+        publishLiveTimeLeft(currentLeft);
         setIsRunning(true);
         setPomodoroRunning(true);
         savePomodoroState({ isRunning: true, timeLeft: currentLeft });
@@ -1929,22 +1957,16 @@ function PomodoroTimer({
             return;
         }
 
-        const updateDocTitle = () => {
-            const currentT = Number(timeRef.current ?? stateRefs.current.timeLeft);
-            const cleanTopic = activeSubject?.task ? cleanTaskTitle(activeSubject.task, activeSubject.category) : '';
-            const prefix = mode === 'work' ? '🎯' : '☕';
-            document.title = cleanTopic
-                ? `${prefix} ${formatTime(currentT)} | ${cleanTopic}`
-                : `${prefix} ${formatTime(currentT)} - Pomodoro`;
-        };
+        const currentT = Number(timeRef.current ?? stateRefs.current.timeLeft);
+        const prefix = mode === 'work' ? '🎯' : '☕';
+        document.title = cleanTitleTopic
+            ? `${prefix} ${formatTime(currentT)} | ${cleanTitleTopic}`
+            : `${prefix} ${formatTime(currentT)} - Pomodoro`;
 
-        updateDocTitle();
-        const id = setInterval(updateDocTitle, 1000);
         return () => {
-            clearInterval(id);
             document.title = 'Pomodoro | Ultra Dashboard';
         };
-    }, [isRunning, mode, activeSubject?.task, activeSubject?.category]);
+    }, [isRunning, mode, cleanTitleTopic]);
 
     return (
         <div className={`w-full relative flex flex-col items-center gap-1 ${isFullscreen ? 'fixed inset-0 z-[9999] bg-[#0a0f1e] p-4 overflow-y-auto' : ''}`}>

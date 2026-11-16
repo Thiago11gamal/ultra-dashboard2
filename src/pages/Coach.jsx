@@ -41,6 +41,33 @@ import { getCoachFeature } from '../utils/coachFeatures';
 import { setCoachFeatureContestScope } from '../utils/coachFeatureStore';
 import { isSubjectMatch, normalize } from '../utils/normalization';
 
+const isAnalysisEqual = (a, b, seen = new WeakSet(), depth = 0) => {
+    if (Object.is(a, b)) return true;
+    if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+    if (depth > 8) return false;
+    if (seen.has(a)) return false;
+    const isArrA = Array.isArray(a);
+    if (isArrA !== Array.isArray(b)) return false;
+    if (isArrA) {
+        if (a.length !== b.length) return false;
+        seen.add(a);
+        for (let i = 0; i < a.length; i++) {
+            if (!isAnalysisEqual(a[i], b[i], seen, depth + 1)) return false;
+        }
+        return true;
+    }
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    seen.add(a);
+    for (let i = 0; i < keysA.length; i++) {
+        const key = keysA[i];
+        if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+        if (!isAnalysisEqual(a[key], b[key], seen, depth + 1)) return false;
+    }
+    return true;
+};
+
 const getSafeCategoryKey = (value) => {
     if (value === null || value === undefined || value === '') return '';
     const id = getSafeId(value);
@@ -690,7 +717,7 @@ useEffect(() => {
                                             ...(t.completedAt ? { completedAt: t.completedAt } : {})
                                         }
                                         : t;
-                                    if (fresh && fresh.analysis && JSON.stringify(fresh.analysis) !== JSON.stringify(t.analysis)) {
+                                    if (fresh && fresh.analysis && !isAnalysisEqual(fresh.analysis, t.analysis)) {
                                         plannerTelemetryUpdated = true;
                                     }
                                     assignedTasks.push(mergedTask);
@@ -743,7 +770,7 @@ useEffect(() => {
                                 t.text !== next.text ||
                                 t.priority !== next.priority ||
                                 Boolean(t.completed) !== Boolean(next.completed) ||
-                                JSON.stringify(t.analysis || null) !== JSON.stringify(next.analysis || null);
+                                !isAnalysisEqual(t.analysis || null, next.analysis || null);
                         });
 
                     if (hasPlanChanged || !currentData?.coachPlanner) {

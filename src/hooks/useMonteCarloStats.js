@@ -584,8 +584,9 @@ export function useMonteCarloStats({
     statsDataRef.current = statsData;
   }, [statsData]);
 
-  const { runAnalysis } = useMonteCarloWorker();
+  const { runAnalysis, runSubjectBatch } = useMonteCarloWorker();
   const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
+  const [subjectBatchTick, setSubjectBatchTick] = useState(0);
 
   useEffect(() => {
     if (!rawSimuladoRows || rawSimuladoRows.length === 0) return;
@@ -1096,9 +1097,7 @@ export function useMonteCarloStats({
     probabilityUpper
   ]);
 
-  const perSubjectProbs = useMemo(() => {
-    // G-02 FIX: Recalcular quando simulationData ficar ready,
-    // não apenas quando enablePerSubject mudar.
+  const subjectSimPlans = useMemo(() => {
     if (!enablePerSubject) return [];
     if (!statsData?.categoryStats?.length) return [];
     if (simulationData?.status !== 'ready') return [];
@@ -1146,22 +1145,19 @@ export function useMonteCarloStats({
         }
 
         // T-005 FIX: limitar projeção de tendência a ±15% do domínio da disciplina.
-        // Se o cálculo produzir NaN, cai para 0 (sem projeção) em vez de -15%.
         totalTrendProjection = safeClamp(
           totalTrendProjection,
           -0.15 * Math.max(1e-9, catMaxScore - catMinScore),
           0.15 * Math.max(1e-9, catMaxScore - catMinScore),
-          0 // fallback neutro: nenhuma projeção de tendência
+          0
         );
 
-        // T-005 FIX: se a soma baseline + tendência produzir NaN,
-        // mantém o baseline atual em vez de despencar para catMinScore.
         const baseline = (!effectiveSimulateToday && projectDays > 0)
           ? safeClamp(
             currentBaseline + totalTrendProjection,
             catMinScore,
             catMaxScore,
-            currentBaseline // fallback: permanece onde está
+            currentBaseline
           )
           : currentBaseline;
 
@@ -1170,6 +1166,7 @@ export function useMonteCarloStats({
         const catRange = Math.max(1e-9, catMaxScore - catMinScore);
         const targetRatio = clamp((Number(debouncedTarget) - Number(minScore)) / globalRange, 0, 1);
         const subjectTarget = clamp(catMinScore + targetRatio * catRange, catMinScore, catMaxScore);
+        const simulationsCount = Math.min(dynamicSimulations || 2000, 3000);
 
         // ✅ Cache por matéria com TTL (Performance #16)
         const simKey = [
@@ -1177,7 +1174,7 @@ export function useMonteCarloStats({
           Number(baseline).toFixed(3),
           Number(cat.bayesianSd ?? cat.sd ?? 0).toFixed(3),
           Number(subjectTarget).toFixed(3),
-          Math.min(dynamicSimulations || 2000, 3000),
+          simulationsCount,
           catMinScore,
           catMaxScore,
           cat.n || 0,
@@ -1185,22 +1182,103 @@ export function useMonteCarloStats({
           rawSimuladoRows?.length || 0
         ].join('|');
 
-        const cachedResult = getCachedSubjectSim(simKey);
-        let result;
-        if (cachedResult) {
-          result = cachedResult;
-        } else {
-          result = simulateNormalDistribution({
+        return {
+          cat,
+          catMinScore,
+          catMaxScore,
+          catRange,
+          baseline,
+          subjectTarget,
+          simKey,
+          simInput: {
             mean: baseline,
             sd: cat.bayesianSd ?? cat.sd,
-            targetScore: subjectTarget,   // ✅ LOTE-01 FIX
-            simulations: Math.min(dynamicSimulations || 2000, 3000),
+            targetScore: subjectTarget,
+            simulations: simulationsCount,
             categoryName: cat.name,
             minScore: catMinScore,
             maxScore: catMaxScore,
-            simuladoRows: rawSimuladoRows,
             historyLength: cat.n || 0,
             bayesianCI: cat.bayesianCI ? { ...cat.bayesianCI, n: cat.bayesianCI.n ?? (cat.n || 1) } : null
+          }
+        };
+      });
+  }, [
+    statsData,
+    debouncedTarget,
+    simulationData?.status,
+    maxScore,
+    effectiveSimulateToday,
+    projectDays,
+    minScore,
+    modelWeight,
+    rawSimuladoRows,
+    dynamicSimulations,
+    calibrationPenalty,
+    enablePerSubject
+  ]);
+
+  // Executa simulações por matéria fora da main thread quando Worker está disponível
+  useEffect(() => {
+    if (!enablePerSubject || simulationData?.status !== 'ready' || subjectSimPlans.length === 0) return;
+    if (typeof Worker === 'undefined') return;
+
+    const uncached = [];
+    for (let i = 0; i < subjectSimPlans.length; i++) {
+      const plan = subjectSimPlans[i];
+      if (!getCachedSubjectSim(plan.simKey)) {
+        uncached.push({ simKey: plan.simKey, input: plan.simInput });
+      }
+    }
+    if (uncached.length === 0) return;
+
+    let cancelled = false;
+    runSubjectBatch(uncached, rawSimuladoRows)
+      .then((results) => {
+        if (cancelled || !isMountedRef.current) return;
+        let updated = false;
+        for (let i = 0; i < results.length; i++) {
+          const entry = results[i];
+          if (entry?.simKey && entry?.result) {
+            setCachedSubjectSim(entry.simKey, entry.result);
+            updated = true;
+          }
+        }
+        if (updated) {
+          setSubjectBatchTick(t => t + 1);
+        }
+      })
+      .catch(() => {
+        if (cancelled || !isMountedRef.current) return;
+        for (let i = 0; i < uncached.length; i++) {
+          const entry = uncached[i];
+          const res = simulateNormalDistribution({ ...entry.input, simuladoRows: rawSimuladoRows });
+          setCachedSubjectSim(entry.simKey, res);
+        }
+        setSubjectBatchTick(t => t + 1);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enablePerSubject, simulationData?.status, subjectSimPlans, rawSimuladoRows, runSubjectBatch]);
+
+  const perSubjectProbs = useMemo(() => {
+    void subjectBatchTick;
+    if (!subjectSimPlans.length) return [];
+
+    return subjectSimPlans
+      .map(plan => {
+        const { cat, catRange, baseline, subjectTarget, simKey, simInput } = plan;
+        let result = getCachedSubjectSim(simKey);
+        if (!result) {
+          // Sem Web Worker (testes Vitest/SSR), mantém fallback síncrono imediato
+          if (typeof Worker !== 'undefined') {
+            return null;
+          }
+          result = simulateNormalDistribution({
+            ...simInput,
+            simuladoRows: rawSimuladoRows
           });
           setCachedSubjectSim(simKey, result);
         }
@@ -1262,23 +1340,16 @@ export function useMonteCarloStats({
             100
           )
         };
-      }); // ordem estável = ordem das categorias (idêntica nos dois gauges)
+      })
+      .filter(Boolean); // ordem estável = ordem das categorias (idêntica nos dois gauges)
   }, [
-    statsData,
-    debouncedTarget,
-    simulationData?.status,
-    maxScore,
-    effectiveSimulateToday,
-    projectDays,
-    minScore,
+    subjectSimPlans,
+    subjectBatchTick,
+    rawSimuladoRows,
     modelHealth,
     modelWeight,
-    rawSimuladoRows,
     calibrationSummary,
-    dynamicSimulations,
-    calibrationPenalty,
-    // T-040 FIX: reagir à abertura/fechamento do painel de matérias
-    enablePerSubject
+    calibrationPenalty
   ]);
 
   useEffect(() => {

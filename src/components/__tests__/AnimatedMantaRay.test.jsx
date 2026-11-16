@@ -2,7 +2,8 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
 import AnimatedMantaRay from '../AnimatedMantaRay';
-import { LEFT_TIP_INDEX, buildMantaPath, buildWakeData } from '../mantaKinematics';
+import { LEFT_TIP_INDEX, buildMantaPath, buildWakeData, projectVertex } from '../mantaKinematics';
+import { MANTA_UV_POINTS } from '../mantaGeometry';
 import WelcomeScreen from '../WelcomeScreen';
 import Login from '../Login';
 
@@ -207,5 +208,76 @@ describe('AnimatedMantaRay kinematics and entrance screens', () => {
         expect(screen.getByRole('img', { name: 'Manta Logo' })).toBeTruthy();
         expect(screen.getByText('Bem-vindo')).toBeTruthy();
         expect(screen.getByRole('button', { name: 'Entrar no Método Arraia' })).toBeTruthy();
+    });
+
+    it('pauses requestAnimationFrame when tab is hidden or outside viewport and resumes when visible', () => {
+        let isHidden = false;
+        const hiddenDescriptor = Object.getOwnPropertyDescriptor(document, 'hidden');
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => isHidden });
+
+        let ioCallback = null;
+        const OriginalIO = window.IntersectionObserver;
+        window.IntersectionObserver = vi.fn(function MockIntersectionObserver(cb) {
+            ioCallback = cb;
+            return { observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn() };
+        });
+
+        try {
+            const { container } = render(<AnimatedMantaRay ariaLabel="Arraia Pausável" />);
+            expect(rafCallbacks.size).toBe(1);
+            expect(container.querySelectorAll('path[data-manta-body="true"]').length).toBe(1);
+            expect(container.querySelectorAll('svg use').length).toBe(3);
+
+            act(() => {
+                isHidden = true;
+                document.dispatchEvent(new Event('visibilitychange'));
+            });
+            expect(rafCallbacks.size).toBe(0);
+
+            act(() => {
+                isHidden = false;
+                document.dispatchEvent(new Event('visibilitychange'));
+            });
+            expect(rafCallbacks.size).toBe(1);
+
+            act(() => {
+                ioCallback?.([{ isIntersecting: false }]);
+            });
+            expect(rafCallbacks.size).toBe(0);
+
+            act(() => {
+                ioCallback?.([{ isIntersecting: true }]);
+            });
+            expect(rafCallbacks.size).toBe(1);
+        } finally {
+            window.IntersectionObserver = OriginalIO;
+            if (hiddenDescriptor) {
+                Object.defineProperty(document, 'hidden', hiddenDescriptor);
+            } else {
+                delete document.hidden;
+            }
+        }
+    });
+
+    it('precomputed vertex kinematics match direct projectVertex output accurately', () => {
+        const phase = 1.23;
+        const rollPhase = phase * 0.36;
+        const d = buildMantaPath(phase, rollPhase, 0.25, -0.35, false);
+        const pts = parsePathPoints(d);
+        expect(pts.length).toBe(355);
+
+        for (const idx of [0, 45, 91, 178, 250, 354]) {
+            const [ex, ey] = projectVertex(
+                MANTA_UV_POINTS[idx * 2],
+                MANTA_UV_POINTS[idx * 2 + 1],
+                phase,
+                rollPhase,
+                0.25,
+                -0.35,
+                false
+            );
+            expect(pts[idx].x).toBeCloseTo(ex, 1);
+            expect(pts[idx].y).toBeCloseTo(ey, 1);
+        }
     });
 });

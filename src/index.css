@@ -48,7 +48,7 @@ body {
   transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* Animated background mesh */
+/* Static ambient background mesh (evita repintar/re-borrar toda a tela com backdrop-filter a 60fps) */
 body::before {
   content: '';
   position: fixed;
@@ -61,36 +61,15 @@ body::before {
     radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 35%),
     radial-gradient(circle at 50% 80%, rgba(59, 130, 246, 0.06), transparent 40%);
   z-index: -1;
-  animation: meshMove 30s ease-in-out infinite alternate;
   opacity: var(--mesh-opacity, 1);
-  /* PERFORM-01: GPU acceleration for fixed mesh */
-  /* will-change removido — só ativar durante animação se necessário */
-  transform: translateZ(0); /* GPU acceleration sem will-change permanente */
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body::before {
-    animation: none;
-  }
-}
-
-
-
-@keyframes meshMove {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-
-  100% {
-    transform: translate3d(-20px, -20px, 0) scale(1.05);
-  }
+  pointer-events: none;
 }
 
 /* Glassmorphism utility */
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md, 16px);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
@@ -114,8 +93,8 @@ body::before {
 
 .glass-panel {
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.9) 100%);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 0;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);

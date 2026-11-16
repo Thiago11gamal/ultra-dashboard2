@@ -346,19 +346,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   if (history.length < (safeCfg.MC_MIN_DATA_POINTS || 5)) return null;
   if (history.length > 2000) history = pruneHistoryForMemory(history, 1200, 365 * 4);
 
-  // FIX: usar safeMaxScore e safeMinScore (validados) em vez de maxScore bruto
-  const anomalies = detectDataAnomalies(history, safeMaxScore, safeMinScore);
-  const dataIssues = anomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
-  const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
-  const lowSampleThreshold = Math.max(Number(safeCfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (safeCfg.MC_MIN_DATA_POINTS || 5) + 2);
   const neutralPct = Math.max(0, Math.min(100, toFiniteNumber(safeCfg.MC_CALIBRATION_NEUTRAL_PCT, 50)));
   // FIX CRÍTICO DE DOMÍNIO: shrinkProbabilityToNeutral opera em probabilidade [0, 100]%,
   // jamais em pontos brutos de prova (ex: ENEM 600 pts ou Cebraspe 0 pts).
   const shrinkAnchorPct = neutralPct;
-  const maxAppliedPenalty = toFiniteNumber(safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
-
-  const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore, safeMinScore);
-  const nEff = Math.max(1, Number(btWeights.effectiveN) || history.length);
   const sumCorrect = history.reduce((acc, h) => acc + Number(h.score || 0), 0);
 
   const sequenceChecksum = history.reduce((acc, h, idx) => {
@@ -379,15 +370,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
        Number(adaptive.calibrationMaxPenalty || 0).toFixed(4)].join('-')
     : 'no-adapt';
 
-  const cfgHash = hashString(JSON.stringify({
-    cap: safeCfg.MC_SIMULATION_CAP, force: safeCfg.MC_FORCE_MAX_SIMULATIONS,
-    min: safeCfg.MC_MIN_DATA_POINTS, low: safeCfg.MC_LOW_SAMPLE_THRESHOLD,
-    horizon: safeCfg.MC_BACKTEST_HORIZON, horizonMax: safeCfg.MC_BACKTEST_HORIZON_MAX,
-    bins: [safeCfg.MC_ECE_BINS_MIN, safeCfg.MC_ECE_BINS_MID, safeCfg.MC_ECE_BINS_MAX],
-    calib: [safeCfg.MC_CALIBRATION_BRIER_BASELINE, safeCfg.MC_CALIBRATION_MAX_PENALTY,
-      safeCfg.MC_CALIBRATION_NEUTRAL_PCT, safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY,
-      safeCfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false]
-  }));
+  const cfgHash = hashString(
+    `${safeCfg.MC_SIMULATION_CAP ?? ''}|${safeCfg.MC_FORCE_MAX_SIMULATIONS ?? ''}|${safeCfg.MC_MIN_DATA_POINTS ?? ''}|${safeCfg.MC_LOW_SAMPLE_THRESHOLD ?? ''}|${safeCfg.MC_BACKTEST_HORIZON ?? ''}|${safeCfg.MC_BACKTEST_HORIZON_MAX ?? ''}|${safeCfg.MC_ECE_BINS_MIN ?? ''}|${safeCfg.MC_ECE_BINS_MID ?? ''}|${safeCfg.MC_ECE_BINS_MAX ?? ''}|${calibHash}`
+  );
 
   const contestId = safeCfg?.contestId || safeCfg?.userId || 'default';
 
@@ -413,6 +398,15 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   }
 
   try {
+    // FIX: usar safeMaxScore e safeMinScore (validados) em vez de maxScore bruto
+    const anomalies = detectDataAnomalies(history, safeMaxScore, safeMinScore);
+    const dataIssues = anomalies.filter(a => a.severity === 'error' || a.severity === 'warning').length;
+    const dataQuality = Math.max(0.3, 1 - (dataIssues * 0.15));
+    const lowSampleThreshold = Math.max(Number(safeCfg.MC_LOW_SAMPLE_THRESHOLD) || 10, (safeCfg.MC_MIN_DATA_POINTS || 5) + 2);
+    const maxAppliedPenalty = toFiniteNumber(safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY, 0.5);
+    const btWeights = deriveBacktestWeights(history.map(h => h.score), safeMaxScore, safeMinScore);
+    const nEff = Math.max(1, Number(btWeights.effectiveN) || history.length);
+
     const requestedSims = adaptive?.mcSimulations || safeCfg.MC_SIMULATIONS || 800;
     const simulationCap = getCpuAwareSimulationCap(2500, safeCfg);
     const qualityBoost = dataQuality < 0.7 ? 1.3 : 1.0;

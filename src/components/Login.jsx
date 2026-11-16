@@ -54,11 +54,12 @@ const getPasswordStrength = (password) => {
 function handleRipple(e) {
     const btn = e.currentTarget;
     const rect = btn.getBoundingClientRect();
+    const size = rect.width;
     const r = document.createElement('span');
     r.className = 'ripple';
-    r.style.width = r.style.height = `${btn.offsetWidth}px`;
-    r.style.left = `${e.clientX - rect.left - btn.offsetWidth / 2}px`;
-    r.style.top = `${e.clientY - rect.top - btn.offsetWidth / 2}px`;
+    r.style.width = r.style.height = `${size}px`;
+    r.style.left = `${e.clientX - rect.left - size / 2}px`;
+    r.style.top = `${e.clientY - rect.top - size / 2}px`;
     btn.appendChild(r);
     setTimeout(() => r.remove(), 600);
 }
@@ -89,15 +90,13 @@ export default function Login() {
     }, [error]);
 
     const handleEmailChange = (e) => {
-        const value = sanitizeInput(e.target.value, 254); // RFC 5321 max email length
-        setEmail(value);
+        setEmail(e.target.value.slice(0, 254)); // RFC 5321 max email length
         setEmailError('');
         setError('');
     };
 
     const handleNameChange = (e) => {
-        const value = sanitizeInput(e.target.value, 100);
-        setName(value);
+        setName(e.target.value.slice(0, 100));
         setNameError('');
     };
 
@@ -138,17 +137,20 @@ export default function Login() {
         setNameError('');
         setLoading(true);
 
+        const cleanEmail = sanitizeInput(email, 254);
+        const cleanName = sanitizeInput(name, 100);
+
         try {
             if (isLogin) {
-                await login(email.trim(), password);
+                await login(cleanEmail, password);
             } else {
-                if (!name.trim()) throw new Error("Por favor, insira seu nome.");
+                if (!cleanName) throw new Error("Por favor, insira seu nome.");
                 if (password.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
                 const hasMixed = /[a-z]/.test(password) && /[0-9]/.test(password);
                 if (!hasMixed) {
                     throw new Error("Sua senha deve conter letras e números para maior segurança.");
                 }
-                await signup(email.trim(), password, sanitizeInput(name, 100));
+                await signup(cleanEmail, password, cleanName);
             }
         } catch (err) {
             console.error(err);

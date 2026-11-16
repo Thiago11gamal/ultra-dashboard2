@@ -255,6 +255,30 @@ self.onmessage = function (e) {
                 simuladoRows: payload.simuladoRows,
                 categoryNames: payload.categoryNames,
             });
+        } else if (type === 'runSubjectBatch') {
+            const items = Array.isArray(payload.items) ? payload.items : [];
+            const sharedSimuladoRows = Array.isArray(payload.simuladoRows) ? payload.simuladoRows : [];
+            const batchOut = [];
+            for (let i = 0; i < items.length; i++) {
+                const entry = items[i];
+                if (!entry || !entry.simKey || !entry.input) continue;
+                const inp = entry.input;
+                const simRes = simulateNormalDistribution({
+                    mean: safeNum(inp.mean, 0),
+                    sd: inp.sd !== undefined ? safeNum(inp.sd, 0) : undefined,
+                    targetScore: safeNum(inp.targetScore, 0),
+                    simulations: safeNum(inp.simulations, 2000),
+                    categoryName: inp.categoryName ? String(inp.categoryName) : undefined,
+                    minScore: safeNum(inp.minScore, 0),
+                    maxScore: safeNum(inp.maxScore, 100),
+                    simuladoRows: sharedSimuladoRows,
+                    historyLength: safeNum(inp.historyLength, 0),
+                    bayesianCI: sanitizeBayesianCI(inp.bayesianCI),
+                });
+                batchOut.push({ simKey: entry.simKey, result: simRes });
+            }
+            self.postMessage({ id, type: 'result', result: sanitizePayloadForWorker(batchOut) });
+            return;
         } else {
             self.postMessage({ id, type: 'error', error: `Tipo de mensagem desconhecido: ${type}` });
             return;

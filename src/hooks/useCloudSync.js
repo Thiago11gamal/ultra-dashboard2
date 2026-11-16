@@ -13,11 +13,14 @@ import { RECOVERED_DIREITO_CONTEST } from '../data/recoveredContests.js';
 
 // P07 PERF FIX: Added depth limit to prevent runaway recursion on deeply nested data
 const cleanUndefined = (obj, seen = new WeakSet(), depth = 0) => {
-  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj === null || typeof obj !== 'object') {
+    return (typeof obj === 'function' || typeof obj === 'symbol') ? undefined : obj;
+  }
   if (depth > 25) return obj; // Safety cap for deeply nested structures
-  if (obj instanceof Date) return obj;
-  if (obj === window ||
+  if (obj instanceof Date) return new Date(obj.getTime());
+  if ((typeof window !== 'undefined' && obj === window) ||
     (typeof Event !== 'undefined' && obj instanceof Event) ||
+    (typeof HTMLElement !== 'undefined' && obj instanceof HTMLElement) ||
     (typeof Node !== 'undefined' && obj instanceof Node)) {
     return null;
   }
@@ -28,13 +31,19 @@ const cleanUndefined = (obj, seen = new WeakSet(), depth = 0) => {
   seen.add(obj);
   let result;
   if (Array.isArray(obj)) {
-    result = obj.map(v => v === undefined ? null : cleanUndefined(v, seen, depth + 1));
+    result = obj.map(v => {
+      const cleaned = cleanUndefined(v, seen, depth + 1);
+      return cleaned === undefined ? null : cleaned;
+    });
   } else {
     result = {};
     for (const [k, v] of Object.entries(obj)) {
       if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
-      if (v !== undefined) {
-        result[k] = cleanUndefined(v, seen, depth + 1);
+      if (v !== undefined && typeof v !== 'function' && typeof v !== 'symbol') {
+        const cleaned = cleanUndefined(v, seen, depth + 1);
+        if (cleaned !== undefined) {
+          result[k] = cleaned;
+        }
       }
     }
   }
@@ -1274,14 +1283,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         ? Object.fromEntries(Object.entries(syncState.contests).map(([id, c]) => [id, safeguardContest(c)]))
         : syncState.contests;
       const safeTrash = (syncState.trash || []).slice(-20);
-      const stateToSave = cleanUndefined(safeClone({
+      const stateToSave = cleanUndefined({
         ...syncState,
         version: currentVersion,
         contests: safeContests,
         trash: safeTrash,
         history: [],
         _lastBackup: new Date().toISOString()
-      }));
+      });
 
       // ✅ FIX: Incluir version no payload para detecção de conflito
       stateToSave._syncVersion = currentVersion;
@@ -1395,10 +1404,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     }
 
     if (isLocalMode || !currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;
-    const currentState = useAppStore.getState().appState;
-    const currentStateString = stateStringForSync(currentState);
 
     if (isCloudPullRef.current) {
+      const currentState = useAppStore.getState().appState;
+      const currentStateString = stateStringForSync(currentState);
       isCloudPullRef.current = false;
       lastSyncedRef.current = currentStateString;
       // C-06 FIX: Não descartar a mutação que acabou de ser aplicada.
@@ -1409,11 +1418,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       }
       return;
     }
-    if (lastSyncedRef.current === currentStateString) return;
 
-    const lastMutation = Date.now();
-    lastLocalMutationRef.current = lastMutation;
-    setHasConflict(false);
+    lastLocalMutationRef.current = Date.now();
 
     const MAX_SYNC_REENTRY = 3;
     const syncToCloud = async () => {
@@ -1439,16 +1445,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             const freshState = useAppStore.getState().appState;
             const currentStateString = stateStringForSync(freshState);
             if (lastSyncedRef.current === currentStateString) break;
+            setHasConflict(false);
 
 
             const safeContests = freshState.contests
               ? Object.fromEntries(Object.entries(freshState.contests).map(([id, c]) => [id, safeguardContest(c)]))
               : freshState.contests;
             const safeTrash = (freshState.trash || []).slice(-20);
-            const stateToSave = cleanUndefined(safeClone({
+            const stateToSave = cleanUndefined({
               ...freshState, contests: safeContests, trash: safeTrash,
               history: [], _lastBackup: new Date().toISOString()
-            }));
+            });
 
             // ✅ FIX: Incluir version no payload para detecção de conflito
             stateToSave._syncVersion = freshState?.version || 0;

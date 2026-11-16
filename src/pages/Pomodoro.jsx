@@ -293,16 +293,17 @@ const AICoachPanel = React.memo(function AICoachPanel({ activeSubject, stats, ca
         >
             <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-40 pointer-events-none`} />
             <Motion.div
-                animate={{ left: ['-100%', '200%'] }}
+                animate={{ x: ['-120%', '320%'] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-                className="absolute top-0 bottom-0 w-[50px] bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-50 pointer-events-none z-20 skew-x-[-20deg]"
+                className="absolute left-0 top-0 bottom-0 w-[50px] bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-50 pointer-events-none z-20 skew-x-[-20deg]"
             />
             <div className="flex items-center gap-4 sm:gap-6 relative z-10">
                 <div className="relative shrink-0">
-                    <Motion.div
-                        animate={{ scale: [1, 1.05, 1], opacity: [0.3, 0.5, 0.3] }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                        className={`absolute inset-0 rounded-full blur-xl ${theme.accent}`}
+                    <div
+                        className="absolute -inset-2 rounded-full opacity-35 pointer-events-none"
+                        style={{
+                            background: 'radial-gradient(closest-side, rgba(99, 102, 241, 0.35), rgba(99, 102, 241, 0))'
+                        }}
                     />
                     <div className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl border ${theme.border} bg-slate-900/70 flex items-center justify-center ${theme.text} shadow-inner`}>
                         {icons[insight?.iconType] || <BrainCircuit size={24} />}

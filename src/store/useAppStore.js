@@ -97,14 +97,6 @@ const idbStorage = {
   },
   setItem: (name, value) => {
     latestValues[name] = value;
-    // Salva imediatamente no localStorage como camada síncrona de resiliência rápida
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(name, value);
-      }
-    } catch {
-      // Ignorar possíveis exceções de quota (o IDB salvará no timeout)
-    }
 
     return new Promise((resolve, reject) => {
       if (saveTimeouts[name]) clearTimeout(saveTimeouts[name]);
@@ -117,6 +109,15 @@ const idbStorage = {
 
       saveTimeouts[name] = setTimeout(async () => {
         try {
+          // Persiste localStorage junto ao ciclo debounced para evitar bloqueio síncrono na UI thread;
+          // flushPendingStorage garante gravação síncrona imediata em beforeunload/pagehide/visibilitychange.
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem(name, value);
+            }
+          } catch {
+            // Ignorar possíveis exceções de quota (o IDB ainda tentará persistir)
+          }
           await idbSet(name, value);
           if (currentWriteTokens[name] === opToken) {
             currentPromise.resolve();
@@ -138,6 +139,9 @@ const idbStorage = {
             delete savePromises[name];
             delete saveTimeouts[name];
             delete currentWriteTokens[name];
+            if (latestValues[name] === value) {
+              delete latestValues[name];
+            }
           }
         }
       }, 250);
@@ -277,16 +281,16 @@ export const useAppStore = create(
         // Usar JSON length como proxy rápido de mudança + version.
         equality: (past, current) =>
           (past.appState?.version || 0) === (current.appState?.version || 0),
-        partialize: (state) => ({
-          appState: {
-            ...state.appState,
-            trash: (state.appState.trash || []).slice(-10),
-            // C-01 FIX: não serializar contests inteiro no undo.
-            // Armazenar apenas activeId e version para reconstruir.
-            activeId: state.appState.activeId,
-            version: state.appState.version
-          }
-        }),
+        partialize: (state) => {
+          const rawTrash = state.appState.trash;
+          const boundedTrash = Array.isArray(rawTrash) && rawTrash.length > 10 ? rawTrash.slice(-10) : rawTrash;
+          return {
+            appState: {
+              ...state.appState,
+              trash: boundedTrash
+            }
+          };
+        },
       }
     ),
     {

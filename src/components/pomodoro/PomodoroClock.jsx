@@ -237,13 +237,6 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                                 <stop key={idx} offset={stop.offset} stopColor={stop.color} />
                             ))}
                         </linearGradient>
-                        <filter id={`${gradientId}_glow`} x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3.5" result="blur" />
-                            <feMerge>
-                                <feMergeNode in="blur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                        </filter>
                     </defs>
 
                     {/* Trilho de sulco de profundidade */}
@@ -255,7 +248,7 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                     {/* Gauge de precisão interno (marcas de cronômetro de alta precisão) */}
                     <circle cx="128" cy="128" r="97" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1.5" strokeDasharray="2 6" />
 
-                    {/* Anel de progresso ativo com movimento fluido e acabamento luminoso */}
+                    {/* Anel de progresso ativo com movimento fluido sem filtro feGaussianBlur por frame */}
                     <circle
                         ref={svgCircleRef}
                         cx="128"
@@ -267,7 +260,6 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                         strokeLinecap="round"
                         strokeDasharray={2 * Math.PI * 110}
                         strokeDashoffset={2 * Math.PI * 110}
-                        filter={`url(#${gradientId}_glow)`}
                         style={{
                             transition: isRunning ? 'none' : 'stroke-dashoffset 0.35s cubic-bezier(0.4, 0, 0.2, 1)'
                         }}

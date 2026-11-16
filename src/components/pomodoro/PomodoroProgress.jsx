@@ -132,41 +132,35 @@ export const PomodoroProgress = React.memo(function PomodoroProgress({
                 {/* Progress Indicators Track - Barras e Bolinhas Maiores (com escala dinâmica para metas longas) */}
                 <div className="flex items-center gap-1 sm:gap-1.5 pt-0.5 overflow-x-auto custom-scrollbar pb-0.5">
                     {Array.from({ length: safeTargetCycles }).map((_, i) => {
-                        let workWidth = '0%';
-                        let breakHeight = '0%';
+                        let workRatio = 0;
+                        let breakRatio = 0;
                         const isCompact = safeTargetCycles > 6;
 
-                        const progressPct = (Number.isFinite(totalTime) && totalTime > 0)
-                            ? Math.max(0, Math.min(100, ((totalTime - timeLeft) / totalTime) * 100))
+                        const progressRatio = (Number.isFinite(totalTime) && totalTime > 0)
+                            ? Math.max(0, Math.min(1, (totalTime - timeLeft) / totalTime))
                             : 0;
 
                         if (mode === 'work') {
                             if (i < safeCompletedCycles) {
-                                workWidth = '100%';
-                                breakHeight = '100%';
+                                workRatio = 1;
+                                breakRatio = 1;
                             } else if (i === safeCompletedCycles) {
-                                workWidth = `${progressPct}%`;
-                                breakHeight = '0%';
-                            } else {
-                                workWidth = '0%';
-                                breakHeight = '0%';
+                                workRatio = progressRatio;
+                                breakRatio = 0;
                             }
                         } else {
                             if (i < safeCompletedCycles - 1) {
-                                workWidth = '100%';
-                                breakHeight = '100%';
+                                workRatio = 1;
+                                breakRatio = 1;
                             } else if (i === safeCompletedCycles - 1) {
-                                workWidth = '100%';
-                                breakHeight = `${progressPct}%`;
-                            } else {
-                                workWidth = '0%';
-                                breakHeight = '0%';
+                                workRatio = 1;
+                                breakRatio = progressRatio;
                             }
                         }
 
                         return (
                             <React.Fragment key={i}>
-                                {/* Barra de Progresso do Foco (Maior e com mais destaque) */}
+                                {/* Barra de Progresso do Foco (transform scaleX para evitar reflow a 60fps) */}
                                 <div className={`flex-1 min-w-[12px] ${isCompact ? 'h-3 sm:h-3.5' : 'h-3.5 sm:h-4'} bg-[#2d1a12]/20 rounded-full overflow-hidden border-2 border-[#2d1a12]/25 shadow-inner`}>
                                     <div
                                         ref={el => {
@@ -174,12 +168,12 @@ export const PomodoroProgress = React.memo(function PomodoroProgress({
                                                 workFillsRef.current[i] = el || undefined;
                                             }
                                         }}
-                                        style={{ width: workWidth }}
-                                        className="h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full shadow-sm"
+                                        style={{ transform: `scaleX(${workRatio})`, transformOrigin: 'left center' }}
+                                        className="w-full h-full bg-gradient-to-r from-blue-600 to-blue-500 rounded-full shadow-sm"
                                     />
                                 </div>
 
-                                {/* Bolinha Verde de Pausa (Maior e com Glow) */}
+                                {/* Bolinha Verde de Pausa (transform scaleY para evitar reflow a 60fps) */}
                                 {i < safeTargetCycles - 1 && (
                                     <div className={`relative ${isCompact ? 'w-4 h-4 sm:w-4.5 sm:h-4.5' : 'w-5 h-5 sm:w-6 sm:h-6'} rounded-full bg-[#2d1a12]/20 border-2 border-[#2d1a12]/35 overflow-hidden shrink-0 shadow-md`}>
                                         <div
@@ -188,8 +182,8 @@ export const PomodoroProgress = React.memo(function PomodoroProgress({
                                                     breakBallsRef.current[i] = el || undefined;
                                                 }
                                             }}
-                                            style={{ height: breakHeight }}
-                                            className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
+                                            style={{ transform: `scaleY(${breakRatio})`, transformOrigin: 'bottom center' }}
+                                            className="absolute inset-0 w-full h-full bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.6)]"
                                         />
                                     </div>
                                 )}

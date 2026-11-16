@@ -219,6 +219,60 @@ export function useMonteCarloWorker() {
         });
     }, []);
 
-    return { runAnalysis };
+    const runSubjectBatch = useCallback(async (items = [], sharedSimuladoRows = []) => {
+        if (!Array.isArray(items) || items.length === 0) return [];
+        if (!sharedWorker) {
+            initSharedWorker();
+        }
+        if (!sharedWorker) {
+            return items.map((entry) => ({
+                simKey: entry.simKey,
+                result: simulateNormalDistribution({
+                    ...entry.input,
+                    simuladoRows: sharedSimuladoRows
+                })
+            }));
+        }
+
+        const id = ++sharedRequestId;
+        const payload = { items, simuladoRows: sharedSimuladoRows };
+
+        return new Promise((resolve, reject) => {
+            const totalSims = items.reduce((acc, entry) => acc + (entry?.input?.simulations || 2000), 0);
+            const timeoutMs = Math.min(30000, Math.max(10000, totalSims * 2));
+            const currentWorker = sharedWorker;
+
+            const timeoutId = setTimeout(() => {
+                if (sharedPendingRequests.has(id)) {
+                    sharedPendingRequests.delete(id);
+                    reject(new Error("A análise por matéria demorou muito tempo e foi interrompida."));
+                }
+            }, timeoutMs);
+
+            sharedPendingRequests.set(id, {
+                worker: currentWorker,
+                timeoutId,
+                createdAt: Date.now(),
+                resolve: (data) => {
+                    clearTimeout(timeoutId);
+                    resolve(Array.isArray(data) ? data : []);
+                },
+                reject: (err) => {
+                    clearTimeout(timeoutId);
+                    reject(err);
+                }
+            });
+
+            try {
+                currentWorker.postMessage({ type: 'runSubjectBatch', payload, id });
+            } catch {
+                clearTimeout(timeoutId);
+                sharedPendingRequests.delete(id);
+                reject(new Error('Falha ao enviar lote por matéria para o Worker (DataCloneError).'));
+            }
+        });
+    }, []);
+
+    return { runAnalysis, runSubjectBatch };
 }
 

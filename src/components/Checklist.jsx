@@ -62,7 +62,7 @@ const getHistoryDateLabel = (h) => {
     }
 };
 
-    const PerformancePanel = ({ stats = {}, color, maxScore = 100, minScore = 0 }) => {
+    const PerformancePanel = React.memo(function PerformancePanel({ stats = {}, color, maxScore = 100, minScore = 0 }) {
         const navigate = useNavigate();
         const safeStats = stats && typeof stats === 'object' ? stats : {};
 
@@ -76,15 +76,20 @@ const getHistoryDateLabel = (h) => {
 
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
-    const unsortedHistory = toArray(rawHistory).filter(Boolean);
-    const history = unsortedHistory.slice().sort((a, b) => {
-        const dA = normalizeDate(a?.date || a?.createdAt);
-        const dB = normalizeDate(b?.date || b?.createdAt);
-        const tA = dA && !Number.isNaN(dA.getTime()) ? dA.getTime() : 0;
-        const tB = dB && !Number.isNaN(dB.getTime()) ? dB.getTime() : 0;
-        if (tA === 0 && tB === 0) return 0;
-        return tA - tB;
-    });
+    const history = useMemo(() => {
+        const unsorted = toArray(rawHistory).filter(Boolean);
+        if (unsorted.length <= 1) return unsorted;
+        return unsorted
+            .map((item) => {
+                const d = normalizeDate(item?.date || item?.createdAt);
+                return {
+                    item,
+                    ts: d && !Number.isNaN(d.getTime()) ? d.getTime() : 0
+                };
+            })
+            .sort((a, b) => a.ts - b.ts)
+            .map((entry) => entry.item);
+    }, [rawHistory]);
     const hasHistory = history.length > 0;
     const safeColor = normalizeHexColor(color, '#818cf8');
     const colorStyles = getCategoryColorStyles(safeColor, '#818cf8');
@@ -343,7 +348,7 @@ const getHistoryDateLabel = (h) => {
     }
         </div >
     );
-};
+});
 
 const TaskItem = ({
     task,

@@ -64,19 +64,42 @@ import {
 } from './coachCaches.js';
 export { _urgencyCache, clearUrgencyCache, _topicsCache, clearTopicsCache };
 
-// FIX (BUG-14): deep clone robusto — preserva Date, Map, Set, undefined
-// (JSON.parse(JSON.stringify()) perde esses tipos no fallback)
-function deepClone(value) {
+// FIX (BUG-14): deep clone rápido em JS puro — preserva Date, Map, Set, undefined e evita overhead de structuredClone
+function deepClone(value, seen = new WeakMap()) {
     if (value === null || typeof value !== 'object') return value;
-    try {
-        if (typeof structuredClone === 'function') return structuredClone(value);
-    } catch { /* fallback abaixo */ }
-    if (Array.isArray(value)) return value.map(deepClone);
+    if (seen.has(value)) return seen.get(value);
     if (value instanceof Date) return new Date(value.getTime());
-    if (value instanceof Map) return new Map([...value].map(([k, v]) => [deepClone(k), deepClone(v)]));
-    if (value instanceof Set) return new Set([...value].map(deepClone));
+    if (Array.isArray(value)) {
+        const arr = new Array(value.length);
+        seen.set(value, arr);
+        for (let i = 0; i < value.length; i++) {
+            arr[i] = deepClone(value[i], seen);
+        }
+        return arr;
+    }
+    if (value instanceof Map) {
+        const map = new Map();
+        seen.set(value, map);
+        value.forEach((v, k) => {
+            map.set(deepClone(k, seen), deepClone(v, seen));
+        });
+        return map;
+    }
+    if (value instanceof Set) {
+        const set = new Set();
+        seen.set(value, set);
+        value.forEach((v) => {
+            set.add(deepClone(v, seen));
+        });
+        return set;
+    }
     const out = {};
-    for (const [k, v] of Object.entries(value)) out[k] = deepClone(v);
+    seen.set(value, out);
+    const keys = Object.keys(value);
+    for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        out[k] = deepClone(value[k], seen);
+    }
     return out;
 }
 
@@ -1842,22 +1865,144 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
     return result;
 };
 
+const SHARED_URGENCY_CTX = Symbol('sharedUrgencyCtx');
+
+function sortSimsByDateOnce(simsList) {
+    if (!simsList || simsList.length === 0) return [];
+    const len = simsList.length;
+    if (len === 1) return simsList;
+    const withTs = new Array(len);
+    for (let i = 0; i < len; i++) {
+        const s = simsList[i];
+        const parsed = normalizeDate(s?.date || s?.createdAt);
+        const ts = parsed ? parsed.getTime() : 0;
+        withTs[i] = { sim: s, ts: Number.isNaN(ts) ? 0 : ts, idx: i };
+    }
+    withTs.sort((a, b) => (a.ts !== b.ts ? a.ts - b.ts : a.idx - b.idx));
+    const sorted = new Array(len);
+    for (let i = 0; i < len; i++) sorted[i] = withTs[i].sim;
+    return sorted;
+}
+
+function summarizeLogsLinear(logsList) {
+    const logCount = logsList.length;
+    let lastLog = '';
+    let maxTs = -Infinity;
+    let minutesSum = 0;
+    for (let i = 0; i < logCount; i++) {
+        const l = logsList[i];
+        const rawDate = l?.date || l?.createdAt;
+        const parsed = normalizeDate(rawDate);
+        const ts = parsed ? parsed.getTime() : 0;
+        const safeTs = Number.isNaN(ts) ? 0 : ts;
+        if (safeTs >= maxTs) {
+            maxTs = safeTs;
+            lastLog = rawDate || '';
+        }
+        minutesSum += sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration);
+    }
+    return {
+        logCount,
+        lastLog,
+        logsMinutesChecksum: minutesSum.toFixed(0)
+    };
+}
+
+function computeUrgencyFeaturesHash(options) {
+    return simpleHash(
+        `${getCoachFeature(options, 'useStateSpace', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useStateSpaceAverage', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useStateSpaceTrend', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useDynamicVolatility', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useGarchVolatility', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useDynamicVolatilityOverride', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'usePosteriorMonteCarlo', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'usePosteriorMonteCarloOverride', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useBayesianTopics', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useBayesianTopicsForUrgency', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useDecisionUtility', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useDecisionUtilityForTopics', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useDecisionUtilityForBestTask', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useBanditPlanner', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useLLMExplanations', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useKnowledgeGraph', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useKnowledgeGraphForTopics', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useAdvancedFsrs', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useFsrsForSrsBoost', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useFsrsTopicScheduling', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useEvaluationTelemetry', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useObservability', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useDriftGuard', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useModelHealthTelemetry', false) === true ? 1 : 0}` +
+        `${getCoachFeature(options, 'useDriftAlerts', false) === true ? 1 : 0}`
+    );
+}
+
+function buildSharedUrgencyContext(simulados, studyLogs, allCategories, options = {}) {
+    const safeSims = Array.isArray(simulados) ? simulados : Object.values(simulados || {});
+    const safeLogs = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
+    const simsForChecksum = sortSimsByDateOnce(safeSims);
+    const lastSim = simsForChecksum.length > 0
+        ? (simsForChecksum[simsForChecksum.length - 1]?.date || simsForChecksum[simsForChecksum.length - 1]?.createdAt || '')
+        : '';
+    const { logCount, lastLog, logsMinutesChecksum } = summarizeLogsLinear(safeLogs);
+    const todayStr = getDateKey(new Date());
+    const refDateStr = options.now ? (getDateKey(options.now) || todayStr) : todayStr;
+    const activeId = options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default';
+    const weightsHash = simpleHash(
+        safeArray(allCategories)
+            .map(c => `${c?.id || c?.name || '?'}:${c?.weight ?? ''}`)
+            .join('|')
+    );
+    const globalHash = options.globalMcStats
+        ? simpleHash(
+            `${Number(options.globalMcStats.projectedMean || 0).toFixed(1)}:${Number(options.globalMcStats.probability || 0).toFixed(1)}:${Number(options.globalMcStats.currentMean || 0).toFixed(1)}`
+        )
+        : 'noglobal';
+    const goalKey = options?.user?.goalDate
+        ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
+        : '';
+    const featuresHash = computeUrgencyFeaturesHash(options);
+    const configHash = options.config
+        ? simpleHash(JSON.stringify(options.config))
+        : 'defcfg';
+
+    return {
+        safeSims,
+        safeLogs,
+        simsForChecksum,
+        simCount: safeSims.length,
+        lastSim,
+        logCount,
+        lastLog,
+        logsMinutesChecksum,
+        refDateStr,
+        activeId,
+        weightsHash,
+        globalHash,
+        goalKey,
+        featuresHash,
+        configHash
+    };
+}
+
 export const calculateUrgency = (category, simulados = [], studyLogs = [], options = {}) => {
     try {
         const safeCat = category || {};
         const catId = safeCat.id || safeCat.name || 'unknown';
-        const safeSims = Array.isArray(simulados) ? [...simulados] : Object.values(simulados || {});
-        const safeLogs = Array.isArray(studyLogs) ? [...studyLogs] : Object.values(studyLogs || {});
+        const sharedCtx = options?.[SHARED_URGENCY_CTX] || null;
+        const safeSims = sharedCtx
+            ? sharedCtx.safeSims
+            : (Array.isArray(simulados) ? simulados : Object.values(simulados || {}));
+        const safeLogs = sharedCtx
+            ? sharedCtx.safeLogs
+            : (Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}));
         const safeTasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
-        const simCount = safeSims.length;
-        const logCount = safeLogs.length;
-        const todayStr = getDateKey(new Date());
-        const refDateStr = options.now ? (getDateKey(options.now) || todayStr) : todayStr;
-        const simsForChecksum = [...safeSims].sort((a, b) => {
-            const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
-            const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
-            return timeA - timeB;
-        });
+        const simCount = sharedCtx ? sharedCtx.simCount : safeSims.length;
+        const refDateStr = sharedCtx
+            ? sharedCtx.refDateStr
+            : (options.now ? (getDateKey(options.now) || getDateKey(new Date())) : getDateKey(new Date()));
+        const simsForChecksum = sharedCtx ? sharedCtx.simsForChecksum : sortSimsByDateOnce(safeSims);
         const urgencyCatMax = parseOptionalFinite(safeCat.maxScore);
         const urgencyOptMax = parseOptionalFinite(options?.maxScore);
         const catMax = (urgencyCatMax !== null && urgencyCatMax > 0)
@@ -1876,77 +2021,50 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         }, 0).toFixed(2);
         const optKey = (options?.daysToExam != null && Number.isFinite(Number(options.daysToExam))) ? `_dte${options.daysToExam}` : '';
         const targetKey = `_ts${options?.targetScore ?? 'def'}_ms${catMax}_min${catMin}`;
-        const logsForChecksum = [...safeLogs].sort((a, b) => {
-            const timeA = (normalizeDate(a?.date || a?.createdAt) || new Date(0)).getTime();
-            const timeB = (normalizeDate(b?.date || b?.createdAt) || new Date(0)).getTime();
-            return timeA - timeB;
-        });
-        const lastSim = simsForChecksum.length > 0
-            ? (simsForChecksum[simsForChecksum.length - 1]?.date || simsForChecksum[simsForChecksum.length - 1]?.createdAt || '')
-            : '';
-        const lastLog = logsForChecksum.length > 0
-            ? (logsForChecksum[logsForChecksum.length - 1]?.date || logsForChecksum[logsForChecksum.length - 1]?.createdAt || '')
-            : '';
+        const lastSim = sharedCtx
+            ? sharedCtx.lastSim
+            : (simsForChecksum.length > 0
+                ? (simsForChecksum[simsForChecksum.length - 1]?.date || simsForChecksum[simsForChecksum.length - 1]?.createdAt || '')
+                : '');
+        const logsSummary = sharedCtx ? null : summarizeLogsLinear(safeLogs);
+        const logCount = sharedCtx ? sharedCtx.logCount : logsSummary.logCount;
+        const lastLog = sharedCtx ? sharedCtx.lastLog : logsSummary.lastLog;
+        const logsMinutesChecksum = sharedCtx ? sharedCtx.logsMinutesChecksum : logsSummary.logsMinutesChecksum;
         const pendingCount = safeTasks.filter(t => t && !t.completed).length;
         const completedCount = safeTasks.filter(t => t?.completed).length;
         const pendingHighCount = safeTasks.filter(t => t && !t.completed && normalizePriority(t.priority) === 'high').length;
         const tasksHash = `${safeTasks.length}_${completedCount}_${pendingCount}_${pendingHighCount}`;
-        // FIX: a soma de minutos impacta a urgência (balance bridge,
-        // burnout/dynamicBurnoutThreshold, totalHours). Antes, editar a
-        // duração de um log existente não invalidava o cache — só
-        // logCount e o timestamp do último log eram observados.
-        const logsMinutesChecksum = safeLogs
-            .reduce((acc, l) => acc + sanitizeMinutes(l?.minutes ?? l?.minutos ?? l?.duration), 0)
-            .toFixed(0);
         // FIX (BUG-13): activeId deve vir de options prioritariamente para manter pureza
-        const activeId = options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default';
-        const weightsHash = simpleHash(
-            safeArray(options.allCategories)
-                .map(c => `${c?.id || c?.name || '?'}:${c?.weight ?? ''}`)
-                .join('|')
-        );
-        const globalHash = options.globalMcStats
-            ? simpleHash(
-                `${Number(options.globalMcStats.projectedMean || 0).toFixed(1)}:${Number(options.globalMcStats.probability || 0).toFixed(1)}:${Number(options.globalMcStats.currentMean || 0).toFixed(1)}`
-            )
-            : 'noglobal';
+        const activeId = sharedCtx
+            ? sharedCtx.activeId
+            : (options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default');
+        const weightsHash = sharedCtx
+            ? sharedCtx.weightsHash
+            : simpleHash(
+                safeArray(options.allCategories)
+                    .map(c => `${c?.id || c?.name || '?'}:${c?.weight ?? ''}`)
+                    .join('|')
+            );
+        const globalHash = sharedCtx
+            ? sharedCtx.globalHash
+            : (options.globalMcStats
+                ? simpleHash(
+                    `${Number(options.globalMcStats.projectedMean || 0).toFixed(1)}:${Number(options.globalMcStats.probability || 0).toFixed(1)}:${Number(options.globalMcStats.currentMean || 0).toFixed(1)}`
+                )
+                : 'noglobal');
         const catCalibHistory = getCalibrationHistoryFor(options.calibrationHistoryByCategory, catId, safeCat.name);
         const lastCalib = catCalibHistory.length > 0 ? catCalibHistory[catCalibHistory.length - 1] : null;
         const calibrationHash = `${catCalibHistory.length}_${lastCalib?.timestamp || 0}_${lastCalib?.avgBrier ?? 'na'}`;
-        const goalKey = options?.user?.goalDate
-            ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
-            : '';
-        const featuresHash = simpleHash(JSON.stringify({
-            uss: getCoachFeature(options, 'useStateSpace', false) === true,
-            ussa: getCoachFeature(options, 'useStateSpaceAverage', false) === true,
-            usst: getCoachFeature(options, 'useStateSpaceTrend', false) === true,
-            udv: getCoachFeature(options, 'useDynamicVolatility', false) === true,
-            ugv: getCoachFeature(options, 'useGarchVolatility', false) === true,
-            udvo: getCoachFeature(options, 'useDynamicVolatilityOverride', false) === true,
-            ppm: getCoachFeature(options, 'usePosteriorMonteCarlo', false) === true,
-            ppmo: getCoachFeature(options, 'usePosteriorMonteCarloOverride', false) === true,
-            bt: getCoachFeature(options, 'useBayesianTopics', false) === true,
-            btu: getCoachFeature(options, 'useBayesianTopicsForUrgency', false) === true,
-            du: getCoachFeature(options, 'useDecisionUtility', false) === true,
-            dut: getCoachFeature(options, 'useDecisionUtilityForTopics', false) === true,
-            dubt: getCoachFeature(options, 'useDecisionUtilityForBestTask', false) === true,
-            bp: getCoachFeature(options, 'useBanditPlanner', false) === true,
-            llm: getCoachFeature(options, 'useLLMExplanations', false) === true,
-            kg: getCoachFeature(options, 'useKnowledgeGraph', false) === true,
-            kgt: getCoachFeature(options, 'useKnowledgeGraphForTopics', false) === true,
-            afsrs: getCoachFeature(options, 'useAdvancedFsrs', false) === true,
-            fsrsb: getCoachFeature(options, 'useFsrsForSrsBoost', false) === true,
-            fsrst: getCoachFeature(options, 'useFsrsTopicScheduling', false) === true,
-            eval: getCoachFeature(options, 'useEvaluationTelemetry', false) === true,
-            obs: getCoachFeature(options, 'useObservability', false) === true,
-            drift: getCoachFeature(options, 'useDriftGuard', false) === true,
-            health: getCoachFeature(options, 'useModelHealthTelemetry', false) === true,
-            driftAlerts: getCoachFeature(options, 'useDriftAlerts', false) === true,
-        }));
+        const goalKey = sharedCtx
+            ? sharedCtx.goalKey
+            : (options?.user?.goalDate
+                ? `_gd${getDateKey(options.user.goalDate) || String(options.user.goalDate)}`
+                : '');
+        const featuresHash = sharedCtx ? sharedCtx.featuresHash : computeUrgencyFeaturesHash(options);
         // ✅ PATCH-13: Incluir hash da config customizada no cache key
-        const configHash = options.config
-            ? simpleHash(JSON.stringify(options.config))
-            : 'defcfg';
+        const configHash = sharedCtx
+            ? sharedCtx.configHash
+            : (options.config ? simpleHash(JSON.stringify(options.config)) : 'defcfg');
         // ✅ FIX: Incluir hash dos simulados da categoria para que novo simulado invalide o cache imediatamente
         const catStatsHistory = safeArray(safeCat.simuladoStats?.history);
         const catStatsHistoryLen = catStatsHistory.length;
@@ -2126,9 +2244,11 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     if (!categories || (Array.isArray(categories) && categories.length === 0)) return null;
     const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
     if (safeCategories.length === 0) return null;
+    const sharedCtx = buildSharedUrgencyContext(simulados, studyLogs, safeCategories, options);
+    const batchOptions = { ...options, allCategories: safeCategories, [SHARED_URGENCY_CTX]: sharedCtx };
     const ranked = safeCategories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, simulados, studyLogs, { ...options, allCategories: safeCategories })
+        urgency: calculateUrgency(cat, simulados, studyLogs, batchOptions)
     })).sort((a, b) => {
         const valA = Number.isFinite(a.urgency?.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
         const valB = Number.isFinite(b.urgency?.normalizedScore) ? b.urgency.normalizedScore : -Infinity;
@@ -2139,8 +2259,8 @@ export const getSuggestedFocus = (categories, simulados, studyLogs = [], options
     if (!top) return null;
     const maxScore = options.maxScore ?? top.maxScore ?? 100;
     const minScore = options.minScore ?? top.minScore ?? 0;
-    // FIX (BUG-14): deepClone robusto do urgency para evitar mutação do cache
-    const clonedUrgency = top.urgency ? deepClone(top.urgency) : null;
+    // calculateUrgency já retorna objeto próprio desconectado do cache (sem duplo deepClone)
+    const clonedUrgency = top.urgency || null;
     const result = {
         ...top,
         urgency: clonedUrgency,
@@ -2207,17 +2327,14 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
     const rawCatHistForHash = safeArray(safeCat.simuladoStats?.history).filter(h => h && h.valid !== false);
     const allSourcesForHash = [...rawCatHistForHash, ...safeSims, ...optAllSims, ...optSimRows];
     let lastSimTimestamp = 0;
-    let historyVolume = allSourcesForHash.length;
-    if (allSourcesForHash.length > 0) {
-        const lastSim = allSourcesForHash.reduce((latest, current) => {
-            if (!latest) return current;
-            if (!current) return latest;
-            const latestTime = (normalizeDate(latest.date || latest.createdAt) || new Date(0)).getTime();
-            const currTime = (normalizeDate(current.date || current.createdAt) || new Date(0)).getTime();
-            return currTime > latestTime ? current : latest;
-        }, allSourcesForHash[0]);
-        if (lastSim) {
-            lastSimTimestamp = (normalizeDate(lastSim.date || lastSim.createdAt) || new Date(0)).getTime();
+    const historyVolume = allSourcesForHash.length;
+    for (let i = 0; i < historyVolume; i++) {
+        const current = allSourcesForHash[i];
+        if (!current) continue;
+        const parsed = normalizeDate(current.date || current.createdAt);
+        const currTime = parsed ? parsed.getTime() : 0;
+        if (Number.isFinite(currTime) && currTime > lastSimTimestamp) {
+            lastSimTimestamp = currTime;
         }
     }
     const scoreChecksum = allSourcesForHash.reduce((acc, s, index) => {
@@ -2258,7 +2375,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
     if (cachedTopics) return deepClone(cachedTopics);
     const result = _buildSortedTopicsImpl(safeCat, safeSims, catMax, catMin, options);
     cacheSet(_topicsCache, TOPICS_CACHE_MAX, cacheKey, deepClone(result));
-    return deepClone(result);
+    return result;
 }
 
 const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minScore = 0, options = {}) => {
@@ -2767,9 +2884,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     if (safeCategories.length === 0) return [];
     const safeSimulados = safeArray(simulados);
     const safeStudyLogs = safeArray(studyLogs);
+    const sharedCtx = buildSharedUrgencyContext(safeSimulados, safeStudyLogs, safeCategories, options);
+    const batchOptions = { ...options, allCategories: safeCategories, minScore, maxScore, targetScore, [SHARED_URGENCY_CTX]: sharedCtx };
     const ranked = safeCategories.map(cat => ({
         ...cat,
-        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, { ...options, allCategories: safeCategories, minScore, maxScore, targetScore })
+        urgency: calculateUrgency(cat, safeSimulados, safeStudyLogs, batchOptions)
     })).sort((a, b) => {
         const valA = Number.isFinite(a.urgency.normalizedScore) ? a.urgency.normalizedScore : -Infinity;
         const valB = Number.isFinite(b.urgency.normalizedScore) ? b.urgency.normalizedScore : -Infinity;

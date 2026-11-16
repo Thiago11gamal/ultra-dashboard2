@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { generateAIQuestions } from '../../services/aiQuestionService';
 import { useAppStore } from '../../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../../hooks/useToast';
 import { getDateKey } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
@@ -58,13 +59,18 @@ function nextAiId(prefix = 'ai') {
   return `${prefix}-${Date.now().toString(36)}-${time}-${rand()}${rand()}`;
 }
 
+const EMPTY_CATEGORIES = Object.freeze([]);
+
 export default function AIGeneratedSimulado() {
   const setData = useAppStore(state => state.setData);
-  const categories = useAppStore(state => {
+  const rawCategories = useAppStore(useShallow(state => {
     const active = state.appState?.contests?.[state.appState?.activeId];
-    const rawCategories = active?.categories || [];
-    return Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories);
-  });
+    return active?.categories || EMPTY_CATEGORIES;
+  }));
+  const categories = useMemo(
+    () => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)),
+    [rawCategories]
+  );
   const showToast = useToast();
 
   const [step, setStep] = useState('setup');

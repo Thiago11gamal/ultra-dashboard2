@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useId } from 'react';
+import React, { useState, useEffect, useRef, useId, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 // ✅ FIX S02: DOMPurify adicionado para sanitizar entradas no CategoryEditor
 import DOMPurify from 'dompurify';
 import { Settings, X, Check, Pipette } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useModalAccessibility } from '../hooks/useModalAccessibility';
 import { normalize } from '../utils/normalization';
 import { useToast } from '../hooks/useToast';
@@ -14,6 +15,8 @@ import {
     DEFAULT_CATEGORY_COLOR
 } from '../utils/colorHelper';
 
+const EMPTY_CATEGORIES = Object.freeze([]);
+
 export default function CategoryEditor({ category, isOpen, onClose }) {
     const modalRef = useRef(null);
 
@@ -21,11 +24,14 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
     const showToast = useToast();
 
     // BUG-T16 FIX: Obter todas as categorias para verificar duplicatas.
-    const allCategories = useAppStore(state => {
+    const rawCategories = useAppStore(useShallow(state => {
         const contest = state.appState?.contests?.[state.appState?.activeId];
-        const raw = contest?.categories || [];
-        return Array.isArray(raw) ? raw : Object.values(raw);
-    });
+        return contest?.categories || EMPTY_CATEGORIES;
+    }));
+    const allCategories = useMemo(
+        () => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)),
+        [rawCategories]
+    );
 
     const effectiveOpen = isOpen && Boolean(category);
 

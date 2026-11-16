@@ -38,7 +38,7 @@ export default function Tasks() {
 
   const resetSimuladoStats = useAppStore(state => state.resetSimuladoStats);
 
-  const { rawCategories, contestMaxScore, contestMinScore, hasContestSimulados, version } = useAppStore(useShallow(state => {
+  const { rawCategories, contestMaxScore, contestMinScore, hasContestSimulados } = useAppStore(useShallow(state => {
     const currentActiveId = state.appState?.activeId || 'default';
     const activeContest = state.appState?.contests?.[currentActiveId];
     return {
@@ -47,18 +47,16 @@ export default function Tasks() {
       contestMinScore: activeContest?.minScore ?? activeContest?.user?.minScore,
       hasContestSimulados:
         toSafeArray(activeContest?.simuladoRows).length > 0 ||
-        toSafeArray(activeContest?.simulados).length > 0,
-      version: state.appState?.version || 0
+        toSafeArray(activeContest?.simulados).length > 0
     };
   }));
 
   const categories = useMemo(() => {
-    void version;
     return toSafeArray(rawCategories).map(c => ({
       ...c,
       tasks: toSafeArray(c?.tasks)
     }));
-  }, [rawCategories, version]);
+  }, [rawCategories]);
 
   const { maxScore, minScore } = useMemo(() => {
     return resolveContestScoreDomain(
@@ -68,7 +66,6 @@ export default function Tasks() {
   }, [contestMaxScore, contestMinScore, categories]);
 
   const overviewStats = useMemo(() => {
-    void version;
     let totalQuestions = 0;
     let totalCorrect = 0;
     let totalWrong = 0;
@@ -104,7 +101,7 @@ export default function Tasks() {
       syllabusPct,
       hasPerformanceData: totalQuestions > 0 || hasHistoryEntries || hasContestSimulados
     };
-  }, [categories, maxScore, minScore, hasContestSimulados, version]);
+  }, [categories, maxScore, minScore, hasContestSimulados]);
 
   const handleResetConfirm = () => {
     resetSimuladoStats();

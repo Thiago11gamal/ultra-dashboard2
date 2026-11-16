@@ -114,15 +114,98 @@ const sharedPt = { x: 0, y: 0 };
 const sharedParts = new Array(VERTEX_COUNT);
 const wakeXs = new Float64Array(TRAIL_POINTS);
 const wakeYs = new Float64Array(TRAIL_POINTS);
+const wakeSegs = new Array(TRAIL_POINTS);
+
+// Pré-computa coeficientes estáticos por vértice para evitar Math.pow, smoothstep e Math.hypot em cada frame
+const VERTEX_FLEX = new Float64Array(VERTEX_COUNT);
+const VERTEX_PHASE_OFFSET = new Float64Array(VERTEX_COUNT);
+const VERTEX_AMP = new Float64Array(VERTEX_COUNT);
+const VERTEX_TAIL_MASK = new Float64Array(VERTEX_COUNT);
+const VERTEX_TAIL_PROG = new Float64Array(VERTEX_COUNT);
+const VERTEX_TAIL_POW = new Float64Array(VERTEX_COUNT);
+const VERTEX_TAIL_Z_AMP = new Float64Array(VERTEX_COUNT);
+const VERTEX_WUP_X = new Float64Array(VERTEX_COUNT);
+const VERTEX_WUP_Y = new Float64Array(VERTEX_COUNT);
+
+for (let i = 0; i < VERTEX_COUNT; i++) {
+    const u = MANTA_UV_POINTS[i * 2];
+    const v = MANTA_UV_POINTS[i * 2 + 1];
+    const r = Math.abs(v) / 245;
+    const s = clamp((r - 0.15) / 0.85, 0, 1);
+    VERTEX_FLEX[i] = Math.pow(s, 1.32) * (1.12 - 0.12 * s);
+    const tipTaper = 1 - 0.38 * (s * s * s);
+    VERTEX_PHASE_OFFSET[i] = -0.94 * s + 0.42 * (u / 155) * tipTaper;
+    VERTEX_AMP[i] = v >= 0 ? 40 : 29;
+
+    const tailMask = smoothstep(-60, -96, u) * (1 - smoothstep(22, 52, Math.abs(v)));
+    const tailProg = clamp((-70 - u) / 200, 0, 1);
+    VERTEX_TAIL_MASK[i] = tailMask;
+    VERTEX_TAIL_PROG[i] = tailProg;
+    VERTEX_TAIL_POW[i] = Math.pow(tailProg, 1.38);
+    VERTEX_TAIL_Z_AMP[i] = 14 * Math.pow(tailProg, 1.4);
+
+    const wingBlend = smoothstep(-70, 70, v);
+    const wUpX = (1 - wingBlend) * MANTA_BASIS.upRightX + wingBlend * MANTA_BASIS.upLeftX;
+    const wUpY = (1 - wingBlend) * MANTA_BASIS.upRightY + wingBlend * MANTA_BASIS.upLeftY;
+    const len = Math.hypot(wUpX, wUpY) || 1;
+    VERTEX_WUP_X[i] = wUpX / len;
+    VERTEX_WUP_Y[i] = wUpY / len;
+}
+
+function projectVertexAtIndex(i, phase, rollPhase, hoverX, hoverY, isRest, target) {
+    const B = MANTA_BASIS;
+    const u = MANTA_UV_POINTS[i * 2];
+    const v = MANTA_UV_POINTS[i * 2 + 1];
+    if (isRest) {
+        target.x = B.centerX + u * B.fwdX + v * B.wingX;
+        target.y = B.centerY + u * B.fwdY + v * B.wingY;
+        return target;
+    }
+
+    const flex = VERTEX_FLEX[i];
+    const wPhase = phase + VERTEX_PHASE_OFFSET[i];
+    const flap = Math.sin(wPhase) + 0.14 * Math.sin(2 * wPhase - 0.55);
+    const zWing = VERTEX_AMP[i] * flex * flap;
+
+    const flexFlap = flex * flap;
+    const unfurl = v < 0 ? 0.028 * flexFlap : -0.024 * flex * Math.abs(flap);
+    const foreshorten = 1 - 0.036 * flexFlap * flexFlap + unfurl;
+    let vDef = v * foreshorten;
+
+    const tailMask = VERTEX_TAIL_MASK[i];
+    let tailWaveZ = 0;
+    if (tailMask > 0) {
+        const tailProg = VERTEX_TAIL_PROG[i];
+        const tailWaveLat = 19 * VERTEX_TAIL_POW[i] * (
+            Math.sin(phase - 2.6 * tailProg - 0.9)
+            + 0.18 * Math.sin(2 * phase - 3.6 * tailProg - 0.4)
+        );
+        tailWaveZ = VERTEX_TAIL_Z_AMP[i] * Math.sin(phase - 2.1 * tailProg - 0.5);
+        vDef += tailMask * tailWaveLat;
+    }
+
+    const bodyLift = -9.0 * Math.sin(phase - 0.35);
+    const bodySurge = 9.5 * Math.sin(phase - 0.78);
+    const bodyPitch = 0.050 * Math.cos(phase) - hoverY * 0.045;
+    const bankRoll = 0.062 * Math.sin(rollPhase) + hoverX * 0.075;
+
+    const zBody = bodyLift + u * bodyPitch + v * bankRoll + tailMask * tailWaveZ;
+    const uDef = u + bodySurge;
+
+    const driftX = 7.5 * Math.sin(rollPhase) + hoverX * 7;
+    const driftY = 5.5 * Math.sin(rollPhase * 2) + hoverY * 5;
+
+    target.x = B.centerX + driftX + uDef * B.fwdX + vDef * B.wingX + zBody * B.upBodyX + zWing * VERTEX_WUP_X[i];
+    target.y = B.centerY + driftY + uDef * B.fwdY + vDef * B.wingY + zBody * B.upBodyY + zWing * VERTEX_WUP_Y[i];
+    return target;
+}
 
 /**
  * Builds the complete SVG path `d` string for a given swim phase and pointer bank.
  */
 export function buildMantaPath(phase, rollPhase = 0, hoverX = 0, hoverY = 0, isRest = false) {
     for (let i = 0; i < VERTEX_COUNT; i++) {
-        const u = MANTA_UV_POINTS[i * 2];
-        const v = MANTA_UV_POINTS[i * 2 + 1];
-        projectVertex(u, v, phase, rollPhase, hoverX, hoverY, isRest, sharedPt);
+        projectVertexAtIndex(i, phase, rollPhase, hoverX, hoverY, isRest, sharedPt);
         sharedParts[i] = `${i === 0 ? 'M' : 'L'}${sharedPt.x.toFixed(2)},${sharedPt.y.toFixed(2)}`;
     }
     return `${sharedParts.join('')}Z`;
@@ -132,8 +215,6 @@ export function buildMantaPath(phase, rollPhase = 0, hoverX = 0, hoverY = 0, isR
  * Builds a C1-smooth quadratic spline wingtip vortex trail advected backward along the water current.
  */
 export function buildWakeData(tipIndex, phase, rollPhase, hoverX, hoverY) {
-    const u = MANTA_UV_POINTS[tipIndex * 2];
-    const v = MANTA_UV_POINTS[tipIndex * 2 + 1];
     const B = MANTA_BASIS;
 
     for (let i = 0; i < TRAIL_POINTS; i++) {
@@ -141,22 +222,22 @@ export function buildWakeData(tipIndex, phase, rollPhase, hoverX, hoverY) {
         const ageSec = frac * TRAIL_SPAN_SEC;
         const pastPhase = phase - ageSec * SWIM_OMEGA;
         const pastRoll = rollPhase - ageSec * SWIM_OMEGA * ROLL_RATIO;
-        projectVertex(u, v, pastPhase, pastRoll, hoverX, hoverY, false, sharedPt);
+        projectVertexAtIndex(tipIndex, pastPhase, pastRoll, hoverX, hoverY, false, sharedPt);
         wakeXs[i] = sharedPt.x - B.fwdX * STREAM_SPEED * ageSec;
         wakeYs[i] = sharedPt.y - B.fwdY * STREAM_SPEED * ageSec;
     }
 
-    const segs = [`M${wakeXs[0].toFixed(2)},${wakeYs[0].toFixed(2)}`];
+    wakeSegs[0] = `M${wakeXs[0].toFixed(2)},${wakeYs[0].toFixed(2)}`;
     for (let i = 1; i < TRAIL_POINTS - 1; i++) {
         const mx = ((wakeXs[i] + wakeXs[i + 1]) * 0.5).toFixed(2);
         const my = ((wakeYs[i] + wakeYs[i + 1]) * 0.5).toFixed(2);
-        segs.push(`Q${wakeXs[i].toFixed(2)},${wakeYs[i].toFixed(2)} ${mx},${my}`);
+        wakeSegs[i] = `Q${wakeXs[i].toFixed(2)},${wakeYs[i].toFixed(2)} ${mx},${my}`;
     }
     const lastIdx = TRAIL_POINTS - 1;
-    segs.push(`L${wakeXs[lastIdx].toFixed(2)},${wakeYs[lastIdx].toFixed(2)}`);
+    wakeSegs[lastIdx] = `L${wakeXs[lastIdx].toFixed(2)},${wakeYs[lastIdx].toFixed(2)}`;
 
     return {
-        d: segs.join(' '),
+        d: wakeSegs.join(' '),
         xStart: wakeXs[0],
         yStart: wakeYs[0],
         xEnd: wakeXs[lastIdx],
