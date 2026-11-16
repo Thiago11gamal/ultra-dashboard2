@@ -2,7 +2,7 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { render, fireEvent, screen, cleanup, act, renderHook, waitFor } from '@testing-library/react';
+import { render, fireEvent, screen, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { RaioXDashboard } from '../../pages/Coach.jsx';
 import AICoachView from '../../components/AICoachView.jsx';
