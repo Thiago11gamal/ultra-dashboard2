@@ -88,12 +88,14 @@ export async function clearFirestoreCache() {
  */
 export async function secureLogout() {
     let signOutFailed = false;
+    let signOutError = null;
     try {
         if (auth) await signOut(auth);
         await clearFirestoreCache();
     } catch (err) {
         console.error('[Firebase] Erro durante logout:', err);
         signOutFailed = true;
+        signOutError = err;
     } finally {
         // ✅ FIX N-01: Limpar TODAS as chaves relevantes, incluindo IndexedDB
         const keysToRemove = [
@@ -179,6 +181,7 @@ export async function secureLogout() {
             console.warn('[Firebase] Logout local executado, mas signOut remoto falhou.');
         }
     }
+    return { ok: !signOutFailed, error: signOutError };
 }
 
 export { app, db, auth, analytics };

@@ -176,40 +176,46 @@ const handleStartStudying = React.useCallback((categoryId, taskId) => {
         return;
     }
 
-    // BUG-FIX: setData ANTES de startPomodoroSession (ordem correta)
-    setData(activeContest => {
-        if (!activeContest || activeContest.categories == null) {
-            return activeContest;
-        }
+    // Mantém uma única entrada no histórico de Undo (zundo) entre status 'studying' e startPomodoroSession
+    const temporalApi = useAppStore.temporal?.getState?.();
+    temporalApi?.pause?.();
+    try {
+        setData(activeContest => {
+            if (!activeContest || activeContest.categories == null) {
+                return activeContest;
+            }
 
-        return {
-            ...activeContest,
-            categories: toArray(activeContest.categories).map(c => {
-                return {
-                    ...c,
-                    tasks: toArray(c.tasks).map(t => {
-                            if (!t || typeof t !== 'object') return t;
-                            const isMatchingCategory = (Boolean(c.id) && Boolean(cat.id) && c.id === cat.id) || (Boolean(c.name) && Boolean(cat.name) && c.name === cat.name);
-                            const isTargetTask = isMatchingCategory && (
-                                (Boolean(tsk.id) && t.id === tsk.id) ||
-                                (Boolean(taskId) && t.id === taskId) ||
-                                (Boolean(tsk.text) && t.text === tsk.text) ||
-                                (Boolean(tsk.title) && t.title === tsk.title)
-                            );
-                            if (isTargetTask) {
-                                return { ...t, status: 'studying' };
-                            }
+            return {
+                ...activeContest,
+                categories: toArray(activeContest.categories).map(c => {
+                    return {
+                        ...c,
+                        tasks: toArray(c.tasks).map(t => {
+                                if (!t || typeof t !== 'object') return t;
+                                const isMatchingCategory = (Boolean(c.id) && Boolean(cat.id) && c.id === cat.id) || (Boolean(c.name) && Boolean(cat.name) && c.name === cat.name);
+                                const isTargetTask = isMatchingCategory && (
+                                    (Boolean(tsk.id) && t.id === tsk.id) ||
+                                    (Boolean(taskId) && t.id === taskId) ||
+                                    (Boolean(tsk.text) && t.text === tsk.text) ||
+                                    (Boolean(tsk.title) && t.title === tsk.title)
+                                );
+                                if (isTargetTask) {
+                                    return { ...t, status: 'studying' };
+                                }
 
-                            if (t.status === 'studying') {
-                                return { ...t, status: null };
-                            }
+                                if (t.status === 'studying') {
+                                    return { ...t, status: null };
+                                }
 
-                            return t;
-                        })
-                };
-            })
-        };
-    });
+                                return t;
+                            })
+                    };
+                })
+            };
+        });
+    } finally {
+        temporalApi?.resume?.();
+    }
 
     startPomodoroSession({
         categoryId: cat.id || cat.name,

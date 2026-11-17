@@ -114,6 +114,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   }, []); // ✅ Sem dependências — roda uma única vez
 
   const debounceRef = useRef(null);
+  const retryTimerRef = useRef(null);
+  const activeSyncUidRef = useRef(currentUser?.uid || null);
   const latestCloudDataRef = useRef(null);
   const isMountedRef = useRef(true);
   const [cloudStatus, setCloudStatus] = useState('idle');
@@ -124,6 +126,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const [hasConflict, setHasConflict] = useState(false);
   const needsSyncRef = useRef(false);
   const appStateRef = useRef(useAppStore.getState().appState);
+
+  useEffect(() => {
+    activeSyncUidRef.current = currentUser?.uid || null;
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     let prevVersion = useAppStore.getState().appState?.version;
@@ -183,6 +189,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const timers = uiSyncTimersRef.current;
     return () => {
       isMountedRef.current = false;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
       timers.forEach(clearTimeout);
       timers.clear();
     };
@@ -449,6 +463,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         isCloudPullRef.current = true;
         const pullStartTime = Date.now();
         const isNonDestructivePull = mergeMode === "nonDestructive";
+        let pullTriggerChanged = false;
         if (isMountedRef.current) {
           applyingRemoteRef.current = true;
           try {
@@ -459,16 +474,25 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                 console.warn('[Sync] Mutation local durante pull — preservando dados locais');
                 return freshState;
               }
-              return mergeAppState(freshState, cloudData, {
+              const mergedNext = mergeAppState(freshState, cloudData, {
                 nonDestructive: isNonDestructivePull,
                 preserveLocalBase: preserveLocalBase || (isNonDestructivePull && freshUpdated > pullStartTime)
               });
+              if (
+                mergedNext &&
+                (mergedNext.version !== freshState?.version || mergedNext.lastUpdated !== freshState?.lastUpdated)
+              ) {
+                pullTriggerChanged = true;
+              }
+              return mergedNext;
             });
           } catch (pullErr) {
             console.error('[Sync] Erro ao aplicar dados remotos:', pullErr);
           } finally {
             applyingRemoteRef.current = false;
-            isCloudPullRef.current = false;
+            if (!pullTriggerChanged) {
+              isCloudPullRef.current = false;
+            }
           }
         } else {
           isCloudPullRef.current = false;
@@ -535,9 +559,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const currentUid = currentUser?.uid;
   const performEmergencySync = useCallback(async () => {
     if (isLocalMode || !currentUid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (syncMutexRef.current) {
+      needsSyncRef.current = true;
+      return;
+    }
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
     const currentStateString = stateStringForSync(appStateRef.current);
     if (lastSyncedRef.current === currentStateString) return;
+
+    syncMutexRef.current = true;
+    setIsInternalSyncing(true);
+    isInternalSyncingRef.current = true;
 
     try {
       const syncState = useAppStore.getState().appState;
@@ -550,28 +585,16 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         lastSyncedContestHashesRef.current
       );
 
-      setIsInternalSyncing(true);
-      isInternalSyncingRef.current = true;
-
-      batch.commit()
-        .then(() => {
-          lastSyncedRef.current = currentStateString;
-          committedContestHashes.forEach((h, cid) => lastSyncedContestHashesRef.current.set(cid, h));
-          deletedIds.forEach((cid) => lastSyncedContestHashesRef.current.delete(cid));
-          try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
-        })
-        .catch(e => {
-          logger.error("[Sync] Erro no emergency-save:", e);
-          lastSyncedRef.current = null;
-        })
-        .finally(() => {
-          if (isMountedRef.current) {
-            setIsInternalSyncing(false);
-            isInternalSyncingRef.current = false;
-          }
-        });
+      await batch.commit();
+      lastSyncedRef.current = currentStateString;
+      committedContestHashes.forEach((h, cid) => lastSyncedContestHashesRef.current.set(cid, h));
+      deletedIds.forEach((cid) => lastSyncedContestHashesRef.current.delete(cid));
+      try { localStorage.removeItem('ultra-sync-dirty'); } catch (err) { logger.warn('[Sync] LocalStorage cleanup error:', err); }
     } catch (e) {
-      logger.error("[Sync] Erro na montagem do emergency-save:", e);
+      logger.error("[Sync] Erro no emergency-save:", e);
+      lastSyncedRef.current = null;
+    } finally {
+      syncMutexRef.current = false;
       isInternalSyncingRef.current = false;
       if (isMountedRef.current) {
         setIsInternalSyncing(false);
@@ -591,8 +614,10 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           performEmergencySync(); // fire-and-forget, mas o dirty flag garante retry
         }
       } else if (document.visibilityState === 'visible') {
-        setIsInternalSyncing(false);
-        isInternalSyncingRef.current = false;
+        if (!syncMutexRef.current) {
+          setIsInternalSyncing(false);
+          isInternalSyncingRef.current = false;
+        }
       }
     };
     const handleBeforeUnload = () => {
@@ -632,23 +657,15 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   }, [currentUid, performEmergencySync]);
 
   useEffect(() => {
-    if (applyingRemoteRef.current) {
-      applyingRemoteRef.current = false;
-      return;
-    }
-    if (syncMutexRef.current) {
-      return;
-    }
-
     if (isLocalMode || !currentUser?.uid || !syncTrigger || !isParityValidatedRef.current || !db) return;
 
-    if (isCloudPullRef.current) {
+    if (applyingRemoteRef.current || isCloudPullRef.current) {
+      applyingRemoteRef.current = false;
       const currentState = useAppStore.getState().appState;
       const currentStateString = stateStringForSync(currentState);
       isCloudPullRef.current = false;
       lastSyncedRef.current = currentStateString;
-      // C-06 FIX: Não descartar a mutação que acabou de ser aplicada.
-      // Se o estado local mudou durante o pull, re-disparar sync.
+      // C-06 FIX: Não descartar mutação local concorrente durante o pull.
       const freshState = useAppStore.getState().appState;
       if (stateStringForSync(freshState) !== currentStateString) {
         needsSyncRef.current = true;
@@ -658,14 +675,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
     lastLocalMutationRef.current = Date.now();
 
+    if (syncMutexRef.current) {
+      needsSyncRef.current = true;
+      return;
+    }
+
     const MAX_SYNC_REENTRY = 3;
-    let cancelled = false;
-    let retryTimer = null;
     const syncUid = currentUser.uid;
 
     const syncToCloud = async () => {
-      if (!db || cancelled || !isMountedRef.current || currentUser?.uid !== syncUid) return;
-      if (isInternalSyncingRef.current) {
+      if (!db || !isMountedRef.current || activeSyncUidRef.current !== syncUid) return;
+      if (syncMutexRef.current || isInternalSyncingRef.current) {
         needsSyncRef.current = true;
         return;
       }
@@ -675,25 +695,23 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       let attempt = 0;
       let lastError = null;
 
-
       syncMutexRef.current = true;
       setIsInternalSyncing(true);
       isInternalSyncingRef.current = true;
 
       try {
         while (attempt < MAX_RETRIES) {
-          if (cancelled || !isMountedRef.current || currentUser?.uid !== syncUid) break;
+          if (!isMountedRef.current || activeSyncUidRef.current !== syncUid) break;
           try {
             const freshState = useAppStore.getState().appState;
             const currentStateString = stateStringForSync(freshState);
             if (lastSyncedRef.current === currentStateString) break;
             setHasConflict(false);
 
-
             const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
             const { batch, committedContestHashes, deletedIds } = buildSyncBatch(
               db,
-              currentUser.uid,
+              syncUid,
               freshState,
               knownCloudIds,
               lastSyncedContestHashesRef.current
@@ -723,10 +741,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           } catch (e) {
             lastError = e;
             attempt++;
-            if (attempt < MAX_RETRIES && !cancelled && isMountedRef.current && currentUser?.uid === syncUid) {
+            if (attempt < MAX_RETRIES && isMountedRef.current && activeSyncUidRef.current === syncUid) {
               await new Promise(r => {
-                retryTimer = setTimeout(() => {
-                  retryTimer = null;
+                if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+                retryTimerRef.current = setTimeout(() => {
+                  retryTimerRef.current = null;
                   r();
                 }, attempt * 2000);
               });
@@ -736,7 +755,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           }
         }
 
-        if (lastError && !cancelled && isMountedRef.current) {
+        if (lastError && isMountedRef.current && activeSyncUidRef.current === syncUid) {
           logger.error("[Sync] Todas as tentativas falharam:", lastError);
           if (showToastRef.current && lastError.code !== 'unavailable' && lastError.message !== 'timeout') {
             showToastRef.current(`Falha ao salvar: ${lastError.message || lastError.code || 'Erro desconhecido'}`, 'error');
@@ -748,9 +767,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         // ✅ SEMPRE liberar o mutex
         syncMutexRef.current = false;
         isInternalSyncingRef.current = false;
-        if (isMountedRef.current) {
+        if (isMountedRef.current && activeSyncUidRef.current === syncUid) {
           setIsInternalSyncing(false);
-          if (!cancelled && needsSyncRef.current && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
+          const latestStr = stateStringForSync(useAppStore.getState().appState);
+          const hasPendingMutation = needsSyncRef.current || (lastSyncedRef.current !== null && latestStr !== lastSyncedRef.current);
+          if (hasPendingMutation && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
             syncReentryCountRef.current++;
             syncToCloud();
           } else {
@@ -760,19 +781,26 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       }
     };
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const isHighPriority = localStorage.getItem('ultra-sync-dirty') === 'true';
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    let isHighPriority = false;
+    try {
+      isHighPriority = localStorage.getItem('ultra-sync-dirty') === 'true';
+    } catch { /* ignore */ }
     const hasSyncedBefore = typeof lastSyncedRef.current === 'string' && lastSyncedRef.current.length > 0;
     const delay = isHighPriority ? 500 : (hasSyncedBefore ? 1500 : 250);
-    debounceRef.current = setTimeout(syncToCloud, delay);
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      syncToCloud();
+    }, delay);
 
     return () => {
-      cancelled = true;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-        retryTimer = null;
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
       }
-      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [syncTrigger, parityTick, currentUser?.uid, mergeAppState]);
 
@@ -790,13 +818,29 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   const forcePull = useCallback(() => {
     if (latestCloudDataRef.current && setAppState && isMountedRef.current) {
-      let nextState;
-      setAppState(() => {
-        const freshState = useAppStore.getState().appState;
-        nextState = mergeAppState(freshState, latestCloudDataRef.current);
-        return nextState;
-      });
-      if (nextState) lastSyncedRef.current = stateStringForSync(nextState);
+      let pullTriggerChanged = false;
+      applyingRemoteRef.current = true;
+      isCloudPullRef.current = true;
+      try {
+        setAppState(() => {
+          const freshState = useAppStore.getState().appState;
+          const nextState = mergeAppState(freshState, latestCloudDataRef.current);
+          if (
+            nextState &&
+            (nextState.version !== freshState?.version || nextState.lastUpdated !== freshState?.lastUpdated)
+          ) {
+            pullTriggerChanged = true;
+          }
+          return nextState;
+        });
+      } finally {
+        applyingRemoteRef.current = false;
+        if (!pullTriggerChanged) {
+          isCloudPullRef.current = false;
+          const normalizedState = useAppStore.getState().appState;
+          if (normalizedState) lastSyncedRef.current = stateStringForSync(normalizedState);
+        }
+      }
       setHasConflict(false);
       if (showToastRef.current) showToastRef.current('Paridade forçada com sucesso! 💎', 'success');
     }

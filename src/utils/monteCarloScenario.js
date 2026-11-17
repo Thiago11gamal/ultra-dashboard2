@@ -24,12 +24,28 @@ export function applyScenarioAdjustments(data = [], scenario = 'base', maxScore 
   const probMult = (cfg.probMultFactor || 0) * 100;
 
   return (data || []).map((d) => {
-    const mean = Math.max(lowerBound, Math.min(upperBound, (Number(d.mean) || 0) + meanBias));
-    const projectedMean = d.projectedMean !== undefined
-      ? Math.max(lowerBound, Math.min(upperBound, (Number(d.projectedMean) || 0) + meanBias))
+    const preMean = Number.isFinite(Number(d?.mean)) ? Number(d.mean) : 0;
+    const mean = Math.max(lowerBound, Math.min(upperBound, preMean + meanBias));
+    const projectedMean = d?.projectedMean !== undefined && Number.isFinite(Number(d.projectedMean))
+      ? Math.max(lowerBound, Math.min(upperBound, Number(d.projectedMean) + meanBias))
       : mean;
-    const low = Math.max(lowerBound, Math.min(upperBound, mean - ((mean - (d?.ciRange?.[0] ?? mean)) * cfg.ciMult)));
-    const high = Math.max(lowerBound, Math.min(upperBound, mean + (((d?.ciRange?.[1] ?? mean) - mean) * cfg.ciMult)));
+    const rawCi0 = Number(d?.ciRange?.[0]);
+    const rawCi1 = Number(d?.ciRange?.[1]);
+    const baseCi0 = Number.isFinite(rawCi0) ? rawCi0 : preMean;
+    const baseCi1 = Number.isFinite(rawCi1) ? rawCi1 : preMean;
+    let rawLow;
+    let rawHigh;
+    if (mean >= baseCi0 && mean <= baseCi1) {
+      rawLow = mean - ((mean - baseCi0) * cfg.ciMult);
+      rawHigh = mean + ((baseCi1 - mean) * cfg.ciMult);
+    } else {
+      const halfLow = Math.max(0, preMean - baseCi0);
+      const halfHigh = Math.max(0, baseCi1 - preMean);
+      rawLow = mean - (halfLow * cfg.ciMult);
+      rawHigh = mean + (halfHigh * cfg.ciMult);
+    }
+    const low = Math.max(lowerBound, Math.min(upperBound, rawLow));
+    const high = Math.max(lowerBound, Math.min(upperBound, rawHigh));
     const rawProb = Number(d?.probability);
     const probBase = Number.isFinite(rawProb) ? rawProb : 0;
     const probAdjRaw = probBase + (meanBias > 0 ? probMult : meanBias < 0 ? -probMult : 0);

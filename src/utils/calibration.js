@@ -12,7 +12,7 @@ function pavBlocks(blocks) {
   let i = 0;
   let iterations = 0;
   const maxIterations = Math.max(100, blocks.length * 10); // ✅ FIX #3: Guard contra loop infinito
-  
+
   while (i < blocks.length - 1 && iterations < maxIterations) {
     iterations++;
     if (blocks[i].mean <= blocks[i + 1].mean) { i++; continue; }
@@ -25,7 +25,7 @@ function pavBlocks(blocks) {
     blocks.splice(i, 2, merged);
     if (i > 0) i--;
   }
-  
+
   if (iterations >= maxIterations) {
     console.warn('[calibration] pavBlocks atingiu limite de iterações, possível convergência lenta');
 
@@ -251,15 +251,18 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
     let score = null;
     let observedAt = null;
     if (String(ev.category).toLowerCase() === 'global') {
-      // FIX-I05: agregar TODOS os dias de simulado após o evento (não só o primeiro).
-      // Antes, simulados em dias diferentes (sábado + domingo) eram ignorados.
+      // FIX-I05: agregar eventos do mesmo ciclo/fim-de-semana sem cruzar meses futuros.
+      const horizonUpperMs = Number.isFinite(Number(ev.maxBackfillDays))
+        ? Number(ev.maxBackfillDays) * 86400000
+        : (3 * 86400000);
       const candidates = timed.filter(x => x.ts >= Number(ev.timestamp) + minHorizonMs);
       if (candidates.length > 0) {
-        // Coletar todos os dias distintos com simulados
-        const dayKeys = [...new Set(candidates.map(x => getDateKey(x.row.date || x.row.createdAt)).filter(Boolean))];
+        const windowEndTs = candidates[0].ts + horizonUpperMs;
+        const boundedCandidates = candidates.filter(x => x.ts <= windowEndTs);
+        // Coletar dias distintos dentro da janela do primeiro simulado encontrado
+        const dayKeys = [...new Set(boundedCandidates.map(x => getDateKey(x.row.date || x.row.createdAt)).filter(Boolean))];
         if (dayKeys.length === 0) return { ...ev, backfilled: false };
-        // Usar todos os dias (não apenas o primeiro)
-        const allDays = candidates.filter(x => {
+        const allDays = boundedCandidates.filter(x => {
           const key = getDateKey(x.row.date || x.row.createdAt);
           return key !== null && dayKeys.includes(key);
         });
@@ -368,7 +371,7 @@ export function computeRollingCalibrationParams(history = [], cfg = {}) {
   const avgBrier = swb / sw;
   const confidenceFactor = Math.min(1, recent.length / (Number(cfg.targetSamples) || 12));
   const maxPenalty = (avgBrier > 0.25 ? 0.35 : 0.25) * confidenceFactor
-                   + (cfg.maxPenalty ?? 0.3) * (1 - confidenceFactor);
+    + (cfg.maxPenalty ?? 0.3) * (1 - confidenceFactor);
   return { baseline, maxPenalty, confidenceFactor, avgBrier };
 }
 
@@ -447,11 +450,11 @@ export function calibrateWithBBQ(probability01, pairs = [], options = {}) {
   const schemeCounts = Number.isFinite(explicitBins) && explicitBins >= 2
     ? [Math.max(2, Math.min(10, Math.round(explicitBins)))]
     : (() => {
-        const maxBins = Math.min(8, Math.max(2, Math.floor(sorted.length / 2)));
-        const list = [];
-        for (let b = 2; b <= maxBins; b++) list.push(b);
-        return list;
-      })();
+      const maxBins = Math.min(8, Math.max(2, Math.floor(sorted.length / 2)));
+      const list = [];
+      for (let b = 2; b <= maxBins; b++) list.push(b);
+      return list;
+    })();
 
   const seenEdgeSignatures = new Set();
   const models = [];

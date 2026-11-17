@@ -19,11 +19,16 @@ const MAX_WORKER_CRASHES = 3;
 
 // Cleanup periódico para requests órfãos
 let cleanupInterval = null;
+let workerRetryTimer = null;
 
 export function stopCleanup() {
     if (cleanupInterval) {
         clearInterval(cleanupInterval);
         cleanupInterval = null;
+    }
+    if (workerRetryTimer) {
+        clearTimeout(workerRetryTimer);
+        workerRetryTimer = null;
     }
     // M-05 FIX: Também limpar pending requests órfãos
     for (const [id, pending] of sharedPendingRequests) {
@@ -86,12 +91,12 @@ function initSharedWorker() {
             }
         };
 
-        sharedWorker.onerror = (err) => {
-            console.error('[MonteCarloWorker] erro fatal:', err);
+        const handleWorkerFailure = (errMsg) => {
             workerCrashCount++;
             for (const [id, pending] of sharedPendingRequests.entries()) {
                 try {
-                    pending.reject?.(new Error(err?.message || 'Worker Monte Carlo falhou'));
+                    clearTimeout(pending.timeoutId);
+                    pending.reject?.(new Error(errMsg));
                 } catch (e) {
                     console.error('Failed to reject pending request:', e);
                 }
@@ -103,11 +108,28 @@ function initSharedWorker() {
                 console.warn('Worker terminate failed:', e);
             }
             sharedWorker = null;
+            if (workerRetryTimer) {
+                clearTimeout(workerRetryTimer);
+                workerRetryTimer = null;
+            }
             if (workerCrashCount < MAX_WORKER_CRASHES) {
-                setTimeout(() => initSharedWorker(), 100);
+                workerRetryTimer = setTimeout(() => {
+                    workerRetryTimer = null;
+                    initSharedWorker();
+                }, 100);
             } else {
                 console.error('[MonteCarloWorker] Limite de crashes excedido. Usando fallback síncrono.');
             }
+        };
+
+        sharedWorker.onerror = (err) => {
+            console.error('[MonteCarloWorker] erro fatal:', err);
+            handleWorkerFailure(err?.message || 'Worker Monte Carlo falhou');
+        };
+
+        sharedWorker.onmessageerror = (err) => {
+            console.error('[MonteCarloWorker] erro de serialização:', err);
+            handleWorkerFailure('Falha na serialização de mensagem do Worker Monte Carlo');
         };
     } catch (e) {
         console.warn('[MC Worker Singleton] Not available, using main thread:', e.message);
@@ -141,7 +163,15 @@ export function useMonteCarloWorker() {
                 }
                 return runMonteCarloAnalysis(args[0]);
             } else {
-                const options = args[3] || {};
+                const options = (typeof args[3] === 'object' && args[3] !== null) ? args[3] : {};
+                if (Array.isArray(args[0])) {
+                    return runMonteCarloAnalysis({
+                        ...options,
+                        values: args[0],
+                        targetScore: options.targetScore ?? args[2] ?? args[1] ?? 0,
+                        projectionDays: options.projectionDays ?? (typeof args[3] === 'number' ? args[3] : 90),
+                    });
+                }
                 return simulateNormalDistribution({
                     mean: args[0] || 0,
                     sd: args[1] || 0,
@@ -157,6 +187,7 @@ export function useMonteCarloWorker() {
                     historicalCutoffs: options.historicalCutoffs,
                     flashcardImmunity: options.flashcardImmunity,
                     simuladoRows: options.simuladoRows,
+                    categoryName: options.categoryName,
                     categoryNames: options.categoryNames,
                 });
             }
@@ -179,7 +210,8 @@ export function useMonteCarloWorker() {
 
         return new Promise((resolve, reject) => {
             // Timeout adaptativo baseado no número de simulações
-            const simCount = payload?.input?.simulations ?? payload?.options?.simulations ?? 5000;
+            const rawSimCount = Number(payload?.input?.simulations ?? payload?.options?.simulations);
+            const simCount = Number.isFinite(rawSimCount) && rawSimCount > 0 ? rawSimCount : 5000;
             const timeoutMs = Math.min(30000, Math.max(10000, simCount * 3)); // 3ms/sim, cap 30s
 
             // Capture current worker to prevent race conditions during recycling
@@ -238,7 +270,10 @@ export function useMonteCarloWorker() {
         const payload = { items, simuladoRows: sharedSimuladoRows };
 
         return new Promise((resolve, reject) => {
-            const totalSims = items.reduce((acc, entry) => acc + (entry?.input?.simulations || 2000), 0);
+            const totalSims = items.reduce((acc, entry) => {
+                const n = Number(entry?.input?.simulations);
+                return acc + (Number.isFinite(n) && n > 0 ? n : 2000);
+            }, 0);
             const timeoutMs = Math.min(30000, Math.max(10000, totalSims * 2));
             const currentWorker = sharedWorker;
 

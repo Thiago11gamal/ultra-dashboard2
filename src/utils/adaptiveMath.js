@@ -249,28 +249,30 @@ export const calcSlopeWithSignificance = (dados) => {
 };
 
 export function computeAdaptiveSignal(historyOrScores = []) {
-    const isObjectHistory = historyOrScores.length > 0 && typeof historyOrScores[0] === 'object' && historyOrScores[0] !== null;
-    
-    // Extrai scores e datas sem fabricar 0 quando score/value estiver ausente ou nulo
+    const validTimesMs = historyOrScores
+        .map(item => (item && typeof item === 'object' ? safeDateParse(item.date || item.createdAt)?.getTime() : NaN))
+        .filter(Number.isFinite);
+    const anchorMs = validTimesMs.length > 0 ? Math.min(...validTimesMs) : Date.now();
+
+    // Extrai scores e datas por elemento sem fabricar 0 quando score/value estiver ausente ou nulo
     const parsedData = historyOrScores.map((item, i) => {
-        if (isObjectHistory) {
-            if (!item || typeof item !== 'object') return { score: NaN, time: NaN };
+        if (item !== null && item !== undefined && typeof item === 'object') {
             const rawScore = item.score ?? item.value;
-            const numScore = (rawScore === null || rawScore === undefined || rawScore === '' || typeof rawScore === 'boolean')
+            const numScore = (rawScore === null || rawScore === undefined || String(rawScore).trim() === '' || typeof rawScore === 'boolean')
                 ? NaN
                 : Number(rawScore);
             const rawDate = safeDateParse(item.date || item.createdAt);
             const rawTime = rawDate ? rawDate.getTime() : NaN;
             return {
                 score: numScore,
-                time: Number.isFinite(rawTime) ? rawTime : Date.now() - (historyOrScores.length - i) * 86400000
+                time: Number.isFinite(rawTime) ? rawTime : anchorMs - (historyOrScores.length - i) * 86400000
             };
         }
-        // Fallback legado se enviarem apenas o array de números
-        const numScore = (item === null || item === undefined || item === '' || typeof item === 'boolean')
+        // Fallback legado para elementos numéricos sem data
+        const numScore = (item === null || item === undefined || String(item).trim() === '' || typeof item === 'boolean')
             ? NaN
             : Number(item);
-        return { score: numScore, time: Date.now() - (historyOrScores.length - i) * 86400000 }; 
+        return { score: numScore, time: anchorMs - (historyOrScores.length - i) * 86400000 };
     }).filter(d => Number.isFinite(d.score));
     
     // ADAPT-SORT: Força ordenação cronológica para garantir que ages (referenceNow - time) sejam sempre >= 0.

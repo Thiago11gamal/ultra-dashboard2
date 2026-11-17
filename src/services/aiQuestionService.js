@@ -1,3 +1,6 @@
+import { auth } from './firebase';
+import { sanitizePlainText } from '../utils/sanitizeText';
+
 // 🔒 [SECURITY] Chave Gemini NUNCA deve ser usada no frontend.
 // Todas as chamadas passam por um backend proxy autenticado.
 // ROTA OBRIGATÓRIA: rotacione a chave Gemini atual imediatamente.
@@ -73,11 +76,7 @@ export function validateAIQuestion(question) {
 
   if (!Array.isArray(question.alternativas) || question.alternativas.length < 2) return null;
 
-  // BUG: texto de IA podia conter HTML/script e entrar em dangerouslySetInnerHTML.
-  const sanitizeInline = (text) => String(text || '')
-    .replace(/<\s*(script|iframe|object|embed|form)[^>]*>.*?<\s*\/\s*\1\s*>/gi, '')
-    .replace(/<[^>]*>/g, '')
-    .trim();
+  const sanitizeInline = (text) => sanitizePlainText(text);
 
   const seenLetters = new Set();
   const alternativas = question.alternativas
@@ -125,21 +124,17 @@ export function validateAIQuestions(questions) {
   return questions.map(validateAIQuestion).filter(Boolean);
 }
 
-/**
- * Gera questões via backend proxy (NUNCA usa chave Gemini no frontend).
- * O backend é responsável por autenticar com Gemini.
- */
-export async function generateViaGeminiDirect({
+async function requestAIQuestions({
   materia,
   assunto,
   dificuldade,
   quantidade,
   contestName,
   signal,
+  errorLabel = 'Backend AI',
 }) {
-  // ✅ FIX #1: Validar URL antes de fazer requisição
   if (!isValidUrl(AI_BACKEND_URL)) {
-    throw new Error(`URL inválida do backend de IA: ${AI_BACKEND_URL}`);
+    throw new Error(`URL inválida do ${errorLabel}: ${AI_BACKEND_URL}`);
   }
 
   const controller = new AbortController();
@@ -155,28 +150,36 @@ export async function generateViaGeminiDirect({
   }
 
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    try {
+      const token = await auth?.currentUser?.getIdToken?.();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    } catch {
+      // ignore token retrieval error
+    }
+
     const response = await fetch(resolveAIEndpoint(AI_BACKEND_URL), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       credentials: isSameOrigin ? 'same-origin' : 'omit',
       signal: controller.signal,
       body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
     });
 
     if (!response.ok) {
-      throw new Error(`Backend AI retornou ${response.status}`);
+      throw new Error(`${errorLabel} retornou ${response.status}`);
     }
 
     const contentType = response.headers.get('content-type');
     if (!contentType || (!contentType.includes('application/json') && !contentType.includes('text/json'))) {
-      throw new Error(`Resposta do backend AI não é JSON: ${contentType}`);
+      throw new Error(`Resposta do ${errorLabel} não é JSON: ${contentType}`);
     }
 
     let data = {};
     try {
       data = await response.json();
     } catch {
-      throw new Error(`Resposta inválida do backend AI (JSON parsing error)`);
+      throw new Error(`Resposta inválida do ${errorLabel} (JSON parsing error)`);
     }
     const questions = data.questions ?? [];
     return validateAIQuestions(questions);
@@ -189,64 +192,18 @@ export async function generateViaGeminiDirect({
 }
 
 /**
+ * Gera questões via backend proxy (NUNCA usa chave Gemini no frontend).
+ * O backend é responsável por autenticar com Gemini.
+ */
+export async function generateViaGeminiDirect(params) {
+  return requestAIQuestions({ ...params, errorLabel: 'Backend AI' });
+}
+
+/**
  * Gera questões via backend próprio (fallback quando Gemini não está disponível).
  */
-export async function generateViaBackend({
-  materia,
-  assunto,
-  dificuldade,
-  quantidade,
-  contestName,
-  signal,
-}) {
-  if (!isValidUrl(AI_BACKEND_URL)) {
-    throw new Error(`URL inválida do backend: ${AI_BACKEND_URL}`);
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-  const handleAbort = () => controller.abort();
-
-  if (signal) {
-    if (signal.aborted) {
-      controller.abort();
-    } else {
-      signal.addEventListener('abort', handleAbort);
-    }
-  }
-
-  try {
-    const response = await fetch(resolveAIEndpoint(AI_BACKEND_URL), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: isSameOrigin ? 'same-origin' : 'omit',
-      signal: controller.signal,
-      body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend retornou ${response.status}`);
-    }
-
-    const contentType = response.headers.get('content-type');
-    if (!contentType || (!contentType.includes('application/json') && !contentType.includes('text/json'))) {
-      throw new Error(`Resposta do backend não é JSON: ${contentType}`);
-    }
-
-    let data = {};
-    try {
-      data = await response.json();
-    } catch {
-      throw new Error(`Resposta inválida do backend (JSON parsing error)`);
-    }
-    const questions = data.questions ?? [];
-    return validateAIQuestions(questions);
-  } finally {
-    clearTimeout(timeoutId);
-    if (signal) {
-      signal.removeEventListener('abort', handleAbort);
-    }
-  }
+export async function generateViaBackend(params) {
+  return requestAIQuestions({ ...params, errorLabel: 'Backend' });
 }
 
 /**

@@ -44,6 +44,9 @@ export const createTrashSlice = (set) => ({
                 }
             }
 
+            const nowIso = new Date().toISOString();
+            catData.lastUpdated = nowIso;
+            catData.updatedAt = nowIso;
             contest.categories.push(catData);
 
             const fixRef = (arr) => (arr || []).map(entry =>

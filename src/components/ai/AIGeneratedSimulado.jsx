@@ -165,9 +165,14 @@ export default function AIGeneratedSimulado() {
       draftTimeoutRef.current = setTimeout(() => {
         const draft = {
           version: 1,
-          form, questions, answers, currentIndex,
+          form: latestFormRef.current || form,
+          questions,
+          answers,
+          currentIndex,
           timeLeft: timeLeftRef.current,
-          timePerQuestion, simStartMs: simStartMsRef.current, savedAt: Date.now()
+          timePerQuestion: latestTimePerQuestionRef.current || {},
+          simStartMs: simStartMsRef.current,
+          savedAt: Date.now()
         };
         try {
           localStorage.setItem(getAiSimStorageKey(), JSON.stringify(draft));
@@ -179,7 +184,7 @@ export default function AIGeneratedSimulado() {
     return () => {
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
     };
-  }, [step, questions, answers, currentIndex, form, timePerQuestion]);
+  }, [step, questions, answers, currentIndex, form]);
 
   // FIX: Effect de restore com deps vazias (ref já garante execução única)
   useEffect(() => {
@@ -437,6 +442,7 @@ export default function AIGeneratedSimulado() {
     if (avgDifficulty >= 2.5) adaptiveDifficulty = 'expert';
     else if (avgDifficulty >= 1.5) adaptiveDifficulty = 'dificil';
 
+    const previousForm = { ...form };
     setForm(prev => ({
       ...prev, categoryId: 'mixed', taskId: 'mixed',
       materia: 'Simulado Personalizado', assunto: assuntoString,
@@ -483,17 +489,14 @@ export default function AIGeneratedSimulado() {
         localStorage.setItem(getAiGenStorageKey(), JSON.stringify({
           status: 'error', errorMessage: err.message,
         }));
-        return null;
+        throw err;
       }
     })();
     activeGenerationRef.current = localPromise;
 
     try {
       const normalizedQuestions = await localPromise;
-      if (activeGenerationRef.current === localPromise) {
-        activeGenerationRef.current = null;
-      }
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || signal.aborted) return;
       if (normalizedQuestions && normalizedQuestions.length > 0) {
         isFinishingRef.current = false;
         setQuestions(normalizedQuestions);
@@ -505,18 +508,22 @@ export default function AIGeneratedSimulado() {
         setTimerActive(true);
         simStartMsRef.current = Date.now();
         setShowReview(false);
-        setIsLoading(false);
         localStorage.removeItem(getAiGenStorageKey());
         showToast(`Personalizado: ${normalizedQuestions.length} questões focadas nas fraquezas!`, 'success');
       }
     } catch (error) {
-      if (activeGenerationRef.current === localPromise) {
-        activeGenerationRef.current = null;
-      }
-      if (!mountedRef.current) return;
-      setIsLoading(false);
+      if (!mountedRef.current || signal.aborted) return;
+      setForm(previousForm);
       localStorage.removeItem(getAiGenStorageKey());
       showToast(error.message || 'Erro ao gerar questões personalizadas.', 'error');
+    } finally {
+      const isCurrentGen = activeGenerationRef.current === localPromise;
+      if (isCurrentGen) {
+        activeGenerationRef.current = null;
+      }
+      if (mountedRef.current && isCurrentGen) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -581,10 +588,7 @@ export default function AIGeneratedSimulado() {
 
     try {
       const normalizedQuestions = await localPromise;
-      if (activeGenerationRef.current === localPromise) {
-        activeGenerationRef.current = null;
-      }
-      if (!mountedRef.current || !normalizedQuestions) return;
+      if (!mountedRef.current || !normalizedQuestions || signal.aborted) return;
       isFinishingRef.current = false;
       setQuestions(normalizedQuestions);
       setAnswers({});
@@ -597,15 +601,16 @@ export default function AIGeneratedSimulado() {
       localStorage.removeItem(getAiGenStorageKey());
       showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
     } catch (error) {
-      if (activeGenerationRef.current === localPromise) {
-        activeGenerationRef.current = null;
-      }
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || signal.aborted) return;
       console.error('Erro na geração IA:', error);
       showToast(error.message || 'Erro ao gerar questões com IA. Tente novamente.', 'error');
       localStorage.removeItem(getAiGenStorageKey());
     } finally {
-      if (mountedRef.current) setIsLoading(false);
+      const isCurrentGen = activeGenerationRef.current === localPromise;
+      if (isCurrentGen) {
+        activeGenerationRef.current = null;
+      }
+      if (mountedRef.current && isCurrentGen) setIsLoading(false);
     }
   };
 
@@ -924,7 +929,7 @@ export default function AIGeneratedSimulado() {
   };
 
   useEffect(() => {
-    if (step !== 'playing' || !currentQuestion) return;
+    if (step !== 'playing' || !currentQuestion || showEscapeConfirm) return;
     const handleKeyDown = (e) => {
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
@@ -946,7 +951,7 @@ export default function AIGeneratedSimulado() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
      
-  }, [step, currentQuestion, questions.length, goTo, selectAnswer, resetAll]);
+  }, [step, currentQuestion, showEscapeConfirm, questions.length, goTo, selectAnswer, resetAll]);
 
   useEffect(() => {
     let interval = null;

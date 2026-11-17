@@ -37,20 +37,51 @@ export function getLLMProvider() {
 function extractJsonFromText(text) {
   if (!text || typeof text !== 'string') return null;
 
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
-
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-    return null;
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch && fenceMatch[1]) {
+    try {
+      return JSON.parse(fenceMatch[1].trim());
+    } catch {
+      // fallback to balanced brace scan below
+    }
   }
 
-  const jsonCandidate = text.slice(firstBrace, lastBrace + 1);
+  for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
 
-  try {
-    return JSON.parse(jsonCandidate);
-  } catch {
-    return null;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        if (inString) escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          const candidate = text.slice(start, i + 1);
+          try {
+            return JSON.parse(candidate);
+          } catch {
+            break;
+          }
+        }
+      }
+    }
   }
+
+  return null;
 }
 
 /**
@@ -76,17 +107,20 @@ export async function generateStructuredLLM({
 
   const config = getLLMConfig();
 
-  const safeTimeout = Number.isFinite(timeoutMs)
-    ? timeoutMs
-    : Number.isFinite(config.timeoutMs)
-      ? config.timeoutMs
+  const safeTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? Math.max(1, timeoutMs)
+    : Number.isFinite(config.timeoutMs) && config.timeoutMs > 0
+      ? Math.max(1, config.timeoutMs)
       : 7000;
+
+  const abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
 
   const requestPayload = {
     system,
     user,
     temperature,
     maxTokens,
+    signal: abortController?.signal,
     response_format: {
       type: 'json_object',
     },
@@ -114,7 +148,14 @@ export async function generateStructuredLLM({
 
   let timeoutId;
   const timeout = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('LLM_TIMEOUT')), safeTimeout);
+    timeoutId = setTimeout(() => {
+      try {
+        abortController?.abort();
+      } catch {
+        // ignore abort error
+      }
+      reject(new Error('LLM_TIMEOUT'));
+    }, safeTimeout);
   });
 
   try {

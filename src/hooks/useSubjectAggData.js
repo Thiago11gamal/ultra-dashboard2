@@ -98,8 +98,10 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
         const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
         const safeMax = Math.max(safeMin + 1, Number(maxScore) || 100);
 
-        const catMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
-        const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMax;
+        const rawCatMax = Number(cat.maxScore);
+        const rawCatMin = Number(cat.minScore);
+        const catMax = Number.isFinite(rawCatMax) && rawCatMax > 0 ? rawCatMax : safeMax;
+        const catMin = Number.isFinite(rawCatMin) ? Math.min(catMax - 1e-6, rawCatMin) : Math.min(catMax - 1e-6, safeMin);
         const catRange = Math.max(1e-9, catMax - catMin);
 
         let realQ = 0;
@@ -170,6 +172,7 @@ export function useSubjectAggData({ categories, showOnlyFocus, focusCategory, ti
             const safeTopics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
             if (safeTopics.length > 0) {
               for (const t of safeTopics) {
+                if (!t || typeof t !== 'object') continue;
                 const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
                 const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
                   ? t.timedQuestoes

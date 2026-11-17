@@ -1,6 +1,6 @@
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const toNum = (v, fb = 0) => {
-  if (v === null || v === undefined || v === '') return fb;
+  if (v === null || v === undefined || typeof v === 'boolean' || String(v).trim() === '') return fb;
   const n = Number(v);
   return Number.isFinite(n) ? n : fb;
 };
@@ -44,7 +44,7 @@ export function ratioToCorrect(ratio, total) {
 }
 
 export function formatUnitValue(val, unit = "%") {
-  const n = val !== null && val !== '' ? Number(val) : NaN;
+  const n = (val !== null && val !== undefined && typeof val !== 'boolean' && String(val).trim() !== '' && Number.isFinite(Number(val))) ? Number(val) : NaN;
   if (!Number.isFinite(n)) return `0${unit}`;
   if (unit === "horas") {
     const sign = n < 0 ? "-" : "";

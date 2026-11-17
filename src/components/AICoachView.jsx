@@ -614,9 +614,9 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
 
                                             {alertTask.analysis?.monteCarlo && (() => {
                                                 const mc = alertTask.analysis.monteCarlo;
-                                                const hasProbRaw = mc.probabilityRaw !== null && mc.probabilityRaw !== undefined && mc.probabilityRaw !== '' && Number.isFinite(Number(mc.probabilityRaw));
-                                                const hasProb = mc.probability !== null && mc.probability !== undefined && mc.probability !== '' && Number.isFinite(Number(mc.probability));
-                                                const safeProb = hasProbRaw ? Number(mc.probabilityRaw) : (hasProb ? Number(mc.probability) : 0);
+                                                const hasProbRaw = mc.probabilityRaw !== null && mc.probabilityRaw !== undefined && typeof mc.probabilityRaw !== 'boolean' && String(mc.probabilityRaw).trim() !== '' && Number.isFinite(Number(mc.probabilityRaw));
+                                                const hasProb = mc.probability !== null && mc.probability !== undefined && typeof mc.probability !== 'boolean' && String(mc.probability).trim() !== '' && Number.isFinite(Number(mc.probability));
+                                                const safeProb = hasProb ? Number(mc.probability) : (hasProbRaw ? Number(mc.probabilityRaw) : 0);
                                                 const hasVol = mc.volatility !== null && mc.volatility !== undefined && mc.volatility !== '' && Number.isFinite(Number(mc.volatility));
                                                 const safeVol = hasVol ? Number(mc.volatility) : 0;
                                                 return (

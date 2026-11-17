@@ -153,7 +153,14 @@ export function clearStudyingStatusInContest(prev, subject) {
     const shouldCheckCat = !subject.categoryId || subject.categoryId === 'geral' || subject.categoryId === 'default' || c.id === subject.categoryId;
     return shouldCheckCat ? { ...c, tasks: resetList(c.tasks) } : c;
   });
-  const nextCoachPlan = Array.isArray(prev.coachPlan) ? resetList(prev.coachPlan) : prev.coachPlan;
+  const isTaskActiveStatus = (t) => t && matchesSubjectTask(t, subject) && (t.status === 'studying' || (!t.completed && t.status && t.status !== 'idle'));
+  const nextCoachPlan = Array.isArray(prev.coachPlan)
+    ? resetList(prev.coachPlan)
+    : (prev.coachPlan && typeof prev.coachPlan === 'object'
+        ? (Array.isArray(prev.coachPlan.tasks)
+            ? { ...prev.coachPlan, tasks: resetList(prev.coachPlan.tasks) }
+            : Object.fromEntries(Object.entries(prev.coachPlan).map(([k, t]) => [k, isTaskActiveStatus(t) ? { ...t, status: 'idle' } : t])))
+        : prev.coachPlan);
   let nextCoachPlanner = prev.coachPlanner;
   if (prev.coachPlanner && typeof prev.coachPlanner === 'object' && !Array.isArray(prev.coachPlanner)) {
     nextCoachPlanner = Object.fromEntries(

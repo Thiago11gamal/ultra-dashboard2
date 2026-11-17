@@ -110,7 +110,16 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
                 }
 
                 const elapsed = Date.now() - lastAct;
-                if (elapsed >= timeoutMs) {
+                if (elapsed >= safeTimeout) {
+                    try {
+                        const pomodoroActive = useAppStore.getState()?.appState?.pomodoro?.activeSubject;
+                        if (pomodoroActive) {
+                            logger.log('[IdleLogout] Pomodoro ativo ao retornar à aba — adiando logout.');
+                            lastActivityRef.current = Date.now();
+                            resetTimer(true);
+                            return;
+                        }
+                    } catch { /* se falhar, prossegue com logout */ }
                     logger.log('[IdleLogout] Aba voltou ao foco e o tempo estava expirado. Deslogando...');
                     if (typeof logoutRef.current === 'function') logoutRef.current();
                 } else {
@@ -131,6 +140,6 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             });
             document.removeEventListener('visibilitychange', handleVisibility);
         };
-    }, [resetTimer, timeoutMs]);
+    }, [resetTimer, safeTimeout]);
 }
 

@@ -5,7 +5,7 @@ import { Calendar, Plus, Trash2, Clock, Target, ChevronLeft, ChevronRight } from
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { generateId } from '../utils/idGenerator';
-import { getDateKey } from '../utils/dateHelper';
+import { getDateKey, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -18,9 +18,9 @@ function getActiveContest(state) {
 
 export default function Agenda() {
   const rawAgenda = useAppStore(state => getActiveContest(state).agenda || EMPTY_ARRAY);
-  const agenda = useMemo(() => Array.isArray(rawAgenda) ? rawAgenda : Object.values(rawAgenda || {}), [rawAgenda]);
+  const agenda = useMemo(() => (Array.isArray(rawAgenda) ? rawAgenda : Object.values(rawAgenda || {})).filter(Boolean), [rawAgenda]);
   const rawCategories = useAppStore(state => getActiveContest(state).categories || EMPTY_ARRAY);
-  const categories = useMemo(() => Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {}), [rawCategories]);
+  const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean), [rawCategories]);
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
 
@@ -58,13 +58,13 @@ export default function Agenda() {
 
   const eventsForSelected = useMemo(() => {
     return agenda
-      .filter(e => e.date === selectedDateStr)
+      .filter(e => e && e.date === selectedDateStr)
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   }, [agenda, selectedDateStr]);
 
   const upcomingEvents = useMemo(() => {
     return agenda
-      .filter(e => e.date >= todayStr)
+      .filter(e => e && e.date && e.date >= todayStr)
       .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''))
       .slice(0, 6);
   }, [agenda, todayStr]);
@@ -275,7 +275,10 @@ export default function Agenda() {
                   <div>
                     <div className="font-medium leading-tight">{ev.title}</div>
                     <div className="text-[11px] text-teal-300/90">
-                      {ev.date ? format(new Date(ev.date + 'T12:00:00'), 'dd/MM') : '--'}
+                      {(() => {
+                        const parsed = ev.date ? (parseNoonLocal(ev.date) || normalizeDate(ev.date)) : null;
+                        return parsed && Number.isFinite(parsed.getTime()) ? format(parsed, 'dd/MM') : '--';
+                      })()}
                       {ev.time ? ` • ${ev.time}` : ''}
                       {ev.duration ? ` • ${ev.duration}min` : ''}
                     </div>

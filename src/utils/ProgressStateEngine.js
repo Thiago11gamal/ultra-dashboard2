@@ -16,17 +16,22 @@ const DEFAULT_CONFIG = {
     trend_tolerance: 0.5 // Alinhado com 0.5 pp/30d (unificado)
 };
 
+const safeConfigNum = (val, fallback) => {
+  if (val === null || val === undefined || typeof val === 'boolean' || String(val).trim() === '') return fallback;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 export function analyzeProgressState(scores, config = {}) {
-  const {
-    window_size,
-    stagnation_threshold: raw_stagnation,
-    low_level_limit,
-    high_level_limit,
-    mastery_limit,
-    trend_tolerance: raw_trend,
-    maxScore = 100,
-    minScore = 0
-  } = { ...DEFAULT_CONFIG, ...config };
+  const safeCfg = config && typeof config === 'object' ? config : {};
+  const window_size = Math.max(3, Math.floor(safeConfigNum(safeCfg.window_size, DEFAULT_CONFIG.window_size)));
+  const raw_stagnation = safeConfigNum(safeCfg.stagnation_threshold, DEFAULT_CONFIG.stagnation_threshold);
+  const low_level_limit = safeConfigNum(safeCfg.low_level_limit, DEFAULT_CONFIG.low_level_limit);
+  const high_level_limit = safeConfigNum(safeCfg.high_level_limit, DEFAULT_CONFIG.high_level_limit);
+  const mastery_limit = safeConfigNum(safeCfg.mastery_limit, DEFAULT_CONFIG.mastery_limit);
+  const raw_trend = safeConfigNum(safeCfg.trend_tolerance, DEFAULT_CONFIG.trend_tolerance);
+  const maxScore = safeConfigNum(safeCfg.maxScore, 100);
+  const minScore = safeConfigNum(safeCfg.minScore, 0);
 
   const safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
   const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
@@ -56,23 +61,29 @@ export function analyzeProgressState(scores, config = {}) {
     };
   }
 
-  const syntheticNow = Date.now();
+  const parsedDatesMs = safeScores
+    .map(d => (d && typeof d === 'object' ? toDateMs(d.date) : NaN))
+    .filter(Number.isFinite);
+  const anchorTime = parsedDatesMs.length > 0 ? Math.min(...parsedDatesMs) : Date.now();
   const sortedScores = safeScores
     .filter(d => d != null)
     .map((d, index) => {
       let time = (d && typeof d === 'object') ? toDateMs(d.date) : NaN;
-      if (!Number.isFinite(time)) time = syntheticNow - ((safeScores.length - index) * 86400000);
+      if (!Number.isFinite(time)) time = anchorTime - ((safeScores.length - index) * 86400000);
       return { original: d, safeTime: time };
     })
     .filter(item => Number.isFinite(item.safeTime))
     .sort((a, b) => a.safeTime - b.safeTime);
 
-  const validSortedScores = sortedScores.filter(d => {
-    const score = typeof d.original === 'object' ? d.original.score : d.original;
-    return Number.isFinite(score);
-  });
+  const extractFinite = (item) => {
+    const raw = (item && typeof item === 'object') ? item.score : item;
+    if (raw === null || raw === undefined || typeof raw === 'boolean' || String(raw).trim() === '') return NaN;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : NaN;
+  };
+  const validSortedScores = sortedScores.filter(d => Number.isFinite(extractFinite(d.original)));
   const recentData = validSortedScores.slice(-safeWindowSize);
-  const finiteRecentScores = recentData.map(d => typeof d.original === 'object' ? d.original.score : d.original);
+  const finiteRecentScores = recentData.map(d => extractFinite(d.original));
   if (finiteRecentScores.length < safeWindowSize) {
     return {
       state: 'insufficient_data',

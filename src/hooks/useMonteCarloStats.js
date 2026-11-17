@@ -568,8 +568,40 @@ export function useMonteCarloStats({
     return `${decks.length}:${totalCards}:${mastered}:${reviews}`;
   }, [flashcardDecks]);
 
-  // ✅ PATCH-04: Hash deve incluir o timeIndex, target e configurações de prova/cortes para forçar re-cálculo
-  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}-pd${projectDays}-st${effectiveSimulateToday ? 1 : 0}-ed${examDurationMinutes}-eq${defaultExamTotalQuestions}-hc${cutoffsHashKey}-fd${flashcardDecksHashKey}-cp${Number(calibrationPenalty || 0).toFixed(4)}`;
+  const studyTimeHashKey = useMemo(() => {
+    const cats = Array.isArray(safeCategories) ? safeCategories : Object.values(safeCategories || {});
+    let histTimeTotal = 0;
+    let histTimedQTotal = 0;
+    let topicEntriesCount = 0;
+    let logsMinutesTotal = 0;
+    cats.forEach(cat => {
+      if (!cat) return;
+      const hist = Array.isArray(cat.simuladoStats?.history)
+        ? cat.simuladoStats.history
+        : Object.values(cat.simuladoStats?.history || {});
+      hist.forEach(h => {
+        if (!h || h.valid === false) return;
+        histTimeTotal += Number(h.timeSpent) || 0;
+        histTimedQTotal += Number(h.timedQuestoes) || 0;
+        const topics = Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {});
+        topics.forEach(t => {
+          if (!t) return;
+          topicEntriesCount++;
+          histTimeTotal += Number(t.timeSpent) || 0;
+          histTimedQTotal += Number(t.timedQuestoes) || 0;
+        });
+      });
+      const logs = Array.isArray(cat.studyLogs) ? cat.studyLogs : Object.values(cat.studyLogs || {});
+      logs.forEach(l => {
+        if (!l) return;
+        logsMinutesTotal += Number(l.minutes) || 0;
+      });
+    });
+    return `${Math.round(histTimeTotal)}:${Math.round(histTimedQTotal)}:${topicEntriesCount}:${Math.round(logsMinutesTotal)}`;
+  }, [safeCategories]);
+
+  // ✅ PATCH-04: Hash deve incluir o timeIndex, target, estudo cronometrado e configurações de prova/cortes
+  const pureStatsHash = `${pureStatsData?.statsHash || 'null'}-ti${timeIndex}-ms${minScore}-ms${maxScore}-tgt${debouncedTarget ?? 'na'}-pd${projectDays}-st${effectiveSimulateToday ? 1 : 0}-ed${examDurationMinutes}-eq${defaultExamTotalQuestions}-hc${cutoffsHashKey}-fd${flashcardDecksHashKey}-stf${studyTimeHashKey}-cp${Number(calibrationPenalty || 0).toFixed(4)}`;
 
   const pureStatsDataRef = useRef(pureStatsData);
   useEffect(() => {
@@ -854,6 +886,7 @@ export function useMonteCarloStats({
           if (!isMountedRef.current) return;
 
           if (result) {
+            result.targetUsed = debouncedTarget;
             result.diagnostics = {
               ...(result.diagnostics || {}),
               trendType: result.trendType || 'linear',
@@ -888,6 +921,7 @@ export function useMonteCarloStats({
           if (!isMountedRef.current) return;
 
           if (result) {
+            result.targetUsed = debouncedTarget;
             result.diagnostics = {
               ...(result.diagnostics || {}),
               trendType: result.trendType || 'linear',
@@ -1128,7 +1162,15 @@ export function useMonteCarloStats({
 
             if (nl && nl.logTimeFit && Math.abs(nl.slope) > 0) {
               const nlWeight = modelWeight;
-              const nlProjection = nl.slope * (projectedDaysAmortized / 30);
+              const validDatesMs = simHistory
+                .filter(h => h && h.valid !== false && (h.date || h.createdAt))
+                .map(h => normalizeDate(h.date || h.createdAt)?.getTime())
+                .filter(Number.isFinite)
+                .sort((a, b) => a - b);
+              const tEnd = validDatesMs.length >= 2
+                ? Math.max(0, (validDatesMs[validDatesMs.length - 1] - validDatesMs[0]) / 86400000)
+                : 0;
+              const nlProjection = nl.slope * (Math.log1p(tEnd + projectedDaysAmortized) - Math.log1p(tEnd));
               totalTrendProjection = totalTrendProjection * (1 - nlWeight) + nlProjection * nlWeight;
             }
           }
@@ -1168,19 +1210,28 @@ export function useMonteCarloStats({
         const subjectTarget = clamp(catMinScore + targetRatio * catRange, catMinScore, catMaxScore);
         const simulationsCount = Math.min(dynamicSimulations || 2000, 3000);
 
+        const simRowsSig = Array.isArray(rawSimuladoRows)
+          ? rawSimuladoRows
+              .map(r => `${r?.id || ''}:${r?.date || ''}:${r?.categoryId || ''}:${r?.score ?? r?.correct ?? ''}:${r?.total ?? ''}`)
+              .join(',')
+          : '';
         // ✅ Cache por matéria com TTL (Performance #16)
         const simKey = [
+          activeId || 'none',
+          cat.id || '',
           cat.name,
           Number(baseline).toFixed(3),
           Number(cat.bayesianSd ?? cat.sd ?? 0).toFixed(3),
+          Number(cat.bayesianCI?.ciLow ?? 0).toFixed(3),
+          Number(cat.bayesianCI?.ciHigh ?? 0).toFixed(3),
           Number(subjectTarget).toFixed(3),
           simulationsCount,
           catMinScore,
           catMaxScore,
           cat.n || 0,
           Number(calibrationPenalty || 0).toFixed(4),
-          rawSimuladoRows?.length || 0
-        ].join('|');
+          simRowsSig.length
+        ].join('|') + '|' + simRowsSig;
 
         return {
           cat,
@@ -1204,6 +1255,7 @@ export function useMonteCarloStats({
         };
       });
   }, [
+    activeId,
     statsData,
     debouncedTarget,
     simulationData?.status,
@@ -1678,9 +1730,13 @@ function useMonteCarloHistoryRecorder({
   useEffect(() => {
     const prob = Number.isFinite(pAdjusted) ? pAdjusted : 0;
     const isTimeTraveling = timeIndex >= 0 && timeIndex < timelineDates.length - 1;
+    const safeTargetNumCheck = Number.isFinite(Number(debouncedTarget)) ? Number(debouncedTarget) : 0;
+    const simTargetUsed = Number(simulationData?.data?.targetUsed);
+    const targetMatchesSim = Number.isFinite(simTargetUsed) && Math.abs(simTargetUsed - safeTargetNumCheck) <= 0.05;
 
     if (
       simulationData?.status === 'ready' &&
+      targetMatchesSim &&
       Number.isFinite(prob) &&
       prob >= 0 &&
       !effectiveSimulateToday &&
@@ -1749,6 +1805,7 @@ function useMonteCarloHistoryRecorder({
     }
   }, [
     simulationData?.status,
+    simulationData?.data?.targetUsed,
     effectiveSimulateToday,
     recordMonteCarloSnapshot,
     timeIndex,

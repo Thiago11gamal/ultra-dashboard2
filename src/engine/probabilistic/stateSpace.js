@@ -21,6 +21,7 @@
  */
 
 import { getSafeScore } from '../../utils/scoreHelper.js';
+import { normalizeDate } from '../../utils/dateHelper.js';
 import { kahanSum } from '../math/kahan.js';
 
 /**
@@ -107,9 +108,16 @@ function parseObservationTime(entry) {
   if (!entry || typeof entry !== 'object') return NaN;
 
   const rawDate = entry.date ?? entry.createdAt ?? entry.timestamp ?? entry.time;
-  if (!rawDate) return NaN;
+  if (rawDate === null || rawDate === undefined || rawDate === '' || typeof rawDate === 'boolean') return NaN;
+  if (typeof rawDate === 'number') {
+    return Number.isFinite(rawDate) ? (rawDate < 1e11 ? rawDate * 1000 : rawDate) : NaN;
+  }
 
-  const parsed = Date.parse(rawDate);
+  const normalized = normalizeDate(rawDate);
+  if (normalized && !Number.isNaN(normalized.getTime())) {
+    return normalized.getTime();
+  }
+  const parsed = Date.parse(String(rawDate));
   return Number.isFinite(parsed) ? parsed : NaN;
 }
 

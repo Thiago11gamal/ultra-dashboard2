@@ -27,12 +27,12 @@ const StudyHistory = React.memo(function StudyHistory({
     onDeleteSimulado,
     mode = 'full' // 'full', 'sessions', 'performance'
 }) {
-    const studySessions = Array.isArray(rawStudySessions) ? rawStudySessions : Object.values(rawStudySessions || {});
-    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
+    const studySessions = (Array.isArray(rawStudySessions) ? rawStudySessions : Object.values(rawStudySessions || {})).filter(Boolean);
+    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
         ...c,
-        tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
+        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
     }));
-    const simuladoRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {});
+    const simuladoRows = (Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {})).filter(Boolean);
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
     const [currentTime, setCurrentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
@@ -69,6 +69,7 @@ const StudyHistory = React.memo(function StudyHistory({
 
         // Find the earliest session
         const earliestTimeArr = studySessions.map(s => {
+            if (!s) return currentTime;
             const d = normalizeDate(s.startTime);
             const t = d ? d.getTime() : currentTime;
             return isNaN(t) ? currentTime : t;
@@ -410,7 +411,7 @@ const StudyHistory = React.memo(function StudyHistory({
                         {(() => {
                             // Agrupar simulados do histórico por batchId ou data
                             const groupedSimulados = Object.values(simuladoRows.reduce((acc, r) => {
-                                if (!r.date && !r.createdAt) return acc;
+                                if (!r || (!r.date && !r.createdAt) || r.valid === false || r.validated === false) return acc;
                                 const hasData = parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0;
                                 if (!r.validated && !hasData) return acc;
                                 const rDate = normalizeDate(r.date || r.createdAt);

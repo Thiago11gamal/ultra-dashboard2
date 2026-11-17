@@ -6,32 +6,41 @@ export function useSubscription(user) {
   const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || 'antunest040@gmail.com')
     .split(',')
     .map(e => e.trim().toLowerCase());
+  const hasTokenProvider = typeof user?.getIdTokenResult === 'function';
+  const isVerifiedIdentity = Boolean(isLocalMode || import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || hasTokenProvider);
   const userEmail = (user?.email || '').trim().toLowerCase();
-  const isAdminEmail = Boolean(userEmail && (userEmail === 'antunest040@gmail.com' || adminEmails.includes(userEmail)));
-
-  // G-17 FIX: Recalcular isDevBypass quando user muda
-  const isDevBypass = useMemo(() =>
-      import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || isLocalMode || user?.uid === 'local-user' || isAdminEmail,
-      [user?.uid, isAdminEmail]
+  const isAdminEmail = Boolean(
+    isVerifiedIdentity && userEmail && (userEmail === 'antunest040@gmail.com' || adminEmails.includes(userEmail))
   );
 
-  const [isPremium, setIsPremium] = useState(isDevBypass);
-  const [loading, setLoading] = useState(!isDevBypass);
+  // G-17 FIX: Recalcular isDevBypass quando user muda (apenas identidades reais ou modo local explícito)
+  const isDevBypass = useMemo(() =>
+      import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' ||
+      isLocalMode ||
+      (isVerifiedIdentity && user?.uid === 'local-user') ||
+      isAdminEmail,
+      [user?.uid, isVerifiedIdentity, isAdminEmail]
+  );
+
+  const targetUid = user?.uid || null;
+  const [subState, setSubState] = useState(() => ({
+    uid: isDevBypass ? targetUid : null,
+    isPremium: isDevBypass,
+    loading: Boolean(!isDevBypass && targetUid && db),
+  }));
   const fallbackUnsubRef = useRef(null);
 
   useEffect(() => {
     if (isDevBypass || isAdminEmail) {
         const t = setTimeout(() => {
-            setIsPremium(true);
-            setLoading(false);
+            setSubState({ uid: targetUid, isPremium: true, loading: false });
         }, 0);
         return () => clearTimeout(t);
     }
     
-    if (!user?.uid) { 
+    if (!targetUid) { 
         const t = setTimeout(() => {
-            setIsPremium(false); 
-            setLoading(false); 
+            setSubState({ uid: null, isPremium: false, loading: false });
         }, 0);
         return () => clearTimeout(t);
     }
@@ -51,8 +60,7 @@ export function useSubscription(user) {
     try {
       if (typeof user.getIdTokenResult !== 'function') {
         scheduleTimeout(() => {
-          setIsPremium(true);
-          setLoading(false);
+          setSubState({ uid: targetUid, isPremium: false, loading: false });
         });
         return () => {
           isMounted = false;
@@ -67,27 +75,24 @@ export function useSubscription(user) {
         const isAdminClaim = Boolean(claims.admin || claims.premium || claims.plan === 'vitalicio');
         
         if (isAdminClaim) {
-            setIsPremium(true);
-            setLoading(false);
+            setSubState({ uid: targetUid, isPremium: true, loading: false });
             return;
         }
 
         // Se não for admin claim, verificar pagamentos (Stripe)
         if (!db) {
-            setIsPremium(false);
-            setLoading(false);
+            setSubState({ uid: targetUid, isPremium: false, loading: false });
             return;
         }
 
-        const paymentsRef = collection(db, 'customers', user.uid, 'payments');
+        const paymentsRef = collection(db, 'customers', targetUid, 'payments');
         const q = query(paymentsRef, where('status', '==', 'succeeded'));
 
         if (!isMounted) return;
         unsub = onSnapshot(q, (snapshot) => {
             if (!isMounted) return;
             if (snapshot.empty) {
-                setIsPremium(false);
-                setLoading(false);
+                setSubState({ uid: targetUid, isPremium: false, loading: false });
                 return;
             }
 
@@ -99,14 +104,13 @@ export function useSubscription(user) {
                 }
             });
 
-            setIsPremium(hasValidPayment);
-            setLoading(false);
+            setSubState({ uid: targetUid, isPremium: hasValidPayment, loading: false });
         }, (error) => {
             if (!isMounted) return;
             console.error('[Stripe] Erro ao buscar pagamentos:', error);
 
             if (error?.code === 'permission-denied') {
-                const userRef = doc(db, 'users', user.uid);
+                const userRef = doc(db, 'users', targetUid);
                 if (!isMounted) return;
                 if (fallbackUnsubRef.current) {
                     fallbackUnsubRef.current();
@@ -120,12 +124,10 @@ export function useSubscription(user) {
                         || profile?.premium
                         || profile?.subscription?.active,
                     );
-                    setIsPremium(premiumFromProfile);
-                    setLoading(false);
+                    setSubState({ uid: targetUid, isPremium: premiumFromProfile, loading: false });
                 }, (_profileErr) => {
                     if (!isMounted) return;
-                    setIsPremium(false);
-                    setLoading(false);
+                    setSubState({ uid: targetUid, isPremium: false, loading: false });
                 });
                 if (!isMounted && fallbackUnsubRef.current) {
                     fallbackUnsubRef.current();
@@ -134,8 +136,7 @@ export function useSubscription(user) {
                 return;
             }
 
-            setIsPremium(false);
-            setLoading(false);
+            setSubState({ uid: targetUid, isPremium: false, loading: false });
         });
 
         if (!isMounted && unsub) {
@@ -145,13 +146,11 @@ export function useSubscription(user) {
 
       }).catch(() => { 
           if (!isMounted) return;
-          setIsPremium(false); 
-          setLoading(false); 
+          setSubState({ uid: targetUid, isPremium: false, loading: false });
       });
     } catch {
       scheduleTimeout(() => {
-        setIsPremium(false);
-        setLoading(false);
+        setSubState({ uid: targetUid, isPremium: false, loading: false });
       });
     }
 
@@ -165,15 +164,18 @@ export function useSubscription(user) {
             fallbackUnsubRef.current = null;
         }
     };
-  }, [user, isDevBypass, isAdminEmail]);
+  }, [user, targetUid, isDevBypass, isAdminEmail]);
 
   if (isDevBypass) return { isPremium: true, loading: false };
-  if (!user?.uid) return { isPremium: false, loading: false };
+  if (!targetUid) return { isPremium: false, loading: false };
   if (!db) {
       console.warn('[Stripe] Firestore indisponível. Mantendo modo não premium.');
       return { isPremium: false, loading: false };
   }
+  if (subState.uid !== targetUid) {
+      return { isPremium: false, loading: true };
+  }
 
-  return { isPremium, loading };
+  return { isPremium: subState.isPremium, loading: subState.loading };
 }
 

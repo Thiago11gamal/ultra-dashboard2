@@ -34,7 +34,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
 
     const effectiveCategories = useMemo(() => {
-        const list = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const list = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
         if (showOnlyFocus && focusSubjectId) {
             const focused = list.filter(c => c && c.id === focusSubjectId);
             return focused.length > 0 ? focused : list;
@@ -69,11 +69,13 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
         const multiCat = effectiveCategories.length > 1;
 
         effectiveCategories.forEach(cat => {
+            if (!cat) return;
             const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
             if (!windowHistory.length) return;
             const tasksList = toArray(cat.tasks);
 
             const recentHistory = windowHistory.filter(h => {
+                if (!h || h.valid === false || h.validated === false) return false;
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });

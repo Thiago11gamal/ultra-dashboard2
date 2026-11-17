@@ -32,10 +32,12 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     const barGradId = `wp_barGrad_${instanceId}`;
 
     const chartData = React.useMemo(() => {
+        const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
+        const safeLogs = (Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {})).filter(Boolean);
         const days = [];
         const today = new Date();
         today.setHours(12, 0, 0, 0);
-        const focusCategory = focusSubjectId ? categories.find(c => String(c?.id) === String(focusSubjectId)) : null;
+        const focusCategory = focusSubjectId ? safeCats.find(c => String(c?.id) === String(focusSubjectId)) : null;
         const focusName = focusCategory?.name || '';
 
         for (let i = 6; i >= 0; i--) {
@@ -45,7 +47,7 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
 
             const dow = formatWeekdayShortPtBR(d);
 
-            const dailyLogs = studyLogs.filter(log => {
+            const dailyLogs = safeLogs.filter(log => {
                 if (!log) return false;
                 const rawDate = getHistoryDate(log);
                 if (!rawDate) return false;
@@ -66,8 +68,8 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
             let correctTotal = 0;
             let questionsTotal = 0;
 
-            categories.forEach(cat => {
-                if (showOnlyFocus && focusSubjectId && String(cat.id) !== String(focusSubjectId)) return;
+            safeCats.forEach(cat => {
+                if (!cat || (showOnlyFocus && focusSubjectId && String(cat.id) !== String(focusSubjectId))) return;
 
                 const catMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat?.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
                 const catMin = Number.isFinite(Number(cat?.minScore)) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;

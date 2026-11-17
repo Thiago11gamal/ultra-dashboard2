@@ -167,22 +167,22 @@ export default function Coach() {
     }, [showToast]);
 
     const rawHistory = data?.simuladoRows || EMPTY_ARRAY;
-    const history = useMemo(() => Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {}), [rawHistory]);
+    const history = useMemo(() => (Array.isArray(rawHistory) ? rawHistory : Object.values(rawHistory || {})).filter(Boolean), [rawHistory]);
 
     const rawSimulados = data?.simulados || EMPTY_ARRAY;
-    const simulados = useMemo(() => Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {}), [rawSimulados]);
+    const simulados = useMemo(() => (Array.isArray(rawSimulados) ? rawSimulados : Object.values(rawSimulados || {})).filter(Boolean), [rawSimulados]);
 
     const rawCategories = data?.categories || EMPTY_ARRAY;
-    const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).map(c => ({
+    const categories = useMemo(() => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
         ...c,
-        tasks: Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})
+        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
     })), [rawCategories]);
 
     const rawFlashcardDecks = data?.flashcardDecks || EMPTY_ARRAY;
-    const flashcardDecks = useMemo(() => Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {}), [rawFlashcardDecks]);
+    const flashcardDecks = useMemo(() => (Array.isArray(rawFlashcardDecks) ? rawFlashcardDecks : Object.values(rawFlashcardDecks || {})).filter(Boolean), [rawFlashcardDecks]);
 
     const rawStudyLogs = data?.studyLogs || EMPTY_ARRAY;
-    const studyLogs = useMemo(() => Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {}), [rawStudyLogs]);
+    const studyLogs = useMemo(() => (Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {})).filter(Boolean), [rawStudyLogs]);
     const flashcardDue = useMemo(() => {
         return getFlashcardDueTodayCount(flashcardDecks);
     }, [flashcardDecks]);
@@ -190,7 +190,7 @@ export default function Coach() {
 
     const updateCoachScore = useAppStore(state => state.updateCoachScore);
     const { currentUser } = useAuth();
-    const { isPremium } = useSubscription(currentUser || userProfile);
+    const { isPremium } = useSubscription(currentUser);
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState('insights');

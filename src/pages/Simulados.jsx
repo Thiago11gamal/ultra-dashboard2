@@ -160,7 +160,9 @@ function DailySummaryCards({ simuladoRows }) {
     const yesterdayKey = getDateKey(normalizeDate(yesterdayDate));
 
     const calcDay = (dayKey) => {
-      const rows = simuladoRows.filter((r) => {
+      const safeRows = (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean);
+      const rows = safeRows.filter((r) => {
+        if (r.valid === false || r.validated === false) return false;
         const rk = getDateKey(normalizeDate(r.date || r.createdAt));
         return rk === dayKey && (parseInt(r.total, 10) > 0 || parseInt(r.correct, 10) > 0);
       });
@@ -248,15 +250,15 @@ export default function Simulados() {
 
   // P05 PERF FIX: Granular dependencies directly referencing destructured state
   const categoriesArray = useMemo(
-    () => Array.isArray(categories) ? categories : Object.values(categories || {}),
+    () => (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean),
     [categories]
   );
   const simuladoRowsArray = useMemo(
-    () => Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {}),
+    () => (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean),
     [simuladoRows]
   );
   const studySessionsArray = useMemo(
-    () => Array.isArray(studySessions) ? studySessions : Object.values(studySessions || {}),
+    () => (Array.isArray(studySessions) ? studySessions : Object.values(studySessions || {})).filter(Boolean),
     [studySessions]
   );
 
@@ -265,7 +267,7 @@ export default function Simulados() {
     if (!categoriesArray.length || !categories) return [];
     const todayKey = getDateKey(normalizeDate(new Date()));
     const rawTodayRows = simuladoRowsArray.filter(
-      r => getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
+      r => r && getDateKey(normalizeDate(r.date || r.createdAt)) === todayKey
     );
     const rows = [];
     const savedManualRows = {};
@@ -280,8 +282,9 @@ export default function Simulados() {
       }
     });
     categoriesArray.forEach(cat => {
+      if (!cat) return;
       const rawTasks = cat.tasks || [];
-      const tasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
+      const tasks = (Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks)).filter(Boolean);
       if (tasks.length === 0) {
         const keyStr = `${normalize(cat.name)}-${normalize('nenhum')}`;
         const keyId = `${cat.id}-nenhum`;
@@ -410,6 +413,7 @@ export default function Simulados() {
         (r) => r && r.subject && r.topic && Number(r.total) > 0
       );
       const totalQForToast = validRowsForToast.reduce((s, r) => s + (Number(r.total) || 0), 0);
+      let shouldAwardDailyXP = false;
 
       setData((current) => {
         if (!current || typeof current !== 'object') return current;
@@ -599,7 +603,11 @@ export default function Simulados() {
 
         const existingSimuladosRaw = Array.isArray(prev.simulados) ? prev.simulados : Object.values(prev.simulados || {});
         let updatedSimulados = existingSimuladosRaw.filter(Boolean);
+        const alreadyAwardedToday = updatedSimulados.some(
+          s => s && s.type === 'auto-analyzer' && getDateKey(normalizeDate(s.date || s.createdAt)) === todayKey && s.xpAwarded
+        );
         if (totalQ > 0) {
+          shouldAwardDailyXP = !alreadyAwardedToday;
           const newSimuladoEvent = {
             id: generateId('sim'), batchId, date: todayKey,
             score: globalPoints,
@@ -609,6 +617,7 @@ export default function Simulados() {
             source: 'manual',
             scoreUnit: 'points',
             isPercentage: false,
+            xpAwarded: true,
             createdAt: nowIso, lastUpdated: nowIso
           };
           updatedSimulados = [...updatedSimulados.filter(s => !(getDateKey(normalizeDate(s?.date || s?.createdAt)) === todayKey && s?.type === 'auto-analyzer')), newSimuladoEvent]
@@ -625,10 +634,12 @@ export default function Simulados() {
       if (totalQForToast > 0) {
         showToast('Simulado processado com sucesso!', 'success');
         setMode('analyzer');
-        try {
-          useAppStore.getState().awardExperience?.(500);
-        } catch (xpErr) {
-          console.warn('Falha não-bloqueante ao conceder XP do simulado:', xpErr);
+        if (shouldAwardDailyXP) {
+          try {
+            useAppStore.getState().awardExperience?.(500);
+          } catch (xpErr) {
+            console.warn('Falha não-bloqueante ao conceder XP do simulado:', xpErr);
+          }
         }
       } else {
         showToast('Nenhuma questão válida encontrada.', 'warning');

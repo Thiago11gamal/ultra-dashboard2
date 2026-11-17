@@ -147,7 +147,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
   const safeInput = input && typeof input === 'object' ? input : {};
   const options =
     optionsArg && typeof optionsArg === 'object' && Object.keys(optionsArg).length > 0
-      ? optionsArg
+      ? { ...safeInput, ...optionsArg }
       : safeInput;
   const categories = safeArray(safeInput.categories);
   const simulados = safeArray(safeInput.simulados);
@@ -583,7 +583,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
  */
 export function buildCoachOrchestratorDashboard(result = {}) {
   // FIX: validar result antes de processar
-  if (!result || typeof result !== 'object') return null;
+  if (!result || typeof result !== 'object' || result.ok === false) return null;
 
   const safeResult = result;
   const focus = safeResult.focus || null;

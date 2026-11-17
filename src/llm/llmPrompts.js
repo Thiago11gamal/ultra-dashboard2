@@ -18,24 +18,33 @@ Regras obrigatórias:
 8. Retorne apenas JSON válido, sem markdown e sem texto extra.
 `.trim();
 
+function safePromptNum(val, fallback) {
+  return typeof val === 'number' && Number.isFinite(val) ? val : fallback;
+}
+
+function safePromptStr(val, maxLen = 100) {
+  if (val === null || val === undefined) return '';
+  return String(val).replace(/[\r\n\t]+/g, ' ').trim().slice(0, maxLen);
+}
+
 export function buildCoachExplanationPrompt(payload = {}) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
   const cleanPayload = {
-    categoryName: String(safePayload.categoryName || '').slice(0, 100),
-    subject: String(safePayload.subject || '').slice(0, 100),
-    urgency: typeof safePayload.urgency === 'number' ? safePayload.urgency : 0,
-    normalizedScore: typeof safePayload.normalizedScore === 'number' ? safePayload.normalizedScore : 0,
-    trend: typeof safePayload.trend === 'number' ? safePayload.trend : 0,
-    volatility: typeof safePayload.volatility === 'number' ? safePayload.volatility : 0,
-    daysSinceLastStudy: typeof safePayload.daysSinceLastStudy === 'number' ? safePayload.daysSinceLastStudy : 0,
-    srsLabel: String(safePayload.srsLabel || '').slice(0, 100),
-    maxScore: typeof safePayload.maxScore === 'number' ? safePayload.maxScore : 100,
-    minScore: typeof safePayload.minScore === 'number' ? safePayload.minScore : 0,
-    probability: typeof safePayload.probability === 'number' ? safePayload.probability : null,
+    categoryName: safePromptStr(safePayload.categoryName, 100),
+    subject: safePromptStr(safePayload.subject, 100),
+    urgency: safePromptNum(safePayload.urgency, 0),
+    normalizedScore: safePromptNum(safePayload.normalizedScore, 0),
+    trend: safePromptNum(safePayload.trend, 0),
+    volatility: safePromptNum(safePayload.volatility, 0),
+    daysSinceLastStudy: safePromptNum(safePayload.daysSinceLastStudy, 0),
+    srsLabel: safePromptStr(safePayload.srsLabel, 100),
+    maxScore: safePromptNum(safePayload.maxScore, 100),
+    minScore: safePromptNum(safePayload.minScore, 0),
+    probability: safePromptNum(safePayload.probability, null),
     isBurnoutRisk: Boolean(safePayload.isBurnoutRisk),
-    sampleSize: typeof safePayload.sampleSize === 'number' ? safePayload.sampleSize : null,
-    calibrationPenalty: typeof safePayload.calibrationPenalty === 'number' ? safePayload.calibrationPenalty : 0,
-    originalRecommendation: String(safePayload.originalRecommendation || '').slice(0, 300),
+    sampleSize: safePromptNum(safePayload.sampleSize, null),
+    calibrationPenalty: safePromptNum(safePayload.calibrationPenalty, 0),
+    originalRecommendation: safePromptStr(safePayload.originalRecommendation, 300),
   };
 
   return `
@@ -65,12 +74,27 @@ Regras:
 
 export function buildInsightExplanationPrompt(payload = {}) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
+  const cleanInsight = {
+    type: safePromptStr(safePayload.type, 40),
+    severity: safePromptStr(safePayload.severity, 40),
+    title: safePromptStr(safePayload.title, 140),
+    headline: safePromptStr(safePayload.headline, 140),
+    text: safePromptStr(safePayload.text, 300),
+    details: safePromptStr(safePayload.details, 300),
+    advice: safePromptStr(safePayload.advice, 300),
+    recommendation: safePromptStr(safePayload.recommendation, 300),
+    category: safePromptStr(safePayload.category ?? safePayload.categoryName, 100),
+    subject: safePromptStr(safePayload.subject, 100),
+    metric: safePromptStr(safePayload.metric, 80),
+    value: safePromptNum(safePayload.value, null),
+    confidence: safePromptNum(safePayload.confidence, null),
+  };
 
   return `
 Transforme o insight técnico abaixo em uma mensagem clara para o aluno.
 
 Insight:
-${JSON.stringify(safePayload, null, 2)}
+${JSON.stringify(cleanInsight, null, 2)}
 
 Retorne exatamente um JSON com este formato:
 {

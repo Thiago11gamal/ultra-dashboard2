@@ -18,6 +18,7 @@ import { getCoachInsight, getBestTask } from '../utils/coachLogic';
 import { countPomodorosToday } from '../utils/analytics';
 import { parseTaskDisplay, cleanTaskTitle } from '../utils/taskTitleHelper';
 import { calculateETA, findSubjectTaskInContest, clearStudyingStatusInContest, isActiveSubjectInCategory, matchesSubjectTask } from '../utils/pomodoroHelpers';
+import { useLivePomodoroTimeLeft } from '../utils/pomodoroLiveStore';
 import { hexToRgba, normalizePriority } from '../utils/colorHelper';
 
 // Referências estáticas para evitar loops infinitos em seletores Zustand
@@ -53,6 +54,7 @@ const DataTriviaPanel = React.memo(function DataTriviaPanel({ studyLogs, simulad
         const dayOfWeek = (todayDate.getDay() + 6) % 7; // 0 = Monday, 6 = Sunday
         const startOfWeek = startOfToday - (86400000 * dayOfWeek);
         const startOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime();
+        const startOfLast30Days = startOfToday - (86400000 * 29);
 
         let weekMins = 0;
         let monthMins = 0;
@@ -87,7 +89,7 @@ const DataTriviaPanel = React.memo(function DataTriviaPanel({ studyLogs, simulad
             if (!s) return;
             const sDate = s.date || s.createdAt;
             const sTime = sDate ? normalizeDate(sDate)?.getTime() : NaN;
-            if (!Number.isNaN(sTime) && sTime >= startOfMonth) recentSimulados++;
+            if (!Number.isNaN(sTime) && sTime >= startOfLast30Days) recentSimulados++;
         });
 
         (categories || []).forEach(c => {
@@ -349,6 +351,7 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
     _completedCycles = 0,
     speed = 1
 }) {
+    const liveTimeLeft = useLivePomodoroTimeLeft(timeLeft, isRunning);
     const recommendedTask = useMemo(() => {
         const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
         if (!safeCats || safeCats.length === 0) return null;
@@ -527,14 +530,14 @@ const ActionsAndMentorView = React.memo(function ActionsAndMentorView({
                             <div className="absolute inset-0 bg-white/20 animate-pulse" />
                         </div>
                     </div>
-                    {isRunning && Number.isFinite(timeLeft) && timeLeft > 0 && (
+                    {isRunning && Number.isFinite(liveTimeLeft) && liveTimeLeft > 0 && (
                         <div className="mb-3 px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/5 flex items-center justify-between text-[10.5px]">
                             <span className="text-slate-300 flex items-center gap-1.5 font-medium">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                 <span>Término previsto do bloco:</span>
                             </span>
                             <span className="font-mono font-black text-emerald-300">
-                                {calculateETA(timeLeft, speed) || '--:--'}
+                                {calculateETA(liveTimeLeft, speed) || '--:--'}
                             </span>
                         </div>
                     )}
@@ -1041,10 +1044,12 @@ const PomodoroTopBar = React.memo(function PomodoroTopBar({
     const disciplineName = activeSubject?.category || currentCategory?.name || 'SISTEMA';
     const concreteTopic = activeSubject ? (displayTopic || 'Teoria Geral e Fundamentos') : 'Aguardando início...';
 
+    const liveTimeLeft = useLivePomodoroTimeLeft(timeLeft, isRunning);
+
     const etaString = useMemo(() => {
-        if (!isRunning || !Number.isFinite(timeLeft) || timeLeft <= 0) return null;
-        return calculateETA(timeLeft, speed);
-    }, [isRunning, timeLeft, speed]);
+        if (!isRunning || !Number.isFinite(liveTimeLeft) || liveTimeLeft <= 0) return null;
+        return calculateETA(liveTimeLeft, speed);
+    }, [isRunning, liveTimeLeft, speed]);
 
     const currentCycleDisplay = Math.max(1, Math.min(targetCycles, completedCycles + (mode === 'work' ? 1 : 0)));
 
@@ -1206,6 +1211,7 @@ export default function Pomodoro() {
     }, [settings?.pomodoroWork]);
 
     const handleStartFreeFocus = useCallback((autoStart = false) => {
+        const shouldAutoStart = autoStart === true;
         const prevSubject = useAppStore.getState().appState?.pomodoro?.activeSubject;
         if (prevSubject) {
             setData(prev => clearStudyingStatusInContest(prev, prevSubject));
@@ -1219,7 +1225,7 @@ export default function Pomodoro() {
             source: 'pomodoro',
             sessionInstanceId: Date.now().toString()
         });
-        if (autoStart) {
+        if (shouldAutoStart) {
             scheduleAutoStart();
         }
         showToast('Sessão de Foco Livre iniciada! ⏱️', 'info');
@@ -1398,16 +1404,18 @@ export default function Pomodoro() {
 
     useEffect(() => {
         if (location.state?.categoryId && location.state?.taskId) {
+            if (!isHydrated) return;
             const incomingState = location.state;
-            navigate(location.pathname, { replace: true, state: null });
 
             const isDifferentSubject = !activeSubject ||
                 activeSubject.taskId !== incomingState.taskId ||
                 activeSubject.categoryId !== incomingState.categoryId;
 
             if (isDifferentSubject) {
-                const cat = (categories || []).find(c => c && (c.id === incomingState.categoryId || c.name === incomingState.categoryId));
-                const rawTasks = cat?.tasks || [];
+                const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+                const cat = safeCats.find(c => c && (c.id === incomingState.categoryId || c.name === incomingState.categoryId));
+                if (!cat) return;
+                const rawTasks = cat.tasks || [];
                 const safeTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
                 const tsk = safeTasks.find(t => t && (t.id === incomingState.taskId || t.text === incomingState.taskId || t.title === incomingState.taskId));
                 if (cat && tsk) {
@@ -1419,10 +1427,15 @@ export default function Pomodoro() {
                         priority: tsk.priority,
                         source: incomingState?.from || 'dashboard'
                     });
+                    navigate(location.pathname, { replace: true, state: null });
+                } else {
+                    navigate(location.pathname, { replace: true, state: null });
                 }
+            } else {
+                navigate(location.pathname, { replace: true, state: null });
             }
         }
-    }, [location.state, location.pathname, categories, activeSubject, navigate]);
+    }, [isHydrated, location.state, location.pathname, categories, activeSubject, navigate]);
 
     useEffect(() => {
         let timeoutId;
@@ -1441,10 +1454,15 @@ export default function Pomodoro() {
     useEffect(() => {
         return () => {
             if (completionTimeoutRef.current) {
-                clearTimeout(completionTimeoutRef.current);
+                const pendingMeta = completionTimeoutRef.current;
+                clearTimeout(pendingMeta.timerId || pendingMeta);
                 completionTimeoutRef.current = null;
                 const p = useAppStore.getState().appState?.pomodoro;
-                if (p?.activeSubject && !p?.isRunning) {
+                const samePendingSession = !pendingMeta.sessionInstanceId ||
+                    p?.activeSubject?.sessionInstanceId === pendingMeta.sessionInstanceId;
+                if (p?.activeSubject && !p?.isRunning && samePendingSession) {
+                    const snapshot = p.activeSubject;
+                    useAppStore.getState().setData?.(prev => clearStudyingStatusInContest(prev, snapshot));
                     useAppStore.getState().setPomodoroActiveSubject(null);
                 }
             }
@@ -1511,7 +1529,7 @@ export default function Pomodoro() {
             setData(prev => clearStudyingStatusInContest(prev, prevSubject));
         }
 
-        if (effectiveSource === 'neural_core' && !pomodoroState.neuralMode) {
+        if (effectiveSource === 'neural_core') {
             const highPriority = [];
             safeCats.forEach(cat => {
                 const catTasks = Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {});
@@ -1519,13 +1537,15 @@ export default function Pomodoro() {
                     highPriority.push({ ...t, id: t.id || t.text || t.title, categoryId: cat.id, catName: cat.name });
                 });
             });
-            const queue = [...highPriority];
-            let startIndex = queue.findIndex(t => String(t.id || t.text || t.title) === String(taskId));
+            const baseQueue = Array.isArray(pomodoroState.neuralQueue) && pomodoroState.neuralQueue.length > 0 && pomodoroState.neuralMode
+                ? [...pomodoroState.neuralQueue]
+                : [...highPriority];
+            let startIndex = baseQueue.findIndex(t => t && String(t.id || t.text || t.title) === String(taskId));
             if (startIndex === -1) {
-                queue.unshift({ ...task, id: taskId, categoryId: catId, catName: catName });
+                baseQueue.unshift({ ...task, id: taskId, categoryId: catId, catName: catName });
                 startIndex = 0;
             }
-            useAppStore.getState().startNeuralSession(queue, startIndex);
+            useAppStore.getState().startNeuralSession(baseQueue, startIndex);
         } else {
             useAppStore.getState().setPomodoroActiveSubject({
                 categoryId: catId,
@@ -1616,17 +1636,28 @@ export default function Pomodoro() {
                     return;
                 } else {
                     showToast('Todas as ações concluídas! Progresso salvo. 🏆', 'success');
-                    if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-                    completionTimeoutRef.current = setTimeout(() => {
-                        useAppStore.getState().setPomodoroActiveSubject(null);
+                    if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current.timerId || completionTimeoutRef.current);
+                    const completedSessionId = currentSubject?.sessionInstanceId || null;
+                    const timerId = setTimeout(() => {
+                        completionTimeoutRef.current = null;
+                        if (currentSubject) {
+                            setData(prev => clearStudyingStatusInContest(prev, currentSubject));
+                        }
+                        const p = useAppStore.getState().appState?.pomodoro;
+                        if (!completedSessionId || p?.activeSubject?.sessionInstanceId === completedSessionId) {
+                            useAppStore.getState().setPomodoroActiveSubject(null);
+                        }
                     }, 1000);
+                    completionTimeoutRef.current = { timerId, sessionInstanceId: completedSessionId };
                     return;
                 }
             }
 
             const sourceAfterFinish = resolveSessionSource(currentSubject?.source);
-            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
-            completionTimeoutRef.current = setTimeout(() => {
+            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current.timerId || completionTimeoutRef.current);
+            const completedSessionId = currentSubject?.sessionInstanceId || null;
+            const timerId = setTimeout(() => {
+                completionTimeoutRef.current = null;
                 const returnPath = resolveReturnPath(sourceAfterFinish, false);
                 if (returnPath === '/pomodoro') {
                     showToast('Sessão finalizada! Selecione sua próxima meta.', 'info');
@@ -1639,12 +1670,16 @@ export default function Pomodoro() {
                     if (currentSubject) {
                         setData(prev => clearStudyingStatusInContest(prev, currentSubject));
                     }
-                    setPomodoroActiveSubject(null);
+                    const p = useAppStore.getState().appState?.pomodoro;
+                    if (!completedSessionId || p?.activeSubject?.sessionInstanceId === completedSessionId) {
+                        setPomodoroActiveSubject(null);
+                    }
                     return;
                 }
                 showToast('Sessão finalizada! Retornando ao menu de origem...', 'info');
                 handleExit({ source: sourceAfterFinish, _subjectSnapshot: currentSubject });
             }, 1000);
+            completionTimeoutRef.current = { timerId, sessionInstanceId: completedSessionId };
             return;
         } else {
             store.setPomodoroAccumulatedMinutes(0);

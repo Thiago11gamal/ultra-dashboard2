@@ -3,6 +3,27 @@
 // Traduz telemetria matemática em linguagem natural
 // ==========================================
 
+function safeDomainScale(maxScore = 100, minScore = 0, minScale = 0.01) {
+    const safeMin = (minScore !== null && minScore !== undefined && typeof minScore !== 'boolean' && String(minScore).trim() !== '' && Number.isFinite(Number(minScore)))
+        ? Number(minScore)
+        : 0;
+    const rawMax = (maxScore !== null && maxScore !== undefined && typeof maxScore !== 'boolean' && String(maxScore).trim() !== '' && Number.isFinite(Number(maxScore)))
+        ? Number(maxScore)
+        : Math.max(100, safeMin + 100);
+    const safeMax = rawMax > safeMin ? rawMax : safeMin + 100;
+    return {
+        safeMin,
+        safeMax,
+        scale: Math.max(minScale, Math.max(1e-9, safeMax - safeMin) / 100),
+    };
+}
+
+function toFiniteMetric(val) {
+    if (val === null || val === undefined || typeof val === 'boolean' || String(val).trim() === '') return NaN;
+    const n = Number(val);
+    return Number.isFinite(n) ? n : NaN;
+}
+
 export function buildHumanExplanation({
     calibrationPenalty,
     volatility,
@@ -12,9 +33,7 @@ export function buildHumanExplanation({
     maxScore = 100,
     minScore = 0
 }) {
-    const safeMax = Number(maxScore) || 100;
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const scale = Math.max(0.01, Math.max(1e-9, safeMax - safeMin) / 100);
+    const { scale } = safeDomainScale(maxScore, minScore, 0.01);
     const messages = [];
 
     if (confidenceTier === 'HIGH') {
@@ -52,22 +71,26 @@ export function getConfidenceTier({
     maxScore = 100,
     minScore = 0
 }) {
-    const safeMax = Number(maxScore) || 100;
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const scale = Math.max(0.01, Math.max(1e-9, safeMax - safeMin) / 100);
-    // Tolerância adaptativa: normalizar a volatilidade para a escala base de 100
-    // calibrationPenalty está entre 0 e 1 (0.1 = 10% de penalidade).
-    const normalizedVolatility = volatility / scale;
-    const instability = (calibrationPenalty * 100) + (normalizedVolatility * 0.2);
+    const { scale } = safeDomainScale(maxScore, minScore, 0.01);
+    const safeSampleSize = toFiniteMetric(sampleSize);
+    const safeVolatility = toFiniteMetric(volatility);
+    const safeCalibrationPenalty = toFiniteMetric(calibrationPenalty);
 
-    if (sampleSize < 3) {
+    if (!Number.isFinite(safeSampleSize) || safeSampleSize < 3 || !Number.isFinite(safeVolatility) || !Number.isFinite(safeCalibrationPenalty)) {
         return {
             tier: 'LOW',
-            label: 'Baixa confiabilidade (Poucos dados)',
+            label: !Number.isFinite(safeSampleSize) || safeSampleSize < 3
+                ? 'Baixa confiabilidade (Poucos dados)'
+                : 'Baixa confiabilidade',
             color: '#ef4444',
             glow: 'shadow-red-500/30',
         };
     }
+
+    // Tolerância adaptativa: normalizar a volatilidade para a escala base de 100
+    // calibrationPenalty está entre 0 e 1 (0.1 = 10% de penalidade).
+    const normalizedVolatility = safeVolatility / scale;
+    const instability = (safeCalibrationPenalty * 100) + (normalizedVolatility * 0.2);
 
     if (instability < 18) {
         return {
@@ -104,9 +127,7 @@ export function detectPerformanceDrift({
     margin = 2 // % do domínio
 }) {
     const alerts = [];
-    const safeMax = Number(maxScore) || 100;
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const scale = Math.max(0.1, Math.max(1e-9, safeMax - safeMin) / 100);
+    const { scale } = safeDomainScale(maxScore, minScore, 0.1);
     const diff = recentMean - baselineMean;
 
     // ✅ PATCH-12: Se estiver em platô/estagnado, retorna sem gerar alertas falsos de "queda"
@@ -177,25 +198,27 @@ export function smoothConfidenceTier({ previousTier, currentTier, stabilityCount
 }
 
 export function humanizeVolatility(sd, maxScore = 100, minScore = 0) {
-    const safeMax = Number(maxScore) || 100;
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const scale = Math.max(0.01, Math.max(1e-9, safeMax - safeMin) / 100);
-    if (sd < 8 * scale) return 'Muito estável';
-    if (sd < 18 * scale) return 'Relativamente estável';
-    if (sd < 30 * scale) return 'Oscilação moderada';
+    const safeSd = toFiniteMetric(sd);
+    if (!Number.isFinite(safeSd)) return 'Dados insuficientes';
+    const { scale } = safeDomainScale(maxScore, minScore, 0.01);
+    if (safeSd < 8 * scale) return 'Muito estável';
+    if (safeSd < 18 * scale) return 'Relativamente estável';
+    if (safeSd < 30 * scale) return 'Oscilação moderada';
     return 'Alta instabilidade';
 }
 
-export function validatePrediction({ probability, interval, confidenceTier }) {
-    if (Number.isNaN(probability)) {
+export function validatePrediction({ probability, interval, confidenceTier } = {}) {
+    const safeProb = toFiniteMetric(probability);
+    if (!Number.isFinite(safeProb)) {
         throw new Error('Invalid probability');
     }
-    if (interval.low > interval.high) {
+    const low = toFiniteMetric(interval?.low);
+    const high = toFiniteMetric(interval?.high);
+    if (!interval || typeof interval !== 'object' || !Number.isFinite(low) || !Number.isFinite(high) || low > high) {
         throw new Error('Invalid conformal interval');
     }
-    if (!confidenceTier) {
+    if (!confidenceTier || typeof confidenceTier !== 'string') {
         throw new Error('Missing confidence tier');
     }
     return true;
 }
-

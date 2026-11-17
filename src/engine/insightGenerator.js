@@ -9,6 +9,7 @@ const toHistoryArray = (history) => {
 };
 
 const safeFinite = (value, fallback = 0) => {
+    if (value === null || value === undefined || typeof value === 'boolean' || String(value).trim() === '') return fallback;
     const n = Number(value);
     return Number.isFinite(n) ? n : fallback;
 };
@@ -245,11 +246,13 @@ export function generateEvolutionInsights({
         if (recentScores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
         
         const maxSwing = Math.max(...recentScores) - Math.min(...recentScores);
+        const displaySwing = unit === '%' ? maxSwing / scale : maxSwing;
+        const formattedSwing = (unit !== '%' && scale < 0.5) ? displaySwing.toFixed(1) : displaySwing.toFixed(0);
 
-        if (maxSwing > 25 * scale) return { type: 'warning', icon: "⚠️", title: "!!Alta Volatilidade Detectada!!", text: `!!Variação de ${maxSwing.toFixed(0)}${unit}.!!`, advice: "Oscilações altas indicam !!'chute'!! ou !!gaps de base!!." };
-        if (maxSwing < 8 * scale) return { type: 'success', icon: "✅", title: "++Consistência Sólida++", text: `++Variação mínima de ${maxSwing.toFixed(0)}${unit}.++`, advice: "Pronto para subir a dificuldade." };
+        if (maxSwing > 25 * scale) return { type: 'warning', icon: "⚠️", title: "!!Alta Volatilidade Detectada!!", text: `!!Variação de ${formattedSwing}${unit}.!!`, advice: "Oscilações altas indicam !!'chute'!! ou !!gaps de base!!." };
+        if (maxSwing < 8 * scale) return { type: 'success', icon: "✅", title: "++Consistência Sólida++", text: `++Variação mínima de ${formattedSwing}${unit}.++`, advice: "Pronto para subir a dificuldade." };
         
-        return { type: 'info', icon: "📊", title: "Desempenho Estável", text: `Oscilação de ${maxSwing.toFixed(0)}${unit}.` };
+        return { type: 'info', icon: "📊", title: "Desempenho Estável", text: `Oscilação de ${formattedSwing}${unit}.` };
     }
 
     // Lógica do Motor Bayesiano

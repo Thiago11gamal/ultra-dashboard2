@@ -1,5 +1,6 @@
 import { formatValue } from './scoreHelper';
 import { getDateKey } from './dateHelper';
+import { addDaysNoon } from './parseNoonLocal';
 import { computeTrendStatus } from './trendStatus';
 
 export { computeTrendStatus };
@@ -172,14 +173,12 @@ export function computeEvolutionStatuses({
   ]);
 
   if (allActiveDates.size > 0 || (showOnlyFocus && focusId && (rawHeatmapDates.length > 0 || timeline.length > 0))) {
-    const todayForConst = new Date();
-    todayForConst.setHours(12, 0, 0, 0);
+    const todayKey = getDateKey(new Date());
     let activeDays = 0;
     for (let i = 0; i < 14; i++) {
-      const d = new Date(todayForConst);
-      d.setDate(d.getDate() - i);
-      const k = getDateKey(d);
-      if (allActiveDates.has(k)) {
+      const shifted = todayKey ? addDaysNoon(todayKey, -i) : null;
+      const k = shifted ? getDateKey(shifted) : null;
+      if (k && allActiveDates.has(k)) {
         activeDays++;
       }
     }
@@ -299,20 +298,19 @@ export function computeEvolutionStatuses({
   }
 
   // Volume recente (últimos 7 dias corridos)
-  const todayForVol = new Date();
-  todayForVol.setHours(12, 0, 0, 0);
+  const todayKeyForVol = getDateKey(new Date());
   const sevenDayKeys = new Set();
   for (let i = 0; i < 7; i++) {
-    const d = new Date(todayForVol);
-    d.setDate(d.getDate() - i);
-    sevenDayKeys.add(getDateKey(d));
+    const shifted = todayKeyForVol ? addDaysNoon(todayKeyForVol, -i) : null;
+    const k = shifted ? getDateKey(shifted) : null;
+    if (k) sevenDayKeys.add(k);
   }
 
   const recentVolume = Array.isArray(timeline)
     ? timeline
       .filter((d) => d?.date && sevenDayKeys.has(d.date))
       .reduce((sum, d) => {
-        const q = (showOnlyFocus && focusId && d?.[`raw_total_${focusId}`] !== undefined)
+        const q = (showOnlyFocus && focusId)
           ? safeNum(d?.[`raw_total_${focusId}`], 0)
           : safeNum(d?.global_total, 0);
         return sum + q;

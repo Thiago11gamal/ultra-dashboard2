@@ -210,7 +210,14 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
 
     let rawWeightVal = safeCategory.weight;
     if (typeof rawWeightVal === 'string') {
-        rawWeightVal = rawWeightVal.replace(/\./g, '').replace(',', '.');
+        const trimmedWeight = rawWeightVal.trim();
+        if (trimmedWeight.includes(',')) {
+            rawWeightVal = trimmedWeight.replace(/\./g, '').replace(',', '.');
+        } else if (/^\d{1,3}(\.\d{3})+$/.test(trimmedWeight)) {
+            rawWeightVal = trimmedWeight.replace(/\./g, '');
+        } else {
+            rawWeightVal = trimmedWeight;
+        }
     }
     const parsedWeight = Number(rawWeightVal);
     const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
@@ -1685,14 +1692,18 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const safeSims = sharedCtx
             ? sharedCtx.safeSims
             : (Array.isArray(simulados) ? simulados : Object.values(simulados || {}));
+        const logsInput = options?.studyLogs ?? studyLogs;
         const safeLogs = sharedCtx
             ? sharedCtx.safeLogs
-            : (Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {}));
+            : (Array.isArray(logsInput) ? logsInput : Object.values(logsInput || {}));
         const safeTasks = Array.isArray(safeCat.tasks) ? safeCat.tasks : Object.values(safeCat.tasks || {});
         const simCount = sharedCtx ? sharedCtx.simCount : safeSims.length;
-        const refDateStr = sharedCtx
+        const baseDateStr = sharedCtx
             ? sharedCtx.refDateStr
             : (options.now ? (getDateKey(options.now) || getDateKey(new Date())) : getDateKey(new Date()));
+        const refDateStr = options?.now != null
+            ? `${baseDateStr}_${options.now instanceof Date ? options.now.getTime() : (typeof options.now === 'number' ? options.now : (_safeDateParse(options.now)?.getTime() ?? String(options.now)))}`
+            : baseDateStr;
         const simsForChecksum = sharedCtx ? sharedCtx.simsForChecksum : sortSimsByDateOnce(safeSims);
         const urgencyCatMax = parseOptionalFinite(safeCat.maxScore);
         const urgencyOptMax = parseOptionalFinite(options?.maxScore);
@@ -1756,21 +1767,23 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const configHash = sharedCtx
             ? sharedCtx.configHash
             : (options.config ? simpleHash(JSON.stringify(options.config)) : 'defcfg');
-        // ✅ FIX: Incluir hash dos simulados da categoria para que novo simulado invalide o cache imediatamente
+        // ✅ FIX: Incluir hash completo dos simulados da categoria para que qualquer edição invalide o cache imediatamente
         const catStatsHistory = safeArray(safeCat.simuladoStats?.history);
-        const catStatsHistoryLen = catStatsHistory.length;
-        const lastCatStat = catStatsHistoryLen > 0 ? catStatsHistory[catStatsHistoryLen - 1] : null;
-        const catStatsHash = `${catStatsHistoryLen}_${lastCatStat?.date || lastCatStat?.createdAt || ''}_${lastCatStat?.score ?? ''}`;
+        const catStatsHash = simpleHash(
+            catStatsHistory
+                .map(s => `${s?.date || s?.createdAt || ''}:${s?.score ?? s?.value ?? ''}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.valid === false ? 0 : 1}`)
+                .join('|')
+        );
 
         // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
         const parsedMinCutoffForKey = parseOptionalFinite(safeCat.minCutoff);
         const minCutoffKey = parsedMinCutoffForKey !== null ? parsedMinCutoffForKey : 'na';
         const cacheKeyRaw = JSON.stringify([
-            activeId, catId, simCount, logCount, scoreChecksum, catStatsHash,
+            activeId, catId, safeCat.weight ?? '', simCount, logCount, scoreChecksum, catStatsHash,
             refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, logsMinutesChecksum, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash, minCutoffKey,
-            options.maxScore ?? catMax, options.minScore ?? catMin, options.targetScore ?? 0
+            options.maxScore ?? catMax, options.minScore ?? catMin, options.targetScore ?? 0, options.targetScoreLabel ?? ''
         ]);
         const cacheKey = `urg_${hashString64(cacheKeyRaw)}`;
         const cachedUrgency = cacheGet(_urgencyCache, cacheKey);
@@ -2003,7 +2016,11 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
             : ((Number(s.total ?? s.questoes) || 0) * 3 + (Number(s.correct ?? s.acertos) || 0) * 7);
         return acc + ((validVal + tLen * 13 + tSum) * (index + 1) * 1.17);
     }, 0);
-    const tasksHash = safeTasks.reduce((acc, t) => acc + ((t?.id || t?.text || '').length) + (t?.completed ? 17 : 0), 0);
+    const tasksHash = simpleHash(
+        safeTasks
+            .map(t => `${t?.id ?? ''}:${t?.text ?? ''}:${t?.topicName ?? ''}:${t?.priority ?? ''}:${t?.completed ? 1 : 0}`)
+            .join('|')
+    );
     const historyLen = rawCatHistForHash.length;
 
 
@@ -2653,8 +2670,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         // ✅ FIX: sufixo determinístico — sem Date.now() (IDs estáveis p/ Planner/dedupe)
         const mcIdSuffix = hashString64(`${safeCatKey}|mc`);
         // Ordem corrigida: crítico > caos > SRS > cruzeiro > trap
-        if (mc && mc.probabilityRaw < adaptiveDanger) {
-            const probPct = Math.round(mc.probabilityRaw);
+        const calibratedProb = mc
+            ? (Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : Number(mc.probabilityRaw))
+            : null;
+        const rawProbVal = mc
+            ? (Number.isFinite(Number(mc.probabilityRaw)) ? Number(mc.probabilityRaw) : calibratedProb)
+            : null;
+        if (mc && (calibratedProb < adaptiveDanger || rawProbVal < adaptiveDanger)) {
+            const probPct = Math.round(calibratedProb);
             const parsedCatCutoff = parseOptionalFinite(cat?.minCutoff);
             const catTargetScore = parsedCatCutoff !== null
                 ? clamp(parsedCatCutoff, catMin, catMax)
@@ -2686,8 +2709,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
                 }
             });
-        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (catRange / 100) && mc.probabilityRaw < adaptiveSafe) {
-            const probPct = Math.round(mc.probabilityRaw);
+        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (catRange / 100) && rawProbVal < adaptiveSafe) {
+            const probPct = Math.round(calibratedProb);
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido mcVolKey e mcProbKey do ID para manter estabilidade
                 id: `${safeCatKey}-mc-chaos-${mcIdSuffix}`,
@@ -2730,8 +2753,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                 }
             });
-        } else if (mc && mc.probabilityRaw >= adaptiveSafe) {
-            const probPct = Math.round(mc.probabilityRaw);
+        } else if (mc && rawProbVal >= adaptiveSafe && calibratedProb >= adaptiveDanger) {
+            const probPct = Math.round(rawProbVal);
             allGeneratedTasks.push({
                 // FIX (LOGIC): Emitido como alerta de sistema [STATUS] para acionar o banner Cruzeiro Seguro no AICoachView sem duplicar tarefa comum
                 id: `${safeCatKey}-mc-safe-${mcIdSuffix}`,

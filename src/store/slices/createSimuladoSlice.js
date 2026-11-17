@@ -4,6 +4,7 @@ import {
   getSimuladoRowTotal,
   resolveCategoryScoreDomain
 } from '../../utils/simuladoReconciler.js';
+import { getSafeScore } from '../../utils/scoreHelper.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
 import { isSubjectMatch } from '../../utils/normalization.js';
@@ -153,9 +154,10 @@ if (c.simuladoStats?.history) {
 
       // Data afetada: recalcular stats com as rows restantes para esta categoria nessa data
       const catRowsForDay = remainingRows.filter(r => {
+        if (!r) return false;
         const rDateKey = getDateKey(normalizeDate(r.date || r.createdAt));
         if (rDateKey !== hDateKey) return false;
-        if (c.id && r.categoryId && r.categoryId === c.id) return true;
+        if (r.categoryId) return Boolean(c.id && r.categoryId === c.id);
         return isSubjectMatch(r.subject, c.name);
       });
 
@@ -166,7 +168,10 @@ if (c.simuladoStats?.history) {
       const dayTotal = catRowsForDay.reduce((sum, r) => sum + getSimuladoRowTotal(r), 0);
       const dayCorrect = catRowsForDay.reduce((sum, r) => sum + getSimuladoRowCorrect(r), 0);
 
-      if (dayTotal <= 0) return null;
+      const scoreOnlyRows = dayTotal <= 0
+        ? catRowsForDay.filter(r => r.score != null && String(r.score).trim() !== '' && Number.isFinite(Number(r.score)))
+        : [];
+      if (dayTotal <= 0 && scoreOnlyRows.length === 0) return null;
 
       const dayTimeSpent = catRowsForDay.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
       const dayTimedQuestoes = catRowsForDay.reduce(
@@ -176,6 +181,7 @@ if (c.simuladoStats?.history) {
 
       const topicsMap = {};
       let totalDiffWeight = 0;
+      let diffRowSum = 0;
       catRowsForDay.forEach(r => {
         const tName = String(r.topic || '').trim() || 'Geral';
         const rTot = getSimuladoRowTotal(r);
@@ -183,38 +189,63 @@ if (c.simuladoStats?.history) {
         const rDiff = Number.isFinite(Number(r.difficulty)) && Number(r.difficulty) > 0 ? Number(r.difficulty) : 1.0;
         const rTime = Number(r.timeSpent) || 0;
         const rowTaskId = r.taskId || r.topicId || null;
-        totalDiffWeight += rDiff * rTot;
+        totalDiffWeight += rDiff * (rTot > 0 ? rTot : 1);
+        diffRowSum += rTot > 0 ? rTot : 1;
 
         if (!topicsMap[tName]) {
-          topicsMap[tName] = { name: tName, correct: 0, total: 0, diffWeight: 0, timeSpent: 0, taskId: rowTaskId };
+          topicsMap[tName] = {
+            name: tName,
+            correct: 0,
+            total: 0,
+            diffWeight: 0,
+            diffWeightCount: 0,
+            timeSpent: 0,
+            taskId: rowTaskId,
+            scores: []
+          };
         } else if (!topicsMap[tName].taskId && rowTaskId) {
           topicsMap[tName].taskId = rowTaskId;
         }
         topicsMap[tName].correct += rCor;
         topicsMap[tName].total += rTot;
-        topicsMap[tName].diffWeight += rDiff * rTot;
+        topicsMap[tName].diffWeight += rDiff * (rTot > 0 ? rTot : 1);
+        topicsMap[tName].diffWeightCount += rTot > 0 ? rTot : 1;
         topicsMap[tName].timeSpent += rTime;
+        if (rTot <= 0 && r.score != null && Number.isFinite(Number(r.score))) {
+          topicsMap[tName].scores.push(getSafeScore(r, catMaxScore, catMinScore));
+        }
       });
 
-      const reconciledTopics = Object.values(topicsMap).map(td => ({
-        name: td.name,
-        taskId: td.taskId,
-        correct: td.correct,
-        total: td.total,
-        percentage: td.total > 0 ? (td.correct / td.total) * 100 : 0,
-        difficulty: td.total > 0 ? Number((td.diffWeight / td.total).toFixed(2)) : 1.0,
-        timeSpent: td.timeSpent
-      }));
+      const reconciledTopics = Object.values(topicsMap).map(td => {
+        const avgTopicScore = td.scores.length > 0
+          ? td.scores.reduce((s, v) => s + v, 0) / td.scores.length
+          : null;
+        const pct = td.total > 0
+          ? (td.correct / td.total) * 100
+          : (avgTopicScore !== null && catRange > 0 ? ((avgTopicScore - catMinScore) / catRange) * 100 : 0);
+        return {
+          name: td.name,
+          taskId: td.taskId,
+          correct: td.correct,
+          total: td.total,
+          ...(avgTopicScore !== null && td.total <= 0 ? { score: Number(avgTopicScore.toFixed(2)), isPercentage: false } : {}),
+          percentage: pct,
+          difficulty: td.diffWeightCount > 0 ? Number((td.diffWeight / td.diffWeightCount).toFixed(2)) : 1.0,
+          timeSpent: td.timeSpent
+        };
+      });
 
-      const ratio = dayCorrect / dayTotal;
-      const computedScore = catMinScore + ratio * catRange;
+      const computedScore = dayTotal > 0
+        ? catMinScore + (dayCorrect / dayTotal) * catRange
+        : scoreOnlyRows.reduce((sum, r) => sum + getSafeScore(r, catMaxScore, catMinScore), 0) / scoreOnlyRows.length;
 
       return {
         ...h,
         correct: dayCorrect,
         total: dayTotal,
+        isPercentage: false,
         score: Math.min(catMaxScore, Math.max(catMinScore, Number(computedScore.toFixed(2)))),
-        difficulty: Number((totalDiffWeight / dayTotal).toFixed(2)) || 1.0,
+        difficulty: diffRowSum > 0 ? (Number((totalDiffWeight / diffRowSum).toFixed(2)) || 1.0) : 1.0,
         timeSpent: dayTimeSpent,
         timedQuestoes: dayTimedQuestoes,
         topics: reconciledTopics

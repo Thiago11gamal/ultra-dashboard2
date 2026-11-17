@@ -34,6 +34,7 @@ export const createCategorySlice = (set) => ({
             const catCount = activeData.categories.length;
             const assignedColor = PRESET_CATEGORY_COLORS[catCount % PRESET_CATEGORY_COLORS.length];
 
+            const nowIso = new Date().toISOString();
             activeData.categories.push({
                 id: newCatId,
                 name,
@@ -46,13 +47,14 @@ export const createCategorySlice = (set) => ({
                 minCutoff: catMinScore,
                 simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
                 totalMinutes: 0,
-                lastStudiedAt: null
+                lastStudiedAt: null,
+                createdAt: nowIso,
+                lastUpdated: nowIso,
+                updatedAt: nowIso
             });
 
             // ✅ Remove qualquer tombstone prévio para permitir salvar e sincronizar perfeitamente
             removeCategoryTombstone(newCatId, name);
-
-            const nowIso = new Date().toISOString();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -158,8 +160,13 @@ export const createCategorySlice = (set) => ({
             state.appState.pomodoro.isRunning = false;
             state.appState.pomodoro.neuralMode = false;
             state.appState.pomodoro.neuralQueue = [];
+            state.appState.pomodoro.mode = 'work';
+            state.appState.pomodoro.sessions = 1;
+            state.appState.pomodoro.completedCycles = 0;
+            state.appState.pomodoro.accumulatedMinutes = 0;
             try {
                 localStorage.removeItem('pomodoroState');
+                localStorage.removeItem('pomodoro-endsAt');
             } catch {
                 // ignore
             }
@@ -267,8 +274,18 @@ export const createCategorySlice = (set) => ({
                     }
                     if (Array.isArray(activeData.simulados)) {
                         activeData.simulados.forEach(s => {
-                            if (s && (matchesCatId(s.categoryId) || normalize(s.subject || '') === normalize(oldName))) {
+                            if (!s) return;
+                            if (matchesCatId(s.categoryId) || normalize(s.subject || '') === normalize(oldName)) {
                                 s.subject = fields.name;
+                            }
+                            if (s.categoryScores && typeof s.categoryScores === 'object' && !Array.isArray(s.categoryScores)) {
+                                const matchingKey = Object.keys(s.categoryScores).find(
+                                    k => k === oldName || normalize(k) === normalize(oldName)
+                                );
+                                if (matchingKey && matchingKey !== fields.name) {
+                                    s.categoryScores[fields.name] = s.categoryScores[matchingKey];
+                                    delete s.categoryScores[matchingKey];
+                                }
                             }
                         });
                     }
@@ -330,6 +347,8 @@ export const createCategorySlice = (set) => ({
                 }
             }
             const nowIso = new Date().toISOString();
+            category.lastUpdated = nowIso;
+            category.updatedAt = nowIso;
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -590,6 +609,12 @@ export const createCategorySlice = (set) => ({
             }
 
             const nowIso = new Date().toISOString();
+            newCategories.forEach(c => {
+                if (c) {
+                    c.lastUpdated = nowIso;
+                    c.updatedAt = nowIso;
+                }
+            });
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -597,66 +622,68 @@ export const createCategorySlice = (set) => ({
         }
     }),
 
-importCategory: (sourceContestId, categoryId) => {
-    let result = false;
-    set((state) => {
-        const sourceData = state.appState.contests[sourceContestId];
-        const activeData = state.appState.contests[state.appState.activeId];
+    importCategory: (sourceContestId, categoryId) => {
+        let result = false;
+        set((state) => {
+            const sourceData = state.appState.contests[sourceContestId];
+            const activeData = state.appState.contests[state.appState.activeId];
 
-        if (!sourceData || !activeData) return;
-        const sourceCategories = Array.isArray(sourceData.categories)
-            ? sourceData.categories
-            : Object.values(sourceData.categories || {});
+            if (!sourceData || !activeData) return;
+            const sourceCategories = Array.isArray(sourceData.categories)
+                ? sourceData.categories
+                : Object.values(sourceData.categories || {});
 
-        const categoryToImport = sourceCategories.find(c => c && (c.id === categoryId || c.name === categoryId));
-        if (!categoryToImport) return;
+            const categoryToImport = sourceCategories.find(c => c && (c.id === categoryId || c.name === categoryId));
+            if (!categoryToImport) return;
 
-        if (!Array.isArray(activeData.categories)) {
-            activeData.categories = activeData.categories && typeof activeData.categories === 'object'
-                ? Object.values(activeData.categories)
-                : [];
-        }
+            if (!Array.isArray(activeData.categories)) {
+                activeData.categories = activeData.categories && typeof activeData.categories === 'object'
+                    ? Object.values(activeData.categories)
+                    : [];
+            }
 
-        // Check duplicates
-        const normName = normalize(categoryToImport.name || '');
-        if (activeData.categories.some(c => normalize(c?.name || '') === normName)) {
-            console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
-            return;
-        }
+            // Check duplicates
+            const normName = normalize(categoryToImport.name || '');
+            if (activeData.categories.some(c => normalize(c?.name || '') === normName)) {
+                console.warn(`[Store] Category "${categoryToImport.name}" already exists in the active contest.`);
+                return;
+            }
 
-        const newId = generateId('cat');
-        const importedCat = safeClone(categoryToImport);
-        importedCat.id = newId;
+            const newId = generateId('cat');
+            const importedCat = safeClone(categoryToImport);
+            importedCat.id = newId;
 
-        // Resetar histórico, tempo e estatísticas para o novo concurso
-        importedCat.totalMinutes = 0;
-        importedCat.lastStudiedAt = null;
-        importedCat.simuladoStats = {
-            history: [],
-            average: 0,
-            lastAttempt: 0,
-            trend: 'stable',
-            level: 'BAIXO'
-        };
-
-        // Regenerar IDs das tarefas e resetar progresso para o novo certame
-        const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
-        importedCat.tasks = rawTasks.map(t => {
-            const taskClone = safeClone(t);
-            return {
-                ...taskClone,
-                id: generateId('task'),
-                completed: false,
-                completedAt: null,
-                status: null,
-                awardedXP: undefined
+            // Resetar histórico, tempo e estatísticas para o novo concurso
+            importedCat.totalMinutes = 0;
+            importedCat.lastStudiedAt = null;
+            importedCat.simuladoStats = {
+                history: [],
+                average: 0,
+                lastAttempt: 0,
+                trend: 'stable',
+                level: 'BAIXO'
             };
-        });
-
-        activeData.categories.push(importedCat);
-        removeCategoryTombstone(newId, importedCat.name);
 
         const nowIso = new Date().toISOString();
+        importedCat.createdAt = nowIso;
+        importedCat.lastUpdated = nowIso;
+        importedCat.updatedAt = nowIso;
+
+            // Regenerar IDs das tarefas e resetar progresso para o novo certame
+            const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
+            importedCat.tasks = rawTasks.map(t => {
+                const taskClone = safeClone(t);
+                return {
+                    ...taskClone,
+                    id: generateId('task'),
+                    completed: false,
+                    completedAt: null,
+                    status: null,
+                    awardedXP: undefined
+                };
+            });
+
+        activeData.categories.push(importedCat);
         activeData.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;

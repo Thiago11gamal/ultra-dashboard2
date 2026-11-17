@@ -7,6 +7,25 @@ import { normalizePriority } from '../../utils/colorHelper.js';
 import { normalize } from '../../utils/normalization.js';
 import { matchesActiveSubjectTask } from '../../utils/pomodoroHelpers.js';
 
+const clearPomodoroSession = (state) => {
+    const p = state.appState?.pomodoro;
+    if (!p) return;
+    p.activeSubject = null;
+    p.isRunning = false;
+    p.neuralMode = false;
+    p.neuralQueue = [];
+    p.mode = 'work';
+    p.sessions = 1;
+    p.completedCycles = 0;
+    p.accumulatedMinutes = 0;
+    try {
+        localStorage.removeItem('pomodoroState');
+        localStorage.removeItem('pomodoro-endsAt');
+    } catch {
+        // ignore storage removal errors
+    }
+};
+
 export const createTaskSlice = (set, get) => ({
     toggleTask: (categoryId, taskId) => {
         let pendingXpChange = 0;
@@ -47,14 +66,7 @@ export const createTaskSlice = (set, get) => ({
                 }
                 const activeSubject = state.appState.pomodoro?.activeSubject;
                 if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
-                    state.appState.pomodoro.activeSubject = null;
-                    state.appState.pomodoro.isRunning = false;
-                    try {
-                        localStorage.removeItem('pomodoroState');
-                        localStorage.removeItem('pomodoro-endsAt');
-                    } catch {
-                        // ignore storage removal errors
-                    }
+                    clearPomodoroSession(state);
                 }
             } else {
                 // ✅ FIX N-03: Ao desmarcar, usar o recibo gravado (não o XP atual da prioridade)
@@ -68,7 +80,7 @@ export const createTaskSlice = (set, get) => ({
             markStorageDirty();
         });
         if (pendingXpChange !== 0 && get().awardExperience) {
-            get().awardExperience(pendingXpChange);
+            get().awardExperience(pendingXpChange, { skipVersionBump: true });
         }
     },
 
@@ -147,7 +159,7 @@ export const createTaskSlice = (set, get) => ({
         });
 
         if (pendingXpChange !== 0 && get().awardExperience) {
-            get().awardExperience(pendingXpChange);
+            get().awardExperience(pendingXpChange, { skipVersionBump: true });
         }
     },
 
@@ -298,14 +310,7 @@ export const createTaskSlice = (set, get) => ({
                 }
                 const activeSubject = state.appState.pomodoro?.activeSubject;
                 if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
-                    state.appState.pomodoro.activeSubject = null;
-                    state.appState.pomodoro.isRunning = false;
-                    try {
-                        localStorage.removeItem('pomodoroState');
-                        localStorage.removeItem('pomodoro-endsAt');
-                    } catch {
-                        // ignore storage removal errors
-                    }
+                    clearPomodoroSession(state);
                 }
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
 
@@ -317,7 +322,7 @@ export const createTaskSlice = (set, get) => ({
             }
         });
         if (pendingXpDeduction > 0 && get().awardExperience) {
-            get().awardExperience(-pendingXpDeduction);
+            get().awardExperience(-pendingXpDeduction, { skipVersionBump: true });
         }
     },
 
@@ -389,7 +394,7 @@ export const createTaskSlice = (set, get) => ({
             });
 
         if (pendingXpDiff !== 0 && typeof get().awardExperience === 'function') {
-            get().awardExperience(pendingXpDiff);
+            get().awardExperience(pendingXpDiff, { skipVersionBump: true });
         }
     },
 });

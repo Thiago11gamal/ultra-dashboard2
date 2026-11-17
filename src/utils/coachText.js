@@ -151,9 +151,14 @@ export function getFeedbackColor(score, limits = { low: 70, mastery: 85 }) {
     if (!Number.isFinite(score)) return "text-gray-400";
     if (!limits) return "text-gray-400";
     
+    const toValidLimit = (val, fb) => (
+        val !== null && val !== undefined && typeof val !== 'boolean' && String(val).trim() !== '' && Number.isFinite(Number(val))
+            ? Number(val)
+            : fb
+    );
     // Normalizar limites caso venham errados (ex: meta menor que min)
-    let low = Number.isFinite(Number(limits.low)) ? Number(limits.low) : 70;
-    let mast = Number.isFinite(Number(limits.mastery)) ? Number(limits.mastery) : Math.max(low, 85);
+    let low = toValidLimit(limits.low, 70);
+    let mast = toValidLimit(limits.mastery, Math.max(low, 85));
     
     if (mast < low) mast = low;
     

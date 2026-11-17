@@ -63,14 +63,7 @@ export function safeSetItem(key, value) {
 
           const largest = pickLargest(candidates);
 
-          // FIX (BUG-10): se o maior item é o próprio alvo, remover o segundo maior
-          const target = (largest === key)
-            ? candidates.filter(k => k !== key).reduce((biggest, k) => {
-                const bs = storage.getItem(biggest)?.length || 0;
-                const cs = storage.getItem(k)?.length || 0;
-                return cs > bs ? k : biggest;
-              }, null)
-            : largest;
+          const target = (largest && largest !== key) ? largest : null;
           if (target) storage.removeItem(target);
         } catch {
           return false;

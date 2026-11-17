@@ -442,10 +442,9 @@ export const createPomodoroSlice = (set, get) => ({
                     p.targetCycles || 1,
                     Math.max(0, Number(payload.completedCycles) || 0)
                 );
-
-                if (p.completedCycles >= (p.targetCycles || 1)) {
-                    p.completedCycles = Math.max(0, (p.targetCycles || 1) - 1);
-                }
+            }
+            if ((p.completedCycles || 0) >= (p.targetCycles || 1)) {
+                p.completedCycles = Math.max(0, (p.targetCycles || 1) - 1);
             }
 
             if (payload.accumulatedMinutes !== undefined) {

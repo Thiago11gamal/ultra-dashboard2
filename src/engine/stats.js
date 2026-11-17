@@ -106,7 +106,10 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
 
     if (typeof lambda === 'object' && lambda !== null) {
         effectiveOptions = lambda;
-        effectiveLambda = Number.isFinite(effectiveOptions.lambda) ? effectiveOptions.lambda : 0.08;
+        const parsedOptLambda = Number(effectiveOptions.lambda);
+        effectiveLambda = (effectiveOptions.lambda !== undefined && effectiveOptions.lambda !== null && typeof effectiveOptions.lambda !== 'boolean' && String(effectiveOptions.lambda).trim() !== '' && Number.isFinite(parsedOptLambda))
+            ? Math.max(0, Math.min(1, parsedOptLambda))
+            : 0.08;
         effectiveMaxScore = safeMaxScoreValue(effectiveOptions.maxScore, 100);
     } else {
         effectiveLambda = Math.max(0, Math.min(1, Number.isFinite(Number(lambda)) ? Number(lambda) : 0.08));
@@ -172,7 +175,7 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
     const regularizedDenominator = varianceX + RIDGE_PENALTY;
 
-    if (safeSumW < 1e-15 || regularizedDenominator < 1e-15) {
+    if (sumW < 1e-15 || regularizedDenominator < 1e-15) {
         const fallbackScore = getSafeScore(sorted[sorted.length - 1], effectiveMaxScore, minScore);
         return { slope: 0, intercept: Number.isFinite(fallbackScore) ? fallbackScore : 0, slopeStdError: defaultSlopeStdError };
     }
@@ -496,7 +499,11 @@ export function computeBayesianLevel(
         .filter(item => Number.isFinite(item.time))
         .sort((a, b) => a.time - b.time);
 
-    const historySortedForGaps = historyWithTime.map(item => item.original);
+    const effectiveHistoryWithTime = historyWithTime.length > 0
+        ? historyWithTime
+        : history.map(h => ({ original: h, time: NaN }));
+
+    const historySortedForGaps = effectiveHistoryWithTime.map(item => item.original);
 
     if (historyWithTime.length > 1) {
         for (let i = 1; i < historyWithTime.length; i++) {
@@ -525,9 +532,9 @@ export function computeBayesianLevel(
     // ✅ LOTE-01 FIX: priors calculados SOBRE O MESMO ARRAY iterado abaixo.
     // Antes o slice(-2000) acontecia depois, desalinhando runningPriors[i].
     const MAX_ITERATIONS = 2000;
-    const itemsToProcess = historyWithTime.length > MAX_ITERATIONS
-        ? historyWithTime.slice(-MAX_ITERATIONS)
-        : historyWithTime;
+    const itemsToProcess = effectiveHistoryWithTime.length > MAX_ITERATIONS
+        ? effectiveHistoryWithTime.slice(-MAX_ITERATIONS)
+        : effectiveHistoryWithTime;
     const historyToProcess = itemsToProcess.map(item => item.original);
 
     // M-08 FIX: Reutilizar buffer se possível (evitar alocação a cada chamada)
@@ -762,7 +769,7 @@ export function computeBayesianLevel(
     const n = alpha + beta;
 
     if (!Number.isFinite(n) || n <= 0) {
-        return { mean: 0, sd: 0, ciLow: 0, ciHigh: 0, alpha: alpha0, beta: beta0, n: 0 };
+        return { mean: safeMinScore, sd: 0, ciLow: safeMinScore, ciHigh: safeMinScore, alpha: alpha0, beta: beta0, n: 0 };
     }
 
     const effectiveN = Math.min(n, dynamicEffectiveN);
@@ -1145,7 +1152,7 @@ export {
     shrinkProbabilityToNeutral
 } from '../utils/calibration.js';
 
-export function computeHierarchicalAdjustment(categories, pooledSD) {
+export function computeHierarchicalAdjustment(categories, pooledSD, options = {}) {
     const safeCategories = toHistoryArray(categories);
     if (!safeCategories.length) return safeCategories;
 
@@ -1155,12 +1162,24 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
 
     if (!validCategories.length) return safeCategories;
 
+    const maxProvidedMax = validCategories.reduce((mx, v) => {
+        const rm = Number(v?.maxScore);
+        return Number.isFinite(rm) && rm > mx ? rm : mx;
+    }, 100);
+
     const getCatBounds = (c) => {
         const cMin = Number.isFinite(Number(c?.minScore)) ? Number(c.minScore) : 0;
         const rawMax = Number(c?.maxScore);
-        const cMax = Number.isFinite(rawMax) && rawMax > cMin ? rawMax : Math.max(cMin + 1, 100);
+        const cMax = Number.isFinite(rawMax) && rawMax > cMin ? rawMax : Math.max(cMin + 100, maxProvidedMax);
         return { cMin, cRange: Math.max(1e-9, cMax - cMin) };
     };
+
+    const optScale = Number(options?.globalRange ?? options?.pooledSDScale);
+    const resolvedPooledSD = Number.isFinite(pooledSD) && pooledSD >= 0
+        ? (options?.isRawPooledSD && Number.isFinite(optScale) && optScale > 0
+            ? (pooledSD / optScale) * 100
+            : pooledSD)
+        : 15;
 
     const normMeans = validCategories.map(c => {
         const { cMin, cRange } = getCatBounds(c);
@@ -1181,7 +1200,7 @@ export function computeHierarchicalAdjustment(categories, pooledSD) {
         const isStandardScale = cRange === 100 && cMin === 0;
         const normMean = isStandardScale ? cat.mean : ((cat.mean - cMin) / cRange) * 100;
 
-        const safePooled = Number.isFinite(pooledSD) && pooledSD >= 0 ? pooledSD : 15;
+        const safePooled = resolvedPooledSD;
         const rawLocalSD = Number.isFinite(cat.sd) ? cat.sd : (isStandardScale ? safePooled : (safePooled / 100) * cRange);
         const normLocalSD = isStandardScale ? rawLocalSD : (rawLocalSD / cRange) * 100;
         const localVar = Math.pow(normLocalSD, 2) / Math.max(1, cat.n);

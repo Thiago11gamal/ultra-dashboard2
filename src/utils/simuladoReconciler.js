@@ -187,8 +187,9 @@ export function reconcileContestCategoriesHistory(
     const catNorm = normalize(cat.name);
     const catAliases = aliases[catNorm] || [];
     const myRows = simuladoRows.filter((r) => {
-      if (r?.categoryId && r.categoryId === cat.id) return true;
-      const subNorm = normalize(r?.subject);
+      if (!r) return false;
+      if (r.categoryId) return r.categoryId === cat.id;
+      const subNorm = normalize(r.subject);
       if (!subNorm) return false;
       return subNorm === catNorm || catAliases.some(a => normalize(a) === subNorm);
     });
@@ -229,7 +230,7 @@ export function reconcileContestCategoriesHistory(
       };
     });
 
-    const { minScore: catMin, range: catRange } = resolveCategoryScoreDomain(
+    const { maxScore: catMax, minScore: catMin, range: catRange } = resolveCategoryScoreDomain(
       cat,
       contestMaxScore,
       contestMinScore
@@ -238,14 +239,19 @@ export function reconcileContestCategoriesHistory(
     Object.entries(rowsByDate).forEach(([dateKey, topics]) => {
       const totalC = topics.reduce((s, t) => s + t.correct, 0);
       const totalQ = topics.reduce((s, t) => s + t.total, 0);
-      const calcScore = totalQ > 0 ? catMin + (totalC / totalQ) * catRange : catMin;
+      const scoredTopics = topics.filter(t => t.score != null && String(t.score).trim() !== '' && Number.isFinite(Number(t.score)));
+      const calcScore = totalQ > 0
+        ? catMin + (totalC / totalQ) * catRange
+        : (scoredTopics.length > 0
+          ? scoredTopics.reduce((sum, t) => sum + getSafeScore(t, catMax, catMin), 0) / scoredTopics.length
+          : catMin);
 
       if (!mergedHistoryMap[dateKey]) {
         mergedHistoryMap[dateKey] = {
           date: dateKey,
           correct: 0,
           total: 0,
-          score: catMin,
+          score: calcScore,
           isPercentage: false,
           topics: []
         };
@@ -274,6 +280,11 @@ export function reconcileContestCategoriesHistory(
         entry.correct = totalC;
         entry.total = totalQ;
         entry.score = calcScore;
+        entry.isPercentage = false;
+      } else if (scoredTopics.length > 0) {
+        entry.correct = 0;
+        entry.total = 0;
+        entry.score = Number(calcScore.toFixed(2));
         entry.isPercentage = false;
       }
     });

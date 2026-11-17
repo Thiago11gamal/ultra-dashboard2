@@ -1,9 +1,9 @@
 export function toArray(value) {
   if (value === null || value === undefined) return [];
-  if (Array.isArray(value)) return [...value];
+  if (Array.isArray(value)) return value.filter(v => v !== null && v !== undefined);
   if (typeof value === 'object') {
-    if (Object.keys(value).length === 0) return [];
-    return Object.values(value);
+    const vals = Object.values(value).filter(v => v !== null && v !== undefined);
+    return vals;
   }
   return [value];
 }

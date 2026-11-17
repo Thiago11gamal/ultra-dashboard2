@@ -19,8 +19,16 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
   const taskId = formData.taskId || null;
   const assignedBatchId = batchId || formData?.batchId || generateId('batch');
   const domain = safeDomain(Number(draft.maxScore) || 100, Number(draft.minScore) || 0);
+  const categoriesList = safeArray(draft.categories);
+  const matchedCat = categoriesList.find(c => {
+    if (!c) return false;
+    const idMatch = categoryId && c.id === categoryId;
+    return idMatch || (!categoryId && isSubjectMatch(c.name, materia));
+  });
+  const catResolved = matchedCat ? resolveCategoryScoreDomain(matchedCat, domain.max, domain.min) : null;
+  const rowDomain = catResolved ? { min: catResolved.minScore, max: catResolved.maxScore, range: catResolved.range } : domain;
   const ratio = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.max(0, Math.min(1, correct / total)) : 0;
-  const computedScore = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.round((correct / total) * 100) : 0;
+  const computedScore = Math.round(ratio * 100);
   const diffMap = { facil: 0.7, medio: 1.0, dificil: 1.3, expert: 1.6 };
   const numericDifficulty = diffMap[formData.dificuldade] || 1.0;
 
@@ -35,7 +43,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     total,
     score: computedScore,
     scorePct: ratio * 100,
-    scorePoints: domain.min + ratio * domain.range,
+    scorePoints: rowDomain.min + ratio * rowDomain.range,
     date: todayKey,
     createdAt: new Date().toISOString(),
     isAuto: false,
@@ -64,7 +72,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     const isSameBatch = hasExplicitBatch ? (r.batchId === assignedBatchId) : true;
     if (isCatMatch && isTaskOrTopicMatch && isSameBatch) {
       rowFound = true;
-      const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs, isDelta: true }, domain.max, domain.min);
+      const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs, isDelta: true }, rowDomain.max, rowDomain.min);
       Object.assign(r, updatedRow);
       r.lastUpdated = new Date().toISOString();
     }
@@ -81,9 +89,9 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         id: generateId('ai-sim'),
         batchId: assignedBatchId,
         date: todayKey,
-        scorePoints: domain.min + ratio * (domain.max - domain.min),
+        scorePoints: rowDomain.min + ratio * rowDomain.range,
         scorePct: ratio * 100,
-        score: domain.min + ratio * (domain.max - domain.min),
+        score: rowDomain.min + ratio * rowDomain.range,
         total,
         correct,
         type: 'ai-simulado',
@@ -100,7 +108,6 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
       }
   }
 
-  const categoriesList = safeArray(draft.categories);
   for (const cat of categoriesList) {
     if (!cat) continue;
     const idMatch = categoryId && cat.id === categoryId;
@@ -117,7 +124,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
          cat.simuladoStats = { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' };
       }
       if (!Array.isArray(cat.simuladoStats.history)) {
-         cat.simuladoStats.history = [];
+         cat.simuladoStats.history = Object.values(cat.simuladoStats.history || {}).filter(Boolean);
       }
       let history = cat.simuladoStats.history;
 
@@ -151,8 +158,17 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           existing.topics.push(newTopicEntry);
         }
 
-        const dayTotal = (Number(existing.total) || 0) + total;
-        const dayCorrect = (Number(existing.correct) || 0) + correct;
+        const prevTotal = Number(existing.total) || 0;
+        const hasPrevCorrect = existing.correct !== undefined && existing.correct !== null && existing.correct !== '';
+        let prevCorrect = hasPrevCorrect ? (Number(existing.correct) || 0) : 0;
+        if (!hasPrevCorrect && prevTotal > 0 && Number.isFinite(Number(existing.score))) {
+          const prevRatio = existing.isPercentage
+            ? Math.max(0, Math.min(1, Number(existing.score) / 100))
+            : Math.max(0, Math.min(1, (Number(existing.score) - catMinScore) / Math.max(1e-9, catScoreRange)));
+          prevCorrect = Math.round(prevRatio * prevTotal);
+        }
+        const dayTotal = prevTotal + total;
+        const dayCorrect = prevCorrect + correct;
         const dayTimeSpent = (Number(existing.timeSpent) || 0) + timeSpentSecs;
         const dayTimedQuestoes = (Number(existing.timedQuestoes) || 0) + (timeSpentSecs > 0 ? total : 0);
 
@@ -162,6 +178,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
 
         existing.correct = dayCorrect;
         existing.total = dayTotal;
+        existing.isPercentage = false;
         existing.score = dayTotal > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (dayCorrect / dayTotal) * catScoreRange)) : catMinScore;
         existing.difficulty = newDiff;
         existing.timeSpent = dayTimeSpent;
@@ -174,6 +191,7 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           date: todayKey,
           correct,
           total,
+          isPercentage: false,
           timeSpent: timeSpentSecs,
           timedQuestoes: timeSpentSecs > 0 ? total : 0,
           lastSessionTimeSpent: timeSpentSecs,

@@ -1,6 +1,8 @@
+const isStrictNum = (val) => val !== null && val !== undefined && typeof val !== 'boolean' && String(val).trim() !== '' && Number.isFinite(Number(val));
+
 export function safeDomain(maxScore = 100, minScore = 0) {
-  let max = maxScore !== null && maxScore !== '' && Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
-  let min = minScore !== null && minScore !== '' && Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  let max = isStrictNum(maxScore) ? Number(maxScore) : 100;
+  let min = isStrictNum(minScore) ? Number(minScore) : 0;
   if (min > max) { const tmp = min; min = max; max = tmp; }
   const range = Math.max(1e-9, max - min);
   return { min, max, range };
@@ -8,26 +10,23 @@ export function safeDomain(maxScore = 100, minScore = 0) {
 
 export function clampScore(val, options = {}) {
   const { min, max } = safeDomain(options.maxScore ?? 100, options.minScore ?? 0);
-  if (val === null || val === undefined || val === '') return min;
+  if (!isStrictNum(val)) return min;
   const n = Number(val);
-  if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, n));
 }
 
 export function scoreToRatio(score, options = {}) {
   const { min, range } = safeDomain(options.maxScore, options.minScore);
-  if (score === null || score === undefined || score === '') return 0;
+  if (!isStrictNum(score)) return 0;
   const s = Number(score);
-  if (!Number.isFinite(s)) return 0;
-  return (s - min) / range;
+  return Math.max(0, Math.min(1, (s - min) / range));
 }
 
 export function ratioToScore(ratio, options = {}) {
-  const { min, range } = safeDomain(options.maxScore, options.minScore);
-  if (ratio === null || ratio === undefined || ratio === '') return min;
-  const r = Number(ratio);
-  if (!Number.isFinite(r)) return min;
-  return min + r * range;
+  const { min, max, range } = safeDomain(options.maxScore, options.minScore);
+  if (!isStrictNum(ratio)) return min;
+  const r = Math.max(0, Math.min(1, Number(ratio)));
+  return Math.max(min, Math.min(max, min + r * range));
 }
 
 export function scoreToPct(score, options = {}) {
@@ -35,13 +34,12 @@ export function scoreToPct(score, options = {}) {
 }
 
 export function pctToScore(pct, options = {}) {
-  const p = pct !== null && pct !== '' ? Number(pct) : NaN;
-  const r = Number.isFinite(p) ? p / 100 : 0;
+  const r = isStrictNum(pct) ? Math.max(0, Math.min(1, Number(pct) / 100)) : 0;
   return ratioToScore(r, options);
 }
 
 export function formatUnitValue(val, unit = '%') {
-  const n = val !== null && val !== '' ? Number(val) : NaN;
+  const n = isStrictNum(val) ? Number(val) : NaN;
   if (!Number.isFinite(n)) return `0${unit}`;
   if (unit === 'horas') {
     const sign = n < 0 ? '-' : '';
@@ -63,15 +61,21 @@ export function normalizeScoreToTargetScale(rawScore, currentMaxScore, targetMax
 }
 
 export function detectCommonScales(categories) {
-  const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+  const safeCategories = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
   const scales = new Set(
     safeCategories
       .map(c => Number(c.maxScore))
       .filter(s => Number.isFinite(s) && s > 0)
   );
-  
+  const domains = new Set(
+    safeCategories.map(c => {
+      const { min, max } = safeDomain(c.maxScore ?? 100, c.minScore ?? 0);
+      return `${min}:${max}`;
+    })
+  );
+
   return {
-    isMixedScale: scales.size > 1,
+    isMixedScale: domains.size > 1 || scales.size > 1,
     scales: Array.from(scales).sort((a,b) => b - a),
     globalScale: scales.size > 0 ? Array.from(scales).reduce((a, b) => Math.max(a, b), -Infinity) : 100
   };

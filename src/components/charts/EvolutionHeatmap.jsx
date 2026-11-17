@@ -5,10 +5,10 @@ import { parseNoonLocal } from '../../utils/dateHelper.js';
 
 // Worker singleton compartilhado entre todas as instâncias
 let sharedWorker = null;
-let sharedWorkerRefCount = 0;
+const sharedWorkerHolders = new Set();
 let terminateTimer = null;
 
-function getSharedWorker() {
+function getSharedWorker(holderToken) {
     if (terminateTimer) { clearTimeout(terminateTimer); terminateTimer = null; }
     if (!sharedWorker) {
         try {
@@ -21,16 +21,15 @@ function getSharedWorker() {
             return null;
         }
     }
-    sharedWorkerRefCount++;
+    if (holderToken) sharedWorkerHolders.add(holderToken);
     return sharedWorker;
 }
 
-function releaseSharedWorker() {
-    sharedWorkerRefCount--;
-    if (sharedWorkerRefCount < 0) sharedWorkerRefCount = 0;
-    if (sharedWorkerRefCount === 0 && sharedWorker) {
+function releaseSharedWorker(holderToken) {
+    if (holderToken) sharedWorkerHolders.delete(holderToken);
+    if (sharedWorkerHolders.size === 0 && sharedWorker) {
         terminateTimer = setTimeout(() => {
-            if (sharedWorkerRefCount === 0 && sharedWorker) {
+            if (sharedWorkerHolders.size === 0 && sharedWorker) {
                 sharedWorker.terminate();
                 sharedWorker = null;
             }
@@ -38,11 +37,11 @@ function releaseSharedWorker() {
     }
 }
 
-function invalidateSharedWorker(badWorker) {
+function invalidateSharedWorker(badWorker, holderToken) {
+    if (holderToken) sharedWorkerHolders.delete(holderToken);
     if (sharedWorker && sharedWorker === badWorker) {
         try { sharedWorker.terminate(); } catch { /* ignore */ }
         sharedWorker = null;
-        sharedWorkerRefCount = 0;
     }
 }
 
@@ -255,17 +254,18 @@ export const EvolutionHeatmap = React.memo(({
     });
     const [isAggregating, setIsAggregating] = useState(false);
     const workerRef = useRef(null);
-    const didAcquireWorker = useRef(false);
+    const workerHolderTokenRef = useRef(null);
 
     useEffect(() => {
-        const worker = getSharedWorker();
+        const token = Symbol('heatmap-worker-holder');
+        workerHolderTokenRef.current = token;
+        const worker = getSharedWorker(token);
         workerRef.current = worker;
-        didAcquireWorker.current = worker !== null;
 
         return () => {
-            if (didAcquireWorker.current) releaseSharedWorker();
+            releaseSharedWorker(token);
             workerRef.current = null;
-            didAcquireWorker.current = false;
+            workerHolderTokenRef.current = null;
         };
     }, []);
 
@@ -303,7 +303,7 @@ export const EvolutionHeatmap = React.memo(({
         const handleError = (err) => {
             worker.removeEventListener('message', handleMessage);
             worker.removeEventListener('error', handleError);
-            invalidateSharedWorker(worker);
+            invalidateSharedWorker(worker, workerHolderTokenRef.current);
             workerRef.current = null;
             console.warn('[EvolutionHeatmap] Worker error, falling back:', err);
             setAggregated(aggregateHeatmap(filtered, granularity, safeMax, safeMin));

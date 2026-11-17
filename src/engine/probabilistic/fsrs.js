@@ -77,6 +77,8 @@ export function estimateTopicFsrs(topic, options = {}) {
     daysSince = lastStudiedMs == null
       ? 0
       : Math.max(0, (now - lastStudiedMs) / MS_PER_DAY);
+  } else {
+    daysSince = Math.max(0, daysSince);
   }
 
   const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
@@ -88,8 +90,6 @@ export function estimateTopicFsrs(topic, options = {}) {
   const sd = Math.sqrt(Math.max(0, variance));
 
   const metaMaxScore = toFiniteNumber(topic.maxScore, null);
-  const maxScoreSeen = Math.max(...scores);
-
   const optMaxScore = toFiniteNumber(options.scoreScale ?? options.maxScore, null);
   const scoreScale = Math.max(
     1,
@@ -97,9 +97,7 @@ export function estimateTopicFsrs(topic, options = {}) {
       ? optMaxScore
       : (Number.isFinite(metaMaxScore) && metaMaxScore > 0
           ? metaMaxScore
-          : maxScoreSeen <= 1
-            ? 1
-            : 100)
+          : 100)
   );
 
   const metaMinScore = toFiniteNumber(topic.minScore ?? options.minScore, 0);

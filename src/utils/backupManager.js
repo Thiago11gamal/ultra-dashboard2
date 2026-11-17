@@ -1,5 +1,5 @@
 import { generateId } from './idGenerator';
-import DOMPurify from 'dompurify';
+import { sanitizePlainText } from './sanitizeText';
 
 const toCategoriesArray = (rawCategories) => {
     if (rawCategories === undefined || rawCategories === null) return [];
@@ -51,7 +51,7 @@ const sanitizeCategory = (cat) => {
     if (!cat || typeof cat !== 'object') return null;
 
     const rawName = String(cat.name || "Sem Nome");
-    const sanitizedName = DOMPurify.sanitize(rawName).trim() || "Sem Nome";
+    const sanitizedName = sanitizePlainText(rawName) || "Sem Nome";
 
     // ✅ Validar maxScore e weight antes do spread
     const rawMaxScore = Number(cat.maxScore);
@@ -92,8 +92,8 @@ const sanitizeCategory = (cat) => {
             : { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
         tasks: Array.isArray(cat.tasks) ? cat.tasks.map(t => {
             if (!t || typeof t !== 'object') return null;
-            const taskText = DOMPurify.sanitize(String(t.text || "")).trim();
-            const taskTitle = DOMPurify.sanitize(String(t.title || t.text || "")).trim();
+            const taskText = sanitizePlainText(t.text || "");
+            const taskTitle = sanitizePlainText(t.title || t.text || "");
             const taskAwardedXP = sanitizeAwardedXP(t.awardedXP);
             return {
                 ...t,
@@ -114,10 +114,10 @@ const sanitizeCategory = (cat) => {
 const sanitizeContest = (contest) => {
     const rawCats = toCategoriesArray(contest?.categories) || [];
     const cleanContestName = typeof contest?.contestName === 'string'
-        ? DOMPurify.sanitize(contest.contestName).trim()
+        ? sanitizePlainText(contest.contestName)
         : '';
     const cleanName = typeof contest?.name === 'string'
-        ? DOMPurify.sanitize(contest.name).trim()
+        ? sanitizePlainText(contest.name)
         : '';
     return {
         ...contest,

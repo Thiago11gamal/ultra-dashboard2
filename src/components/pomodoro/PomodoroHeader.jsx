@@ -40,7 +40,7 @@ export const PomodoroHeader = React.memo(function PomodoroHeader({
                     {typeof onStartFreeFocus === 'function' && (
                         <button
                             type="button"
-                            onClick={onStartFreeFocus}
+                            onClick={() => onStartFreeFocus(false)}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
                             title="Iniciar estudo livre em Geral"
                         >

@@ -154,6 +154,11 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
     const [hoveredLine, setHoveredLine] = useState(null);
 
+    const safeCategories = useMemo(
+        () => toArray(categories).filter(Boolean),
+        [categories]
+    );
+
     const { chartData, activeKeys, rankedKeys } = useMemo(() => {
         let itemsMap = {};
         const toSafeKey = (name) => {
@@ -183,7 +188,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         };
 
         if (!showOnlyFocus || !focusSubjectId) {
-            categories.forEach(cat => {
+            safeCategories.forEach(cat => {
                 if (!cat?.id) return;
                 const fullName = String(cat.name || 'Matéria').replace(/Direito /gi, 'D. ');
                 const safeName = shortenLabel(fullName, 18);
@@ -191,7 +196,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 itemsMap[cat.id] = { name: safeName, fullName: fullName, color: safeColor };
             });
         } else {
-            const cat = categories.find(c => c.id === focusSubjectId);
+            const cat = safeCategories.find(c => c.id === focusSubjectId);
             if (cat) {
                 const SUBTOPIC_PALETTE = [
                     '#38bdf8', '#a855f7', '#34d399', '#fb923c', '#f472b6',
@@ -249,7 +254,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         if (validIds.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
 
         const focusedCat = (showOnlyFocus && focusSubjectId)
-            ? categories.find(c => c.id === focusSubjectId)
+            ? safeCategories.find(c => c.id === focusSubjectId)
             : null;
         const safeMinScore = (focusedCat && hasValidNumber(focusedCat?.minScore))
             ? Number(focusedCat.minScore)
@@ -318,14 +323,14 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         };
 
         if (!showOnlyFocus || !focusSubjectId) {
-            categories.forEach(cat => {
+            safeCategories.forEach(cat => {
                 const hArray = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
                 const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
                 processHistory(hArray, cat.id, cMax, cMin);
             });
         } else {
-            const cat = categories.find(c => c.id === focusSubjectId);
+            const cat = safeCategories.find(c => c.id === focusSubjectId);
             if (cat) {
                 const cMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : upperBound;
                 const cMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), cMax) : lowerBound;
@@ -477,7 +482,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const rankedKeys = [...effectiveIds].sort((a, b) => volumeTracker[b] - volumeTracker[a]);
 
         return { chartData: finalData, activeKeys: filteredActiveKeys, rankedKeys };
-    }, [categories, showOnlyFocus, focusSubjectId, timeWindow, maxScore, minScore]);
+    }, [safeCategories, showOnlyFocus, focusSubjectId, timeWindow, maxScore, minScore]);
 
     const keys = Object.keys(activeKeys);
 
@@ -531,8 +536,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
 
     const focusedCategoryObj = useMemo(() => {
         if (!showOnlyFocus || !focusSubjectId) return null;
-        return categories.find(c => c.id === focusSubjectId) || null;
-    }, [categories, showOnlyFocus, focusSubjectId]);
+        return safeCategories.find(c => c.id === focusSubjectId) || null;
+    }, [safeCategories, showOnlyFocus, focusSubjectId]);
 
     const effectiveMaxScore = useMemo(() => {
         if (focusedCategoryObj && hasValidNumber(focusedCategoryObj?.maxScore) && Number(focusedCategoryObj.maxScore) > 0) {

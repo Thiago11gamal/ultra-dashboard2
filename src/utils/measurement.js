@@ -1,3 +1,13 @@
+import { normalizeDate } from "./dateHelper.js";
+
+const isStrictNumericInput = (value) => (
+  value !== null &&
+  value !== undefined &&
+  typeof value !== "boolean" &&
+  String(value).trim() !== "" &&
+  Number.isFinite(Number(value))
+);
+
 const safeArray = (value) => {
   if (Array.isArray(value)) return value;
   if (value && typeof value === "object") return Object.values(value);
@@ -127,10 +137,22 @@ export function safeDivide(num, den, fallback = 0) {
 }
 
 export function safeTime(value, fallback = NaN) {
-  if (value == null) return fallback;
+  if (value === null || value === undefined || typeof value === "boolean") return fallback;
+  if (typeof value === "string" && value.trim() === "") return fallback;
 
   try {
-    const d = value instanceof Date ? value : new Date(value);
+    if (value instanceof Date) {
+      const t = value.getTime();
+      return Number.isFinite(t) ? t : fallback;
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : fallback;
+    }
+    const norm = normalizeDate(value);
+    if (norm instanceof Date && !Number.isNaN(norm.getTime())) {
+      return norm.getTime();
+    }
+    const d = new Date(value);
     const t = d?.getTime?.();
     return Number.isFinite(t) ? t : fallback;
   } catch {
@@ -218,16 +240,12 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   const total = Number.isFinite(totalRaw) ? Math.max(0, Math.trunc(totalRaw)) : 0;
 
   const rawCorrectVal = r.correct ?? r.acertos ?? r.correctCount;
-  const hasExplicitCorrect =
-    rawCorrectVal !== undefined &&
-    rawCorrectVal !== null &&
-    String(rawCorrectVal).trim() !== "" &&
-    Number.isFinite(Number(rawCorrectVal));
+  const hasExplicitCorrect = isStrictNumericInput(rawCorrectVal);
   const hasAnyScoreField =
-    (r.scorePoints != null && Number.isFinite(Number(r.scorePoints))) ||
-    (r.scorePct != null && Number.isFinite(Number(r.scorePct))) ||
-    (r.score != null && Number.isFinite(Number(r.score))) ||
-    (r.value != null && r.value !== "" && Number.isFinite(Number(r.value)));
+    isStrictNumericInput(r.scorePoints) ||
+    isStrictNumericInput(r.scorePct) ||
+    isStrictNumericInput(r.score) ||
+    isStrictNumericInput(r.value);
 
   let correct = 0;
   if (total > 0 && hasExplicitCorrect) {
@@ -260,7 +278,7 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   };
 
   // ── 2) scorePoints explícito ──────────────────────────────
-  const scorePointsRaw = r.scorePoints == null ? NaN : Number(r.scorePoints);
+  const scorePointsRaw = isStrictNumericInput(r.scorePoints) ? Number(r.scorePoints) : NaN;
   if (Number.isFinite(scorePointsRaw)) {
     const points = clampFinite(scorePointsRaw, domain.min, domain.max, domain.min);
     const pct = pointsToPct(points, domain);
@@ -273,7 +291,7 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   }
 
   // ── 3) scorePct explícito ─────────────────────────────────
-  const scorePctRaw = r.scorePct == null ? NaN : Number(r.scorePct);
+  const scorePctRaw = isStrictNumericInput(r.scorePct) ? Number(r.scorePct) : NaN;
   if (Number.isFinite(scorePctRaw)) {
     const pct = clampFinite(scorePctRaw, 0, 100, 0);
     const points = pctToPoints(pct, domain);
@@ -286,7 +304,7 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   }
 
   // ── 4) campo score ────────────────────────────────────────
-  const scoreRaw = r.score == null ? NaN : Number(r.score);
+  const scoreRaw = isStrictNumericInput(r.score) ? Number(r.score) : NaN;
   if (Number.isFinite(scoreRaw)) {
     const unit = r.unit || r.scoreUnit;
     const explicitPct    = unit === "pct"    || r.isPercentage === true;
@@ -334,7 +352,7 @@ export function normalizeScoreValue(row, maxScore, minScore = 0) {
   }
 
   // ── 5) fallback campo value (dados legados) ───────────────
-  const valueRaw = r.value == null ? NaN : Number(r.value);
+  const valueRaw = isStrictNumericInput(r.value) ? Number(r.value) : NaN;
   if (Number.isFinite(valueRaw)) {
     const points = clampFinite(valueRaw, domain.min, domain.max, domain.min);
     const pct = pointsToPct(points, domain);
@@ -430,16 +448,16 @@ export function getSafeScore(row, maxScore, minScore = 0) {
       }
       return Number(trimmed);
     }
-    return Number(val);
+    return typeof val === "boolean" ? NaN : Number(val);
   };
 
   if (typeof row === "number") {
     score = row;
-  } else if (row.scorePoints != null && Number.isFinite(Number(row.scorePoints))) {
+  } else if (isStrictNumericInput(row.scorePoints)) {
     score = Number(row.scorePoints);
-  } else if (row.scorePct != null && Number.isFinite(Number(row.scorePct))) {
+  } else if (isStrictNumericInput(row.scorePct)) {
     score = safeMin + (Math.max(0, Math.min(100, Number(row.scorePct))) / 100) * range;
-  } else if (row.score != null) {
+  } else if (row.score != null && typeof row.score !== "boolean" && String(row.score).trim() !== "") {
     score = parseNum(row.score);
     let isPct = Boolean(row.isPercentage || row.unit === 'pct' || row.unit === 'percentage' || row.scoreUnit === 'pct');
     // Compatibilidade com linhas manuais legadas gravadas pelo SimuladoAnalysis em [0..100] sem flag isPercentage

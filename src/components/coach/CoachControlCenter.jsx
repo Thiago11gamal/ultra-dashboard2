@@ -110,7 +110,10 @@ function ErrorAlert({ message }) {
 // ==========================================================
 // Painel: Visão Geral
 // ==========================================================
-function OverviewPanel({ dashboard }) {
+function OverviewPanel({ dashboard, orchestratorResult }) {
+  if (orchestratorResult?.ok === false) {
+    return <EmptyState message={orchestratorResult.error || 'Falha ao executar o orquestrador.'} />;
+  }
   if (!dashboard) {
     return <EmptyState message="Execute o orquestrador para ver a visão geral." />;
   }
@@ -886,6 +889,7 @@ function LLMPanel({ orchestratorResult, runOrchestrator, loading }) {
 // Componente principal
 // ==========================================================
 export default function CoachControlCenter({
+  contestId,
   categories = [],
   simulados = [],
   studyLogs = [],
@@ -898,7 +902,7 @@ export default function CoachControlCenter({
     causalModel, healthSnapshots, latestHealth, currentFlags, flagOverrides,
     strategySpace, runOrchestrator, runAutoTuner, applyRecommendation,
     rollbackToBaseline, toggleFlag, resetOverrides,
-  } = useCoachControlCenter({ categories, simulados, studyLogs, maxScore, targetScore });
+  } = useCoachControlCenter({ contestId, categories, simulados, studyLogs, maxScore, targetScore });
 
   return (
     <div className="bg-slate-900 min-h-screen text-slate-200 p-6 font-sans">

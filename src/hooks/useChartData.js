@@ -97,7 +97,8 @@ export function buildCumulativeStatsPerDate(history, sortedDates, maxScore = 100
         }
         const hasScore = Number.isFinite(score);
         const safeScore = hasScore ? score : NaN;
-        if (rawTotal <= 0 && !hasScore) continue;
+        const hasRawTotalAndCorrect = rawTotal > 0 && !h?.isPercentage && hasCorrect && Number.isFinite(parsedCorrect);
+        if (!hasScore && !hasRawTotalAndCorrect) continue;
 
         const isPercentOnly =
             h?.syntheticVolume === true ||
@@ -253,12 +254,14 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             hash = ((hash << 5) - hash + (val | 0)) | 0;
         };
         history.forEach((h) => {
-            mix(Math.round(Number(h?.score ?? h?.scorePoints ?? 0) * 100));
+            mix(Math.round(Number(h?.score ?? h?.scorePoints ?? h?.scorePct ?? h?.value ?? 0) * 100));
             mix(Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions ?? 0));
             mix(Number(h?.correct ?? h?.acertos ?? h?.correctCount ?? 0));
             mix(Number(h?.timeSpent ?? 0));
             mix(h?.isPercentage ? 1 : 0);
             mix(h?.valid === false ? 0 : 1);
+            const su = String(h?.scoreUnit ?? h?.unit ?? '');
+            for (let ui = 0; ui < su.length; ui++) mix(su.charCodeAt(ui));
             const rawTopics = Array.isArray(h?.topics)
                 ? h.topics
                 : (h?.topics && typeof h.topics === 'object' ? Object.values(h.topics) : EMPTY_ARRAY);
@@ -267,7 +270,9 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                 if (!t || typeof t !== 'object') return;
                 mix(Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions ?? 0));
                 mix(Number(t.correct ?? t.acertos ?? t.correctCount ?? 0));
-                mix(Math.round(Number(t.score ?? 0) * 100));
+                mix(Math.round(Number(t.score ?? t.scorePoints ?? t.scorePct ?? t.value ?? 0) * 100));
+                mix(t.isPercentage ? 1 : 0);
+                mix(t.valid === false ? 0 : 1);
             });
             const dStr = String(h?.date || h?.createdAt || '');
             for (let i = 0; i < dStr.length; i++) {
@@ -362,7 +367,6 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             history.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
-                if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
                 let rawTotal = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
                 let hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
                                  (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
@@ -387,6 +391,7 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
                     }
                 }
                 if (!Number.isFinite(score)) return;
+                if (!exactByDate[key]) exactByDate[key] = { correct: 0, total: 0, compCorrect: 0, compTotal: 0 };
                 let corrNorm;
                 if (rawTotal > 0) {
                     corrNorm = (!h.isPercentage && hasCorrect && Number.isFinite(parsedCorrect))

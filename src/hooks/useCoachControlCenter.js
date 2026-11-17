@@ -20,7 +20,7 @@ import {
 import {
   loadModelHealthSnapshots,
 } from '../utils/coachObservability.js';
-import { replaceFlags, writeFlags } from '../utils/coachFeatureStore.js';
+import { replaceFlags, writeFlags, readFlags, getCoachFeatureContestScope } from '../utils/coachFeatureStore.js';
 
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
 
@@ -61,12 +61,14 @@ function saveControlCenterState(state) {
 }
 
 export function useCoachControlCenter({
+  contestId,
   categories = [],
   simulados = [],
   studyLogs = [],
   maxScore = 100,
   targetScore = 80,
 } = {}) {
+  const resolvedContestId = contestId ?? getCoachFeatureContestScope();
   const [activeTab, setActiveTab] = useState(() => loadControlCenterState()?.activeTab || 'overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -83,7 +85,7 @@ export function useCoachControlCenter({
     const s = loadModelHealthSnapshots();
     return Array.isArray(s) ? s : [];
   });
-  const [currentFlags, setCurrentFlags] = useState(() => loadPersistedCoachFlags() || {});
+  const [currentFlags, setCurrentFlags] = useState(() => loadPersistedCoachFlags(resolvedContestId) || {});
   const [flagOverrides, setFlagOverrides] = useState(() => loadControlCenterState()?.flagOverrides || {});
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
@@ -141,6 +143,7 @@ export function useCoachControlCenter({
       const result = await runCoachOrchestrator(
         { categories, simulados, studyLogs },
         {
+          contestId: options.contestId ?? resolvedContestId,
           maxScore,
           targetScore,
           features: mergedFeatures,
@@ -153,13 +156,20 @@ export function useCoachControlCenter({
           signal: abortController.signal,
         }
       );
+      if (abortController.signal.aborted) return null;
       // FIX: valida mount E que esta ainda é a execução mais recente
       if (isMounted.current && runId === orchestratorRunIdRef.current) {
-        // BUG: resultado inválido ficava silencioso e UI podia mostrar dashboard stale.
         if (result && typeof result === 'object') {
-          setOrchestratorResult(result);
-          const dash = buildCoachOrchestratorDashboard(result);
-          if (dash) setDashboard(dash);
+          if (result.aborted) return null;
+          if (result.ok === false) {
+            setOrchestratorResult(null);
+            setDashboard(null);
+            setError(result.error || 'Falha ao executar orquestrador.');
+          } else {
+            setOrchestratorResult(result);
+            const dash = buildCoachOrchestratorDashboard(result);
+            setDashboard(dash || null);
+          }
         } else {
           setOrchestratorResult(null);
           setDashboard(null);
@@ -179,7 +189,7 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides]);
+  }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides, resolvedContestId]);
 
   // ==========================================================
   // Carregar dados auxiliares
@@ -194,12 +204,12 @@ export function useCoachControlCenter({
       setCausalModel(causal);
       const health = loadModelHealthSnapshots();
       setHealthSnapshots(Array.isArray(health) ? health : []);
-      const flags = loadPersistedCoachFlags();
+      const flags = loadPersistedCoachFlags(resolvedContestId);
       setCurrentFlags(flags || {});
     } catch (err) {
       console.warn('[ControlCenter] Failed to load auxiliary data:', err);
     }
-  }, []);
+  }, [resolvedContestId]);
 
 
   // ==========================================================
@@ -217,6 +227,7 @@ export function useCoachControlCenter({
     setError(null);
     try {
       const result = await runCoachAutoTuner({
+        contestId: options.contestId ?? resolvedContestId,
         maxScore,
         force: options.force === true,
         autoApply: options.autoApply === true,
@@ -225,19 +236,21 @@ export function useCoachControlCenter({
         minImprovement: options.minImprovement ?? 0.02,
         signal: abortController.signal,
       });
+      if (abortController.signal.aborted) return null;
       // FIX: valida mount + execução atual
       if (!isMounted.current || runId !== tunerRunIdRef.current) return null;
       setTunerResult(result);
       loadAuxiliaryData();
       if (result?.applied) {
         clearCoachCaches();
-        const flags = loadPersistedCoachFlags() || {};
+        const flags = loadPersistedCoachFlags(resolvedContestId) || {};
         setCurrentFlags(flags);
         setFlagOverrides({});
         initialFlagsRef.current = flags;
       }
       return result;
     } catch (err) {
+      if (err?.name === 'AbortError' || abortController.signal.aborted) return null;
       if (isMounted.current && runId === tunerRunIdRef.current) {
         const msg = err?.message || String(err);
         setError(msg);
@@ -247,19 +260,21 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [maxScore, loadAuxiliaryData]);
+  }, [maxScore, loadAuxiliaryData, resolvedContestId]);
 
   // ==========================================================
   // Aplicar recomendação de flags
   // ==========================================================
   const applyRecommendation = useCallback((recommendation, options = {}) => {
     try {
+      const targetContestId = options.contestId ?? resolvedContestId;
       const applied = applyRecommendedFlags(recommendation, {
         force: options.force === true,
+        contestId: targetContestId,
       });
       if (applied) {
         clearCoachCaches();
-        const flags = loadPersistedCoachFlags() || {};
+        const flags = loadPersistedCoachFlags(targetContestId) || {};
         setCurrentFlags(flags);
         setFlagOverrides({});
         initialFlagsRef.current = flags;
@@ -269,17 +284,18 @@ export function useCoachControlCenter({
       console.warn('[ControlCenter] Failed to apply recommendation:', err);
       return false;
     }
-  }, []);
+  }, [resolvedContestId]);
 
   // ==========================================================
   // Rollback para baseline
   // ==========================================================
   const rollbackToBaseline = useCallback(() => {
     try {
+      const current = readFlags(resolvedContestId);
       const baseline = getSafeBaselineFeatures();
-      const next = { ...baseline };
-      replaceFlags(next);
-      persistCoachFlags(next);
+      const next = { ...current, ...baseline };
+      replaceFlags(next, resolvedContestId);
+      persistCoachFlags(next, resolvedContestId);
       clearCoachCaches();
       setCurrentFlags(next);
       setFlagOverrides({});
@@ -288,7 +304,7 @@ export function useCoachControlCenter({
     } catch {
       return false;
     }
-  }, []);
+  }, [resolvedContestId]);
 
   // ==========================================================
   // Toggle de flag individual
@@ -301,11 +317,11 @@ export function useCoachControlCenter({
       ...prev,
       [flagKey]: value,
     }));
-    const next = writeFlags({ [flagKey]: value });
-    persistCoachFlags(next);
+    const next = writeFlags({ [flagKey]: value }, resolvedContestId);
+    persistCoachFlags(next, resolvedContestId);
     setCurrentFlags(next);
     clearCoachCaches();
-  }, []);
+  }, [resolvedContestId]);
 
   // ==========================================================
   // Reset overrides
@@ -313,11 +329,11 @@ export function useCoachControlCenter({
   const resetOverrides = useCallback(() => {
     setFlagOverrides({});
     const base = initialFlagsRef.current || getSafeBaselineFeatures();
-    replaceFlags(base);
-    persistCoachFlags(base);
+    replaceFlags(base, resolvedContestId);
+    persistCoachFlags(base, resolvedContestId);
     setCurrentFlags(base);
     clearCoachCaches();
-  }, []);
+  }, [resolvedContestId]);
 
   // ==========================================================
   // Limpar caches

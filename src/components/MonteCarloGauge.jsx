@@ -48,10 +48,10 @@ const MonteCarloGaugeBase = ({
     const timelineDates = useMemo(() => {
         const dates = new Set();
         const todayKey = getDateKey(new Date());
-        const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const safeCategories = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
         safeCategories.forEach(cat => {
             if (cat.simuladoStats?.history) {
-                const safeHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
+                const safeHistory = (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)).filter(Boolean);
                 safeHistory.forEach(h => {
                     if (!h || h.valid === false || h.validated === false) return;
                     const normalized = normalizeDate(h.date || h.createdAt);

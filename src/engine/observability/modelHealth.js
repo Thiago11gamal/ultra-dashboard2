@@ -295,8 +295,10 @@ export function evaluateModelHealth(input = {}, options = {}) {
   }
 
   // ==================== SAMPLE ADEQUACY ====================
-  const sampleSize = Number.isFinite(Number(input.sampleSize))
-    ? Number(input.sampleSize)
+  const rawSampleSize = input.sampleSize;
+  const hasExplicitSampleSize = rawSampleSize !== null && rawSampleSize !== undefined && typeof rawSampleSize !== 'boolean' && String(rawSampleSize).trim() !== '' && Number.isFinite(Number(rawSampleSize));
+  const sampleSize = hasExplicitSampleSize
+    ? Math.max(0, Number(rawSampleSize))
     : scores.length;
 
   metrics.sampleSize = sampleSize;

@@ -1,5 +1,6 @@
 import React, { useId, useMemo } from 'react';
 import { formatTime, calculateETA, SPEED_OPTIONS, POMODORO_PRESETS } from '../../utils/pomodoroHelpers';
+import { useLivePomodoroTimeLeft } from '../../utils/pomodoroLiveStore';
 import { Maximize2, Minimize2, Volume2, VolumeX, Bell, BellOff } from 'lucide-react';
 
 const CLOCK_THEMES = {
@@ -66,10 +67,12 @@ export const PomodoroClock = React.memo(function PomodoroClock({
         return CLOCK_THEMES[mode] || CLOCK_THEMES.work;
     }, [mode]);
 
+    const liveTimeLeft = useLivePomodoroTimeLeft(timeLeft, isRunning);
+
     const etaString = useMemo(() => {
-        if (!isRunning || !Number.isFinite(timeLeft) || timeLeft <= 0) return null;
-        return calculateETA(timeLeft, speed);
-    }, [isRunning, timeLeft, speed]);
+        if (!isRunning || !Number.isFinite(liveTimeLeft) || liveTimeLeft <= 0) return null;
+        return calculateETA(liveTimeLeft, speed);
+    }, [isRunning, liveTimeLeft, speed]);
 
     const statusLabel = useMemo(() => {
         if (isRunning) {
@@ -83,11 +86,11 @@ export const PomodoroClock = React.memo(function PomodoroClock({
         if (isProtocolInactive) {
             return 'AGUARDANDO INÍCIO';
         }
-        if (totalTime && timeLeft >= totalTime) {
+        if (totalTime && liveTimeLeft >= totalTime) {
             return (mode === 'break' || mode === 'long_break') ? 'INTERVALO PRONTO' : 'PRONTO PARA FOCO';
         }
-        return `PAUSADO • ${formatTime(timeLeft)}`;
-    }, [isRunning, etaString, mode, currentTheme.statusActive, isProtocolInactive, totalTime, timeLeft]);
+        return `PAUSADO • ${formatTime(liveTimeLeft)}`;
+    }, [isRunning, etaString, mode, currentTheme.statusActive, isProtocolInactive, totalTime, liveTimeLeft]);
 
     return (
         <div className="w-full flex flex-col items-center select-none">
@@ -277,9 +280,9 @@ export const PomodoroClock = React.memo(function PomodoroClock({
                         role="timer"
                         aria-live="off"
                         aria-atomic="true"
-                        aria-label={`Tempo restante: ${formatTime(timeLeft)}`}
+                        aria-label={`Tempo restante: ${formatTime(liveTimeLeft)}`}
                     >
-                        {formatTime(timeLeft)}
+                        {formatTime(liveTimeLeft)}
                     </span>
 
                     {/* Badge fluida de status com indicador respiratório e previsão em tempo real */}

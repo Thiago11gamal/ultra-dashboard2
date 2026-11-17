@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useId, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-// ✅ FIX S02: DOMPurify adicionado para sanitizar entradas no CategoryEditor
-import DOMPurify from 'dompurify';
+import { sanitizePlainText } from '../utils/sanitizeText';
 import { Settings, X, Check, Pipette } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -67,8 +66,8 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             return;
         }
 
-        // ✅ FIX S02: Sanitização do nome da disciplina
-        const cleanName = DOMPurify.sanitize(name.trim());
+        // ✅ FIX S02: Sanitização do nome da disciplina preservando '&' e operadores matemáticos
+        const cleanName = sanitizePlainText(name.trim());
         if (!cleanName) {
             console.warn('[CategoryEditor] Nome rejeitado por conter HTML malicioso.');
             return;

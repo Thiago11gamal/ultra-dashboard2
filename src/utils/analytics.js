@@ -203,7 +203,7 @@ export const calculateStudyStreak = (studyLogs) => {
         return Math.floor(totalMinutes / workDuration);
     };
 
-    const aggregateQuestionAccuracy = (contestData) => {
+    const aggregateQuestionAccuracy = (contestData, filterByReset = null) => {
         // T-011 FIX: garantir que correct nunca ultrapasse total.
         const clampCorrect = (correct, total) => {
             const t = Number(total);
@@ -220,6 +220,7 @@ export const calculateStudyStreak = (studyLogs) => {
 
         const validSimulados = toArray(contestData?.simuladoRows).filter(r => {
             if (!r || r.validated === false || r.valid === false || !r.validated) return false;
+            if (typeof filterByReset === 'function' && !filterByReset(r)) return false;
             const t = getRowTotal(r);
             const rawC = r.correct ?? r.acertos ?? r.correctCount;
             return Number.isFinite(t) && t > 0 && rawC !== undefined && rawC !== null;
@@ -254,6 +255,7 @@ export const calculateStudyStreak = (studyLogs) => {
 
             histArr.forEach(e => {
                 if (!e || e.valid === false || e.validated === false) return;
+                if (typeof filterByReset === 'function' && !filterByReset(e)) return;
                 const dKey = getDateKey(e?.date || e?.createdAt);
                 if (validSimulados.length > 0 && dKey) {
                     const catIdKey = cat?.id ? `id:${cat.id}|${dKey}` : null;
@@ -306,21 +308,33 @@ export const calculateStudyStreak = (studyLogs) => {
         const extraCompletedCycles = Math.max(0, Number(options.extraCompletedCycles) || 0);
 
         // BUG-T05 FIX: Se houve reset manual, ignorar conquistas desbloqueadas antes.
-        const resetAt = contestData?.user?.achievementsResetAt
-            ? new Date(contestData.user.achievementsResetAt).getTime()
+        const rawReset = contestData?.user?.achievementsResetAt;
+        const parsedResetDate = rawReset ? normalizeDate(rawReset) : null;
+        const resetAt = parsedResetDate && !Number.isNaN(parsedResetDate.getTime())
+            ? parsedResetDate.getTime()
             : 0;
+        const resetDateKey = resetAt ? getDateKey(rawReset) : null;
 
         // T-019 FIX: normalizar dados de forma consistente e filtrar por resetAt
         const filterByReset = (item) => {
+            if (!item || typeof item !== 'object') return false;
             if (!resetAt) return true;
-            const time = new Date(item?.date || item?.createdAt || item?.startTime || 0).getTime();
-            return time >= resetAt;
+            const rawTs = item.createdAt || item.startTime || item.date;
+            if (!rawTs) return false;
+            const parsed = normalizeDate(rawTs);
+            const time = parsed && !Number.isNaN(parsed.getTime()) ? parsed.getTime() : NaN;
+            if (!Number.isFinite(time)) return false;
+            if (time >= resetAt) return true;
+            if (resetDateKey && getDateKey(rawTs) === resetDateKey && !item.createdAt && !item.startTime) {
+                return true;
+            }
+            return false;
         };
 
         const studyLogs = toArray(contestData?.studyLogs).filter(filterByReset);
         const studySessions = toArray(contestData?.studySessions).filter(filterByReset);
 
-        const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData);
+        const { totalQuestions, totalCorrect, accuracy } = aggregateQuestionAccuracy(contestData, filterByReset);
 
         let studiedEarly = Boolean(contestData.user?.studiedEarly);
         let studiedLate = Boolean(contestData.user?.studiedLate);
@@ -655,6 +669,7 @@ export const calculateStudyStreak = (studyLogs) => {
         const logsByCategoryId = {};
         const logsArray = toArray(studyLogs);
         logsArray.forEach(log => {
+            if (!log || typeof log !== 'object') return;
             if (log.taskId) {
                 if (!logsByTaskId[log.taskId]) logsByTaskId[log.taskId] = [];
                 logsByTaskId[log.taskId].push(log);
@@ -665,7 +680,7 @@ export const calculateStudyStreak = (studyLogs) => {
             } else if (log.categoryName) {
                 // 🎯 BUG 2.2 FIX: Fallback para logs sem categoryId mas com categoryName.
                 // Permite que estudos "livres" sem vínculo de ID ainda protejam a categoria contra alertas de procrastinação.
-                const matchingCat = categoriesArray.find(c => c.name === log.categoryName);
+                const matchingCat = categoriesArray.find(c => c && c.name === log.categoryName);
                 if (matchingCat) {
                     if (!logsByCategoryId[matchingCat.id]) logsByCategoryId[matchingCat.id] = [];
                     logsByCategoryId[matchingCat.id].push(log);
@@ -675,9 +690,10 @@ export const calculateStudyStreak = (studyLogs) => {
 
         // 1. Tarefas de alta prioridade sem progresso recente
         categoriesArray.forEach(cat => {
+            if (!cat) return;
             // T-019 FIX: tasks normalizadas
-            toArray(cat?.tasks).forEach(task => {
-                if (task.priority === 'high' && !task.completed) {
+            toArray(cat.tasks).forEach(task => {
+                if (task && normalizePriority(task.priority) === 'high' && !task.completed) {
                     const taskLogs = logsByTaskId[task.id] || [];
                     const recentLogs = taskLogs.filter(log => {
                         const logDate = normalizeDate(log.date);
@@ -792,7 +808,8 @@ export const calculateStudyStreak = (studyLogs) => {
         // Get dynamic goal
         const dynamicGoal = calculateDailyPomodoroGoal(safeCategories, user);
         const dailyGoalPomodoros = dynamicGoal.daily;
-        const pomodoroDuration = settings?.pomodoroWork || 25;
+        const parsedPomodoroDuration = Number(settings?.pomodoroWork);
+        const pomodoroDuration = Number.isFinite(parsedPomodoroDuration) && parsedPomodoroDuration > 0 ? parsedPomodoroDuration : 25;
         const dailyGoalMinutes = dailyGoalPomodoros * pomodoroDuration;
 
         // T-024 FIX: usar range ancorado em Manaus, sem fallback local corruptor
@@ -894,7 +911,7 @@ export const calculateStudyStreak = (studyLogs) => {
         }, 0);
 
         const highPriorityPending = categoriesArray.reduce((sum, c) => {
-            return sum + getTasks(c).filter(t => t && !t.completed && t.priority === 'high').length;
+            return sum + getTasks(c).filter(t => t && !t.completed && normalizePriority(t.priority) === 'high').length;
         }, 0);
 
         // Fórmula: 2 pomodoros por alta prioridade + 1 por tarefa normal
@@ -935,7 +952,8 @@ export const calculateStudyStreak = (studyLogs) => {
         const procrastination = detectProcrastination(categories, studyLogs);
         const goals = calculateDailyPomodoroGoal(categories, user);
 
-        const pomodoroWork = settings?.pomodoroWork || 25;
+        const parsedPomodoroWork = Number(settings?.pomodoroWork);
+        const pomodoroWork = Number.isFinite(parsedPomodoroWork) && parsedPomodoroWork > 0 ? parsedPomodoroWork : 25;
         const pomodorosToday = countPomodorosToday(studyLogs, pomodoroWork);
 
         return {
@@ -1033,6 +1051,7 @@ export const calculateStudyStreak = (studyLogs) => {
 
             let total = 0, mastered = 0;
             toArray(deck?.cards).forEach(card => {
+                if (!card || typeof card !== 'object') return;
                 total++;
                 if ((card.reviews || 0) >= 3 && (card.interval || 1) >= 6) mastered++;
             });

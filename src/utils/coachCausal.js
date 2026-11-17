@@ -64,8 +64,15 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
 
   const safeSimulados = safeArray(simulados)
     .filter((simulado) => {
-      if (!categoryName) return true;
-      return isSubjectMatch(simulado?.subject || '', categoryName);
+      if (!categoryId && !categoryName) return true;
+      if (categoryId && simulado?.categoryId && (simulado.categoryId === categoryId || String(simulado.categoryId) === String(categoryId))) {
+        return true;
+      }
+      if (categoryName) {
+        const simLabel = simulado?.subject || simulado?.categoryName || simulado?.materia || simulado?.disciplina || '';
+        return isSubjectMatch(simLabel, categoryName);
+      }
+      return false;
     })
     .map((simulado, index) => {
       const time = toTime(simulado?.date ?? simulado?.createdAt);
@@ -444,10 +451,15 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
     return 25;
   };
 
+  const getCandidateKey = (task, idx) =>
+    task?.id != null && String(task.id).trim() !== ''
+      ? `id-${task.id}`
+      : `idx-${idx}-${task?.text || ''}`;
+
   const candidates = safeTasks.map((task, index) => {
     const actionType = inferActionType(task?.text || task?.topicName || '');
     return {
-      id: task?.id || task?.text || `task-${index}`,
+      id: getCandidateKey(task, index),
       type: actionType,
       name: task?.text || task?.topicName || `Tarefa ${index + 1}`,
       categoryId: task?.categoryId || null,
@@ -485,10 +497,7 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
     .map((task, originalIndex) => ({
       task,
       sortKey:
-        // FIX: o mesmo fallback `task-${originalIndex}` usado na criação dos
-        // candidatos. Antes, tarefas sem id/text usavam '' no lookup e
-        // nunca casavam com o id 'task-N' do orderMap (re-rank furado).
-        orderMap.get(task?.id || task?.text || `task-${originalIndex}`) ??
+        orderMap.get(getCandidateKey(task, originalIndex)) ??
         (safeRanked.length + originalIndex),
     }))
     .sort((a, b) => a.sortKey - b.sortKey)

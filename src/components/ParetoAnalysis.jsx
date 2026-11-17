@@ -1,9 +1,13 @@
 import React, { useMemo } from 'react';
 import { Target, CheckCircle2, Zap } from 'lucide-react';
 import { getSafeScore, getSyntheticTotal } from '../utils/scoreHelper';
+import { normalizeDate, toDateMs } from '../utils/dateHelper';
+
+const hasValidNum = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 // Pareto Analysis Component - Patched Version (Logic + UI)
-export default function ParetoAnalysis({ categories = [], maxScore: globalMaxScore = 100 }) {
+export default function ParetoAnalysis({ categories = [], maxScore: globalMaxScore = 100, minScore: globalMinScore = 0 }) {
     // FIX P-02: Normalizar categories de objeto Firebase para array.
     const safeCategories = useMemo(() => {
         const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
@@ -20,15 +24,27 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
             if (cat.simuladoStats && cat.simuladoStats.history) {
                 // Determine weight for this category
                 const catWeight = Number(cat.weight || cat.rawWeight || 1.0);
-                // FIX P-03: Usar maxScore da categoria com fallback para o global.
-                const catMaxScore = Number(cat.maxScore) || globalMaxScore;
-                const catMinScore = Number(cat.minScore) || 0;
+                // FIX P-03: Usar maxScore e minScore da categoria com fallback global.
+                const catMaxScore = (hasValidNum(cat.maxScore) && Number(cat.maxScore) > 0)
+                    ? Number(cat.maxScore)
+                    : (hasValidNum(globalMaxScore) && Number(globalMaxScore) > 0 ? Number(globalMaxScore) : 100);
+                const catMinScore = hasValidNum(cat.minScore)
+                    ? Math.min(Number(cat.minScore), catMaxScore)
+                    : (hasValidNum(globalMinScore) ? Math.min(Number(globalMinScore), catMaxScore) : 0);
 
-                // Flatten history
-                // FIX P-04: Normalizar history de objeto Firebase para array.
-                const hArray = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
+                // Flatten & sort history chronologically for recency weighting
+                const rawHistory = Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history);
+                const hArray = rawHistory
+                    .filter(h => h && h.valid !== false && h.validated !== false)
+                    .map((h, idx) => ({
+                        entry: h,
+                        ts: toDateMs(normalizeDate(h.date || h.createdAt)) || 0,
+                        idx
+                    }))
+                    .sort((a, b) => (a.ts - b.ts) || (a.idx - b.idx))
+                    .map(x => x.entry);
+
                 hArray.forEach((h, hIdx, hArr) => {
-                    if (!h) return;
                     // RECENCY BIAS: Recent errors matter more than old ones
                     const recencyFactor = Math.pow(1.05, hIdx - (hArr.length - 1));
                     
@@ -37,20 +53,29 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
                     topics.forEach(t => {
                         if (!t) return;
                         
-                        // FIX P-06: Usar getSafeScore com minScore da categoria.
-                        const score = getSafeScore(t, catMaxScore, catMinScore);
+                        // FIX P-06: Usar getSafeScore com minScore da categoria e alias scorePct.
+                        const normalizedTopic = (t.score == null && t.scorePct != null)
+                            ? { ...t, score: t.scorePct, isPercentage: true }
+                            : t;
+                        const score = getSafeScore(normalizedTopic, catMaxScore, catMinScore);
                         if (!Number.isFinite(score)) return;
 
-                        // FIX P-07: Proteger contra total=0 → getSyntheticTotal.
-                        let total = Math.max(0, parseInt(t.total, 10) || 0);
-                        if (total === 0 && t.score != null) {
+                        // FIX P-07: Suportar aliases de contagem e fallback score/scorePct.
+                        let total = Math.max(0, parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
+                        if (total === 0 && (t.score != null || t.scorePct != null)) {
                             total = getSyntheticTotal(catMaxScore);
                         }
                         if (total === 0) return;
 
-                        // FIX P-08: Clamp de correct para nunca exceder total.
-                        const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
-                        const correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));
+                        // FIX P-08: Respeitar acertos explícitos quando informados.
+                        const explicitCorrect = t.correct ?? t.acertos ?? t.correctCount;
+                        let correctCount;
+                        if (hasValidNum(explicitCorrect) && !t.isPercentage) {
+                            correctCount = Math.max(0, Math.min(total, Math.round(Number(explicitCorrect))));
+                        } else {
+                            const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
+                            correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));
+                        }
                         const missed = Math.max(0, total - correctCount);
 
                         allTopics.push({
@@ -125,7 +150,7 @@ export default function ParetoAnalysis({ categories = [], maxScore: globalMaxSco
             recoveryPercent: calculatedRecoveryPercent
         };
 
-    }, [safeCategories, globalMaxScore]);
+    }, [safeCategories, globalMaxScore, globalMinScore]);
 
     return (
         <div className="glass p-6 h-full flex flex-col border-l border-white/5 bg-gradient-to-br from-slate-900/50 to-red-900/10">

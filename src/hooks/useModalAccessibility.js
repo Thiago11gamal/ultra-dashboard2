@@ -1,9 +1,19 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
+const openModalStack = [];
 
 export function useModalAccessibility(isOpen, onClose, modalRef) {
+    const onCloseRef = useRef(onClose);
+
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
+
     useEffect(() => {
         if (!isOpen) return;
 
+        const modalToken = Symbol('modal');
+        openModalStack.push(modalToken);
         const previouslyFocused = document.activeElement;
 
         const getFocusableElements = () => {
@@ -32,9 +42,14 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
         const timer = setTimeout(focusFirstElement, 50);
 
         const handleKeyDown = (event) => {
+            if (openModalStack[openModalStack.length - 1] !== modalToken) {
+                return;
+            }
+
             if (event.key === 'Escape') {
+                event.preventDefault();
                 event.stopPropagation();
-                if (typeof onClose === 'function') onClose();
+                if (typeof onCloseRef.current === 'function') onCloseRef.current();
                 return;
             }
 
@@ -61,11 +76,13 @@ export function useModalAccessibility(isOpen, onClose, modalRef) {
         return () => {
             clearTimeout(timer);
             document.removeEventListener('keydown', handleKeyDown);
+            const idx = openModalStack.lastIndexOf(modalToken);
+            if (idx !== -1) openModalStack.splice(idx, 1);
 
             if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
                 previouslyFocused.focus();
             }
         };
-    }, [isOpen, onClose, modalRef]);
+    }, [isOpen, modalRef]);
 }
 

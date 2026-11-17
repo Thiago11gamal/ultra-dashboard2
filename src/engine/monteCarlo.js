@@ -30,7 +30,7 @@ const DEFAULT_DOMAIN_MIN = 0;
 const DEFAULT_DOMAIN_MAX = 100;
 
 function toFiniteNumber(value, fallback = 0) {
-    if (value === null || value === undefined || value === '') return fallback;
+    if (value === null || value === undefined || typeof value === 'boolean' || String(value).trim() === '') return fallback;
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
 }
@@ -124,6 +124,15 @@ export function recommendSimulationCount(targetProb = 0.7, targetSE = TARGET_PRO
     return clamp(needed, minSims, maxSims);
 }
 
+function hashSeedString(seedText) {
+    let h = 2166136261;
+    for (let i = 0; i < seedText.length; i++) {
+        h ^= seedText.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+}
+
 function generateStableSeed(historyCount, categoryName, _targetScore, _currentMean) {
     let h = 2166136261;
 
@@ -203,8 +212,8 @@ export function simulateNormalDistribution(
 
     if (!meanOrObj?.simulations && !simulations) {
         const refMean = Number.isFinite(currentMean) ? currentMean
-                      : Number.isFinite(mean) ? mean
-                      : (minScore + maxScore) / 2;
+            : Number.isFinite(mean) ? mean
+                : (minScore + maxScore) / 2;
         const domain = Math.max(1, maxScore - minScore);
         const roughProb = Math.max(0.1, Math.min(0.9, (refMean - minScore) / domain));
         simulations = recommendSimulationCount(roughProb);
@@ -332,10 +341,13 @@ export function simulateNormalDistribution(
         };
     }
 
+    const hasCustomSeed = seed !== undefined && seed !== null && typeof seed !== 'boolean' && String(seed).trim() !== '';
     const numericSeed = toFiniteNumber(seed, NaN);
     const stableSeed = Number.isFinite(numericSeed)
         ? (numericSeed >>> 0)
-        : generateStableSeed(historyLength, categoryName, targetScore, safeCurrentMean);
+        : (hasCustomSeed
+            ? hashSeedString(String(seed).trim())
+            : generateStableSeed(historyLength, categoryName, targetScore, safeCurrentMean));
 
     const rng = mulberry32(stableSeed);
 
@@ -733,7 +745,7 @@ export function simulateNormalDistribution(
         currentMean: safeCurrentMean,
         projectedMean,
         projectedSD,
-        kdeData: generateKDE(allScores, safeDisplayMean, projectedSD, safeSimulations, minScore, maxScore),
+        kdeData: generateKDE(allScores, projectedMean, projectedSD, safeSimulations, minScore, maxScore),
         drift: 0,
         volatility: safeSD,
         minScore,
@@ -830,7 +842,9 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
     };
 
     const extractScore = (value) => {
+        if (value === null || value === undefined || typeof value === 'boolean') return NaN;
         if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+        if (typeof value === 'string' && value.trim() === '') return NaN;
         if (value && typeof value === 'object') {
             return getSafeScore(value, domainMax, domainMin);
         }
@@ -845,7 +859,7 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
         .map((score, index) => {
             const rawScore = extractScore(score);
             const isNuloOuVazio = rawScore === null || rawScore === undefined || String(rawScore).trim() === '';
-            
+
             const baseObj = (typeof score === 'object' && score !== null) ? score : {};
             const syntheticDate = getDateKey(new Date(syntheticNowMs - (Math.max(1, safeValues.length) - 1 - index) * 7 * 86400000));
 
@@ -858,11 +872,11 @@ export function runMonteCarloAnalysis(params = {}, ...legacyArgs) {
         .filter(row => Number.isFinite(row.score));
 
     const result = monteCarloSimulation(history, resolvedTarget, safeProjectionDays, safeSimulations, mergedOptions);
-    
+
     if (cacheKey) {
         setCachedSimulation(cacheKey, result);
     }
-    
+
     return result;
 }
 

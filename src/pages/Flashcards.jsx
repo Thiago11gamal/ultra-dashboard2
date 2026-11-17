@@ -5,12 +5,24 @@ import { useToast } from '../hooks/useToast';
 import { BookOpen, Plus, Trash2, Play, X, RotateCw, Award } from 'lucide-react';
 import { generateId } from '../utils/idGenerator';
 import { format } from 'date-fns';
-import { getFlashcardTodayKey, getFlashcardNextDueKey, isFlashcardDue } from '../utils/dateHelper';
+import { getFlashcardTodayKey, getFlashcardNextDueKey, isFlashcardDue, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
 import DueForecast from '../components/DueForecast';
 
 import ConfirmModal from '../components/ConfirmModal';
 
 const EMPTY_ARRAY = Object.freeze([]);
+
+function getSafeDeckCards(deck) {
+  if (!deck || !deck.cards) return [];
+  const list = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+  return list.filter(Boolean);
+}
+
+function formatDueShort(rawDue) {
+  if (!rawDue) return '--';
+  const parsed = parseNoonLocal(rawDue) || normalizeDate(rawDue);
+  return parsed && Number.isFinite(parsed.getTime()) ? format(parsed, 'dd/MM') : '--';
+}
 
 function getActiveContest(state) {
   const id = state.appState?.activeId || 'default';
@@ -19,7 +31,7 @@ function getActiveContest(state) {
 
 export default function Flashcards() {
   const rawDecks = useAppStore(state => getActiveContest(state).flashcardDecks || EMPTY_ARRAY);
-  const decks = Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {});
+  const decks = (Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {})).filter(Boolean);
   const setData = useAppStore(state => state.setData);
   const showToast = useToast();
   const logFlashcardReview = useAppStore(state => state.logFlashcardReview);
@@ -165,9 +177,7 @@ export default function Flashcards() {
 
   // Start study
   const getDueCardsForDeck = (deck) => {
-    if (!deck || !deck.cards) return [];
-    const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
-    return safeCards.filter(c => isFlashcardDue(c.due));
+    return getSafeDeckCards(deck).filter(c => isFlashcardDue(c.due));
   };
 
   const startStudy = (deck) => {
@@ -385,9 +395,9 @@ export default function Flashcards() {
         )}
 
         {decks.map(deck => {
-          const cardCount = deck.cards?.length || 0;
+          const safeCards = getSafeDeckCards(deck);
+          const cardCount = safeCards.length;
           const isSelected = deck.id === selectedDeckId;
-          const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
           const dueCount = safeCards.filter(c => isFlashcardDue(c.due)).length;
           return (
             <div
@@ -436,11 +446,11 @@ export default function Flashcards() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <div className="font-extrabold text-2xl leading-tight tracking-[-0.01em]">{selectedDeck.name}</div>
-              <div className="text-amber-300/80 text-sm tracking-wider mt-0.5">{selectedDeck.subject} • {(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {})).length} cartões</div>
+              <div className="text-amber-300/80 text-sm tracking-wider mt-0.5">{selectedDeck.subject} • {getSafeDeckCards(selectedDeck).length} cartões</div>
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => startStudy(selectedDeck)} disabled={!selectedDeck.cards?.length} className="tool-btn">
+              <button onClick={() => startStudy(selectedDeck)} disabled={getSafeDeckCards(selectedDeck).length === 0} className="tool-btn">
                 <Play size={16} /> Iniciar Revisão
               </button>
               <button onClick={() => setShowAddCard(true)} className="tool-btn secondary">
@@ -471,19 +481,19 @@ export default function Flashcards() {
 
           {/* Cards list */}
           <div>
-            <div className="micro-label mb-3">CARTÕES ({(selectedDeck.cards || []).length})</div>
-            {(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {})).length === 0 ? (
+            <div className="micro-label mb-3">CARTÕES ({getSafeDeckCards(selectedDeck).length})</div>
+            {getSafeDeckCards(selectedDeck).length === 0 ? (
               <div className="text-sm text-slate-400 py-3">Nenhum cartão. Adicione alguns acima.</div>
             ) : (
               <div className="space-y-2">
-                {(Array.isArray(selectedDeck.cards) ? selectedDeck.cards : Object.values(selectedDeck.cards || {})).map((card) => (
+                {getSafeDeckCards(selectedDeck).map((card) => (
                   <div key={card.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 text-sm group">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-amber-100 line-clamp-2 leading-snug">{card.front}</div>
                       <div className="text-slate-400 mt-1 text-xs line-clamp-2 leading-snug">{card.back}</div>
                       <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
                         <span>Intervalo: {card.interval || 1}d</span>
-                        {card.due && <span>Próxima: {format(new Date(card.due + 'T12:00:00'), 'dd/MM')}</span>}
+                        {card.due && <span>Próxima: {formatDueShort(card.due)}</span>}
                       </div>
                     </div>
                     <button

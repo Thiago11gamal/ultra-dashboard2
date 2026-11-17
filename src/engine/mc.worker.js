@@ -6,10 +6,18 @@ function safeNum(val, fallback) {
     const hasFallback = arguments.length > 1;
     const cleanFallback = hasFallback ? fallback : 0;
 
-    if (val === undefined || val === null || val === '') return cleanFallback;
+    if (val === undefined || val === null || typeof val === 'boolean' || String(val).trim() === '') return cleanFallback;
 
     const num = Number(val);
     return Number.isFinite(num) ? num : cleanFallback;
+}
+
+function safeSeed(val) {
+    if (val === undefined || val === null || typeof val === 'boolean') return undefined;
+    const str = String(val).trim();
+    if (!str) return undefined;
+    const num = Number(str);
+    return Number.isFinite(num) ? num : str;
 }
 
 function sanitizeSubjects(subjects) {
@@ -85,7 +93,7 @@ function sanitizeOptions(options) {
     if (options.minScore !== undefined) newOpts.minScore = safeNum(options.minScore, 0);
     if (options.maxScore !== undefined) newOpts.maxScore = safeNum(options.maxScore, 100);
 
-    if (options.seed !== undefined) newOpts.seed = safeNum(options.seed, undefined);
+    if (options.seed !== undefined) newOpts.seed = safeSeed(options.seed);
     if (options.subjects !== undefined) newOpts.subjects = sanitizeSubjects(options.subjects);
     if (options.history !== undefined) newOpts.history = sanitizeHistory(options.history);
     if (options.flashcardImmunity !== undefined) newOpts.flashcardImmunity = safeNum(options.flashcardImmunity, 1.0);
@@ -180,12 +188,14 @@ self.onmessage = function (e) {
                 const options = sanitizeOptions(payload.options);
 
                 const sanitizedInput = {
-                    // FIX: Mantém o objeto inteiro
-                    values: hist.map(h => typeof h === 'object' && h !== null ? { ...h, score: (h.score ?? h.value ?? NaN) } : h),
-                    dates: hist.map(h => typeof h === 'object' && h !== null ? (h.date ?? '') : ''),
+                    ...options,
+                    // FIX: Mantém o objeto inteiro e protege campos sanitizados contra sobrescrita de options
+                    values: hist.map(h => (typeof h === 'object' && h !== null && (h.score !== undefined || h.value !== undefined))
+                        ? { ...h, score: (h.score ?? h.value) }
+                        : h),
+                    dates: hist.map(h => typeof h === 'object' && h !== null ? (h.date ?? h.createdAt ?? '') : ''),
                     targetScore: safeNum(payload.targetScore, 0),
-                    projectionDays: safeNum(payload.projectionDays, 90),
-                    ...options
+                    projectionDays: safeNum(payload.projectionDays, 90)
                 };
 
                 result = runMonteCarloAnalysis(sanitizedInput);
@@ -222,7 +232,7 @@ self.onmessage = function (e) {
             const sd = safeNum(payload.sd, 0);
             const targetScore = safeNum(payload.targetScore, 0);
             const simulations = safeNum(payload.simulations, 5000);
-            const seed = payload.seed !== undefined ? safeNum(payload.seed, undefined) : undefined;
+            const seed = safeSeed(payload.seed);
             const currentMean = payload.currentMean !== undefined ? safeNum(payload.currentMean, undefined) : undefined;
             const categoryName = payload.categoryName ? String(payload.categoryName) : undefined;
             const minScore = safeNum(payload.minScore, 0);
@@ -268,9 +278,17 @@ self.onmessage = function (e) {
                     sd: inp.sd !== undefined ? safeNum(inp.sd, 0) : undefined,
                     targetScore: safeNum(inp.targetScore, 0),
                     simulations: safeNum(inp.simulations, 2000),
+                    seed: safeSeed(inp.seed),
+                    currentMean: inp.currentMean !== undefined ? safeNum(inp.currentMean, undefined) : undefined,
                     categoryName: inp.categoryName ? String(inp.categoryName) : undefined,
                     minScore: safeNum(inp.minScore, 0),
                     maxScore: safeNum(inp.maxScore, 100),
+                    flashcardImmunity: inp.flashcardImmunity !== undefined ? safeNum(inp.flashcardImmunity, 1.0) : undefined,
+                    historicalCutoffs: Array.isArray(inp.historicalCutoffs)
+                        ? inp.historicalCutoffs.map(Number).filter(n => Number.isFinite(n))
+                        : undefined,
+                    subjects: inp.subjects !== undefined ? sanitizeSubjects(inp.subjects) : undefined,
+                    categoryNames: Array.isArray(inp.categoryNames) ? inp.categoryNames.map(String) : undefined,
                     simuladoRows: sharedSimuladoRows,
                     historyLength: safeNum(inp.historyLength, 0),
                     bayesianCI: sanitizeBayesianCI(inp.bayesianCI),

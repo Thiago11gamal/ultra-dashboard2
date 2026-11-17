@@ -68,6 +68,10 @@ export function usePomodoroSync({
                 if (msgTaskId != null && currentTaskId != null && msgTaskId !== currentTaskId) {
                     return;
                 }
+                // Aba ociosa (sem taskId ativo) não deve adotar estado running de uma tarefa específica
+                if (msgTaskId != null && currentTaskId == null) {
+                    return;
+                }
                 // G-09 FIX: Se a mensagem tem sessionInstanceId, validar.
                 // Se NÓS temos sessionId mas a mensagem NÃO tem, aceitar
                 // (mensagem de aba que não trackeia sessions).
@@ -134,6 +138,10 @@ export function usePomodoroSync({
                     if (Number.isFinite(incomingTime) && incomingTime >= 0 && incomingTime <= 24 * 3600) {
                         setTimeLeft(incomingTime);
                         stateRefs.current.timeLeft = incomingTime;
+                        if (clockRef?.current) {
+                            clockRef.current.__lastSec = incomingTime;
+                            clockRef.current.textContent = formatTime(incomingTime);
+                        }
                     }
                     break;
                 }
@@ -169,15 +177,16 @@ export function usePomodoroSync({
 
                         const safeTarget = Math.min(
                             MAX_TARGET_CYCLES,
-                            Math.max(
-                                Math.max(1, currentCompleted),
-                                Math.round(Number(incomingTarget))
-                            )
+                            Math.max(1, Math.round(Number(incomingTarget)))
                         );
+                        const clampedCompleted = currentCompleted >= safeTarget
+                            ? Math.max(0, safeTarget - 1)
+                            : currentCompleted;
 
-                        syncPomodoroState({ targetCycles: safeTarget });
+                        syncPomodoroState({ targetCycles: safeTarget, completedCycles: clampedCompleted });
                         if (stateRefs?.current) {
                             stateRefs.current.targetCycles = safeTarget;
+                            stateRefs.current.completedCycles = clampedCompleted;
                         }
                         try {
                             const raw = localStorage.getItem('pomodoroState');
@@ -185,6 +194,7 @@ export function usePomodoroSync({
                                 const parsed = JSON.parse(raw);
                                 if (parsed && typeof parsed === 'object') {
                                     parsed.targetCycles = safeTarget;
+                                    parsed.completedCycles = clampedCompleted;
                                     localStorage.setItem('pomodoroState', JSON.stringify(parsed));
                                 }
                             }

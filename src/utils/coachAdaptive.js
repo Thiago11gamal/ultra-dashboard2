@@ -76,8 +76,11 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
 
   if (rawScores.length < 4) return { danger: fallbackDanger, safe: fallbackSafe };
 
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const safeMax = (maxScore > 0 ? maxScore : 100);
+  const safeMin = (minScore !== null && minScore !== undefined && typeof minScore !== 'boolean' && String(minScore).trim() !== '' && Number.isFinite(Number(minScore))) ? Number(minScore) : 0;
+  const rawMaxNum = Number(maxScore);
+  const safeMax = (maxScore !== null && maxScore !== undefined && typeof maxScore !== 'boolean' && String(maxScore).trim() !== '' && Number.isFinite(rawMaxNum) && rawMaxNum > safeMin)
+    ? rawMaxNum
+    : Math.max(100, safeMin + 100);
   const safeRange = Math.max(1e-9, safeMax - safeMin);
   const cleanScores = rawScores.map(s => ((s - safeMin) / safeRange) * 100);
   const sorted = [...cleanScores].sort((a, b) => a - b);
@@ -379,7 +382,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   // PATCH-17: Usar hashString para evitar ambiguidade com separadores
   const hash = hashString(
     `${contestId}|${categoryId}|${safeMaxScore}|${safeMinScore}|${history.length}|${Number(sumCorrect).toFixed(2)}` +
-    `|${safeTargetScore}|${sequenceChecksum}|${firstDate}|${lastDate}|${days}|${calibHash}|${adaptiveHash}` +
+    `|${safeTargetScore}|ntgt${safeCfg.nominalTargetScore ?? ''}|${sequenceChecksum}|${firstDate}|${lastDate}|${days}|${calibHash}|${adaptiveHash}` +
     `|${cfgHash}|ag${agilityPenalty}|tgt${Number(safeTargetScore).toFixed(1)}`
   );
 

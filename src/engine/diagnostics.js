@@ -79,7 +79,7 @@ export function detectDataAnomalies(historyRaw = [], maxScore = 100, minScore = 
   const parsed = history.map((h, idx) => {
     const score = getSafeScore(h, maxScore, minScore);
     const dateRaw = h?.date || h?.createdAt;
-    const d = dateRaw ? new Date(dateRaw) : null;
+    const d = _getEntryDate(h);
     const t = d && !isNaN(d.getTime()) ? d.getTime() : null;
     return { ...h, idx, score, date: dateRaw, t, finite: Number.isFinite(score) };
   });
@@ -759,7 +759,8 @@ export function computeCategoryDiagnostics({
   const velocity = computeLearningVelocity(safeHistory, maxScore, minScore);
 
   let klToTarget = null;
-  if (bayesianStats && targetScore !== null) {
+  const hasValidTarget = targetScore !== null && targetScore !== undefined && typeof targetScore !== 'boolean' && String(targetScore).trim() !== '' && Number.isFinite(Number(targetScore));
+  if (bayesianStats && hasValidTarget) {
     const domain = Math.max(1e-6, maxScore - minScore);
     const targetMu = Number(targetScore);
     const targetSd = domain * 0.05;

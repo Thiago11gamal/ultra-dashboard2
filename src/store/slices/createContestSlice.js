@@ -32,6 +32,7 @@ export const createContestSlice = (set) => ({
     switchContest: (contestId) => set((state) => {
         const prevId = state.appState.activeId;
         const targetId = state.appState.contests[contestId] ? contestId : (Object.keys(state.appState.contests)[0] || 'default');
+        let didMutate = prevId !== targetId;
 
         if (prevId !== targetId) {
             if (state.appState.pomodoro?.activeSubject || state.appState.pomodoro?.isRunning || (state.appState.pomodoro?.accumulatedMinutes || 0) > 0) {
@@ -44,27 +45,31 @@ export const createContestSlice = (set) => ({
         const nowIso = new Date().toISOString();
         const activeData = state.appState.contests[targetId];
         if (activeData) {
-            const isDireito = targetId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || 
-                activeData.contestName === 'Direito' || 
+            const isDireito = targetId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' ||
+                activeData.contestName === 'Direito' ||
                 activeData.user?.name === 'Direito';
             if (isDireito && (!activeData.categories || !Array.isArray(activeData.categories) || activeData.categories.length === 0)) {
                 activeData.categories = safeClone(RECOVERED_DIREITO_CONTEST.categories);
                 activeData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(activeData.user || {}) };
                 activeData.contestName = 'Direito';
                 activeData.lastUpdated = nowIso;
+                didMutate = true;
             }
             if (!activeData.coachPlanner) {
                 activeData.coachPlanner = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+                didMutate = true;
             }
-            if (!activeData.categories) activeData.categories = [];
-            if (!activeData.simuladoRows) activeData.simuladoRows = [];
-            if (!activeData.simulados) activeData.simulados = [];
-            if (!activeData.studyLogs) activeData.studyLogs = [];
-            if (!activeData.studySessions) activeData.studySessions = [];
+            if (!activeData.categories) { activeData.categories = []; didMutate = true; }
+            if (!activeData.simuladoRows) { activeData.simuladoRows = []; didMutate = true; }
+            if (!activeData.simulados) { activeData.simulados = []; didMutate = true; }
+            if (!activeData.studyLogs) { activeData.studyLogs = []; didMutate = true; }
+            if (!activeData.studySessions) { activeData.studySessions = []; didMutate = true; }
         }
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = nowIso;
-        markStorageDirty();
+        if (didMutate) {
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = nowIso;
+            markStorageDirty();
+        }
     }),
 
     createNewContest: () => set((state) => {
@@ -121,11 +126,11 @@ export const createContestSlice = (set) => ({
         } else if (wasActive) {
             state.appState.activeId = remainingIds[0];
         }
-        
+
         if (wasActive || remainingIds.length === 0) {
             resetPomodoroState(state);
         }
-        
+
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
         markStorageDirty();
@@ -143,6 +148,9 @@ export const createContestSlice = (set) => ({
             if (!paineis[state.appState.activeId]) {
                 state.appState.activeId = keys[0];
             }
+        }
+        if (state.appState.pomodoro?.activeSubject || state.appState.pomodoro?.isRunning || (state.appState.pomodoro?.accumulatedMinutes || 0) > 0) {
+            resetPomodoroState(state);
         }
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;

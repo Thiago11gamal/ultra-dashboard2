@@ -53,7 +53,7 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
   if (!validRows.length) return safeBase;
 
   const rowMatchesCategory = (row, cat) => {
-    if (row.categoryId && cat.id && String(row.categoryId) === String(cat.id)) return true;
+    if (row.categoryId) return Boolean(cat.id && String(row.categoryId) === String(cat.id));
     const subNorm = normalize(row.subject || row.categoryName || row.materia);
     const catNorm = normalize(cat.name);
     if (!subNorm || !catNorm) return false;
@@ -89,14 +89,46 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
       : Object.values(existingHistoryRaw || {})).filter(Boolean);
 
     const existingIds = new Set(existingHistory.map(h => h.id || h.simuladoRowId).filter(Boolean));
-    const existingDateKeys = new Set(existingHistory.map(h => getDateKey(h.date || h.createdAt)).filter(Boolean));
-
-    const missingRows = myRows.filter(r => {
-      if (r.id && existingIds.has(r.id)) return false;
-      const dk = getDateKey(r.date || r.createdAt);
-      return dk && !existingDateKeys.has(dk);
+    const existingByDateKey = new Map();
+    existingHistory.forEach((h) => {
+      const dk = getDateKey(h.date || h.createdAt);
+      if (dk && !existingByDateKey.has(dk)) existingByDateKey.set(dk, h);
     });
-    if (!missingRows.length) return cat;
+
+    const myRowsByDate = new Map();
+    myRows.forEach((r) => {
+      const dk = getDateKey(r.date || r.createdAt);
+      if (!dk) return;
+      if (!myRowsByDate.has(dk)) myRowsByDate.set(dk, []);
+      myRowsByDate.get(dk).push(r);
+    });
+
+    const datesToRehydrate = new Set();
+    myRowsByDate.forEach((dayRows, dk) => {
+      const existingEntry = existingByDateKey.get(dk);
+      if (!existingEntry) {
+        if (dayRows.some(r => !r.id || !existingIds.has(r.id))) {
+          datesToRehydrate.add(dk);
+        }
+        return;
+      }
+      // Se já existe entrada para o dia, reidrata todas as rows daquele dia caso novas rows
+      // tenham sido adicionadas no mesmo dia com volume maior que o snapshot existente.
+      const existingTotal = Number(existingEntry.total ?? existingEntry.questoes ?? existingEntry.questions) || 0;
+      const rowsTotal = dayRows.reduce(
+        (sum, r) => sum + Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0),
+        0
+      );
+      if (rowsTotal > existingTotal && dayRows.some(r => !r.id || !existingIds.has(r.id))) {
+        datesToRehydrate.add(dk);
+      }
+    });
+
+    if (!datesToRehydrate.size) return cat;
+    const missingRows = [];
+    datesToRehydrate.forEach((dk) => {
+      (myRowsByDate.get(dk) || []).forEach((r) => missingRows.push(r));
+    });
 
     const catMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : (Number(globalMax) || 100);
     const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : (Number.isFinite(Number(globalMin)) ? Number(globalMin) : 0);
@@ -178,7 +210,11 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
       };
     });
 
-    const mergedHistory = [...existingHistory, ...reconstructed].sort((a, b) => {
+    const remainingExisting = existingHistory.filter((h) => {
+      const dk = getDateKey(h.date || h.createdAt);
+      return !dk || !datesToRehydrate.has(dk);
+    });
+    const mergedHistory = [...remainingExisting, ...reconstructed].sort((a, b) => {
       const da = toDateMs(a.date || a.createdAt);
       const db = toDateMs(b.date || b.createdAt);
       return (Number.isFinite(da) ? da : 0) - (Number.isFinite(db) ? db : 0);

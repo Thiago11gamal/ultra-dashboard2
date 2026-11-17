@@ -436,7 +436,7 @@ function PomodoroTimer({
                 : mode === 'long_break'
                     ? (safeSettings.pomodoroLongBreak || 15) * 60
                     : (safeSettings.pomodoroBreak || 5) * 60;
-            const currentTotal = baseTotal + (addedSeconds || 0);
+            const currentTotal = Math.max(1, baseTotal + (addedSeconds || 0));
             onTimerStateChange({
                 isRunning,
                 timeLeft,
@@ -933,7 +933,7 @@ function PomodoroTimer({
             : currentMode === 'long_break'
                 ? (safeSettings.pomodoroLongBreak || 15) * 60
                 : (safeSettings.pomodoroBreak || 5) * 60;
-        const currentTotalTime = baseTotalTime + (addedSeconds || 0);
+        const currentTotalTime = Math.max(1, baseTotalTime + (addedSeconds || 0));
         const fraction = Math.max(0, Math.min(1, timeLeft / (currentTotalTime || 1)));
         const activeRatio = Math.max(0, Math.min(1, 1 - fraction));
 
@@ -1131,6 +1131,9 @@ function PomodoroTimer({
         if (source === 'natural') {
             const now = Date.now();
             if (transitionLockRef.current && now - transitionLockRef.current < 2000) {
+                setIsRunning(false);
+                stateRefs.current.isRunning = false;
+                setPomodoroRunning(false);
                 return;
             }
             transitionLockRef.current = now;
@@ -1139,6 +1142,18 @@ function PomodoroTimer({
                 const lockKey = `${lockPrefix}${activeSubjectRef.current?.taskId || 'global'}`;
                 const lastTransition = Number(localStorage.getItem(lockKey) || 0);
                 if (now - lastTransition < 2000) {
+                    // Outra aba já iniciou a transição natural; sincroniza para não travar em 00:00 rodando
+                    setIsRunning(false);
+                    stateRefs.current.isRunning = false;
+                    setPomodoroRunning(false);
+                    try {
+                        const rawSaved = localStorage.getItem('pomodoroState');
+                        const parsedSaved = rawSaved ? JSON.parse(rawSaved) : null;
+                        if (parsedSaved && Number.isFinite(parsedSaved.timeLeft)) {
+                            commitTimeLeft(parsedSaved.timeLeft);
+                            if (typeof parsedSaved.mode === 'string') stateRefs.current.mode = parsedSaved.mode;
+                        }
+                    } catch { /* ignore */ }
                     return;
                 }
                 // Remove locks expirados (> 60s) para não acumular chaves órfãs por taskId
@@ -1440,7 +1455,7 @@ function PomodoroTimer({
             : currentMode === 'long_break'
                 ? (safeSettings.pomodoroLongBreak || 15) * 60
                 : (safeSettings.pomodoroBreak || 5) * 60;
-        const currentTotalTime = baseTotalTime + (addedSeconds || 0);
+        const currentTotalTime = Math.max(1, baseTotalTime + (addedSeconds || 0));
 
         const updateFluidRing = () => {
             if (!endsAtRef.current || !isMountedRef.current) return;
@@ -1511,7 +1526,7 @@ function PomodoroTimer({
         const actualDelta = nextLeft - currentLeft;
         if (actualDelta === 0) return;
 
-        addedSecondsInPhaseRef.current = Math.max(0, (addedSecondsInPhaseRef.current || 0) + actualDelta);
+        addedSecondsInPhaseRef.current = (addedSecondsInPhaseRef.current || 0) + actualDelta;
         setAddedSeconds(addedSecondsInPhaseRef.current);
         commitTimeLeft(nextLeft);
         if (isRunning) {
@@ -1572,7 +1587,7 @@ function PomodoroTimer({
                 : currentMode === 'long_break'
                     ? safeSettings.pomodoroLongBreak * 60
                     : safeSettings.pomodoroBreak * 60;
-        const currentTotalTime = baseTotalTime + (addedSecondsInPhaseRef.current || 0);
+        const currentTotalTime = Math.max(1, baseTotalTime + (addedSecondsInPhaseRef.current || 0));
         const canRewindPhase = currentMode !== 'work' || currentSessions > 1 || (stateRefs.current.completedCycles || 0) > 0;
 
         flushedSecondsInPhaseRef.current = 0;
@@ -1959,7 +1974,7 @@ function PomodoroTimer({
             : mode === 'long_break'
                 ? safeSettings.pomodoroLongBreak * 60
                 : safeSettings.pomodoroBreak * 60;
-    const totalTime = baseTotalTime + (addedSeconds || 0);
+    const totalTime = Math.max(1, baseTotalTime + (addedSeconds || 0));
 
     useEffect(() => {
         if (!isRunning) {

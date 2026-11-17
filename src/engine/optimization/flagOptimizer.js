@@ -469,7 +469,7 @@ export function recommendFlagConfig(input = {}) {
   const currentFeatures =
     input.currentFeatures && typeof input.currentFeatures === 'object'
       ? input.currentFeatures
-      : readFlags();
+      : readFlags(input.contestId);
 
   const minImprovement = clampFinite(input.minImprovement, 0, 1, 0.02);
 
@@ -598,13 +598,13 @@ export function applyRecommendedFlags(recommendation, options = {}) {
 
   const allowAuto =
     options.force === true ||
-    readFlags().useAutoFlagApplication === true;
+    readFlags(options.contestId).useAutoFlagApplication === true;
 
   if (!allowAuto) return false;
 
   if (recommendation.action === 'keep') return false;
 
-  const current = readFlags();
+  const current = readFlags(options.contestId);
   const safeBaseline = getSafeBaselineFeatures();
 
   let next = { ...current };

@@ -213,6 +213,11 @@ export function loadTunerHistory() {
  * Executa um ciclo completo de auto-tuning.
  */
 export function runAutoTunerCycle(options = {}) {
+  if (options?.signal?.aborted) {
+    const abortErr = new Error('AutoTuner abortado.');
+    abortErr.name = 'AbortError';
+    throw abortErr;
+  }
   const contestId = options.contestId;
   const persistedFlags = loadPersistedCoachFlags(contestId);
 

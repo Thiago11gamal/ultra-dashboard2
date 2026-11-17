@@ -2,11 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
-    signOut,
     onAuthStateChanged,
     updateProfile
 } from "firebase/auth";
-import { auth, isLocalMode } from "../services/firebase";
+import { auth, isLocalMode, secureLogout } from "../services/firebase";
 import { AuthContext } from "./AuthContextValue";
 import { useAppStore } from "../store/useAppStore";
 
@@ -16,6 +15,7 @@ export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showDebug, setShowDebug] = useState(false);
+    const [profileRefreshTick, setProfileRefreshTick] = useState(0);
 
     // BUG-04 FIX: Wrap auth functions in useCallback to stabilize context value
     const signup = useCallback((email, password, name) => {
@@ -49,6 +49,7 @@ export function AuthProvider({ children }) {
                 // após o profile update e reload para garantir displayName imediato.
                 // CORREÇÃO: Passar a referência original intacta para não destruir o prototype do Firebase
                 setCurrentUser(auth.currentUser);
+                setProfileRefreshTick((t) => t + 1);
                 return auth.currentUser;
             });
     }, []);
@@ -76,8 +77,12 @@ export function AuthProvider({ children }) {
             if (isLocalMode) {
                 localStorage.removeItem('ultra_local_session');
                 setCurrentUser(null);
+                await secureLogout();
             } else if (auth) {
-                await signOut(auth);
+                const res = await secureLogout();
+                if (!res?.ok) {
+                    throw res?.error || new Error('signOut falhou.');
+                }
             }
             // C-09 FIX: Só resetar store se signOut foi bem-sucedido.
             useAppStore.getState().resetStore();
@@ -151,8 +156,9 @@ export function AuthProvider({ children }) {
         signup,
         login,
         logout,
-        showDebug
-    }), [currentUser, loading, signup, login, logout, showDebug]);
+        showDebug,
+        _profileRefreshTick: profileRefreshTick
+    }), [currentUser, loading, signup, login, logout, showDebug, profileRefreshTick]);
 
     return (
         <AuthContext.Provider value={value}>

@@ -98,7 +98,8 @@ export const createStudySlice = (set, get) => ({
         category.lastStudiedAt = now;
 
         if (taskId) {
-          const task = (category.tasks || []).find(t => t.id === taskId);
+          const catTasks = Array.isArray(category.tasks) ? category.tasks : Object.values(category.tasks || {});
+          const task = catTasks.find(t => t && t.id === taskId);
           if (task) task.lastStudiedAt = now;
         }
       }
@@ -116,7 +117,7 @@ export const createStudySlice = (set, get) => ({
     });
 
     if (pendingXp > 0 && typeof get().awardExperience === 'function') {
-      get().awardExperience(pendingXp);
+      get().awardExperience(pendingXp, { skipVersionBump: true });
     }
   },
 
@@ -179,7 +180,7 @@ export const createStudySlice = (set, get) => ({
     });
 
     if (xpToDeduct > 0 && typeof get().awardExperience === 'function') {
-      get().awardExperience(-xpToDeduct);
+      get().awardExperience(-xpToDeduct, { skipVersionBump: true });
     }
   },
 
@@ -257,7 +258,7 @@ export const createStudySlice = (set, get) => ({
 
     if (typeof get().awardExperience === 'function') {
       const xp = rating >= 2 ? 3 : 1;
-      get().awardExperience(xp);
+      get().awardExperience(xp, { skipVersionBump: true });
     }
   },
 });

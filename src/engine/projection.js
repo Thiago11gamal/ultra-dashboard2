@@ -35,45 +35,54 @@ const getSafeTime = (dateInput) => {
  * Many students improve fast then plateau.
  */
 export function computeNonLinearTrend(history, maxScore = 100, lambdaOrOptions = 0.08, minScore = 0) {
-  const isOpts = lambdaOrOptions && typeof lambdaOrOptions === 'object';
-  const lambda = isOpts ? (Number.isFinite(Number(lambdaOrOptions.lambda)) ? Number(lambdaOrOptions.lambda) : 0.08) : (Number.isFinite(Number(lambdaOrOptions)) ? Number(lambdaOrOptions) : 0.08);
-  if (isOpts && Number.isFinite(Number(lambdaOrOptions.minScore))) minScore = Number(lambdaOrOptions.minScore);
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 100;
-  const defaultMid = safeMin + 0.5 * (safeMax - safeMin);
-  const sorted = getSortedHistory(history);
-  if (sorted.length < 4) return { slope: 0, intercept: defaultMid, type: 'linear' };
+    const isOpts = lambdaOrOptions && typeof lambdaOrOptions === 'object';
+    const lambda = isOpts ? (Number.isFinite(Number(lambdaOrOptions.lambda)) ? Number(lambdaOrOptions.lambda) : 0.08) : (Number.isFinite(Number(lambdaOrOptions)) ? Number(lambdaOrOptions) : 0.08);
+    if (isOpts && Number.isFinite(Number(lambdaOrOptions.minScore))) minScore = Number(lambdaOrOptions.minScore);
+    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+    const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > safeMin ? Number(maxScore) : safeMin + 100;
+    const defaultMid = safeMin + 0.5 * (safeMax - safeMin);
+    const sorted = getSortedHistory(history);
+    if (sorted.length < 4) return { slope: 0, intercept: defaultMid, type: 'linear' };
 
-  const now = Date.now();
-  const t0 = getSafeTime(sorted[0].date || sorted[0].createdAt);
+    const now = Date.now();
+    const t0 = getSafeTime(sorted[0].date || sorted[0].createdAt);
 
-  // Fit simple model: y ~ a + b * log(1 + days)
-  let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0, validCount = 0;
+    // Fit simple model: y ~ a + b * log(1 + days)
+    let sumW = 0, sumWX = 0, sumWY = 0, sumWXX = 0, sumWXY = 0, validCount = 0;
 
-  sorted.forEach(h => {
-    const y = getSafeScore(h, safeMax, safeMin);
-    if (!Number.isFinite(y)) return;
-    const t = Math.max(0, (getSafeTime(h.date || h.createdAt) - t0) / 86400000);
-    const x = Math.log1p(t); // log(1 + days), 0 at t = 0
-    const w = Math.exp(-lambda * Math.max(0, (now - getSafeTime(h.date || h.createdAt)) / 86400000));
+    sorted.forEach(h => {
+        const y = getSafeScore(h, safeMax, safeMin);
+        if (!Number.isFinite(y)) return;
+        const t = Math.max(0, (getSafeTime(h.date || h.createdAt) - t0) / 86400000);
+        const x = Math.log1p(t); // log(1 + days), 0 at t = 0
+        const w = Math.exp(-lambda * Math.max(0, (now - getSafeTime(h.date || h.createdAt)) / 86400000));
 
-    sumW += w;
-    sumWX += w * x;
-    sumWY += w * y;
-    sumWXX += w * x * x;
-    sumWXY += w * x * y;
-    validCount += 1;
-  });
+        sumW += w;
+        sumWX += w * x;
+        sumWY += w * y;
+        sumWXX += w * x * x;
+        sumWXY += w * x * y;
+        validCount += 1;
+    });
 
-  if (validCount < 4 || sumW <= 1e-12) return { slope: 0, intercept: defaultMid, type: 'linear' };
+    if (validCount < 4 || sumW <= 1e-12) return { slope: 0, intercept: defaultMid, type: 'linear' };
 
-  const denom = (sumWXX * sumW - sumWX * sumWX);
-  if (Math.abs(denom) < 1e-9) return { slope: 0, intercept: sumWY / sumW, type: 'log' };
+    const denom = (sumWXX * sumW - sumWX * sumWX);
+    if (Math.abs(denom) < 1e-9) return { slope: 0, intercept: sumWY / sumW, type: 'log' };
 
-  const b = (sumWXY * sumW - sumWX * sumWY) / denom;
-  const a = (sumWY - b * sumWX) / sumW;
+    const b = (sumWXY * sumW - sumWX * sumWY) / denom;
+    const a = (sumWY - b * sumWX) / sumW;
 
-  return { slope: b, intercept: a, type: 'log_time', logTimeFit: true };
+    return { slope: b, intercept: a, type: 'log_time', logTimeFit: true };
+}
+
+function getDaysBetweenEntries(prevEntry, currEntry) {
+    const d0 = safeDateParse(prevEntry?.date || prevEntry?.createdAt);
+    const d1 = safeDateParse(currEntry?.date || currEntry?.createdAt);
+    if (!d0 || !d1 || Number.isNaN(d0.getTime()) || Number.isNaN(d1.getTime())) {
+        return 7;
+    }
+    return Math.max(1, (d1.getTime() - d0.getTime()) / 86400000);
 }
 
 export function calculateRobustVolatility(history, maxScore = 100, minScore = 0, options = {}) {
@@ -88,7 +97,10 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         return 0.05 * range;
     }
 
-    const lambda = options.lambda || 0.08;
+    const parsedLambda = Number(options.lambda);
+    const lambda = (options.lambda !== undefined && options.lambda !== null && options.lambda !== '' && typeof options.lambda !== 'boolean' && Number.isFinite(parsedLambda))
+        ? Math.max(0, Math.min(1, parsedLambda))
+        : 0.08;
     const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     const _scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
@@ -96,7 +108,7 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     // CORREÇÃO: Defesa estrita contra null/undefined que disparam TypeError no getTime()
     const d0 = safeDateParse(validSorted[0].date || validSorted[0].createdAt);
     const t0_vol = (d0 && !Number.isNaN(d0.getTime())) ? d0.getTime() : Date.now();
-    
+
     // OTIMIZAÇÃO DE PERFORMANCE: Fusão de loops O(5N) para O(N)
     let sumWeights = 0, sumWeightsSq = 0, sumResidualsWeighted = 0, sumSw = 0;
 
@@ -109,14 +121,14 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
         const w = Math.exp(-lambda * t);
         const y = getSafeScore(h, maxScore, minScore);
         const val = y - (intercept + slope * x); // Resíduo (detrended)
-        
+
         // Acumulação numa única passagem
         sumWeights += w;
         sumWeightsSq += w * w;
         sumResidualsWeighted += val * w;
         sumSw += val * val * w;
 
-        return { value: val, weight: w }; 
+        return { value: val, weight: w };
     }).filter(Boolean);
 
     // CORREÇÃO: Prevenir o colapso por "amnésia temporal" e usar graus de liberdade efetivos de Kish (n_eff - 2)
@@ -143,16 +155,33 @@ export function calculateRobustVolatility(history, maxScore = 100, minScore = 0,
     const absDev = residualSamples.map(it => ({ value: Math.abs(it.value - medianResidual), weight: it.weight }));
     const mad = weightedMedian(absDev);
     const robustVariance = Math.pow(1.4826 * mad, 2);
-    const blendedVariance = (0.75 * mssdVariance) + (0.25 * robustVariance);
+    let blendedVariance = (0.75 * mssdVariance) + (0.25 * robustVariance);
+    let effectiveSamplesCount = residualSamples.length > 0 ? validSorted.length : 0;
+
+    if (residualSamples.length === 0 && validSorted.length >= 2) {
+        const rawScores = validSorted
+            .map(h => getSafeScore(h, maxScore, minScore))
+            .filter(Number.isFinite);
+        if (rawScores.length >= 2) {
+            let diffSqSum = 0;
+            for (let i = 1; i < rawScores.length; i++) {
+                const diff = rawScores[i] - rawScores[i - 1];
+                diffSqSum += diff * diff;
+            }
+            const undatedMssd = diffSqSum / (2 * (rawScores.length - 1));
+            blendedVariance = Number.isFinite(undatedMssd) ? Math.max(0, undatedMssd) : 0;
+            effectiveSamplesCount = rawScores.length;
+        }
+    }
 
     // O PULO DO GATO: Shrinkage Bayesiano para Volatilidade (Bug 1 Fix)
     // Assumimos que o piso natural de flutuação de qualquer aluno é de ~4% do Range
     const rangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
-    const floorVolatility = rangeOU * 0.04; 
+    const floorVolatility = rangeOU * 0.04;
     const floorVariance = Math.pow(floorVolatility, 2);
-    
+
     // Quanto menor a amostra, mais puxamos para o piso natural.
-    const confidence = Math.min(1, validSorted.length / 15);
+    const confidence = Math.min(1, effectiveSamplesCount / 15);
     const trueVariance = (blendedVariance * confidence) + (floorVariance * (1 - confidence));
 
     return Math.sqrt(Math.max(1e-6, trueVariance));
@@ -179,81 +208,81 @@ export function calculateVolatility(history, maxScore = 100, minScore = 0) {
 // Mede instabilidade SEM penalizar crescimento monotônico.
 // -----------------------------
 export function calculateMSSD(history, maxScore = 100, minScore = 0) {
-  const safeHistory = getSortedHistory(history);
-  if (!Array.isArray(safeHistory) || safeHistory.length < 2) {
-    const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
-    return 0.05 * range;
-  }
-  
-  const firstDateObj = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt);
-  const t0 = firstDateObj ? firstDateObj.getTime() : Date.now();
-  
-  // ✅ FIX: Create aligned pairs to prevent index misalignment
-  const validPairs = [];
-  for (let i = 0; i < safeHistory.length; i++) {
-    const h = safeHistory[i];
-    const score = getSafeScore(h, maxScore, minScore);
-    const dateObj = safeDateParse(h.date || h.createdAt);
-    const t = dateObj ? dateObj.getTime() : NaN;
-    
-    if (Number.isFinite(score) && Number.isFinite(t)) {
-      validPairs.push({
-        score: score,
-        timeX: (t - t0) / 86400000,
-        fatigueFlag: h.fatigueFlag
-      });
+    const safeHistory = getSortedHistory(history);
+    if (!Array.isArray(safeHistory) || safeHistory.length < 2) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
     }
-  }
-  
-  const fn = validPairs.length;
-  if (fn < 2) {
-    const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
-    return 0.05 * range;
-  }
-  
-  const scores = validPairs.map(p => p.score);
-  const timeX = validPairs.map(p => p.timeX);
-  
-  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-  for(let i = 0; i < fn; i++) {
-    const tx = timeX[i];
-    sumX += tx;
-    sumY += scores[i];
-    sumXY += tx * scores[i];
-    sumXX += tx * tx;
-  }
-  
-  const det = fn * sumXX - sumX * sumX;
-  const slope = det === 0 ? 0 : (fn * sumXY - sumX * sumY) / det;
-  
-  // FIX-RMSSD-02: parear valor + flag na origem, para o índice de fatigueFlag
-  // nunca desalinhar quando detrendedScores é filtrado/reindexado.
-  const pairs = validPairs.map((p) => ({
-    v: p.score - (slope * p.timeX),
-    fatigue: !!p.fatigueFlag
-  })).filter(item => Number.isFinite(item.v));
-  
-  let sumSqDiff = 0;
-  let validTransitions = 0;
-  
-  for (let i = 1; i < pairs.length; i++) {
-    const diff = pairs[i].v - pairs[i - 1].v;
-    if (Number.isFinite(diff)) {
-      const isFatigueDrop = diff < 0 && pairs[i].fatigue;
-      const effectiveDiff = isFatigueDrop ? diff * 0.5 : diff;
-      sumSqDiff += Math.pow(effectiveDiff, 2);
-      validTransitions++;
+
+    const firstDateObj = safeDateParse(safeHistory[0].date || safeHistory[0].createdAt);
+    const t0 = firstDateObj ? firstDateObj.getTime() : Date.now();
+
+    // ✅ FIX: Create aligned pairs to prevent index misalignment
+    const validPairs = [];
+    for (let i = 0; i < safeHistory.length; i++) {
+        const h = safeHistory[i];
+        const score = getSafeScore(h, maxScore, minScore);
+        const dateObj = safeDateParse(h.date || h.createdAt);
+        const t = dateObj ? dateObj.getTime() : NaN;
+
+        if (Number.isFinite(score) && Number.isFinite(t)) {
+            validPairs.push({
+                score: score,
+                timeX: (t - t0) / 86400000,
+                fatigueFlag: h.fatigueFlag
+            });
+        }
     }
-  }
-  
-  // FIX-RMSSD-01: RMSSD = sqrt(mean(d²)). O fator 2 artificial subestimava
-  // a variabilidade em √2 (~29%), mascarando instabilidade do desempenho.
-  if (validTransitions < 1) {
-    const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
-    return 0.05 * range;
-  }
-  const rmssd = sumSqDiff / validTransitions;
-  return Math.sqrt(Math.max(1e-6, rmssd));
+
+    const fn = validPairs.length;
+    if (fn < 2) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
+    }
+
+    const scores = validPairs.map(p => p.score);
+    const timeX = validPairs.map(p => p.timeX);
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (let i = 0; i < fn; i++) {
+        const tx = timeX[i];
+        sumX += tx;
+        sumY += scores[i];
+        sumXY += tx * scores[i];
+        sumXX += tx * tx;
+    }
+
+    const det = fn * sumXX - sumX * sumX;
+    const slope = det === 0 ? 0 : (fn * sumXY - sumX * sumY) / det;
+
+    // FIX-RMSSD-02: parear valor + flag na origem, para o índice de fatigueFlag
+    // nunca desalinhar quando detrendedScores é filtrado/reindexado.
+    const pairs = validPairs.map((p) => ({
+        v: p.score - (slope * p.timeX),
+        fatigue: !!p.fatigueFlag
+    })).filter(item => Number.isFinite(item.v));
+
+    let sumSqDiff = 0;
+    let validTransitions = 0;
+
+    for (let i = 1; i < pairs.length; i++) {
+        const diff = pairs[i].v - pairs[i - 1].v;
+        if (Number.isFinite(diff)) {
+            const isFatigueDrop = diff < 0 && pairs[i].fatigue;
+            const effectiveDiff = isFatigueDrop ? diff * 0.5 : diff;
+            sumSqDiff += Math.pow(effectiveDiff, 2);
+            validTransitions++;
+        }
+    }
+
+    // FIX-RMSSD-01: RMSSD = sqrt(mean(d²)). O fator 2 artificial subestimava
+    // a variabilidade em √2 (~29%), mascarando instabilidade do desempenho.
+    if (validTransitions < 1) {
+        const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
+        return 0.05 * range;
+    }
+    const rmssd = sumSqDiff / validTransitions;
+    return Math.sqrt(Math.max(1e-6, rmssd));
 }
 
 // -----------------------------
@@ -265,16 +294,16 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
     // Fórmula: α_real = 1 - (1 - α_base)^Δt
     const alphaBase = 2 / (n + 1);
     const deltaT = Math.max(1, daysSinceLast);
-    
+
     // O decaimento exponencial contínuo garante que o peso da nova nota cresça proporcionalmente
     // ao tempo decorrido desde o último registro, compensando o "esquecimento".
     const alphaDinamico = 1 - Math.pow(1 - alphaBase, deltaT);
-    
+
     // CORREÇÃO: O teto cognitivo desce de 0.95 para 0.40.
     // Garante que, independentemente do gap temporal, um teste único nunca
     // substitui mais de 40% da inércia da memória de longo prazo consolidada.
     const safeAlpha = Math.min(0.40, alphaDinamico);
-    
+
     return (currentScore * safeAlpha) + (previousEMA * (1 - safeAlpha));
 }
 
@@ -283,44 +312,44 @@ export function calculateDynamicEMA(currentScore, previousEMA, n, daysSinceLast 
 // -----------------------------
 // ✅ FIX: calculateSlope com clamp proporcional à escala
 export function calculateSlope(trendOrHistory, maxScoreOrOptions = 100, options = {}) {
-  if (Array.isArray(trendOrHistory)) {
+    if (Array.isArray(trendOrHistory)) {
+        const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
+        const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
+        const minScore = Number.isFinite(opts?.minScore) ? Number(opts.minScore) : 0;
+
+        const normalizedHistory = trendOrHistory
+            .filter(item => item != null)
+            .map(item => {
+                if (typeof item === 'number') {
+                    return { score: item, date: null };
+                }
+                if (item && typeof item === 'object') {
+                    const score = getSafeScore(item, maxScore, minScore);
+                    return {
+                        score: Number.isFinite(score) ? score : NaN,
+                        date: item.date || item.createdAt || null
+                    };
+                }
+                return { score: NaN, date: null };
+            }).filter(item => Number.isFinite(item.score));
+
+        if (normalizedHistory.length < 2) return 0;
+        const result = calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
+        return Number.isFinite(result) ? result : 0;
+    }
+
+    // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
     const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
-    const maxScore = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
-    const minScore = Number.isFinite(opts?.minScore) ? Number(opts.minScore) : 0;
-    
-    const normalizedHistory = trendOrHistory
-      .filter(item => item != null)
-      .map(item => {
-      if (typeof item === 'number') {
-        return { score: item, date: null };
-      }
-      if (item && typeof item === 'object') {
-        const score = getSafeScore(item, maxScore, minScore);
-        return {
-          score: Number.isFinite(score) ? score : NaN,
-          date: item.date || item.createdAt || null
-        };
-      }
-      return { score: NaN, date: null };
-    }).filter(item => Number.isFinite(item.score));
-    
-    if (normalizedHistory.length < 2) return 0;
-    const result = calculateAdaptiveSlope(normalizedHistory, maxScore, opts);
-    return Number.isFinite(result) ? result : 0;
-  }
-  
-  // ✅ FIX: Clamp proporcional à amplitude real (maxScore - minScore) da prova
-  const opts = typeof maxScoreOrOptions === 'object' ? maxScoreOrOptions : options;
-  const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
-  const safeMin = Number.isFinite(opts?.minScore) ? opts.minScore : 0;
-  const range = Math.max(1e-9, safeMax - safeMin);
-  // 0.4% do range por dia como limite máximo
-  const absoluteMax = 0.004 * range;
-  let slope = Number(trendOrHistory) || 0;
-  if (!Number.isFinite(slope)) return 0;
-  if (slope > absoluteMax) slope = absoluteMax;
-  if (slope < -absoluteMax) slope = -absoluteMax;
-  return slope;
+    const safeMax = typeof maxScoreOrOptions === 'number' ? maxScoreOrOptions : (Number.isFinite(opts?.maxScore) ? Number(opts.maxScore) : 100);
+    const safeMin = Number.isFinite(opts?.minScore) ? opts.minScore : 0;
+    const range = Math.max(1e-9, safeMax - safeMin);
+    // 0.4% do range por dia como limite máximo
+    const absoluteMax = 0.004 * range;
+    let slope = Number(trendOrHistory) || 0;
+    if (!Number.isFinite(slope)) return 0;
+    if (slope > absoluteMax) slope = absoluteMax;
+    if (slope < -absoluteMax) slope = -absoluteMax;
+    return slope;
 }
 
 export function calculateAdaptiveSlope(history, maxScore = 100, options = {}) {
@@ -341,7 +370,7 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
     const historicalScores = sorted.map(h => getSafeScore(h, maxScore, minScore)).filter(Number.isFinite);
     if (historicalScores.length < 4) return { isLogistic: false };
-    
+
     const meanVal = kahanSum(historicalScores) / Math.max(1, historicalScores.length);
     const devs = historicalScores.map(b => Math.pow(b - meanVal, 2));
     const currentVariance = Math.sqrt(kahanSum(devs) / Math.max(1, historicalScores.length - 1));
@@ -370,17 +399,17 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
         const t = Math.max(0, (now - getSafeTime(hDate)) / 86400000);
         const w = Math.exp(-0.08 * t);
         const x = (getSafeTime(hDate) - getSafeTime(sorted[0].date || sorted[0].createdAt)) / 86400000;
-        
+
         let y = getSafeScore(h, maxScore, minScore);
         if (!Number.isFinite(y)) return;
-        
+
         y = Math.max(minScore, Math.min(maxScore, y));
 
         const safeMin = minScore;
-        const safeL = Math.max(L, y + 0.5); 
+        const safeL = Math.max(L, y + Math.max(1e-5, Math.max(0, L - safeMin) * 0.005));
         // Offset proporcional à escala (0.1% do range) para evitar logit ±∞
-        const logitOffset = Math.max(0.01, (safeL - safeMin) * 0.001);
-        const boundedY = Math.max(safeMin + logitOffset, Math.min(safeL - logitOffset, y)); 
+        const logitOffset = Math.max(1e-6, (safeL - safeMin) * 0.001);
+        const boundedY = Math.max(safeMin + logitOffset, Math.min(safeL - logitOffset, y));
         const logitY = Math.log((boundedY - safeMin) / (safeL - boundedY));
 
         sumW += w;
@@ -396,12 +425,12 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     const k = (sumW * sumWXY - sumWX * sumWY) / det;
     const logitIntercept = (sumWXX * sumWY - sumWX * sumWXY) / det;
 
-    return { 
-        k, 
-        intercept: logitIntercept, 
-        isLogistic: true, 
-        L, 
-        t0: getSafeTime(sorted[0].date || sorted[0].createdAt) 
+    return {
+        k,
+        intercept: logitIntercept,
+        isLogistic: true,
+        L,
+        t0: getSafeTime(sorted[0].date || sorted[0].createdAt)
     };
 }
 
@@ -417,7 +446,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const logisticFit = logisticRegression(sortedHistory, maxScore, resolvedOptions);
     let projectedScore;
     const now = options.referenceDate ? getSafeTime(options.referenceDate) : Date.now();
-    
+
     const { slopeStdError } = sortedHistory.length >= 2 ? weightedRegression(sortedHistory, 0.08, maxScore, resolvedOptions) : { slopeStdError: 0 };
     let eventVolatility = calculateMSSD(sortedHistory, maxScore, effectiveMinScore);
 
@@ -453,9 +482,9 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         const rawScore = getSafeScore(sortedHistory[0], maxScore, minScore);
         let ema = Number.isFinite(rawScore) ? rawScore : minScore;
         for (let i = 1; i < sortedHistory.length; i++) {
-            const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
+            const daysSinceLast = getDaysBetweenEntries(sortedHistory[i - 1], sortedHistory[i]);
             let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);
-            
+
             // PSEUDO-TRI: Rebalanceamento por dificuldade global invariante a [minScore, maxScore]
             if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0 && Number.isFinite(currentPoint)) {
                 const triRange = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
@@ -471,7 +500,7 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
             }
         }
 
-        
+
         // CORREÇÃO: Driftar a EMA da data do último teste até o dia de HOJE, 
         // para alinhar a origem do vetor temporal com a realidade atual.
         const lastHistoryDate = getSafeTime(sortedHistory[sortedHistory.length - 1].date || sortedHistory[sortedHistory.length - 1].createdAt);
@@ -495,23 +524,23 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         ? ((tLast - tFirst) / 86400000) / Math.max(1, sortedHistory.length - 1)
         : 7;
     const avgGapDays = Number.isFinite(rawGapDays) && rawGapDays > 0 ? rawGapDays : 7;
-        
+
     // AGILIDADE AI: Punição de Volatilidade baseada no tempo de resposta lento
     if (options.agilityPenalty) {
         const safePenalty = Math.max(0, Math.min(0.4, Number(options.agilityPenalty) || 0));
         eventVolatility = eventVolatility * (1 + safePenalty * 1.5);
     }
-    
+
     // A incerteza do Random Walk espalha-se com a raiz do número de EVENTOS ESPERADOS, não dos dias.
     const expectedFutureEvents = Math.max(1, projectDays / Math.max(0.5, avgGapDays));
     const randomWalkUncertainty = eventVolatility * Math.sqrt(expectedFutureEvents);
-    
+
     // Aplica o amortecimento do drift à incerteza angular (evita explosão da incerteza a longo prazo)
     const angularUncertainty = slopeStdError * effectiveDaysForDrift;
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     // Usar T-Student adaptativo para amostras pequenas em vez de Z=1.96 fixo
     const tMult = getConfidenceMultiplier(sortedHistory.length);
-    const marginOfError = Math.min((maxScore - minScore), tMult * predictionSD); 
+    const marginOfError = Math.min((maxScore - minScore), tMult * predictionSD);
 
     return {
         // FIX #2: Precisão completa
@@ -549,7 +578,10 @@ export function monteCarloSimulation(
     const { forcedVolatility, forcedBaseline, currentMean: optionsCurrentMean, minScore = 0, maxScore = 100, scenario = 'base', flashcardImmunity = 1.0 } = options;
     const scenarioCfg = SCENARIO_CONFIG[scenario] || SCENARIO_CONFIG.base;
     const sortedHistory = getSortedHistory(history);
-    const safeSimulations = Math.max(1, simulations);
+    const rawSims = Number(simulations);
+    const safeSimulations = (simulations !== null && simulations !== undefined && typeof simulations !== 'boolean' && String(simulations).trim() !== '' && Number.isFinite(rawSims))
+        ? Math.max(1, Math.min(50000, Math.floor(rawSims)))
+        : 5000;
     const scaleFactorFallback = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100;
 
     // Defaults for new diagnostics
@@ -582,7 +614,7 @@ export function monteCarloSimulation(
         const rawScore = getSafeScore(sortedHistory[0], maxScore, minScore);
         let ema = Number.isFinite(rawScore) ? rawScore : minScore;
         for (let i = 1; i < sortedHistory.length; i++) {
-            const daysSinceLast = Math.max(1, (safeDateParse(sortedHistory[i].date || sortedHistory[i].createdAt) - safeDateParse(sortedHistory[i - 1].date || sortedHistory[i - 1].createdAt)) / 86400000);
+            const daysSinceLast = getDaysBetweenEntries(sortedHistory[i - 1], sortedHistory[i]);
             let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);
 
             // PSEUDO-TRI: Rebalanceamento por dificuldade global invariante a [minScore, maxScore]
@@ -610,7 +642,7 @@ export function monteCarloSimulation(
     const range = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;   // ✅ LOTE-03
     // ✅ LOTE-06 FIX (SCENARIO-1): meanBiasFactor é percentual do maxScore, não do range.
     // Com minScore > 0, usar range distorcia o bias (ex: 2.5% de 800 em vez de 2.5% de 1000).
-        const biasScale = (maxScore > 0 && minScore >= 0) ? maxScore : range;
+    const biasScale = (maxScore > 0 && minScore >= 0) ? maxScore : range;
     baselineScore = Math.max(minScore, Math.min(maxScore, baselineScore + ((scenarioCfg.meanBiasFactor || 0) * biasScale)));
 
     // FEAT: Time Penalty (Simulação de Prova Real)
@@ -624,12 +656,12 @@ export function monteCarloSimulation(
         const examLimitSeconds = examDurationMinutes * 60;
         if (projectedTotalTimeSeconds > examLimitSeconds) {
             overflowRatio = (projectedTotalTimeSeconds - examLimitSeconds) / projectedTotalTimeSeconds;
-            
+
             // O aluno só consegue resolver com qualidade (1 - overflowRatio) da prova.
             // O restante (overflowRatio) será chutado, com probabilidade de acerto de 20% (1/5).
             const guessScore = 0.2 * (maxScore - minScore) + minScore; // 20% na escala correta
             const newBaseline = (baselineScore * (1 - overflowRatio)) + (guessScore * overflowRatio);
-            
+
             timePenaltyScoreDrop = baselineScore - newBaseline;
             baselineScore = newBaseline;
             timePenaltyApplied = true;
@@ -670,10 +702,10 @@ export function monteCarloSimulation(
         driftUncertainty *= (1 + 0.4 * nFactor);
     }
 
-    let volatility = forcedVolatility !== undefined 
+    let volatility = forcedVolatility !== undefined
         ? Math.max(0.001 * (maxScore - minScore > 0 ? maxScore - minScore : maxScore), forcedVolatility)
         : calculateRobustVolatility(sortedHistory, maxScore, minScore, options);
-    
+
     // Bug 2.2 Fix: Double Jeopardy (Evita dupla penalização se o overflowRatio já trucidou a média)
     // Se o timePenaltyApplied estiver ativo, já absorvemos o abalo do tempo, inflar a variância
     // agora atiraria o cone do Monte Carlo para um cenário irrealista de descalabro.
@@ -689,14 +721,14 @@ export function monteCarloSimulation(
 
     const scoreRangeOU = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
     const normalizedVolOU = (volatility / scoreRangeOU) * 100;
-    
+
     // ✅ FIX: thetaOU agora escala com a confiança da amostra.
     // Poucos dados → reversão mais forte (conservador).
     // Muitos dados → reversão mais fraca (confia na tendência).
     const sampleConfidence = Math.min(1, sortedHistory.length / 15);
     const thetaOU = Math.min(
-      0.15,
-      (0.02 + 0.06 * (1 - sampleConfidence)) + 0.002 * Math.min(40, normalizedVolOU)
+        0.15,
+        (0.02 + 0.06 * (1 - sampleConfidence)) + 0.002 * Math.min(40, normalizedVolOU)
     );
 
     let residuals = sortedHistory.length > 1 ? sortedHistory.map((h, i) => {
@@ -722,7 +754,7 @@ export function monteCarloSimulation(
     } else {
         centeredResiduals = validResiduals;
     }
-    
+
     const sortedResiduals = [...centeredResiduals].sort((a, b) => a - b);
     const resMedian = getPercentile(sortedResiduals, 0.5);
     const absDevs = centeredResiduals.map(r => Math.abs(r - resMedian)).sort((a, b) => a - b);
@@ -737,7 +769,12 @@ export function monteCarloSimulation(
     const results = new Float64Array(safeSimulations);
     const lastEntry = sortedHistory[sortedHistory.length - 1];
     const seedStr = `${lastEntry.date || lastEntry.createdAt}-${getSafeScore(lastEntry, maxScore, minScore)}-${sortedHistory.length}`;
-    const seedValue = hashSeed(seedStr);
+    const optSeed = options.seed;
+    const hasOptSeed = optSeed !== undefined && optSeed !== null && typeof optSeed !== 'boolean' && String(optSeed).trim() !== '';
+    const parsedOptSeed = Number(optSeed);
+    const seedValue = hasOptSeed
+        ? (Number.isFinite(parsedOptSeed) ? Math.floor(parsedOptSeed) : hashSeed(String(optSeed)))
+        : hashSeed(seedStr);
     const rng = mulberry32(Math.abs(seedValue >>> 0));
 
     let medianGap = 7;
@@ -747,8 +784,8 @@ export function monteCarloSimulation(
             const d1 = safeDateParse(sortedHistory[j].date || sortedHistory[j].createdAt);
             const d0 = safeDateParse(sortedHistory[j - 1].date || sortedHistory[j - 1].createdAt);
             // CORREÇÃO: Impedir que a subtração de Invalid Dates injete NaN na distribuição GARCH
-            const g = (d1 && d0 && !Number.isNaN(d1.getTime()) && !Number.isNaN(d0.getTime())) 
-                ? (d1.getTime() - d0.getTime()) / 86400000 
+            const g = (d1 && d0 && !Number.isNaN(d1.getTime()) && !Number.isNaN(d0.getTime()))
+                ? (d1.getTime() - d0.getTime()) / 86400000
                 : 7; // Fallback seguro
             gaps.push(Math.max(0.5, g));
         }
@@ -760,7 +797,7 @@ export function monteCarloSimulation(
     // A volatilidade estocástica diária deve ser escalada pelo gap médio entre provas
     // para que a variância cresça corretamente como um Random Walk/OU process.
     const dailyVolatility = Math.max(0.001 * (maxScore - minScore > 0 ? maxScore - minScore : maxScore),
-      volatility / Math.sqrt(Math.max(1, medianGap)));
+        volatility / Math.sqrt(Math.max(1, medianGap)));
 
     // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
     // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).
@@ -792,26 +829,26 @@ export function monteCarloSimulation(
     const cutoffSubjects = (options.subjects || []).filter(hasValidMinCutoff);
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
-      const stats = cutoffSubjects.map(s => ({
-          ...s,
-          sd: 1,
-      }));
-      
-      const adaptiveRhoContext = options?.simuladoRows ? { 
-          simuladoRows: options.simuladoRows, 
-          categoryNames: cutoffSubjects.map(s => String(s?.name ?? s?.id ?? 'subject')),
-          minScore,
-          maxScore
-      } : null;
-      
-      try {
-        const corrMatrix = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
-        const psdCorr = ensurePositiveSemiDefinite(corrMatrix);
-        subjectCholesky = choleskyDecomposition(psdCorr);
-      } catch (err) {
-        console.warn('[Projection] Cholesky falhou, usando disciplinas independentes:', err?.message || err);
-        subjectCholesky = null;
-      }
+        const stats = cutoffSubjects.map(s => ({
+            ...s,
+            sd: 1,
+        }));
+
+        const adaptiveRhoContext = options?.simuladoRows ? {
+            simuladoRows: options.simuladoRows,
+            categoryNames: cutoffSubjects.map(s => String(s?.name ?? s?.id ?? 'subject')),
+            minScore,
+            maxScore
+        } : null;
+
+        try {
+            const corrMatrix = buildCovarianceMatrix(stats, null, INTER_SUBJECT_CORRELATION, adaptiveRhoContext);
+            const psdCorr = ensurePositiveSemiDefinite(corrMatrix);
+            subjectCholesky = choleskyDecomposition(psdCorr);
+        } catch (err) {
+            console.warn('[Projection] Cholesky falhou, usando disciplinas independentes:', err?.message || err);
+            subjectCholesky = null;
+        }
     }
 
     const residualsSkew = calcularAssimetria(safeResiduals);
@@ -826,10 +863,10 @@ export function monteCarloSimulation(
     for (let i = 0; i < safeSimulations; i++) {
         // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.
         const sampledDrift = sampleTruncatedNormal(
-            drift, 
-            driftUncertainty, 
-            -driftLimit, 
-            driftLimit, 
+            drift,
+            driftUncertainty,
+            -driftLimit,
+            driftLimit,
             rng
         );
         let currentSimScore = baselineScore;
@@ -854,7 +891,7 @@ export function monteCarloSimulation(
         for (let d = 1; d <= simulationDays; d++) {
             // [RIGOR-FIX] Drift Damping Adaptativo: O impacto da tendência diminui com o tempo (Log-decay)
             // dampingBase varia de 30 (conservador) a 60 (confiante) conforme qualidade do sinal.
-            const driftDamping = 1 / (1 + d / dampingBase); 
+            const driftDamping = 1 / (1 + d / dampingBase);
             const driftEffect = sampledDrift * driftDamping;
 
             // Reversão de Ornstein-Uhlenbeck em relação à trajetória estrutural esperada antes do passo diário
@@ -869,7 +906,7 @@ export function monteCarloSimulation(
             accumulatedDrift += driftEffect;
             const maxDrift = (maxScore - minScore > 0 ? maxScore - minScore : maxScore) * 0.5;
             accumulatedDrift = Math.max(-maxDrift, Math.min(maxDrift, accumulatedDrift));
-            
+
             // CORREÇÃO: Padrão Ouro de Filtered Historical Simulation (FHS)
             // O choque empírico tem de ser escalado para a volatilidade GARCH atual
             let shock = 0;
@@ -877,7 +914,7 @@ export function monteCarloSimulation(
                 // 90% Bootstrap (Histórico Empírico) / 10% Gaussiano Assimétrico (Black Swan)
                 if (rng() > 0.10) {
                     const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
-                    shock = (rawEmpirical / standardizer) * adaptiveVol; 
+                    shock = (rawEmpirical / standardizer) * adaptiveVol;
                 } else {
                     // PATCH: Cornish-Fisher monotônico com variância unitária preservada
                     const z = generateGaussian(rng);
@@ -888,24 +925,24 @@ export function monteCarloSimulation(
                 }
             } else if (safeResiduals.length > 5 && rng() > 0.3) {
                 const rawEmpirical = safeResiduals[Math.floor(rng() * safeResiduals.length)];
-                shock = (rawEmpirical / standardizer) * adaptiveVol; 
+                shock = (rawEmpirical / standardizer) * adaptiveVol;
             } else {
                 shock = generateGaussian(rng) * adaptiveVol;
             }
-            
+
             // ✅ LOTE-03 FIX: o clamp por dailyVolatility sufocava choques quando o GARCH
             // já tinha elevado adaptiveVol — a trajetória não podia realizar a própria variância
             const shockLimit = Math.max(dailyVolatility, adaptiveVol) * 3;
             const clampedShock = Math.max(-shockLimit, Math.min(shockLimit, shock));
-            
+
             // Evolução da Volatilidade GARCH(1,1): Var(t+1) = w + a*e^2 + b*Var(t)
             currentVolSq = omega + alphaG * Math.pow(clampedShock, 2) + betaG * currentVolSq;
-            
+
             // Clamp de sanidade para evitar divergência explosiva em projeções longas
             currentVolSq = Math.min(currentVolSq, maxVolSqClamp); // ✅ LOTE-01 FIX (A7)
-            
+
             currentSimScore += driftEffect + meanReversion + clampedShock; // consistente com GARCH
-            
+
             // Simple clamp to bounds (mean reversion + historical target should keep trajectories reasonable).
             // Removed complex RBM reflection which was causing boundary piling bias in declining series (scores clustering at minScore, skewing means low).
             // Fallback de segurança estrito (Clamp final diário)
@@ -916,7 +953,7 @@ export function monteCarloSimulation(
         // Preservação de sinal estrito: O backend mantém o valor bruto. 
         // O clamping ocorre apenas na camada de UI (MonteCarloGauge.jsx).
         results[i] = currentSimScore;
-        
+
         let passedMins = true;
         if (choleskySize > 0) {
             const trajShiftRatio = simulationDays > 0
@@ -932,7 +969,9 @@ export function monteCarloSimulation(
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const effSd = Math.max(1e-6, (Number(s.sd) || 1) * Math.max(0.80, s.immunityFactor || 1.0));
+                    const rawSubSd = Number(s.sd);
+                    const safeSubSd = (s.sd !== null && s.sd !== undefined && typeof s.sd !== 'boolean' && String(s.sd).trim() !== '' && Number.isFinite(rawSubSd) && rawSubSd >= 0) ? rawSubSd : 1;
+                    const effSd = Math.max(1e-6, safeSubSd * Math.max(0.80, s.immunityFactor || 1.0));
                     const sMeanProjected = Math.max(sMin, Math.min(sMax, Number(s.mean) + trajShiftRatio * (sMax - sMin)));
                     const u = 1 - normalCDF_complement(zCorrStatic[j]);
                     const subjScore = truncatedNormalFromUniform(sMeanProjected, effSd, sMin, sMax, u);
@@ -947,7 +986,9 @@ export function monteCarloSimulation(
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
-                    const effSd = Math.max(1e-6, (Number(s.sd) || 1) * Math.max(0.80, s.immunityFactor || 1.0));
+                    const rawSubSd = Number(s.sd);
+                    const safeSubSd = (s.sd !== null && s.sd !== undefined && typeof s.sd !== 'boolean' && String(s.sd).trim() !== '' && Number.isFinite(rawSubSd) && rawSubSd >= 0) ? rawSubSd : 1;
+                    const effSd = Math.max(1e-6, safeSubSd * Math.max(0.80, s.immunityFactor || 1.0));
                     const sMeanProjected = Math.max(sMin, Math.min(sMax, Number(s.mean) + trajShiftRatio * (sMax - sMin)));
                     const subjScore = sampleTruncatedNormal(sMeanProjected, effSd, sMin, sMax, rng);
                     // G-08 FIX: Verificar se subjScore é finito antes de comparar

@@ -48,10 +48,6 @@ export default function LevelUpToast({ level, title, onClose }) {
         return () => {
             timersRef.current.forEach(clearTimeout);
             timersRef.current = [];
-            if (typeof onCloseRef.current === 'function') {
-                onCloseRef.current();
-                onCloseRef.current = null;
-            }
         };
     }, [level, handleClose]);
 

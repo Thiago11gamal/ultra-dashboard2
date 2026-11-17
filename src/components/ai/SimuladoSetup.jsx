@@ -214,7 +214,7 @@ return (
                         <select
                           value={form.taskId}
                           onChange={(e) => handleTaskSelect(e.target.value)}
-                          disabled={!form.categoryId || safeAvailableTasks.length === 0}
+                          disabled={!form.categoryId || (form.categoryId !== 'mixed' && safeAvailableTasks.length === 0)}
                           className="w-full bg-slate-950/80 border border-white/10 focus:border-indigo-400/70 focus:bg-slate-900 hover:border-white/25 transition-all rounded-2xl px-4 py-[15px] text-[15px] font-medium text-white outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer pr-10"
                         >
                           <option value="">Selecione o assunto...</option>
@@ -228,7 +228,7 @@ return (
                         </select>
                         <ChevronDown size={17} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-300/70 group-hover:text-indigo-400 transition-colors" />
                       </div>
-                      {form.categoryId && safeAvailableTasks.length === 0 && (
+                      {form.categoryId && form.categoryId !== 'mixed' && safeAvailableTasks.length === 0 && (
                         <div className="mt-2 text-[11px] bg-amber-500/10 border border-amber-500/20 text-amber-400 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                           <XCircle size={12} /> Nenhum assunto nesta matéria.
                         </div>

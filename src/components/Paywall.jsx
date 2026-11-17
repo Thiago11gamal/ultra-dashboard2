@@ -143,7 +143,18 @@ export default function Paywall({ user, onLogout }) {
                         return;
                     }
 
-                    stripe.redirectToCheckout({ sessionId });
+                    try {
+                        const redirectResult = await stripe.redirectToCheckout({ sessionId });
+                        if (redirectResult?.error && isMountedRef.current) {
+                            setError(redirectResult.error.message || 'Falha ao redirecionar para o checkout Stripe.');
+                            setLoading(false);
+                        }
+                    } catch (redirectErr) {
+                        if (isMountedRef.current) {
+                            setError(redirectErr?.message || 'Erro ao redirecionar para o checkout Stripe.');
+                            setLoading(false);
+                        }
+                    }
                 }
             });
         } catch (err) {

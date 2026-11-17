@@ -56,15 +56,18 @@ export function isPhantomZeroTimeAttempt(entry, safeScore) {
 }
 
 export function toFiniteNumber(value, fallback = 0) {
+  if (value === null || value === undefined || typeof value === 'boolean' || String(value).trim() === '') return fallback;
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 
 export function toPoints(score, maxScore = 100, minScore = 0, mode = 'raw') {
-  const safeMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
-  const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-  const finalMin = Math.min(safeMin, safeMax);
-  const finalMax = Math.max(safeMin, safeMax);
+  const hasValidMax = maxScore !== null && maxScore !== undefined && typeof maxScore !== 'boolean' && String(maxScore).trim() !== '' && Number.isFinite(Number(maxScore));
+  const safeMin = (minScore !== null && minScore !== undefined && typeof minScore !== 'boolean' && String(minScore).trim() !== '' && Number.isFinite(Number(minScore))) ? Number(minScore) : 0;
+  const rawMax = hasValidMax ? Number(maxScore) : 100;
+  const finalMin = Math.min(safeMin, rawMax);
+  const finalMax = Math.max(safeMin, rawMax);
+  if (score === null || score === undefined || typeof score === 'boolean' || String(score).trim() === '') return finalMin;
   const rawScore = Number(score);
   if (!Number.isFinite(rawScore)) return finalMin;
 

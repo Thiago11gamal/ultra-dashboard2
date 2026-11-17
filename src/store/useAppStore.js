@@ -65,7 +65,7 @@ const flushPendingStorage = () => {
       } catch { /* ignore */ }
       try {
         if (hasIndexedDbSupport()) {
-          idbSet(name, valToFlush).catch(() => {});
+          idbSet(name, valToFlush).catch(() => { });
         }
       } catch { /* ignore */ }
     }
@@ -239,12 +239,13 @@ export const useAppStore = create(
             if (typeof localStorage !== 'undefined') {
               localStorage.removeItem('pomodoroState');
               localStorage.removeItem('pomodoro-endsAt');
+              localStorage.removeItem('ultra-sync-dirty');
               localStorage.removeItem('ultra-dashboard-storage');
               localStorage.removeItem('ultra-dashboard-storage:meta');
             }
           } catch { /* ignore */ }
           try {
-            idbDel('ultra-dashboard-storage').catch(() => {});
+            idbDel('ultra-dashboard-storage').catch(() => { });
           } catch { /* ignore */ }
           clearCoachCaches();
           try {
@@ -265,15 +266,7 @@ export const useAppStore = create(
           }
 
           set((state) => {
-            const currentContest = state.appState.contests?.[state.appState.activeId];
-            // C-03 FIX: Se concurso ativo é null, tentar qualquer concurso existente
-            const fallbackContest = currentContest || Object.values(state.appState.contests || {})[0];
-            const savedSettings = fallbackContest?.settings ? safeClone(fallbackContest.settings) : null;
             const initialState = getFullInitialState();
-            if (initialState.contests?.['default']) {
-              // Sempre aplicar settings, mesmo se null (usa defaults)
-              initialState.contests['default'].settings = savedSettings;
-            }
             state.appState = {
               ...initialState,
               isHydrated: true
@@ -401,7 +394,7 @@ export const useAppStore = create(
               localStorage.removeItem('ultra-dashboard-storage');
               localStorage.removeItem('ultra-dashboard-storage:meta');
             } catch { /* ignore */ }
-            try { idbDel('ultra-dashboard-storage').catch(() => {}); } catch { /* ignore */ }
+            try { idbDel('ultra-dashboard-storage').catch(() => { }); } catch { /* ignore */ }
             targetId = 'default';
             targetContests = { 'default': safeClone(INITIAL_DATA) };
           }

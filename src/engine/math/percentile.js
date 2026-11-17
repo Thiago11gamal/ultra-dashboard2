@@ -37,13 +37,14 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
                 sorted = new arr.constructor(finiteData);
             }
         } else {
-            const hasNaN = arr.some(v => !Number.isFinite(Number(v)));
-            if (!hasNaN) {
+            const toStrictNum = (v) => (v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v))) ? Number(v) : NaN;
+            const hasNaN = arr.some(v => !Number.isFinite(toStrictNum(v)));
+            if (!hasNaN && arr.every(v => typeof v === 'number')) {
                 sorted = arr;
             } else {
-                const finite = Array.from(arr).filter(v => Number.isFinite(Number(v)));
+                const finite = Array.from(arr).map(toStrictNum).filter(Number.isFinite);
                 if (finite.length === 0) return 0;
-                sorted = finite.sort((a, b) => Number(a) - Number(b));
+                sorted = finite.sort((a, b) => a - b);
             }
         }
     } else if (arr instanceof Float64Array || arr instanceof Float32Array) {
@@ -54,7 +55,8 @@ export const getPercentile = (arr, p, isAlreadySorted = false) => {
         if (finiteData.length === 0) return 0;
         sorted = new arr.constructor(finiteData).sort();
     } else {
-        const finite = Array.from(arr).filter(v => Number.isFinite(Number(v)));
+        const toStrictNum = (v) => (v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v))) ? Number(v) : NaN;
+        const finite = Array.from(arr).map(toStrictNum).filter(Number.isFinite);
         if (finite.length === 0) return 0;
         sorted = [...finite].sort((a, b) => a - b);
     }
@@ -157,11 +159,15 @@ export function findScoreForPercentile(targetPercentile, minScore, maxScore, cdf
   for (let i = 0; i < maxIter; i++) {
     const mid = low + (high - low) / 2;
     const currentPercentile = cdfFunction(mid);
-    
+
+    if (!Number.isFinite(currentPercentile)) {
+      return mid;
+    }
+
     if (Math.abs(currentPercentile - targetPercentile) <= tolerance) {
       return mid;
     }
-    
+
     if (currentPercentile < targetPercentile) {
       low = mid;
     } else {

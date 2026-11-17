@@ -4,23 +4,17 @@ import { isLocalMode } from '../services/firebase';
 import { User, Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import AnimatedMantaRay from './AnimatedMantaRay';
 import './Login.css';
-// ✅ FIX S01: Sanitização mais robusta usando DOMPurify
-import DOMPurify from 'dompurify';
+import { sanitizePlainText } from '../utils/sanitizeText';
 
-// FIX 5.1a: Sanitização de entrada contra XSS
+// FIX 5.1a: Sanitização de entrada contra XSS sem corromper '&' ou '<' matemáticos
 const sanitizeInput = (value, maxLength = 200) => {
     if (typeof value !== 'string') return '';
 
-    // Passo 1: Limitar comprimento
+    // Passo 1: Limitar comprimento e remover HTML malicioso preservando texto puro
     const truncated = value.slice(0, maxLength);
+    const sanitized = sanitizePlainText(truncated);
 
-    // Passo 2: Sanitizar com DOMPurify (remove HTML malicioso)
-    const sanitized = DOMPurify.sanitize(truncated, {
-        ALLOWED_TAGS: [],    // Nenhuma tag HTML permitida
-        ALLOWED_ATTR: [],    // Nenhum atributo permitido
-    });
-
-    // Passo 3: Remover padrões de script URI perigosos
+    // Passo 2: Remover padrões de script URI perigosos
     return sanitized
         .replace(/javascript\s*:/gi, '')
         .replace(/on\w+\s*=/gi, '')
@@ -146,7 +140,7 @@ export default function Login() {
             } else {
                 if (!cleanName) throw new Error("Por favor, insira seu nome.");
                 if (password.length < 6) throw new Error("A senha deve ter pelo menos 6 caracteres.");
-                const hasMixed = /[a-z]/.test(password) && /[0-9]/.test(password);
+                const hasMixed = /[a-zA-Z]/.test(password) && /[0-9]/.test(password);
                 if (!hasMixed) {
                     throw new Error("Sua senha deve conter letras e números para maior segurança.");
                 }

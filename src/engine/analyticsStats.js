@@ -118,6 +118,8 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
 
     const todayKey = getDateKey(new Date());
 
+    let resolvedSnapshotCount = 0;
+
     mcHistory.forEach(snapshot => {
         if (!snapshot) return;
 
@@ -146,7 +148,7 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
                 }
             });
         } else {
-            actual = [...globalHistory].reverse().find(h => (normalizeDate(h.date)?.getTime() || NaN) > snapTime);
+            actual = globalHistory.find(h => (normalizeDate(h.date)?.getTime() || NaN) > snapTime);
         }
 
         if (!actual) return;
@@ -154,6 +156,8 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
         // FIX: blindagem contra resultado real inválido (suporte a scorePct, value, correct/total)
         const actualScore = getSafeScore(actual, safeMaxScore, safeMinScore);
         if (!Number.isFinite(actualScore)) return;
+
+        resolvedSnapshotCount++;
 
         const age = Math.max(0, now - snapTime);
         const weight = Math.exp(-LAMBDA * age);
@@ -186,12 +190,8 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
     let calibrationPenalty = 0;
 
     // ✅ PATCH-05: Penalidade com amostra insuficiente
-    // Conta eventos REAIS (não apenas peso de decaimento)
-    const actualEventCount = mcHistory.filter(snapshot => {
-        if (!snapshot) return false;
-        const snapTime = normalizeDate(snapshot.date || snapshot.timestamp)?.getTime();
-        return Number.isFinite(snapTime);
-    }).length;
+    // Conta eventos REAIS resolvidos contra um simulado posterior válido (não snapshots pendentes)
+    const actualEventCount = resolvedSnapshotCount;
     
     const hasEffectiveSample =
         actualEventCount >= 3 && // Mínimo de eventos reais
@@ -531,9 +531,10 @@ export function generateAnalyticsStats({
         : 0;
 
     const hLen = robustGlobalHistory.length;
-    const firstScore = hLen > 0 ? (robustGlobalHistory[0].score || 0).toFixed(4) : '0';
-    const lastScore = hLen > 0 ? (robustGlobalHistory[hLen - 1].score || 0).toFixed(4) : '0';
-    const scoreFingerprint = `${hLen}-${firstScore}-${lastScore}`;
+    const seriesSig = robustGlobalHistory
+        .map((h) => `${h?.date || ''}:${Number(h?.score || 0).toFixed(3)}:${h?.total ?? ''}:${h?.correct ?? ''}`)
+        .join(';');
+    const scoreFingerprint = `${hLen}-${seriesSig}`;
 
     const cutoffs = categoryStats.map(c => c.minCutoff || 0).join('-');
 

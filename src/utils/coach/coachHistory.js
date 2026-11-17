@@ -9,6 +9,7 @@ import { normalizePriority } from '../colorHelper.js';
 import { getCoachFeature } from '../coachFeatures.js';
 import { safeArray } from '../coachSafe.js';
 import { sanitizeMinutes, clamp, MS_PER_DAY } from './coachPureHelpers.js';
+import { ensureCoachTaskId } from '../coachTaskId.js';
 
 export function analisarDesempenhoHistorico(historico) {
     if (!historico || historico.length === 0) {
@@ -108,8 +109,9 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
         tasks.forEach(task => {
             if (!task || task.completed === true) return;
             if (String(task.status || '').toLowerCase() === 'completed') return;
-            const id = task.id || task.text || '';
-            if (excludeTaskId && id === excludeTaskId) return;
+            const resolved = ensureCoachTaskId(task);
+            const id = resolved?.id || task.id || task.text || '';
+            if (excludeTaskId && String(id) === String(excludeTaskId)) return;
             const catId = cat?.id || task.categoryId || task.catId || '';
             candidates.push({
                 ...task,

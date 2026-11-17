@@ -81,7 +81,21 @@ function formatOffsetString(offsetMs) {
   return `${sign}${hh}:${mm}`;
 }
 
-function createNoonInTimezone(year, month, day, timeZone = APP_TIMEZONE) {
+function isValidCalendarYMD(year, month, day) {
+  const y = Number(year);
+  const m = Number(month);
+  const d = Number(day);
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return false;
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const check = new Date(Date.UTC(y, m - 1, d));
+  return (
+    check.getUTCFullYear() === y &&
+    check.getUTCMonth() === m - 1 &&
+    check.getUTCDate() === d
+  );
+}
+
+export function createNoonInTimezone(year, month, day, timeZone = APP_TIMEZONE) {
   const utcNoon = Date.UTC(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
   const offsetMs = getTimezoneOffsetMs(utcNoon, timeZone);
   return new Date(utcNoon - offsetMs);
@@ -114,13 +128,17 @@ export function getManausDayRange(dateInput = new Date()) {
     return null;
   }
   const [year, month, day] = key.split('-').map(Number);
+  if (!isValidCalendarYMD(year, month, day)) return null;
   const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
-  const offsetMs = getTimezoneOffsetMs(utcMidnight + 12 * 3600000, APP_TIMEZONE);
-  const start = utcMidnight - offsetMs;
+  const guessStart = utcMidnight - getTimezoneOffsetMs(utcMidnight, APP_TIMEZONE);
+  const start = utcMidnight - getTimezoneOffsetMs(guessStart, APP_TIMEZONE);
+  const utcNextMidnight = Date.UTC(year, month - 1, day + 1, 0, 0, 0, 0);
+  const guessEnd = utcNextMidnight - getTimezoneOffsetMs(utcNextMidnight, APP_TIMEZONE);
+  const end = utcNextMidnight - getTimezoneOffsetMs(guessEnd, APP_TIMEZONE);
   return {
     key,
     start,
-    end: start + MS_PER_DAY_MANAUS
+    end: end > start ? end : start + MS_PER_DAY_MANAUS
   };
 }
 
@@ -164,34 +182,48 @@ export function parseGoalDateUnified(value) {
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;
   }
-  if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        const [year, month, day] = trimmed.split('-').map(Number);
-        const date = new Date(year, month - 1, day, 12, 0, 0, 0);
-        return Number.isNaN(date.getTime()) ? null : date;
+  if (typeof value === 'object' && value !== null) {
+    if (typeof value.toDate === 'function') {
+      try {
+        const d = value.toDate();
+        return (d instanceof Date && !Number.isNaN(d.getTime())) ? d : null;
+      } catch {
+        return null;
       }
-      const normalized = trimmed.includes('T') ? trimmed : `${trimmed}T12:00:00`;
-      const date = new Date(normalized);
-      if (!Number.isNaN(date.getTime())) return date;
-      const normDate = normalizeDate(trimmed);
-      return (normDate instanceof Date && !Number.isNaN(normDate.getTime())) ? normDate : null;
     }
-    const fallback = new Date(value);
-    return Number.isNaN(fallback.getTime()) ? null : fallback;
+    if (value.seconds != null || value._seconds != null) {
+      const secs = value.seconds != null ? value.seconds : value._seconds;
+      const d = new Date(Number(secs) * 1000);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
   }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      if (!isValidCalendarYMD(year, month, day)) return null;
+      const date = createNoonInTimezone(year, month, day, APP_TIMEZONE);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    const normDate = normalizeDate(trimmed);
+    return (normDate instanceof Date && !Number.isNaN(normDate.getTime())) ? normDate : null;
+  }
+  const fallback = normalizeDate(value) || new Date(value);
+  return (fallback instanceof Date && !Number.isNaN(fallback.getTime())) ? fallback : null;
+}
 
   // ✅ FIX BUG-09: getDateKey com suporte a YY-MM-DD e extração direta de ISO. Retorna null se data inválida ou nula.
   export const getDateKey = (rawDate) => {
-    if (!rawDate) return null;
+    if (rawDate === null || rawDate === undefined || rawDate === '' || typeof rawDate === 'boolean') return null;
 
     if (typeof rawDate === 'string') {
       const trimmed = rawDate.trim();
       if (!trimmed) return null;
-      // ISO 'YYYY-MM-DD' → extração direta
+      // ISO 'YYYY-MM-DD' → validar calendário real antes de aceitar
       if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        return trimmed;
+        const [y, m, d] = trimmed.split('-').map(Number);
+        return isValidCalendarYMD(y, m, d) ? trimmed : null;
       }
       // YY-MM-DD ou DD-MM-YY → alinhado com normalizeDate (p0 > 31 => YY-MM-DD, caso contrário DD-MM-YY)
       if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
@@ -199,9 +231,11 @@ export function parseGoalDateUnified(value) {
         const p0 = parseInt(parts[0], 10);
         const p2 = parseInt(parts[2], 10);
         if (p0 > 31) {
-          return `${2000 + p0}-${parts[1]}-${parts[2]}`;
+          const y = 2000 + p0;
+          return isValidCalendarYMD(y, parts[1], parts[2]) ? `${y}-${parts[1]}-${parts[2]}` : null;
         }
-        return `${2000 + p2}-${parts[1]}-${parts[0]}`;
+        const y = 2000 + p2;
+        return isValidCalendarYMD(y, parts[1], parts[0]) ? `${y}-${parts[1]}-${parts[0]}` : null;
       }
     }
 
@@ -239,12 +273,15 @@ export function parseGoalDateUnified(value) {
 
   export const getLocalMidnight = (date = new Date()) => {
     try {
-      const d = new Date(date);
-      if (Number.isNaN(d.getTime())) {
-        const fallback = new Date();
-        return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
+      const parsed = normalizeDate(date) || new Date();
+      const key = getDateKey(parsed);
+      if (key && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        const [y, m, d] = key.split('-').map(Number);
+        const utcMidnight = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+        const guess = utcMidnight - getTimezoneOffsetMs(utcMidnight, APP_TIMEZONE);
+        return new Date(utcMidnight - getTimezoneOffsetMs(guess, APP_TIMEZONE));
       }
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
     } catch {
       const fallback = new Date();
       return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
@@ -253,38 +290,49 @@ export function parseGoalDateUnified(value) {
 
   export const formatDisplayDate = (dateStr) => {
     if (!dateStr) return '';
-    if (typeof dateStr === 'number' || (typeof dateStr === 'string' && /^\d{10,13}$/.test(dateStr.trim()))) {
-      const numVal = Number(dateStr);
-      const d = (String(dateStr).trim().length === 10) ? new Date(numVal * 1000) : new Date(numVal);
-      if (!isNaN(d.getTime())) {
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        return `${day}/${month}`;
+    if (dateStr instanceof Date || typeof dateStr === 'number' || typeof dateStr === 'object' || (typeof dateStr === 'string' && /^\d{10,13}$/.test(dateStr.trim()))) {
+      const key = getDateKey(dateStr);
+      if (key && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        const [, mm, dd] = key.split('-');
+        return `${dd}/${mm}`;
       }
     }
-    const cleanStr = String(dateStr).split('T')[0];
-    const parts = cleanStr.split('-');
+    const rawStr = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}[T\s]\d/.test(rawStr) || rawStr.endsWith('Z')) {
+      const key = getDateKey(rawStr);
+      if (key && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
+        const [, mm, dd] = key.split('-');
+        return `${dd}/${mm}`;
+      }
+    }
+    const cleanStr = rawStr.split(/[T\s]/)[0];
+    const parts = cleanStr.split(/[/-]/);
     if (parts.length === 3) {
-      if (parts[0].length === 4) return `${parts[2]}/${parts[1]}`;
-      if (parts[2].length === 4) return `${parts[0]}/${parts[1]}`;
-      return `${parts[2]}/${parts[1]}`;
+      if (parts[0].length === 4) return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
+      if (parts[2].length === 4) return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
+      return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
     }
     return cleanStr;
   };
 
-  // ✅ FIX: normalizeDate com offset -04:00 para YYYY-MM-DD
+  // ✅ FIX: normalizeDate com validação de calendário real e suporte completo a APP_TIMEZONE
   export function normalizeDate(raw) {
-    if (!raw) return null;
+    if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') return null;
+    if (raw instanceof Date) return Number.isNaN(raw.getTime()) ? null : new Date(raw.getTime());
     let d;
     let isDateOnly = false;
     let normalizedRaw = raw;
 
     if (typeof raw === "string") {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const trimmedStr = raw.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedStr)) {
+        const [y, m, dayNum] = trimmedStr.split('-').map(Number);
+        if (!isValidCalendarYMD(y, m, dayNum)) return null;
         isDateOnly = true;
-      } else if (/^\d{2}-\d{2}-\d{2}$/.test(raw)) {
+        normalizedRaw = trimmedStr;
+      } else if (/^\d{2}-\d{2}-\d{2}$/.test(trimmedStr)) {
         isDateOnly = true;
-        const parts = raw.split('-');
+        const parts = trimmedStr.split('-');
         const p0 = parseInt(parts[0], 10);
         const p2 = parseInt(parts[2], 10);
         let year, month, day;
@@ -297,24 +345,37 @@ export function parseGoalDateUnified(value) {
           month = parts[1];
           day = parts[0];
         }
+        if (!isValidCalendarYMD(year, Number(month), Number(day))) return null;
         normalizedRaw = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      } else if (/^\d{4}\/\d{2}\/\d{2}$/.test(trimmedStr)) {
+        const [y, m, dayNum] = trimmedStr.split('/').map(Number);
+        if (!isValidCalendarYMD(y, m, dayNum)) return null;
+        isDateOnly = true;
+        normalizedRaw = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
       }
     }
 
-    if (typeof raw === "object" && (raw.seconds != null || raw._seconds != null)) {
+    if (typeof raw === "object" && typeof raw.toDate === "function") {
+      try {
+        d = raw.toDate();
+      } catch {
+        return null;
+      }
+    } else if (typeof raw === "object" && (raw.seconds != null || raw._seconds != null)) {
       const secs = raw.seconds != null ? raw.seconds : raw._seconds;
-      d = new Date(secs * 1000);
-    } else if (typeof raw === "string" && /^\d{2}-\d{2}-\d{4}$/.test(raw)) {
+      d = new Date(Number(secs) * 1000);
+    } else if (typeof raw === "string" && /^\d{2}-\d{2}-\d{4}$/.test(raw.trim())) {
       // DD-MM-YYYY com traços (formato pt-BR)
-      const parts = raw.split('-');
+      const parts = raw.trim().split('-');
+      if (!isValidCalendarYMD(Number(parts[2]), Number(parts[1]), Number(parts[0]))) return null;
       d = createNoonInTimezone(parts[2], parts[1], parts[0], APP_TIMEZONE);
     } else if (typeof raw === "string" && raw.includes("/")) {
       const parts = raw.trim().split(/[/-]/);
       if (parts.length >= 3 && parts[0].length <= 2) {
-        const yearWithTime = parts[2].trim().split(/\s+/);
+        const yearWithTime = parts[2].trim().replace(',', ' ').split(/\s+/).filter(Boolean);
         const year = yearWithTime[0];
         const timePart = yearWithTime.slice(1).join(' ');
-        if (year.length === 4) {
+        if (year && year.length === 4 && isValidCalendarYMD(Number(year), Number(parts[1]), Number(parts[0]))) {
           const offsetStr = formatOffsetString(
             getTimezoneOffsetMs(Date.UTC(Number(year), Number(parts[1]) - 1, Number(parts[0]), 12), APP_TIMEZONE)
           );
@@ -325,9 +386,14 @@ export function parseGoalDateUnified(value) {
           if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
             d = createNoonInTimezone(year, parts[1], parts[0], APP_TIMEZONE);
           }
+        } else if (year && year.length === 4) {
+          return null;
         } else {
           d = new Date(raw);
         }
+      } else if (isDateOnly && /^\d{4}-\d{2}-\d{2}$/.test(normalizedRaw)) {
+        const [y, m, dayNum] = normalizedRaw.split('-').map(Number);
+        d = createNoonInTimezone(y, m, dayNum, APP_TIMEZONE);
       } else {
         d = new Date(raw);
       }
@@ -347,12 +413,18 @@ export function parseGoalDateUnified(value) {
   };
 
   export const toDateMs = (value) => {
-    if (!value) return Number.NaN;
+    if (value === null || value === undefined || value === '' || typeof value === 'boolean') return Number.NaN;
     if (typeof value === 'number') {
       if (!Number.isFinite(value)) return Number.NaN;
       if (value > 1e14) return Math.floor(value / 1000);
-      if (value >= 100_000_000_000) return value;
+      if (value === 0 || value >= 100_000_000_000) return value;
       return value * 1000;
+    }
+    if (typeof value === 'string' && /^\d{10,13}$/.test(value.trim())) {
+      const n = Number(value.trim());
+      if (Number.isFinite(n)) {
+        return value.trim().length === 10 ? n * 1000 : n;
+      }
     }
     if (typeof value === 'object' && (value.seconds != null || value._seconds != null)) {
       const secs = value.seconds != null ? value.seconds : value._seconds;

@@ -123,9 +123,14 @@ export const SubtopicsPerformanceChart = React.memo(({
     const [viewMode, setViewMode] = useState('bars');
     const accuracyUnit = '%';
     
+    const safeCategories = useMemo(
+        () => toArray(categories).filter(Boolean),
+        [categories]
+    );
+
     // Garantir range mínimo e fallback sensato (respeitando escala e meta da matéria em foco quando showOnlyFocus está ativo)
-    const focusedCategory = (showOnlyFocus && focusSubjectId && Array.isArray(categories))
-        ? categories.find(cat => cat && cat.id === focusSubjectId)
+    const focusedCategory = (showOnlyFocus && focusSubjectId)
+        ? safeCategories.find(cat => cat && cat.id === focusSubjectId)
         : null;
     const globalMinScorePct = hasValidNumber(minScore) ? Number(minScore) : 0;
     const globalMaxScorePct = Number(maxScore) > globalMinScorePct ? Number(maxScore) : globalMinScorePct + 1;
@@ -166,8 +171,8 @@ export const SubtopicsPerformanceChart = React.memo(({
     );
 
     const relevantCategories = useMemo(() => {
-        return categories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
-    }, [categories, showOnlyFocus, focusSubjectId]);
+        return safeCategories.filter(cat => !showOnlyFocus || cat.id === focusSubjectId);
+    }, [safeCategories, showOnlyFocus, focusSubjectId]);
 
     const chartData = useMemo(() => {
         const topicMap = {};

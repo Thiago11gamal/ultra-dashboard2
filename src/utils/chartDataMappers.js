@@ -180,7 +180,7 @@ export const mapFocusEvolutionData = (studyLogs = []) => {
 export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     const hoursMap = new Map();
     const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
-    const safeCategories = Array.isArray(categories) ? categories : [];
+    const safeCategories = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
 
     const normalizeKey = (str) => String(str ?? '').trim().toLowerCase().normalize('NFC');
 
@@ -220,7 +220,13 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
             }
         }
         if (!cat && log.taskId && typeof log.taskId === 'string' && log.taskId.startsWith('cat-')) {
-            cat = safeCategories.find(c => c && c.id && log.taskId.startsWith(String(c.id)));
+            cat = safeCategories
+                .filter(c => c && c.id && (
+                    log.taskId === String(c.id) ||
+                    log.taskId.startsWith(`${String(c.id)}-`) ||
+                    log.taskId.startsWith(`${String(c.id)}_`)
+                ))
+                .sort((a, b) => String(b.id).length - String(a.id).length)[0] || null;
         }
 
         let displayName = 'Outros';

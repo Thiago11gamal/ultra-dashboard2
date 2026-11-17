@@ -2,13 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { getSafeScore, formatValue, formatPercent, getSyntheticTotal } from '../utils/scoreHelper';
 import { BarChart2, Filter, ChevronDown, Trophy, AlertCircle } from 'lucide-react';
 
-export default function TopicPerformance({ categories = [], maxScore: globalMaxScore = 100 }) {
+const hasValidNum = (v) =>
+    v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
+export default function TopicPerformance({ categories = [], maxScore: globalMaxScore = 100, minScore: globalMinScore = 0 }) {
     // FIX T-01: Normalizar categories e tasks de objeto Firebase para array.
     const safeCategories = useMemo(() => {
         const raw = Array.isArray(categories) ? categories : Object.values(categories || {});
         return raw.filter(Boolean).map(c => ({
             ...c,
-            tasks: Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {}),
+            tasks: (Array.isArray(c?.tasks) ? c.tasks : Object.values(c?.tasks || {})).filter(Boolean),
         }));
     }, [categories]);
     const [selectedCategoryId, setSelectedCategoryId] = useState(() => safeCategories[0]?.id || '');
@@ -24,10 +27,14 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
         const category = safeCategories.find(c => c.id === effectiveCategoryId);
         if (!category) return [];
         
-        // FIX T-02: Usar maxScore E minScore da categoria para getSafeScore.
-        const catMaxScore = Number(category.maxScore) || globalMaxScore;
-        const catMinScore = Number(category.minScore) || 0;
-        const scoreUnit = catMaxScore === 100 ? '%' : 'pts';
+        // FIX T-02: Usar maxScore E minScore da categoria com fallback para globalMaxScore/globalMinScore.
+        const catMaxScore = (hasValidNum(category.maxScore) && Number(category.maxScore) > 0)
+            ? Number(category.maxScore)
+            : (hasValidNum(globalMaxScore) && Number(globalMaxScore) > 0 ? Number(globalMaxScore) : 100);
+        const catMinScore = hasValidNum(category.minScore)
+            ? Math.min(Number(category.minScore), catMaxScore)
+            : (hasValidNum(globalMinScore) ? Math.min(Number(globalMinScore), catMaxScore) : 0);
+        const scoreUnit = catMaxScore === 100 && catMinScore === 0 ? '%' : 'pts';
 
         const stats = category.simuladoStats || { history: [] };
         const historyRaw = stats.history || [];
@@ -37,7 +44,7 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
 
         // Loop through all history entries
         history.forEach(entry => {
-            if (!entry) return;
+            if (!entry || entry.valid === false || entry.validated === false) return;
             // FIX T-04: h.topics pode ser objeto Firebase, não array.
             const topics = Array.isArray(entry.topics) ? entry.topics : Object.values(entry.topics || {});
             topics.forEach(t => {
@@ -51,19 +58,27 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
                 }
                 
                 // FIX T-05: Usar getSafeScore com minScore da categoria.
-                const score = getSafeScore(t, catMaxScore, catMinScore);
+                const normalizedTopic = (t.score == null && t.scorePct != null)
+                    ? { ...t, score: t.scorePct, isPercentage: true }
+                    : t;
+                const score = getSafeScore(normalizedTopic, catMaxScore, catMinScore);
                 if (!Number.isFinite(score)) return;
 
                 // FIX T-06: Proteger contra total=0 → getSyntheticTotal.
-                let total = Math.max(0, parseInt(t.total, 10) || 0);
-                if (total === 0 && t.score != null) {
+                let total = Math.max(0, parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
+                if (total === 0 && (t.score != null || t.scorePct != null)) {
                     total = getSyntheticTotal(catMaxScore);
                 }
                 if (total === 0) return;
 
-                // FIX T-07: Clamp de correct para nunca exceder total.
-                const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
-                const correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));
+                const explicitCorrect = t.correct ?? t.acertos ?? t.correctCount;
+                let correctCount;
+                if (hasValidNum(explicitCorrect) && !t.isPercentage) {
+                    correctCount = Math.max(0, Math.min(total, Math.round(Number(explicitCorrect))));
+                } else {
+                    const ratio = (score - catMinScore) / Math.max(1e-9, catMaxScore - catMinScore);
+                    correctCount = Math.max(0, Math.min(total, Math.round(ratio * total)));
+                }
 
                 topicMap[name].total += total;
                 topicMap[name].correct += correctCount;
@@ -97,7 +112,7 @@ export default function TopicPerformance({ categories = [], maxScore: globalMaxS
         // Sort: Highest Percentage Top (Descending)
         return topicList.sort((a, b) => (b.percentage || 0) - (a.percentage || 0));
 
-    }, [safeCategories, effectiveCategoryId, globalMaxScore]);
+    }, [safeCategories, effectiveCategoryId, globalMaxScore, globalMinScore]);
 
     return (
         <div className="glass p-6 h-full flex flex-col">

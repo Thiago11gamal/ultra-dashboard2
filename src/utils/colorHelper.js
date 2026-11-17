@@ -75,8 +75,9 @@ export function hexToRgba(color, alpha = 1, fallback = DEFAULT_CATEGORY_COLOR) {
     if (typeof alpha === 'number') {
         numAlpha = Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
     } else if (typeof alpha === 'string') {
-        if (alpha.includes('.')) {
-            numAlpha = Math.max(0, Math.min(1, parseFloat(alpha) || 1));
+        if (alpha.includes('.') || alpha === '0' || alpha === '1') {
+            const parsedFloat = parseFloat(alpha);
+            numAlpha = Number.isFinite(parsedFloat) ? Math.max(0, Math.min(1, parsedFloat)) : 1;
         } else {
             // Hex alpha de dois dígitos (ex: "15" -> 21 / 255 ≈ 0.082 ou interpretado como decimal se > 15)
             const parsedHex = parseInt(alpha, 16);

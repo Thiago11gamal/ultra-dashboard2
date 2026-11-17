@@ -34,6 +34,9 @@ export default function Activity() {
                 level: 1,
                 achievements: [],
                 streak: 0,
+                studiedEarly: false,
+                studiedLate: false,
+                studiedWeekend: false,
                 // BUG-T05 FIX: Registrar timestamp do reset para que
                 // buildAchievementStats não re-desbloqueie conquistas
                 // antigas baseadas em dados que já existiam antes do reset.

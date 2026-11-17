@@ -31,6 +31,17 @@ export function useEvolutionMC({
   const _ignoredEngine = activeEngine ?? _activeEngine;
   void _ignoredEngine;
 
+  const storeExamTotalQuestions = useAppStore((s) => {
+    const aId = s.appState?.activeId;
+    const raw = s.appState?.contests?.[aId]?.examTotalQuestions;
+    return Number.isFinite(Number(raw)) && Number(raw) > 0 ? Number(raw) : 100;
+  });
+  const storeExamDurationMinutes = useAppStore((s) => {
+    const aId = s.appState?.activeId;
+    const raw = s.appState?.contests?.[aId]?.examDurationMinutes;
+    return Number.isFinite(Number(raw)) && Number(raw) > 0 ? Number(raw) : 240;
+  });
+
   const { runAnalysis } = useMonteCarloWorker();
   const [mcLoading, setMcLoading] = useState(false);
   const [mcResult, setMcResult] = useState(null);
@@ -110,11 +121,12 @@ export function useEvolutionMC({
     const rawLevelVal = typeof currentFocusLevel === 'object' && currentFocusLevel !== null
       ? currentFocusLevel.mean
       : currentFocusLevel;
-    const safeCurrentMean = rawLevelVal !== null && rawLevelVal !== undefined && Number.isFinite(Number(rawLevelVal))
+    const hasValidCurrentMean = rawLevelVal !== null && rawLevelVal !== undefined && typeof rawLevelVal !== 'boolean' && String(rawLevelVal).trim() !== '' && Number.isFinite(Number(rawLevelVal));
+    const safeCurrentMean = hasValidCurrentMean
       ? Number(rawLevelVal)
-      : safeMin;
+      : undefined;
 
-    const signature = `${focusCategoryId}|${historyFingerprint}|${effectiveTarget}|${projectDays}|${safeMin}|${safeMax}|${Math.round(safeCurrentMean * 100)}`;
+    const signature = `${focusCategoryId}|${historyFingerprint}|${effectiveTarget}|${projectDays}|${safeMin}|${safeMax}|${hasValidCurrentMean ? Math.round(safeCurrentMean * 100) : 'none'}|${storeExamTotalQuestions}|${storeExamDurationMinutes}`;
     if (lastComputedSignatureRef.current === signature && mcResult?.categoryId === focusCategoryId) {
       const resetLoading = setTimeout(() => {
         if (!cancelled) setMcLoading(false);
@@ -187,7 +199,9 @@ export function useEvolutionMC({
       let totalTimeSpent = 0;
       let totalTimedQuestions = 0;
       historyArray.forEach((rawH) => {
-        if (!rawH || rawH.valid === false) return;
+        if (!rawH || rawH.valid === false || !(rawH.date || rawH.createdAt)) return;
+        const validDateKey = getDateKey(rawH.date || rawH.createdAt);
+        if (!validDateKey) return;
         let hasTopicWithTime = false;
         let topicsTs = 0;
         let topicsTimedQ = 0;
@@ -197,10 +211,11 @@ export function useEvolutionMC({
           : (rawH.topics && typeof rawH.topics === 'object' ? Object.values(rawH.topics) : EMPTY_ARRAY);
         for (const t of topicEntries) {
           if (!t || typeof t !== 'object') continue;
-          const tTs = typeof t.timeSpent === 'number' ? t.timeSpent : null;
-          const tTot = typeof t.timedQuestoes === 'number' && t.timedQuestoes > 0
-            ? t.timedQuestoes
-            : Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0;
+          const tTs = toOptionalFinite(t.timeSpent) ?? null;
+          const rawTTimedQ = toOptionalFinite(t.timedQuestoes);
+          const tTot = rawTTimedQ !== undefined && rawTTimedQ > 0
+            ? rawTTimedQ
+            : (toOptionalFinite(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
           if (tTs !== null && tTs > 0 && tTot > 0) {
             topicsTs += tTs;
             topicsTimedQ += tTot;
@@ -212,30 +227,21 @@ export function useEvolutionMC({
           totalTimeSpent += topicsTs;
           totalTimedQuestions += topicsTimedQ;
         } else if (rawH.timeSpent != null) {
-          const rawHQ = typeof rawH.timedQuestoes === 'number' && rawH.timedQuestoes > 0
-            ? rawH.timedQuestoes
-            : (Number(rawH.total ?? rawH.questoes ?? rawH.totalQuestoes ?? rawH.questions) || 0);
-          if (rawHQ > 0) {
-            totalTimeSpent += Number(rawH.timeSpent) || 0;
+          const rawTs = toOptionalFinite(rawH.timeSpent);
+          const rawTQ = toOptionalFinite(rawH.timedQuestoes);
+          const rawHQ = rawTQ !== undefined && rawTQ > 0
+            ? rawTQ
+            : (toOptionalFinite(rawH.total ?? rawH.questoes ?? rawH.totalQuestoes ?? rawH.questions) || 0);
+          if (rawTs !== undefined && rawTs > 0 && rawHQ > 0) {
+            totalTimeSpent += rawTs;
             totalTimedQuestions += rawHQ;
           }
         }
       });
       const avgSeconds = totalTimedQuestions > 0 ? totalTimeSpent / totalTimedQuestions : 0;
 
-      const store = useAppStore.getState();
-      const activeId = store.appState?.activeId;
-      const contest = store.appState?.contests?.[activeId];
-      const defaultExamTotalQuestions =
-        Number.isFinite(Number(contest?.examTotalQuestions)) &&
-        Number(contest?.examTotalQuestions) > 0
-          ? Number(contest.examTotalQuestions)
-          : 100;
-      const examDurationMinutes =
-        Number.isFinite(Number(contest?.examDurationMinutes)) &&
-        Number(contest?.examDurationMinutes) > 0
-          ? Number(contest.examDurationMinutes)
-          : 240;
+      const defaultExamTotalQuestions = storeExamTotalQuestions;
+      const examDurationMinutes = storeExamDurationMinutes;
       const projectedTotalTimeSeconds = defaultExamTotalQuestions * avgSeconds;
 
       try {
@@ -256,7 +262,10 @@ export function useEvolutionMC({
         setMcResult({ ...result, categoryId: focusCategoryId });
 
         const lastDate = parseNoonLocal(hist[hist.length - 1].date);
-        if (!lastDate) return;
+        if (!lastDate) {
+          setMcProjectionSeries(null);
+          return;
+        }
         const nextDate = addDaysNoon(lastDate, projectDays || 30);
 
         const p50 = result.projectedMean ?? result.mean ?? safeMin;
@@ -316,7 +325,8 @@ export function useEvolutionMC({
   }, [
     focusCategoryId, historyFingerprint, currentFocusLevel, historyArray,
     debouncedTarget, projectDays, runAnalysis, minScore, maxScore,
-    focusCategory?.minScore, focusCategory?.maxScore, focusCategory?.minCutoff
+    focusCategory?.minScore, focusCategory?.maxScore, focusCategory?.minCutoff,
+    storeExamTotalQuestions, storeExamDurationMinutes
   ]);
 
   const activeMcResult = mcResult?.categoryId === focusCategoryId ? mcResult : null;

@@ -348,10 +348,11 @@ export function buildPolicyReport(selectedActions = [], causalModel = null, opti
  * Estima uplift causal com IPW estabilizado.
  */
 export function estimateUplift({ outcome, treatment, propensity, weight = 1 } = {}) {
-  const y = Number(outcome);
+  const toStrict = (v) => (v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v))) ? Number(v) : NaN;
+  const y = toStrict(outcome);
   const t = treatment ? 1 : 0;
-  const p = Number(propensity);
-  const w = Number(weight);
+  const p = toStrict(propensity);
+  const w = toStrict(weight);
 
   // BUG: propensity 0/1 causava divisão por zero/Infinity.
   if (!Number.isFinite(y) || !Number.isFinite(p)) {

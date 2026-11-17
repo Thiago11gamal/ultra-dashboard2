@@ -2,7 +2,7 @@ export const safeDate = (value) => {
   if (!value) return null;
 
   if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
   }
 
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
@@ -108,7 +108,7 @@ export const daysUntilGoal = (goalDate, { fallback = 30, min = 1, referenceDate 
   if (!goal || Number.isNaN(goal.getTime())) return fallback;
   goal.setHours(12, 0, 0, 0);
 
-  const diffDays = Math.ceil((goal.getTime() - now.getTime()) / 86400000);
+  const diffDays = Math.round((goal.getTime() - now.getTime()) / 86400000);
   if (!Number.isFinite(diffDays)) return fallback;
 
   // BUG: datas passadas retornavam min (1), mascarando meta vencida.

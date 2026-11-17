@@ -313,7 +313,7 @@ export async function explainCoachMetrics(input = {}, options = {}) {
 
   const cachePayload = {
     ...input,
-    originalRecommendation: '',
+    originalRecommendation: String(input?.originalRecommendation || ''),
   };
 
   const cacheKey = hashString(

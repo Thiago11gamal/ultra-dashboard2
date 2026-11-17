@@ -456,10 +456,17 @@ export function detectCalibrationDrift(events = [], options = {}) {
  * [{ probability: 0.62, observed: 1 }]
  */
 export function detectProbabilityCalibrationDrift(pairs = [], options = {}) {
-  const safePairs = (Array.isArray(pairs) ? pairs : [])
+  const rawList = Array.isArray(pairs) ? pairs : [];
+  const usesPercentScale = options?.scale === 100 || (
+    options?.scale !== 1 && rawList.some(pair => {
+      const rp = toStrictMetric(pair?.probability);
+      return Number.isFinite(rp) && rp > 1 && rp <= 100;
+    })
+  );
+  const safePairs = rawList
     .map((pair, _idx) => {
       const rawP = toStrictMetric(pair?.probability);
-      const normP = Number.isFinite(rawP) && rawP > 1 && rawP <= 100 ? rawP / 100 : rawP;
+      const normP = Number.isFinite(rawP) && usesPercentScale ? rawP / 100 : rawP;
       const rawObs = typeof pair?.observed === 'boolean' ? (pair.observed ? 1 : 0) : toStrictMetric(pair?.observed);
       const ts = toStrictMetric(pair?.timestamp);
       return {
