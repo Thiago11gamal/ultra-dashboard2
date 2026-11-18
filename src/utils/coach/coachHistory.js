@@ -131,6 +131,9 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
 
     if (getCoachFeature(options, 'useDecisionUtilityForBestTask', false)) {
         try {
+            const cognitiveFatigue = options?.studyLogs
+                ? (getCognitiveState(options.studyLogs, { now: options.now })?.fatigue ?? 0)
+                : 0;
             const decisionInputs = candidates.map((c) => ({
                 id: c.id || `task-${c._originalIndex}`,
                 name: c.text || c.title || c.id || `task-${c._originalIndex}`,
@@ -141,16 +144,19 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
                 uncertainty: 0.42,
                 evidence: c.analysis ? 0.7 : 0.4,
                 costMinutes: Number(c.estimatedMinutes || c.minutes || 35),
+                fatigue: cognitiveFatigue,
                 weight: c._catWeight,
                 _candidate: c
             }));
             const ranked = rankDecisionCandidates(decisionInputs, {
                 useBandit: getCoachFeature(options, 'useBanditPlanner', false),
+                contestId: options?.contestId || options?.config?.contestId,
                 seed: `best-task-${candidates.length}`
             });
             if (ranked.length > 0 && ranked[0]._candidate) {
                 const chosen = { ...ranked[0]._candidate };
                 delete chosen._catWeight;
+                delete chosen._originalIndex;
                 return chosen;
             }
         } catch {
@@ -170,6 +176,7 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
 
     const best = { ...candidates[0] };
     delete best._catWeight;
+    delete best._originalIndex;
     return best;
 };
 

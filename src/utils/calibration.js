@@ -645,17 +645,27 @@ export function computeContinuousMcBoost(mcProbability, danger, safe, options = 
   const safeProbability = Math.max(0, Math.min(100, p));
   const safeDanger = Math.max(0, Math.min(99, d));
   const safeSafe = Math.max(safeDanger + 1, Math.min(100, s));
-  const safePenalty = Number.isFinite(Number(options?.safePenalty)) ? Number(options.safePenalty) : -6;
+  const dangerBase = Number.isFinite(Number(options?.dangerBase ?? options?.MC_BOOST_DANGER_BASE))
+    ? Number(options.dangerBase ?? options.MC_BOOST_DANGER_BASE)
+    : 8;
+  const dangerRange = Number.isFinite(Number(options?.dangerRange ?? options?.MC_BOOST_DANGER_RANGE))
+    ? Number(options.dangerRange ?? options.MC_BOOST_DANGER_RANGE)
+    : 14;
+  const safePenalty = Number.isFinite(Number(options?.safePenalty ?? options?.MC_BOOST_SAFE_PENALTY))
+    ? Number(options.safePenalty ?? options.MC_BOOST_SAFE_PENALTY)
+    : -6;
+  const maxBoost = dangerBase + dangerRange;
+  const minBoost = Math.min(-10, safePenalty);
 
   let rawBoost = 0;
   if (safeProbability <= safeDanger) {
     const t = Math.max(0, Math.min(1, (safeDanger - safeProbability) / Math.max(1, safeDanger)));
     const smooth = t * t * (3 - 2 * t);
-    rawBoost = 8 + 14 * smooth;
+    rawBoost = dangerBase + dangerRange * smooth;
   } else if (safeProbability < safeSafe) {
     const t = Math.max(0, Math.min(1, (safeProbability - safeDanger) / Math.max(1, safeSafe - safeDanger)));
     const smooth = t * t * (3 - 2 * t);
-    rawBoost = 8 * (1 - smooth) + safePenalty * smooth;
+    rawBoost = dangerBase * (1 - smooth) + safePenalty * smooth;
   } else {
     rawBoost = safePenalty;
   }
@@ -668,5 +678,5 @@ export function computeContinuousMcBoost(mcProbability, danger, safe, options = 
 
   if (!Number.isFinite(boost)) return 0;
 
-  return Math.max(-10, Math.min(22, Number(boost.toFixed(2))));
+  return Math.max(minBoost, Math.min(maxBoost, Number(boost.toFixed(2))));
 }

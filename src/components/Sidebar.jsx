@@ -36,6 +36,7 @@ import './Sidebar.css';
 import { del } from 'idb-keyval';
 import { useAppStore, clearAllDataSecure } from '../store/useAppStore';
 import { getContestDisplayName, isMenuItemActive } from './sidebarUtils';
+import { preloadRoute } from '../utils/lazyRetry';
 
 const SECTIONS = [
     {
@@ -595,9 +596,11 @@ const Sidebar = React.memo(function Sidebar({
                                                     closeMobileSidebar();
                                                 }}
                                                 onMouseEnter={(e) => {
+                                                    preloadRoute(item.path);
                                                     const extra = getSidebarExtra({ isMeuPainel, isCronometro, isCoach, isAi: item.isAi, isPomodoroRunning, pomodoroMode });
                                                     handleTooltipEnter(e, item, extra); // ✅ Chamada única
                                                 }}
+                                                onFocus={() => preloadRoute(item.path)}
                                                 onMouseLeave={handleTooltipLeave}
                                             >
                                                 <div className="sidebar-item-icon-wrapper relative">

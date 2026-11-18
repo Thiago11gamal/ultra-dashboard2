@@ -7,6 +7,17 @@ import { useAppStore } from '../store/useAppStore';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
 
+function renderBoldText(text) {
+    const safeText = String(text || '');
+    const parts = safeText.split(/(\*\*.*?\*\*)/g).filter(Boolean);
+    return parts.map((part, idx) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={`ng-bold-${idx}`} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
+        }
+        return <React.Fragment key={`ng-bold-${idx}`}>{part}</React.Fragment>;
+    });
+}
+
 function NextGoalCard({
     categories = [],
     simulados = [],
@@ -28,12 +39,19 @@ function NextGoalCard({
 
     const effectiveContestId = propContestId ?? storeActiveId ?? 'default';
     const effectiveUser = propUser ?? storeContest?.user;
-    const effectiveMaxScore = Number(
-        propMaxScore ?? storeContest?.maxScore ?? storeContest?.settings?.maxScore ?? 100
-    ) || 100;
-    const rawMin = propMinScore ?? storeContest?.minScore ?? storeContest?.settings?.minScore ?? 0;
-    const effectiveMinScore = Number.isFinite(Number(rawMin))
-        ? Math.min(Number(rawMin), effectiveMaxScore - 1)
+    const pickValidNumber = (...candidates) => {
+        for (const val of candidates) {
+            if (val !== null && val !== undefined && typeof val !== 'boolean' && String(val).trim() !== '' && Number.isFinite(Number(val))) {
+                return Number(val);
+            }
+        }
+        return null;
+    };
+    const resolvedMax = pickValidNumber(propMaxScore, storeContest?.maxScore, storeContest?.settings?.maxScore);
+    const effectiveMaxScore = resolvedMax !== null && resolvedMax > 0 ? resolvedMax : 100;
+    const resolvedMin = pickValidNumber(propMinScore, storeContest?.minScore, storeContest?.settings?.minScore);
+    const effectiveMinScore = resolvedMin !== null
+        ? Math.min(resolvedMin, effectiveMaxScore - 1)
         : 0;
     const effectiveTargetScore = propTargetScore ?? resolveUserTargetScorePoints(
         effectiveUser,
@@ -371,7 +389,7 @@ function NextGoalCard({
                                     <span className="text-sm leading-none flex-shrink-0" aria-hidden="true">💡</span>
                                     <span className="text-slate-400 font-medium whitespace-nowrap">Motivo da escolha:</span>
                                     <span className="text-slate-200 truncate sm:whitespace-normal font-normal">
-                                        {urgency.recommendation}
+                                        {renderBoldText(urgency.recommendation)}
                                     </span>
                                 </div>
                             </div>

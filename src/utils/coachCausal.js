@@ -92,13 +92,13 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
     .filter((log) => {
       // FIX (BUG-15): considerar categoryName e materia se categoryId ausente
       if (!categoryId && !categoryName) return true;
-      if (categoryId && log?.categoryId === categoryId) return true;
-      if (categoryName && isSubjectMatch(log?.subject || log?.categoryName || log?.materia || '', categoryName)) return true;
+      if (categoryId && log?.categoryId != null && (log.categoryId === categoryId || String(log.categoryId) === String(categoryId))) return true;
+      if (categoryName && isSubjectMatch(log?.subject || log?.categoryName || log?.materia || log?.disciplina || '', categoryName)) return true;
       return false;
     })
     .map((log) => ({
       time: toTime(log?.date ?? log?.createdAt),
-      minutes: Math.min(720, Math.max(0, Number(log?.minutes) || 0)),
+      minutes: Math.min(720, Math.max(0, Number(log?.minutes ?? log?.minutos ?? log?.duration ?? log?.tempo) || 0)),
       subjectLabel: String(log?.subject || log?.categoryName || log?.materia || log?.disciplina || '').trim(),
       categoryId: log?.categoryId || null,
     }))
@@ -205,21 +205,42 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
     const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0 ? Number(category.maxScore) : maxScore;
     const catMin = Number.isFinite(Number(category?.minScore)) ? Math.min(Number(category.minScore), catMax) : minScore;
 
-    const categorySimulados = safeArray(simulados)
-      .filter((simulado) => isSubjectMatch(simulado?.subject || '', categoryName))
-      .map((simulado, index) => {
-        const time = toTime(simulado?.date ?? simulado?.createdAt);
-        const score = getSafeScore(simulado, catMax, catMin);
-        return {
-          index,
-          time,
-          score,
-          simulado,
-        };
-      })
-      // FIX: descarta timestamps inválidos/futuros
-      .filter((entry) => Number.isFinite(entry.time) && Number.isFinite(entry.score) && isReasonableTime(entry.time))
-      .sort((a, b) => a.time - b.time);
+    const catHistoryList = safeArray(category?.simuladoStats?.history).map((h) => ({
+      ...h,
+      categoryId: h?.categoryId ?? category?.id,
+      subject: h?.subject || h?.categoryName || categoryName,
+    }));
+    const externalMatchingSims = safeArray(simulados).filter((simulado) => {
+      if (!simulado) return false;
+      const matchesId = category?.id != null && simulado?.categoryId != null && String(simulado.categoryId) === String(category.id);
+      const matchesSubj = categoryName && isSubjectMatch(
+        simulado?.subject || simulado?.categoryName || simulado?.materia || simulado?.disciplina || '',
+        categoryName
+      );
+      return matchesId || matchesSubj;
+    });
+
+    const seenSimSigs = new Set();
+    const mergedCategorySimulados = [];
+    [...catHistoryList, ...externalMatchingSims].forEach((simulado, idx) => {
+      if (!simulado || simulado.valid === false) return;
+      const time = toTime(simulado?.date ?? simulado?.createdAt);
+      const score = getSafeScore(simulado, catMax, catMin);
+      if (!Number.isFinite(time) || !Number.isFinite(score) || !isReasonableTime(time)) return;
+      const sig = simulado.id && !String(simulado.id).startsWith('legacy-')
+        ? `id:${simulado.id}`
+        : `ts:${Math.floor(time / 86400000)}:${Math.round(score * 10)}`;
+      if (seenSimSigs.has(sig)) return;
+      seenSimSigs.add(sig);
+      mergedCategorySimulados.push({
+        index: idx,
+        time,
+        score,
+        simulado,
+      });
+    });
+
+    const categorySimulados = mergedCategorySimulados.sort((a, b) => a.time - b.time);
 
     if (categorySimulados.length < 2) return;
 
@@ -446,84 +467,94 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
   const safeTasks = safeArray(tasks);
   if (safeTasks.length === 0) return [];
 
-  const priorityToUtility = (priority) => {
-    if (priority === 'high') return 85;
-    if (priority === 'medium') return 55;
-    return 25;
+    const priorityToUtility = (priority, index, totalCount, task) => {
+      let base = 25;
+      if (priority === 'high') base = 85;
+      else if (priority === 'medium') base = 55;
+      // Preserva granularidade da ordem de urgência original calculada pelo Coach
+      // para desempatar tarefas da mesma prioridade e mesmo tipo de ação.
+      const positionBonus = totalCount > 1
+        ? Math.max(0, 1 - index / (totalCount - 1)) * 6
+        : 0;
+      const rawMcBoost = Number(task?.analysis?.monteCarlo?.urgencyBoost);
+      const mcBonus = Number.isFinite(rawMcBoost)
+        ? Math.max(-3, Math.min(3, rawMcBoost * 0.15))
+        : 0;
+      return Math.max(0, Math.min(100, Number((base + positionBonus + mcBonus).toFixed(2))));
+    };
+
+    const getCandidateKey = (task, idx) =>
+      task?.id != null && String(task.id).trim() !== ''
+        ? `id-${task.id}`
+        : `idx-${idx}-${task?.text || ''}`;
+
+    const candidates = safeTasks.map((task, index) => {
+      const actionType = inferActionType(task?.text || task?.topicName || '');
+      return {
+        id: getCandidateKey(task, index),
+        type: actionType,
+        name: task?.text || task?.topicName || `Tarefa ${index + 1}`,
+        categoryId: task?.categoryId || null,
+        categoryName: task?.catName || task?.category || null,
+        decisionUtility: priorityToUtility(task?.priority, index, safeTasks.length, task),
+        features: {
+          priority: task?.priority || 'medium',
+          costMinutes: Number(task?.estimatedMinutes || task?.minutes || 30),
+        },
+        originalTask: task,
+      };
+    });
+
+    const ranked = selectPersonalizedActions(candidates, causalModel, {
+      maxScore: options.maxScore ?? 100,
+      minScore: options.minScore ?? 0,
+      topK: safeTasks.length,
+      healthStatus: options.healthStatus || null,
+      causalWeight: options.causalWeight ?? 0.35,
+    });
+
+    // ✅ FIX: Validar ranked antes de criar orderMap
+    const safeRanked = Array.isArray(ranked) ? ranked : [];
+    const orderMap = new Map();
+    safeRanked.forEach((candidate, index) => {
+      if (candidate && candidate.id) {
+        orderMap.set(candidate.id, index);
+      }
+    });
+
+    // FIX (BUG-41): tarefas NÃO mapeadas pelo modelo causal mantêm sua ordem
+    // original relativa (posicionadas após as ranqueadas), em vez do fallback
+    // arbitrário 9999 — que era instável e quebrava com muitas tarefas.
+    return [...safeTasks]
+      .map((task, originalIndex) => ({
+        task,
+        sortKey:
+          orderMap.get(getCandidateKey(task, originalIndex)) ??
+          (safeRanked.length + originalIndex),
+      }))
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map((item) => item.task);
+  }
+
+  export {
+    prepareCausalEvents,
+    estimateUpliftByAction,
+    saveCausalModel,
+    loadCausalModel,
+    clearCausalModel,
+    inferActionType,
+    candidatesFromWeakTopics,
+    addSystemActionCandidates,
+    selectPersonalizedActions,
+    buildPolicyReport,
   };
 
-  const getCandidateKey = (task, idx) =>
-    task?.id != null && String(task.id).trim() !== ''
-      ? `id-${task.id}`
-      : `idx-${idx}-${task?.text || ''}`;
-
-  const candidates = safeTasks.map((task, index) => {
-    const actionType = inferActionType(task?.text || task?.topicName || '');
-    return {
-      id: getCandidateKey(task, index),
-      type: actionType,
-      name: task?.text || task?.topicName || `Tarefa ${index + 1}`,
-      categoryId: task?.categoryId || null,
-      categoryName: task?.catName || task?.category || null,
-      decisionUtility: priorityToUtility(task?.priority),
-      features: {
-        priority: task?.priority || 'medium',
-        costMinutes: Number(task?.estimatedMinutes || task?.minutes || 30),
-      },
-      originalTask: task,
-    };
-  });
-
-  const ranked = selectPersonalizedActions(candidates, causalModel, {
-    maxScore: options.maxScore ?? 100,
-    minScore: options.minScore ?? 0,
-    topK: safeTasks.length,
-    healthStatus: options.healthStatus || null,
-    causalWeight: options.causalWeight ?? 0.35,
-  });
-
-  // ✅ FIX: Validar ranked antes de criar orderMap
-  const safeRanked = Array.isArray(ranked) ? ranked : [];
-  const orderMap = new Map();
-  safeRanked.forEach((candidate, index) => {
-    if (candidate && candidate.id) {
-      orderMap.set(candidate.id, index);
-    }
-  });
-
-  // FIX (BUG-41): tarefas NÃO mapeadas pelo modelo causal mantêm sua ordem
-  // original relativa (posicionadas após as ranqueadas), em vez do fallback
-  // arbitrário 9999 — que era instável e quebrava com muitas tarefas.
-  return [...safeTasks]
-    .map((task, originalIndex) => ({
-      task,
-      sortKey:
-        orderMap.get(getCandidateKey(task, originalIndex)) ??
-        (safeRanked.length + originalIndex),
-    }))
-    .sort((a, b) => a.sortKey - b.sortKey)
-    .map((item) => item.task);
-}
-
-export {
-  prepareCausalEvents,
-  estimateUpliftByAction,
-  saveCausalModel,
-  loadCausalModel,
-  clearCausalModel,
-  inferActionType,
-  candidatesFromWeakTopics,
-  addSystemActionCandidates,
-  selectPersonalizedActions,
-  buildPolicyReport,
-};
-
-export default {
-  buildStudyVolumeCausalEvents,
-  buildTaskCausalEvents,
-  buildCausalEventsFromHistory,
-  trainCausalModel,
-  runCausalPolicyCycle,
-  rerankCoachTasksWithCausalPolicy,
-};
+  export default {
+    buildStudyVolumeCausalEvents,
+    buildTaskCausalEvents,
+    buildCausalEventsFromHistory,
+    trainCausalModel,
+    runCausalPolicyCycle,
+    rerankCoachTasksWithCausalPolicy,
+  };
 

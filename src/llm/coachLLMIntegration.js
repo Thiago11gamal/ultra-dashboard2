@@ -40,6 +40,7 @@ export async function getSuggestedFocusWithLLM(
       context: {
         categoryName: focus.name || focus.categoryName || null,
         maxScore: options.maxScore,
+        minScore: options.minScore,
         targetScore: options.targetScore,
         ...(options.context || {}),
       },

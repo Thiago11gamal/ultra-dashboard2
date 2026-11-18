@@ -10,6 +10,7 @@ import { getSafeId } from '../utils/idGenerator';
 import { ensureCoachTaskId } from '../utils/coachTaskId';
 import { parseCoachTask, isSystemAlertTask } from '../utils/coachText';
 import { displaySubject } from '../utils/displaySubject';
+import { isSubjectMatch } from '../utils/normalization';
 import { useToast } from '../hooks/useToast';
 
 // BUG-09 FIX: displaySubject moved to src/utils/displaySubject.js (single source of truth)
@@ -307,11 +308,19 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
             navigate('/pomodoro', { state: { from: 'coach' } });
             return;
         }
+        const stripDupSuffix = (v) => String(v || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
         const matchTask = (t) => {
-            const taskSid = getSafeId(ensureCoachTaskId(task));
-            const candidateSid = getSafeId(ensureCoachTaskId(t));
+            if (!t) return false;
+            const taskSid = stripDupSuffix(getSafeId(ensureCoachTaskId(task)));
+            const candidateSid = stripDupSuffix(getSafeId(ensureCoachTaskId(t)));
             if (taskSid && candidateSid && taskSid === candidateSid) return true;
-            return t === task || Boolean(task?.text && t?.text === task.text);
+            if (t === task) return true;
+            if (task?.text && t?.text === task.text) {
+                const taskCat = task.categoryId || task.category || '';
+                const candCat = t.categoryId || t.category || '';
+                return !taskCat || !candCat || String(taskCat) === String(candCat);
+            }
+            return false;
         };
 
         let targetIndex = unallocatedTasks.findIndex(matchTask);
@@ -488,8 +497,8 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
                                             // FIX: aceitar activeContest.categories como array ou mapa objeto do Firebase
                                             const matchedCat = (activeContest?.categories && typeof activeContest.categories === 'object')
                                                 ? (Array.isArray(activeContest.categories) ? activeContest.categories : Object.values(activeContest.categories)).find(c => c && (
-                                                    (task.categoryId && c.id === task.categoryId) ||
-                                                    (task.category && c.name === task.category)
+                                                    (task.categoryId && c.id != null && String(c.id) === String(task.categoryId)) ||
+                                                    (task.category && c.name && (c.name === task.category || isSubjectMatch(c.name, task.category)))
                                                 ))
                                                 : null;
                                             const taskMaxScore = matchedCat?.maxScore ?? task.analysis?.maxScore ?? activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? 100;

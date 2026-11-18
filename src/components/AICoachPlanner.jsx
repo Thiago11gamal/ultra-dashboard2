@@ -192,8 +192,10 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   // nem skipResetCountRef — nada para dessincronizar.
   // ==========================================================
   const deriveColumns = useCallback((plan, planner) => {
+    const toDayList = (val) => Array.isArray(val) ? val : Object.values(val || {});
     const assignedCounts = new Map();
-    DAYS.forEach(d => (planner?.[d.id] || []).forEach(t => {
+    DAYS.forEach(d => toDayList(planner?.[d.id]).forEach(t => {
+      if (!t) return;
       const sid = getSafeId(ensureCoachTaskId(t));
       if (sid) assignedCounts.set(sid, (assignedCounts.get(sid) || 0) + 1);
     }));
@@ -234,7 +236,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     const cleanCol = (arr, colKey) => {
       const out = [];
       let j = 0;
-      for (const t of (Array.isArray(arr) ? arr : [])) {
+      for (const t of toDayList(arr)) {
         const item = take(t, `${colKey}-${j}`);
         if (item) out.push(item);
         j++;

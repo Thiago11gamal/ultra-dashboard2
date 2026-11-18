@@ -29,14 +29,20 @@ function safePromptStr(val, maxLen = 100) {
 
 export function buildCoachExplanationPrompt(payload = {}) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
+  const resolvedUrgency = safePromptNum(
+    safePayload.urgency ?? safePayload.urgencyScore ?? safePayload.normalizedScore,
+    0
+  );
   const cleanPayload = {
     categoryName: safePromptStr(safePayload.categoryName, 100),
-    subject: safePromptStr(safePayload.subject, 100),
-    urgency: safePromptNum(safePayload.urgency, 0),
-    normalizedScore: safePromptNum(safePayload.normalizedScore, 0),
-    trend: safePromptNum(safePayload.trend, 0),
-    volatility: safePromptNum(safePayload.volatility, 0),
-    daysSinceLastStudy: safePromptNum(safePayload.daysSinceLastStudy, 0),
+    subject: safePromptStr(safePayload.subject || safePayload.categoryName, 100),
+    urgency: resolvedUrgency,
+    normalizedScore: safePromptNum(safePayload.normalizedScore ?? resolvedUrgency, 0),
+    averageScore: safePromptNum(safePayload.averageScore, null),
+    targetScore: safePromptNum(safePayload.targetScore, null),
+    trend: safePromptNum(safePayload.trend, null),
+    volatility: safePromptNum(safePayload.volatility, null),
+    daysSinceLastStudy: safePromptNum(safePayload.daysSinceLastStudy, null),
     srsLabel: safePromptStr(safePayload.srsLabel, 100),
     maxScore: safePromptNum(safePayload.maxScore, 100),
     minScore: safePromptNum(safePayload.minScore, 0),

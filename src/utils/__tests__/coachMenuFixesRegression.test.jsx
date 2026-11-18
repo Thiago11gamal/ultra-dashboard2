@@ -14,7 +14,13 @@ import { displaySubject, displayTopic } from '../displaySubject.js';
 import { normalizeTaskPriority, parseCoachTask } from '../coachText.js';
 import { getCalibrationHistoryFor } from '../coachSafe.js';
 import { resolveUserTargetScorePoints } from '../scoreHelper.js';
-import { calculateUrgency, getSuggestedFocus, generateDailyGoals, clearUrgencyCache, clearMcCache, clearTopicsCache } from '../coachLogic.js';
+import { calculateUrgency, getSuggestedFocus, generateDailyGoals, getBestTask, clearUrgencyCache, clearMcCache, clearTopicsCache } from '../coachLogic.js';
+import { simuladosToHistory } from '../coachAdaptive.js';
+import { estimateDynamicVolatility } from '../../engine/probabilistic/volatility.js';
+import { buildCausalEventsFromHistory, estimateUpliftByAction } from '../coachCausal.js';
+import { runGranularCoachBacktest } from '../coachEvaluation.js';
+import { deterministicCoachExplanation } from '../../llm/explanationAgent.js';
+import { buildCoachExplanationPrompt } from '../../llm/llmPrompts.js';
 import { RaioXDashboard } from '../../pages/Coach.jsx';
 import CoachMenuNav from '../../components/coach/CoachMenuNav.jsx';
 import CoachControlCenter from '../../components/coach/CoachControlCenter.jsx';
@@ -762,6 +768,104 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
       });
       expect(api.backtestReport).not.toBeNull();
       expect(api.causalModel).not.toBeNull();
+    });
+
+    it('estimateUpliftByAction pairs treated actions with control pools and excludes no_task/no_study_volume from actions', () => {
+      const categories = [
+        {
+          id: 'cat-causal',
+          name: 'Direito Administrativo',
+          weight: 5,
+          tasks: [
+            { id: 't1', text: 'Resolver questões de licitações', completed: true, completedAt: '2026-04-03' },
+            { id: 't2', text: 'Bateria de questões de atos', completed: true, completedAt: '2026-04-12' },
+            { id: 't3', text: 'Prática de questões de agentes', completed: true, completedAt: '2026-04-22' },
+          ],
+          simuladoStats: {
+            history: [
+              { id: 's1', date: '2026-04-01', score: 50 },
+              { id: 's2', date: '2026-04-05', score: 62 }, // +12 (treated task + study)
+              { id: 's3', date: '2026-04-10', score: 60 }, // -2 (control)
+              { id: 's4', date: '2026-04-15', score: 72 }, // +12 (treated task + study)
+              { id: 's5', date: '2026-04-20', score: 70 }, // -2 (control)
+              { id: 's6', date: '2026-04-25', score: 82 }, // +12 (treated task + study)
+            ],
+          },
+        },
+      ];
+      const studyLogs = [
+        { categoryId: 'cat-causal', date: '2026-04-03', minutos: 90 },
+        { categoryId: 'cat-causal', date: '2026-04-12', duration: 90 },
+        { categoryId: 'cat-causal', date: '2026-04-22', minutes: 90 },
+      ];
+
+      const events = buildCausalEventsFromHistory(categories, [], studyLogs);
+      expect(events.length).toBeGreaterThanOrEqual(5);
+
+      const res = estimateUpliftByAction(events, { minSamplesPerAction: 4 });
+      expect(res.actions.no_task).toBeUndefined();
+      expect(res.actions.no_study_volume).toBeUndefined();
+      expect(res.actions.weak_topic_practice).toBeDefined();
+      expect(res.actions.weak_topic_practice.controlCount).toBeGreaterThan(0);
+      // Treated mean is +12, control mean is -2 => uplift is +14 (not +12 - 0)
+      expect(res.actions.weak_topic_practice.uplift).toBeCloseTo(14, 1);
+    });
+
+    it('runGranularCoachBacktest prevents future target leakage from category.simuladoStats.history and computes topic avgNdcg', () => {
+      const categories = [
+        {
+          id: 'cat-bt',
+          name: 'Português',
+          weight: 5,
+          simuladoStats: {
+            history: [
+              { id: 'h1', date: '2026-03-01', score: 40, topics: [{ name: 'Crase', total: 10, correct: 3 }] },
+              { id: 'h2', date: '2026-03-05', score: 42, topics: [{ name: 'Crase', total: 10, correct: 4 }] },
+              { id: 'h3', date: '2026-03-10', score: 44, topics: [{ name: 'Crase', total: 10, correct: 4 }] },
+              { id: 'h4', date: '2026-03-15', score: 45, topics: [{ name: 'Crase', total: 10, correct: 4 }] },
+              { id: 'h5', date: '2026-03-20', score: 46, topics: [{ name: 'Crase', total: 10, correct: 4 }] },
+              // Future jump to 98: must NOT leak into split 0 prediction!
+              { id: 'h6', date: '2026-03-25', score: 98, topics: [{ name: 'Crase', total: 10, correct: 5 }] },
+              { id: 'h7', date: '2026-03-30', score: 99, topics: [{ name: 'Crase', total: 10, correct: 5 }] },
+            ],
+          },
+        },
+      ];
+
+      const report = runGranularCoachBacktest(categories, [], [], { minTrain: 5, horizon: 1 });
+      const baseEvals = report.raw.baseline;
+      expect(baseEvals.length).toBeGreaterThan(0);
+      // First split trains only on h1..h5 (scores 40..46), so predictedMean must be < 60 (no leakage from 98/99)
+      expect(baseEvals[0].scoreEvaluation.predicted).toBeLessThan(60);
+      expect(report.summaries.baseline.topics.avgNdcg).toBeGreaterThan(0);
+    });
+
+    it('simuladosToHistory, estimateDynamicVolatility, getBestTask and LLM helpers handle edge cases cleanly', () => {
+      const brSims = [
+        { date: '01/03/2026', score: 60 },
+        { date: '05-03-2026', score: 70 },
+        { date: 1773100800, score: 80 }, // epoch seconds
+      ];
+      const hist = simuladosToHistory(brSims, 100, 0);
+      expect(hist).toHaveLength(3);
+
+      const dynVol = estimateDynamicVolatility(brSims, { maxScore: 100, minScore: 0 });
+      expect(dynVol).not.toBeNull();
+      expect(Number.isFinite(dynVol.volatility)).toBe(true);
+
+      const best = getBestTask([
+        { id: 'c1', name: 'Penal', weight: 8, tasks: [{ id: 't1', text: 'Dolo', priority: 'high', completed: false }] },
+      ]);
+      expect(best).toBeTruthy();
+      expect(best._originalIndex).toBeUndefined();
+      expect(best._catWeight).toBeUndefined();
+
+      const det = deterministicCoachExplanation({ categoryName: 'Penal', urgencyScore: 88 });
+      expect(det.severity).toBe('high');
+
+      const prompt = buildCoachExplanationPrompt({ categoryName: 'Penal', urgencyScore: 88, trend: null });
+      expect(prompt).toContain('"urgency": 88');
+      expect(prompt).toContain('"trend": null');
     });
   });
 });

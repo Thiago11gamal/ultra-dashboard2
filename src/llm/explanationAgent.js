@@ -90,7 +90,10 @@ export function normalizeCoachExplanationInput(coachResult = {}, context = {}) {
       details?.categoryName ??
       null,
 
-    normalizedScore: toFinite(coachResult?.normalizedScore, 0),
+    normalizedScore: toFinite(
+      coachResult?.normalizedScore ?? coachResult?.urgencyScore ?? coachResult?.score,
+      0
+    ),
 
     averageScore: toFinite(details.averageScore, null),
 
@@ -144,7 +147,12 @@ export function deterministicCoachExplanation(data = {}) {
   const volatility = toFinite(data.volatility, null);
   const trend = toFinite(data.trend, null);
   const daysSince = toFinite(data.daysSinceLastStudy, null);
-  const normalizedScore = clamp(data.normalizedScore, 0, 100, 0);
+  const normalizedScore = clamp(
+    data.normalizedScore ?? data.urgencyScore ?? data.score,
+    0,
+    100,
+    0
+  );
 
   const causes = [];
 

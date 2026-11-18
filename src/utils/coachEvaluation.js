@@ -66,6 +66,7 @@ export function runGranularCoachBacktest(
     simulados,
     studyLogs,
     strategies: getGranularCoachStrategies(),
+    includeTopics: options.includeTopics ?? true,
     ...options,
   });
 }

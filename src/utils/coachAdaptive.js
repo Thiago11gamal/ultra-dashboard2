@@ -10,7 +10,7 @@ import {
   computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability,
   calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights
 } from './calibration.js';
-import { getDateKey, safeDateParse } from './dateHelper.js';
+import { getDateKey, safeDateParse, normalizeDate } from './dateHelper.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
@@ -195,7 +195,10 @@ export function simuladosToHistory(simulados, maxScore = 100, minScore = 0) {
 
   const sorted = simulados
     .map((s, idx) => {
-      const parsed = Date.parse(s.date || s.createdAt);
+      const normDate = normalizeDate(s?.date ?? s?.createdAt ?? s?.timestamp);
+      const parsed = normDate && !Number.isNaN(normDate.getTime())
+        ? normDate.getTime()
+        : Date.parse(s?.date || s?.createdAt);
       return {
         ...s,
         score: getSafeScore(s, maxScore, minScore),
@@ -215,33 +218,33 @@ export function simuladosToHistory(simulados, maxScore = 100, minScore = 0) {
   if (sorted.length > 0) sorted[0].fatigueFlag = false;
   let burstCount = 1;
   for (let i = 1; i < sorted.length; i++) {
-      const current = sorted[i];
-      const prev = sorted[i - 1];
+    const current = sorted[i];
+    const prev = sorted[i - 1];
 
-      const currentTs = Number(current.rawTimestamp);
-      const prevTs = Number(prev.rawTimestamp);
-      const isRapidSuccession =
-          Number.isFinite(currentTs) &&
-          Number.isFinite(prevTs) &&
-          currentTs > 0 &&
-          prevTs > 0 &&
-          (currentTs - prevTs) < 7200000;
+    const currentTs = Number(current.rawTimestamp);
+    const prevTs = Number(prev.rawTimestamp);
+    const isRapidSuccession =
+      Number.isFinite(currentTs) &&
+      Number.isFinite(prevTs) &&
+      currentTs > 0 &&
+      prevTs > 0 &&
+      (currentTs - prevTs) < 7200000;
 
-      if (isRapidSuccession) {
-          burstCount++;
-      } else {
-          burstCount = 1;
-      }
+    if (isRapidSuccession) {
+      burstCount++;
+    } else {
+      burstCount = 1;
+    }
 
-      // ✅ FIX: Só calcular fatigueFlag se ambos os scores forem finitos
-      const currentScoreValid = Number.isFinite(current.score);
-      const prevScoreValid = Number.isFinite(prev.score);
+    // ✅ FIX: Só calcular fatigueFlag se ambos os scores forem finitos
+    const currentScoreValid = Number.isFinite(current.score);
+    const prevScoreValid = Number.isFinite(prev.score);
 
-      if (currentScoreValid && prevScoreValid) {
-          current.fatigueFlag = burstCount >= 3 && current.score < prev.score;
-      } else {
-          current.fatigueFlag = false;
-      }
+    if (currentScoreValid && prevScoreValid) {
+      current.fatigueFlag = burstCount >= 3 && current.score < prev.score;
+    } else {
+      current.fatigueFlag = false;
+    }
   }
 
   return sorted.filter(item => typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(item.date.trim()));
@@ -369,12 +372,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const calibHash = `${safeCfg.MC_CALIBRATION_BRIER_BASELINE ?? ''}-${safeCfg.MC_CALIBRATION_MAX_PENALTY ?? ''}-${safeCfg.MC_CALIBRATION_NEUTRAL_PCT ?? ''}-${safeCfg.MC_CALIBRATION_MAX_APPLIED_PENALTY ?? ''}-${safeCfg.MC_ENABLE_ADAPTIVE_CALIBRATION !== false}`;
   const adaptiveHash = adaptive
     ? [adaptive.mcSimulations || 0, adaptive.decayK || 0,
-       Number(adaptive.calibrationBaseline || 0).toFixed(4),
-       Number(adaptive.calibrationMaxPenalty || 0).toFixed(4)].join('-')
+    Number(adaptive.calibrationBaseline || 0).toFixed(4),
+    Number(adaptive.calibrationMaxPenalty || 0).toFixed(4)].join('-')
     : 'no-adapt';
 
   const cfgHash = hashString(
-    `${safeCfg.MC_SIMULATION_CAP ?? ''}|${safeCfg.MC_FORCE_MAX_SIMULATIONS ?? ''}|${safeCfg.MC_MIN_DATA_POINTS ?? ''}|${safeCfg.MC_LOW_SAMPLE_THRESHOLD ?? ''}|${safeCfg.MC_BACKTEST_HORIZON ?? ''}|${safeCfg.MC_BACKTEST_HORIZON_MAX ?? ''}|${safeCfg.MC_ECE_BINS_MIN ?? ''}|${safeCfg.MC_ECE_BINS_MID ?? ''}|${safeCfg.MC_ECE_BINS_MAX ?? ''}|${calibHash}`
+      `${safeCfg.MC_SIMULATION_CAP ?? ''}|${safeCfg.MC_FORCE_MAX_SIMULATIONS ?? ''}|${safeCfg.MC_MIN_DATA_POINTS ?? ''}|${safeCfg.MC_BACKTEST_MIN_TRAIN ?? ''}|${safeCfg.MC_LOW_SAMPLE_THRESHOLD ?? ''}|${safeCfg.MC_BACKTEST_HORIZON ?? ''}|${safeCfg.MC_BACKTEST_HORIZON_MAX ?? ''}|${safeCfg.MC_ECE_BINS_MIN ?? ''}|${safeCfg.MC_ECE_BINS_MID ?? ''}|${safeCfg.MC_ECE_BINS_MAX ?? ''}|${calibHash}`
   );
 
   const contestId = safeCfg?.contestId || safeCfg?.userId || 'default';
@@ -391,12 +394,12 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   if (cachedEntry) {
     // ✅ FIX: Verificar TTL do cache
     if (Date.now() - cachedEntry.timestamp > MC_CACHE_TTL_MS) {
-        mcCache.delete(hash);
+      mcCache.delete(hash);
     } else {
-        // LRU: mover para o fim
-        mcCache.delete(hash);
-        mcCache.set(hash, cachedEntry);
-        return cachedEntry.value;
+      // LRU: mover para o fim
+      mcCache.delete(hash);
+      mcCache.set(hash, cachedEntry);
+      return cachedEntry.value;
     }
   }
 
@@ -438,7 +441,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         Math.min(Number(safeCfg.MC_BACKTEST_HORIZON_MAX) || 12, Math.floor(history.length / 3))
       );
       const isLowPerformance = typeof navigator !== 'undefined' && (navigator.hardwareConcurrency <= 4 || /Mobi|Android/i.test(navigator.userAgent));
-      const defaultHorizon = Math.min(dynamicHorizon, history.length - (safeCfg.MC_MIN_DATA_POINTS || 5));
+      const minBacktestTrain = Math.max(
+        5,
+        Number(safeCfg.MC_BACKTEST_MIN_TRAIN) || Number(safeCfg.MC_MIN_DATA_POINTS) || 5
+      );
+      const defaultHorizon = Math.max(1, Math.min(dynamicHorizon, history.length - minBacktestTrain));
       const horizon = isLowPerformance ? Math.min(3, defaultHorizon) : defaultHorizon;
       const brierScores = [];
 
@@ -505,10 +512,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         // PATCH-16: Validar imediatamente após receber do summarizeCalibration
         calibrationPenalty = Number.isFinite(summary.calibrationPenalty) ? summary.calibrationPenalty : 0;
         avgBrier = summary.avgBrier === null ? null : (Number.isFinite(summary.avgBrier) ? summary.avgBrier : null);
-        
+
         // ✅ FIX: Se avgBrier é null, não aplicar penalidade baseada nele
         if (avgBrier === null) {
-            calibrationPenalty = 0;
+          calibrationPenalty = 0;
         }
 
         const adaptiveBins = predObsPairs.length >= 10
@@ -525,8 +532,8 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         const uncertainty = brierDecomp?.uncertainty ?? 0.25;
 
         // Penalidade baseada na razão reliability/uncertainty (normalizada)
-        const calibrationRatio = uncertainty > 1e-6 
-          ? Math.min(1, reliabilityTerm / uncertainty) 
+        const calibrationRatio = uncertainty > 1e-6
+          ? Math.min(1, reliabilityTerm / uncertainty)
           : 0;
 
         const hasDiagnostics = Number.isFinite(ece);

@@ -215,18 +215,34 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
   const categoryName = category?.name || '';
   const categoryId = category?.id || categoryName || 'unknown';
 
-  const categorySimulados = safeArray(simulados)
-    .map((simulado, _idx) => ({
-      simulado,
-      _idx,
-      time: toTime(simulado?.date ?? simulado?.createdAt),
-    }))
-    .filter(({ simulado }) => {
-      if (!simulado) return false;
-      // FIX (BUG-24): verificar também categoryName e materia do simulado, além de matching por ID
-      return isSubjectMatch(simulado.subject || simulado.categoryName || simulado.materia || '', categoryName) ||
-             (category?.id && simulado.categoryId && String(simulado.categoryId) === String(category.id));
-    })
+  const catOwnHistory = safeArray(category?.simuladoStats?.history).map((h) => ({
+    ...h,
+    categoryId: h?.categoryId ?? category?.id,
+    subject: h?.subject || h?.categoryName || categoryName,
+  }));
+  const matchingExternal = safeArray(simulados).filter((simulado) => {
+    if (!simulado) return false;
+    return isSubjectMatch(simulado.subject || simulado.categoryName || simulado.materia || simulado.disciplina || '', categoryName) ||
+      (category?.id && simulado.categoryId && String(simulado.categoryId) === String(category.id));
+  });
+
+  const seenSplitKeys = new Set();
+  const combinedCandidateSims = [];
+  [...catOwnHistory, ...matchingExternal].forEach((simulado, _idx) => {
+    if (!simulado || simulado.valid === false) return;
+    const time = toTime(simulado?.date ?? simulado?.createdAt);
+    const score = getSafeScore(simulado, maxScore, minScore);
+    const dedupKey = simulado.id && !String(simulado.id).startsWith('legacy-')
+      ? `id:${simulado.id}`
+      : Number.isFinite(time) && Number.isFinite(score)
+        ? `ts:${Math.floor(time / 86400000)}:${Math.round(score * 10)}`
+        : `idx:${_idx}`;
+    if (seenSplitKeys.has(dedupKey)) return;
+    seenSplitKeys.add(dedupKey);
+    combinedCandidateSims.push({ simulado, _idx, time });
+  });
+
+  const categorySimulados = combinedCandidateSims
     .sort((a, b) => {
       const aFinite = Number.isFinite(a.time);
       const bFinite = Number.isFinite(b.time);
@@ -322,18 +338,18 @@ export function runCoachStrategyBacktest(config = {}) {
   const maxScore = Number(config.maxScore) > 0 ? Number(config.maxScore) : 100;
   const minScore =
     config.minScore !== null &&
-    config.minScore !== undefined &&
-    config.minScore !== '' &&
-    Number.isFinite(Number(config.minScore))
+      config.minScore !== undefined &&
+      config.minScore !== '' &&
+      Number.isFinite(Number(config.minScore))
       ? Math.min(Number(config.minScore), maxScore)
       : 0;
   const domain = Math.max(1e-6, maxScore - minScore);
 
   const targetScore =
     config.targetScore !== null &&
-    config.targetScore !== undefined &&
-    config.targetScore !== '' &&
-    Number.isFinite(Number(config.targetScore))
+      config.targetScore !== undefined &&
+      config.targetScore !== '' &&
+      Number.isFinite(Number(config.targetScore))
       ? Number(config.targetScore)
       : minScore + domain * 0.8;
 
@@ -397,6 +413,20 @@ export function runCoachStrategyBacktest(config = {}) {
         }
 
         try {
+          // FIX: isolar o histórico da categoria ao split de treino (evita target leakage do futuro via category.simuladoStats.history)
+          const trainCategory = {
+            ...category,
+            simuladoStats: {
+              ...(category?.simuladoStats || {}),
+              history: split.train,
+            },
+          };
+          const trainAllCategories = categories.map((c) =>
+            c === category || (c?.id != null && category?.id != null && String(c.id) === String(category.id))
+              ? trainCategory
+              : c
+          );
+
           const runOptions = {
             ...(config.options || {}),
             maxScore: splitMaxScore,
@@ -407,7 +437,7 @@ export function runCoachStrategyBacktest(config = {}) {
               ...(config.baseFeatures || {}),
               ...(strategy.features || {}),
             },
-            allCategories: categories,
+            allCategories: trainAllCategories,
           };
 
           let urgency = null;
@@ -415,7 +445,7 @@ export function runCoachStrategyBacktest(config = {}) {
 
           if (includeTopics) {
             const focus = getSuggestedFocus(
-              [category],
+              [trainCategory],
               split.train,
               logsBefore,
               runOptions
@@ -423,7 +453,7 @@ export function runCoachStrategyBacktest(config = {}) {
 
             urgency = focus?.urgency || null;
             const topTopics = getWeakestTopicsList(
-              category,
+              trainCategory,
               split.train,
               splitMaxScore,
               topicK,
@@ -438,7 +468,7 @@ export function runCoachStrategyBacktest(config = {}) {
                   : [];
           } else {
             urgency = calculateUrgency(
-              category,
+              trainCategory,
               split.train,
               logsBefore,
               runOptions
@@ -471,10 +501,54 @@ export function runCoachStrategyBacktest(config = {}) {
             weakTopics,
           };
 
+          const deriveDefaultOutcomeTopics = (futureSims) => {
+            const topicMap = new Map();
+            safeArray(futureSims).forEach((sim) => {
+              const rawList = Array.isArray(sim?.topics) && sim.topics.length > 0
+                ? sim.topics
+                : (sim?.topic || sim?.assunto || sim?.topicName)
+                  ? [{
+                    name: sim.topic || sim.assunto || sim.topicName,
+                    total: sim.total ?? sim.questoes ?? sim.totalQuestoes,
+                    correct: sim.correct ?? sim.acertos ?? sim.correctCount,
+                    score: sim.score,
+                  }]
+                  : [];
+              rawList.forEach((t) => {
+                const name = String(t?.name ?? t?.topic ?? t?.assunto ?? '').trim();
+                if (!name) return;
+                const total = Number(t?.total ?? t?.questoes ?? 0);
+                const correct = Number(t?.correct ?? t?.acertos ?? NaN);
+                let pct = NaN;
+                if (total > 0 && Number.isFinite(correct)) {
+                  pct = (correct / total) * 100;
+                } else if (Number.isFinite(Number(t?.score))) {
+                  const sRange = Math.max(1e-6, splitMaxScore - splitMinScore);
+                  pct = ((Number(t.score) - splitMinScore) / sRange) * 100;
+                }
+                const prev = topicMap.get(name) || { sumPct: 0, count: 0 };
+                if (Number.isFinite(pct)) {
+                  prev.sumPct += Math.max(0, Math.min(100, pct));
+                  prev.count += 1;
+                }
+                topicMap.set(name, prev);
+              });
+            });
+            const relevant = [];
+            for (const [name, stat] of topicMap.entries()) {
+              const avgPct = stat.count > 0 ? stat.sumPct / stat.count : 50;
+              if (avgPct < 85) {
+                const relevance = Math.max(1, Math.round((100 - avgPct) / 20));
+                relevant.push({ name, relevance });
+              }
+            }
+            return relevant;
+          };
+
           const outcomeTopics =
             typeof config.getOutcomeTopics === 'function'
               ? config.getOutcomeTopics(split, category, strategy)
-              : [];
+              : (includeTopics ? deriveDefaultOutcomeTopics(split.future) : []);
 
           const outcome = {
             score: split.observedScore,

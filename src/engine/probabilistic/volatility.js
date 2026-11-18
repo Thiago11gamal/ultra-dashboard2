@@ -12,6 +12,7 @@
 
 import { kahanSum } from '../math/kahan.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
+import { normalizeDate } from '../../utils/dateHelper.js';
 
 function clampFinite(value, min, max, fallback = min) {
   if (value === null || value === undefined || value === '' || typeof value === 'boolean') {
@@ -23,11 +24,17 @@ function clampFinite(value, min, max, fallback = min) {
 }
 
 function parseTime(value) {
-  if (value === null || value === undefined) return NaN;
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return NaN;
 
-  const asNumber = Number(value);
-  if (Number.isFinite(asNumber) && asNumber > 0) {
-    return asNumber;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0
+      ? (value < 1e11 ? value * 1000 : value)
+      : NaN;
+  }
+
+  const normalized = normalizeDate(value);
+  if (normalized && !Number.isNaN(normalized.getTime())) {
+    return normalized.getTime();
   }
 
   const parsed = Date.parse(String(value));
@@ -191,8 +198,8 @@ export function estimateDynamicVolatility(history = [], options = {}) {
   const returnVariance =
     winsorizedReturns.length > 1
       ? kahanSum(
-          winsorizedReturns.map((r) => Math.pow(r - returnMean, 2))
-        ) / (winsorizedReturns.length - 1)
+        winsorizedReturns.map((r) => Math.pow(r - returnMean, 2))
+      ) / (winsorizedReturns.length - 1)
       : 0;
 
   const unconditionalDailyVariance = Math.max(

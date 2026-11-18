@@ -90,12 +90,18 @@ export {
     getCoachPriorities
 };
 
-export {
+import {
     analisarDesempenhoHistorico,
     getCognitiveState,
     getBestTask,
     getCombinedHistory
 } from './coach/coachHistory.js';
+export {
+    analisarDesempenhoHistorico,
+    getCognitiveState,
+    getBestTask,
+    getCombinedHistory
+};
 
 function _getSRSBoost(history, daysSince, maxScore, cfg, mssdVolatility = null, effectiveN = null, minScore = 0, options = null) {
     // Lote 7: FSRS avançado opcional
@@ -394,10 +400,23 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     // Global baseline antes da média inicial, para âncora mais justa em categorias sem dados
     let globalBaselinePct = 50;
     const safeAllCats = safeArray(options.allCategories);
-    const validCatNorms = new Set(safeAllCats.map(c => normalize(c?.name || "")));
-    const allSimsForBaseline = validCatNorms.size > 0
-        ? safeSimulados.filter(s => s && validCatNorms.has(normalize(s.subject || s.categoryName || s.materia || s.disciplina || "")))
+    const validCatNorms = new Set(safeAllCats.map(c => normalize(c?.name || "")).filter(Boolean));
+    const validCatIds = new Set(safeAllCats.map(c => c?.id != null ? String(c.id) : "").filter(Boolean));
+    let allSimsForBaseline = (validCatNorms.size > 0 || validCatIds.size > 0)
+        ? safeSimulados.filter(s => s && (
+            validCatNorms.has(normalize(s.subject || s.categoryName || s.materia || s.disciplina || "")) ||
+            (s.categoryId != null && validCatIds.has(String(s.categoryId)))
+        ))
         : safeSimulados;
+    if (allSimsForBaseline.length === 0 && safeAllCats.length > 0) {
+        allSimsForBaseline = safeAllCats.flatMap(c =>
+            safeArray(c?.simuladoStats?.history).map(h => ({
+                ...h,
+                categoryId: h?.categoryId ?? c?.id,
+                subject: h?.subject || h?.categoryName || c?.name || '',
+            }))
+        );
+    }
 
     // FIX: normalizar cada score para [0,1] usando os limites da própria matéria antes de somar.
     const catMap = new Map();
@@ -1516,16 +1535,23 @@ export const generateCoachStrings = (weightedRaw, normalized, metrics, scoreInfo
                 ece: mcResult?.ece != null ? safeFixedNumber(mcResult.ece, 4) : null,
                 reliability: Array.isArray(mcResult?.reliability) ? mcResult.reliability : [],
                 sampleSize: mcResult?.sampleSize || relevantSimulados?.length || 0,
-                explainability: {
-                    confidenceAdjusted: (mcResult?.calibrationPenalty || 0) > 0,
-                    confidenceAdjustmentPct: safeFixedNumber((mcResult?.calibrationPenalty || 0) * 100),
-                    calibrationQuality: (mcResult?.avgBrier != null && mcResult?.avgBrier <= cfg.MC_CALIBRATION_BRIER_BASELINE)
-                        ? 'good'
-                        : (mcResult?.avgBrier != null && mcResult?.avgBrier <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07)) ? 'moderate' : 'low',
-                    note: (mcResult?.calibrationPenalty || 0) > 0
-                        ? 'Probabilidade ajustada para reduzir overconfidence após backtest interno.'
-                        : 'Sem ajuste de calibração significativo.'
-                }
+                explainability: (() => {
+                    const calibPenalty = Number(mcResult?.calibrationPenalty) || 0;
+                    const shrinkTotal = Number(mcResult?.shrinkTotal) || 0;
+                    const effectiveShrink = Math.max(calibPenalty, shrinkTotal);
+                    return {
+                        confidenceAdjusted: calibPenalty > 0 || shrinkTotal > 0.01,
+                        confidenceAdjustmentPct: safeFixedNumber(effectiveShrink * 100),
+                        calibrationQuality: (mcResult?.avgBrier != null && mcResult?.avgBrier <= cfg.MC_CALIBRATION_BRIER_BASELINE)
+                            ? 'good'
+                            : (mcResult?.avgBrier != null && mcResult?.avgBrier <= (cfg.MC_CALIBRATION_BRIER_BASELINE + 0.07)) ? 'moderate' : 'low',
+                        note: calibPenalty > 0
+                            ? (mcResult?.explainability?.note || 'Probabilidade ajustada para reduzir overconfidence após backtest interno.')
+                            : (shrinkTotal > 0.01
+                                ? (mcResult?.explainability?.note || 'Probabilidade ajustada conservadoramente por tamanho amostral ou anomalias.')
+                                : 'Sem ajuste de calibração significativo.')
+                    };
+                })()
             } : null,
             backtest: {
                 rankQuality: safeFixedNumber(metrics.backtestWeights?.rankQuality, 4),
@@ -2388,6 +2414,9 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
     let decisionTopicMap = null;
     if (getCoachFeature(options, 'useDecisionUtility', false)) {
         try {
+            const cognitiveFatigue = options?.studyLogs
+                ? (getCognitiveState(options.studyLogs, { now: today })?.fatigue ?? 0)
+                : 0;
             const decisionCandidates = topics.map(topic => {
                 const bayesianProficiency = Number.isFinite(topic.bayesianProficiency)
                     ? topic.bayesianProficiency
@@ -2418,12 +2447,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                     hasTasks: topic.hasTasks,
                     completed: topic.completed,
                     costMinutes: 35,
-                    fatigue: 100,
-                    weight: null
+                    fatigue: cognitiveFatigue,
+                    weight: Number(safeCat?.weight) || 5
                 };
             });
             const rankedDecisionTopics = rankDecisionCandidates(decisionCandidates, {
                 useBandit: getCoachFeature(options, 'useBanditPlanner', false),
+                contestId: options?.contestId || options?.config?.contestId,
                 seed: `topics-${topics.length}-${getDateKey(today)}`,
                 explorationScale: 16
             });
@@ -3200,8 +3230,31 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
     });
 
     // BUG: testes exigiam máximo de 12 tarefas, mas o generator podia crescer sem limite.
+    // MELHORIA: Quando houver mais de 12 itens, impedir que alertas informativos ([STATUS] / [ALERTA MESTRE])
+    // consumam a maior parte das vagas das tarefas acionáveis de estudo no Planner.
     const MAX_DAILY_GOALS = 12;
-    return dedupedTasks.slice(0, MAX_DAILY_GOALS);
+    if (dedupedTasks.length <= MAX_DAILY_GOALS) {
+        return dedupedTasks;
+    }
+
+    const MAX_SYSTEM_ALERTS_IN_QUOTA = 3;
+    const isSysAlert = (t) => /\[(ALERTA MESTRE|STATUS)\]/i.test(String(t?.text || t?.title || ''));
+    const isMasterAlert = (t) => /\[ALERTA MESTRE\]/i.test(String(t?.text || t?.title || ''));
+
+    const allSystemAlerts = dedupedTasks.filter(isSysAlert);
+    if (allSystemAlerts.length <= MAX_SYSTEM_ALERTS_IN_QUOTA) {
+        return dedupedTasks.slice(0, MAX_DAILY_GOALS);
+    }
+
+    const prioritizedAlerts = [
+        ...allSystemAlerts.filter(isMasterAlert),
+        ...allSystemAlerts.filter(t => !isMasterAlert(t))
+    ].slice(0, MAX_SYSTEM_ALERTS_IN_QUOTA);
+    const allowedAlertIds = new Set(prioritizedAlerts.map(t => t.id));
+
+    return dedupedTasks
+        .filter(t => !isSysAlert(t) || allowedAlertIds.has(t.id))
+        .slice(0, MAX_DAILY_GOALS);
 };
 
 export const getCoachInsight = (category, simulados = [], studyLogs = [], options = {}) => {

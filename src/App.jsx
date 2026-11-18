@@ -18,22 +18,22 @@ const TrashModal = lazyWithRetry(() => import('./components/TrashModal'));
 import WelcomeScreen from './components/WelcomeScreen';
 
 // Página Principal (Dashboard) - Lazy Loading para otimizar o bundle inicial
-const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'));
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard'), ['/', '/dashboard']);
 
 // Páginas pesadas com carregamento diferido (Lazy Loading)
-const Pomodoro = lazyWithRetry(() => import('./pages/Pomodoro'));
-const Tasks = lazyWithRetry(() => import('./pages/Tasks'));
-const Simulados = lazyWithRetry(() => import('./pages/Simulados'));
-const Stats = lazyWithRetry(() => import('./pages/Stats'));
-const Evolution = lazyWithRetry(() => import('./pages/Evolution'));
-const Coach = lazyWithRetry(() => import('./pages/Coach'));
-const History = lazyWithRetry(() => import('./pages/History'));
-const Activity = lazyWithRetry(() => import('./pages/Activity'));
-const Retention = lazyWithRetry(() => import('./pages/Retention'));
-const Notes = lazyWithRetry(() => import('./pages/Notes'));
-const Sessions = lazyWithRetry(() => import('./pages/Sessions'));
-const Flashcards = lazyWithRetry(() => import('./pages/Flashcards'));
-const Agenda = lazyWithRetry(() => import('./pages/Agenda'));
+const Pomodoro = lazyWithRetry(() => import('./pages/Pomodoro'), '/pomodoro');
+const Tasks = lazyWithRetry(() => import('./pages/Tasks'), '/tasks');
+const Simulados = lazyWithRetry(() => import('./pages/Simulados'), '/simulados');
+const Stats = lazyWithRetry(() => import('./pages/Stats'), '/stats');
+const Evolution = lazyWithRetry(() => import('./pages/Evolution'), '/evolution');
+const Coach = lazyWithRetry(() => import('./pages/Coach'), '/coach');
+const History = lazyWithRetry(() => import('./pages/History'), '/history');
+const Activity = lazyWithRetry(() => import('./pages/Activity'), '/heatmap');
+const Retention = lazyWithRetry(() => import('./pages/Retention'), '/retention');
+const Notes = lazyWithRetry(() => import('./pages/Notes'), '/notes');
+const Sessions = lazyWithRetry(() => import('./pages/Sessions'), '/sessions');
+const Flashcards = lazyWithRetry(() => import('./pages/Flashcards'), '/flashcards');
+const Agenda = lazyWithRetry(() => import('./pages/Agenda'), '/agenda');
 const Paywall = lazyWithRetry(() => import('./components/Paywall'));
 
 import { useAuth } from './context/useAuth';

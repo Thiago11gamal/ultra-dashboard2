@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { displaySubject } from '../utils/displaySubject';
+import { isSubjectMatch } from '../utils/normalization';
 import { getSafeId } from '../utils/idGenerator';
 
 function renderRecommendation(text) {
@@ -239,10 +240,10 @@ export default function AICoachWidget({ suggestion }) {
             : []);
     const matchedCategory = contestCategories.length > 0
         ? contestCategories.find(c => c && (
-            (suggestion.id && c.id === suggestion.id) ||
-            (suggestion.categoryId && c.id === suggestion.categoryId) ||
-            (suggestion.name && c.name === suggestion.name) ||
-            (suggestion.subject && c.name === suggestion.subject)
+            (suggestion.id && c.id != null && String(c.id) === String(suggestion.id)) ||
+            (suggestion.categoryId && c.id != null && String(c.id) === String(suggestion.categoryId)) ||
+            (suggestion.name && c.name && (c.name === suggestion.name || isSubjectMatch(c.name, suggestion.name))) ||
+            (suggestion.subject && c.name && (c.name === suggestion.subject || isSubjectMatch(c.name, suggestion.subject)))
         ))
         : null;
     const categoryScaleMax = Math.max(1, Number(matchedCategory?.maxScore ?? suggestion?.maxScore ?? scaleMax) || 100);
@@ -505,7 +506,15 @@ export default function AICoachWidget({ suggestion }) {
                                                         Explicabilidade Monte Carlo
                                                     </span>
                                                     <span className="text-[9.5px] text-cyan-200/80 font-mono">
-                                                        Calibração: <strong className="text-white uppercase">{urgency.monteCarlo.explainability.calibrationQuality || 'n/a'}</strong>
+                                                        Calibração: <strong className="text-white uppercase">
+                                                            {urgency.monteCarlo.explainability.calibrationQuality === 'good'
+                                                                ? 'BOA'
+                                                                : urgency.monteCarlo.explainability.calibrationQuality === 'moderate'
+                                                                    ? 'MODERADA'
+                                                                    : urgency.monteCarlo.explainability.calibrationQuality === 'low'
+                                                                        ? 'EM FORMAÇÃO'
+                                                                        : (urgency.monteCarlo.explainability.calibrationQuality || 'n/a')}
+                                                        </strong>
                                                         {urgency.monteCarlo.explainability.confidenceAdjusted && (
                                                             <> • ajuste {Number.isFinite(Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct)) ? Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct) : 0}%</>
                                                         )}

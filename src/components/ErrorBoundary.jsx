@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import ConfirmModal from './ConfirmModal';
 import { del as idbDel } from 'idb-keyval';
+import {
+    isChunkLoadError,
+    tryForceChunkReload,
+    clearChunkReloadState,
+} from '../utils/lazyRetry';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -17,24 +22,9 @@ class ErrorBoundary extends React.Component {
         console.error("Uncaught error:", error, errorInfo);
 
         // Auto-recover from Vite chunk loading errors caused by new deployments
-        if (
-            error && typeof error.message === 'string' &&
-            (error.message.includes('Failed to fetch dynamically imported module') ||
-                error.message.includes('Importing a module script failed'))
-        ) {
-            try {
-                const reloadCount = parseInt(sessionStorage.getItem('chunk_reload_count') || '0', 10);
-                if (reloadCount < 2) {
-                    sessionStorage.setItem('chunk_reload_count', String(reloadCount + 1));
-                    window.location.reload();
-                    return;
-                }
-                sessionStorage.removeItem('chunk_reload_count');
-            } catch {
-                console.warn('[ErrorBoundary] sessionStorage indisponível, tentando reload simples.');
-                window.location.reload();
-                return;
-            }
+        // Uses unified reload guard with lazyWithRetry to prevent multiple reload loops
+        if (isChunkLoadError(error) && tryForceChunkReload(error)) {
+            return;
         }
 
         this.setState({ errorInfo });
@@ -75,7 +65,7 @@ class ErrorBoundary extends React.Component {
                         </button>
                         <button
                             onClick={() => {
-                                sessionStorage.removeItem('chunk_reload_count');
+                                clearChunkReloadState();
                                 window.location.reload();
                             }}
                             className="px-6 py-3 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-black tracking-wide transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500/50"

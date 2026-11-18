@@ -233,9 +233,9 @@ export function prepareCausalEvents(events = [], options = {}) {
 
       const treated =
         treatedRaw === true ||
-        treatedRaw === 1 ||
-        treatedRaw === '1' ||
-        treatedRaw === 'true'
+          treatedRaw === 1 ||
+          treatedRaw === '1' ||
+          treatedRaw === 'true'
           ? 1
           : 0;
 
@@ -624,19 +624,19 @@ export function estimateDoublyRobustUplift(events = [], options = {}) {
   const coef1 =
     treatedEvents.length >= minArmForSeparateModel
       ? fitLinearRegression(
-          treatedEvents.map((ev) => [1, ...covariateVector(ev, standardizers)]),
-          treatedEvents.map((ev) => ev.outcomeDelta),
-          Math.max(ridge, 1e-2)
-        )
+        treatedEvents.map((ev) => [1, ...covariateVector(ev, standardizers)]),
+        treatedEvents.map((ev) => ev.outcomeDelta),
+        Math.max(ridge, 1e-2)
+      )
       : [(pooledCoefficients[0] || 0) + (pooledCoefficients[1] || 0), ...pooledCoefficients.slice(2)];
 
   const coef0 =
     controlEvents.length >= minArmForSeparateModel
       ? fitLinearRegression(
-          controlEvents.map((ev) => [1, ...covariateVector(ev, standardizers)]),
-          controlEvents.map((ev) => ev.outcomeDelta),
-          Math.max(ridge, 1e-2)
-        )
+        controlEvents.map((ev) => [1, ...covariateVector(ev, standardizers)]),
+        controlEvents.map((ev) => ev.outcomeDelta),
+        Math.max(ridge, 1e-2)
+      )
       : [pooledCoefficients[0] || 0, ...pooledCoefficients.slice(2)];
 
   let sumDR = 0;
@@ -834,6 +834,13 @@ export function estimateUpliftByAction(events = [], options = {}) {
   );
 
   const groups = {};
+  const globalControls = safeEvents.filter((event) => event.treated === 0);
+  const taskControls = safeEvents.filter(
+    (event) => event.treated === 0 && event.actionType === 'no_task'
+  );
+  const volumeControls = safeEvents.filter(
+    (event) => event.treated === 0 && event.actionType === 'no_study_volume'
+  );
 
   safeEvents.forEach((event) => {
     const actionType = event.actionType || 'global';
@@ -846,11 +853,29 @@ export function estimateUpliftByAction(events = [], options = {}) {
   });
 
   const actions = {};
+  const CONTROL_ONLY_TYPES = new Set(['no_task', 'no_study_volume', 'control', 'none']);
 
   Object.entries(groups).forEach(([actionType, groupEvents]) => {
-    if (groupEvents.length < minSamplesPerAction) return;
+    const treatedInGroup = groupEvents.filter((e) => e.treated === 1);
+    const controlsInGroup = groupEvents.filter((e) => e.treated === 0);
 
-    actions[actionType] = estimateCausalUplift(groupEvents, {
+    // Ignorar pseudo-ações que representam apenas o grupo controle
+    if (CONTROL_ONLY_TYPES.has(actionType) && treatedInGroup.length === 0) {
+      return;
+    }
+
+    let poolForAction = groupEvents;
+    if (treatedInGroup.length > 0 && controlsInGroup.length === 0) {
+      const relevantControls =
+        actionType === 'study_volume'
+          ? (volumeControls.length > 0 ? volumeControls : globalControls)
+          : (taskControls.length > 0 ? taskControls : globalControls);
+      poolForAction = [...treatedInGroup, ...relevantControls];
+    }
+
+    if (poolForAction.length < minSamplesPerAction || treatedInGroup.length === 0) return;
+
+    actions[actionType] = estimateCausalUplift(poolForAction, {
       ...options,
       bootstrapIterations:
         options.bootstrapActions === true

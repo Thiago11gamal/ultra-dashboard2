@@ -59,7 +59,9 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
   const errorRate = clampFinite(candidate.errorRate, 0, 1, 0);
   const weight = clampFinite(candidate.weight, 1, 10, 5);
   const costMinutes = clampFinite(candidate.costMinutes, 0, 480, 30);
-  const fatigue = clampFinite(candidate.fatigue, 0, 100, 100);
+  // fatigue em [0, 100]: 0 = descansado (sem penalidade), 100 = exausto (penalidade máxima),
+  // alinhado com getCognitiveState().fatigue em coachHistory.js.
+  const fatigue = clampFinite(candidate.fatigue, 0, 100, 0);
 
   let priorityScore = clampFinite(candidate.priorityValue, 0, 1, NaN);
 
@@ -109,7 +111,7 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
     weightFactor * weightWeight;
 
   const costPenalty = (costMinutes / 240) * 8;
-  const fatiguePenalty = (1 - fatigue / 100) * 12;
+  const fatiguePenalty = (fatigue / 100) * 12;
 
   const utility = clampFinite(
     baseUtility - costPenalty - fatiguePenalty,

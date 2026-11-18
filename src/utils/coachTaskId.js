@@ -15,13 +15,16 @@ export const ensureCoachTaskId = (task) => {
     return task.id === task.id.trim() ? task : { ...task, id: task.id.trim() };
   }
   if (hasValidNumericId) return task;
-  const currentKey = [
+  const identityKey = [
     task.title || '',
     task.text || '',
     task.categoryId || '',
     task.category || task.catName || '',
     task.subject || '',
-    task.topicName || task.topic || '',
+    task.topicName || task.topic || ''
+  ].join('|');
+  const currentKey = [
+    identityKey,
     task.priority || '',
     task.date || task.createdAt || ''
   ].join('|');
@@ -33,8 +36,8 @@ export const ensureCoachTaskId = (task) => {
   const candidateId = getSafeId(task);
   const stableId = (candidateId && candidateId !== 'task-null-sentinel')
     ? candidateId
-    : `coach-task-${hashString(currentKey)}`;
-  const enrichedTask = { ...task, id: stableId };
-  _taskIdWeakMap.set(task, { compositeKey: currentKey, enrichedTask });
-  return enrichedTask;
+    : `coach-task-${hashString(identityKey)}`;
+const enrichedTask = { ...task, id: stableId };
+_taskIdWeakMap.set(task, { compositeKey: currentKey, enrichedTask });
+return enrichedTask;
 };

@@ -24,6 +24,7 @@ import {
   computeCalibrationDiagnostics,
 } from '../../utils/calibration.js';
 import { safeSetItem, safeGetJSON, safeRemoveItem } from '../../utils/coachStorage.js';
+import { EXPERIMENTAL_MATH_FLAGS } from '../optimization/flagOptimizer.js';
 
 const HEALTH_STORAGE_KEY = 'coach_model_health_v1';
 const HEALTH_STORAGE_MAX = 100;
@@ -332,16 +333,18 @@ export function evaluateModelHealth(input = {}, options = {}) {
   }
 
   // ==================== FLAG GOVERNANCE ====================
-  const experimentalFlags = [
-    'useStateSpace',
-    'useDynamicVolatility',
-    'usePosteriorMonteCarlo',
-    'useBayesianTopics',
-    'useDecisionUtility',
-    'useBanditPlanner',
-    'useKnowledgeGraph',
-    'useAdvancedFsrs',
-  ];
+  const experimentalFlags = Array.isArray(EXPERIMENTAL_MATH_FLAGS) && EXPERIMENTAL_MATH_FLAGS.length > 0
+    ? EXPERIMENTAL_MATH_FLAGS
+    : [
+      'useStateSpace',
+      'useDynamicVolatility',
+      'usePosteriorMonteCarlo',
+      'useBayesianTopics',
+      'useDecisionUtility',
+      'useBanditPlanner',
+      'useKnowledgeGraph',
+      'useAdvancedFsrs',
+    ];
 
   const activeExperimentalFlags = experimentalFlags.filter(
     (flag) => features[flag] === true
