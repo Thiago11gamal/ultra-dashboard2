@@ -132,50 +132,50 @@ export function findSubjectTaskInContest(contestData, subject) {
 
   let plannerTask = null;
   if (contestData.coachPlanner && typeof contestData.coachPlanner === 'object') {
-    for (const rawDayTasks of Object.values(contestData.coachPlanner)) {
-      const dayTasks = asArray(rawDayTasks);
-      const found = dayTasks.find(t => matchesSubjectTask(t, subject));
-      if (found) {
-        plannerTask = found;
-        break;
+      for (const rawDayTasks of Object.values(contestData.coachPlanner)) {
+        const dayTasks = asArray(rawDayTasks);
+        const found = dayTasks.find(t => matchesSubjectTask(t, subject));
+        if (found) {
+          plannerTask = found;
+          break;
+        }
       }
     }
+
+    return { catTask, targetTask: catTask || coachTask || plannerTask };
   }
 
-  return { catTask, targetTask: catTask || coachTask || plannerTask };
-}
-
-export function clearStudyingStatusInContest(prev, subject) {
-  if (!prev || !subject) return prev;
-  const resetList = (list) => asArray(list).map(t =>
-    matchesSubjectTask(t, subject) && (t.status === 'studying' || (!t.completed && t.status && t.status !== 'idle'))
-      ? { ...t, status: 'idle' }
-      : t
-  );
-  const catsArray = asArray(prev.categories);
-  const nextCategories = catsArray.map(c => {
-    if (!c) return c;
-    const shouldCheckCat = !subject.categoryId || subject.categoryId === 'geral' || subject.categoryId === 'default' || c.id === subject.categoryId;
-    return shouldCheckCat ? { ...c, tasks: resetList(c.tasks) } : c;
-  });
-  const isTaskActiveStatus = (t) => t && matchesSubjectTask(t, subject) && (t.status === 'studying' || (!t.completed && t.status && t.status !== 'idle'));
-  const nextCoachPlan = Array.isArray(prev.coachPlan)
-    ? resetList(prev.coachPlan)
-    : (prev.coachPlan && typeof prev.coachPlan === 'object'
-      ? (Array.isArray(prev.coachPlan.tasks)
-        ? { ...prev.coachPlan, tasks: resetList(prev.coachPlan.tasks) }
-        : Object.fromEntries(Object.entries(prev.coachPlan).map(([k, t]) => [k, isTaskActiveStatus(t) ? { ...t, status: 'idle' } : t])))
-      : prev.coachPlan);
-  let nextCoachPlanner = prev.coachPlanner;
-  if (prev.coachPlanner && typeof prev.coachPlanner === 'object' && !Array.isArray(prev.coachPlanner)) {
-    nextCoachPlanner = Object.fromEntries(
-      Object.entries(prev.coachPlanner).map(([day, tasks]) => [day, Array.isArray(tasks) ? resetList(tasks) : tasks])
+  export function clearStudyingStatusInContest(prev, subject) {
+    if (!prev || !subject) return prev;
+    const resetList = (list) => asArray(list).map(t =>
+      matchesSubjectTask(t, subject) && (t.status === 'studying' || (!t.completed && t.status && t.status !== 'idle'))
+        ? { ...t, status: 'idle' }
+        : t
     );
+    const catsArray = asArray(prev.categories);
+    const nextCategories = catsArray.map(c => {
+      if (!c) return c;
+      const shouldCheckCat = !subject.categoryId || subject.categoryId === 'geral' || subject.categoryId === 'default' || c.id === subject.categoryId;
+      return shouldCheckCat ? { ...c, tasks: resetList(c.tasks) } : c;
+    });
+    const isTaskActiveStatus = (t) => t && matchesSubjectTask(t, subject) && (t.status === 'studying' || (!t.completed && t.status && t.status !== 'idle'));
+    const nextCoachPlan = Array.isArray(prev.coachPlan)
+      ? resetList(prev.coachPlan)
+      : (prev.coachPlan && typeof prev.coachPlan === 'object'
+        ? (Array.isArray(prev.coachPlan.tasks)
+          ? { ...prev.coachPlan, tasks: resetList(prev.coachPlan.tasks) }
+          : Object.fromEntries(Object.entries(prev.coachPlan).map(([k, t]) => [k, isTaskActiveStatus(t) ? { ...t, status: 'idle' } : t])))
+        : prev.coachPlan);
+    let nextCoachPlanner = prev.coachPlanner;
+    if (prev.coachPlanner && typeof prev.coachPlanner === 'object' && !Array.isArray(prev.coachPlanner)) {
+      nextCoachPlanner = Object.fromEntries(
+        Object.entries(prev.coachPlanner).map(([day, tasks]) => [day, Array.isArray(tasks) ? resetList(tasks) : tasks])
+      );
+    }
+    return {
+      ...prev,
+      categories: nextCategories,
+      ...(prev.coachPlan !== undefined ? { coachPlan: nextCoachPlan } : {}),
+      ...(prev.coachPlanner !== undefined ? { coachPlanner: nextCoachPlanner } : {})
+    };
   }
-  return {
-    ...prev,
-    categories: nextCategories,
-    ...(prev.coachPlan !== undefined ? { coachPlan: nextCoachPlan } : {}),
-    ...(prev.coachPlanner !== undefined ? { coachPlanner: nextCoachPlanner } : {})
-  };
-}
