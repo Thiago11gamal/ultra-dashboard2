@@ -166,9 +166,9 @@ export function summarizeEvaluationsByStrategy(evaluations = []) {
     );
 
     const diagnostics =
-      group.probabilityPairs.length >= 3
+      group.probabilityPairs.length >= 6
         ? computeCalibrationDiagnostics(group.probabilityPairs, {
-            bins: Math.max(2, Math.min(6, group.probabilityPairs.length)),
+            bins: Math.max(2, Math.min(6, Math.floor(group.probabilityPairs.length / 3))),
           })
         : null;
 

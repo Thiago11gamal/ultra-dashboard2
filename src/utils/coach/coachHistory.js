@@ -148,10 +148,13 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
                 weight: c._catWeight,
                 _candidate: c
             }));
+            const useBandit = getCoachFeature(options, 'useBanditPlanner', false);
             const ranked = rankDecisionCandidates(decisionInputs, {
-                useBandit: getCoachFeature(options, 'useBanditPlanner', false),
+                useBandit,
                 contestId: options?.contestId || options?.config?.contestId,
-                seed: `best-task-${candidates.length}`
+                seed: useBandit
+                    ? `best-task-${candidates.length}-${getDateKey(new Date())}`
+                    : `best-task-${candidates.length}`
             });
             if (ranked.length > 0 && ranked[0]._candidate) {
                 const chosen = { ...ranked[0]._candidate };

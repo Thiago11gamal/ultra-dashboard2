@@ -174,9 +174,10 @@ export function evaluateModelHealth(input = {}, options = {}) {
   }
 
   // ==================== CURRENT CALIBRATION QUALITY ====================
-  if (probabilityPairs.length >= 5) {
+  if (probabilityPairs.length >= 10) {
+    const maxSafeBins = Math.max(2, Math.floor(probabilityPairs.length / 5));
     const diagnostics = computeCalibrationDiagnostics(probabilityPairs, {
-      bins: Math.max(2, Math.min(options.bins ?? 6, probabilityPairs.length)),
+      bins: Math.max(2, Math.min(options.bins ?? 6, maxSafeBins)),
     });
     const currentEce = Number.isFinite(diagnostics.ece)
       ? Number(diagnostics.ece.toFixed(6))

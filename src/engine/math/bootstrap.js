@@ -111,8 +111,27 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointE
   const absResiduals = clean.map(Math.abs).sort((x, y) => x - y);
   const n = absResiduals.length;
 
-  // Rank conformal: ceil((n+1)(1-α)) - 1, limitado a [0, n-1]
-  const rank = Math.min(n - 1, Math.max(0, Math.ceil((n + 1) * (1 - a)) - 1));
+  // Rank conformal: ceil((n+1)(1-α)). Se > n, cobertura finita exige o domínio completo quando limitado.
+  const rawRank = Math.ceil((n + 1) * (1 - a));
+  const exceedsSample = rawRank > n;
+  const hasFiniteBounds = Number.isFinite(Number(options?.minScore)) && Number.isFinite(Number(options?.maxScore));
+
+  if (exceedsSample && hasFiniteBounds) {
+    const lo = Math.min(Number(options.minScore), Number(options.maxScore));
+    const hi = Math.max(Number(options.minScore), Number(options.maxScore));
+    return {
+      lower: lo,
+      upper: hi,
+      conformalQuantile: null,
+      n,
+      alpha: a,
+      coverage: 1 - a,
+      coverageGuaranteed: true,
+      method: 'split_conformal_bounded_fallback',
+    };
+  }
+
+  const rank = Math.min(n - 1, Math.max(0, rawRank - 1));
   const q = absResiduals[rank];
 
   return {
@@ -122,6 +141,8 @@ export function conformalPredictionInterval(residuals = [], alpha = 0.05, pointE
     n,
     alpha: a,
     coverage: 1 - a,
+    coverageGuaranteed: !exceedsSample,
+    effectiveCoverage: exceedsSample ? Number((n / (n + 1)).toFixed(4)) : 1 - a,
     method: 'split_conformal_absolute_residual',
   };
 }

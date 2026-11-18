@@ -140,16 +140,14 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
 
 /**
  * Retorna posterior Beta para um candidato.
- * Usa histórico salvo + prior baseado na utilidade atual.
+ * Usa histórico salvo + prior uniforme Beta(1, 1) para evitar dupla contagem com `utility`.
  */
-export function getBanditPosterior(actionId, utility = 50, contestId) {
+export function getBanditPosterior(actionId, _utility = 50, contestId) {
   const state = loadBanditState(contestId);
   const entry = state?.[String(actionId)] || {};
 
-  const safeUtility = clampFinite(utility, 0, 100, 50);
-
-  const priorAlpha = 1 + safeUtility / 25;
-  const priorBeta = 1 + (100 - safeUtility) / 25;
+  const priorAlpha = 1;
+  const priorBeta = 1;
 
   const successes = clampFinite(entry.alpha, 0, 10000, 0);
   const failures = clampFinite(entry.beta, 0, 10000, 0);
@@ -230,11 +228,12 @@ export function rankDecisionCandidates(candidates = [], options = {}) {
 
   if (safeCandidates.length === 0) return [];
 
-  const seed = options.seed ?? `decision-${safeCandidates.length}`;
+  const useBandit = options.useBandit === true;
+  const sessionBucket = useBandit ? new Date().toISOString().slice(0, 10) : 'static';
+  const seed = options.seed ?? `decision-${safeCandidates.length}-${sessionBucket}`;
   const rng = mulberry32(hashSeed(seed));
   const gaussianSampler = createGaussianSampler(rng);
 
-  const useBandit = options.useBandit === true;
   const explorationScale = clampFinite(options.explorationScale, 0, 100, 18);
 
   const enriched = safeCandidates.map((candidate, index) => {

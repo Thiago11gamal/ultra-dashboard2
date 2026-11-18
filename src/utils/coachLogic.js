@@ -778,6 +778,12 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 ? mssdVolatility / Math.sqrt(Math.max(1, medianGapDays))
                 : domain * 0.02;
 
+            const fallbackObservationSd = Number.isFinite(mssdVolatility)
+                ? mssdVolatility / Math.SQRT2
+                : domain * 0.05;
+            const defaultProcessAbilityVar = Math.pow(domain * 0.005, 2);
+            const defaultProcessTrendVar = Math.pow(domain * 0.001, 2);
+
             const posteriorInput = {
                 ability: safeStateSpace?.ability ?? averageScore,
                 abilitySd: safeStateSpace?.abilitySd ?? fallbackAbilitySd,
@@ -786,7 +792,13 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
                 abilityTrendCov: safeStateSpace?.abilityTrendCov ?? 0,
                 observationSd: Number.isFinite(safeStateSpace?.observationVariance)
                     ? Math.sqrt(Math.max(0, safeStateSpace.observationVariance))
-                    : undefined,
+                    : fallbackObservationSd,
+                processAbilityVar: Number.isFinite(safeStateSpace?.processNoise?.ability)
+                    ? safeStateSpace.processNoise.ability
+                    : defaultProcessAbilityVar,
+                processTrendVar: Number.isFinite(safeStateSpace?.processNoise?.trend)
+                    ? safeStateSpace.processNoise.trend
+                    : defaultProcessTrendVar,
                 dailyVolatility: safeDynamicVolatility?.dailyVolatility ?? fallbackDailyVolatility,
                 horizonDays: effectiveMCDays,
                 targetScore: effectiveMCTarget,
@@ -2777,10 +2789,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const calibratedProb = mc
             ? (Number.isFinite(Number(mc.probability)) ? Number(mc.probability) : Number(mc.probabilityRaw))
             : null;
-        const rawProbVal = mc
-            ? (Number.isFinite(Number(mc.probabilityRaw)) ? Number(mc.probabilityRaw) : calibratedProb)
-            : null;
-        if (mc && (calibratedProb < adaptiveDanger || rawProbVal < adaptiveDanger)) {
+        if (mc && Number.isFinite(calibratedProb) && calibratedProb < adaptiveDanger) {
             const probPct = Math.round(calibratedProb);
             const parsedCatCutoff = parseOptionalFinite(cat?.minCutoff);
             const catTargetScore = parsedCatCutoff !== null
@@ -2813,7 +2822,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     verdict: "Probabilidade crítica detectada. Mude de método imediatamente."
                 }
             });
-        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (catRange / 100) && rawProbVal < adaptiveSafe) {
+        } else if (mc && mc.volatility > cfg.MC_VOLATILITY_HIGH * (catRange / 100) && Number.isFinite(calibratedProb) && calibratedProb < adaptiveSafe) {
             const probPct = Math.round(calibratedProb);
             allGeneratedTasks.push({
                 // FIX (LOGIC): Removido mcVolKey e mcProbKey do ID para manter estabilidade
@@ -2857,8 +2866,8 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     verdict: "Intervalo de retenção atingido. Revisão crítica para memória de longo prazo."
                 }
             });
-        } else if (mc && rawProbVal >= adaptiveSafe && calibratedProb >= adaptiveDanger) {
-            const probPct = Math.round(rawProbVal);
+        } else if (mc && Number.isFinite(calibratedProb) && calibratedProb >= adaptiveSafe && calibratedProb >= adaptiveDanger) {
+            const probPct = Math.round(calibratedProb);
             allGeneratedTasks.push({
                 // FIX (LOGIC): Emitido como alerta de sistema [STATUS] para acionar o banner Cruzeiro Seguro no AICoachView sem duplicar tarefa comum
                 id: `${safeCatKey}-mc-safe-${mcIdSuffix}`,
@@ -2957,10 +2966,11 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 let actionPrefix = "";
                 let customTopicName = weakTopic.name;
 
-                if (weakTopic.percentage > 0 && weakTopic.percentage < 40) {
+                const hasTestedTopicData = !weakTopic.isUntested && Number(weakTopic.total) > 0;
+                if (hasTestedTopicData && weakTopic.percentage < 40) {
                     reasonStr = "Vetor Crítico de Erros";
                     topicPriority = 'high';
-                } else if (weakTopic.percentage > 0 && weakTopic.percentage < 60) {
+                } else if (hasTestedTopicData && weakTopic.percentage < 60) {
                     reasonStr = "Lacuna de Conhecimento";
                     topicPriority = 'medium';
                 } else if (weakTopic.trend < -2) {

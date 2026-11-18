@@ -156,16 +156,29 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
     trendSd * effectiveTrendDays * 0.6
   );
 
-  // Inclui ruído observacional do dia da prova para que horizonDays = 0 não colapse o ruído aleatório a zero
+  // Inclui ruído observacional do dia da prova para que horizonDays = 0 não colapse o ruído aleatório a zero.
+  // Quando processAbilityVar/processTrendVar (do filtro de Kalman) são fornecidos, usa a difusão real
+  // de estado em vez de tratar a volatilidade entre provas (dailyVolatility) como passeio aleatório puro.
   const observationSd = clampFinite(
     input.observationSd,
     0,
     domain * 0.25,
     dailyVolatility
   );
+  const rawProcessAbilityVar = Number(input.processAbilityVar);
+  const rawProcessTrendVar = Number(input.processTrendVar);
+  const hasKalmanProcess = Number.isFinite(rawProcessAbilityVar) && rawProcessAbilityVar >= 0;
+  const processAbilityVar = hasKalmanProcess ? rawProcessAbilityVar : 0;
+  const processTrendVar = Number.isFinite(rawProcessTrendVar) && rawProcessTrendVar >= 0
+    ? rawProcessTrendVar
+    : 0;
+  const effProcessDays = Math.max(0, Math.min(horizonDays, effectiveTrendDays));
+  const futureNoiseVar = hasKalmanProcess
+    ? (processAbilityVar * Math.max(0, horizonDays) + (processTrendVar * Math.pow(effProcessDays, 3)) / 3)
+    : (dailyVolatility * dailyVolatility * Math.max(0, horizonDays));
   const baseNoiseSd = Math.sqrt(
     observationSd * observationSd +
-    dailyVolatility * dailyVolatility * Math.max(0, horizonDays)
+    Math.max(0, futureNoiseVar)
   );
   const rawCov = Number(input.abilityTrendCov);
   const maxCov = abilitySd * trendSd * 0.95;
@@ -183,7 +196,7 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
       0,
       abilitySd * abilitySd +
       trendShiftSd * trendShiftSd +
-      2 * abilityTrendCov +
+      2 * abilityTrendCov * effectiveTrendDays * 0.6 +
       baseNoiseSd * baseNoiseSd
     );
     const totalPredSd = Math.sqrt(totalPredVar);

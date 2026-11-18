@@ -138,16 +138,19 @@ export function cusumDrift(values, options = {}) {
     return null;
   }
 
-  // FIX-C08: detectar tendência antes de definir baseline.
-  // Se a série está melhorando, os primeiros 60% são a fase ruim,
-  // e o CUSUM classificaria a melhoria como "drift up" (alarme falso).
+  // FIX-C08: detectar tendência antes de definir baseline respeitando badDirection.
+  // Para métricas onde subir é ruim ('up': Brier, ECE, volatilidade), melhora significa cair.
+  const badDirection = options.badDirection === 'up' ? 'up' : 'down';
+  const goodDirection = badDirection === 'up' ? 'down' : 'up';
   const n = safe.length;
   const baselineSize = Math.max(3, Math.floor(n * 0.6));
   const baseline = safe.slice(0, baselineSize);
   const recent = safe.slice(baselineSize);
   const baseMean = meanValues(baseline);
   const recentMean = meanValues(recent);
-  const isImproving = recentMean > baseMean;
+  const isImproving = badDirection === 'up'
+    ? (recentMean < baseMean)
+    : (recentMean > baseMean);
 
   // Se melhorando, usar a média GLOBAL como target (não só o baseline)
   const target = isImproving ? meanValues(safe) : baseMean;
@@ -172,7 +175,7 @@ export function cusumDrift(values, options = {}) {
 
     if (idx >= activeTailStart && (sPos > h || sNeg > h)) {
       const candidate = sPos >= sNeg ? 'up' : 'down';
-      if (!(candidate === 'down' && isImproving)) {
+      if (!(candidate === badDirection && isImproving)) {
         recentTailAlarm = candidate;
       }
     }
@@ -188,7 +191,7 @@ export function cusumDrift(values, options = {}) {
   let alarm = null;
   if (sPos > h || sNeg > h) {
     const candidate = sPos >= sNeg ? 'up' : 'down';
-    if (!(candidate === 'down' && isImproving)) {
+    if (!(candidate === badDirection && isImproving)) {
       alarm = candidate;
     }
   } else if (recentTailAlarm === 'up' && sPos > k) {
@@ -199,6 +202,8 @@ export function cusumDrift(values, options = {}) {
 
   return {
     model: 'cusum',
+    badDirection,
+    goodDirection,
     target: Number(target.toFixed(6)),
     sigma: Number(sigma.toFixed(6)),
     k: Number(k.toFixed(6)),
@@ -338,7 +343,7 @@ export function detectScoreDrift(scores = [], options = {}) {
  * Detecta drift de volatilidade.
  */
 export function detectVolatilityDrift(volatilities = [], options = {}) {
-  const result = detectDriftInSeries(volatilities, options);
+  const result = detectDriftInSeries(volatilities, { ...options, badDirection: 'up' });
 
   if (!result) return null;
 
@@ -391,9 +396,10 @@ export function detectCalibrationDrift(events = [], options = {}) {
   const eceSeries = extract('ece');
   const penaltySeries = extract('calibrationPenalty');
 
-  const brierDrift = detectDriftInSeries(brierSeries, options);
-  const eceDrift = detectDriftInSeries(eceSeries, options);
-  const penaltyDrift = detectDriftInSeries(penaltySeries, options);
+  const upOpts = { ...options, badDirection: 'up' };
+  const brierDrift = detectDriftInSeries(brierSeries, upOpts);
+  const eceDrift = detectDriftInSeries(eceSeries, upOpts);
+  const penaltyDrift = detectDriftInSeries(penaltySeries, upOpts);
 
   const enrichBadDirection = (drift, metricName) => {
     if (!drift) return null;
@@ -575,9 +581,9 @@ export function detectProbabilityCalibrationDrift(pairs = [], options = {}) {
     deltas: {
       brier: Number(deltaBrier.toFixed(6)),
       ece: Number(deltaEce.toFixed(6)),
-      mce: (Number.isFinite(recentDiagnostics.mce) && Number.isFinite(baselineDiagnostics.mce)) 
-             ? Number((recentDiagnostics.mce - baselineDiagnostics.mce).toFixed(6)) 
-             : null,
+      mce: (Number.isFinite(recentDiagnostics.mce) && Number.isFinite(baselineDiagnostics.mce))
+        ? Number((recentDiagnostics.mce - baselineDiagnostics.mce).toFixed(6))
+        : null,
     },
     isBadDrift: severity !== 'none',
   };

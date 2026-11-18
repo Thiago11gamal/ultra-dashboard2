@@ -1084,9 +1084,7 @@ export const calculateEMA = (scores, alpha = 0.25, maxScore = 100, minScore = 0)
         const range = Math.max(1e-9, safeMax - safeMin, maxObserved - minObserved, Math.abs(maxObserved) || 1);
         const absDelta = Math.abs(delta);
 
-        const upBonus = Math.min(0.10, 0.05 * (absDelta / range));
-        const downBonus = Math.min(0.03, 0.015 * (absDelta / range));
-        const trendBonus = delta >= 0 ? upBonus : downBonus;
+        const trendBonus = Math.min(0.06, 0.03 * (absDelta / range));
         const currentAlpha = Math.min(1, alpha + trendBonus);
 
         ema = (clean[i] * currentAlpha) + (ema * (1 - currentAlpha));
@@ -1188,8 +1186,20 @@ export function computeHierarchicalAdjustment(categories, pooledSD, options = {}
 
     const globalMean = kahanSum(normMeans) / Math.max(1, validCategories.length);
 
-    const tau2 = kahanSum(normMeans.map(m => Math.pow(m - globalMean, 2))) /
-        Math.max(1, validCategories.length - 1);
+    const rawTau2 = validCategories.length > 1
+        ? kahanSum(normMeans.map(m => Math.pow(m - globalMean, 2))) / (validCategories.length - 1)
+        : 0;
+    const meanLocalVar = validCategories.length > 1
+        ? kahanSum(validCategories.map(cat => {
+            const { cMin, cRange } = getCatBounds(cat);
+            const isStd = cRange === 100 && cMin === 0;
+            const rawSd = Number.isFinite(cat.sd) ? cat.sd : (isStd ? resolvedPooledSD : (resolvedPooledSD / 100) * cRange);
+            const normSd = isStd ? rawSd : (rawSd / cRange) * 100;
+            return Math.pow(normSd, 2) / Math.max(1, cat.n);
+        })) / validCategories.length
+        : 0;
+    // Estimador DerSimonian-Laird: desconta a variância amostral intra-categoria para evitar sub-encolhimento
+    const tau2 = Math.max(0, rawTau2 - meanLocalVar);
 
     return safeCategories.map(cat => {
         if (!Number.isFinite(cat.mean) || !cat.n) {

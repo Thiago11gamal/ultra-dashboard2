@@ -70,13 +70,8 @@ export function summarizeCalibration(scores = [], options = {}) {
   }
   const finiteScores = scores.map(v => Number(v)).filter(Number.isFinite);
   if (finiteScores.length === 0) return { avgBrier: null, calibrationPenalty: 0, sampleSize: 0 };
-  const sorted = [...finiteScores].sort((a, b) => a - b);
-  // ✅ FIX: se sampleSize for muito pequeno, desativar trim
-  const trim = sorted.length >= 8 ? Math.floor(sorted.length * 0.1) : 0;
-  const core = trim > 0 ? sorted.slice(trim, sorted.length - trim) : sorted;
-  // ✅ FIX: proteção extra
-  if (core.length === 0) return { avgBrier: null, calibrationPenalty: 0, sampleSize: finiteScores.length };
-  const avgBrier = kahanSum(core) / core.length;
+  // Sem trimming simétrico: Brier é assimétrico à direita e o trim ocultaria os piores erros
+  const avgBrier = kahanSum(finiteScores) / finiteScores.length;
   const calibrationPenalty = Math.min(maxPenalty, Math.max(0, avgBrier - baseline));
   return { avgBrier, calibrationPenalty, sampleSize: finiteScores.length };
 }

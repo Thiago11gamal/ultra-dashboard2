@@ -6,7 +6,7 @@
 import { monteCarloSimulation, clearEngineMcCache } from '../engine/monteCarlo.js';
 import { getSafeScore } from './scoreHelper.js';
 import {
-  computeBrierScore, computeLogLoss, summarizeCalibration, shrinkProbabilityToNeutral,
+  computeBrierScore, computeLogLoss, summarizeCalibration, shrinkProbabilityLogistic,
   computeCalibrationDiagnostics, fitIsotonicCalibration, predictIsotonicProbability,
   calibrateWithBBQ, conformalizedCalibrationInterval, computeStackingWeights
 } from './calibration.js';
@@ -581,10 +581,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
         }
       }
 
+      // As séries LOO já são out-of-sample; evitar dupla penalização via complexityParams
       stackingWeights = computeStackingWeights(
         [rawPreds, looIsotonicSeries, looBbqSeries],
         observedSeq,
-        [0, Math.max(1, Math.min(3, isotonicModel.length)), 2]
+        [0, 0, 0]
       );
 
       conformalPairs = predObsPairs.map((pair, j) => ({
@@ -613,7 +614,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     const totalShrink = Math.min(0.65, calibrationPenalty + lowSampleShrink + anomalyShrink);
 
     const probability = enableAdaptiveCalibration
-      ? shrinkProbabilityToNeutral(stackedProb01 * 100, totalShrink, shrinkAnchorPct, maxAppliedPenalty)
+      ? shrinkProbabilityLogistic(stackedProb01 * 100, totalShrink, shrinkAnchorPct, maxAppliedPenalty)
       : (stackedProb01 * 100);
 
     let ciLow = Number.isFinite(Number(result.ci95Low)) ? Number(result.ci95Low) : safeMinScore;
