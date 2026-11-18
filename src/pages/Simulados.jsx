@@ -503,6 +503,7 @@ export default function Simulados() {
           const rawHistory = Array.isArray(cat.simuladoStats.history)
             ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history || {});
           const history = rawHistory.filter(Boolean);
+          const todayHistoryEntries = history.filter((h) => getDateKey(normalizeDate(h?.date || h?.createdAt)) === todayKey);
           const historyWithoutToday = history.filter((h) => getDateKey(normalizeDate(h?.date || h?.createdAt)) !== todayKey);
 
           const todayRows = validatedRows.filter((r) => {
@@ -511,6 +512,13 @@ export default function Simulados() {
               isSubjectMatch(r?.subject, cat.name);
             return isToday && isSubject;
           });
+          const todayBatchIds = Array.from(new Set([
+            ...todayHistoryEntries.flatMap((h) => [
+              ...(h?.batchId ? [String(h.batchId)] : []),
+              ...(Array.isArray(h?.batchIds) ? h.batchIds.filter(Boolean).map(String) : [])
+            ]),
+            ...todayRows.map((r) => r?.batchId).filter(Boolean).map(String)
+          ]));
 
           const finalC = todayRows.reduce((sum, r) => sum + (Number(r.correct) || 0), 0);
           const finalQ = todayRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
@@ -560,6 +568,7 @@ export default function Simulados() {
               difficulty: Number(avgDifficulty.toFixed(2)),
               score: Math.min(maxScore, Math.max(minScore, computedScore)),
               timeSpent: finalTimeSpent, timedQuestoes: finalTimedQuestoes, topics: finalTopics,
+              ...(todayBatchIds.length > 0 ? { batchId: todayBatchIds[todayBatchIds.length - 1], batchIds: todayBatchIds } : {}),
             });
           }
 

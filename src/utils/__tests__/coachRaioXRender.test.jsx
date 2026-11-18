@@ -451,5 +451,123 @@ describe('RaioXDashboard (Raio-X Técnico no Coach)', () => {
         expect(mixedHtml).toContain('Calibração estocástica pendente');
         expect(mixedHtml).not.toContain('>Calibrado<');
     });
+
+    it('13. Does not double-count legacy manual simulados (unbatched simuladoStats.history + batched simuladoRows)', () => {
+        const mockLegacyManualData = {
+            categories: [
+                {
+                    id: 'cat-zan',
+                    name: 'zanniti',
+                    simuladoStats: {
+                        history: [
+                            { date: '2026-11-10', correct: 7, total: 10, score: 70 },
+                            { date: '2026-11-12', correct: 8, total: 10, score: 80 },
+                            { date: '2026-11-14', correct: 9, total: 10, score: 90 }
+                        ]
+                    }
+                },
+                {
+                    id: 'cat-jec',
+                    name: 'jeca',
+                    simuladoStats: {
+                        history: [
+                            { date: '2026-11-10', correct: 6, total: 10, score: 60 },
+                            { date: '2026-11-12', correct: 7, total: 10, score: 70 },
+                            { date: '2026-11-14', correct: 8, total: 10, score: 80 }
+                        ]
+                    }
+                }
+            ],
+            simulados: [
+                { id: 'sim-1', batchId: 'batch-1', date: '2026-11-10', subject: 'Simulado Geral', type: 'auto-analyzer', score: 65 },
+                { id: 'sim-2', batchId: 'batch-2', date: '2026-11-12', subject: 'Simulado Geral', type: 'auto-analyzer', score: 75 },
+                { id: 'sim-3', batchId: 'batch-3', date: '2026-11-14', subject: 'Simulado Geral', type: 'auto-analyzer', score: 85 }
+            ],
+            simuladoRows: [
+                { id: 'r1', batchId: 'batch-1', categoryId: 'cat-zan', subject: 'zanniti', topic: 'T1', date: '2026-11-10', correct: 4, total: 5, score: 80, isPercentage: true },
+                { id: 'r2', batchId: 'batch-1', categoryId: 'cat-zan', subject: 'zanniti', topic: 'T2', date: '2026-11-10', correct: 3, total: 5, score: 60, isPercentage: true },
+                { id: 'r3', batchId: 'batch-2', categoryId: 'cat-zan', subject: 'zanniti', topic: 'T1', date: '2026-11-12', correct: 8, total: 10, score: 80, isPercentage: true },
+                { id: 'r4', batchId: 'batch-3', categoryId: 'cat-zan', subject: 'zanniti', topic: 'T1', date: '2026-11-14', correct: 9, total: 10, score: 90, isPercentage: true },
+                { id: 'r5', batchId: 'batch-1', categoryId: 'cat-jec', subject: 'jeca', topic: 'T1', date: '2026-11-10', correct: 6, total: 10, score: 60, isPercentage: true },
+                { id: 'r6', batchId: 'batch-2', categoryId: 'cat-jec', subject: 'jeca', topic: 'T1', date: '2026-11-12', correct: 7, total: 10, score: 70, isPercentage: true },
+                { id: 'r7', batchId: 'batch-3', categoryId: 'cat-jec', subject: 'jeca', topic: 'T1', date: '2026-11-14', correct: 8, total: 10, score: 80, isPercentage: true }
+            ]
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockLegacyManualData} />);
+        expect(html).toContain('3/8');
+        expect(html).toContain('Faltam 5 simulados');
+        expect(html).not.toContain('6/8');
+    });
+
+    it('14. Deduplicates same-day AI + manual simulado when legacy simuladoStats.history lost batchIds, and groups unbatched same-day rows', () => {
+        const mockData = {
+            categories: [
+                {
+                    id: 'cat-mix',
+                    name: 'Direito Penal',
+                    simuladoStats: {
+                        history: [
+                            { date: '2026-11-18', correct: 14, total: 20, score: 70 }
+                        ]
+                    }
+                },
+                {
+                    id: 'cat-rows-only',
+                    name: 'Direito Civil',
+                    simuladoStats: { history: [] }
+                }
+            ],
+            simulados: [
+                { id: 'ai-sim-1', batchId: 'b-ai', categoryId: 'cat-mix', date: '2026-11-18', score: 90 }
+            ],
+            simuladoRows: [
+                { id: 'ai-row-1', batchId: 'b-ai', categoryId: 'cat-mix', date: '2026-11-18', correct: 9, total: 10 },
+                { id: 'man-row-1', batchId: 'b-man', categoryId: 'cat-mix', date: '2026-11-18', correct: 5, total: 10 },
+                // cat-rows-only has 3 unbatched topic rows on the same date -> must count as 1 simulado, not 3
+                { id: 'rc-1', categoryId: 'cat-rows-only', date: '2026-11-18', correct: 4, total: 5 },
+                { id: 'rc-2', categoryId: 'cat-rows-only', date: '2026-11-18', correct: 3, total: 5 },
+                { id: 'rc-3', categoryId: 'cat-rows-only', date: '2026-11-18', correct: 5, total: 5 },
+                // Invalid/empty/unvalidated rows must not inflate sample formation
+                { id: 'rc-empty', categoryId: 'cat-rows-only', date: '2026-11-19', correct: 0, total: 0 },
+                { id: 'rc-unval', categoryId: 'cat-rows-only', date: '2026-11-20', score: 80, validated: false },
+                { id: 'rc-phantom', categoryId: 'cat-rows-only', date: '2026-11-21', score: 0, timeSpent: 0, total: 0 }
+            ]
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockData} />);
+        expect(html).toContain('1/8');
+        expect(html).toContain('Faltam 7 simulados');
+        expect(html).not.toContain('3/8');
+        expect(html).not.toContain('4/8');
+    });
+
+    it('15. Matches uppercase category IDs against lowercase calibrationHistoryByCategory keys', () => {
+        const mockUpperIdData = {
+            categories: [
+                {
+                    id: 'Cat_Upper_1',
+                    name: 'Contabilidade',
+                    simuladoStats: {
+                        history: Array.from({ length: 8 }, (_, i) => ({
+                            date: `2026-10-${String(i + 1).padStart(2, '0')}`,
+                            score: 80
+                        }))
+                    }
+                }
+            ],
+            calibrationHistoryByCategory: {
+                cat_upper_1: [
+                    { timestamp: 1700000000000, categoryName: 'Contabilidade', avgBrier: 0.15, ece: 0.04, calibrationPenalty: 0 }
+                ]
+            }
+        };
+
+        const html = renderToStaticMarkup(<RaioXDashboard data={mockUpperIdData} />);
+        expect(html).toContain('Monitor de Calibração');
+        expect(html).toContain('Contabilidade');
+        expect(html).toContain('n=8');
+        expect(html).not.toContain('Calibração estocástica pendente');
+    });
 });
 

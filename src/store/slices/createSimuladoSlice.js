@@ -1,4 +1,5 @@
 import {
+  computeCategorySimCounts,
   computeCategorySimuladoStats,
   getSimuladoRowCorrect,
   getSimuladoRowTotal,
@@ -7,7 +8,9 @@ import {
 import { getSafeScore } from '../../utils/scoreHelper.js';
 import { markStorageDirty } from '../../utils/storageSafe.js';
 import { getDateKey, normalizeDate } from '../../utils/dateHelper.js';
-import { isSubjectMatch } from '../../utils/normalization.js';
+import { isSubjectMatch, normalize } from '../../utils/normalization.js';
+import { getCalibrationKey } from '../../utils/coachSafe.js';
+import { getSafeId } from '../../utils/idGenerator.js';
 
 export const createSimuladoSlice = (set) => ({
   resetSimuladoStats: () => set((state) => {
@@ -38,6 +41,9 @@ export const createSimuladoSlice = (set) => ({
     const nowIso = new Date().toISOString();
     activeData.simuladoRows = [];
     activeData.simulados = [];
+    activeData.calibrationHistoryByCategory = {};
+    activeData.calibrationOps = {};
+    activeData.calibrationAuditLog = [];
     activeData.lastUpdated = nowIso;
 
     state.appState.version = (state.appState.version || 0) + 1;
@@ -123,9 +129,24 @@ export const createSimuladoSlice = (set) => ({
       }
     });
 
+    const removedRows = safeRows.filter(matchesItem);
+    const removedSimulados = safeSimulados.filter(matchesItem);
     const remainingRows = safeRows.filter(r => !matchesItem(r));
     activeData.simuladoRows = remainingRows;
     activeData.simulados = safeSimulados.filter(s => !matchesItem(s));
+
+    const affectedCategorySet = new Set();
+    const recordAffectedIfMatches = (c) => {
+      if (!c) return;
+      const matchesExternal = [...removedRows, ...removedSimulados].some(item => {
+        if (!item) return false;
+        if (c.id && item.categoryId && String(item.categoryId) === String(c.id)) return true;
+        return Boolean(c.name && isSubjectMatch(item.subject || item.categoryName || item.materia || item.disciplina || '', c.name));
+      });
+      if (matchesExternal) {
+        affectedCategorySet.add(c.id || c.name);
+      }
+    };
 
     if (activeData.categories) {
         const safeCategories = Array.isArray(activeData.categories)
@@ -133,6 +154,7 @@ export const createSimuladoSlice = (set) => ({
           : Object.values(activeData.categories || {});
 
         activeData.categories = safeCategories.filter(Boolean).map(c => {
+          recordAffectedIfMatches(c);
           const {
             maxScore: catMaxScore,
             minScore: catMinScore,
@@ -149,8 +171,14 @@ if (c.simuladoStats?.history) {
     .map(h => {
       const hDateKey = getDateKey(normalizeDate(h?.date || h?.createdAt));
       if (!affectedDates.has(hDateKey)) {
-        return matchesItem(h) ? null : h;
+        if (matchesItem(h)) {
+          affectedCategorySet.add(c.id || c.name);
+          return null;
+        }
+        return h;
       }
+
+      affectedCategorySet.add(c.id || c.name);
 
       // Data afetada: recalcular stats com as rows restantes para esta categoria nessa data
       const catRowsForDay = remainingRows.filter(r => {
@@ -239,7 +267,10 @@ if (c.simuladoStats?.history) {
         ? catMinScore + (dayCorrect / dayTotal) * catRange
         : scoreOnlyRows.reduce((sum, r) => sum + getSafeScore(r, catMaxScore, catMinScore), 0) / scoreOnlyRows.length;
 
-      return {
+      const remainingBatchIds = Array.from(new Set(
+        catRowsForDay.map(r => r?.batchId).filter(Boolean).map(String)
+      ));
+      const nextEntry = {
         ...h,
         correct: dayCorrect,
         total: dayTotal,
@@ -250,6 +281,14 @@ if (c.simuladoStats?.history) {
         timedQuestoes: dayTimedQuestoes,
         topics: reconciledTopics
       };
+      if (remainingBatchIds.length > 0) {
+        nextEntry.batchId = remainingBatchIds[remainingBatchIds.length - 1];
+        nextEntry.batchIds = remainingBatchIds;
+      } else {
+        delete nextEntry.batchId;
+        delete nextEntry.batchIds;
+      }
+      return nextEntry;
     })
     .filter(Boolean);
 
@@ -265,6 +304,59 @@ if (c.simuladoStats?.history) {
 
 return c;
       });
+
+      if (affectedCategorySet.size > 0) {
+        const updatedCounts = computeCategorySimCounts(
+          activeData.categories,
+          activeData.simulados,
+          activeData.simuladoRows,
+          { maxScore: activeData.maxScore, minScore: activeData.minScore }
+        );
+        const toSafeKey = (v) => {
+          const safe = getSafeId(v);
+          return safe && safe !== 'task-null-sentinel' ? String(safe).trim() : '';
+        };
+        const staleKeys = new Set();
+        activeData.categories.forEach(c => {
+          if (!c || !affectedCategorySet.has(c.id || c.name)) return;
+          const countInfo = updatedCounts.find(item => (c.id && item.id === c.id) || item.name === c.name);
+          if (countInfo && countInfo.count < (countInfo.target || 8)) {
+            [c.id, c.name].filter(Boolean).forEach(v => {
+              const raw = String(v).trim();
+              if (!raw) return;
+              staleKeys.add(raw.toLowerCase());
+              staleKeys.add(toSafeKey(raw).toLowerCase());
+              staleKeys.add(getCalibrationKey(raw).toLowerCase());
+              staleKeys.add(normalize(raw));
+            });
+          }
+        });
+        if (staleKeys.size > 0) {
+          const isStaleKey = (k) => {
+            if (!k) return false;
+            const s = String(k).trim();
+            return staleKeys.has(s.toLowerCase()) ||
+              staleKeys.has(toSafeKey(s).toLowerCase()) ||
+              staleKeys.has(getCalibrationKey(s).toLowerCase()) ||
+              staleKeys.has(normalize(s));
+          };
+          if (activeData.calibrationHistoryByCategory && typeof activeData.calibrationHistoryByCategory === 'object') {
+            Object.keys(activeData.calibrationHistoryByCategory).forEach(k => {
+              if (isStaleKey(k)) delete activeData.calibrationHistoryByCategory[k];
+            });
+          }
+          if (activeData.calibrationOps && typeof activeData.calibrationOps === 'object') {
+            Object.keys(activeData.calibrationOps).forEach(k => {
+              if (isStaleKey(k)) delete activeData.calibrationOps[k];
+            });
+          }
+          if (Array.isArray(activeData.calibrationAuditLog)) {
+            activeData.calibrationAuditLog = activeData.calibrationAuditLog.filter(
+              entry => entry && !isStaleKey(entry.categoryId || entry.categoryName || entry.category)
+            );
+          }
+        }
+      }
     }
 
 const nowIso = new Date().toISOString();

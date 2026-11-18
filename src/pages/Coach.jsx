@@ -31,12 +31,13 @@ import { useNavigate } from 'react-router-dom';
 import { logCalibrationTelemetryEvent } from '../utils/calibrationTelemetry';
 import { CRITICAL_BRIER_THRESHOLD, HIGH_PENALTY_THRESHOLD, ALERT_COOLDOWN_MS } from '../utils/calibration.js';
 import { displaySubject } from '../utils/displaySubject';
-import { formatDateTimePtBR, toDateMs, getDateKey } from '../utils/dateHelper';
+import { formatDateTimePtBR, toDateMs } from '../utils/dateHelper';
 import { getSafeId } from '../utils/idGenerator';
 import { ensureCoachTaskId } from '../utils/coachTaskId';
 import { getCalibrationKey, getCalibrationHistoryFor } from '../utils/coachSafe';
 import { isSystemAlertTask } from '../utils/coachText';
 import { resolveUserTargetScorePoints } from '../utils/scoreHelper';
+import { computeCategorySimCounts } from '../utils/simuladoReconciler';
 import { getCoachFeature } from '../utils/coachFeatures';
 import { setCoachFeatureContestScope, readFlags, subscribeFlags } from '../utils/coachFeatureStore';
 import { loadPersistedCoachFlags } from '../engine/optimization/flagOptimizer';
@@ -1186,70 +1187,16 @@ export function RaioXDashboard({ data }) {
 
     const rawSimulados = data?.simulados;
     const rawSimuladoRows = data?.simuladoRows;
+    const contestMaxScore = data?.maxScore ?? data?.settings?.maxScore;
+    const contestMinScore = data?.minScore ?? data?.settings?.minScore;
 
-    const categorySimCounts = useMemo(() => {
-        const rawSims = Array.isArray(rawSimulados) ? rawSimulados : (rawSimulados ? Object.values(rawSimulados) : []);
-        const rawRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : (rawSimuladoRows ? Object.values(rawSimuladoRows) : []);
-
-        return categories.map(cat => {
-            const catName = cat.name || cat.id || '';
-            const catStatsHistory = Array.isArray(cat.simuladoStats?.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats?.history || {});
-
-            // Reúne todas as fontes de simulado para esta categoria de forma unificada sem contagem dupla entre fontes
-            const catAttempts = new Set();
-            const seenBatches = new Set();
-            const seenIds = new Set();
-            const priorSourceDates = new Set();
-
-            catStatsHistory.forEach((h, idx) => {
-                if (!h || h.valid === false) return;
-                const dStr = getDateKey(h.date || h.createdAt);
-                if (h.batchId) seenBatches.add(String(h.batchId));
-                if (Array.isArray(h.batchIds)) {
-                    h.batchIds.forEach(bid => {
-                        if (bid) seenBatches.add(String(bid));
-                    });
-                }
-                if (h.id) seenIds.add(String(h.id));
-                if (dStr) priorSourceDates.add(dStr);
-                const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `hist_${dStr || 'nodate'}_${idx}`);
-                catAttempts.add(dKey);
-            });
-
-            const collectExternalSource = (entries, keyPrefix) => {
-                const sourceDates = new Set();
-                entries.forEach((entry, idx) => {
-                    if (!entry || entry.valid === false) return;
-                    const matches = (cat.id && entry.categoryId && String(entry.categoryId) === String(cat.id)) ||
-                        isSubjectMatch(entry.subject || entry.categoryName || entry.materia || entry.disciplina || '', catName);
-                    if (!matches) return;
-                    if (entry.batchId && seenBatches.has(String(entry.batchId))) return;
-                    if (entry.id && seenIds.has(String(entry.id))) return;
-                    const dStr = getDateKey(entry.date || entry.createdAt);
-                    if (!entry.batchId && dStr && priorSourceDates.has(dStr)) return;
-                    if (entry.batchId) seenBatches.add(String(entry.batchId));
-                    if (entry.id) seenIds.add(String(entry.id));
-                    if (dStr) sourceDates.add(dStr);
-                    const dKey = entry.batchId
-                        ? `b_${entry.batchId}`
-                        : (entry.id ? `id_${entry.id}` : `${keyPrefix}_${dStr || 'nodate'}_${idx}`);
-                    catAttempts.add(dKey);
-                });
-                sourceDates.forEach(d => priorSourceDates.add(d));
-            };
-
-            collectExternalSource(rawSims, 'sim');
-            collectExternalSource(rawRows, 'row');
-
-            const count = catAttempts.size;
-            return {
-                id: cat.id || catName,
-                name: displaySubject(catName, categories),
-                count,
-                target: 8
-            };
-        }).filter(c => c.name);
-    }, [categories, rawSimulados, rawSimuladoRows]);
+    const categorySimCounts = useMemo(
+        () => computeCategorySimCounts(categories, rawSimulados, rawSimuladoRows, {
+            maxScore: contestMaxScore,
+            minScore: contestMinScore
+        }),
+        [categories, rawSimulados, rawSimuladoRows, contestMaxScore, contestMinScore]
+    );
 
     const isActiveCategoryEntry = useCallback((rawCat) => {
         if (activeCategoryIds.size === 0) return true;
@@ -1259,7 +1206,7 @@ export function RaioXDashboard({ data }) {
             (safeId && activeCategoryIds.has(safeId)) ||
             (safeId && activeCategoryIds.has(normalize(safeId))) ||
             categories.some(c => c && (
-                (c.id && String(c.id) === String(rawCat)) ||
+                (c.id && (String(c.id) === String(rawCat) || getCalibrationKey(c.id) === getCalibrationKey(rawCat))) ||
                 (c.name && isSubjectMatch(c.name, rawCat))
             ));
     }, [activeCategoryIds, categories]);
@@ -1288,12 +1235,14 @@ export function RaioXDashboard({ data }) {
                             : (history && typeof history === 'object' ? Object.values(history) : []);
                         if (rows.length === 0) return;
                         const safeCatKey = getSafeCategoryKey(categoryId);
+                        const calCatId = getCalibrationKey(categoryId);
+                        const calSafeCatKey = getCalibrationKey(safeCatKey);
                         const matchedCategory = categories.find(c => {
                             if (!c) return false;
                             const cid = getSafeCategoryKey(c.id);
                             const cname = getSafeCategoryKey(c.name);
-                            return (cid && (cid === String(categoryId) || cid === safeCatKey)) ||
-                                (cname && (cname === String(categoryId) || cname === safeCatKey || isSubjectMatch(cname, categoryId)));
+                            return (cid && (cid === String(categoryId) || cid === safeCatKey || getCalibrationKey(cid) === calCatId || (calSafeCatKey && getCalibrationKey(cid) === calSafeCatKey))) ||
+                                (cname && (cname === String(categoryId) || cname === safeCatKey || getCalibrationKey(cname) === calCatId || isSubjectMatch(cname, categoryId)));
                         });
                         const canonicalId = getSafeCategoryKey(matchedCategory?.id || matchedCategory?.name || categoryId) || String(categoryId);
                         const prev = mergedByCanonical.get(canonicalId) || { categoryId: canonicalId, matchedCategory, rows: [] };
@@ -1343,11 +1292,13 @@ export function RaioXDashboard({ data }) {
                         const label = matchedCategory?.name || rows[rows.length - 1]?.categoryName || categoryId;
                         const safeCatKey = getSafeCategoryKey(categoryId);
                         const safeLabelKey = getSafeCategoryKey(label);
+                        const calCatId = getCalibrationKey(categoryId);
+                        const calSafeCatKey = getCalibrationKey(safeCatKey);
                         const matchedSim = categorySimCounts.find(c => {
                             if (!c) return false;
                             const cid = getSafeCategoryKey(c.id);
                             const cname = getSafeCategoryKey(c.name);
-                            return (cid && (cid === String(categoryId) || cid === safeCatKey)) ||
+                            return (cid && (cid === String(categoryId) || cid === safeCatKey || getCalibrationKey(cid) === calCatId || (calSafeCatKey && getCalibrationKey(cid) === calSafeCatKey))) ||
                                 (cname && (cname === String(label) || cname === safeLabelKey || isSubjectMatch(cname, label)));
                         });
                         const latestSampleSize = Number.isFinite(Number(rows[rows.length - 1]?.sampleSize))
@@ -1368,6 +1319,8 @@ export function RaioXDashboard({ data }) {
                 set.add(String(row.categoryId));
                 const sKey = getSafeCategoryKey(row.categoryId);
                 if (sKey) set.add(sKey);
+                const cKey = getCalibrationKey(row.categoryId);
+                if (cKey) set.add(cKey);
             }
             if (row.label) {
                 set.add(String(row.label));
@@ -1382,7 +1335,8 @@ export function RaioXDashboard({ data }) {
             .map(item => {
                 const safeId = getSafeCategoryKey(item.id);
                 const isCalibrated = calibratedCategoryKeys.has(String(item.id)) ||
-                    (safeId && calibratedCategoryKeys.has(safeId)) ||
+                    calibratedCategoryKeys.has(getCalibrationKey(item.id)) ||
+                    (safeId && (calibratedCategoryKeys.has(safeId) || calibratedCategoryKeys.has(getCalibrationKey(safeId)))) ||
                     calibratedCategoryKeys.has(item.name) ||
                     calibratedCategoryKeys.has(normalize(item.name));
                 return { ...item, isCalibrated };

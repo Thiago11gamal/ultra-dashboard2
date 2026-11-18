@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper.js';
 import { createSimuladoSlice } from '../../store/slices/createSimuladoSlice.js';
+import { computeCategorySimCounts, reconcileContestCategoriesHistory } from '../../utils/simuladoReconciler.js';
+import { repairContestHistory } from '../../store/schemas.js';
 import {
   getCombinedHistory,
   getSuggestedFocus,
@@ -350,5 +352,81 @@ describe('Coach AI & Menu Simulado End-to-End Data Pipeline Verification', () =>
     const goals = generateDailyGoals(contest.categories, combined, [], { maxScore: 100, minScore: 0 });
     expect(Array.isArray(goals)).toBe(true);
     expect(goals.length).toBeGreaterThan(0);
+  });
+
+  it('6. resetSimuladoStats and deleteSimulado clear stale calibration telemetry when count drops below 8', () => {
+    const contest = mockState.appState.contests['contest-test'];
+    contest.simuladoRows = Array.from({ length: 8 }, (_, i) => ({
+      id: `row-${i + 1}`,
+      batchId: `batch-${i + 1}`,
+      date: `2026-11-${String(i + 1).padStart(2, '0')}`,
+      categoryId: 'cat-port',
+      subject: 'Língua Portuguesa',
+      correct: 8,
+      total: 10,
+      score: 80,
+      validated: true
+    }));
+    contest.categories[0].simuladoStats = {
+      history: Array.from({ length: 8 }, (_, i) => ({
+        date: `2026-11-${String(i + 1).padStart(2, '0')}`,
+        batchId: `batch-${i + 1}`,
+        batchIds: [`batch-${i + 1}`],
+        correct: 8,
+        total: 10,
+        score: 80
+      })),
+      average: 80,
+      lastAttempt: 80,
+      trend: 'stable',
+      level: 'ALTO'
+    };
+    contest.calibrationHistoryByCategory = {
+      'cat-port': [{ timestamp: 1700000000000, avgBrier: 0.14, ece: 0.04 }]
+    };
+    contest.calibrationOps = {
+      'cat-port': { degraded: false }
+    };
+    contest.calibrationAuditLog = [
+      { timestamp: 1700000000000, categoryId: 'cat-port', avgBrier: 0.14 }
+    ];
+
+    // Deleting 1 simulado drops cat-port to 7/8 -> calibration data must be pruned
+    simuladoSlice.deleteSimulado('batch-8');
+    const countsAfterDelete = computeCategorySimCounts(contest.categories, contest.simulados, contest.simuladoRows);
+    expect(countsAfterDelete.find(c => c.id === 'cat-port').count).toBe(7);
+    expect(contest.calibrationHistoryByCategory['cat-port']).toBeUndefined();
+    expect(contest.calibrationOps['cat-port']).toBeUndefined();
+    expect(contest.calibrationAuditLog).toHaveLength(0);
+
+    // Re-seed and test full resetSimuladoStats
+    contest.calibrationHistoryByCategory = { 'cat-const': [{ timestamp: 1700000000000, avgBrier: 0.15 }] };
+    contest.calibrationOps = { 'cat-const': { degraded: false } };
+    contest.calibrationAuditLog = [{ timestamp: 1700000000000, categoryId: 'cat-const', avgBrier: 0.15 }];
+    simuladoSlice.resetSimuladoStats();
+    expect(contest.calibrationHistoryByCategory).toEqual({});
+    expect(contest.calibrationOps).toEqual({});
+    expect(contest.calibrationAuditLog).toEqual([]);
+  });
+
+  it('7. reconcileContestCategoriesHistory and repairContestHistory preserve batchId/batchIds', () => {
+    const cats = [{ id: 'cat-port', name: 'Língua Portuguesa', simuladoStats: { history: [] } }];
+    const rows = [
+      { id: 'r1', batchId: 'b-1', categoryId: 'cat-port', subject: 'Língua Portuguesa', topic: 'Crase', date: '2026-11-01', correct: 7, total: 10 },
+      { id: 'r2', batchId: 'b-2', categoryId: 'cat-port', subject: 'Língua Portuguesa', topic: 'Pontuação', date: '2026-11-01', correct: 8, total: 10 }
+    ];
+
+    const reconciled = reconcileContestCategoriesHistory(cats, rows, 100, 0);
+    expect(reconciled[0].simuladoStats.history[0].batchIds).toEqual(['b-1', 'b-2']);
+    expect(reconciled[0].simuladoStats.history[0].batchId).toBe('b-2');
+
+    const repaired = repairContestHistory({
+      maxScore: 100,
+      minScore: 0,
+      categories: [{ id: 'cat-port', name: 'Língua Portuguesa', simuladoStats: { history: [] } }],
+      simuladoRows: rows
+    });
+    expect(repaired.categories[0].simuladoStats.history[0].batchIds).toEqual(['b-1', 'b-2']);
+    expect(repaired.categories[0].simuladoStats.history[0].batchId).toBe('b-2');
   });
 });

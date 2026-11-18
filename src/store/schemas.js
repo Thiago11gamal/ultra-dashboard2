@@ -209,7 +209,8 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
         const dk = getDateKey(extractRowDate(r));
         if (!dk) return;
 
-        if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0, normalRowCount: 0, directScoreCount: 0, directScoreSum: 0 };
+        if (!dailyStats[dk]) dailyStats[dk] = { correct: 0, total: 0, normalRowCount: 0, directScoreCount: 0, directScoreSum: 0, batchIds: new Set() };
+        if (r.batchId) dailyStats[dk].batchIds.add(String(r.batchId));
 
         let rawTotal = Math.max(0, parseInt(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions, 10) || 0);
         const rawCorrectInput = r.correct ?? r.acertos ?? r.correctCount;
@@ -266,12 +267,14 @@ export const repairContestHistory = (rawData, maxScore = 100, minScore = 0) => {
         } else if (stats.directScoreCount > 0) {
           finalScore = stats.directScoreSum / stats.directScoreCount;
         }
+        const batchIdsArr = Array.from(stats.batchIds || []);
         return {
           date,
           correct: stats.correct,
           total: stats.total,
           score: Math.min(maxScore, Math.max(minScore, finalScore)),
-          syntheticVolume: stats.normalRowCount === 0 && stats.directScoreCount > 0
+          syntheticVolume: stats.normalRowCount === 0 && stats.directScoreCount > 0,
+          ...(batchIdsArr.length > 0 ? { batchId: batchIdsArr[batchIdsArr.length - 1], batchIds: batchIdsArr } : {})
         };
       }).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
 

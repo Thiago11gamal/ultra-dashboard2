@@ -1,7 +1,8 @@
 import { computeCategoryStats } from '../engine/stats.js';
-import { getSafeScore } from './scoreHelper.js';
+import { getSafeScore, isPhantomZeroTimeAttempt } from './scoreHelper.js';
 import { getDateKey, normalizeDate, toDateMs } from './dateHelper.js';
-import { normalize, aliases } from './normalization.js';
+import { normalize, aliases, isSubjectMatch } from './normalization.js';
+import { displaySubject } from './displaySubject.js';
 import { safeClone } from './safeClone.js';
 
 export const DEFAULT_SIMULADO_HISTORY_CAP = 150;
@@ -195,10 +196,15 @@ export function reconcileContestCategoriesHistory(
     });
 
     const rowsByDate = {};
+    const rowBatchIdsByDate = {};
     myRows.forEach((r) => {
       const dateKey = safeDateKey(r.date || r.createdAt);
       if (!dateKey) return;
       if (!rowsByDate[dateKey]) rowsByDate[dateKey] = [];
+      if (r.batchId) {
+        if (!rowBatchIdsByDate[dateKey]) rowBatchIdsByDate[dateKey] = new Set();
+        rowBatchIdsByDate[dateKey].add(String(r.batchId));
+      }
       const rowTotal = Math.max(0, Number(r.total) || 0);
       const rowCorrect = Math.min(rowTotal, Math.max(0, Number(r.correct) || 0));
       rowsByDate[dateKey].push({
@@ -220,7 +226,13 @@ export function reconcileContestCategoriesHistory(
     existingHistory.forEach((h) => {
       const dateKey = safeDateKey(h?.date);
       if (!dateKey) return;
+      const existingBatches = Array.from(new Set([
+        ...(h.batchId ? [String(h.batchId)] : []),
+        ...(Array.isArray(h.batchIds) ? h.batchIds.filter(Boolean).map(String) : [])
+      ]));
       mergedHistoryMap[dateKey] = {
+        ...(h.id ? { id: h.id } : {}),
+        ...(existingBatches.length > 0 ? { batchId: h.batchId || existingBatches[existingBatches.length - 1], batchIds: existingBatches } : {}),
         date: dateKey,
         correct: h.correct,
         total: h.total,
@@ -258,6 +270,15 @@ export function reconcileContestCategoriesHistory(
       }
 
       const entry = mergedHistoryMap[dateKey];
+      const mergedBatchIds = Array.from(new Set([
+        ...(entry.batchId ? [String(entry.batchId)] : []),
+        ...(Array.isArray(entry.batchIds) ? entry.batchIds.filter(Boolean).map(String) : []),
+        ...Array.from(rowBatchIdsByDate[dateKey] || [])
+      ]));
+      if (mergedBatchIds.length > 0) {
+        entry.batchId = entry.batchId || mergedBatchIds[mergedBatchIds.length - 1];
+        entry.batchIds = mergedBatchIds;
+      }
       const prevEntryTotal = Math.max(0, Number(entry.total) || 0);
       const prevEntryCorrect = Math.max(0, Number(entry.correct) || 0);
       entry.topics = reconcileDayTopics(entry.topics, topics);
@@ -320,4 +341,136 @@ export function sortAndCapHistory(historyList, maxHistory = DEFAULT_SIMULADO_HIS
       (toDateMs(normalizeDate(b?.date || b?.createdAt) || b?.date || b?.createdAt) || 0)
   );
   return maxHistory > 0 ? sorted.slice(-maxHistory) : sorted;
+}
+
+function resolveEntryCategoryMatch(entry, cat, catName) {
+  if (!entry) return false;
+  const hasExplicitCatId = entry.categoryId !== undefined && entry.categoryId !== null && String(entry.categoryId).trim() !== '';
+  if (cat?.id && hasExplicitCatId) {
+    return String(entry.categoryId) === String(cat.id);
+  }
+  return isSubjectMatch(entry.subject || entry.categoryName || entry.materia || entry.disciplina || '', catName);
+}
+
+function isUsableSimEntry(entry, catMax, catMin) {
+  if (!entry || entry.valid === false || entry.validated === false) return false;
+  const safeScore = getSafeScore(entry, catMax, catMin);
+  if (!Number.isFinite(safeScore)) return false;
+  return !isPhantomZeroTimeAttempt(entry, safeScore);
+}
+
+/**
+ * Conta tentativas únicas de simulado por disciplina sem duplicação entre
+ * simuladoStats.history, simulados e simuladoRows (incluindo entradas legadas sem batchId).
+ */
+export function computeCategorySimCounts(categories = [], rawSimulados = [], rawSimuladoRows = [], options = {}) {
+  const safeCategories = Array.isArray(categories) ? categories : Object.values(categories || {});
+  const rawSims = Array.isArray(rawSimulados) ? rawSimulados : (rawSimulados ? Object.values(rawSimulados) : []);
+  const rawRows = Array.isArray(rawSimuladoRows) ? rawSimuladoRows : (rawSimuladoRows ? Object.values(rawSimuladoRows) : []);
+
+  const contestMaxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
+  const rawContestMin = options.minScore;
+  const contestMinScore = (rawContestMin !== undefined && rawContestMin !== null && String(rawContestMin).trim() !== '' && Number.isFinite(Number(rawContestMin)))
+    ? Math.min(Number(rawContestMin), contestMaxScore)
+    : 0;
+
+  return safeCategories.filter(Boolean).map(cat => {
+    const catName = cat.name || cat.id || '';
+    const { maxScore: catMax, minScore: catMin } = resolveCategoryScoreDomain(cat, contestMaxScore, contestMinScore);
+    const catStatsHistory = Array.isArray(cat.simuladoStats?.history)
+      ? cat.simuladoStats.history
+      : Object.values(cat.simuladoStats?.history || {});
+
+    const catAttempts = new Set();
+    const seenBatches = new Set();
+    const seenIds = new Set();
+    const priorSourceDates = new Set();
+    const unbatchedHistoryDates = new Set();
+
+    catStatsHistory.forEach((h, idx) => {
+      if (!isUsableSimEntry(h, catMax, catMin)) return;
+      const dStr = getDateKey(h.date || h.createdAt);
+      const hasBatchMeta = Boolean(h.batchId) || (Array.isArray(h.batchIds) && h.batchIds.some(Boolean));
+      if (h.batchId) seenBatches.add(String(h.batchId));
+      if (Array.isArray(h.batchIds)) {
+        h.batchIds.forEach(bid => {
+          if (bid) seenBatches.add(String(bid));
+        });
+      }
+      if (h.id) seenIds.add(String(h.id));
+      if (dStr) {
+        priorSourceDates.add(dStr);
+        if (!hasBatchMeta && !h.id) {
+          unbatchedHistoryDates.add(dStr);
+        }
+      }
+      const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `hist_${dStr || 'nodate'}_${idx}`);
+      catAttempts.add(dKey);
+    });
+
+    const groupedRows = [];
+    const rowGroupIndexByKey = new Map();
+    rawRows.forEach((entry, idx) => {
+      if (!isUsableSimEntry(entry, catMax, catMin)) return;
+      if (!resolveEntryCategoryMatch(entry, cat, catName)) return;
+      const dStr = getDateKey(entry.date || entry.createdAt);
+      const batchStr = entry.batchId ? String(entry.batchId) : '';
+      const idStr = entry.id ? String(entry.id) : '';
+
+      // Entradas diárias consolidadas em simuladoStats.history (ex.: Simulados.jsx legado ou repair)
+      // já agregam as linhas da mesma data; absorve batchIds/ids sem contar em duplicidade.
+      if (dStr && unbatchedHistoryDates.has(dStr)) {
+        if (batchStr) seenBatches.add(batchStr);
+        if (idStr) seenIds.add(idStr);
+        return;
+      }
+
+      const gKey = batchStr ? `b:${batchStr}` : (dStr ? `d:${dStr}` : (idStr ? `id:${idStr}` : `idx:${idx}`));
+      let group = rowGroupIndexByKey.get(gKey);
+      if (!group) {
+        group = { batchId: batchStr, dStr, ids: [] };
+        rowGroupIndexByKey.set(gKey, group);
+        groupedRows.push(group);
+      }
+      if (idStr) group.ids.push(idStr);
+    });
+
+    const simDates = new Set();
+    rawSims.forEach((entry, idx) => {
+      if (!isUsableSimEntry(entry, catMax, catMin)) return;
+      if (!resolveEntryCategoryMatch(entry, cat, catName)) return;
+      if (entry.batchId && seenBatches.has(String(entry.batchId))) return;
+      if (entry.id && seenIds.has(String(entry.id))) return;
+      const dStr = getDateKey(entry.date || entry.createdAt);
+      if (!entry.batchId && dStr && priorSourceDates.has(dStr)) return;
+      if (entry.batchId) seenBatches.add(String(entry.batchId));
+      if (entry.id) seenIds.add(String(entry.id));
+      if (dStr) simDates.add(dStr);
+      const dKey = entry.batchId
+        ? `b_${entry.batchId}`
+        : (entry.id ? `id_${entry.id}` : `sim_${dStr || 'nodate'}_${idx}`);
+      catAttempts.add(dKey);
+    });
+    simDates.forEach(d => priorSourceDates.add(d));
+
+    groupedRows.forEach((group, idx) => {
+      if (group.batchId && seenBatches.has(group.batchId)) return;
+      if (group.ids.some(id => seenIds.has(id))) return;
+      if (!group.batchId && group.dStr && priorSourceDates.has(group.dStr)) return;
+      if (group.batchId) seenBatches.add(group.batchId);
+      group.ids.forEach(id => seenIds.add(id));
+      if (group.dStr) priorSourceDates.add(group.dStr);
+      const dKey = group.batchId
+        ? `b_${group.batchId}`
+        : (group.ids[0] ? `id_${group.ids[0]}` : `row_${group.dStr || 'nodate'}_${idx}`);
+      catAttempts.add(dKey);
+    });
+
+    return {
+      id: cat.id || catName,
+      name: displaySubject(catName, safeCategories),
+      count: catAttempts.size,
+      target: 8
+    };
+  }).filter(c => c.name);
 }
