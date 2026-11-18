@@ -183,7 +183,7 @@ export function runCoachDriftGuard(options = {}) {
     : [];
 
   if (probabilityPairs.length === 0 && options.probabilityPairs === undefined) {
-    const evalResults = loadEvaluationResults();
+    const evalResults = loadEvaluationResults(options.contestId);
     probabilityPairs = evalResults
       .map((ev) => {
         const probEval = ev?.probabilityEvaluation;
@@ -220,7 +220,7 @@ export function runCoachDriftGuard(options = {}) {
   );
 
   if (options.saveSnapshot !== false) {
-    saveModelHealthSnapshot(health);
+    saveModelHealthSnapshot(health, options.contestId);
   }
 
   return health;

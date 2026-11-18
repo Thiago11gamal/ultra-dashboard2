@@ -508,32 +508,39 @@ export function generateHealthDashboard(health = {}) {
   };
 }
 
+function resolveHealthStorageKey(contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${HEALTH_STORAGE_KEY}:${contestId}`;
+  }
+  return HEALTH_STORAGE_KEY;
+}
+
 /**
  * Salva snapshot de saúde.
  */
-export function saveModelHealthSnapshot(snapshot) {
+export function saveModelHealthSnapshot(snapshot, contestId) {
   if (!snapshot || typeof snapshot !== 'object') return false;
-  const current = loadModelHealthSnapshots();
+  const current = loadModelHealthSnapshots(contestId);
   const next = [...current, snapshot]
     .filter(Boolean)
     .slice(-HEALTH_STORAGE_MAX);
 
-  return safeSetItem(HEALTH_STORAGE_KEY, next);
+  return safeSetItem(resolveHealthStorageKey(contestId), next);
 }
 
 /**
  * Carrega snapshots de saúde.
  */
-export function loadModelHealthSnapshots() {
-  const parsed = safeGetJSON(HEALTH_STORAGE_KEY, []);
+export function loadModelHealthSnapshots(contestId) {
+  const parsed = safeGetJSON(resolveHealthStorageKey(contestId), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
 /**
  * Limpa snapshots de saúde.
  */
-export function clearModelHealthSnapshots() {
-  safeRemoveItem(HEALTH_STORAGE_KEY);
+export function clearModelHealthSnapshots(contestId) {
+  safeRemoveItem(resolveHealthStorageKey(contestId));
 }
 
 export default {

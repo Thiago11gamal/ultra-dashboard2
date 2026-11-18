@@ -21,6 +21,10 @@ import { readFlags, replaceFlags, setCoachFeatureContestScope } from '../coachFe
 import AICoachWidget from '../../components/AICoachWidget.jsx';
 import NextGoalCard from '../../components/NextGoalCard.jsx';
 import { findSubjectTaskInContest, clearStudyingStatusInContest } from '../pomodoroHelpers.js';
+import { estimatePosteriorPredictive } from '../../engine/probabilistic/posteriorPredictive.js';
+import { explainCoachMetrics } from '../../llm/explanationAgent.js';
+import { registerLLMProvider, clearLLMProvider } from '../../llm/llmClient.js';
+import { persistCoachFlags, loadPersistedCoachFlags } from '../../engine/optimization/flagOptimizer.js';
 
 describe('Coach AI Menu & Ecosystem Regression Suite', () => {
   beforeEach(() => {
@@ -514,6 +518,108 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
 
       const clearedPlanner = clearStudyingStatusInContest(clearedCoachPlan, { categoryId: 'cat-1', taskId: 't3' });
       expect(clearedPlanner.coachPlanner.Mon[0].status).toBe('idle');
+    });
+
+    it('estimatePosteriorPredictive computes tight 95% CI around ability when targetScore <= minScore instead of full domain', () => {
+      const res = estimatePosteriorPredictive({
+        ability: 70,
+        abilitySd: 3,
+        trendPerDay: 0,
+        trendSd: 0,
+        dailyVolatility: 2,
+        observationSd: 2,
+        horizonDays: 0,
+        targetScore: 0,
+        minScore: 0,
+        maxScore: 100,
+        sampleSize: 12,
+      });
+      expect(res.probability).toBe(100);
+      expect(res.ciLow).toBeGreaterThan(50);
+      expect(res.ciHigh).toBeLessThan(90);
+    });
+
+    it('explainCoachMetrics honors useOrchestratorLLM and registerLLMProvider', async () => {
+      registerLLMProvider({
+        id: 'test-mock-llm',
+        generateStructured: async () => ({
+          headline: 'Diagnóstico Auditado pelo LLM',
+          summary: 'A disciplina exige reforço imediato na resolução de questões.',
+          causes: ['Queda recente de acerto em simulados'],
+          recommendation: 'Priorizar bateria de questões comentadas.',
+          confidence: 0.9,
+          severity: 'high',
+        }),
+      });
+
+      const out = await explainCoachMetrics(
+        { categoryName: 'Direito Constitucional', urgencyScore: 82, probability: 42 },
+        { features: { useOrchestratorLLM: true } }
+      );
+
+      expect(out.source).toBe('llm');
+      expect(out.provider).toBe('test-mock-llm');
+      expect(out.headline).toBe('Diagnóstico Auditado pelo LLM');
+      clearLLMProvider();
+    });
+
+    it('isolates persisted Coach flags across different contestIds without leaking default flags', () => {
+      persistCoachFlags({ useStateSpace: true, useBayesianTopics: true }, 'default');
+      const contestBFlags = loadPersistedCoachFlags('contest-b');
+      expect(contestBFlags.useStateSpace).not.toBe(true);
+      expect(contestBFlags.useBayesianTopics).not.toBe(true);
+    });
+
+    it('generateDailyGoals avoids ID collisions for weakTopics sharing a 10-char prefix and avoids duplicate synthesis tasks', () => {
+      const categories = [
+        {
+          id: 'cat-const',
+          name: 'Direito Constitucional',
+          weight: 10,
+          tasks: [{ id: 't1', text: 'Controle de Constitucionalidade', completed: true }],
+          simuladoStats: {
+            history: [
+              {
+                date: '2026-04-10',
+                topics: [
+                  { name: 'Direito Constitucional I', total: 10, correct: 3, score: 30 },
+                  { name: 'Direito Constitucional II', total: 10, correct: 8, score: 80 },
+                ],
+                total: 20,
+                correct: 11,
+                score: 55,
+              },
+            ],
+          },
+        },
+      ];
+      const goals = generateDailyGoals(categories, [], [], { maxScore: 100, minScore: 0 });
+      const topicTask1 = goals.find(g => g.text.includes('Direito Constitucional I]'));
+      const topicTask2 = goals.find(g => g.text.includes('Direito Constitucional II]'));
+      expect(topicTask1).toBeDefined();
+      expect(topicTask2).toBeDefined();
+      const suffix1 = topicTask1.id.split('-').pop();
+      const suffix2 = topicTask2.id.split('-').pop();
+      expect(suffix1).not.toBe(suffix2);
+
+      // Single completed topic with high weight (iterations = 3) should not emit duplicate synthesis topicNames
+      const synthCat = [
+        {
+          id: 'cat-synth',
+          name: 'Ética',
+          weight: 10,
+          tasks: [{ id: 't-eth', text: 'Código de Ética', completed: true }],
+          simuladoStats: {
+            history: [
+              { date: new Date().toISOString(), topic: 'Código de Ética', total: 20, correct: 19, score: 95 },
+            ],
+          },
+        },
+      ];
+      const synthGoals = generateDailyGoals(synthCat, [], [], { maxScore: 100, minScore: 0 });
+      const synthTasks = synthGoals.filter(g => String(g.id).includes('-synthesis-'));
+      const uniqueTopicNames = new Set(synthTasks.map(g => g.topicName));
+      expect(uniqueTopicNames.size).toBe(synthTasks.length);
     });
   });
 });

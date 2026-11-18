@@ -47,8 +47,10 @@ import {
 /**
  * Inicializa flags persistidas preservando todas as chaves válidas do Coach.
  */
-export function bootstrapCoachFlags(contestId = 'default') {
-  setCoachFeatureContestScope(contestId);
+export function bootstrapCoachFlags(contestId = 'default', options = {}) {
+  if (options?.syncGlobalScope !== false && contestId) {
+    setCoachFeatureContestScope(contestId);
+  }
   const baseline = {
     ...DEFAULT_COACH_FEATURES,
     ...getSafeBaselineFeatures(),

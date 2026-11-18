@@ -112,13 +112,13 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
     const rawSubject = categoryName
       ? '__filtered__'
       : String(
-          entry.simulado?.subject ||
-          entry.simulado?.categoryName ||
-          entry.simulado?.materia ||
-          entry.simulado?.disciplina ||
-          entry.simulado?.categoryId ||
-          ''
-        ).trim().toLowerCase() || '__global__';
+        entry.simulado?.subject ||
+        entry.simulado?.categoryName ||
+        entry.simulado?.materia ||
+        entry.simulado?.disciplina ||
+        entry.simulado?.categoryId ||
+        ''
+      ).trim().toLowerCase() || '__global__';
     if (!simGroups.has(rawSubject)) {
       simGroups.set(rawSubject, []);
     }
@@ -133,12 +133,12 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
     const groupSubjectName =
       groupKey !== '__filtered__' && groupKey !== '__global__'
         ? String(
-            groupSims[0]?.simulado?.subject ||
-            groupSims[0]?.simulado?.categoryName ||
-            groupSims[0]?.simulado?.materia ||
-            groupSims[0]?.simulado?.disciplina ||
-            ''
-          ).trim()
+          groupSims[0]?.simulado?.subject ||
+          groupSims[0]?.simulado?.categoryName ||
+          groupSims[0]?.simulado?.materia ||
+          groupSims[0]?.simulado?.disciplina ||
+          ''
+        ).trim()
         : '';
     const groupCategoryId = groupSims[0]?.simulado?.categoryId || null;
 
@@ -373,6 +373,7 @@ export function trainCausalModel(events = [], options = {}) {
 
   const model = {
     generatedAt: Date.now(),
+    contestId: options.contestId || null,
     maxScore: options.maxScore ?? 100,
     minScore: options.minScore ?? 0,
     method: options.method || 'auto',
@@ -383,7 +384,7 @@ export function trainCausalModel(events = [], options = {}) {
   };
 
   if (options.save !== false) {
-    saveCausalModel(model);
+    saveCausalModel(model, options.contestId);
   }
 
   return model;

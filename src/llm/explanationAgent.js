@@ -286,7 +286,9 @@ export function deterministicCoachExplanation(data = {}) {
  * Caso contrário, usa fallback determinístico.
  */
 export async function explainCoachMetrics(input = {}, options = {}) {
-  const useLLM = getFeature(options, 'useLLMExplanations', false);
+  const useLLM =
+    getFeature(options, 'useLLMExplanations', false) ||
+    getFeature(options, 'useOrchestratorLLM', false);
   const strict = getFeature(options, 'useLLMStrictValidation', false);
 
   const fallback = deterministicCoachExplanation(input);

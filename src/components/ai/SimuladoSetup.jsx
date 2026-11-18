@@ -63,7 +63,7 @@ return (
               <div className="flex items-center gap-5">
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <Zap size={12} className="text-indigo-400" />
-                  <span>Gemini 3 Flash</span>
+                  <span>Gemini 2.0 Flash</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <BarChart3 size={12} className="text-purple-400" />

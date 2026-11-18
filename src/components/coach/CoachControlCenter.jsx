@@ -830,7 +830,13 @@ function LLMPanel({ orchestratorResult, runOrchestrator, loading }) {
         </div>
         <button
           type="button"
-          onClick={() => runOrchestrator?.({ runHealth: true, runLLM: true, runAutoTuner: false, trainCausalModel: false })}
+          onClick={() => runOrchestrator?.({
+            runHealth: true,
+            runLLM: true,
+            runAutoTuner: false,
+            trainCausalModel: false,
+            features: { useLLMExplanations: true, useOrchestratorLLM: true },
+          })}
           disabled={loading}
           className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -894,6 +900,7 @@ export default function CoachControlCenter({
   simulados = [],
   studyLogs = [],
   maxScore = 100,
+  minScore = 0,
   targetScore = 80,
 }) {
   const {
@@ -902,7 +909,7 @@ export default function CoachControlCenter({
     causalModel, healthSnapshots, latestHealth, currentFlags, flagOverrides,
     strategySpace, runOrchestrator, runAutoTuner, applyRecommendation,
     rollbackToBaseline, toggleFlag, resetOverrides,
-  } = useCoachControlCenter({ contestId, categories, simulados, studyLogs, maxScore, targetScore });
+  } = useCoachControlCenter({ contestId, categories, simulados, studyLogs, maxScore, minScore, targetScore });
 
   return (
     <div className="bg-slate-900 min-h-screen text-slate-200 p-6 font-sans">

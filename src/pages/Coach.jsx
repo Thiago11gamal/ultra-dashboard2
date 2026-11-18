@@ -577,6 +577,19 @@ useEffect(() => {
             if (isMountedRef.current) {
                 setSuggestedFocus(null);
                 setIsAnalyzing(false);
+                const currentData = useAppStore.getState().appState?.contests?.[activeId];
+                const hasResidualPlan = Array.isArray(currentData?.coachPlan)
+                    ? currentData.coachPlan.length > 0
+                    : Object.keys(currentData?.coachPlan || {}).length > 0;
+                const hasResidualPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
+                    ? Object.values(currentData.coachPlanner).some(arr => Array.isArray(arr) && arr.length > 0)
+                    : false;
+                if (hasResidualPlan || hasResidualPlanner) {
+                    patchData(() => ({
+                        coachPlan: [],
+                        coachPlanner: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] }
+                    }));
+                }
             }
         }, 0);
         return () => clearTimeout(timer);
@@ -654,12 +667,25 @@ useEffect(() => {
                     baseCoachOptions
                 );
 
-                if (Array.isArray(newTasks) && newTasks.length > 0 && isMountedRef.current) {
+                if (Array.isArray(newTasks) && isMountedRef.current) {
                     const currentData = useAppStore.getState().appState?.contests?.[activeId];
                     const existingPlan = Array.isArray(currentData?.coachPlan) ? currentData.coachPlan : Object.values(currentData?.coachPlan || {});
                     const existingPlanner = currentData?.coachPlanner && typeof currentData.coachPlanner === 'object'
                         ? currentData.coachPlanner
                         : { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+                    const hasExistingPlannerItems = Object.values(existingPlanner).some(arr => Array.isArray(arr) && arr.length > 0);
+                    if (newTasks.length === 0 && existingPlan.length === 0 && !hasExistingPlannerItems) {
+                        setIsAnalyzing(false);
+                        return;
+                    }
+
+                    const normalizeTaskSid = (rawSid) =>
+                        rawSid ? String(rawSid).replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '') : '';
+                    const extractTopicKeyFromSid = (rawSid) => {
+                        const clean = normalizeTaskSid(rawSid);
+                        const m = clean.match(/^(.+?-topic-[a-zA-Z0-9]+)-\d+-([a-zA-Z0-9]+)$/);
+                        return m ? `${m[1]}-${m[2]}` : null;
+                    };
 
                     const isTaskCategoryValid = (taskItem) => {
                         const cid = taskItem?.categoryId;
@@ -675,10 +701,15 @@ useEffect(() => {
                     // Mapear tarefas atribuídas ao planner semanal para preservar a agenda já organizada
                     // e atualizar a telemetria (analysis) caso a tarefa exista nas novas metas calculadas.
                     const freshTasksById = new Map();
+                    const freshTasksByTopicKey = new Map();
                     newTasks.forEach(t => {
                         if (t) {
-                            const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                            if (sid) freshTasksById.set(sid, t);
+                            const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
+                            if (sid) {
+                                freshTasksById.set(sid, t);
+                                const topicKey = extractTopicKeyFromSid(sid);
+                                if (topicKey) freshTasksByTopicKey.set(topicKey, t);
+                            }
                         }
                     });
 
@@ -699,26 +730,45 @@ useEffect(() => {
                                     plannerChanged = true;
                                     return;
                                 }
-                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                const rawSid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                const sid = normalizeTaskSid(rawSid);
                                 if (sid) {
-                                    const fresh = freshTasksById.get(sid);
+                                    const topicKey = extractTopicKeyFromSid(sid);
+                                    const fresh = freshTasksById.get(sid) || (topicKey ? freshTasksByTopicKey.get(topicKey) : null);
                                     const staleAlert = !fresh && !t.completed && isSystemAlertTask(t.text || t.title);
                                     const staleOnManual = !fresh && !t.completed && isManualRefresh;
                                     if (staleAlert || staleOnManual) {
                                         plannerChanged = true;
                                         return;
                                     }
+                                    const resolvedSid = fresh ? normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(fresh))) : sid;
                                     assignedIds.add(sid);
+                                    if (resolvedSid) assignedIds.add(resolvedSid);
+                                    if (rawSid !== sid || resolvedSid !== sid) {
+                                        plannerChanged = true;
+                                    }
                                     const mergedTask = fresh
                                         ? {
                                             ...t,
+                                            id: fresh.id || resolvedSid || sid,
+                                            text: fresh.text || t.text,
+                                            ...(fresh.title || t.title ? { title: fresh.title || fresh.text || t.title } : {}),
+                                            topicName: fresh.topicName || t.topicName,
                                             analysis: fresh.analysis || t.analysis,
                                             priority: fresh.priority || t.priority,
                                             completed: Boolean(t.completed),
                                             ...(t.completedAt ? { completedAt: t.completedAt } : {})
                                         }
-                                        : t;
-                                    if (fresh && fresh.analysis && !isAnalysisEqual(fresh.analysis, t.analysis)) {
+                                        : (rawSid !== sid ? { ...t, id: sid } : t);
+                                    if (
+                                        fresh &&
+                                        (
+                                            (fresh.analysis && !isAnalysisEqual(fresh.analysis, t.analysis)) ||
+                                            (fresh.text && fresh.text !== t.text) ||
+                                            (fresh.topicName && fresh.topicName !== t.topicName) ||
+                                            (fresh.priority && fresh.priority !== t.priority)
+                                        )
+                                    ) {
                                         plannerTelemetryUpdated = true;
                                     }
                                     assignedTasks.push(mergedTask);
@@ -737,8 +787,12 @@ useEffect(() => {
                     const existingCompletedMap = new Map();
                     existingPlan.forEach(t => {
                         if (t && t.completed && isTaskCategoryValid(t)) {
-                            const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                            if (sid) existingCompletedMap.set(sid, t);
+                            const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
+                            if (sid) {
+                                existingCompletedMap.set(sid, t);
+                                const topicKey = extractTopicKeyFromSid(sid);
+                                if (topicKey) existingCompletedMap.set(topicKey, t);
+                            }
                         }
                     });
 
@@ -746,12 +800,13 @@ useEffect(() => {
                         ...assignedTasks,
                         ...newTasks
                             .filter(t => {
-                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
+                                const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
                                 return sid && !assignedIds.has(sid);
                             })
                             .map(t => {
-                                const sid = getSafeCategoryKey(ensureCoachTaskId(t));
-                                const prevCompleted = sid ? existingCompletedMap.get(sid) : null;
+                                const sid = normalizeTaskSid(getSafeCategoryKey(ensureCoachTaskId(t)));
+                                const topicKey = extractTopicKeyFromSid(sid);
+                                const prevCompleted = (sid && existingCompletedMap.get(sid)) || (topicKey ? existingCompletedMap.get(topicKey) : null);
                                 if (prevCompleted) {
                                     return { ...t, completed: true, completedAt: prevCompleted.completedAt };
                                 }
@@ -992,10 +1047,12 @@ return (
                                     </>
                                 ) : safeActiveTab === 'control' && showControlCenter ? (
                                     <CoachControlCenter
+                                        contestId={activeId}
                                         categories={categories}
                                         simulados={combinedHistory}
                                         studyLogs={studyLogs}
                                         maxScore={currentMaxScore}
+                                        minScore={currentMinScore}
                                         targetScore={targetScorePoints}
                                     />
                                 ) : (
@@ -1132,6 +1189,11 @@ export function RaioXDashboard({ data }) {
                 if (!h || h.valid === false) return;
                 const dStr = getDateKey(h.date || h.createdAt);
                 if (h.batchId) seenBatches.add(String(h.batchId));
+                if (Array.isArray(h.batchIds)) {
+                    h.batchIds.forEach(bid => {
+                        if (bid) seenBatches.add(String(bid));
+                    });
+                }
                 if (h.id) seenIds.add(String(h.id));
                 if (dStr) priorSourceDates.add(dStr);
                 const dKey = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `hist_${dStr || 'nodate'}_${idx}`);

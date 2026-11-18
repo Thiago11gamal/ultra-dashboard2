@@ -266,6 +266,11 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
         const key = h.batchId ? `b_${h.batchId}` : (h.id ? `id_${h.id}` : `cat_${dStr}_${score}`);
         if (seenSimKeys.has(key)) return;
         seenSimKeys.add(key);
+        if (Array.isArray(h.batchIds)) {
+            h.batchIds.forEach(bid => {
+                if (bid) seenSimKeys.add(`b_${bid}`);
+            });
+        }
         if (realDateKey) {
             source1DateScores.add(`${realDateKey}_${Math.round(score * 10)}`);
             source1Dates.add(realDateKey);
@@ -1162,7 +1167,16 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
     const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
         if (!c) return acc;
         let rawW = c.weight;
-        if (typeof rawW === 'string') rawW = rawW.replace(/\./g, '').replace(',', '.');
+        if (typeof rawW === 'string') {
+            const trimmedW = rawW.trim();
+            if (trimmedW.includes(',')) {
+                rawW = trimmedW.replace(/\./g, '').replace(',', '.');
+            } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(trimmedW)) {
+                rawW = trimmedW.replace(/\./g, '');
+            } else {
+                rawW = trimmedW;
+            }
+        }
         const parsedW = Number(rawW);
         const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? clamp(parsedW, 1, 10) : 5;
         return acc + w;
@@ -1735,7 +1749,12 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const pendingCount = safeTasks.filter(t => t && !t.completed).length;
         const completedCount = safeTasks.filter(t => t?.completed).length;
         const pendingHighCount = safeTasks.filter(t => t && !t.completed && normalizePriority(t.priority) === 'high').length;
-        const tasksHash = `${safeTasks.length}_${completedCount}_${pendingCount}_${pendingHighCount}`;
+        const tasksContentHash = simpleHash(
+            safeTasks
+                .map(t => `${t?.id ?? ''}:${t?.text ?? t?.title ?? ''}:${t?.topicName ?? t?.topic ?? ''}:${normalizePriority(t?.priority)}:${t?.completed ? 1 : 0}`)
+                .join('|')
+        );
+        const tasksHash = `${safeTasks.length}_${completedCount}_${pendingCount}_${pendingHighCount}_${options?.hasHighPriorityTasks ? 1 : 0}_${tasksContentHash}`;
         // FIX (BUG-13): activeId deve vir de options prioritariamente para manter pureza
         const activeId = sharedCtx
             ? sharedCtx.activeId
@@ -1779,7 +1798,7 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const parsedMinCutoffForKey = parseOptionalFinite(safeCat.minCutoff);
         const minCutoffKey = parsedMinCutoffForKey !== null ? parsedMinCutoffForKey : 'na';
         const cacheKeyRaw = JSON.stringify([
-            activeId, catId, safeCat.weight ?? '', simCount, logCount, scoreChecksum, catStatsHash,
+            activeId, catId, safeCat.name ?? '', safeCat.weight ?? '', simCount, logCount, scoreChecksum, catStatsHash,
             refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, logsMinutesChecksum, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash, minCutoffKey,
@@ -2018,7 +2037,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
     }, 0);
     const tasksHash = simpleHash(
         safeTasks
-            .map(t => `${t?.id ?? ''}:${t?.text ?? ''}:${t?.topicName ?? ''}:${t?.priority ?? ''}:${t?.completed ? 1 : 0}`)
+            .map(t => `${t?.id ?? ''}:${t?.text ?? ''}:${t?.title ?? ''}:${t?.topicName ?? ''}:${t?.topic ?? ''}:${t?.priority ?? ''}:${t?.status ?? ''}:${t?.completed ? 1 : 0}`)
             .join('|')
     );
     const historyLen = rawCatHistForHash.length;
@@ -2043,7 +2062,7 @@ function _buildSortedTopics(category, simulados = [], maxScore = 100, minScore =
     const hash = `${userId}-${refDateKey}-${lastSimTimestamp}-${openTasks}-${tasksHash}-${historyLen}-${optAllSims.length}-${optSimRows.length}-${catMax}-${catMin}-${historyVolume}-${scoreChecksum.toFixed(1)}-${coachFeatureHash}`;
     // FIX (BUG-13): activeId deve vir de options prioritariamente
     const activeId = options?.contestId || options?.activeId || options?.config?.contestId || (typeof useAppStore !== 'undefined' ? useAppStore.getState()?.appState?.activeId : null) || 'default';
-    const cacheKey = `isolate_${activeId}_${catId}_${hash}`;
+    const cacheKey = `isolate_${activeId}_${catId}_${safeCat?.name ?? ''}_${hash}`;
     const cachedTopics = cacheGet(_topicsCache, cacheKey);
     if (cachedTopics) return deepClone(cachedTopics);
     const result = _buildSortedTopicsImpl(safeCat, safeSims, catMax, catMin, options);
@@ -2168,8 +2187,10 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             let rawName = t.name || t.topic || t.assunto || t.subtopic || t.topicName;
             if (typeof rawName !== 'string' || !rawName) rawName = "Tópico Desconhecido";
             const name = rawName.trim();
-            if (!topicMap[name]) {
-                topicMap[name] = {
+            const topicKey = normalize(name) || name.toLowerCase();
+            if (!topicMap[topicKey]) {
+                topicMap[topicKey] = {
+                    displayName: name,
                     total: 0,
                     correct: 0,
                     lastSeen: new Date(0),
@@ -2177,7 +2198,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                     hasTasks: false,
                     scores: []
                 };
-                topicMap[name].hasUnfinishedTask = false;
+                topicMap[topicKey].hasUnfinishedTask = false;
+            } else if (
+                name &&
+                topicMap[topicKey].displayName === topicMap[topicKey].displayName?.toLowerCase() &&
+                name !== name.toLowerCase()
+            ) {
+                topicMap[topicKey].displayName = name;
             }
             const candidateTotal = t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions;
             let rawTotal = Number(candidateTotal);
@@ -2203,13 +2230,13 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
             }
             if (Number.isNaN(topicCorrect)) return;
             topicCorrect = Math.max(0, topicCorrect);
-            topicMap[name].total += (topicTotal * timeWeight);
-            topicMap[name].correct += (topicCorrect * timeWeight);
+            topicMap[topicKey].total += (topicTotal * timeWeight);
+            topicMap[topicKey].correct += (topicCorrect * timeWeight);
             if (topicTotal > 0) {
-                if (topicMap[name].scores.length >= 20) {
-                    topicMap[name].scores = topicMap[name].scores.slice(-19);
+                if (topicMap[topicKey].scores.length >= 20) {
+                    topicMap[topicKey].scores = topicMap[topicKey].scores.slice(-19);
                 }
-                topicMap[name].scores.push({
+                topicMap[topicKey].scores.push({
                     score: (topicCorrect / topicTotal) * 100,
                     total: topicTotal,
                     date: entryDate.toISOString(),
@@ -2217,8 +2244,8 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                     maxScore: 100
                 });
             }
-            if (entryDate > topicMap[name].lastSeen) {
-                topicMap[name].lastSeen = entryDate;
+            if (entryDate > topicMap[topicKey].lastSeen) {
+                topicMap[topicKey].lastSeen = entryDate;
             }
         });
     });
@@ -2226,8 +2253,10 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
         const name = String(task.topicName || task.topic || '').trim()
             || String(task.text || task.title || "").trim();
         if (!name) return;
-        if (!topicMap[name]) {
-            topicMap[name] = {
+        const topicKey = normalize(name) || name.toLowerCase();
+        if (!topicMap[topicKey]) {
+            topicMap[topicKey] = {
+                displayName: name,
                 total: 0,
                 correct: 0,
                 lastSeen: new Date(0),
@@ -2235,26 +2264,34 @@ const _buildSortedTopicsImpl = (category, _simulados = [], maxScore = 100, minSc
                 hasTasks: true,
                 scores: []
             };
-            topicMap[name].hasUnfinishedTask = !task.completed;
+            topicMap[topicKey].hasUnfinishedTask = !task.completed;
         } else {
-            topicMap[name].hasTasks = true;
-            if (topicMap[name].hasUnfinishedTask === undefined) {
-                topicMap[name].hasUnfinishedTask = !task.completed;
-            } else if (!task.completed) {
-                topicMap[name].hasUnfinishedTask = true;
+            if (
+                name &&
+                topicMap[topicKey].displayName === topicMap[topicKey].displayName?.toLowerCase() &&
+                name !== name.toLowerCase()
+            ) {
+                topicMap[topicKey].displayName = name;
             }
-            topicMap[name].completed = !topicMap[name].hasUnfinishedTask;
+            topicMap[topicKey].hasTasks = true;
+            if (topicMap[topicKey].hasUnfinishedTask === undefined) {
+                topicMap[topicKey].hasUnfinishedTask = !task.completed;
+            } else if (!task.completed) {
+                topicMap[topicKey].hasUnfinishedTask = true;
+            }
+            topicMap[topicKey].completed = !topicMap[topicKey].hasUnfinishedTask;
         }
         let newTaskPriority = 0;
         const normTaskPriority = normalizePriority(task?.priority);
         if (normTaskPriority === 'high') newTaskPriority = 40;
         else if (normTaskPriority === 'medium') newTaskPriority = 20;
         if (!task.completed) {
-            topicMap[name].manualPriority = Math.max(topicMap[name].manualPriority || 0, newTaskPriority);
+            topicMap[topicKey].manualPriority = Math.max(topicMap[topicKey].manualPriority || 0, newTaskPriority);
         }
     });
     const today = todayForTopics;
-    const topics = Object.entries(topicMap).map(([name, data]) => {
+    const topics = Object.entries(topicMap).map(([key, data]) => {
+        const name = data.displayName || key;
         const percentage = data.total > 0 ? (data.correct / data.total) * 100 : 0;
         const topicHistory = data.scores.slice(-3);
         const trend = topicHistory.length >= 2 ? calculateSlope(topicHistory, 100) * 30 : 0;
@@ -2837,9 +2874,14 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         let topicCursor = 0;
         for (let i = 0; i < iterations; i++) {
             const weakTopic = (topicCursor < weakTopics.length) ? weakTopics[topicCursor++] : null;
-            // FIX (LOGIC): Removido weakTopic.total do ID para evitar que a tarefa suma do planner ao fazer exercícios
+            // FIX (LOGIC): Removido weakTopic.total do ID para evitar que a tarefa suma do planner ao fazer exercícios;
+            // inclui hash normalizado do nome completo para evitar colisões quando os 10 primeiros caracteres coincidem.
+            const topicSlug = weakTopic
+                ? weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')
+                : '';
+            const topicHash = weakTopic ? hashString(normalize(weakTopic.name) || weakTopic.name.trim().toLowerCase()) : '';
             const uniqueIdSuffix = weakTopic
-                ? (`${weakTopic.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '')}-${i}`)
+                ? `${topicSlug || 'topico'}-${i}-${topicHash}`
                 : `geral-${i}`;
             if (weakTopic) {
                 assignedTopicNames.add(weakTopic.name.trim().toLowerCase());
@@ -3035,19 +3077,32 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 // NÍVEL 4: Consolidação Teórica / Síntese & Mapeamento (Estudo aprofundado)
                 if (!activeTask) {
                     const reviewPriority = 'low';
-                    const availableTopicObj = allCategoryTopics.find(t => t?.name && !assignedTopicNames.has(t.name.trim().toLowerCase())) ||
-                        allCategoryTopics.find(t => t?.name);
+                    const availableTopicObj = allCategoryTopics.find(t => t?.name && !assignedTopicNames.has(t.name.trim().toLowerCase()));
                     const catTasksList = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).filter(Boolean);
-                    const uncompletedTask = catTasksList.find(t => !t.completed && (t.text || t.title || t.name));
-                    const firstTask = catTasksList.find(t => (t.text || t.title || t.name));
+                    const uncompletedTask = catTasksList.find(t => {
+                        if (t.completed) return false;
+                        const label = (t.text || t.title || t.name || '').trim();
+                        return label && !assignedTopicNames.has(label.toLowerCase());
+                    });
+                    const unassignedTask = catTasksList.find(t => {
+                        const label = (t.text || t.title || t.name || '').trim();
+                        return label && !assignedTopicNames.has(label.toLowerCase());
+                    });
+                    const synthesisFallbacks = [
+                        'Síntese e Mapeamento',
+                        'Revisão Estruturada e Esquemas',
+                        'Auto-Explicação e Questões-Chave',
+                    ];
+                    const fallbackLabel = synthesisFallbacks.find(lbl => !assignedTopicNames.has(lbl.toLowerCase())) ||
+                        `Síntese e Mapeamento (${i + 1})`;
 
                     const resolvedTopicName = availableTopicObj?.name ||
                         (uncompletedTask ? (uncompletedTask.text || uncompletedTask.title || uncompletedTask.name).trim() : null) ||
-                        (firstTask ? (firstTask.text || firstTask.title || firstTask.name).trim() : null) ||
-                        'Síntese e Mapeamento';
+                        (unassignedTask ? (unassignedTask.text || unassignedTask.title || unassignedTask.name).trim() : null) ||
+                        fallbackLabel;
 
-                    if (availableTopicObj?.name) {
-                        assignedTopicNames.add(availableTopicObj.name.trim().toLowerCase());
+                    if (resolvedTopicName) {
+                        assignedTopicNames.add(resolvedTopicName.trim().toLowerCase());
                     }
 
                     activeTask = {

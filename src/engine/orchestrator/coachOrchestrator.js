@@ -59,12 +59,12 @@ function clampFinite(value, min, max, fallback = min) {
   return Math.min(safeMax, Math.max(safeMin, n));
 }
 
-function getFeature(features, key, fallback = false) {
+function getFeature(features, key, fallback = false, contestId) {
   try {
     if (features && typeof features[key] === 'boolean') {
       return features[key];
     }
-    const storeFlags = readFlags();
+    const storeFlags = readFlags(contestId);
     if (typeof storeFlags[key] === 'boolean') {
       return storeFlags[key];
     }
@@ -211,7 +211,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
 
     const orchestratorEnabled =
       options.force === true ||
-      getFeature(features, 'useCoachOrchestrator', false);
+      getFeature(features, 'useCoachOrchestrator', false, contestId);
 
     if (!orchestratorEnabled) {
       return {
@@ -232,7 +232,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
       options.loadPersistedFlags !== false
     ) {
       try {
-        optimizerModule.bootstrapCoachFlags(contestId);
+        optimizerModule.bootstrapCoachFlags(contestId, { syncGlobalScope: false });
         const updatedBase = readFlags(contestId);
         features = {};
         for (const [k, v] of Object.entries({ ...updatedBase, ...optionFeatures })) {
@@ -254,9 +254,9 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
     const shouldRunHealth =
       options.runHealth !== false &&
       (
-        getFeature(features, 'useObservability', false) ||
-        getFeature(features, 'useDriftGuard', false) ||
-        getFeature(features, 'useOrchestratorHealth', false)
+        getFeature(features, 'useObservability', false, contestId) ||
+        getFeature(features, 'useDriftGuard', false, contestId) ||
+        getFeature(features, 'useOrchestratorHealth', false, contestId)
       );
 
     if (shouldRunHealth) {
@@ -279,6 +279,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
             });
           }
           health = observabilityModule.runCoachDriftGuard({
+            contestId,
             scores: series.scores || [],
             volatilities: series.volatilities || [],
             sampleSize: series.sampleSize ?? 0,
@@ -300,9 +301,10 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
     let causalModule = null;
     let causalModel = null;
     const shouldLoadCausal =
-      getFeature(features, 'useCausalUplift', false) ||
-      getFeature(features, 'usePersonalizedPolicy', false) ||
-      getFeature(features, 'useCausalTaskSelection', false);
+      options.trainCausalModel === true ||
+      getFeature(features, 'useCausalUplift', false, contestId) ||
+      getFeature(features, 'usePersonalizedPolicy', false, contestId) ||
+      getFeature(features, 'useCausalTaskSelection', false, contestId);
 
     if (shouldLoadCausal) {
       ensureNotAborted('causal');
@@ -310,9 +312,9 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
       if (causalModule) {
         try {
           if (typeof causalModule.loadCausalModel === 'function') {
-            causalModel = causalModule.loadCausalModel();
+            causalModel = causalModule.loadCausalModel(contestId);
           }
-          if (!causalModel && options.trainCausalModel === true) {
+          if (options.trainCausalModel === true || (!causalModel && options.trainCausalModel !== false)) {
             const events = causalModule.buildCausalEventsFromHistory?.(
               categories,
               simulados,
@@ -326,10 +328,11 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
             );
             if (Array.isArray(events) && events.length > 0) {
               causalModel = causalModule.trainCausalModel?.(events, {
+                contestId,
                 maxScore,
                 minScore,
                 method: options.causalMethod || 'auto',
-                useBootstrap: getFeature(features, 'useCausalBootstrap', false),
+                useBootstrap: getFeature(features, 'useCausalBootstrap', false, contestId),
                 bootstrapIterations: options.causalBootstrapIterations ?? 100,
                 save: true,
               });
@@ -399,8 +402,8 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
     // ==========================================================
     if (
       (
-        getFeature(features, 'useCausalTaskSelection', false) ||
-        getFeature(features, 'usePersonalizedPolicy', false)
+        getFeature(features, 'useCausalTaskSelection', false, contestId) ||
+        getFeature(features, 'usePersonalizedPolicy', false, contestId)
       ) &&
       causalModule?.rerankCoachTasksWithCausalPolicy &&
       causalModel &&
@@ -432,10 +435,13 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
     // ==========================================================
     let llmExplanation = null;
     const shouldRunLLM =
-      options.runLLM !== false &&
+      options.runLLM === true ||
       (
-        getFeature(features, 'useLLMExplanations', false) ||
-        getFeature(features, 'useOrchestratorLLM', false)
+        options.runLLM !== false &&
+        (
+          getFeature(features, 'useLLMExplanations', false, contestId) ||
+          getFeature(features, 'useOrchestratorLLM', false, contestId)
+        )
       );
 
     if (shouldRunLLM && focus?.urgency) {
@@ -454,7 +460,10 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
             explanationModule.enhanceCoachResultWithLLM(
               focus.urgency,
               {
-                features,
+                features: {
+                  ...features,
+                  ...(options.runLLM === true ? { useLLMExplanations: true } : {}),
+                },
                 context: {
                   categoryName: focus.name || focus.categoryName || null,
                   maxScore,
@@ -487,8 +496,8 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
     const shouldRunTuner =
       options.runAutoTuner === true &&
       (
-        getFeature(features, 'useAutoTuner', false) ||
-        getFeature(features, 'useOrchestratorAutoTuner', false)
+        getFeature(features, 'useAutoTuner', false, contestId) ||
+        getFeature(features, 'useOrchestratorAutoTuner', false, contestId)
       );
 
     if (shouldRunTuner) {

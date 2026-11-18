@@ -178,13 +178,24 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
 
   // Casos extremos.
   if (targetScore <= minScore) {
+    const predMean = clampFinite(ability + meanTrendShift, minScore, maxScore, ability);
+    const totalPredVar = Math.max(
+      0,
+      abilitySd * abilitySd +
+      trendShiftSd * trendShiftSd +
+      2 * abilityTrendCov +
+      baseNoiseSd * baseNoiseSd
+    );
+    const totalPredSd = Math.sqrt(totalPredVar);
+    const ciLow = Number(clampFinite(predMean - 1.96 * totalPredSd, minScore, maxScore, minScore).toFixed(2));
+    const ciHigh = Number(clampFinite(predMean + 1.96 * totalPredSd, minScore, maxScore, maxScore).toFixed(2));
     return {
       model: 'posterior_predictive_normal_trend_damped',
       probability: 100,
       probabilityRaw: 100,
-      mean: ability,
-      ciLow: minScore,
-      ciHigh: maxScore,
+      mean: Number(predMean.toFixed(2)),
+      ciLow,
+      ciHigh,
       horizonDays,
       simulations,
       sampleSize,

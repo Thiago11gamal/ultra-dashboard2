@@ -25,9 +25,16 @@ function clampFinite(value, min, max, fallback = min) {
 
 const BANDIT_STORAGE_KEY = 'coach_decision_bandit_v1';
 
-function loadBanditState() {
+function resolveBanditStorageKey(contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${BANDIT_STORAGE_KEY}:${contestId}`;
+  }
+  return BANDIT_STORAGE_KEY;
+}
+
+function loadBanditState(contestId) {
   try {
-    const raw = safeGetItem(BANDIT_STORAGE_KEY);
+    const raw = safeGetItem(resolveBanditStorageKey(contestId));
     const parsed = JSON.parse(raw || '{}');
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
@@ -35,8 +42,8 @@ function loadBanditState() {
   }
 }
 
-function saveBanditState(state) {
-  safeSetItem(BANDIT_STORAGE_KEY, JSON.stringify(state || {}));
+function saveBanditState(state, contestId) {
+  safeSetItem(resolveBanditStorageKey(contestId), JSON.stringify(state || {}));
 }
 
 /**
@@ -133,8 +140,8 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
  * Retorna posterior Beta para um candidato.
  * Usa histórico salvo + prior baseado na utilidade atual.
  */
-export function getBanditPosterior(actionId, utility = 50) {
-  const state = loadBanditState();
+export function getBanditPosterior(actionId, utility = 50, contestId) {
+  const state = loadBanditState(contestId);
   const entry = state?.[String(actionId)] || {};
 
   const safeUtility = clampFinite(utility, 0, 100, 50);
@@ -172,7 +179,7 @@ export function recordDecisionOutcome(actionId, reward, options = {}) {
         ? 0
         : clampFinite(reward, 0, 1, 0);
 
-  const state = loadBanditState();
+  const state = loadBanditState(options.contestId);
   const key = String(actionId);
 
   const entry = state[key] || {
@@ -199,7 +206,7 @@ export function recordDecisionOutcome(actionId, reward, options = {}) {
   entry.updatedAt = Date.now();
 
   state[key] = entry;
-  saveBanditState(state);
+  saveBanditState(state, options.contestId);
 
   return entry;
 }
@@ -207,8 +214,8 @@ export function recordDecisionOutcome(actionId, reward, options = {}) {
 /**
  * Limpa memória do bandit.
  */
-export function clearDecisionBandit() {
-  safeRemoveItem(BANDIT_STORAGE_KEY);
+export function clearDecisionBandit(contestId) {
+  safeRemoveItem(resolveBanditStorageKey(contestId));
 }
 
 /**
@@ -239,7 +246,7 @@ export function rankDecisionCandidates(candidates = [], options = {}) {
         candidate.id ?? candidate.name ?? `candidate-${index}`
       );
 
-      posterior = getBanditPosterior(actionId, decision.utility);
+      posterior = getBanditPosterior(actionId, decision.utility, options.contestId);
 
       const sampledRewardProbability = sampleBeta(
         posterior.alpha,

@@ -185,9 +185,14 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         existing.timedQuestoes = dayTimedQuestoes;
         existing.lastSessionTimeSpent = timeSpentSecs;
         existing.lastSessionTotal = total;
+        existing.batchId = assignedBatchId;
+        existing.batchIds = Array.from(new Set([...(Array.isArray(existing.batchIds) ? existing.batchIds : (existing.batchId ? [existing.batchId] : [])), assignedBatchId]));
         
       } else {
         history.push({
+          id: generateId('ai-hist'),
+          batchId: assignedBatchId,
+          batchIds: [assignedBatchId],
           date: todayKey,
           correct,
           total,

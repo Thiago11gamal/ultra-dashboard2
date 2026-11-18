@@ -45,33 +45,40 @@ function meanValues(values) {
   return finite.reduce((acc, val) => acc + val, 0) / finite.length;
 }
 
+function resolveScopedKey(baseKey, contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${baseKey}:${contestId}`;
+  }
+  return baseKey;
+}
+
 /**
  * Salva relatório de backtest para uso pelo AutoTuner.
  */
-export function saveBacktestReport(report) {
-  return saveJson(BACKTEST_REPORT_KEY, report || null);
+export function saveBacktestReport(report, contestId) {
+  return saveJson(resolveScopedKey(BACKTEST_REPORT_KEY, contestId ?? report?.contestId), report || null);
 }
 
 /**
  * Carrega último relatório de backtest salvo.
  */
-export function loadLastBacktestReport() {
-  return loadJson(BACKTEST_REPORT_KEY, null);
+export function loadLastBacktestReport(contestId) {
+  return loadJson(resolveScopedKey(BACKTEST_REPORT_KEY, contestId), null);
 }
 
 /**
  * Carrega avaliações salvas pelo Lote 8.
  */
-export function loadEvaluationResultsLocal() {
-  const parsed = loadJson(EVALUATION_RESULTS_KEY, []);
+export function loadEvaluationResultsLocal(contestId) {
+  const parsed = loadJson(resolveScopedKey(EVALUATION_RESULTS_KEY, contestId), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
 /**
  * Carrega health snapshots salvos pelo Lote 9.
  */
-export function loadHealthSnapshotsLocal() {
-  const parsed = loadJson(MODEL_HEALTH_KEY, []);
+export function loadHealthSnapshotsLocal(contestId) {
+  const parsed = loadJson(resolveScopedKey(MODEL_HEALTH_KEY, contestId), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
@@ -192,20 +199,21 @@ export function summarizeEvaluationsByStrategy(evaluations = []) {
 /**
  * Salva histórico do AutoTuner.
  */
-export function saveTunerHistory(report) {
-  const current = loadJson(TUNER_HISTORY_KEY, []);
+export function saveTunerHistory(report, contestId) {
+  const key = resolveScopedKey(TUNER_HISTORY_KEY, contestId ?? report?.contestId);
+  const current = loadJson(key, []);
   const safeCurrent = Array.isArray(current) ? current : [];
 
   const next = [...safeCurrent, report].filter(Boolean).slice(-50);
 
-  return saveJson(TUNER_HISTORY_KEY, next);
+  return saveJson(key, next);
 }
 
 /**
  * Carrega histórico do AutoTuner.
  */
-export function loadTunerHistory() {
-  const parsed = loadJson(TUNER_HISTORY_KEY, []);
+export function loadTunerHistory(contestId) {
+  const parsed = loadJson(resolveScopedKey(TUNER_HISTORY_KEY, contestId), []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
@@ -223,11 +231,11 @@ export function runAutoTunerCycle(options = {}) {
 
   const evaluations = Array.isArray(options.evaluations)
     ? options.evaluations
-    : loadEvaluationResultsLocal();
+    : loadEvaluationResultsLocal(contestId);
 
   const healthSnapshots = Array.isArray(options.healthSnapshots)
     ? options.healthSnapshots
-    : loadHealthSnapshotsLocal();
+    : loadHealthSnapshotsLocal(contestId);
 
   const latestHealth =
     healthSnapshots.length > 0
@@ -237,7 +245,7 @@ export function runAutoTunerCycle(options = {}) {
   const backtestReport =
     options.backtestReport !== undefined
       ? options.backtestReport
-      : loadLastBacktestReport();
+      : loadLastBacktestReport(contestId);
 
   let summaries = {};
 
@@ -323,11 +331,12 @@ export function runAutoTunerCycle(options = {}) {
       score: recommendation.score ?? null,
       baselineScore: recommendation.baselineScore ?? null,
     },
+    contestId: contestId || null,
     applied,
   };
 
   if (options.saveHistory !== false) {
-    saveTunerHistory(report);
+    saveTunerHistory(report, contestId);
   }
 
   return report;

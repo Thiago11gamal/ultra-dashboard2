@@ -198,7 +198,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       const withId = ensureCoachTaskId(t);
       // FIX C-05: usa id explícito se existir; senão usa id estável por índice,
       // evitando fundir duas tarefas distintas com o mesmo texto.
-      const baseSid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
+      const rawBaseSid = withId.id || `pos-${fallbackIndex}-${hashString(String(t.text || t.title || ''))}`;
+      const baseSid = String(rawBaseSid).replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
       let sid = baseSid;
       let dupCount = 1;
       while (seen.has(sid)) {
@@ -207,7 +208,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       }
       // FIX-COACH-01: dedupe entre colunas com garantia de visto
       seen.add(sid);
-      return { ...withId, id: sid, draggableId: sid };
+      return { ...withId, id: sid, canonicalId: baseSid, draggableId: sid };
     };
     const backlog = [];
     let i = 0;
@@ -423,15 +424,24 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
         [destination.droppableId]: finishList
       };
 
+      const stripTransientPlannerFields = (item) => {
+        if (!item || typeof item !== 'object') return item;
+        const { draggableId: _draggableId, canonicalId, ...rest } = item;
+        const cleanId = canonicalId || String(rest.id || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+        return cleanId ? { ...rest, id: cleanId } : rest;
+      };
+
       const existingPlan = Array.isArray(prev.coachPlan) ? prev.coachPlan : Object.values(prev.coachPlan || {});
       const systemAlerts = existingPlan.filter(t => t && isSystemAlertTask(t));
       const nextPlan = [
         ...systemAlerts,
-        ...(nextCols.backlog || []),
-        ...DAYS.flatMap(d => nextCols[d.id] || [])
+        ...(nextCols.backlog || []).map(stripTransientPlannerFields),
+        ...DAYS.flatMap(d => (nextCols[d.id] || []).map(stripTransientPlannerFields))
       ];
       const freshPlanner = {};
-      DAYS.forEach(d => { freshPlanner[d.id] = nextCols[d.id] || []; });
+      DAYS.forEach(d => {
+        freshPlanner[d.id] = (nextCols[d.id] || []).map(stripTransientPlannerFields);
+      });
 
       return { coachPlanner: freshPlanner, coachPlan: nextPlan };
     });

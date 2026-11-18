@@ -891,26 +891,34 @@ export function normalizeCausalUplift(uplift, maxScore = 100, minScore = 0) {
   return clampFinite(0.5 + safeUplift / scale, 0, 1, 0.5);
 }
 
+function resolveCausalModelKey(contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${CAUSAL_MODEL_KEY}:${contestId}`;
+  }
+  return CAUSAL_MODEL_KEY;
+}
+
 /**
  * Salva modelo causal.
  */
-export function saveCausalModel(model) {
-  return safeSetItem(CAUSAL_MODEL_KEY, model || {});
+export function saveCausalModel(model, contestId) {
+  const key = resolveCausalModelKey(contestId ?? model?.contestId);
+  return safeSetItem(key, model || {});
 }
 
 /**
  * Carrega modelo causal.
  */
-export function loadCausalModel() {
-  const parsed = safeGetJSON(CAUSAL_MODEL_KEY, null);
+export function loadCausalModel(contestId) {
+  const parsed = safeGetJSON(resolveCausalModelKey(contestId), null);
   return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
 }
 
 /**
  * Limpa modelo causal.
  */
-export function clearCausalModel() {
-  safeRemoveItem(CAUSAL_MODEL_KEY);
+export function clearCausalModel(contestId) {
+  safeRemoveItem(resolveCausalModelKey(contestId));
 }
 
 export default {

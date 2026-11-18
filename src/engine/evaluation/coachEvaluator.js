@@ -634,12 +634,19 @@ export function buildEvaluationDashboardData(summary = {}) {
   };
 }
 
+function resolveEvalStorageKey(contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${EVAL_STORAGE_KEY}:${contestId}`;
+  }
+  return EVAL_STORAGE_KEY;
+}
+
 /**
  * Salva avaliações no localStorage.
  */
-export function saveEvaluationResult(result) {
+export function saveEvaluationResult(result, contestId) {
   try {
-    const existing = loadEvaluationResults();
+    const existing = loadEvaluationResults(contestId);
 
     if (!result || typeof result !== 'object') return false;
 
@@ -661,7 +668,7 @@ export function saveEvaluationResult(result) {
     if (sanitizedItems.length === 0) return false;
 
     const updated = [...sanitizedItems, ...existing].slice(0, EVAL_STORAGE_MAX);
-    return safeSetItem(EVAL_STORAGE_KEY, JSON.stringify(updated));
+    return safeSetItem(resolveEvalStorageKey(contestId), JSON.stringify(updated));
   } catch {
     return false;
   }
@@ -670,8 +677,8 @@ export function saveEvaluationResult(result) {
 /**
  * Carrega avaliações salvas.
  */
-export function loadEvaluationResults() {
-  const parsed = safeGetJSON(EVAL_STORAGE_KEY, []);
+export function loadEvaluationResults(contestId) {
+  const parsed = safeGetJSON(resolveEvalStorageKey(contestId), []);
   if (!Array.isArray(parsed)) return [];
 
   return parsed.filter(item =>
@@ -684,8 +691,8 @@ export function loadEvaluationResults() {
 /**
  * Limpa avaliações salvas.
  */
-export function clearEvaluationResults() {
-  safeRemoveItem(EVAL_STORAGE_KEY);
+export function clearEvaluationResults(contestId) {
+  safeRemoveItem(resolveEvalStorageKey(contestId));
 }
 
 export default {

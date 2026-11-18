@@ -24,13 +24,20 @@ import { replaceFlags, writeFlags, readFlags, getCoachFeatureContestScope } from
 
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
 
+function resolveControlCenterStorageKey(contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${CONTROL_CENTER_STORAGE_KEY}:${contestId}`;
+  }
+  return CONTROL_CENTER_STORAGE_KEY;
+}
+
 // FIX: conjunto de abas válidas para validar estado persistido
 const VALID_TABS = new Set(['overview', 'flags', 'health', 'causal', 'autotuner', 'backtest', 'llm']);
 
 // FIX: valida shape do estado persistido (evita corromper a UI com dado inválido)
-function loadControlCenterState() {
+function loadControlCenterState(contestId) {
   try {
-    const raw = localStorage.getItem(CONTROL_CENTER_STORAGE_KEY);
+    const raw = localStorage.getItem(resolveControlCenterStorageKey(contestId));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
@@ -46,15 +53,22 @@ function loadControlCenterState() {
       }
       state.flagOverrides = clean;
     }
+    if (parsed.baselineFlags && typeof parsed.baselineFlags === 'object' && !Array.isArray(parsed.baselineFlags)) {
+      const cleanBase = {};
+      for (const [k, v] of Object.entries(parsed.baselineFlags)) {
+        if (typeof v === 'boolean') cleanBase[k] = v;
+      }
+      state.baselineFlags = cleanBase;
+    }
     return state;
   } catch {
     return null;
   }
 }
 
-function saveControlCenterState(state) {
+function saveControlCenterState(state, contestId) {
   try {
-    localStorage.setItem(CONTROL_CENTER_STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(resolveControlCenterStorageKey(contestId), JSON.stringify(state));
   } catch {
     // ignore
   }
@@ -66,27 +80,28 @@ export function useCoachControlCenter({
   simulados = [],
   studyLogs = [],
   maxScore = 100,
+  minScore = 0,
   targetScore = 80,
 } = {}) {
   const resolvedContestId = contestId ?? getCoachFeatureContestScope();
-  const [activeTab, setActiveTab] = useState(() => loadControlCenterState()?.activeTab || 'overview');
+  const [activeTab, setActiveTab] = useState(() => loadControlCenterState(resolvedContestId)?.activeTab || 'overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [orchestratorResult, setOrchestratorResult] = useState(null);
   const [dashboard, setDashboard] = useState(null);
-  const [backtestReport, setBacktestReport] = useState(() => loadLastBacktestReport());
+  const [backtestReport, setBacktestReport] = useState(() => loadLastBacktestReport(resolvedContestId));
   const [tunerHistory, setTunerHistory] = useState(() => {
-    const h = loadTunerHistory();
+    const h = loadTunerHistory(resolvedContestId);
     return Array.isArray(h) ? h : [];
   });
   const [tunerResult, setTunerResult] = useState(null);
-  const [causalModel, setCausalModel] = useState(() => loadCausalModel());
+  const [causalModel, setCausalModel] = useState(() => loadCausalModel(resolvedContestId));
   const [healthSnapshots, setHealthSnapshots] = useState(() => {
-    const s = loadModelHealthSnapshots();
+    const s = loadModelHealthSnapshots(resolvedContestId);
     return Array.isArray(s) ? s : [];
   });
   const [currentFlags, setCurrentFlags] = useState(() => loadPersistedCoachFlags(resolvedContestId) || {});
-  const [flagOverrides, setFlagOverrides] = useState(() => loadControlCenterState()?.flagOverrides || {});
+  const [flagOverrides, setFlagOverrides] = useState(() => loadControlCenterState(resolvedContestId)?.flagOverrides || {});
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
   const isMounted = useRef(true);
@@ -99,7 +114,18 @@ export function useCoachControlCenter({
   // FIX (A5): snapshot das flags no início da sessão — "Reset Overrides"
   // restaura este estado. Antes relia o storage (que já contém os toggles
   // persistidos por toggleFlag), tornando o reset um no-op.
-  const initialFlagsRef = useRef(currentFlags);
+  const initialFlagsRef = useRef((() => {
+    const persistedState = loadControlCenterState(resolvedContestId);
+    if (
+      persistedState?.baselineFlags &&
+      persistedState?.flagOverrides &&
+      Object.keys(persistedState.flagOverrides).length > 0
+    ) {
+      return persistedState.baselineFlags;
+    }
+    return currentFlags;
+  })());
+  const prevContestIdRef = useRef(resolvedContestId);
 
   useEffect(() => {
     isMounted.current = true;
@@ -112,12 +138,48 @@ export function useCoachControlCenter({
     if (orchestratorAbortRef.current) orchestratorAbortRef.current.abort();
   }, []);
 
+  // FIX: sincroniza flags, overrides e dados auxiliares ao trocar de concurso
+  useEffect(() => {
+    if (prevContestIdRef.current === resolvedContestId) return;
+    prevContestIdRef.current = resolvedContestId;
+
+    const savedState = loadControlCenterState(resolvedContestId);
+    const loadedFlags = loadPersistedCoachFlags(resolvedContestId) || {};
+    const nextOverrides = savedState?.flagOverrides || {};
+    initialFlagsRef.current =
+      savedState?.baselineFlags && Object.keys(nextOverrides).length > 0
+        ? savedState.baselineFlags
+        : loadedFlags;
+    const timer = setTimeout(() => {
+      if (!isMounted.current) return;
+      setCurrentFlags(loadedFlags);
+      setFlagOverrides(nextOverrides);
+      if (savedState?.activeTab) {
+        setActiveTab(savedState.activeTab);
+      }
+      setBacktestReport(loadLastBacktestReport(resolvedContestId));
+      const h = loadTunerHistory(resolvedContestId);
+      setTunerHistory(Array.isArray(h) ? h : []);
+      setCausalModel(loadCausalModel(resolvedContestId));
+      const s = loadModelHealthSnapshots(resolvedContestId);
+      setHealthSnapshots(Array.isArray(s) ? s : []);
+      setOrchestratorResult(null);
+      setDashboard(null);
+      setTunerResult(null);
+      setError(null);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [resolvedContestId]);
+
   // ==========================================================
   // Salvar estado quando mudar
   // ==========================================================
   useEffect(() => {
-    saveControlCenterState({ activeTab, flagOverrides });
-  }, [activeTab, flagOverrides]);
+    saveControlCenterState(
+      { activeTab, flagOverrides, baselineFlags: initialFlagsRef.current },
+      resolvedContestId
+    );
+  }, [activeTab, flagOverrides, resolvedContestId]);
 
   // ==========================================================
   // Executar orquestrador completo
@@ -140,11 +202,13 @@ export function useCoachControlCenter({
         // PATCH: orquestrador configurável
         useCoachOrchestrator: (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? currentFlags?.useCoachOrchestrator ?? true),
       };
+      const targetContestId = options.contestId ?? resolvedContestId;
       const result = await runCoachOrchestrator(
         { categories, simulados, studyLogs },
         {
-          contestId: options.contestId ?? resolvedContestId,
+          contestId: targetContestId,
           maxScore,
+          minScore,
           targetScore,
           features: mergedFeatures,
           runHealth: options.runHealth !== false,
@@ -189,20 +253,20 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [categories, simulados, studyLogs, maxScore, targetScore, currentFlags, flagOverrides, resolvedContestId]);
+  }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, currentFlags, flagOverrides, resolvedContestId]);
 
   // ==========================================================
   // Carregar dados auxiliares
   // ==========================================================
   const loadAuxiliaryData = useCallback(() => {
     try {
-      const bt = loadLastBacktestReport();
+      const bt = loadLastBacktestReport(resolvedContestId);
       setBacktestReport(bt);
-      const history = loadTunerHistory();
+      const history = loadTunerHistory(resolvedContestId);
       setTunerHistory(Array.isArray(history) ? history : []);
-      const causal = loadCausalModel();
+      const causal = loadCausalModel(resolvedContestId);
       setCausalModel(causal);
-      const health = loadModelHealthSnapshots();
+      const health = loadModelHealthSnapshots(resolvedContestId);
       setHealthSnapshots(Array.isArray(health) ? health : []);
       const flags = loadPersistedCoachFlags(resolvedContestId);
       setCurrentFlags(flags || {});
@@ -229,6 +293,7 @@ export function useCoachControlCenter({
       const result = await runCoachAutoTuner({
         contestId: options.contestId ?? resolvedContestId,
         maxScore,
+        minScore,
         force: options.force === true,
         autoApply: options.autoApply === true,
         forceApply: options.forceApply === true,
@@ -260,7 +325,7 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [maxScore, loadAuxiliaryData, resolvedContestId]);
+  }, [maxScore, minScore, loadAuxiliaryData, resolvedContestId]);
 
   // ==========================================================
   // Aplicar recomendação de flags

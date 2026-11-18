@@ -66,6 +66,13 @@ function resolveActiveFlagsKey(contestId) {
   return ACTIVE_FLAGS_KEY;
 }
 
+function resolveOptimizerStateKey(contestId) {
+  if (contestId && typeof contestId === 'string' && contestId !== 'default') {
+    return `${OPTIMIZER_STATE_KEY}:${contestId}`;
+  }
+  return OPTIMIZER_STATE_KEY;
+}
+
 function loadJson(key, fallback = null) {
   const parsed = safeGetJSON(key, fallback);
   return parsed ?? fallback;
@@ -94,10 +101,7 @@ export function getSafeBaselineFeatures() {
  */
 export function loadPersistedCoachFlags(contestId) {
   const scopedKey = resolveActiveFlagsKey(contestId);
-  let persisted = loadJson(scopedKey, null);
-  if (persisted === null && scopedKey !== ACTIVE_FLAGS_KEY) {
-    persisted = loadJson(ACTIVE_FLAGS_KEY, null);
-  }
+  const persisted = loadJson(scopedKey, null);
 
   if (persisted && typeof persisted === 'object') {
     writeFlags(persisted, contestId);
@@ -358,17 +362,17 @@ export function rankStrategies(summaries = {}, latestHealth = null, options = {}
 /**
  * Estado do otimizador para Thompson Sampling.
  */
-export function loadOptimizerState() {
-  const state = loadJson(OPTIMIZER_STATE_KEY, {});
+export function loadOptimizerState(contestId) {
+  const state = loadJson(resolveOptimizerStateKey(contestId), {});
   return state && typeof state === 'object' ? state : {};
 }
 
-export function saveOptimizerState(state) {
-  return saveJson(OPTIMIZER_STATE_KEY, state || {});
+export function saveOptimizerState(state, contestId) {
+  return saveJson(resolveOptimizerStateKey(contestId), state || {});
 }
 
-export function clearOptimizerState() {
-  safeRemoveItem(OPTIMIZER_STATE_KEY);
+export function clearOptimizerState(contestId) {
+  safeRemoveItem(resolveOptimizerStateKey(contestId));
 }
 
 /**
@@ -384,7 +388,7 @@ export function recordStrategyOutcome(strategyId, reward, options = {}) {
         ? 0
         : clampFinite(reward, 0, 1, 0);
 
-  const state = loadOptimizerState();
+  const state = loadOptimizerState(options.contestId);
   const key = String(strategyId);
 
   const entry = state[key] || {
@@ -410,7 +414,7 @@ export function recordStrategyOutcome(strategyId, reward, options = {}) {
   entry.updatedAt = Date.now();
 
   state[key] = entry;
-  saveOptimizerState(state);
+  saveOptimizerState(state, options.contestId);
 
   return entry;
 }
@@ -425,7 +429,7 @@ export function selectStrategyThompson(rankedStrategies = [], options = {}) {
 
   if (safeRanked.length === 0) return 'baseline';
 
-  const state = loadOptimizerState();
+  const state = loadOptimizerState(options.contestId);
 
   const seed = options.seed ?? `optimizer-${Date.now()}`;
   const rng = mulberry32(hashSeed(seed));

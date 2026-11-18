@@ -241,7 +241,13 @@ export function scoreCandidatesWithCausal(candidates = [], causalModel = null, o
       const effectiveCausalWeight =
         baseCausalWeight * (0.25 + 0.75 * evidenceFactor);
 
-      const causalScore = normalizeCausalUplift(uplift, maxScore, minScore) * 100;
+      const modelMaxScore = Number.isFinite(Number(causalModel?.maxScore)) && Number(causalModel.maxScore) > 0
+        ? Number(causalModel.maxScore)
+        : maxScore;
+      const modelMinScore = Number.isFinite(Number(causalModel?.minScore))
+        ? Number(causalModel.minScore)
+        : minScore;
+      const causalScore = normalizeCausalUplift(uplift, modelMaxScore, modelMinScore) * 100;
 
       const baseUtility = clampFinite(candidate.decisionUtility, 0, 100, 40);
 

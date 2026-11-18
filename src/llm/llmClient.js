@@ -167,6 +167,22 @@ export async function generateStructuredLLM({
   }
 }
 
+export function registerLLMProvider(provider, options = {}) {
+  if (!provider || (typeof provider.generateStructured !== 'function' && typeof provider.generate !== 'function')) {
+    return false;
+  }
+  try {
+    globalThis.__COACH_LLM__ = {
+      ...(globalThis.__COACH_LLM__ || {}),
+      ...options,
+      provider,
+    };
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearLLMProvider() {
   try {
     if (globalThis.__COACH_LLM__) {
@@ -179,6 +195,7 @@ export function clearLLMProvider() {
 
 export default {
   getLLMProvider,
+  registerLLMProvider,
   generateStructuredLLM,
   clearLLMProvider,
 };

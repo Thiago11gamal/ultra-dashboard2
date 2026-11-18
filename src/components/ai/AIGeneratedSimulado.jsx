@@ -27,15 +27,64 @@ const DIFFICULTIES = [
   { value: 'expert', label: 'Expert' },
 ];
 
-const getAiSimStorageKey = () => {
-  const activeId = useAppStore.getState().appState?.activeId || 'default';
+const getAiSimStorageKey = (contestIdOverride = null) => {
+  const activeId = contestIdOverride || useAppStore.getState().appState?.activeId || 'default';
   return `ai_simulado_draft:${activeId}`;
 };
 
-const getAiGenStorageKey = () => {
-  const activeId = useAppStore.getState().appState?.activeId || 'default';
+const getAiGenStorageKey = (contestIdOverride = null) => {
+  const activeId = contestIdOverride || useAppStore.getState().appState?.activeId || 'default';
   return `ai_simulado_generating:${activeId}`;
 };
+
+function resolveMixedQuestionMeta(q, idx, targets = [], catsArray = []) {
+  const safeTargets = Array.isArray(targets) ? targets.filter(Boolean) : [];
+  const rawMateria = String(q?.materia || '').trim();
+  const rawAssunto = String(q?.assunto || '').replace(/\s*\(Nível:.*?\)\s*$/i, '').trim();
+  const isGenericMateria = !rawMateria || /^simulado personalizado$/i.test(rawMateria);
+  const isMultilineAssunto = /-\s*Mat[eé]ria:/i.test(rawAssunto);
+
+  const matchedCat = !isGenericMateria
+    ? catsArray.find(c => c && isSubjectMatch(c.name, rawMateria))
+    : null;
+
+  if (matchedCat) {
+    const safeCatTasks = Array.isArray(matchedCat.tasks) ? matchedCat.tasks : Object.values(matchedCat.tasks || {});
+    const matchedTask = !isMultilineAssunto
+      ? safeCatTasks.find(t => t && normalize(t.title || t.text || '') === normalize(rawAssunto))
+      : null;
+    const fallbackTarget = safeTargets.find(t => t.catId === matchedCat.id || isSubjectMatch(t.materia, matchedCat.name));
+    const resolvedAssunto = matchedTask
+      ? (matchedTask.title || matchedTask.text || rawAssunto)
+      : (!isMultilineAssunto && rawAssunto ? rawAssunto : (fallbackTarget?.assunto || 'Geral'));
+    return {
+      materia: matchedCat.name,
+      assunto: resolvedAssunto,
+      realCategoryId: matchedCat.id,
+      realTaskId: matchedTask?.id || fallbackTarget?.taskId || null,
+    };
+  }
+
+  if (safeTargets.length > 0) {
+    const targetByAssunto = !isMultilineAssunto && rawAssunto
+      ? safeTargets.find(t => normalize(t.assunto) === normalize(rawAssunto))
+      : null;
+    const chosen = targetByAssunto || safeTargets[idx % safeTargets.length];
+    return {
+      materia: chosen.materia || rawMateria || 'Geral',
+      assunto: chosen.assunto || (!isMultilineAssunto && rawAssunto ? rawAssunto : 'Geral'),
+      realCategoryId: chosen.catId || null,
+      realTaskId: chosen.taskId || null,
+    };
+  }
+
+  return {
+    materia: !isGenericMateria ? rawMateria : 'Geral',
+    assunto: !isMultilineAssunto && rawAssunto ? rawAssunto : 'Geral',
+    realCategoryId: q?.realCategoryId || null,
+    realTaskId: q?.realTaskId || null,
+  };
+}
 
 const LOADING_MESSAGES = [
   "Iniciando Motor Analítico...",
@@ -66,6 +115,7 @@ const EMPTY_CATEGORIES = Object.freeze([]);
 
 export default function AIGeneratedSimulado() {
   const setData = useAppStore(state => state.setData);
+  const activeId = useAppStore(state => state.appState?.activeId || 'default');
   const rawCategories = useAppStore(useShallow(state => {
     const active = state.appState?.contests?.[state.appState?.activeId];
     return active?.categories || EMPTY_CATEGORIES;
@@ -94,7 +144,8 @@ export default function AIGeneratedSimulado() {
   const [showEscapeConfirm, setShowEscapeConfirm] = useState(false);
 
   const mountedRef = useRef(true);
-  const didMountRestoreRef = useRef(false);
+  const restoredContestIdRef = useRef(null);
+  const sessionContestIdRef = useRef(activeId);
   const abortControllerRef = useRef(null);
   const activeGenerationRef = useRef(null);
 
@@ -110,7 +161,8 @@ export default function AIGeneratedSimulado() {
 
   useEffect(() => { stepRef.current = step; }, [step]);
 
-  const persistDraftImmediately = useCallback(() => {
+  const persistDraftImmediately = useCallback((targetContestId = null) => {
+    const contestKey = targetContestId || sessionContestIdRef.current;
     if (stepRef.current === 'playing' && latestQuestionsRef.current.length > 0) {
       try {
         const draft = {
@@ -124,7 +176,7 @@ export default function AIGeneratedSimulado() {
           simStartMs: simStartMsRef.current,
           savedAt: Date.now()
         };
-        localStorage.setItem(getAiSimStorageKey(), JSON.stringify(draft));
+        localStorage.setItem(getAiSimStorageKey(contestKey), JSON.stringify(draft));
       } catch (e) {
         console.warn('[Draft] Falha ao salvar rascunho imediato:', e);
       }
@@ -133,12 +185,13 @@ export default function AIGeneratedSimulado() {
 
   useEffect(() => {
     mountedRef.current = true;
-    window.addEventListener('beforeunload', persistDraftImmediately);
+    const onBeforeUnload = () => persistDraftImmediately();
+    window.addEventListener('beforeunload', onBeforeUnload);
     return () => { 
       mountedRef.current = false; 
-      window.removeEventListener('beforeunload', persistDraftImmediately);
-      // G-20 FIX: Salvar draft imediatamente ao desmontar
-      persistDraftImmediately();
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      // G-20 FIX: Salvar draft imediatamente ao desmontar usando o concurso dono da sessão
+      persistDraftImmediately(sessionContestIdRef.current);
       // ✅ FIX: Abortar request pendente ao desmontar
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -161,6 +214,7 @@ export default function AIGeneratedSimulado() {
 
   useEffect(() => {
     if (step === 'playing' && questions.length > 0) {
+      const targetContestId = sessionContestIdRef.current;
       if (draftTimeoutRef.current) clearTimeout(draftTimeoutRef.current);
       draftTimeoutRef.current = setTimeout(() => {
         const draft = {
@@ -175,7 +229,7 @@ export default function AIGeneratedSimulado() {
           savedAt: Date.now()
         };
         try {
-          localStorage.setItem(getAiSimStorageKey(), JSON.stringify(draft));
+          localStorage.setItem(getAiSimStorageKey(targetContestId), JSON.stringify(draft));
         } catch (e) {
           console.warn('[Draft] Storage full or unavailable:', e);
         }
@@ -186,16 +240,51 @@ export default function AIGeneratedSimulado() {
     };
   }, [step, questions, answers, currentIndex, form]);
 
-  // FIX: Effect de restore com deps vazias (ref já garante execução única)
+  // FIX: Reagir à troca de concurso (activeId) salvando o rascunho anterior e restaurando o do novo concurso
   useEffect(() => {
-    if (didMountRestoreRef.current) return;
-    didMountRestoreRef.current = true;
+    const prevContestId = sessionContestIdRef.current;
+    if (prevContestId && prevContestId !== activeId) {
+      if (draftTimeoutRef.current) {
+        clearTimeout(draftTimeoutRef.current);
+        draftTimeoutRef.current = null;
+      }
+      persistDraftImmediately(prevContestId);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      activeGenerationRef.current = null;
+      isFinishingRef.current = false;
+      stepRef.current = 'setup';
+      latestQuestionsRef.current = [];
+      latestAnswersRef.current = {};
+      latestTimePerQuestionRef.current = {};
+      sessionContestIdRef.current = activeId;
+      setStep('setup');
+      setQuestions([]);
+      setAnswers({});
+      setTimePerQuestion({});
+      setCurrentIndex(0);
+      setResults(null);
+      setTimerActive(false);
+      setIsLoading(false);
+      setShowReview(false);
+      setForm({
+        categoryId: '', taskId: '', materia: '', assunto: '',
+        dificuldade: 'medio', quantidade: 10,
+      });
+    } else {
+      sessionContestIdRef.current = activeId;
+    }
+
+    if (restoredContestIdRef.current === activeId) return;
+    restoredContestIdRef.current = activeId;
 
     let timeoutId1;
     let timeoutId2;
     let cancelled = false;
 
-    const gen = safeGetJSON(getAiGenStorageKey(), null);
+    const gen = safeGetJSON(getAiGenStorageKey(activeId), null);
     if (gen) {
       if (gen.status === 'done' && gen.questions?.length > 0) {
         timeoutId1 = setTimeout(() => {
@@ -206,11 +295,12 @@ export default function AIGeneratedSimulado() {
             categoryId: f.categoryId || '', taskId: f.taskId || '',
             materia: f.materia || '', assunto: f.assunto || '',
             dificuldade: f.dificuldade || 'medio', quantidade: f.quantidade || 10,
+            ...(Array.isArray(f.targets) ? { targets: f.targets } : {}),
           });
           
           // ✅ FIX: Ler categories do store ATUAL, não da closure
           const currentCategories = useAppStore.getState().appState?.contests?.[
-            useAppStore.getState().appState?.activeId
+            activeId
           ]?.categories || [];
           const catsArray = Array.isArray(currentCategories) 
             ? currentCategories 
@@ -221,13 +311,28 @@ export default function AIGeneratedSimulado() {
           const tsk = safeCatTasks.find(t => t && t.id === f.taskId);
           const isMixed = f.categoryId === 'mixed';
           
-          const normalizedQuestions = gen.questions.map((q) => ({
-            ...q,
-            id: q.id || nextAiId('ai-bg'),
-            categoryId: f.categoryId, taskId: f.taskId,
-            materia: isMixed ? (q.materia || f.materia) : (cat?.name || q.materia || f.materia),
-            assunto: isMixed ? (q.assunto || 'Geral') : (tsk ? (tsk.title || tsk.text || f.assunto) : (q.assunto || f.assunto)),
-          }));
+          const normalizedQuestions = gen.questions.map((q, idx) => {
+            if (isMixed) {
+              const resolved = resolveMixedQuestionMeta(q, idx, f.targets, catsArray);
+              return {
+                ...q,
+                id: q.id || nextAiId('ai-bg'),
+                categoryId: 'mixed',
+                taskId: 'mixed',
+                realCategoryId: resolved.realCategoryId,
+                realTaskId: resolved.realTaskId,
+                materia: resolved.materia,
+                assunto: resolved.assunto,
+              };
+            }
+            return {
+              ...q,
+              id: q.id || nextAiId('ai-bg'),
+              categoryId: f.categoryId, taskId: f.taskId,
+              materia: cat?.name || q.materia || f.materia,
+              assunto: tsk ? (tsk.title || tsk.text || f.assunto) : (q.assunto || f.assunto),
+            };
+          });
           
           isFinishingRef.current = false;
           setQuestions(normalizedQuestions);
@@ -240,7 +345,7 @@ export default function AIGeneratedSimulado() {
           simStartMsRef.current = Date.now();
           setShowReview(false);
           setIsLoading(false);
-          localStorage.removeItem(getAiGenStorageKey());
+          localStorage.removeItem(getAiGenStorageKey(activeId));
           showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
         }, 0);
         return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); };
@@ -248,10 +353,10 @@ export default function AIGeneratedSimulado() {
         timeoutId1 = setTimeout(() => {
           if (cancelled) return;
           showToast(gen.errorMessage || 'Erro ao gerar questões em segundo plano.', 'error');
-          localStorage.removeItem(getAiGenStorageKey());
+          localStorage.removeItem(getAiGenStorageKey(activeId));
           setIsLoading(false);
         }, 0);
-        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); didMountRestoreRef.current = false; };
+        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); restoredContestIdRef.current = null; };
       } else if (gen.status === 'generating') {
         timeoutId1 = setTimeout(() => {
           if (cancelled) return;
@@ -260,6 +365,7 @@ export default function AIGeneratedSimulado() {
             categoryId: f.categoryId || '', taskId: f.taskId || '',
             materia: f.materia || '', assunto: f.assunto || '',
             dificuldade: f.dificuldade || 'medio', quantidade: f.quantidade || 10,
+            ...(Array.isArray(f.targets) ? { targets: f.targets } : {}),
           });
           setIsLoading(true);
           setStep('setup');
@@ -277,29 +383,29 @@ export default function AIGeneratedSimulado() {
                 setTimerActive(true);
                 simStartMsRef.current = Date.now();
                 setIsLoading(false);
-                localStorage.removeItem(getAiGenStorageKey());
+                localStorage.removeItem(getAiGenStorageKey(activeId));
                 showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
               }
             }).catch((error) => {
               if (cancelled || !mountedRef.current) return;
               setIsLoading(false);
-              localStorage.removeItem(getAiGenStorageKey());
+              localStorage.removeItem(getAiGenStorageKey(activeId));
               showToast(error.message || 'Erro ao gerar questões.', 'error');
             });
           } else {
             const age = Date.now() - (gen.startedAt || 0);
-            localStorage.removeItem(getAiGenStorageKey());
+            localStorage.removeItem(getAiGenStorageKey(activeId));
             setIsLoading(false);
             if (age <= 5 * 60 * 1000) {
               showToast('A geração anterior foi interrompida. Gere novamente.', 'warning');
             }
           }
         }, 0);
-        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); didMountRestoreRef.current = false; };
+        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); restoredContestIdRef.current = null; };
       }
     }
 
-    const draft = safeGetJSON(getAiSimStorageKey(), null);
+    const draft = safeGetJSON(getAiSimStorageKey(activeId), null);
     if (draft) {
       function isSimuladoDraftValid(d) {
         if (!d || typeof d !== 'object') return false;
@@ -322,11 +428,12 @@ export default function AIGeneratedSimulado() {
             categoryId: f.categoryId || '', taskId: f.taskId || '',
             materia: f.materia || '', assunto: f.assunto || '',
             dificuldade: f.dificuldade || 'medio', quantidade: f.quantidade || 10,
+            ...(Array.isArray(f.targets) ? { targets: f.targets } : {}),
           };
           
           // ✅ FIX: Validar contra categories do store ATUAL
           const currentCategories = useAppStore.getState().appState?.contests?.[
-            useAppStore.getState().appState?.activeId
+            activeId
           ]?.categories || [];
           const catsArray = Array.isArray(currentCategories) 
             ? currentCategories 
@@ -336,8 +443,8 @@ export default function AIGeneratedSimulado() {
           const cat = catsArray.find(c => c && c.id === f.categoryId);
           if (!cat && f.categoryId && f.categoryId !== 'mixed') {
             // Categoria não existe mais — descartar draft
-            localStorage.removeItem(getAiSimStorageKey());
-            localStorage.removeItem(getAiGenStorageKey());
+            localStorage.removeItem(getAiSimStorageKey(activeId));
+            localStorage.removeItem(getAiGenStorageKey(activeId));
             return;
           }
           const safeTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})) : [];
@@ -380,7 +487,7 @@ export default function AIGeneratedSimulado() {
       clearTimeout(timeoutId2);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // FIX: deps vazias — ref garante execução única
+  }, [activeId]);
 
   const handleInputChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -442,18 +549,32 @@ export default function AIGeneratedSimulado() {
     if (avgDifficulty >= 2.5) adaptiveDifficulty = 'expert';
     else if (avgDifficulty >= 1.5) adaptiveDifficulty = 'dificil';
 
+    const serializedTargets = worstTasks.map(t => ({
+      catId: t.catId,
+      taskId: t.taskId,
+      materia: t.materia,
+      assunto: t.assunto,
+    }));
+    const currentCategoriesSnapshot = [...categories];
     const previousForm = { ...form };
     setForm(prev => ({
       ...prev, categoryId: 'mixed', taskId: 'mixed',
       materia: 'Simulado Personalizado', assunto: assuntoString,
-      dificuldade: adaptiveDifficulty, quantidade: 10
+      dificuldade: adaptiveDifficulty, quantidade: 10,
+      targets: serializedTargets,
     }));
     setIsLoading(true);
 
-    const genForm = { categoryId: 'mixed', taskId: 'mixed', materia: 'Simulado Personalizado', assunto: assuntoString, dificuldade: adaptiveDifficulty, quantidade: 10 };
+    const genForm = {
+      categoryId: 'mixed', taskId: 'mixed',
+      materia: 'Simulado Personalizado', assunto: assuntoString,
+      dificuldade: adaptiveDifficulty, quantidade: 10,
+      targets: serializedTargets,
+    };
+    const genContestId = sessionContestIdRef.current;
     const genState = { status: 'generating', form: genForm, startedAt: Date.now() };
-    localStorage.setItem(getAiGenStorageKey(), JSON.stringify(genState));
-    const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
+    localStorage.setItem(getAiGenStorageKey(genContestId), JSON.stringify(genState));
+    const activeContestName = useAppStore.getState().appState?.contests?.[genContestId]?.name || 'Concurso Geral';
 
     // FIX: Usar ref em vez de variável de módulo
     // ✅ FIX: Criar AbortController para esta geração
@@ -477,16 +598,26 @@ export default function AIGeneratedSimulado() {
         if (!Array.isArray(generated) || generated.length === 0) {
           throw new Error('A IA não gerou questões válidas.');
         }
-        const normalizedQuestions = generated.map((q) => ({
-          ...q, id: q.id || nextAiId('ai-pers'), categoryId: 'mixed', taskId: 'mixed',
-        }));
-        localStorage.setItem(getAiGenStorageKey(), JSON.stringify({
+        const normalizedQuestions = generated.map((q, idx) => {
+          const resolved = resolveMixedQuestionMeta(q, idx, serializedTargets, currentCategoriesSnapshot);
+          return {
+            ...q,
+            id: q.id || nextAiId('ai-pers'),
+            categoryId: 'mixed',
+            taskId: 'mixed',
+            realCategoryId: resolved.realCategoryId,
+            realTaskId: resolved.realTaskId,
+            materia: resolved.materia,
+            assunto: resolved.assunto,
+          };
+        });
+        localStorage.setItem(getAiGenStorageKey(genContestId), JSON.stringify({
           status: 'done', form: genForm, questions: normalizedQuestions, completedAt: Date.now(),
         }));
         return normalizedQuestions;
       } catch (err) {
         if (signal.aborted) return null; // ✅ FIX: Ignorar erros de abort
-        localStorage.setItem(getAiGenStorageKey(), JSON.stringify({
+        localStorage.setItem(getAiGenStorageKey(genContestId), JSON.stringify({
           status: 'error', errorMessage: err.message,
         }));
         throw err;
@@ -508,13 +639,13 @@ export default function AIGeneratedSimulado() {
         setTimerActive(true);
         simStartMsRef.current = Date.now();
         setShowReview(false);
-        localStorage.removeItem(getAiGenStorageKey());
+        localStorage.removeItem(getAiGenStorageKey(genContestId));
         showToast(`Personalizado: ${normalizedQuestions.length} questões focadas nas fraquezas!`, 'success');
       }
     } catch (error) {
       if (!mountedRef.current || signal.aborted) return;
       setForm(previousForm);
-      localStorage.removeItem(getAiGenStorageKey());
+      localStorage.removeItem(getAiGenStorageKey(genContestId));
       showToast(error.message || 'Erro ao gerar questões personalizadas.', 'error');
     } finally {
       const isCurrentGen = activeGenerationRef.current === localPromise;
@@ -704,18 +835,32 @@ export default function AIGeneratedSimulado() {
     const sessionBatchId = generateId('batch');
 
     if (f.categoryId === 'mixed') {
+      const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
+      const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
       const groups = {};
-      answeredQuestions.forEach(q => {
-        const key = `${q.materia}\u0000${q.assunto}`;
-        if (!groups[key]) groups[key] = { materia: q.materia, assunto: q.assunto, correct: 0, total: 0, qs: [], timeSpent: 0 };
+      answeredQuestions.forEach((q, idx) => {
+        const resolved = resolveMixedQuestionMeta(q, idx, f.targets, cats);
+        const effMateria = resolved.materia;
+        const effAssunto = resolved.assunto;
+        const key = `${effMateria}\u0000${effAssunto}`;
+        if (!groups[key]) {
+          groups[key] = {
+            materia: effMateria,
+            assunto: effAssunto,
+            categoryId: resolved.realCategoryId || null,
+            taskId: resolved.realTaskId || null,
+            correct: 0,
+            total: 0,
+            qs: [],
+            timeSpent: 0,
+          };
+        }
         groups[key].qs.push(q);
         groups[key].total++;
         if (q.isCorrect) groups[key].correct++;
         const spent = timePerQ[q.id] || 0;
         groups[key].timeSpent += spent;
       });
-      const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
-      const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
       const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
       const totalCorrectInMixed = Object.values(groups).reduce((acc, g) => acc + g.correct, 0);
 
@@ -725,14 +870,12 @@ export default function AIGeneratedSimulado() {
             const [materia, assunto] = groupKey.split('\u0000');
             const cleanAssunto = String(assunto || '').replace(/\s*\(Nível:.*?\)\s*$/i, '').trim();
 
-            const cat = cats.find(c =>
-              isSubjectMatch(c?.name, materia)
-            );
+            const cat = (g.categoryId && cats.find(c => c && c.id === g.categoryId)) ||
+              cats.find(c => isSubjectMatch(c?.name, materia));
 
             const catTasks = cat?.tasks ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks)) : [];
-            const tsk = catTasks.find(t =>
-              normalize(t?.title || t?.text || '') === normalize(cleanAssunto)
-            );
+            const tsk = (g.taskId && catTasks.find(t => t && t.id === g.taskId)) ||
+              catTasks.find(t => normalize(t?.title || t?.text || '') === normalize(cleanAssunto));
 
             const subForm = {
               ...f,
