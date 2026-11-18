@@ -122,9 +122,22 @@ export const createTaskSlice = (set, get) => ({
                 }
             };
 
+            const stripDupSuffix = (idVal) => String(idVal || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+            const cleanTaskId = stripDupSuffix(taskId);
+
             const matchesTask = (t) => {
                 if (!t) return false;
-                return t.id === taskId || t.text === taskId || t.title === taskId || (typeof getSafeId === 'function' && getSafeId(t) === taskId) || (typeof ensureCoachTaskId === 'function' && ensureCoachTaskId(t)?.id === taskId);
+                const tIdStr = t.id != null ? stripDupSuffix(t.id) : '';
+                const safeIdStr = typeof getSafeId === 'function' ? stripDupSuffix(getSafeId(t)) : '';
+                const ensuredIdStr = typeof ensureCoachTaskId === 'function' ? stripDupSuffix(ensureCoachTaskId(t)?.id) : '';
+                return (
+                    t.id === taskId ||
+                    (cleanTaskId && tIdStr === cleanTaskId) ||
+                    t.text === taskId ||
+                    t.title === taskId ||
+                    (cleanTaskId && safeIdStr === cleanTaskId) ||
+                    (cleanTaskId && ensuredIdStr === cleanTaskId)
+                );
             };
 
             // Search in coachPlan (Backlog)
@@ -136,27 +149,28 @@ export const createTaskSlice = (set, get) => ({
 
             // Search in coachPlanner (Days)
             if (activeData.coachPlanner) {
-                Object.values(activeData.coachPlanner).forEach(dayTasks => {
-                    const task = (dayTasks || []).find(matchesTask);
-                    if (task) handleTask(task);
-                });
-            }
+                    Object.values(activeData.coachPlanner).forEach(rawDayTasks => {
+                        const dayTasks = Array.isArray(rawDayTasks) ? rawDayTasks : Object.values(rawDayTasks || {});
+                        const task = dayTasks.find(matchesTask);
+                        if (task) handleTask(task);
+                    });
+                }
 
             // Search in categories (Priority tasks in Pomodoro Focus Panel / Neural Core)
             if (activeData.categories) {
-                (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
-                    const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(matchesTask);
-                    if (task) handleTask(task);
-                });
-            }
+                    (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
+                        const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(matchesTask);
+                        if (task) handleTask(task);
+                    });
+                }
 
-            if (found) {
-                activeData.lastUpdated = nowIso;
-                state.appState.version = (state.appState.version || 0) + 1;
-                state.appState.lastUpdated = nowIso;
-                markStorageDirty();
-            }
-        });
+                if (found) {
+                    activeData.lastUpdated = nowIso;
+                    state.appState.version = (state.appState.version || 0) + 1;
+                    state.appState.lastUpdated = nowIso;
+                    markStorageDirty();
+                }
+            });
 
         if (pendingXpChange !== 0 && get().awardExperience) {
             get().awardExperience(pendingXpChange, { skipVersionBump: true });
@@ -263,20 +277,20 @@ export const createTaskSlice = (set, get) => ({
         }
 
         const activeSubject = state.appState.pomodoro?.activeSubject;
-            if (activeSubject && matchesActiveSubjectTask(category, currentTask, activeSubject, taskId)) {
-                state.appState.pomodoro.activeSubject = {
-                    ...activeSubject,
-                    task: newTitle,
-                    priority: newPriority
-                };
-            }
+        if (activeSubject && matchesActiveSubjectTask(category, currentTask, activeSubject, taskId)) {
+            state.appState.pomodoro.activeSubject = {
+                ...activeSubject,
+                task: newTitle,
+                priority: newPriority
+            };
+        }
 
-            const nowIso = new Date().toISOString();
-            activeData.lastUpdated = nowIso;
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = nowIso;
-            markStorageDirty();
-        }),
+        const nowIso = new Date().toISOString();
+        activeData.lastUpdated = nowIso;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = nowIso;
+        markStorageDirty();
+    }),
 
     deleteTask: (categoryId, taskId) => {
         let pendingXpDeduction = 0;
@@ -374,24 +388,24 @@ export const createTaskSlice = (set, get) => ({
                 tasks[taskIndex] = task;
 
                 const activeSubject = state.appState.pomodoro?.activeSubject;
-                    if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
-                        state.appState.pomodoro.activeSubject = {
-                            ...activeSubject,
-                            priority: newPriority
-                        };
-                    }
-
-                    // Garante novas referências de array e de objeto para Zustand / React shallow memoization
-                    category.tasks = [...tasks];
-                    activeData.categories = [...categories];
-
-                    const nowIso = new Date().toISOString();
-                    activeData.lastUpdated = nowIso;
-                    state.appState.version = (state.appState.version || 0) + 1;
-                    state.appState.lastUpdated = nowIso;
-                    markStorageDirty();
+                if (activeSubject && matchesActiveSubjectTask(category, task, activeSubject, taskId)) {
+                    state.appState.pomodoro.activeSubject = {
+                        ...activeSubject,
+                        priority: newPriority
+                    };
                 }
-            });
+
+                // Garante novas referências de array e de objeto para Zustand / React shallow memoization
+                category.tasks = [...tasks];
+                activeData.categories = [...categories];
+
+                const nowIso = new Date().toISOString();
+                activeData.lastUpdated = nowIso;
+                state.appState.version = (state.appState.version || 0) + 1;
+                state.appState.lastUpdated = nowIso;
+                markStorageDirty();
+            }
+        });
 
         if (pendingXpDiff !== 0 && typeof get().awardExperience === 'function') {
             get().awardExperience(pendingXpDiff, { skipVersionBump: true });

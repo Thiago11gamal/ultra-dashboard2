@@ -2694,7 +2694,44 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
         const weakTopics = allCategoryTopics.slice(0, tasksPerCategory);
         const mc = cat.urgency?.details?.monteCarlo;
         const iterations = tasksPerCategory;
+        const catTasksList = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).filter(Boolean);
         const assignedTopicNames = new Set();
+        const toTopicKey = (val) => {
+            const raw = String(val || '').trim();
+            if (!raw) return '';
+            return normalize(raw) || raw.toLowerCase();
+        };
+        const markTopicAssigned = (val) => {
+            const k = toTopicKey(val);
+            if (!k) return;
+            assignedTopicNames.add(k);
+            for (const t of catTasksList) {
+                const keys = [
+                    toTopicKey(t.topicName),
+                    toTopicKey(t.topic),
+                    toTopicKey(t.text),
+                    toTopicKey(t.title),
+                    toTopicKey(t.name)
+                ].filter(Boolean);
+                if (keys.includes(k)) {
+                    keys.forEach(aliasKey => assignedTopicNames.add(aliasKey));
+                }
+            }
+        };
+        const isTopicAssigned = (val) => {
+            const k = toTopicKey(val);
+            return k ? assignedTopicNames.has(k) : false;
+        };
+        const isTaskTopicAssigned = (t) => {
+            if (!t) return false;
+            return (
+                isTopicAssigned(t.topicName) ||
+                isTopicAssigned(t.topic) ||
+                isTopicAssigned(t.text) ||
+                isTopicAssigned(t.title) ||
+                isTopicAssigned(t.name)
+            );
+        };
         const getPriorityLabel = (priority = 'high') => {
             if (priority === 'high' || (priority === 'medium' && localPriorityCounter === 0)) {
                 localPriorityCounter++;
@@ -2884,7 +2921,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 ? `${topicSlug || 'topico'}-${i}-${topicHash}`
                 : `geral-${i}`;
             if (weakTopic) {
-                assignedTopicNames.add(weakTopic.name.trim().toLowerCase());
+                markTopicAssigned(weakTopic.name);
                 let reasonStr = "";
                 let topicPriority = 'medium';
                 let actionPrefix = "";
@@ -2953,14 +2990,13 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 // NÍVEL 1: Tópico Dormente / Recência (daysSince >= 14)
                 const dormantCandidates = allCategoryTopics.filter(t => {
                     if (!t || !t.name) return false;
-                    const norm = t.name.trim().toLowerCase();
-                    if (assignedTopicNames.has(norm)) return false;
+                    if (isTopicAssigned(t.name)) return false;
                     return t.total > 0 && t.daysSince >= 14;
                 }).sort((a, b) => b.daysSince - a.daysSince);
 
                 if (dormantCandidates.length > 0) {
                     const dormant = dormantCandidates[0];
-                    assignedTopicNames.add(dormant.name.trim().toLowerCase());
+                    markTopicAssigned(dormant.name);
                     const safeDays = Math.round(dormant.daysSince);
                     const safePct = Math.round(Number(dormant.percentage || 0));
                     const safeSlug = dormant.name.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '');
@@ -2990,19 +3026,18 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
 
                 // NÍVEL 2: Avanço de Edital (Tópicos cadastrados na matéria ainda não concluídos)
                 if (!activeTask) {
-                    const catTasksList = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).filter(Boolean);
                     const uncompletedSyllabusTasks = catTasksList.filter(t => {
                         if (!t || t.completed === true) return false;
                         if (String(t.status || '').toLowerCase() === 'completed') return false;
-                        const title = (t.text || t.title || t.name || '').trim();
+                        const title = (t.topicName || t.topic || t.text || t.title || t.name || '').trim();
                         if (!title) return false;
-                        return !assignedTopicNames.has(title.toLowerCase());
+                        return !isTaskTopicAssigned(t);
                     });
 
                     if (uncompletedSyllabusTasks.length > 0) {
                         const syllabusTask = uncompletedSyllabusTasks[0];
-                        const title = (syllabusTask.text || syllabusTask.title || syllabusTask.name || '').trim();
-                        assignedTopicNames.add(title.toLowerCase());
+                        const title = (syllabusTask.topicName || syllabusTask.topic || syllabusTask.text || syllabusTask.title || syllabusTask.name || '').trim();
+                        markTopicAssigned(title);
                         const safeSlug = title.replace(/\s/g, '').substring(0, 10).replace(/[^a-zA-Z0-9]/g, '');
                         const syllabusPriority = syllabusTask.priority || 'medium';
 
@@ -3077,32 +3112,31 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                 // NÍVEL 4: Consolidação Teórica / Síntese & Mapeamento (Estudo aprofundado)
                 if (!activeTask) {
                     const reviewPriority = 'low';
-                    const availableTopicObj = allCategoryTopics.find(t => t?.name && !assignedTopicNames.has(t.name.trim().toLowerCase()));
-                    const catTasksList = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).filter(Boolean);
+                    const availableTopicObj = allCategoryTopics.find(t => t?.name && !isTopicAssigned(t.name));
                     const uncompletedTask = catTasksList.find(t => {
                         if (t.completed) return false;
-                        const label = (t.text || t.title || t.name || '').trim();
-                        return label && !assignedTopicNames.has(label.toLowerCase());
+                        const label = (t.topicName || t.topic || t.text || t.title || t.name || '').trim();
+                        return label && !isTaskTopicAssigned(t);
                     });
                     const unassignedTask = catTasksList.find(t => {
-                        const label = (t.text || t.title || t.name || '').trim();
-                        return label && !assignedTopicNames.has(label.toLowerCase());
+                        const label = (t.topicName || t.topic || t.text || t.title || t.name || '').trim();
+                        return label && !isTaskTopicAssigned(t);
                     });
                     const synthesisFallbacks = [
                         'Síntese e Mapeamento',
                         'Revisão Estruturada e Esquemas',
                         'Auto-Explicação e Questões-Chave',
                     ];
-                    const fallbackLabel = synthesisFallbacks.find(lbl => !assignedTopicNames.has(lbl.toLowerCase())) ||
+                    const fallbackLabel = synthesisFallbacks.find(lbl => !isTopicAssigned(lbl)) ||
                         `Síntese e Mapeamento (${i + 1})`;
 
                     const resolvedTopicName = availableTopicObj?.name ||
-                        (uncompletedTask ? (uncompletedTask.text || uncompletedTask.title || uncompletedTask.name).trim() : null) ||
-                        (unassignedTask ? (unassignedTask.text || unassignedTask.title || unassignedTask.name).trim() : null) ||
+                        (uncompletedTask ? (uncompletedTask.topicName || uncompletedTask.topic || uncompletedTask.text || uncompletedTask.title || uncompletedTask.name).trim() : null) ||
+                        (unassignedTask ? (unassignedTask.topicName || unassignedTask.topic || unassignedTask.text || unassignedTask.title || unassignedTask.name).trim() : null) ||
                         fallbackLabel;
 
                     if (resolvedTopicName) {
-                        assignedTopicNames.add(resolvedTopicName.trim().toLowerCase());
+                        markTopicAssigned(resolvedTopicName);
                     }
 
                     activeTask = {

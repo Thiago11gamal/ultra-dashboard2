@@ -14,7 +14,7 @@
 const OPTIMIZER_STATE_KEY = 'coach_flag_optimizer_state_v1';
 const ACTIVE_FLAGS_KEY = 'coach_active_flags_v1';
 
-import { writeFlags, readFlags } from '../../utils/coachFeatureStore.js';
+import { writeFlags, readFlags, replaceFlags } from '../../utils/coachFeatureStore.js';
 import { safeSetItem, safeGetJSON, safeRemoveItem } from '../../utils/coachStorage.js';
 import { hashSeed, mulberry32, sampleBeta } from '../random.js';
 
@@ -103,557 +103,557 @@ export function loadPersistedCoachFlags(contestId) {
   const scopedKey = resolveActiveFlagsKey(contestId);
   const persisted = loadJson(scopedKey, null);
 
-  if (persisted && typeof persisted === 'object') {
-    writeFlags(persisted, contestId);
+    if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
+      replaceFlags(persisted, contestId);
+    }
+
+    return readFlags(contestId);
   }
 
-  return readFlags(contestId);
-}
+  /**
+   * Persiste flags ativas.
+   */
+  export function persistCoachFlags(flags, contestId) {
+    return saveJson(resolveActiveFlagsKey(contestId), flags || {});
+  }
 
-/**
- * Persiste flags ativas.
- */
-export function persistCoachFlags(flags, contestId) {
-  return saveJson(resolveActiveFlagsKey(contestId), flags || {});
-}
-
-/**
- * Espaço de estratégias.
- */
-export function getStrategySpace() {
-  return [
-    {
-      id: 'baseline',
-      label: 'Baseline',
-      features: {},
-    },
-    {
-      id: 'lot1-state-space',
-      label: 'Lote 1 — State-Space',
-      features: {
-        useStateSpace: true,
-        useStateSpaceAverage: true,
-        useStateSpaceTrend: true,
+  /**
+   * Espaço de estratégias.
+   */
+  export function getStrategySpace() {
+    return [
+      {
+        id: 'baseline',
+        label: 'Baseline',
+        features: {},
       },
-    },
-    {
-      id: 'lot2-dynamic-volatility',
-      label: 'Lote 2 — Volatilidade dinâmica',
-      features: {
-        useDynamicVolatility: true,
-        useGarchVolatility: true,
+      {
+        id: 'lot1-state-space',
+        label: 'Lote 1 — State-Space',
+        features: {
+          useStateSpace: true,
+          useStateSpaceAverage: true,
+          useStateSpaceTrend: true,
+        },
       },
-    },
-    {
-      id: 'lot3-posterior-mc',
-      label: 'Lote 3 — Posterior Monte Carlo',
-      features: {
-        usePosteriorMonteCarlo: true,
+      {
+        id: 'lot2-dynamic-volatility',
+        label: 'Lote 2 — Volatilidade dinâmica',
+        features: {
+          useDynamicVolatility: true,
+          useGarchVolatility: true,
+        },
       },
-    },
-    {
-      id: 'lot4-bayesian-topics',
-      label: 'Lote 4 — Bayesian Topics',
-      features: {
-        useBayesianTopics: true,
-        useBayesianTopicsForUrgency: true,
+      {
+        id: 'lot3-posterior-mc',
+        label: 'Lote 3 — Posterior Monte Carlo',
+        features: {
+          usePosteriorMonteCarlo: true,
+        },
       },
-    },
-    {
-      id: 'lot5-decision-utility',
-      label: 'Lote 5 — Decision Utility',
-      features: {
-        useDecisionUtility: true,
-        useDecisionUtilityForTopics: true,
-        useDecisionUtilityForBestTask: true,
+      {
+        id: 'lot4-bayesian-topics',
+        label: 'Lote 4 — Bayesian Topics',
+        features: {
+          useBayesianTopics: true,
+          useBayesianTopicsForUrgency: true,
+        },
       },
-    },
-    {
-      id: 'lot7-knowledge-fsrs',
-      label: 'Lote 7 — Knowledge Graph + FSRS',
-      features: {
-        useKnowledgeGraph: true,
-        useKnowledgeGraphForTopics: true,
-        useAdvancedFsrs: true,
-        useFsrsForSrsBoost: true,
-        useFsrsTopicScheduling: true,
+      {
+        id: 'lot5-decision-utility',
+        label: 'Lote 5 — Decision Utility',
+        features: {
+          useDecisionUtility: true,
+          useDecisionUtilityForTopics: true,
+          useDecisionUtilityForBestTask: true,
+        },
       },
-    },
-    {
-      id: 'lot11-causal-policy',
-      label: 'Lote 11 — Causal Uplift & Policy',
-      features: {
-        useCausalUplift: true,
-        usePersonalizedPolicy: true,
-        useCausalTaskSelection: true,
+      {
+        id: 'lot7-knowledge-fsrs',
+        label: 'Lote 7 — Knowledge Graph + FSRS',
+        features: {
+          useKnowledgeGraph: true,
+          useKnowledgeGraphForTopics: true,
+          useAdvancedFsrs: true,
+          useFsrsForSrsBoost: true,
+          useFsrsTopicScheduling: true,
+        },
       },
-    },
-    {
-      id: 'conservative',
-      label: 'Conservador — Lotes 1 + 2',
-      features: {
-        useStateSpace: true,
-        useStateSpaceAverage: true,
-        useStateSpaceTrend: true,
-        useDynamicVolatility: true,
-        useGarchVolatility: true,
+      {
+        id: 'lot11-causal-policy',
+        label: 'Lote 11 — Causal Uplift & Policy',
+        features: {
+          useCausalUplift: true,
+          usePersonalizedPolicy: true,
+          useCausalTaskSelection: true,
+        },
       },
-    },
-    {
-      id: 'balanced',
-      label: 'Equilibrado — Lotes 1 + 2 + 3 + 4',
-      features: {
-        useStateSpace: true,
-        useStateSpaceAverage: true,
-        useStateSpaceTrend: true,
-        useDynamicVolatility: true,
-        useGarchVolatility: true,
-        usePosteriorMonteCarlo: true,
-        useBayesianTopics: true,
-        useBayesianTopicsForUrgency: true,
+      {
+        id: 'conservative',
+        label: 'Conservador — Lotes 1 + 2',
+        features: {
+          useStateSpace: true,
+          useStateSpaceAverage: true,
+          useStateSpaceTrend: true,
+          useDynamicVolatility: true,
+          useGarchVolatility: true,
+        },
       },
-    },
-    {
-      id: 'all-math-lots',
-      label: 'Completo — Todos os lotes matemáticos',
-      features: {
-        useStateSpace: true,
-        useStateSpaceAverage: true,
-        useStateSpaceTrend: true,
-
-        useDynamicVolatility: true,
-        useGarchVolatility: true,
-
-        usePosteriorMonteCarlo: true,
-
-        useBayesianTopics: true,
-        useBayesianTopicsForUrgency: true,
-
-        useDecisionUtility: true,
-        useDecisionUtilityForTopics: true,
-        useDecisionUtilityForBestTask: true,
-
-        useKnowledgeGraph: true,
-        useKnowledgeGraphForTopics: true,
-
-        useAdvancedFsrs: true,
-        useFsrsForSrsBoost: true,
-        useFsrsTopicScheduling: true,
-
-        useCausalUplift: true,
-        usePersonalizedPolicy: true,
-        useCausalTaskSelection: true,
+      {
+        id: 'balanced',
+        label: 'Equilibrado — Lotes 1 + 2 + 3 + 4',
+        features: {
+          useStateSpace: true,
+          useStateSpaceAverage: true,
+          useStateSpaceTrend: true,
+          useDynamicVolatility: true,
+          useGarchVolatility: true,
+          usePosteriorMonteCarlo: true,
+          useBayesianTopics: true,
+          useBayesianTopicsForUrgency: true,
+        },
       },
-    },
-  ];
-}
+      {
+        id: 'all-math-lots',
+        label: 'Completo — Todos os lotes matemáticos',
+        features: {
+          useStateSpace: true,
+          useStateSpaceAverage: true,
+          useStateSpaceTrend: true,
 
-/**
- * Pontua uma estratégia com base em avaliação e saúde.
- */
-export function scoreStrategyEvaluation(summary = {}, latestHealth = null, options = {}) {
-  const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
-  const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
-  const domain = Math.max(1, maxScore - minScore);
+          useDynamicVolatility: true,
+          useGarchVolatility: true,
 
-  const count = Math.max(0, Math.round(Number(summary?.count) || 0));
+          usePosteriorMonteCarlo: true,
 
-  const brier = clampFinite(summary?.probability?.avgBrier, 0, 1, NaN);
-  // FIX: não usar avgAbsoluteError (|p - y|) como substituto de ECE — para p=0.5 perfeitamente calibrado, |p-y|=0.50!
-  const calibrationError = clampFinite(summary?.probability?.ece, 0, 1, NaN);
+          useBayesianTopics: true,
+          useBayesianTopicsForUrgency: true,
 
-  const mae = clampFinite(summary?.score?.mae, 0, domain, NaN);
-  const ndcg = clampFinite(summary?.topics?.avgNdcg, 0, 1, NaN);
-  const uplift = clampFinite(summary?.tasks?.avgUplift, -domain, domain, NaN);
+          useDecisionUtility: true,
+          useDecisionUtilityForTopics: true,
+          useDecisionUtilityForBestTask: true,
 
-  // Scores normalizados.
-  const brierScore = Number.isFinite(brier)
-    ? 1 - clampFinite(brier / 0.30, 0, 1, 1)
-    : 0.35;
+          useKnowledgeGraph: true,
+          useKnowledgeGraphForTopics: true,
 
-  const calibrationScore = Number.isFinite(calibrationError)
-    ? 1 - clampFinite(calibrationError / 0.20, 0, 1, 1)
-    : 0.35;
+          useAdvancedFsrs: true,
+          useFsrsForSrsBoost: true,
+          useFsrsTopicScheduling: true,
 
-  const maeScore = Number.isFinite(mae)
-    ? 1 - clampFinite(mae / (domain * 0.10), 0, 1, 1)
-    : 0.35;
+          useCausalUplift: true,
+          usePersonalizedPolicy: true,
+          useCausalTaskSelection: true,
+        },
+      },
+    ];
+  }
 
-  const ndcgScore = Number.isFinite(ndcg)
-    ? clampFinite(ndcg, 0, 1, 0.35)
-    : 0.35;
+  /**
+   * Pontua uma estratégia com base em avaliação e saúde.
+   */
+  export function scoreStrategyEvaluation(summary = {}, latestHealth = null, options = {}) {
+    const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
+    const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
+    const domain = Math.max(1, maxScore - minScore);
 
-  const upliftScore = Number.isFinite(uplift)
-    ? 0.5 + clampFinite(uplift / (domain * 0.10), -0.5, 0.5, 0)
-    : 0.5;
+    const count = Math.max(0, Math.round(Number(summary?.count) || 0));
 
-  // FIX-M07: NDCG de tópicos (que mede se o sistema identifica os
-  // tópicos certos) tem peso maior. Brier ainda importante mas não domina.
-  const quality =
-    brierScore * 0.25 +
-    calibrationScore * 0.10 +
-    maeScore * 0.15 +
-    ndcgScore * 0.30 +
-    upliftScore * 0.20;
-  // Soma: 0.25+0.10+0.15+0.30+0.20 = 1.00 ✓
+    const brier = clampFinite(summary?.probability?.avgBrier, 0, 1, NaN);
+    // FIX: não usar avgAbsoluteError (|p - y|) como substituto de ECE — para p=0.5 perfeitamente calibrado, |p-y|=0.50!
+    const calibrationError = clampFinite(summary?.probability?.ece, 0, 1, NaN);
 
-  const healthScore = latestHealth?.healthScore != null
-    ? clampFinite(latestHealth.healthScore, 0, 100, 80) / 100
-    : 0.8;
+    const mae = clampFinite(summary?.score?.mae, 0, domain, NaN);
+    const ndcg = clampFinite(summary?.topics?.avgNdcg, 0, 1, NaN);
+    const uplift = clampFinite(summary?.tasks?.avgUplift, -domain, domain, NaN);
 
-  const sampleConfidence = count / (count + 10);
+    // Scores normalizados.
+    const brierScore = Number.isFinite(brier)
+      ? 1 - clampFinite(brier / 0.30, 0, 1, 1)
+      : 0.35;
 
-  const finalScore =
-    (quality * 0.70 + healthScore * 0.30) *
-    (0.45 + 0.55 * sampleConfidence);
+    const calibrationScore = Number.isFinite(calibrationError)
+      ? 1 - clampFinite(calibrationError / 0.20, 0, 1, 1)
+      : 0.35;
 
-  return {
-    strategyId: summary?.strategyId ?? null,
-    final: Number(finalScore.toFixed(6)),
-    quality: Number(quality.toFixed(6)),
-    healthScore: Number(healthScore.toFixed(4)),
-    sampleConfidence: Number(sampleConfidence.toFixed(4)),
-    components: {
-      brierScore: Number(brierScore.toFixed(4)),
-      calibrationScore: Number(calibrationScore.toFixed(4)),
-      maeScore: Number(maeScore.toFixed(4)),
-      ndcgScore: Number(ndcgScore.toFixed(4)),
-      upliftScore: Number(upliftScore.toFixed(4)),
-    },
-  };
-}
+    const maeScore = Number.isFinite(mae)
+      ? 1 - clampFinite(mae / (domain * 0.10), 0, 1, 1)
+      : 0.35;
 
-/**
- * Ranqueia estratégias.
- */
-export function rankStrategies(summaries = {}, latestHealth = null, options = {}) {
-  const strategySpace = Array.isArray(options.strategySpace)
-    ? options.strategySpace
-    : getStrategySpace();
+    const ndcgScore = Number.isFinite(ndcg)
+      ? clampFinite(ndcg, 0, 1, 0.35)
+      : 0.35;
 
-  const ranked = strategySpace.map((strategy) => {
-    const summary = summaries?.[strategy.id] || null;
+    const upliftScore = Number.isFinite(uplift)
+      ? 0.5 + clampFinite(uplift / (domain * 0.10), -0.5, 0.5, 0)
+      : 0.5;
 
-    const evaluation = scoreStrategyEvaluation(
-      summary
-        ? {
+    // FIX-M07: NDCG de tópicos (que mede se o sistema identifica os
+    // tópicos certos) tem peso maior. Brier ainda importante mas não domina.
+    const quality =
+      brierScore * 0.25 +
+      calibrationScore * 0.10 +
+      maeScore * 0.15 +
+      ndcgScore * 0.30 +
+      upliftScore * 0.20;
+    // Soma: 0.25+0.10+0.15+0.30+0.20 = 1.00 ✓
+
+    const healthScore = latestHealth?.healthScore != null
+      ? clampFinite(latestHealth.healthScore, 0, 100, 80) / 100
+      : 0.8;
+
+    const sampleConfidence = count / (count + 10);
+
+    const finalScore =
+      (quality * 0.70 + healthScore * 0.30) *
+      (0.45 + 0.55 * sampleConfidence);
+
+    return {
+      strategyId: summary?.strategyId ?? null,
+      final: Number(finalScore.toFixed(6)),
+      quality: Number(quality.toFixed(6)),
+      healthScore: Number(healthScore.toFixed(4)),
+      sampleConfidence: Number(sampleConfidence.toFixed(4)),
+      components: {
+        brierScore: Number(brierScore.toFixed(4)),
+        calibrationScore: Number(calibrationScore.toFixed(4)),
+        maeScore: Number(maeScore.toFixed(4)),
+        ndcgScore: Number(ndcgScore.toFixed(4)),
+        upliftScore: Number(upliftScore.toFixed(4)),
+      },
+    };
+  }
+
+  /**
+   * Ranqueia estratégias.
+   */
+  export function rankStrategies(summaries = {}, latestHealth = null, options = {}) {
+    const strategySpace = Array.isArray(options.strategySpace)
+      ? options.strategySpace
+      : getStrategySpace();
+
+    const ranked = strategySpace.map((strategy) => {
+      const summary = summaries?.[strategy.id] || null;
+
+      const evaluation = scoreStrategyEvaluation(
+        summary
+          ? {
             ...summary,
             strategyId: strategy.id,
           }
-        : {
+          : {
             count: 0,
             strategyId: strategy.id,
           },
-      latestHealth,
-      options
-    );
+        latestHealth,
+        options
+      );
 
-    return {
-      ...strategy,
-      hasEvidence: Boolean(summary && Number(summary.count) > 0),
-      score: summary ? evaluation.final : 0,
-      evaluation,
-    };
-  });
+      return {
+        ...strategy,
+        hasEvidence: Boolean(summary && Number(summary.count) > 0),
+        score: summary ? evaluation.final : 0,
+        evaluation,
+      };
+    });
 
-  return ranked.sort((a, b) => b.score - a.score);
-}
-
-/**
- * Estado do otimizador para Thompson Sampling.
- */
-export function loadOptimizerState(contestId) {
-  const state = loadJson(resolveOptimizerStateKey(contestId), {});
-  return state && typeof state === 'object' ? state : {};
-}
-
-export function saveOptimizerState(state, contestId) {
-  return saveJson(resolveOptimizerStateKey(contestId), state || {});
-}
-
-export function clearOptimizerState(contestId) {
-  safeRemoveItem(resolveOptimizerStateKey(contestId));
-}
-
-/**
- * Registra recompensa de uma estratégia.
- */
-export function recordStrategyOutcome(strategyId, reward, options = {}) {
-  if (!strategyId) return null;
-
-  const normalizedReward =
-    reward === true
-      ? 1
-      : reward === false
-        ? 0
-        : clampFinite(reward, 0, 1, 0);
-
-  const state = loadOptimizerState(options.contestId);
-  const key = String(strategyId);
-
-  const entry = state[key] || {
-    alpha: 0,
-    beta: 0,
-    trials: 0,
-    createdAt: Date.now(),
-  };
-
-  const maxCount = clampFinite(options.maxCount, 10, 1000, 300);
-  let nextAlpha = (entry.alpha || 0) + normalizedReward;
-  let nextBeta = (entry.beta || 0) + (1 - normalizedReward);
-  const totalEvidence = nextAlpha + nextBeta;
-  if (totalEvidence > maxCount) {
-    const scale = maxCount / totalEvidence;
-    nextAlpha *= scale;
-    nextBeta *= scale;
+    return ranked.sort((a, b) => b.score - a.score);
   }
 
-  entry.alpha = nextAlpha;
-  entry.beta = nextBeta;
-  entry.trials = (entry.trials || 0) + 1;
-  entry.updatedAt = Date.now();
-
-  state[key] = entry;
-  saveOptimizerState(state, options.contestId);
-
-  return entry;
-}
-
-/**
- * Seleciona estratégia por Thompson Sampling.
- */
-export function selectStrategyThompson(rankedStrategies = [], options = {}) {
-  const safeRanked = Array.isArray(rankedStrategies)
-    ? rankedStrategies.filter(Boolean)
-    : [];
-
-  if (safeRanked.length === 0) return 'baseline';
-
-  const state = loadOptimizerState(options.contestId);
-
-  const seed = options.seed ?? `optimizer-${Date.now()}`;
-  const rng = mulberry32(hashSeed(seed));
-
-  const sampled = safeRanked.map((strategy) => {
-    const entry = state?.[strategy.id] || {};
-
-    const baseScore = clampFinite(strategy.score, 0, 1, 0);
-
-    const alpha =
-      1 +
-      (entry.alpha || 0) +
-      baseScore * 5;
-
-    const beta =
-      1 +
-      (entry.beta || 0) +
-      (1 - baseScore) * 5;
-
-    const sampledScore = sampleBeta(alpha, beta, rng);
-
-    return {
-      ...strategy,
-      sampledScore,
-    };
-  });
-
-  sampled.sort((a, b) => b.sampledScore - a.sampledScore);
-
-  return sampled[0]?.id || 'baseline';
-}
-
-/**
- * Recomenda uma ação: keep, promote, rollback ou explore.
- */
-export function recommendFlagConfig(input = {}) {
-  const ranked = Array.isArray(input.ranked) ? input.ranked : [];
-
-  const latestHealth = input.latestHealth || null;
-
-  const currentFeatures =
-    input.currentFeatures && typeof input.currentFeatures === 'object'
-      ? input.currentFeatures
-      : readFlags(input.contestId);
-
-  const minImprovement = clampFinite(input.minImprovement, 0, 1, 0.02);
-
-  const baseline = ranked.find((strategy) => strategy.id === 'baseline') || null;
-  const best = ranked[0] || null;
-
-  // Rollback por saúde crítica.
-  if (latestHealth?.status === 'critical' && input.allowRollback !== false) {
-    return {
-      action: 'rollback',
-      strategyId: 'baseline',
-      features: {},
-      reason:
-        'Health score crítico detectado. Recomendação automática: retornar ao baseline.',
-      latestHealthScore: latestHealth?.healthScore ?? null,
-      ranked: ranked.slice(0, 5),
-    };
+  /**
+   * Estado do otimizador para Thompson Sampling.
+   */
+  export function loadOptimizerState(contestId) {
+    const state = loadJson(resolveOptimizerStateKey(contestId), {});
+    return state && typeof state === 'object' ? state : {};
   }
 
-  // Exploração opcional.
-  if (input.exploration === true && ranked.length > 1) {
-    const selectedId = selectStrategyThompson(ranked, input);
+  export function saveOptimizerState(state, contestId) {
+    return saveJson(resolveOptimizerStateKey(contestId), state || {});
+  }
 
-    if (selectedId && selectedId !== 'baseline') {
-      const selectedStrategy = ranked.find((s) => s.id === selectedId);
+  export function clearOptimizerState(contestId) {
+    safeRemoveItem(resolveOptimizerStateKey(contestId));
+  }
 
-      if (selectedStrategy) {
-        return {
-          action: 'explore',
-          strategyId: selectedStrategy.id,
-          features: selectedStrategy.features,
-          reason:
-            'Modo de exploração ativo. Estratégia selecionada por Thompson Sampling.',
-          ranked: ranked.slice(0, 5),
-        };
+  /**
+   * Registra recompensa de uma estratégia.
+   */
+  export function recordStrategyOutcome(strategyId, reward, options = {}) {
+    if (!strategyId) return null;
+
+    const normalizedReward =
+      reward === true
+        ? 1
+        : reward === false
+          ? 0
+          : clampFinite(reward, 0, 1, 0);
+
+    const state = loadOptimizerState(options.contestId);
+    const key = String(strategyId);
+
+    const entry = state[key] || {
+      alpha: 0,
+      beta: 0,
+      trials: 0,
+      createdAt: Date.now(),
+    };
+
+    const maxCount = clampFinite(options.maxCount, 10, 1000, 300);
+    let nextAlpha = (entry.alpha || 0) + normalizedReward;
+    let nextBeta = (entry.beta || 0) + (1 - normalizedReward);
+    const totalEvidence = nextAlpha + nextBeta;
+    if (totalEvidence > maxCount) {
+      const scale = maxCount / totalEvidence;
+      nextAlpha *= scale;
+      nextBeta *= scale;
+    }
+
+    entry.alpha = nextAlpha;
+    entry.beta = nextBeta;
+    entry.trials = (entry.trials || 0) + 1;
+    entry.updatedAt = Date.now();
+
+    state[key] = entry;
+    saveOptimizerState(state, options.contestId);
+
+    return entry;
+  }
+
+  /**
+   * Seleciona estratégia por Thompson Sampling.
+   */
+  export function selectStrategyThompson(rankedStrategies = [], options = {}) {
+    const safeRanked = Array.isArray(rankedStrategies)
+      ? rankedStrategies.filter(Boolean)
+      : [];
+
+    if (safeRanked.length === 0) return 'baseline';
+
+    const state = loadOptimizerState(options.contestId);
+
+    const seed = options.seed ?? `optimizer-${Date.now()}`;
+    const rng = mulberry32(hashSeed(seed));
+
+    const sampled = safeRanked.map((strategy) => {
+      const entry = state?.[strategy.id] || {};
+
+      const baseScore = clampFinite(strategy.score, 0, 1, 0);
+
+      const alpha =
+        1 +
+        (entry.alpha || 0) +
+        baseScore * 5;
+
+      const beta =
+        1 +
+        (entry.beta || 0) +
+        (1 - baseScore) * 5;
+
+      const sampledScore = sampleBeta(alpha, beta, rng);
+
+      return {
+        ...strategy,
+        sampledScore,
+      };
+    });
+
+    sampled.sort((a, b) => b.sampledScore - a.sampledScore);
+
+    return sampled[0]?.id || 'baseline';
+  }
+
+  /**
+   * Recomenda uma ação: keep, promote, rollback ou explore.
+   */
+  export function recommendFlagConfig(input = {}) {
+    const ranked = Array.isArray(input.ranked) ? input.ranked : [];
+
+    const latestHealth = input.latestHealth || null;
+
+    const currentFeatures =
+      input.currentFeatures && typeof input.currentFeatures === 'object'
+        ? input.currentFeatures
+        : readFlags(input.contestId);
+
+    const minImprovement = clampFinite(input.minImprovement, 0, 1, 0.02);
+
+    const baseline = ranked.find((strategy) => strategy.id === 'baseline') || null;
+    const best = ranked[0] || null;
+
+    // Rollback por saúde crítica.
+    if (latestHealth?.status === 'critical' && input.allowRollback !== false) {
+      return {
+        action: 'rollback',
+        strategyId: 'baseline',
+        features: {},
+        reason:
+          'Health score crítico detectado. Recomendação automática: retornar ao baseline.',
+        latestHealthScore: latestHealth?.healthScore ?? null,
+        ranked: ranked.slice(0, 5),
+      };
+    }
+
+    // Exploração opcional.
+    if (input.exploration === true && ranked.length > 1) {
+      const selectedId = selectStrategyThompson(ranked, input);
+
+      if (selectedId && selectedId !== 'baseline') {
+        const selectedStrategy = ranked.find((s) => s.id === selectedId);
+
+        if (selectedStrategy) {
+          return {
+            action: 'explore',
+            strategyId: selectedStrategy.id,
+            features: selectedStrategy.features,
+            reason:
+              'Modo de exploração ativo. Estratégia selecionada por Thompson Sampling.',
+            ranked: ranked.slice(0, 5),
+          };
+        }
       }
     }
-  }
 
-  if (!best || !best.hasEvidence) {
-    return {
-      action: 'keep',
-      strategyId: 'baseline',
-      features: currentFeatures,
-      reason: 'Sem evidência suficiente para promover mudança.',
-      ranked: ranked.slice(0, 5),
-    };
-  }
-
-  const baselineScore = baseline?.score ?? 0;
-
-  if (best.id === 'baseline') {
-    const activeExperimentalNames = EXPERIMENTAL_MATH_FLAGS.filter(
-      (flag) => currentFeatures?.[flag] === true
-    );
-    if (activeExperimentalNames.length > 0 && input.allowRollback !== false) {
-      const matchedActive = ranked.find((strategy) => {
-        if (strategy.id === 'baseline') return false;
-        const stratTrueFlags = EXPERIMENTAL_MATH_FLAGS.filter(
-          (flag) => strategy.features?.[flag] === true
-        );
-        return (
-          stratTrueFlags.length === activeExperimentalNames.length &&
-          stratTrueFlags.every((flag) => currentFeatures?.[flag] === true)
-        );
-      });
-      const activeScore = matchedActive?.hasEvidence ? matchedActive.score : -Infinity;
-      if (best.score >= activeScore + minImprovement) {
-        return {
-          action: 'rollback',
-          strategyId: 'baseline',
-          features: getSafeBaselineFeatures(),
-          reason:
-            'O baseline supera as flags experimentais ativas com margem suficiente. Recomendação: rollback seguro.',
-          score: best.score,
-          baselineScore,
-          ranked: ranked.slice(0, 5),
-        };
-      }
+    if (!best || !best.hasEvidence) {
+      return {
+        action: 'keep',
+        strategyId: 'baseline',
+        features: currentFeatures,
+        reason: 'Sem evidência suficiente para promover mudança.',
+        ranked: ranked.slice(0, 5),
+      };
     }
-    return {
-      action: 'keep',
-      strategyId: 'baseline',
-      features: {},
-      reason: 'O baseline é a melhor estratégia comprovada.',
-      score: best.score,
-      baselineScore,
-      ranked: ranked.slice(0, 5),
-    };
-  }
 
-  if (best.score < baselineScore + minImprovement) {
+    const baselineScore = baseline?.score ?? 0;
+
+    if (best.id === 'baseline') {
+      const activeExperimentalNames = EXPERIMENTAL_MATH_FLAGS.filter(
+        (flag) => currentFeatures?.[flag] === true
+      );
+      if (activeExperimentalNames.length > 0 && input.allowRollback !== false) {
+        const matchedActive = ranked.find((strategy) => {
+          if (strategy.id === 'baseline') return false;
+          const stratTrueFlags = EXPERIMENTAL_MATH_FLAGS.filter(
+            (flag) => strategy.features?.[flag] === true
+          );
+          return (
+            stratTrueFlags.length === activeExperimentalNames.length &&
+            stratTrueFlags.every((flag) => currentFeatures?.[flag] === true)
+          );
+        });
+        const activeScore = matchedActive?.hasEvidence ? matchedActive.score : -Infinity;
+        if (best.score >= activeScore + minImprovement) {
+          return {
+            action: 'rollback',
+            strategyId: 'baseline',
+            features: getSafeBaselineFeatures(),
+            reason:
+              'O baseline supera as flags experimentais ativas com margem suficiente. Recomendação: rollback seguro.',
+            score: best.score,
+            baselineScore,
+            ranked: ranked.slice(0, 5),
+          };
+        }
+      }
+      return {
+        action: 'keep',
+        strategyId: 'baseline',
+        features: {},
+        reason: 'O baseline é a melhor estratégia comprovada.',
+        score: best.score,
+        baselineScore,
+        ranked: ranked.slice(0, 5),
+      };
+    }
+
+    if (best.score < baselineScore + minImprovement) {
+      return {
+        action: 'keep',
+        strategyId: best.id,
+        features: currentFeatures,
+        reason:
+          'A estratégia candidata supera o baseline, mas a margem é insuficiente para justificar mudança.',
+        score: best.score,
+        baselineScore,
+        minImprovement,
+        ranked: ranked.slice(0, 5),
+      };
+    }
+
     return {
-      action: 'keep',
+      action: 'promote',
       strategyId: best.id,
-      features: currentFeatures,
-      reason:
-        'A estratégia candidata supera o baseline, mas a margem é insuficiente para justificar mudança.',
+      features: best.features,
+      reason: 'Estratégia candidata supera o baseline com margem mínima.',
       score: best.score,
       baselineScore,
-      minImprovement,
       ranked: ranked.slice(0, 5),
     };
   }
 
-  return {
-    action: 'promote',
-    strategyId: best.id,
-    features: best.features,
-    reason: 'Estratégia candidata supera o baseline com margem mínima.',
-    score: best.score,
-    baselineScore,
-    ranked: ranked.slice(0, 5),
-  };
-}
+  /**
+   * Aplica recomendação de flags.
+   *
+   * Só aplica se:
+   * - options.force === true; ou
+   * - globalThis.__COACH_FEATURES__.useAutoFlagApplication === true.
+   */
+  export function applyRecommendedFlags(recommendation, options = {}) {
+    if (!recommendation || typeof recommendation !== 'object') return false;
 
-/**
- * Aplica recomendação de flags.
- *
- * Só aplica se:
- * - options.force === true; ou
- * - globalThis.__COACH_FEATURES__.useAutoFlagApplication === true.
- */
-export function applyRecommendedFlags(recommendation, options = {}) {
-  if (!recommendation || typeof recommendation !== 'object') return false;
+    const allowAuto =
+      options.force === true ||
+      readFlags(options.contestId).useAutoFlagApplication === true;
 
-  const allowAuto =
-    options.force === true ||
-    readFlags(options.contestId).useAutoFlagApplication === true;
+    if (!allowAuto) return false;
 
-  if (!allowAuto) return false;
+    if (recommendation.action === 'keep') return false;
 
-  if (recommendation.action === 'keep') return false;
+    const current = readFlags(options.contestId);
+    const safeBaseline = getSafeBaselineFeatures();
 
-  const current = readFlags(options.contestId);
-  const safeBaseline = getSafeBaselineFeatures();
+    let next = { ...current };
 
-  let next = { ...current };
+    if (recommendation.action === 'rollback') {
+      next = {
+        ...next,
+        ...safeBaseline,
+      };
+    } else if (recommendation.action === 'promote') {
+      next = {
+        ...next,
+        ...safeBaseline,
+        ...(recommendation.features || {}),
+      };
+    } else if (recommendation.action === 'explore') {
+      next = {
+        ...next,
+        ...safeBaseline,
+        ...(recommendation.features || {}),
+      };
+    } else {
+      return false;
+    }
 
-  if (recommendation.action === 'rollback') {
-    next = {
-      ...next,
-      ...safeBaseline,
-    };
-  } else if (recommendation.action === 'promote') {
-    next = {
-      ...next,
-      ...safeBaseline,
-      ...(recommendation.features || {}),
-    };
-  } else if (recommendation.action === 'explore') {
-    next = {
-      ...next,
-      ...safeBaseline,
-      ...(recommendation.features || {}),
-    };
-  } else {
-    return false;
+    writeFlags(next, options.contestId);
+    persistCoachFlags(next, options.contestId);
+
+    return true;
   }
 
-  writeFlags(next, options.contestId);
-  persistCoachFlags(next, options.contestId);
-
-  return true;
-}
-
-export default {
-  EXPERIMENTAL_MATH_FLAGS,
-  getSafeBaselineFeatures,
-  loadPersistedCoachFlags,
-  persistCoachFlags,
-  getStrategySpace,
-  scoreStrategyEvaluation,
-  rankStrategies,
-  loadOptimizerState,
-  saveOptimizerState,
-  clearOptimizerState,
-  recordStrategyOutcome,
-  selectStrategyThompson,
-  recommendFlagConfig,
-  applyRecommendedFlags,
-};
+  export default {
+    EXPERIMENTAL_MATH_FLAGS,
+    getSafeBaselineFeatures,
+    loadPersistedCoachFlags,
+    persistCoachFlags,
+    getStrategySpace,
+    scoreStrategyEvaluation,
+    rankStrategies,
+    loadOptimizerState,
+    saveOptimizerState,
+    clearOptimizerState,
+    recordStrategyOutcome,
+    selectStrategyThompson,
+    recommendFlagConfig,
+    applyRecommendedFlags,
+  };
 

@@ -11,13 +11,17 @@ export const ensureCoachTaskId = (task) => {
   if (!task || typeof task !== 'object') return task;
   const hasValidStringId = typeof task.id === 'string' && task.id.trim().length > 0;
   const hasValidNumericId = typeof task.id === 'number' && Number.isFinite(task.id) && task.id !== 0;
-  if (hasValidStringId || hasValidNumericId) return task;
+  if (hasValidStringId) {
+    return task.id === task.id.trim() ? task : { ...task, id: task.id.trim() };
+  }
+  if (hasValidNumericId) return task;
   const currentKey = [
     task.title || '',
     task.text || '',
     task.categoryId || '',
+    task.category || task.catName || '',
     task.subject || '',
-    task.topic || '',
+    task.topicName || task.topic || '',
     task.priority || '',
     task.date || task.createdAt || ''
   ].join('|');
@@ -26,8 +30,10 @@ export const ensureCoachTaskId = (task) => {
     return cached.enrichedTask;
   }
 
-  const stableId = getSafeId(task) ||
-    `coach-task-${hashString(currentKey)}`;
+  const candidateId = getSafeId(task);
+  const stableId = (candidateId && candidateId !== 'task-null-sentinel')
+    ? candidateId
+    : `coach-task-${hashString(currentKey)}`;
   const enrichedTask = { ...task, id: stableId };
   _taskIdWeakMap.set(task, { compositeKey: currentKey, enrichedTask });
   return enrichedTask;

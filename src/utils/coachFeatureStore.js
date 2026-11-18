@@ -6,6 +6,28 @@
 
 const FLAG_REGISTRY_KEY = '__COACH_FEATURE_REGISTRY__';
 const ACTIVE_CONTEST_KEY = '__COACH_ACTIVE_CONTEST_ID__';
+const _flagListeners = new Set();
+
+function notifyFlagListeners(contestId) {
+  const scope = String(contestId || getCoachFeatureContestScope() || 'default');
+  const snapshot = readFlags(scope);
+  _flagListeners.forEach((listener) => {
+    try {
+      listener(snapshot, scope);
+    } catch {
+      // ignore listener errors
+    }
+  });
+}
+
+/** Registra listener para mudanças em feature flags. Retorna função de unsubscribe. */
+export function subscribeFlags(listener) {
+  if (typeof listener !== 'function') return () => {};
+  _flagListeners.add(listener);
+  return () => {
+    _flagListeners.delete(listener);
+  };
+}
 
 export function setCoachFeatureContestScope(contestId = 'default') {
   if (typeof globalThis === 'undefined') return;
@@ -45,6 +67,7 @@ export function writeFlags(patch, contestId) {
     }
   }
   Object.assign(registry, clean);
+  notifyFlagListeners(contestId);
   return readFlags(contestId);
 }
 
@@ -52,6 +75,7 @@ export function writeFlags(patch, contestId) {
 export function removeFlag(key, contestId) {
   const registry = getRegistry(contestId);
   delete registry[key];
+  notifyFlagListeners(contestId);
   return readFlags(contestId);
 }
 
@@ -74,6 +98,7 @@ export function replaceFlags(flags, contestId) {
 
   for (const key of Object.keys(registry)) delete registry[key];
   Object.assign(registry, next);
+  notifyFlagListeners(contestId);
 
   return readFlags(contestId);
 }

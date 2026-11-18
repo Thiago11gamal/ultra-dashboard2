@@ -151,6 +151,16 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
       : safeInput;
   const categories = safeArray(safeInput.categories);
   const simulados = safeArray(safeInput.simulados);
+  const effectiveSimulados = simulados.length > 0
+    ? simulados
+    : categories.flatMap((cat) => {
+      const hist = safeArray(cat?.simuladoStats?.history);
+      return hist.map((entry) => ({
+        ...entry,
+        categoryId: entry?.categoryId ?? cat?.id,
+        subject: entry?.subject || entry?.categoryName || cat?.name || '',
+      }));
+    });
   const studyLogs = safeArray(safeInput.studyLogs);
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
   const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
@@ -252,11 +262,14 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
     // ==========================================================
     let health = null;
     const shouldRunHealth =
-      options.runHealth !== false &&
+      options.runHealth === true ||
+      (
+        options.runHealth !== false &&
       (
         getFeature(features, 'useObservability', false, contestId) ||
         getFeature(features, 'useDriftGuard', false, contestId) ||
         getFeature(features, 'useOrchestratorHealth', false, contestId)
+      )
       );
 
     if (shouldRunHealth) {
@@ -273,280 +286,280 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
             sampleSize: 0,
           };
           if (observabilityModule.extractObservabilitySeries) {
-            series = observabilityModule.extractObservabilitySeries(simulados, {
-              maxScore,
-              minScore,
-            });
-          }
-          health = observabilityModule.runCoachDriftGuard({
-            contestId,
-            scores: series.scores || [],
-            volatilities: series.volatilities || [],
-            sampleSize: series.sampleSize ?? 0,
-            features,
-            saveSnapshot: options.saveHealthSnapshots === true,
-          });
-        } catch (err) {
-          meta.errors.push({
-            step: 'observability',
-            message: err?.message || String(err),
-          });
-        }
-      }
-    }
-
-    // ==========================================================
-    // 3. Causal Uplift / Policy Engine
-    // ==========================================================
-    let causalModule = null;
-    let causalModel = null;
-    const shouldLoadCausal =
-      options.trainCausalModel === true ||
-      getFeature(features, 'useCausalUplift', false, contestId) ||
-      getFeature(features, 'usePersonalizedPolicy', false, contestId) ||
-      getFeature(features, 'useCausalTaskSelection', false, contestId);
-
-    if (shouldLoadCausal) {
-      ensureNotAborted('causal');
-      causalModule = await loadOptionalModule('coachCausal', meta);
-      if (causalModule) {
-        try {
-          if (typeof causalModule.loadCausalModel === 'function') {
-            causalModel = causalModule.loadCausalModel(contestId);
-          }
-          if (options.trainCausalModel === true || (!causalModel && options.trainCausalModel !== false)) {
-            const events = causalModule.buildCausalEventsFromHistory?.(
-              categories,
-              simulados,
-              studyLogs,
-              {
+              series = observabilityModule.extractObservabilitySeries(effectiveSimulados, {
                 maxScore,
                 minScore,
-                minTreatmentMinutes: options.minTreatmentMinutes ?? 60,
-                maxHorizonDays: options.maxHorizonDays ?? 45,
-              }
-            );
-            if (Array.isArray(events) && events.length > 0) {
-              causalModel = causalModule.trainCausalModel?.(events, {
-                contestId,
-                maxScore,
-                minScore,
-                method: options.causalMethod || 'auto',
-                useBootstrap: getFeature(features, 'useCausalBootstrap', false, contestId),
-                bootstrapIterations: options.causalBootstrapIterations ?? 100,
-                save: true,
               });
             }
+          health = observabilityModule.runCoachDriftGuard({
+              contestId,
+              scores: series.scores || [],
+              volatilities: series.volatilities || [],
+              sampleSize: series.sampleSize ?? 0,
+              features,
+              saveSnapshot: options.saveHealthSnapshots === true,
+            });
+          } catch (err) {
+            meta.errors.push({
+              step: 'observability',
+              message: err?.message || String(err),
+            });
           }
-        } catch (err) {
-          meta.errors.push({
-            step: 'causal',
-            message: err?.message || String(err),
-          });
+        }
+    }
+
+      // ==========================================================
+      // 3. Causal Uplift / Policy Engine
+      // ==========================================================
+      let causalModule = null;
+      let causalModel = null;
+      const shouldLoadCausal =
+        options.trainCausalModel === true ||
+        getFeature(features, 'useCausalUplift', false, contestId) ||
+        getFeature(features, 'usePersonalizedPolicy', false, contestId) ||
+        getFeature(features, 'useCausalTaskSelection', false, contestId);
+
+      if (shouldLoadCausal) {
+        ensureNotAborted('causal');
+        causalModule = await loadOptionalModule('coachCausal', meta);
+        if (causalModule) {
+          try {
+            if (typeof causalModule.loadCausalModel === 'function') {
+              causalModel = causalModule.loadCausalModel(contestId);
+            }
+            if (options.trainCausalModel === true || (!causalModel && options.trainCausalModel !== false)) {
+              const events = causalModule.buildCausalEventsFromHistory?.(
+                categories,
+                effectiveSimulados,
+                studyLogs,
+                {
+                  maxScore,
+                  minScore,
+                  minTreatmentMinutes: options.minTreatmentMinutes ?? 60,
+                  maxHorizonDays: options.maxHorizonDays ?? 45,
+                }
+              );
+              if (Array.isArray(events) && events.length > 0) {
+                causalModel = causalModule.trainCausalModel?.(events, {
+                  contestId,
+                  maxScore,
+                  minScore,
+                  method: options.causalMethod || 'auto',
+                  useBootstrap: getFeature(features, 'useCausalBootstrap', false, contestId),
+                  bootstrapIterations: options.causalBootstrapIterations ?? 100,
+                  save: true,
+                });
+              }
+            }
+          } catch (err) {
+            meta.errors.push({
+              step: 'causal',
+              message: err?.message || String(err),
+            });
+          }
         }
       }
-    }
 
-    // ==========================================================
-    // 4. Motor principal do Coach
-    // ==========================================================
-    const coachOptions = {
-      ...options,
-      maxScore,
-      minScore,
-      targetScore,
-      features,
-      allCategories: categories,
-      signal: controller.signal,
-    };
+      // ==========================================================
+      // 4. Motor principal do Coach
+      // ==========================================================
+      const coachOptions = {
+        ...options,
+        maxScore,
+        minScore,
+        targetScore,
+        features,
+        allCategories: categories,
+        signal: controller.signal,
+      };
 
-    let focus = null;
-    let tasks = [];
-    let bestTask = null;
+      let focus = null;
+      let tasks = [];
+      let bestTask = null;
 
-    try {
-      ensureNotAborted('getSuggestedFocus');
-      focus = getSuggestedFocus(categories, simulados, studyLogs, coachOptions);
-    } catch (err) {
-      if (controller.signal.aborted) throw err;
-      meta.errors.push({
-        step: 'getSuggestedFocus',
-        message: err?.message || String(err),
-      });
-    }
-
-    try {
-      ensureNotAborted('generateDailyGoals');
-      tasks = generateDailyGoals(categories, simulados, studyLogs, coachOptions);
-    } catch (err) {
-      if (controller.signal.aborted) throw err;
-      meta.errors.push({
-        step: 'generateDailyGoals',
-        message: err?.message || String(err),
-      });
-    }
-
-    try {
-      ensureNotAborted('getBestTask');
-      bestTask = getBestTask(categories, options.excludeTaskId ?? null, coachOptions);
-    } catch (err) {
-      if (controller.signal.aborted) throw err;
-      meta.errors.push({
-        step: 'getBestTask',
-        message: err?.message || String(err),
-      });
-    }
-
-    // ==========================================================
-    // 5. Reordenação causal de tarefas
-    // ==========================================================
-    if (
-      (
-        getFeature(features, 'useCausalTaskSelection', false, contestId) ||
-        getFeature(features, 'usePersonalizedPolicy', false, contestId)
-      ) &&
-      causalModule?.rerankCoachTasksWithCausalPolicy &&
-      causalModel &&
-      Array.isArray(tasks) &&
-      tasks.length > 0
-    ) {
-      ensureNotAborted('causalTaskRerank');
       try {
-        tasks = causalModule.rerankCoachTasksWithCausalPolicy(
-          tasks,
-          causalModel,
-          {
-            maxScore,
-            minScore,
-            healthStatus: health?.status || null,
-            causalWeight: options.causalWeight ?? 0.35,
-          }
-        );
+        ensureNotAborted('getSuggestedFocus');
+        focus = getSuggestedFocus(categories, simulados, studyLogs, coachOptions);
       } catch (err) {
+        if (controller.signal.aborted) throw err;
         meta.errors.push({
-          step: 'causalTaskRerank',
+          step: 'getSuggestedFocus',
           message: err?.message || String(err),
         });
       }
-    }
 
-    // ==========================================================
-    // 6. Explicação LLM opcional
-    // ==========================================================
-    let llmExplanation = null;
-    const shouldRunLLM =
-      options.runLLM === true ||
-      (
-        options.runLLM !== false &&
+      try {
+        ensureNotAborted('generateDailyGoals');
+        tasks = generateDailyGoals(categories, simulados, studyLogs, coachOptions);
+      } catch (err) {
+        if (controller.signal.aborted) throw err;
+        meta.errors.push({
+          step: 'generateDailyGoals',
+          message: err?.message || String(err),
+        });
+      }
+
+      try {
+        ensureNotAborted('getBestTask');
+        bestTask = getBestTask(categories, options.excludeTaskId ?? null, coachOptions);
+      } catch (err) {
+        if (controller.signal.aborted) throw err;
+        meta.errors.push({
+          step: 'getBestTask',
+          message: err?.message || String(err),
+        });
+      }
+
+      // ==========================================================
+      // 5. Reordenação causal de tarefas
+      // ==========================================================
+      if (
         (
-          getFeature(features, 'useLLMExplanations', false, contestId) ||
-          getFeature(features, 'useOrchestratorLLM', false, contestId)
-        )
-      );
-
-    if (shouldRunLLM && focus?.urgency) {
-      ensureNotAborted('llmExplanation');
-      const explanationModule = await loadOptionalModule(
-        'explanationAgent',
-        meta
-      );
-      if (explanationModule?.enhanceCoachResultWithLLM) {
-        let llmTimerId = null;
+          getFeature(features, 'useCausalTaskSelection', false, contestId) ||
+          getFeature(features, 'usePersonalizedPolicy', false, contestId)
+        ) &&
+        causalModule?.rerankCoachTasksWithCausalPolicy &&
+        causalModel &&
+        Array.isArray(tasks) &&
+        tasks.length > 0
+      ) {
+        ensureNotAborted('causalTaskRerank');
         try {
-          const llmTimeout = new Promise((_, reject) => {
-            llmTimerId = setTimeout(() => reject(new Error('LLM timeout')), 5000);
-          });
-          const enhanced = await Promise.race([
-            explanationModule.enhanceCoachResultWithLLM(
-              focus.urgency,
-              {
-                features: {
-                  ...features,
-                  ...(options.runLLM === true ? { useLLMExplanations: true } : {}),
-                },
-                context: {
-                  categoryName: focus.name || focus.categoryName || null,
-                  maxScore,
-                  minScore,
-                  targetScore,
-                },
-              }
-            ),
-            llmTimeout
-          ]);
-          llmExplanation = enhanced?.llmExplanation || null;
-          if (llmExplanation && focus.urgency) {
-            focus.urgency.llmExplanation = llmExplanation;
-          }
+          tasks = causalModule.rerankCoachTasksWithCausalPolicy(
+            tasks,
+            causalModel,
+            {
+              maxScore,
+              minScore,
+              healthStatus: health?.status || null,
+              causalWeight: options.causalWeight ?? 0.35,
+            }
+          );
         } catch (err) {
           meta.errors.push({
-            step: 'llmExplanation',
-            message: err?.message || String(err),
-          });
-        } finally {
-          if (llmTimerId !== null) clearTimeout(llmTimerId);
-        }
-      }
-    }
-
-    // ==========================================================
-    // 7. AutoTuner opcional
-    // ==========================================================
-    let tuner = null;
-    const shouldRunTuner =
-      options.runAutoTuner === true &&
-      (
-        getFeature(features, 'useAutoTuner', false, contestId) ||
-        getFeature(features, 'useOrchestratorAutoTuner', false, contestId)
-      );
-
-    if (shouldRunTuner) {
-      ensureNotAborted('autoTuner');
-      const tunerModule =
-        optimizerModule || (await loadOptionalModule('coachOptimizer', meta));
-      if (tunerModule?.runCoachAutoTuner) {
-        try {
-          tuner = await tunerModule.runCoachAutoTuner({
-            maxScore,
-            minScore,
-            contestId,
-            currentFeatures: features,
-            force: true,
-            autoApply: options.autoApplyTuner === true,
-            forceApply: options.forceApplyTuner === true,
-            minImprovement: options.minImprovement ?? 0.02,
-            exploration: options.exploration === true,
-          });
-          if (tuner?.applied) {
-            clearCoachCaches();
-          }
-        } catch (err) {
-          meta.errors.push({
-            step: 'autoTuner',
+            step: 'causalTaskRerank',
             message: err?.message || String(err),
           });
         }
       }
-    }
 
-    // ==========================================================
-    // 8. Resultado unificado
-    // ==========================================================
-    return {
-      ok: true,
-      generatedAt: Date.now(),
-      durationMs: Date.now() - startedAt,
-      version: ORCHESTRATOR_VERSION,
-      aborted: controller.signal.aborted,
-      focus,
-      tasks: Array.isArray(tasks) ? tasks : [],
-      bestTask,
-      health: health || null,
-      tuner: tuner || null,
-      causal: {
-        available: Boolean(causalModel),
-        model: causalModel
-          ? {
+      // ==========================================================
+      // 6. Explicação LLM opcional
+      // ==========================================================
+      let llmExplanation = null;
+      const shouldRunLLM =
+        options.runLLM === true ||
+        (
+          options.runLLM !== false &&
+          (
+            getFeature(features, 'useLLMExplanations', false, contestId) ||
+            getFeature(features, 'useOrchestratorLLM', false, contestId)
+          )
+        );
+
+      if (shouldRunLLM && focus?.urgency) {
+        ensureNotAborted('llmExplanation');
+        const explanationModule = await loadOptionalModule(
+          'explanationAgent',
+          meta
+        );
+        if (explanationModule?.enhanceCoachResultWithLLM) {
+          let llmTimerId = null;
+          try {
+            const llmTimeout = new Promise((_, reject) => {
+              llmTimerId = setTimeout(() => reject(new Error('LLM timeout')), 5000);
+            });
+            const enhanced = await Promise.race([
+              explanationModule.enhanceCoachResultWithLLM(
+                focus.urgency,
+                {
+                  features: {
+                    ...features,
+                    ...(options.runLLM === true ? { useLLMExplanations: true } : {}),
+                  },
+                  context: {
+                    categoryName: focus.name || focus.categoryName || null,
+                    maxScore,
+                    minScore,
+                    targetScore,
+                  },
+                }
+              ),
+              llmTimeout
+            ]);
+            llmExplanation = enhanced?.llmExplanation || null;
+            if (llmExplanation && focus.urgency) {
+              focus.urgency.llmExplanation = llmExplanation;
+            }
+          } catch (err) {
+            meta.errors.push({
+              step: 'llmExplanation',
+              message: err?.message || String(err),
+            });
+          } finally {
+            if (llmTimerId !== null) clearTimeout(llmTimerId);
+          }
+        }
+      }
+
+      // ==========================================================
+      // 7. AutoTuner opcional
+      // ==========================================================
+      let tuner = null;
+      const shouldRunTuner =
+        options.runAutoTuner === true &&
+        (
+          getFeature(features, 'useAutoTuner', false, contestId) ||
+          getFeature(features, 'useOrchestratorAutoTuner', false, contestId)
+        );
+
+      if (shouldRunTuner) {
+        ensureNotAborted('autoTuner');
+        const tunerModule =
+          optimizerModule || (await loadOptionalModule('coachOptimizer', meta));
+        if (tunerModule?.runCoachAutoTuner) {
+          try {
+            tuner = await tunerModule.runCoachAutoTuner({
+              maxScore,
+              minScore,
+              contestId,
+              currentFeatures: features,
+              force: true,
+              autoApply: options.autoApplyTuner === true,
+              forceApply: options.forceApplyTuner === true,
+              minImprovement: options.minImprovement ?? 0.02,
+              exploration: options.exploration === true,
+            });
+            if (tuner?.applied) {
+              clearCoachCaches();
+            }
+          } catch (err) {
+            meta.errors.push({
+              step: 'autoTuner',
+              message: err?.message || String(err),
+            });
+          }
+        }
+      }
+
+      // ==========================================================
+      // 8. Resultado unificado
+      // ==========================================================
+      return {
+        ok: true,
+        generatedAt: Date.now(),
+        durationMs: Date.now() - startedAt,
+        version: ORCHESTRATOR_VERSION,
+        aborted: controller.signal.aborted,
+        focus,
+        tasks: Array.isArray(tasks) ? tasks : [],
+        bestTask,
+        health: health || null,
+        tuner: tuner || null,
+        causal: {
+          available: Boolean(causalModel),
+          model: causalModel
+            ? {
               generatedAt: causalModel.generatedAt ?? null,
               sampleSize: causalModel.sampleSize ?? null,
               method: causalModel.method ?? null,
@@ -555,100 +568,100 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
                 ? Object.keys(causalModel.actions).length
                 : 0,
             }
-          : null,
-      },
-      llmExplanation,
-      meta: {
-        ...meta,
-        degraded: Array.isArray(meta?.errors) && meta.errors.length > 0,
-        errors: meta?.errors || []
-      },
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      generatedAt: Date.now(),
-      durationMs: Date.now() - startedAt,
-      version: ORCHESTRATOR_VERSION,
-      aborted: controller.signal.aborted,
-      error: err?.message || String(err),
-      meta: {
-        ...meta,
-        degraded: true,
-        errors: meta?.errors || []
-      },
-    };
-  } finally {
-    if (options?.signal) {
-      options.signal.removeEventListener('abort', onExternalAbort);
+            : null,
+        },
+        llmExplanation,
+        meta: {
+          ...meta,
+          degraded: Array.isArray(meta?.errors) && meta.errors.length > 0,
+          errors: meta?.errors || []
+        },
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        generatedAt: Date.now(),
+        durationMs: Date.now() - startedAt,
+        version: ORCHESTRATOR_VERSION,
+        aborted: controller.signal.aborted,
+        error: err?.message || String(err),
+        meta: {
+          ...meta,
+          degraded: true,
+          errors: meta?.errors || []
+        },
+      };
+    } finally {
+      if (options?.signal) {
+        options.signal.removeEventListener('abort', onExternalAbort);
+      }
+      controller.signal.removeEventListener('abort', onAbort);
+      clearOrchestratorTimeout();
     }
-    controller.signal.removeEventListener('abort', onAbort);
-    clearOrchestratorTimeout();
   }
-}
 
 /**
  * Constrói um dashboard simples a partir do resultado do orquestrador.
  */
 export function buildCoachOrchestratorDashboard(result = {}) {
-  // FIX: validar result antes de processar
-  if (!result || typeof result !== 'object' || result.ok === false) return null;
+    // FIX: validar result antes de processar
+    if (!result || typeof result !== 'object' || result.ok === false) return null;
 
-  const safeResult = result;
-  const focus = safeResult.focus || null;
-  const health = safeResult.health || null;
-  const causal = safeResult.causal || null;
-  const llm = safeResult.llmExplanation || null;
-  const tuner = safeResult.tuner || null;
-  const meta = safeResult.meta || {};
+    const safeResult = result;
+    const focus = safeResult.focus || null;
+    const health = safeResult.health || null;
+    const causal = safeResult.causal || null;
+    const llm = safeResult.llmExplanation || null;
+    const tuner = safeResult.tuner || null;
+    const meta = safeResult.meta || {};
 
-  return {
-    generatedAt: safeResult.generatedAt || Date.now(),
-    durationMs: safeResult.durationMs ?? null,
-    version: safeResult.version || ORCHESTRATOR_VERSION,
-    degraded: Boolean(meta.degraded || (Array.isArray(meta.errors) && meta.errors.length > 0)),
-    errors: meta.errors || [],
-    cards: [
-      {
-        id: 'focus_category',
-        label: 'Foco principal',
-        value: focus?.name || focus?.categoryName || null,
-      },
-      {
-        id: 'focus_urgency',
-        label: 'Urgência',
-        value: focus?.urgency?.normalizedScore ?? null,
-        goodDirection: 'contextual',
-      },
-      {
-        id: 'tasks_count',
-        label: 'Tarefas geradas',
-        value: Array.isArray(safeResult.tasks) ? safeResult.tasks.length : 0,
-      },
-      {
-        id: 'health_score',
-        label: 'Health Score',
-        value: health?.healthScore ?? null,
-        goodDirection: 'higher',
-      },
-      {
-        id: 'causal_model',
-        label: 'Modelo causal',
-        value: causal?.available ? 'Ativo' : 'Indisponível',
-      },
-      {
-        id: 'llm_explanation',
-        label: 'Explicação LLM',
-        value: llm?.headline || null,
-      },
-      {
-        id: 'tuner_action',
-        label: 'Ação do AutoTuner',
-        value: tuner?.recommendation?.action || null,
-      },
-    ],
-    focus: focus
-      ? {
+    return {
+      generatedAt: safeResult.generatedAt || Date.now(),
+      durationMs: safeResult.durationMs ?? null,
+      version: safeResult.version || ORCHESTRATOR_VERSION,
+      degraded: Boolean(meta.degraded || (Array.isArray(meta.errors) && meta.errors.length > 0)),
+      errors: meta.errors || [],
+      cards: [
+        {
+          id: 'focus_category',
+          label: 'Foco principal',
+          value: focus?.name || focus?.categoryName || null,
+        },
+        {
+          id: 'focus_urgency',
+          label: 'Urgência',
+          value: focus?.urgency?.normalizedScore ?? null,
+          goodDirection: 'contextual',
+        },
+        {
+          id: 'tasks_count',
+          label: 'Tarefas geradas',
+          value: Array.isArray(safeResult.tasks) ? safeResult.tasks.length : 0,
+        },
+        {
+          id: 'health_score',
+          label: 'Health Score',
+          value: health?.healthScore ?? null,
+          goodDirection: 'higher',
+        },
+        {
+          id: 'causal_model',
+          label: 'Modelo causal',
+          value: causal?.available ? 'Ativo' : 'Indisponível',
+        },
+        {
+          id: 'llm_explanation',
+          label: 'Explicação LLM',
+          value: llm?.headline || null,
+        },
+        {
+          id: 'tuner_action',
+          label: 'Ação do AutoTuner',
+          value: tuner?.recommendation?.action || null,
+        },
+      ],
+      focus: focus
+        ? {
           id: focus.id || null,
           name: focus.name || focus.categoryName || null,
           normalizedScore: focus.urgency?.normalizedScore ?? null,
@@ -657,9 +670,9 @@ export function buildCoachOrchestratorDashboard(result = {}) {
             focus.urgency?.details?.monteCarlo?.probability ?? null,
           llmExplanation: focus.urgency?.llmExplanation || null,
         }
-      : null,
-    tasks: Array.isArray(safeResult.tasks)
-      ? safeResult.tasks.filter(Boolean).slice(0, 12).map((task) => ({
+        : null,
+      tasks: Array.isArray(safeResult.tasks)
+        ? safeResult.tasks.filter(Boolean).slice(0, 12).map((task) => ({
           id: task?.id || null,
           text: task?.text || null,
           priority: ['high', 'medium', 'low'].includes(task?.priority) ? task.priority : 'medium',
@@ -667,50 +680,50 @@ export function buildCoachOrchestratorDashboard(result = {}) {
           categoryName: task?.catName || task?.category || null,
           topicName: task?.topicName || null,
         }))
-      : [],
-    bestTask: safeResult.bestTask
-      ? {
+        : [],
+      bestTask: safeResult.bestTask
+        ? {
           id: safeResult.bestTask.id || null,
           text: safeResult.bestTask.text || null,
           priority: safeResult.bestTask.priority || null,
           catName: safeResult.bestTask.catName || null,
         }
-      : null,
-    health: health
-      ? {
+        : null,
+      health: health
+        ? {
           healthScore: health.healthScore ?? null,
           status: health.status ?? null,
           alertsCount: Array.isArray(health.alerts)
             ? health.alerts.length
             : 0,
         }
-      : null,
-    causal,
-    llm: llm
-      ? {
+        : null,
+      causal,
+      llm: llm
+        ? {
           headline: llm.headline || null,
           severity: llm.severity || null,
           recommendation: llm.recommendation || null,
           confidence: llm.confidence ?? null,
           source: llm.source || null,
         }
-      : null,
-    tuner: tuner
-      ? {
+        : null,
+      tuner: tuner
+        ? {
           action: tuner.recommendation?.action || null,
           strategyId: tuner.recommendation?.strategyId || null,
           reason: tuner.recommendation?.reason || null,
           applied: tuner.applied === true,
         }
-      : null,
-    modules: meta.modules || {},
-    flags: meta.flags || {},
-  };
-}
+        : null,
+      modules: meta.modules || {},
+      flags: meta.flags || {},
+    };
+  }
 
-export default {
-  runCoachOrchestrator,
-  buildCoachOrchestratorDashboard,
-  clearCoachCaches,
-};
+  export default {
+    runCoachOrchestrator,
+    buildCoachOrchestratorDashboard,
+    clearCoachCaches,
+  };
 

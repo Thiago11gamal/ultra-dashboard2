@@ -85,15 +85,32 @@ export function parseCoachTask(task, categories = []) {
   const raw = String(task?.text || task?.title || '');
   const isSystemAlert = isSystemAlertTask(raw);
   const clean = cleanCoachTags(raw);
-  const separatorIndex = clean.indexOf(':');
-  const hasSeparator = separatorIndex !== -1;
-  const rootBracket = !hasSeparator ? clean.match(RX_BRACKET_TOPIC) : null;
 
-  let subjectRaw = String(
+  const explicitSubject = String(
     task?.subjectName ||
     (typeof task?.subject === 'string' ? task.subject : (task?.subject?.name || task?.subject?.subjectName)) ||
     task?.category ||
     task?.catName ||
+    ''
+  )
+    .replace(/^Foco em\s*/i, '')
+    .trim();
+
+  let separatorIndex = clean.indexOf(':');
+  if (explicitSubject) {
+    const lowerClean = clean.toLowerCase();
+    const lowerSub = explicitSubject.toLowerCase();
+    if (lowerClean.startsWith(`${lowerSub}:`)) {
+      separatorIndex = explicitSubject.length;
+    } else if (lowerClean.startsWith(`foco em ${lowerSub}:`)) {
+      separatorIndex = `foco em ${explicitSubject}`.length;
+    }
+  }
+  const hasSeparator = separatorIndex !== -1;
+  const rootBracket = !hasSeparator ? clean.match(RX_BRACKET_TOPIC) : null;
+
+  let subjectRaw = String(
+    explicitSubject ||
     (hasSeparator ? clean.slice(0, separatorIndex) : (rootBracket ? rootBracket[1] : clean)) ||
     "Matéria Indefinida"
   )
@@ -148,21 +165,21 @@ export function parseCoachTask(task, categories = []) {
 }
 
 export function getFeedbackColor(score, limits = { low: 70, mastery: 85 }) {
-    if (!Number.isFinite(score)) return "text-gray-400";
-    if (!limits) return "text-gray-400";
-    
-    const toValidLimit = (val, fb) => (
-        val !== null && val !== undefined && typeof val !== 'boolean' && String(val).trim() !== '' && Number.isFinite(Number(val))
-            ? Number(val)
-            : fb
-    );
-    // Normalizar limites caso venham errados (ex: meta menor que min)
-    let low = toValidLimit(limits.low, 70);
-    let mast = toValidLimit(limits.mastery, Math.max(low, 85));
-    
-    if (mast < low) mast = low;
-    
-    if (score >= mast) return "text-emerald-500";
-    if (score >= low) return "text-amber-500";
-    return "text-rose-500";
+  if (!Number.isFinite(score)) return "text-gray-400";
+  if (!limits) return "text-gray-400";
+
+  const toValidLimit = (val, fb) => (
+    val !== null && val !== undefined && typeof val !== 'boolean' && String(val).trim() !== '' && Number.isFinite(Number(val))
+      ? Number(val)
+      : fb
+  );
+  // Normalizar limites caso venham errados (ex: meta menor que min)
+  let low = toValidLimit(limits.low, 70);
+  let mast = toValidLimit(limits.mastery, Math.max(low, 85));
+
+  if (mast < low) mast = low;
+
+  if (score >= mast) return "text-emerald-500";
+  if (score >= low) return "text-amber-500";
+  return "text-rose-500";
 }

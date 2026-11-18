@@ -36,7 +36,12 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   const isPriority = (parsed.priority === 'high' || isSrsCard || isChaosCard) && !isSafeCard;
   const isCompleted = parsed.isCompleted || Boolean(task?.completed) || task?.status === 'completed';
   const topicLabel = parsed.topic || rawText;
-  const secondaryText = parsed.action && parsed.action !== parsed.topic ? parsed.action : '';
+  const isActionDistinct = Boolean(
+    parsed.action &&
+    parsed.action.trim().toLowerCase() !== String(parsed.topic || '').trim().toLowerCase() &&
+    parsed.action.trim().toLowerCase() !== String(parsed.topicRaw || '').trim().toLowerCase()
+  );
+  const secondaryText = isActionDistinct ? parsed.action : '';
   return (
     <Draggable draggableId={stableId} index={index}>
       {(provided, snapshot) => (
@@ -69,20 +74,20 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                 : undefined,
             }}
             className={`group relative mb-1.5 rounded-lg border py-2 pr-2 select-none cursor-grab active:cursor-grabbing transition-colors duration-75 ${snapshot.isDragging
-                ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
-                : isCompleted
-                  ? 'border-emerald-500/20 bg-emerald-950/10 opacity-75'
-                  : isBacklog
-                    ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
-                    : `${dayTheme?.cardBorder || 'border-white/10'} ${dayTheme?.cardBg || 'bg-white/5'} hover:border-white/20`
+              ? 'border-violet-400 bg-[#161b2c] ring-2 ring-violet-400/40 z-[9999]'
+              : isCompleted
+                ? 'border-emerald-500/20 bg-emerald-950/10 opacity-75'
+                : isBacklog
+                  ? 'border-white/[0.07] bg-[#12151f] hover:border-violet-400/30 hover:bg-[#161a28]'
+                  : `${dayTheme?.cardBorder || 'border-white/10'} ${dayTheme?.cardBg || 'bg-white/5'} hover:border-white/20`
               }`}
           >
             <span
               className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg bg-gradient-to-b opacity-90 z-0 ${isCompleted
-                  ? 'from-emerald-500 to-teal-500'
-                  : isBacklog
-                    ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
-                    : (dayTheme?.gradient || 'from-violet-500 to-indigo-500')
+                ? 'from-emerald-500 to-teal-500'
+                : isBacklog
+                  ? (isPriority ? 'from-amber-400 to-amber-500' : 'from-violet-500 to-indigo-500')
+                  : (dayTheme?.gradient || 'from-violet-500 to-indigo-500')
                 }`}
             />
             <div className="relative z-10 w-full flex flex-col h-full pl-0.5">
@@ -103,8 +108,8 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
                     aria-label={`Iniciar estudo: ${displaySubject(subject, categories)}`}
                     title="Estudar agora no Pomodoro"
                     className={`w-5 h-5 rounded flex items-center justify-center transition-all ${!isBacklog && dayTheme
-                        ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
-                        : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
+                      ? `${dayTheme.text} bg-white/5 hover:bg-white/15 hover:scale-110`
+                      : 'bg-violet-500/15 text-violet-300 hover:bg-violet-500 hover:text-white hover:scale-110'
                       }`}
                   >
                     <Play size={8.5} className="fill-current ml-0.5" />
@@ -269,13 +274,13 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     let lastScrollLeft = window.scrollX;
 
     const refreshCache = () => {
-        cachedCols = document.querySelectorAll('[data-col-id]');
-        cachedRects = Array.from(cachedCols).map(col => ({
-            id: col.getAttribute('data-col-id'),
-            rect: col.getBoundingClientRect()
-        }));
-        lastScrollTop = window.scrollY;
-        lastScrollLeft = window.scrollX;
+      cachedCols = document.querySelectorAll('[data-col-id]');
+      cachedRects = Array.from(cachedCols).map(col => ({
+        id: col.getAttribute('data-col-id'),
+        rect: col.getBoundingClientRect()
+      }));
+      lastScrollTop = window.scrollY;
+      lastScrollLeft = window.scrollX;
     };
 
     refreshCache();
@@ -285,57 +290,57 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     let lastClientY = -1;
 
     const updateHover = (clientX, clientY) => {
-        // Skip se a posição não mudou
-        if (clientX === lastClientX && clientY === lastClientY) return;
-        lastClientX = clientX;
-        lastClientY = clientY;
+      // Skip se a posição não mudou
+      if (clientX === lastClientX && clientY === lastClientY) return;
+      lastClientX = clientX;
+      lastClientY = clientY;
 
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = requestAnimationFrame(() => {
-            // ✅ Recalcular rects se houve scroll (vertical ou horizontal) ou cache invalidado
-            if (!cachedRects || Math.abs(window.scrollY - lastScrollTop) > 1 || Math.abs(window.scrollX - lastScrollLeft) > 1) {
-                refreshCache();
-            }
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => {
+        // ✅ Recalcular rects se houve scroll (vertical ou horizontal) ou cache invalidado
+        if (!cachedRects || Math.abs(window.scrollY - lastScrollTop) > 1 || Math.abs(window.scrollX - lastScrollLeft) > 1) {
+          refreshCache();
+        }
 
-            if (!cachedRects) return;
+        if (!cachedRects) return;
 
-            let found = null;
-            for (const { id, rect } of cachedRects) {
-                if (clientX >= rect.left && clientX <= rect.right &&
-                    clientY >= rect.top && clientY <= rect.bottom) {
-                    found = id;
-                    break;
-                }
-            }
-            setHoveredCol(prev => (prev === found ? prev : found));
-        });
+        let found = null;
+        for (const { id, rect } of cachedRects) {
+          if (clientX >= rect.left && clientX <= rect.right &&
+            clientY >= rect.top && clientY <= rect.bottom) {
+            found = id;
+            break;
+          }
+        }
+        setHoveredCol(prev => (prev === found ? prev : found));
+      });
     };
 
     const handleMouseMove = (e) => updateHover(e.clientX, e.clientY);
     const handleTouchMove = (e) => {
-        const touch = e.touches[0];
-        if (touch) updateHover(touch.clientX, touch.clientY);
+      const touch = e.touches[0];
+      if (touch) updateHover(touch.clientX, touch.clientY);
     };
     const handleScroll = () => {
-        // Invalidar cache em scroll
-        cachedRects = null;
-        // FIX (M12): reavalia imediatamente a coluna sob um ponteiro estático.
-        // Antes, após scroll sem mousemove, hoveredCol ficava stale.
-        if (lastClientX >= 0) {
-            const x = lastClientX, y = lastClientY;
-            lastClientX = -1; lastClientY = -1; // força reprocessamento
-            updateHover(x, y);
-        }
+      // Invalidar cache em scroll
+      cachedRects = null;
+      // FIX (M12): reavalia imediatamente a coluna sob um ponteiro estático.
+      // Antes, após scroll sem mousemove, hoveredCol ficava stale.
+      if (lastClientX >= 0) {
+        const x = lastClientX, y = lastClientY;
+        lastClientX = -1; lastClientY = -1; // força reprocessamento
+        updateHover(x, y);
+      }
     };
 
     const handleResize = () => {
-        cachedCols = null;
-        cachedRects = null;
-        if (lastClientX >= 0) {
-            const x = lastClientX, y = lastClientY;
-            lastClientX = -1; lastClientY = -1;
-            updateHover(x, y);
-        }
+      cachedCols = null;
+      cachedRects = null;
+      if (lastClientX >= 0) {
+        const x = lastClientX, y = lastClientY;
+        lastClientX = -1; lastClientY = -1;
+        updateHover(x, y);
+      }
     };
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
@@ -345,12 +350,12 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
     window.addEventListener('orientationchange', handleResize, { passive: true });
 
     return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('touchmove', handleTouchMove);
-        window.removeEventListener('scroll', handleScroll, { capture: true });
-        window.removeEventListener('resize', handleResize);
-        window.removeEventListener('orientationchange', handleResize);
-        cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      cancelAnimationFrame(animationFrameId);
     };
   }, [isDragging]);
 
@@ -396,7 +401,7 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
         prev.coachPlanner || {}
       );
       const startList = [...(cur[source.droppableId] || [])];
-      
+
       const realSourceIndex = startList.findIndex(
         t => t?.draggableId === result.draggableId || getSafeId(t) === result.draggableId || t?.id === result.draggableId
       );
@@ -407,14 +412,14 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
         console.warn('[Planner] draggableId não encontrado no source:', result.draggableId);
         return prev;
       }
-      
+
       const [moved] = startList.splice(safeSourceIndex, 1);
       if (!moved) return prev;
-      
+
       const finishList = (source.droppableId === destination.droppableId)
         ? startList
         : [...(cur[destination.droppableId] || [])];
-        
+
       const safeDestIndex = Math.max(0, Math.min(destination.index, finishList.length));
       finishList.splice(safeDestIndex, 0, moved);
 
@@ -450,6 +455,16 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const handleStartTask = useCallback((task, dayId) => {
     if (propOnStart) { propOnStart(task, dayId); return; }
     if (!task) return;
+    const sanitizeForSession = (item, ctx) => {
+      if (!item || typeof item !== 'object') return item;
+      const { draggableId: _draggableId, canonicalId, ...rest } = item;
+      const cleanId = canonicalId || String(rest.id || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+      return {
+        ...rest,
+        ...(cleanId ? { id: cleanId } : {}),
+        sourceContext: ctx
+      };
+    };
     // FIX (BUG-05): durante drag ativo, columns é snapshot congelado.
     // Usar storeColumns (derivado do store real) para a sessão.
     const effectiveColumns = isDragging ? storeColumns : columns;
@@ -460,11 +475,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       return (taskToFind && idT === taskToFind) || t === task || (t?.title && t.title === task?.title) || (t?.text && t.text === task?.text);
     });
     if (startIndex === -1) {
-      startNeuralSession([{ ...task, sourceContext: dayId || 'isolated' }], 0);
+      startNeuralSession([sanitizeForSession(task, dayId || 'isolated')], 0);
       navigate('/pomodoro', { state: { from: 'coach' } });
       return;
     }
-    startNeuralSession(sessionTasks.map(t => ({ ...t, sourceContext: dayId })), startIndex);
+    startNeuralSession(sessionTasks.map(t => sanitizeForSession(t, dayId)), startIndex);
     navigate('/pomodoro', { state: { from: 'coach' } });
   }, [columns, isDragging, storeColumns, startNeuralSession, navigate, propOnStart]);
 
@@ -485,8 +500,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   // FIX (BUG-09): removido o gate `enabled` (flash de primeiro frame).
   const [isDndReady, setIsDndReady] = useState(false);
   useEffect(() => {
-      const timer = setTimeout(() => setIsDndReady(true), 0);
-      return () => clearTimeout(timer);
+    const timer = setTimeout(() => setIsDndReady(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   if (!isDndReady) return <div className="min-h-[500px]" />;
@@ -522,8 +537,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                       role="list"
                       aria-label="Sugestões de tarefas não alocadas"
                       className={`flex-1 flex flex-col p-1.5 rounded-lg border border-dashed transition-all duration-75 overflow-y-auto max-h-[500px] custom-scrollbar ${isHighlight
-                          ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
-                          : 'bg-black/20 border-white/[0.08]'
+                        ? 'border-violet-400/80 bg-violet-500/20 shadow-[inset_0_0_30px_rgba(139,92,246,0.15)] ring-1 ring-violet-400/30'
+                        : 'bg-black/20 border-white/[0.08]'
                         }`}
                     >
                       {(columns.backlog || []).filter(Boolean).map((task, idx) => {
@@ -597,8 +612,8 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
                                 role="list"
                                 aria-label={`Tarefas de ${day.full}`}
                                 className={`flex-1 p-1 rounded-lg border border-dashed transition-all duration-75 flex flex-col min-h-[160px] max-h-[500px] overflow-y-auto kanban-scrollbar ${isHighlight
-                                    ? `${day.over} ring-1 ring-white/20`
-                                    : 'bg-black/20 border-white/[0.08] hover:border-white/15'
+                                  ? `${day.over} ring-1 ring-white/20`
+                                  : 'bg-black/20 border-white/[0.08] hover:border-white/15'
                                   }`}
                               >
                                 {dayTasks.filter(Boolean).map((task, idx) => {

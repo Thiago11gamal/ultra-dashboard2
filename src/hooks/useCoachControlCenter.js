@@ -6,6 +6,7 @@ import {
 } from '../utils/coachPipeline.js';
 import {
   loadLastBacktestReport,
+  saveBacktestReport,
   loadTunerHistory,
   runCoachAutoTuner,
   applyRecommendedFlags,
@@ -15,7 +16,12 @@ import {
   getStrategySpace,
 } from '../utils/coachOptimizer.js';
 import {
+  runGranularCoachBacktest,
+} from '../utils/coachEvaluation.js';
+import {
   loadCausalModel,
+  buildCausalEventsFromHistory,
+  trainCausalModel,
 } from '../utils/coachCausal.js';
 import {
   loadModelHealthSnapshots,
@@ -215,7 +221,7 @@ export function useCoachControlCenter({
           runLLM: options.runLLM === true,
           runAutoTuner: options.runAutoTuner === true,
           trainCausalModel: options.trainCausalModel === true,
-          saveHealthSnapshots: options.saveHealthSnapshots === true,
+          saveHealthSnapshots: options.saveHealthSnapshots ?? (options.runHealth !== false),
           force: options.force === true,
           signal: abortController.signal,
         }
@@ -233,6 +239,16 @@ export function useCoachControlCenter({
             setOrchestratorResult(result);
             const dash = buildCoachOrchestratorDashboard(result);
             setDashboard(dash || null);
+            const updatedHealth = loadModelHealthSnapshots(targetContestId);
+            if (Array.isArray(updatedHealth) && updatedHealth.length > 0) {
+              setHealthSnapshots(updatedHealth);
+            } else if (result.health) {
+              setHealthSnapshots([result.health]);
+            }
+            const updatedCausal = loadCausalModel(targetContestId);
+            if (updatedCausal) {
+              setCausalModel(updatedCausal);
+            }
           }
         } else {
           setOrchestratorResult(null);
@@ -408,50 +424,134 @@ export function useCoachControlCenter({
   }, []);
 
   // ==========================================================
+  // Executar Backtest Granular
+  // ==========================================================
+  const runBacktest = useCallback(() => {
+    try {
+      setError(null);
+      const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+      const safeSims = Array.isArray(simulados) && simulados.length > 0
+        ? simulados
+        : safeCats.flatMap((cat) => {
+          const hist = Array.isArray(cat?.simuladoStats?.history)
+            ? cat.simuladoStats.history
+            : Object.values(cat?.simuladoStats?.history || {});
+          return hist.map((entry) => ({
+            ...entry,
+            categoryId: entry?.categoryId ?? cat?.id,
+            subject: entry?.subject || entry?.categoryName || cat?.name || '',
+          }));
+        });
+      const report = runGranularCoachBacktest(safeCats, safeSims, studyLogs, {
+        maxScore,
+        minScore,
+        targetScore,
+        contestId: resolvedContestId,
+      });
+      if (report && typeof report === 'object') {
+        saveBacktestReport(report, resolvedContestId);
+        if (isMounted.current) {
+          setBacktestReport(report);
+        }
+      }
+      return report;
+    } catch (err) {
+      if (isMounted.current) {
+        setError(err?.message || String(err));
+      }
+      return null;
+    }
+  }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, resolvedContestId]);
+
+  // ==========================================================
+  // Treinar Modelo Causal
+  // ==========================================================
+  const trainCausal = useCallback(() => {
+    try {
+      setError(null);
+      const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+      const safeSims = Array.isArray(simulados) && simulados.length > 0
+        ? simulados
+        : safeCats.flatMap((cat) => {
+          const hist = Array.isArray(cat?.simuladoStats?.history)
+            ? cat.simuladoStats.history
+            : Object.values(cat?.simuladoStats?.history || {});
+          return hist.map((entry) => ({
+            ...entry,
+            categoryId: entry?.categoryId ?? cat?.id,
+            subject: entry?.subject || entry?.categoryName || cat?.name || '',
+          }));
+        });
+      const events = buildCausalEventsFromHistory(safeCats, safeSims, studyLogs, {
+        maxScore,
+        minScore,
+      });
+      const model = trainCausalModel(events, {
+        contestId: resolvedContestId,
+        maxScore,
+        minScore,
+        useBootstrap: Boolean(currentFlags?.useCausalBootstrap || flagOverrides?.useCausalBootstrap),
+        save: true,
+      });
+      if (isMounted.current && model) {
+        setCausalModel(model);
+      }
+      return model;
+    } catch (err) {
+      if (isMounted.current) {
+        setError(err?.message || String(err));
+      }
+      return null;
+    }
+  }, [categories, simulados, studyLogs, maxScore, minScore, resolvedContestId, currentFlags, flagOverrides]);
+
+  // ==========================================================
   // Dados derivados
   // ==========================================================
   const strategySpace = useMemo(() => getStrategySpace(), []);
 
   const latestHealth = useMemo(() => {
-    if (healthSnapshots.length === 0) return null;
-    return healthSnapshots[healthSnapshots.length - 1];
-  }, [healthSnapshots]);
+  if (healthSnapshots.length > 0) return healthSnapshots[healthSnapshots.length - 1];
+  return orchestratorResult?.health || null;
+}, [healthSnapshots, orchestratorResult]);
 
-  const hasError = error !== null;
-  const isSkipped = orchestratorResult?.skipped === true;
-  const isReady = !loading && orchestratorResult !== null && !isSkipped;
+const hasError = error !== null;
+const isSkipped = orchestratorResult?.skipped === true;
+const isReady = !loading && orchestratorResult !== null && !isSkipped;
 
-  return {
-    // Estado
-    activeTab,
-    setActiveTab,
-    loading,
-    error,
-    hasError,
-    isReady,
-    lastRunTimestamp,
-    // Dados principais
-    orchestratorResult,
-    dashboard,
-    backtestReport,
-    tunerHistory,
-    tunerResult,
-    causalModel,
-    healthSnapshots,
-    latestHealth,
-    currentFlags,
-    flagOverrides,
-    strategySpace,
-    // Ações
-    runOrchestrator,
-    loadAuxiliaryData,
-    runAutoTuner,
-    applyRecommendation,
-    rollbackToBaseline,
-    toggleFlag,
-    resetOverrides,
-    handleClearCaches,
-  };
+return {
+  // Estado
+  activeTab,
+  setActiveTab,
+  loading,
+  error,
+  hasError,
+  isReady,
+  lastRunTimestamp,
+  // Dados principais
+  orchestratorResult,
+  dashboard,
+  backtestReport,
+  tunerHistory,
+  tunerResult,
+  causalModel,
+  healthSnapshots,
+  latestHealth,
+  currentFlags,
+  flagOverrides,
+  strategySpace,
+  // Ações
+  runOrchestrator,
+  loadAuxiliaryData,
+  runAutoTuner,
+  runBacktest,
+  trainCausal,
+  applyRecommendation,
+  rollbackToBaseline,
+  toggleFlag,
+  resetOverrides,
+  handleClearCaches,
+};
 }
 
 export default useCoachControlCenter;

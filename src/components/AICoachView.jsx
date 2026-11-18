@@ -40,7 +40,12 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
     const isChaosCard = Boolean(task?.analysis?.reason?.includes('Oscilação') || task?.analysis?.reason?.includes('Caos'));
     const isPriority = (parsed.priority === 'high' || parsed.isSystemAlert || isSrsCard || isChaosCard) && !isSafeCard && !isCompleted;
     const displayAssunto = parsed.topic || rawText || 'Revisão Recomendada';
-    const displayMeta = parsed.action && parsed.action !== parsed.topic ? parsed.action : null;
+    const isActionDistinctFromTopic = Boolean(
+        parsed.action &&
+        parsed.action.trim().toLowerCase() !== String(parsed.topic || '').trim().toLowerCase() &&
+        parsed.action.trim().toLowerCase() !== String(parsed.topicRaw || '').trim().toLowerCase()
+    );
+    const displayMeta = isActionDistinctFromTopic ? parsed.action : null;
     const systemAlertMessage = parsed.isSystemAlert ? parsed.action : null;
 
     const CARD_COLORS = [
@@ -54,10 +59,10 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
     return (
         <div
             className={`group relative flex flex-col p-5 sm:p-7 rounded-3xl bg-[#0a0c14] border transition-all duration-500 overflow-hidden shadow-2xl hover:border-white/10 ${isCompleted
-                    ? 'border-emerald-500/30 border-l-4 sm:border-l-8 border-l-emerald-500 opacity-80 hover:opacity-100'
-                    : isPriority
-                        ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]'
-                        : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
+                ? 'border-emerald-500/30 border-l-4 sm:border-l-8 border-l-emerald-500 opacity-80 hover:opacity-100'
+                : isPriority
+                    ? 'border-rose-500/30 border-l-4 sm:border-l-8 border-l-rose-500 shadow-[0_0_40px_-10px_rgba(225,29,72,0.15)]'
+                    : `border-white/[0.06] border-l-4 sm:border-l-8 ${col.accent}`
                 }`}
         >
             {/* Efeitos Visuais de Fundo (Glassmorphism & Cinematic Glow) */}
@@ -100,10 +105,10 @@ function AICoachCard({ task, idx, onStartPomodoro, categories, maxScore = 100, m
                         onStartPomodoro(task);
                     }}
                     className={`shrink-0 flex items-center gap-2 rounded-xl border w-10 h-10 sm:w-auto sm:px-4 sm:h-10 transition-all duration-300 shadow-xl group/btn hover:scale-105 active:scale-95 justify-center ${isCompleted
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-500'
-                            : isPriority
-                                ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
-                                : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-500'
+                        : isPriority
+                            ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-500 hover:shadow-[0_0_25px_-5px_rgba(225,29,72,0.6)] animate-[pulse_3s_ease-in-out_infinite]'
+                            : `bg-white/[0.03] border-white/[0.08] text-slate-300 ${col.btnHover}`
                         }`}
                 >
                     <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{isCompleted ? 'Revisar' : 'Iniciar'}</span>
@@ -543,8 +548,18 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
                                 {systemAlerts.map((alertTask, alertIdx) => {
                                     const rawAlertText = String(alertTask?.text || alertTask?.title || '');
                                     const cleanText = rawAlertText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
-                                    const separatorIndex = cleanText.indexOf(':');
-                                    const subjectName = separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema';
+                                    const explicitSubject = String(
+                                        alertTask?.subjectName ||
+                                        (typeof alertTask?.subject === 'string' ? alertTask.subject : (alertTask?.subject?.name || '')) ||
+                                        alertTask?.category ||
+                                        alertTask?.catName ||
+                                        ''
+                                    ).trim();
+                                    let separatorIndex = cleanText.indexOf(':');
+                                    if (explicitSubject && cleanText.toLowerCase().startsWith(`${explicitSubject.toLowerCase()}:`)) {
+                                        separatorIndex = explicitSubject.length;
+                                    }
+                                    const subjectName = explicitSubject || (separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema');
                                     const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
 
                                     let type = 'info';

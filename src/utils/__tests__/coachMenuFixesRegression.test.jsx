@@ -8,6 +8,9 @@ import { mergeAppStatePure } from '../../hooks/useCloudSync.js';
 import { useAppStore } from '../../store/useAppStore.js';
 import { createCategorySlice } from '../../store/slices/createCategorySlice.js';
 import { createPomodoroSlice } from '../../store/slices/createPomodoroSlice.js';
+import { getSafeId } from '../idGenerator.js';
+import { ensureCoachTaskId } from '../coachTaskId.js';
+import { displaySubject, displayTopic } from '../displaySubject.js';
 import { normalizeTaskPriority, parseCoachTask } from '../coachText.js';
 import { getCalibrationHistoryFor } from '../coachSafe.js';
 import { resolveUserTargetScorePoints } from '../scoreHelper.js';
@@ -17,7 +20,7 @@ import CoachMenuNav from '../../components/coach/CoachMenuNav.jsx';
 import CoachControlCenter from '../../components/coach/CoachControlCenter.jsx';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
 import { runCoachOrchestrator } from '../../engine/orchestrator/coachOrchestrator.js';
-import { readFlags, replaceFlags, setCoachFeatureContestScope } from '../coachFeatureStore.js';
+import { readFlags, replaceFlags, writeFlags, subscribeFlags, setCoachFeatureContestScope } from '../coachFeatureStore.js';
 import AICoachWidget from '../../components/AICoachWidget.jsx';
 import NextGoalCard from '../../components/NextGoalCard.jsx';
 import { findSubjectTaskInContest, clearStudyingStatusInContest } from '../pomodoroHelpers.js';
@@ -362,7 +365,7 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
 
     it('CoachMenuNav shows Control Center tab when enabled and CoachControlCenter renders LLM tab', () => {
       render(
-        <CoachMenuNav activeTab="insights" onChangeTab={() => {}} isPremium={true} showControlCenter={true} />
+        <CoachMenuNav activeTab="insights" onChangeTab={() => { }} isPremium={true} showControlCenter={true} />
       );
       expect(screen.getByRole('tab', { name: /Control Center/i })).toBeTruthy();
 
@@ -474,7 +477,7 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
 
       const contestCats = useAppStore.getState().appState.contests['scale-test'].categories;
       await act(async () => {
-        render(<NextGoalCard categories={contestCats} simulados={[]} studyLogs={[]} onStartStudying={() => {}} />);
+        render(<NextGoalCard categories={contestCats} simulados={[]} studyLogs={[]} onStartStudying={() => { }} />);
         await new Promise((resolve) => setTimeout(resolve, 100));
       });
 
@@ -620,6 +623,145 @@ describe('Coach AI Menu & Ecosystem Regression Suite', () => {
       const synthTasks = synthGoals.filter(g => String(g.id).includes('-synthesis-'));
       const uniqueTopicNames = new Set(synthTasks.map(g => g.topicName));
       expect(uniqueTopicNames.size).toBe(synthTasks.length);
+    });
+
+    it('getSafeId and ensureCoachTaskId handle numeric primitives, whitespace IDs, and disambiguate identical text across categories', () => {
+      expect(() => getSafeId(123)).not.toThrow();
+      expect(getSafeId(123)).toBe('123');
+      expect(getSafeId(0)).toBe('task-null-sentinel');
+      expect(getSafeId('   ')).toBe('task-null-sentinel');
+      expect(getSafeId({ id: '   ', text: 'Revisar Crase' })).not.toBe('   ');
+
+      const taskPort = ensureCoachTaskId({ text: 'Revisar Teoria', category: 'Português' });
+      const taskPenal = ensureCoachTaskId({ text: 'Revisar Teoria', category: 'Direito Penal' });
+      expect(taskPort.id).toBeTruthy();
+      expect(taskPenal.id).toBeTruthy();
+      expect(taskPort.id).not.toBe(taskPenal.id);
+    });
+
+    it('displaySubject, displayTopic and parseCoachTask preserve Roman numerals, acronyms, object-map categories and colons in subject names', () => {
+      const catMap = {
+        c1: { id: 'c1', name: 'Direito Constitucional: Controle' },
+      };
+      expect(displaySubject('c1', catMap)).toBe('Direito Constitucional: Controle');
+      expect(displayTopic('direito constitucional ii')).toBe('Direito Constitucional II');
+      expect(displayTopic('revisão rápida (srs)')).toBe('Revisão Rápida (SRS)');
+      expect(displayTopic('art. 5º da cf/88')).toBe('Art. 5º da CF/88');
+
+      const parsed = parseCoachTask(
+        {
+          category: 'Direito Constitucional: Controle',
+          text: 'Direito Constitucional: Controle: [ADI e ADC] Estudar jurisprudência',
+        },
+        catMap
+      );
+      expect(parsed.subject).toBe('Direito Constitucional: Controle');
+      expect(parsed.topicRaw).toBe('ADI e ADC');
+      expect(parsed.action).toBe('Estudar jurisprudência');
+    });
+
+    it('generateDailyGoals does not emit duplicate syllabus task when task has both topicName and text', () => {
+      const categories = [
+        {
+          id: 'cat-dup-check',
+          name: 'Português',
+          weight: 10,
+          tasks: [
+            {
+              id: 't-crase',
+              topicName: 'Crase',
+              text: 'Aula 01 - Regra Geral da Crase',
+              completed: false,
+            },
+          ],
+          simuladoStats: { history: [] },
+        },
+      ];
+      const goals = generateDailyGoals(categories, [], [], { maxScore: 100, minScore: 0 });
+      const craseTasks = goals.filter(
+        g => g.text.includes('Crase') || (g.topicName && g.topicName.includes('Crase'))
+      );
+      // Should only be emitted once as weakTopic, not duplicated in Level 2 (Avanço de Edital)
+      const syllabusDuplicates = craseTasks.filter(g => String(g.id).includes('-syllabus-'));
+      expect(syllabusDuplicates).toHaveLength(0);
+    });
+
+    it('RaioXDashboard displays latestSampleSize instead of n=0, includes degraded-only history, and supports Firebase object maps', () => {
+      const mockData = {
+        categories: {
+          c1: { id: 'cat_adm', name: 'Direito Administrativo' },
+        },
+        calibrationHistoryByCategory: {
+          cat_adm: {
+            0: {
+              timestamp: 1700000005000,
+              degraded: true,
+              avgBrier: 0.24,
+              ece: 0.09,
+              sampleSize: 12,
+              reliability: [{ binIndex: 0, meanPred: 0.7, observedRate: 0.65, gap: 0.05, count: 12 }],
+            },
+          },
+        },
+        calibrationAuditLog: {},
+      };
+
+      const html = renderToStaticMarkup(<RaioXDashboard data={mockData} />);
+      expect(html).toContain('n=12');
+      expect(html).not.toContain('n=0');
+      expect(html).toContain('Curva de Confiabilidade');
+    });
+
+    it('useCoachControlCenter populates latestHealth on runOrchestrator, supports runBacktest/trainCausal, and notifies subscribeFlags', async () => {
+      const events = [];
+      const unsub = subscribeFlags((snapshot, scope) => {
+        events.push({ snapshot, scope });
+      });
+      writeFlags({ useStateSpace: true }, 'flag-sub-test');
+      unsub();
+      expect(events.length).toBeGreaterThan(0);
+      expect(events[0].scope).toBe('flag-sub-test');
+      expect(events[0].snapshot.useStateSpace).toBe(true);
+
+      let api;
+      const sampleCats = [
+        {
+          id: 'cat-1',
+          name: 'Português',
+          weight: 5,
+          tasks: [{ id: 't1', text: 'Crase', completed: true, completedAt: '2026-04-03' }],
+          simuladoStats: {
+            history: [
+              { id: 's1', date: '2026-04-01', score: 60, total: 20, correct: 12 },
+              { id: 's2', date: '2026-04-05', score: 75, total: 20, correct: 15 },
+              { id: 's3', date: '2026-04-10', score: 80, total: 20, correct: 16 },
+            ],
+          },
+        },
+      ];
+      function ControlHarness() {
+        api = useCoachControlCenter({
+          contestId: 'cc-test',
+          categories: sampleCats,
+          simulados: [],
+          studyLogs: [{ categoryId: 'cat-1', date: '2026-04-03', minutes: 90 }],
+        });
+        return null;
+      }
+
+      render(<ControlHarness />);
+      await act(async () => {
+        await api.runOrchestrator({ runHealth: true });
+      });
+      expect(api.latestHealth).not.toBeNull();
+      expect(Number.isFinite(Number(api.latestHealth?.healthScore))).toBe(true);
+
+      await act(async () => {
+        api.runBacktest();
+        api.trainCausal();
+      });
+      expect(api.backtestReport).not.toBeNull();
+      expect(api.causalModel).not.toBeNull();
     });
   });
 });

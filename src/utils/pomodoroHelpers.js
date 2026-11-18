@@ -49,11 +49,16 @@ export function calculateETA(timeLeft, speed = 1) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+const stripDupSuffix = (val) => String(val || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+
 export function matchesSubjectTask(t, subject) {
   if (!t || !subject || subject.taskId == null) return false;
   const tid = String(subject.taskId);
+  const cleanTid = stripDupSuffix(tid);
+  const tIdStr = t.id != null ? String(t.id) : null;
+  const cleanTId = tIdStr != null ? stripDupSuffix(tIdStr) : null;
   return (
-    (t.id != null && String(t.id) === tid) ||
+    (tIdStr != null && (tIdStr === tid || (cleanTid && cleanTId === cleanTid))) ||
     (t.text != null && String(t.text) === tid) ||
     (t.title != null && String(t.title) === tid)
   );
@@ -127,8 +132,8 @@ export function findSubjectTaskInContest(contestData, subject) {
 
   let plannerTask = null;
   if (contestData.coachPlanner && typeof contestData.coachPlanner === 'object') {
-    for (const dayTasks of Object.values(contestData.coachPlanner)) {
-      if (!Array.isArray(dayTasks)) continue;
+    for (const rawDayTasks of Object.values(contestData.coachPlanner)) {
+      const dayTasks = asArray(rawDayTasks);
       const found = dayTasks.find(t => matchesSubjectTask(t, subject));
       if (found) {
         plannerTask = found;
@@ -157,10 +162,10 @@ export function clearStudyingStatusInContest(prev, subject) {
   const nextCoachPlan = Array.isArray(prev.coachPlan)
     ? resetList(prev.coachPlan)
     : (prev.coachPlan && typeof prev.coachPlan === 'object'
-        ? (Array.isArray(prev.coachPlan.tasks)
-            ? { ...prev.coachPlan, tasks: resetList(prev.coachPlan.tasks) }
-            : Object.fromEntries(Object.entries(prev.coachPlan).map(([k, t]) => [k, isTaskActiveStatus(t) ? { ...t, status: 'idle' } : t])))
-        : prev.coachPlan);
+      ? (Array.isArray(prev.coachPlan.tasks)
+        ? { ...prev.coachPlan, tasks: resetList(prev.coachPlan.tasks) }
+        : Object.fromEntries(Object.entries(prev.coachPlan).map(([k, t]) => [k, isTaskActiveStatus(t) ? { ...t, status: 'idle' } : t])))
+      : prev.coachPlan);
   let nextCoachPlanner = prev.coachPlanner;
   if (prev.coachPlanner && typeof prev.coachPlanner === 'object' && !Array.isArray(prev.coachPlanner)) {
     nextCoachPlanner = Object.fromEntries(

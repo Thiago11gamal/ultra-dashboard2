@@ -232,8 +232,13 @@ export default function AICoachWidget({ suggestion }) {
     const scaleMax = Math.max(1, Number(activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? suggestion?.maxScore) || 100);
     const rawGlobalMin = activeContest?.minScore ?? activeContest?.settings?.minScore ?? suggestion?.minScore;
     const scaleMin = Number.isFinite(Number(rawGlobalMin)) ? Math.min(Number(rawGlobalMin), scaleMax - 1) : 0;
-    const matchedCategory = Array.isArray(activeContest?.categories)
-        ? activeContest.categories.find(c => c && (
+    const contestCategories = Array.isArray(activeContest?.categories)
+        ? activeContest.categories
+        : (activeContest?.categories && typeof activeContest.categories === 'object'
+            ? Object.values(activeContest.categories)
+            : []);
+    const matchedCategory = contestCategories.length > 0
+        ? contestCategories.find(c => c && (
             (suggestion.id && c.id === suggestion.id) ||
             (suggestion.categoryId && c.id === suggestion.categoryId) ||
             (suggestion.name && c.name === suggestion.name) ||
