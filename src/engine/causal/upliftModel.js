@@ -161,6 +161,16 @@ function fitLinearRegression(X, y, ridge = 1e-3) {
 
   if (n === 0) return [];
 
+  const safeRidge =
+    ridge !== null &&
+    ridge !== undefined &&
+    ridge !== '' &&
+    typeof ridge !== 'boolean' &&
+    Number.isFinite(Number(ridge)) &&
+    Number(ridge) >= 0
+      ? Number(ridge)
+      : 1e-3;
+
   const p = X[0].length;
 
   const XtX = Array.from({ length: p }, () => new Array(p).fill(0));
@@ -180,7 +190,7 @@ function fitLinearRegression(X, y, ridge = 1e-3) {
 
   for (let j = 0; j < p; j++) {
     // Regularização mínima no intercepto (1e-9) evita matriz singular se houver colinearidade
-    XtX[j][j] += j > 0 ? ridge : 1e-9;
+    XtX[j][j] += j > 0 ? safeRidge : 1e-9;
   }
 
   return solveLinearSystem(XtX, Xty);
@@ -220,7 +230,7 @@ export function prepareCausalEvents(events = [], options = {}) {
 
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
   const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
-  const maxDeltaSpan = Math.max(maxScore, maxScore - minScore);
+  const maxDeltaSpan = Math.max(1e-6, maxScore - minScore);
 
   const rawEvents = safeArray(events)
     .map((event, index) => {
@@ -300,6 +310,17 @@ export function estimateNaiveUplift(events = []) {
 
   const treated = safeEvents.filter((event) => event.treated === 1);
   const control = safeEvents.filter((event) => event.treated === 0);
+
+  if (treated.length === 0 || control.length === 0) {
+    return {
+      method: 'insufficient_arms',
+      uplift: 0,
+      sampleSize: safeEvents.length,
+      treatedCount: treated.length,
+      controlCount: control.length,
+      diagnostics: null,
+    };
+  }
 
   const treatedMean = meanValues(treated.map((event) => event.outcomeDelta));
   const controlMean = meanValues(control.map((event) => event.outcomeDelta));
@@ -584,7 +605,7 @@ export function estimateDoublyRobustUplift(events = [], options = {}) {
 
   const maxScore = clampFinite(options.maxScore, 1, 1_000_000, 100);
   const minScore = clampFinite(options.minScore, -1_000_000, maxScore - 1e-6, 0);
-  const domainSpan = Math.max(maxScore, maxScore - minScore);
+  const domainSpan = Math.max(1e-6, maxScore - minScore);
   const maxOutcome = clampFinite(
     options.maxOutcome ?? domainSpan,
     1,
@@ -605,7 +626,7 @@ export function estimateDoublyRobustUplift(events = [], options = {}) {
 
   const propensity = fitPropensityScores(safeEvents, standardizers, options);
 
-  const ridge = options.ridge ?? 1e-3;
+  const ridge = clampFinite(options.ridge, 0, 1e6, 1e-3);
   const X = safeEvents.map((event) => [
     1,
     event.treated,
@@ -865,15 +886,21 @@ export function estimateUpliftByAction(events = [], options = {}) {
     }
 
     let poolForAction = groupEvents;
+    let controlsInPool = controlsInGroup;
     if (treatedInGroup.length > 0 && controlsInGroup.length === 0) {
       const relevantControls =
         actionType === 'study_volume'
           ? (volumeControls.length > 0 ? volumeControls : globalControls)
           : (taskControls.length > 0 ? taskControls : globalControls);
+      controlsInPool = relevantControls;
       poolForAction = [...treatedInGroup, ...relevantControls];
     }
 
-    if (poolForAction.length < minSamplesPerAction || treatedInGroup.length === 0) return;
+    if (
+      poolForAction.length < minSamplesPerAction ||
+      treatedInGroup.length === 0 ||
+      controlsInPool.length === 0
+    ) return;
 
     actions[actionType] = estimateCausalUplift(poolForAction, {
       ...options,

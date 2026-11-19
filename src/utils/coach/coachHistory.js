@@ -4,30 +4,34 @@ import { rankDecisionCandidates } from '../../engine/probabilistic/decisionEngin
 import { kahanSum } from '../../engine/math/kahan.js';
 import { getSafeScore } from '../scoreHelper.js';
 import { normalizeDate, getDateKey } from '../dateHelper.js';
-import { normalize } from '../normalization.js';
+import { normalize, isSubjectMatch } from '../normalization.js';
 import { normalizePriority } from '../colorHelper.js';
 import { getCoachFeature } from '../coachFeatures.js';
 import { safeArray } from '../coachSafe.js';
-import { sanitizeMinutes, clamp, MS_PER_DAY } from './coachPureHelpers.js';
+import { sanitizeMinutes, sanitizeNum, parseOptionalFinite, clamp, MS_PER_DAY } from './coachPureHelpers.js';
 import { ensureCoachTaskId } from '../coachTaskId.js';
 
 export function analisarDesempenhoHistorico(historico) {
-    if (!historico || historico.length === 0) {
+    const safeHist = safeArray(historico);
+    if (safeHist.length === 0) {
         return {
             tendencia: 'neutra',
             confiabilidadeDosDados: 'insuficiente',
             projecaoRetencao: 0
         };
     }
-    const formattedHistory = historico.map((h, i) => {
+    const formattedHistory = safeHist.map((h, i) => {
         if (!h) return { score: 0, total: 100, date: new Date().toISOString() };
         let rawDias = h.diasRevisao;
         if (typeof rawDias === 'string') rawDias = rawDias.replace(',', '.');
-        const diasValidos = (rawDias === null || rawDias === undefined || rawDias === '')
+        const parsedDias = (rawDias === null || rawDias === undefined || rawDias === '')
             ? i
             : (Number.isFinite(Number(rawDias)) ? Number(rawDias) : i);
+        const diasValidos = clamp(parsedDias, 0, 36500);
         const timestamp = Date.now() - (diasValidos * 86400000);
-        const safeDate = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
+        const safeDate = Number.isFinite(timestamp) && !Number.isNaN(new Date(timestamp).getTime())
+            ? new Date(timestamp)
+            : new Date();
         const total = Math.max(1, Number(h.total) || 100);
         const acertos = Math.min(total, Math.max(0, Number(h.acertos) || 0));
         return {
@@ -40,12 +44,13 @@ export function analisarDesempenhoHistorico(historico) {
     const safeRetention = Number.isFinite(risk.retentionPct) ? risk.retentionPct : 0;
     return {
         tendencia: safeRetention > 80 ? 'alta' : (safeRetention > 50 ? 'estável' : 'baixa'),
-        confiabilidadeDosDados: historico.length > 5 ? 'alta' : 'média',
+        confiabilidadeDosDados: safeHist.length > 5 ? 'alta' : 'média',
         projecaoRetencao: safeRetention
     };
 }
 
 export const getCognitiveState = (studyLogs = [], options = {}) => {
+    const safeOpts = options && typeof options === 'object' ? options : {};
     const safeLogs = safeArray(studyLogs).filter(log => {
         if (!log || typeof log !== 'object') return false;
         const hasDate = log.date || log.createdAt || log.lastUpdated;
@@ -56,8 +61,8 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
     });
 
     let referenceDate = new Date();
-    if (options.now) {
-        const parsed = normalizeDate(options.now);
+    if (safeOpts.now) {
+        const parsed = normalizeDate(safeOpts.now);
         if (parsed && !Number.isNaN(parsed.getTime())) {
             referenceDate = parsed;
         }
@@ -81,7 +86,7 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
     const weeklyLoad = Math.min(1, hours7d / 40);
     const fatigue = clamp(Math.round((dailyLoad * 0.6 + weeklyLoad * 0.4) * 100), 0, 100);
 
-    const streakDays = new Set(last7DaysLogs.map(l => getDateKey(getLogDate(l))).filter(Boolean)).size;
+    const streakDays = Math.min(7, new Set(last7DaysLogs.map(l => getDateKey(getLogDate(l))).filter(Boolean)).size);
     const focus = clamp(Math.round((streakDays / 7) * 100), 0, 100);
 
     let recommendation = 'Ritmo saudável — mantenha o plano.';
@@ -113,6 +118,7 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
             const id = resolved?.id || task.id || task.text || '';
             if (excludeTaskId && String(id) === String(excludeTaskId)) return;
             const catId = cat?.id || task.categoryId || task.catId || '';
+            const parsedWeight = sanitizeNum(cat?.weight);
             candidates.push({
                 ...task,
                 id,
@@ -121,7 +127,7 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
                 catName: cat?.name || task.catName || '',
                 catColor: cat?.color || task.catColor || '',
                 catIcon: cat?.icon || task.catIcon || '',
-                _catWeight: Number(cat?.weight) || 5,
+                _catWeight: Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5,
                 _originalIndex: candidates.length
             });
         });
@@ -149,11 +155,12 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
                 _candidate: c
             }));
             const useBandit = getCoachFeature(options, 'useBanditPlanner', false);
+            const refDateForSeed = options?.now ? (normalizeDate(options.now) || new Date()) : new Date();
             const ranked = rankDecisionCandidates(decisionInputs, {
                 useBandit,
                 contestId: options?.contestId || options?.config?.contestId,
                 seed: useBandit
-                    ? `best-task-${candidates.length}-${getDateKey(new Date())}`
+                    ? `best-task-${candidates.length}-${getDateKey(refDateForSeed)}`
                     : `best-task-${candidates.length}`
             });
             if (ranked.length > 0 && ranked[0]._candidate) {
@@ -184,12 +191,18 @@ export const getBestTask = (categories = [], excludeTaskId = null, options = {})
 };
 
 export function getCombinedHistory(history, simulados, maxScore = 100, minScore = 0) {
+    const parsedMax = parseOptionalFinite(maxScore);
+    const safeMaxScore = parsedMax !== null && parsedMax > 0 ? parsedMax : 100;
+    const parsedMin = parseOptionalFinite(minScore);
+    const safeMinScore = parsedMin !== null ? Math.min(parsedMin, safeMaxScore - 1e-6) : 0;
+
     const deduplicatedMap = new Map();
     const allSimulados = safeArray(simulados).filter(s => s && s.valid !== false);
 
     allSimulados.forEach((s) => {
-        const safeScore = getSafeScore(s, maxScore, minScore);
-        const safeScoreStr = Number.isFinite(safeScore) ? String(Math.round(safeScore * 100)) : '0';
+        const safeScore = getSafeScore(s, safeMaxScore, safeMinScore);
+        if (!Number.isFinite(safeScore)) return;
+        const safeScoreStr = String(Math.round(safeScore * 100));
         const norm = (v) => (v === undefined || v === null || v === '' ? '_' : String(v));
         const sSub = s.subject || s.categoryName || s.materia || s.disciplina || s.categoryId || 'geral';
         const sTotal = s.total ?? s.questoes ?? s.totalQuestoes ?? s.questions;
@@ -202,8 +215,11 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     const hasSimuladoForDate = new Set();
     const hasGenericSimuladoForDate = new Set();
     const hasSimuladoForDateSubject = new Set();
+    const subjectsByDate = new Map();
 
     allSimulados.forEach((s) => {
+        const safeScore = getSafeScore(s, safeMaxScore, safeMinScore);
+        if (!Number.isFinite(safeScore)) return;
         const dKey = getDateKey(s.date || s.createdAt);
         if (!dKey) return;
         hasSimuladoForDate.add(dKey);
@@ -214,7 +230,11 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         if (isGenericGlobal) {
             hasGenericSimuladoForDate.add(dKey);
         } else {
-            if (normSub) hasSimuladoForDateSubject.add(`${dKey}|subj:${normSub}`);
+            if (normSub) {
+                hasSimuladoForDateSubject.add(`${dKey}|subj:${normSub}`);
+                if (!subjectsByDate.has(dKey)) subjectsByDate.set(dKey, []);
+                subjectsByDate.get(dKey).push(String(rawSub));
+            }
             if (catId) hasSimuladoForDateSubject.add(`${dKey}|cat:${catId}`);
         }
     });
@@ -228,10 +248,13 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         const rSubjNorm = rSubj ? normalize(String(rSubj)) : '';
         const rCatId = r.categoryId !== undefined && r.categoryId !== null && r.categoryId !== '' ? String(r.categoryId) : '';
 
+        const dateSubs = subjectsByDate.get(dKey) || [];
+        const matchesDateAlias = Boolean(rSubj && dateSubs.some(sName => isSubjectMatch(sName, String(rSubj))));
         const isCoveredBySimulado = (!rSubjNorm && !rCatId)
             ? hasSimuladoForDate.has(dKey)
             : (hasGenericSimuladoForDate.has(dKey) ||
                 (rSubjNorm && hasSimuladoForDateSubject.has(`${dKey}|subj:${rSubjNorm}`)) ||
+                matchesDateAlias ||
                 (rCatId && hasSimuladoForDateSubject.has(`${dKey}|cat:${rCatId}`)));
 
         if (!isCoveredBySimulado) {
@@ -273,7 +296,7 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                 bucket.correct += Math.min(rTotal, Math.max(0, rCorrect));
                 bucket.total += rTotal;
             } else {
-                const s = getSafeScore(r, maxScore, minScore);
+                const s = getSafeScore(r, safeMaxScore, safeMinScore);
                 if (Number.isFinite(s)) {
                     bucket.directScores.push(s);
                 }
@@ -284,8 +307,12 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     Object.entries(rowsByGroup).forEach(([groupKey, stats]) => {
         const dKey = stats.dKey;
         let score = null;
-        if (stats.total > 0) {
-            score = minScore + (stats.correct / stats.total) * (maxScore - minScore);
+        if (stats.total > 0 && stats.directScores && stats.directScores.length > 0) {
+            const qScore = safeMinScore + (stats.correct / stats.total) * (safeMaxScore - safeMinScore);
+            const dScore = kahanSum(stats.directScores) / stats.directScores.length;
+            score = (qScore + dScore * stats.directScores.length) / (1 + stats.directScores.length);
+        } else if (stats.total > 0) {
+            score = safeMinScore + (stats.correct / stats.total) * (safeMaxScore - safeMinScore);
         } else if (stats.directScores && stats.directScores.length > 0) {
             score = kahanSum(stats.directScores) / stats.directScores.length;
         }
@@ -299,8 +326,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                     id: groupKey === dKey ? `legacy-${dKey}` : `legacy-${groupKey}`,
                     date: dKey,
                     score,
-                    sourceMinScore: minScore,
-                    sourceMaxScore: maxScore,
+                    sourceMinScore: safeMinScore,
+                    sourceMaxScore: safeMaxScore,
                     ...(stats.total > 0 ? { total: stats.total, correct: stats.correct } : {}),
                     ...(singleSubject ? { subject: singleSubject, categoryName: singleSubject } : {}),
                     ...(singleCategoryId !== undefined ? { categoryId: singleCategoryId } : {}),

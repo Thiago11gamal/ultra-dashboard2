@@ -35,14 +35,38 @@ export async function getSuggestedFocusWithLLM(
   if (!focus.urgency || typeof focus.urgency !== 'object') return focus;
 
   try {
+    const rawExtraContext =
+      options?.context && typeof options.context === 'object' ? options.context : {};
+    const definedExtraContext = Object.fromEntries(
+      Object.entries(rawExtraContext).filter(([, val]) => val !== undefined)
+    );
+    const resolvedMaxScore =
+      Number.isFinite(Number(focus.maxScore)) && Number(focus.maxScore) > 0
+        ? Number(focus.maxScore)
+        : options.maxScore;
+    const resolvedMinScore =
+      focus.minScore !== null &&
+      focus.minScore !== undefined &&
+      focus.minScore !== '' &&
+      Number.isFinite(Number(focus.minScore))
+        ? Number(focus.minScore)
+        : options.minScore;
+    const resolvedTargetScore =
+      focus.minCutoff !== null &&
+      focus.minCutoff !== undefined &&
+      focus.minCutoff !== '' &&
+      Number.isFinite(Number(focus.minCutoff))
+        ? Number(focus.minCutoff)
+        : options.targetScore;
+
     const enhancedUrgency = await enhanceCoachResultWithLLM(focus.urgency, {
       ...options,
       context: {
         categoryName: focus.name || focus.categoryName || null,
-        maxScore: options.maxScore,
-        minScore: options.minScore,
-        targetScore: options.targetScore,
-        ...(options.context || {}),
+        maxScore: resolvedMaxScore,
+        minScore: resolvedMinScore,
+        targetScore: resolvedTargetScore,
+        ...definedExtraContext,
       },
     });
 

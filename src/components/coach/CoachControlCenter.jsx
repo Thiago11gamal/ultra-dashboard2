@@ -1,18 +1,33 @@
 import React, { useMemo, useState } from 'react';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
 
-// FIX (BUG-08): checa null/undefined/'' ANTES de Number() — antes fmt(null) => "0.0000"
-const fmt = (v, d = 4) => {
-  if (v === null || v === undefined || v === '') return '—';
+const toStrictFinite = (v) => {
+  if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
   const n = Number(v);
-  return Number.isFinite(n) ? n.toFixed(d) : '—';
+  return Number.isFinite(n) ? n : null;
+};
+
+const formatDateTime = (ts) => {
+  const n = toStrictFinite(ts);
+  return n !== null && n > 0 ? new Date(n).toLocaleString('pt-BR') : '—';
+};
+
+const formatDate = (ts) => {
+  const n = toStrictFinite(ts);
+  return n !== null && n > 0 ? new Date(n).toLocaleDateString('pt-BR') : '—';
+};
+
+// FIX (BUG-08): checa null/undefined/''/boolean ANTES de Number() — antes fmt(null) => "0.0000"
+const fmt = (v, d = 4) => {
+  const n = toStrictFinite(v);
+  return n !== null ? n.toFixed(d) : '—';
 };
 
 // FIX (BUG-09): semântica clara (lowerIsBetter) em vez de goodWhenNegative
 const deltaColor = (v, lowerIsBetter = true) => {
-  if (v === null || v === undefined || v === '') return 'text-slate-500';
-  const n = Number(v);
-  if (!Number.isFinite(n) || n === 0) return 'text-slate-400';
+  const n = toStrictFinite(v);
+  if (n === null) return 'text-slate-500';
+  if (n === 0) return 'text-slate-400';
   const isGood = lowerIsBetter ? n < 0 : n > 0;
   return isGood ? 'text-emerald-400' : 'text-red-400';
 };
@@ -92,9 +107,13 @@ function LoadingSpinner() {
   );
 }
 
-function ErrorAlert({ message }) {
+function ErrorAlert({ message, onDismiss }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
+  const handleDismiss = () => {
+    setDismissed(true);
+    onDismiss?.();
+  };
   return (
     <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
       <span className="text-red-400 text-lg">⚠️</span>
@@ -102,7 +121,7 @@ function ErrorAlert({ message }) {
         <p className="text-red-300 text-sm font-medium">Erro no Control Center</p>
         <p className="text-red-400/70 text-xs mt-1">{message}</p>
       </div>
-      <button onClick={() => setDismissed(true)} aria-label="Dispensar erro" className="text-red-400 hover:text-red-300">✕</button>
+      <button type="button" onClick={handleDismiss} aria-label="Dispensar erro" className="text-red-400 hover:text-red-300">✕</button>
     </div>
   );
 }
@@ -229,7 +248,7 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
 // ==========================================================
 // Painel: Flags
 // ==========================================================
-function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, strategySpace }) {
+function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, strategySpace, applyStrategyPreset }) {
   const [search, setSearch] = useState('');
   const groupedFlags = useMemo(() => {
     const groups = {
@@ -284,17 +303,25 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
 
       {strategySpace && strategySpace.length > 0 && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
-          <SectionTitle icon="🧩">Estratégias de Flags</SectionTitle>
+          <SectionTitle icon="🧩">Estratégias de Flags (Presets)</SectionTitle>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {strategySpace.map((strategy) => (
-              <div key={strategy.id} className="bg-slate-900/40 rounded-lg p-3">
-                <p className="text-sm font-medium text-slate-200">{strategy.label}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{strategy.id}</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  {Object.entries(strategy.features || {}).filter(([, v]) => v).length} flags
-                </p>
-              </div>
-            ))}
+            {strategySpace.map((strategy) => {
+              const stratFlags = Object.entries(strategy.features || {}).filter(([, v]) => v === true);
+              return (
+                <button
+                  key={strategy.id}
+                  type="button"
+                  onClick={() => applyStrategyPreset?.(strategy)}
+                  className="text-left bg-slate-900/40 hover:bg-slate-800/70 border border-slate-700/30 hover:border-indigo-500/40 rounded-lg p-3 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
+                  <p className="text-sm font-medium text-slate-200">{strategy.label}</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-mono">{strategy.id}</p>
+                  <p className="text-xs text-indigo-400/80 mt-1">
+                    {stratFlags.length} flags • Clique para aplicar
+                  </p>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -371,8 +398,9 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
   const alerts = latestHealth.alerts || [];
   const metrics = latestHealth.metrics || {};
   const recommendations = latestHealth.recommendations || [];
-  // FIX: proteger healthScore contra NaN
-  const safeScore = Number.isFinite(Number(latestHealth.healthScore)) ? Number(latestHealth.healthScore) : 0;
+  // FIX: usar toStrictFinite (null não pode virar 0 via Number(null))
+  const numericHealthScore = toStrictFinite(latestHealth.healthScore);
+  const safeScore = numericHealthScore ?? 0;
 
   return (
     <div className="space-y-6">
@@ -380,7 +408,7 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-slate-400 uppercase tracking-wide">Health Score</p>
-            <p className="text-5xl font-bold text-white mt-1">{Number.isFinite(Number(latestHealth.healthScore)) ? latestHealth.healthScore : '—'}</p>
+            <p className="text-5xl font-bold text-white mt-1">{numericHealthScore !== null ? numericHealthScore : '—'}</p>
           </div>
           <StatusBadge status={latestHealth.status} />
         </div>
@@ -392,9 +420,7 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
           />
         </div>
         <p className="text-xs text-slate-500 mt-2">
-          Gerado em {Number.isFinite(Number(latestHealth.generatedAt))
-            ? new Date(latestHealth.generatedAt).toLocaleString('pt-BR')
-            : '—'}
+          Gerado em {formatDateTime(latestHealth.generatedAt)}
         </p>
       </div>
 
@@ -483,12 +509,10 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
             {[...healthSnapshots].reverse().map((snapshot, idx) => (
               <div key={idx} className="flex items-center gap-3 text-sm py-1.5 border-b border-slate-700/30 last:border-0">
                 <span className="text-slate-500 text-xs w-32 flex-shrink-0">
-                  {Number.isFinite(Number(snapshot?.generatedAt))
-                    ? new Date(Number(snapshot.generatedAt)).toLocaleDateString('pt-BR')
-                    : '—'}
+                  {formatDate(snapshot?.generatedAt)}
                 </span>
-                <span className="font-mono text-white">{snapshot.healthScore}</span>
-                <StatusBadge status={snapshot.status} />
+                <span className="font-mono text-white">{toStrictFinite(snapshot?.healthScore) ?? '—'}</span>
+                <StatusBadge status={snapshot?.status} />
               </div>
             ))}
           </div>
@@ -542,28 +566,31 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                   : recommendation.action === 'explore' ? 'bg-cyan-500/20 text-cyan-300'
                     : 'bg-slate-500/20 text-slate-300'
               }`}>
-              {recommendation.action.toUpperCase()}
+              {String(recommendation.action || 'keep').toUpperCase()}
             </span>
-            <span className="text-slate-300 font-mono text-sm">{recommendation.strategyId}</span>
+            <span className="text-slate-300 font-mono text-sm">{recommendation.strategyId || '—'}</span>
           </div>
           <p className="text-sm text-slate-300 mb-3">{recommendation.reason}</p>
-          {recommendation.score != null && (
+          {toStrictFinite(recommendation.score) !== null && (
             <div className="flex gap-4 text-sm text-slate-400 mb-4">
               <span>Score: <span className="text-white font-mono">{fmt(recommendation.score, 4)}</span></span>
-              {recommendation.baselineScore != null && (
+              {toStrictFinite(recommendation.baselineScore) !== null && (
                 <span>Baseline: <span className="text-white font-mono">{fmt(recommendation.baselineScore, 4)}</span></span>
               )}
             </div>
           )}
-          {recommendation.action !== 'keep' && (
+          {tunerResult?.applied === true ? (
+            <p className="text-xs font-medium text-emerald-400">✓ Recomendação aplicada às flags ativas</p>
+          ) : recommendation.action && recommendation.action !== 'keep' ? (
             <button
+              type="button"
               onClick={() => applyRecommendation(recommendation, { force: true })}
               disabled={loading}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               Aplicar Recomendação
             </button>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -609,19 +636,17 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
               <div key={idx} className="bg-slate-900/40 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-slate-500">
-                    {Number.isFinite(Number(entry?.generatedAt))
-                      ? new Date(Number(entry.generatedAt)).toLocaleString('pt-BR')
-                      : '—'}
+                    {formatDateTime(entry?.generatedAt)}
                   </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${entry.recommendation?.action === 'promote' ? 'bg-emerald-500/15 text-emerald-300'
-                      : entry.recommendation?.action === 'rollback' ? 'bg-red-500/15 text-red-300'
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${entry?.recommendation?.action === 'promote' ? 'bg-emerald-500/15 text-emerald-300'
+                      : entry?.recommendation?.action === 'rollback' ? 'bg-red-500/15 text-red-300'
                         : 'bg-slate-500/15 text-slate-300'
                     }`}>
-                    {entry.recommendation?.action || '—'}
+                    {entry?.recommendation?.action || '—'}
                   </span>
                 </div>
-                <p className="text-sm text-slate-300">{entry.recommendation?.strategyId || '—'}</p>
-                {entry.applied && <p className="text-xs text-emerald-400 mt-1">✓ Aplicado automaticamente</p>}
+                <p className="text-sm text-slate-300">{entry?.recommendation?.strategyId || '—'}</p>
+                {entry?.applied && <p className="text-xs text-emerald-400 mt-1">✓ Aplicado automaticamente</p>}
               </div>
             ))}
           </div>
@@ -664,9 +689,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
           ) : (
             <>
               <div className="text-xs text-slate-500">
-                Gerado em {Number.isFinite(Number(backtestReport?.generatedAt))
-                  ? new Date(Number(backtestReport.generatedAt)).toLocaleString('pt-BR')
-                  : '—'}
+                Gerado em {formatDateTime(backtestReport?.generatedAt)}
               </div>
 
               {strategyIds.length > 0 && (
@@ -688,10 +711,11 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                       <tbody>
                         {strategyIds.map((id) => {
                           const s = summaries[id];
+                          if (!s || typeof s !== 'object') return null;
                           return (
                             <tr key={id} className="border-b border-slate-700/30 last:border-0">
                               <td className="py-2 pr-4 font-mono text-slate-200">{id}</td>
-                              <td className="py-2 pr-4 text-white">{s.count}</td>
+                              <td className="py-2 pr-4 text-white">{s.count ?? '—'}</td>
                               <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.avgBrier, 4)}</td>
                               <td className="py-2 pr-4 font-mono text-white">{fmt(s.probability?.ece, 4)}</td>
                               <td className="py-2 pr-4 font-mono text-white">{fmt(s.score?.mae, 2)}</td>
@@ -710,31 +734,34 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                 <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
                   <SectionTitle icon="⚖️">Comparações</SectionTitle>
                   <div className="grid md:grid-cols-2 gap-4">
-                    {Object.entries(comparisons).map(([key, comp]) => (
-                      <div key={key} className="bg-slate-900/40 rounded-lg p-4">
-                        <p className="text-sm font-medium text-slate-200 font-mono mb-2">{key}</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <p className="text-slate-500">Δ Brier</p>
-                            <p className={`font-mono ${deltaColor(comp.delta?.brier, true)}`}>{fmt(comp.delta?.brier, 4)}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Δ NDCG</p>
-                            <p className={`font-mono ${deltaColor(comp.delta?.ndcg, false)}`}>{fmt(comp.delta?.ndcg, 4)}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Heurística</p>
-                            <p className="font-mono text-white">{fmt(comp.heuristicScore, 4)}</p>
-                          </div>
-                          <div>
-                            <p className="text-slate-500">Vencedor</p>
-                            <p className={`font-medium ${comp.winner === 'candidate' ? 'text-emerald-400' : comp.winner === 'baseline' ? 'text-amber-400' : 'text-slate-400'}`}>
-                              {comp.winner}
-                            </p>
+                    {Object.entries(comparisons).map(([key, comp]) => {
+                      if (!comp || typeof comp !== 'object') return null;
+                      return (
+                        <div key={key} className="bg-slate-900/40 rounded-lg p-4">
+                          <p className="text-sm font-medium text-slate-200 font-mono mb-2">{key}</p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <p className="text-slate-500">Δ Brier</p>
+                              <p className={`font-mono ${deltaColor(comp.delta?.brier, true)}`}>{fmt(comp.delta?.brier, 4)}</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500">Δ NDCG</p>
+                              <p className={`font-mono ${deltaColor(comp.delta?.ndcg, false)}`}>{fmt(comp.delta?.ndcg, 4)}</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500">Heurística</p>
+                              <p className="font-mono text-white">{fmt(comp.heuristicScore, 4)}</p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500">Vencedor</p>
+                              <p className={`font-medium ${comp.winner === 'candidate' ? 'text-emerald-400' : comp.winner === 'baseline' ? 'text-amber-400' : 'text-slate-400'}`}>
+                                {comp.winner || '—'}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -805,24 +832,28 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                           </tr>
                         </thead>
                         <tbody>
-                          {actionEntries.map(([actionType, estimate]) => (
-                            <tr key={actionType} className="border-b border-slate-700/30 last:border-0">
-                              <td className="py-2 pr-4 font-mono text-slate-200">{actionType}</td>
-                              <td className={`py-2 pr-4 font-mono ${Number(estimate.uplift) > 0
-                                  ? 'text-emerald-400'
-                                  : Number(estimate.uplift) < 0
-                                    ? 'text-red-400'
-                                    : 'text-slate-400'
-                                }`}>
-                                {fmt(estimate.uplift, 3)}
-                              </td>
-                              <td className="py-2 pr-4 text-slate-300">{estimate.method}</td>
-                              <td className="py-2 pr-4 text-white">{estimate.sampleSize}</td>
-                              <td className="py-2 text-xs text-slate-400">
-                                {estimate.ci ? `[${fmt(estimate.ci.low, 2)}, ${fmt(estimate.ci.high, 2)}]` : '—'}
-                              </td>
-                            </tr>
-                          ))}
+                          {actionEntries.map(([actionType, estimate]) => {
+                            if (!estimate || typeof estimate !== 'object') return null;
+                            const upliftNum = toStrictFinite(estimate.uplift);
+                            return (
+                              <tr key={actionType} className="border-b border-slate-700/30 last:border-0">
+                                <td className="py-2 pr-4 font-mono text-slate-200">{actionType}</td>
+                                <td className={`py-2 pr-4 font-mono ${upliftNum !== null && upliftNum > 0
+                                    ? 'text-emerald-400'
+                                    : upliftNum !== null && upliftNum < 0
+                                      ? 'text-red-400'
+                                      : 'text-slate-400'
+                                  }`}>
+                                  {fmt(estimate.uplift, 3)}
+                                </td>
+                                <td className="py-2 pr-4 text-slate-300">{estimate.method || '—'}</td>
+                                <td className="py-2 pr-4 text-white">{estimate.sampleSize ?? '—'}</td>
+                                <td className="py-2 text-xs text-slate-400">
+                                  {estimate.ci ? `[${fmt(estimate.ci.low, 2)}, ${fmt(estimate.ci.high, 2)}]` : '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -853,6 +884,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
           // ==========================================================
           function LLMPanel({orchestratorResult, runOrchestrator, loading}) {
   const llm = orchestratorResult?.llmExplanation || orchestratorResult?.focus?.urgency?.llmExplanation || null;
+  const numericConfidence = toStrictFinite(llm?.confidence);
 
           return (
           <div className="space-y-6">
@@ -866,7 +898,9 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
               <button
                 type="button"
                 onClick={() => runOrchestrator?.({
-                  runHealth: true,
+                  force: true,
+                  runHealth: false,
+                  saveHealthSnapshots: false,
                   runLLM: true,
                   runAutoTuner: false,
                   trainCausalModel: false,
@@ -896,9 +930,9 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                         {llm.source}{llm.provider ? ` (${llm.provider})` : ''}
                       </span>
                     )}
-                    {Number.isFinite(Number(llm.confidence)) && (
+                    {numericConfidence !== null && (
                       <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-mono">
-                        Confiança: {Math.round(Number(llm.confidence) * 100)}%
+                        Confiança: {Math.round(numericConfidence * 100)}%
                       </span>
                     )}
                   </div>
@@ -943,7 +977,8 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
             dashboard, orchestratorResult, backtestReport, tunerHistory, tunerResult,
             causalModel, healthSnapshots, latestHealth, currentFlags, flagOverrides,
             strategySpace, runOrchestrator, runAutoTuner, runBacktest, trainCausal,
-            applyRecommendation, rollbackToBaseline, toggleFlag, resetOverrides,
+            applyRecommendation, applyStrategyPreset, rollbackToBaseline, toggleFlag,
+            resetOverrides, clearError,
   } = useCoachControlCenter({contestId, categories, simulados, studyLogs, maxScore, minScore, targetScore});
 
           return (
@@ -959,7 +994,8 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                     <span className="text-xs text-slate-500">Última execução: {new Date(lastRunTimestamp).toLocaleTimeString('pt-BR')}</span>
                   )}
                   <button
-                    onClick={() => runOrchestrator({ runHealth: true, runLLM: false, runAutoTuner: false, trainCausalModel: false })}
+                    type="button"
+                    onClick={() => runOrchestrator({ force: true, runHealth: true, runLLM: false, runAutoTuner: false, trainCausalModel: false })}
                     disabled={loading}
                     className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
@@ -978,13 +1014,20 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                 <TabButton active={activeTab === 'llm'} onClick={() => setActiveTab('llm')} icon="💬">Explicação LLM</TabButton>
               </div>
 
-              {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} />}
+              {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} onDismiss={clearError} />}
               {loading && !dashboard && <LoadingSpinner />}
 
               <div className="min-h-[400px]">
                 {activeTab === 'overview' && <OverviewPanel dashboard={dashboard} orchestratorResult={orchestratorResult} />}
                 {activeTab === 'flags' && (
-                  <FlagsPanel currentFlags={currentFlags} flagOverrides={flagOverrides} strategySpace={strategySpace} toggleFlag={toggleFlag} resetOverrides={resetOverrides} />
+                  <FlagsPanel
+                    currentFlags={currentFlags}
+                    flagOverrides={flagOverrides}
+                    strategySpace={strategySpace}
+                    toggleFlag={toggleFlag}
+                    resetOverrides={resetOverrides}
+                    applyStrategyPreset={applyStrategyPreset}
+                  />
                 )}
                 {activeTab === 'health' && <HealthPanel latestHealth={latestHealth} healthSnapshots={healthSnapshots} />}
                 {activeTab === 'causal' && <CausalPanel causalModel={causalModel} trainCausal={trainCausal} loading={loading} />}

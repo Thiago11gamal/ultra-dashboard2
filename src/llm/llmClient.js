@@ -101,9 +101,19 @@ export async function generateStructuredLLM({
   timeoutMs,
   temperature = 0.2,
   maxTokens = 800,
-}) {
+  signal,
+  onFailure,
+} = {}) {
   const provider = getLLMProvider();
-  if (!provider) return null;
+  if (!provider) {
+    onFailure?.('llm_provider_not_configured');
+    return null;
+  }
+
+  if (signal?.aborted) {
+    onFailure?.('llm_aborted');
+    return null;
+  }
 
   const config = getLLMConfig();
 
@@ -114,6 +124,21 @@ export async function generateStructuredLLM({
       : 7000;
 
   const abortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+
+  let externalAbortReject = null;
+  const externalAbortPromise = signal
+    ? new Promise((_, reject) => {
+        externalAbortReject = () => {
+          try {
+            abortController?.abort();
+          } catch {
+            // ignore
+          }
+          reject(new Error('LLM_ABORTED'));
+        };
+        signal.addEventListener('abort', externalAbortReject, { once: true });
+      })
+    : null;
 
   const requestPayload = {
     system,
@@ -126,6 +151,7 @@ export async function generateStructuredLLM({
     },
   };
 
+  let executionError = null;
   const execution = (async () => {
     try {
       if (typeof provider.generateStructured === 'function') {
@@ -141,7 +167,8 @@ export async function generateStructuredLLM({
       }
 
       return null;
-    } catch {
+    } catch (err) {
+      executionError = err;
       return null;
     }
   })();
@@ -158,12 +185,30 @@ export async function generateStructuredLLM({
     }, safeTimeout);
   });
 
+  const racers = externalAbortPromise
+    ? [execution, timeout, externalAbortPromise]
+    : [execution, timeout];
+
   try {
-    return await Promise.race([execution, timeout]);
-  } catch {
+    const result = await Promise.race(racers);
+    if (result === null && executionError) {
+      onFailure?.(executionError?.name === 'AbortError' ? 'llm_aborted' : 'llm_error');
+    }
+    return result;
+  } catch (err) {
+    if (err?.message === 'LLM_TIMEOUT') {
+      onFailure?.('llm_timeout');
+    } else if (err?.message === 'LLM_ABORTED' || err?.name === 'AbortError') {
+      onFailure?.('llm_aborted');
+    } else {
+      onFailure?.('llm_error');
+    }
     return null;
   } finally {
     clearTimeout(timeoutId);
+    if (signal && externalAbortReject) {
+      signal.removeEventListener('abort', externalAbortReject);
+    }
   }
 }
 
@@ -172,11 +217,14 @@ export function registerLLMProvider(provider, options = {}) {
     return false;
   }
   try {
+    const safeOptions = options && typeof options === 'object' ? options : {};
     globalThis.__COACH_LLM__ = {
-      ...(globalThis.__COACH_LLM__ || {}),
-      ...options,
+      ...safeOptions,
       provider,
     };
+    if (typeof globalThis.__COACH_LLM_CACHE__?.clear === 'function') {
+      globalThis.__COACH_LLM_CACHE__.clear();
+    }
     return true;
   } catch {
     return false;
@@ -185,8 +233,9 @@ export function registerLLMProvider(provider, options = {}) {
 
 export function clearLLMProvider() {
   try {
-    if (globalThis.__COACH_LLM__) {
-      globalThis.__COACH_LLM__.provider = null;
+    globalThis.__COACH_LLM__ = null;
+    if (typeof globalThis.__COACH_LLM_CACHE__?.clear === 'function') {
+      globalThis.__COACH_LLM_CACHE__.clear();
     }
   } catch {
     // ignore

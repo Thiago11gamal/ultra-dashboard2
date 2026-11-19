@@ -126,8 +126,8 @@ export const getDaysDiff = (newer, older) => {
 };
 
 export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = null) {
-    if (daysToExam === null || daysToExam === undefined || Number.isNaN(daysToExam)) return 1.0;
-    if (daysToExam < 0) return 1.0;
+    const parsedDays = parseOptionalFinite(daysToExam);
+    if (parsedDays === null || parsedDays < 0) return 1.0;
 
     let criticalHorizon = 21;
     let timeDivisor = 7;
@@ -139,12 +139,12 @@ export function getCrunchMultiplier(daysToExam, firstActivityDate = null, now = 
         if (!Number.isFinite(refTime) || !Number.isFinite(firstTime)) return 1.0;
         const journeyDays = Math.max(0, refTime - firstTime) / 86400000;
         if (!Number.isFinite(journeyDays)) return 1.0;
-        const safeDays = Number.isFinite(daysToExam) ? Math.max(0, daysToExam) : 0;
+        const safeDays = Math.max(0, parsedDays);
         const totalJourneyDays = Math.max(1, journeyDays) + safeDays;
         criticalHorizon = Math.max(14, Math.min(35, totalJourneyDays * 0.08));
         timeDivisor = Math.max(7, Math.min(60, totalJourneyDays * 0.15));
     }
-    const timeDist = Number.isFinite(daysToExam) ? Number(daysToExam) : criticalHorizon;
+    const timeDist = parsedDays;
     const urgency = 1.0 + (1.0 / (1.0 + Math.exp((timeDist - criticalHorizon) / timeDivisor)));
     return Number(Math.min(2.0, urgency).toFixed(4));
 }
@@ -217,12 +217,18 @@ export const sanitizeNum = (val) => {
         const parts = str.split(',');
         const beforeComma = parts[0].replace(/^[+-]/, '');
         const afterComma = parts[1];
-        if (parts.length > 2 || (afterComma && afterComma.length === 3 && /^[1-9]\d{0,2}$/.test(beforeComma))) {
+        if (parts.length > 2) {
+            if (/^[+-]?\d{1,3}(,\d{3})+$/.test(str)) {
+                str = str.replace(/,/g, '');
+            } else {
+                return NaN;
+            }
+        } else if (afterComma && afterComma.length === 3 && /^[1-9]\d{0,2}$/.test(beforeComma)) {
             str = str.replace(/\./g, '').replace(/,/g, '');
         } else {
             str = str.replace(/\./g, '').replace(/,/g, '.');
         }
-    } else if (/^[1-9]\d{0,2}(\.\d{3})+$/.test(str)) {
+    } else if (/^[+-]?[1-9]\d{0,2}(\.\d{3}){2,}$/.test(str)) {
         str = str.replace(/\./g, '');
     }
     const n = Number(str);
@@ -231,18 +237,21 @@ export const sanitizeNum = (val) => {
 
 export const getCoachPriorities = (topicsData, options = null) => {
     if (!Array.isArray(topicsData)) return [];
+    const safeTopics = topicsData.filter((t) => t && typeof t === 'object');
+    if (safeTopics.length === 0) return [];
 
     const useBayesian = getCoachFeature(options, 'useBayesianTopics', false);
     if (useBayesian) {
         try {
-            const bayesianInput = topicsData.map(topic => {
+            const bayesianInput = safeTopics.map(topic => {
                 const parsedAcertos = sanitizeNum(topic.acertos);
                 const parsedCorrect = sanitizeNum(topic.correct);
                 const parsedTotal = sanitizeNum(topic.total);
-                const correct = Number.isFinite(parsedAcertos)
+                const total = Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : 0;
+                const rawCorrect = Number.isFinite(parsedAcertos)
                     ? parsedAcertos
                     : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
-                const total = Number.isFinite(parsedTotal) ? parsedTotal : 0;
+                const correct = Math.max(0, Math.min(total, rawCorrect));
                 return {
                     name: topic.name || topic.topic || topic.id || 'Tópico',
                     total,
@@ -257,8 +266,8 @@ export const getCoachPriorities = (topicsData, options = null) => {
             });
 
             return bayesianResult.topics
-                .map(topic => ({
-                    ...(topic.original || {}),
+                .map((topic, idx) => ({
+                    ...(bayesianInput[idx]?.original || {}),
                     name: topic.name,
                     realProficiency: clamp(topic.proficiencyMean, 0, 1),
                     bayesian: topic
@@ -275,33 +284,37 @@ export const getCoachPriorities = (topicsData, options = null) => {
         }
     }
 
-    const globalCorrect = topicsData.reduce((acc, t) => {
+    const globalCorrect = safeTopics.reduce((acc, t) => {
         const parsedAcertos = sanitizeNum(t.acertos);
         const parsedCorrect = sanitizeNum(t.correct);
-        const c = Number.isFinite(parsedAcertos)
+        const parsedTotal = sanitizeNum(t.total);
+        const tot = Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : 0;
+        const rawC = Number.isFinite(parsedAcertos)
             ? parsedAcertos
             : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
+        const c = Math.max(0, Math.min(tot, rawC));
         return acc + c;
     }, 0);
 
-    const globalTotal = topicsData.reduce((acc, t) => {
+    const globalTotal = safeTopics.reduce((acc, t) => {
         const parsedTotal = sanitizeNum(t.total);
-        const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
+        const tot = Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : 0;
         return acc + tot;
     }, 0);
 
     const mediaGlobal = (globalTotal > 0 && Number.isFinite(globalCorrect / globalTotal))
-        ? globalCorrect / globalTotal
+        ? clamp(globalCorrect / globalTotal, 0, 1)
         : 0.5;
 
-    return topicsData.map(topic => {
+    return safeTopics.map(topic => {
         const parsedAcertos = sanitizeNum(topic.acertos);
         const parsedCorrect = sanitizeNum(topic.correct);
         const parsedTotal = sanitizeNum(topic.total);
-        const c = Number.isFinite(parsedAcertos)
+        const tot = Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : 0;
+        const rawC = Number.isFinite(parsedAcertos)
             ? parsedAcertos
             : (Number.isFinite(parsedCorrect) ? parsedCorrect : 0);
-        const tot = Number.isFinite(parsedTotal) ? parsedTotal : 0;
+        const c = Math.max(0, Math.min(tot, rawC));
 
         let realProficiency = computeBayesianProficiency(c, tot, mediaGlobal, globalTotal);
         realProficiency = Number.isFinite(realProficiency) ? clamp(realProficiency, 0, 1) : 0;

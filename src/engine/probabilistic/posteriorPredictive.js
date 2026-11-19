@@ -165,8 +165,18 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
     domain * 0.25,
     dailyVolatility
   );
-  const rawProcessAbilityVar = Number(input.processAbilityVar);
-  const rawProcessTrendVar = Number(input.processTrendVar);
+  const hasExplicitProcessAbility =
+    input.processAbilityVar !== null &&
+    input.processAbilityVar !== undefined &&
+    input.processAbilityVar !== '' &&
+    typeof input.processAbilityVar !== 'boolean';
+  const rawProcessAbilityVar = hasExplicitProcessAbility ? Number(input.processAbilityVar) : NaN;
+  const hasExplicitProcessTrend =
+    input.processTrendVar !== null &&
+    input.processTrendVar !== undefined &&
+    input.processTrendVar !== '' &&
+    typeof input.processTrendVar !== 'boolean';
+  const rawProcessTrendVar = hasExplicitProcessTrend ? Number(input.processTrendVar) : NaN;
   const hasKalmanProcess = Number.isFinite(rawProcessAbilityVar) && rawProcessAbilityVar >= 0;
   const processAbilityVar = hasKalmanProcess ? rawProcessAbilityVar : 0;
   const processTrendVar = Number.isFinite(rawProcessTrendVar) && rawProcessTrendVar >= 0
@@ -200,19 +210,27 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
       baseNoiseSd * baseNoiseSd
     );
     const totalPredSd = Math.sqrt(totalPredVar);
-    const ciLow = Number(clampFinite(predMean - 1.96 * totalPredSd, minScore, maxScore, minScore).toFixed(2));
-    const ciHigh = Number(clampFinite(predMean + 1.96 * totalPredSd, minScore, maxScore, maxScore).toFixed(2));
+    const ciLow = clampFinite(predMean - 1.96 * totalPredSd, minScore, maxScore, minScore);
+    const ciHigh = clampFinite(predMean + 1.96 * totalPredSd, minScore, maxScore, maxScore);
+    const trustK = clampFinite(options.trustK, 1, 30, 4);
+    const earlySampleTrust = sampleSize > 0
+      ? Math.min(1, sampleSize / (sampleSize + trustK))
+      : 0.10;
+    const baseProbEarly = clampFinite(input.baseProbability, 0, 100, NaN);
+    const earlyProb = (options.blendWithBase !== false && Number.isFinite(baseProbEarly))
+      ? clampFinite(earlySampleTrust * 100 + (1 - earlySampleTrust) * baseProbEarly, 0, 100, 100)
+      : 100;
     return {
       model: 'posterior_predictive_normal_trend_damped',
-      probability: 100,
+      probability: earlyProb,
       probabilityRaw: 100,
-      mean: Number(predMean.toFixed(2)),
+      mean: predMean,
       ciLow,
       ciHigh,
       horizonDays,
       simulations,
       sampleSize,
-      sampleTrust: 1,
+      sampleTrust: earlySampleTrust,
       inputs: {
         ability,
         abilitySd,

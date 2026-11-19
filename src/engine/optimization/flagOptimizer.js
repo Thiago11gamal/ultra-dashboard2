@@ -102,13 +102,21 @@ export function getSafeBaselineFeatures() {
 export function loadPersistedCoachFlags(contestId, options = {}) {
   const scopedKey = resolveActiveFlagsKey(contestId);
   const persisted = loadJson(scopedKey, null);
+  const validPersisted =
+    persisted && typeof persisted === 'object' && !Array.isArray(persisted)
+      ? { ...persisted }
+      : null;
 
-    if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
-      replaceFlags(persisted, contestId, options);
-    }
-
-    return readFlags(contestId);
+  if (options?.applyToStore === false) {
+    return validPersisted || {};
   }
+
+  if (validPersisted) {
+    replaceFlags(validPersisted, contestId, options);
+  }
+
+  return readFlags(contestId);
+}
 
   /**
    * Persiste flags ativas.
@@ -332,7 +340,13 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
       : getStrategySpace();
 
     const ranked = strategySpace.map((strategy) => {
-      const summary = summaries?.[strategy.id] || null;
+      const summary =
+        summaries?.[strategy.id] ||
+        (strategy.id === 'all-math-lots' ? summaries?.['all-lots'] : null) ||
+        (strategy.id === 'all-lots' ? summaries?.['all-math-lots'] : null) ||
+        null;
+
+      const hasEvidence = Boolean(summary && Number(summary.count) > 0);
 
       const evaluation = scoreStrategyEvaluation(
         summary
@@ -350,8 +364,8 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
 
       return {
         ...strategy,
-        hasEvidence: Boolean(summary && Number(summary.count) > 0),
-        score: summary ? evaluation.final : 0,
+        hasEvidence,
+        score: hasEvidence ? evaluation.final : 0,
         evaluation,
       };
     });
@@ -485,7 +499,7 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
       return {
         action: 'rollback',
         strategyId: 'baseline',
-        features: {},
+        features: getSafeBaselineFeatures(),
         reason:
           'Health score crítico detectado. Recomendação automática: retornar ao baseline.',
         latestHealthScore: latestHealth?.healthScore ?? null,
@@ -493,12 +507,24 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
       };
     }
 
-    // Exploração opcional.
+    if (!best || !best.hasEvidence) {
+      return {
+        action: 'keep',
+        strategyId: 'baseline',
+        features: currentFeatures,
+        reason: 'Sem evidência suficiente para promover mudança.',
+        ranked: ranked.slice(0, 5),
+      };
+    }
+
+    // Exploração opcional (somente quando há evidência suficiente).
     if (input.exploration === true && ranked.length > 1) {
-      const selectedId = selectStrategyThompson(ranked, input);
+      const evidenceCandidates = ranked.filter((s) => s.hasEvidence);
+      const pool = evidenceCandidates.length > 1 ? evidenceCandidates : ranked;
+      const selectedId = selectStrategyThompson(pool, input);
 
       if (selectedId && selectedId !== 'baseline') {
-        const selectedStrategy = ranked.find((s) => s.id === selectedId);
+        const selectedStrategy = pool.find((s) => s.id === selectedId);
 
         if (selectedStrategy) {
           return {
@@ -511,16 +537,6 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
           };
         }
       }
-    }
-
-    if (!best || !best.hasEvidence) {
-      return {
-        action: 'keep',
-        strategyId: 'baseline',
-        features: currentFeatures,
-        reason: 'Sem evidência suficiente para promover mudança.',
-        ranked: ranked.slice(0, 5),
-      };
     }
 
     const baselineScore = baseline?.score ?? 0;
@@ -540,8 +556,8 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
             stratTrueFlags.every((flag) => currentFeatures?.[flag] === true)
           );
         });
-        const activeScore = matchedActive?.hasEvidence ? matchedActive.score : -Infinity;
-        if (best.score >= activeScore + minImprovement) {
+        // Só força rollback por performance se a configuração ativa foi efetivamente avaliada e perdeu pela margem mínima
+        if (matchedActive?.hasEvidence && best.score >= matchedActive.score + minImprovement) {
           return {
             action: 'rollback',
             strategyId: 'baseline',
@@ -557,7 +573,7 @@ export function loadPersistedCoachFlags(contestId, options = {}) {
       return {
         action: 'keep',
         strategyId: 'baseline',
-        features: {},
+        features: currentFeatures,
         reason: 'O baseline é a melhor estratégia comprovada.',
         score: best.score,
         baselineScore,

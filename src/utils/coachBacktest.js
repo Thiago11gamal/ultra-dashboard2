@@ -42,8 +42,13 @@ export function computeNDCGAtK(predicted = [], actual = [], k = 5) {
   const safePredicted = safeArray(predicted);
   const safeActual = safeArray(actual);
 
-  // BUG: k <= 0 ou não-finito gerava slice/loop inválido.
-  const topK = Number.isFinite(k) && k > 0 ? Math.floor(k) : 5;
+  // BUG: k <= 0 retornava fallback 5 em vez de 0.
+  const parsedK =
+    k === null || k === undefined || k === '' || typeof k === 'boolean'
+      ? NaN
+      : Number(k);
+  if (Number.isFinite(parsedK) && parsedK <= 0) return 0;
+  const topK = Number.isFinite(parsedK) ? Math.floor(parsedK) : 5;
   if (topK <= 0) return 0;
 
   if (safePredicted.length === 0 || safeActual.length === 0) return 0;
@@ -162,11 +167,13 @@ export function compareStrategyRuns(runA = {}, runB = {}, metrics = ['ndcg']) {
   }
 
   if (safeMetrics.includes('uplift')) {
-    const upliftA = computeUplift(runA?.control, runA?.treatment) ?? 0;
-    const upliftB = computeUplift(runB?.control, runB?.treatment) ?? 0;
-    results.delta.uplift = upliftB - upliftA;
-    if (upliftB > upliftA) scoreB += 1;
-    else if (upliftA > upliftB) scoreA += 1;
+    const upliftA = computeUplift(runA?.control, runA?.treatment);
+    const upliftB = computeUplift(runB?.control, runB?.treatment);
+    if (upliftA !== null && upliftB !== null) {
+      results.delta.uplift = upliftB - upliftA;
+      if (upliftB > upliftA) scoreB += 1;
+      else if (upliftA > upliftB) scoreA += 1;
+    }
   }
 
   if (safeMetrics.includes('calibratedError')) {

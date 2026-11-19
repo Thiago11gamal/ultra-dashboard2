@@ -62,7 +62,13 @@ export function evaluateProbabilityPrediction(
 ) {
   const predictedPct = clampFinite(predictedProbabilityPct, 0, 100, 50);
   const predictedProbability01 = predictedPct / 100;
-  const observed = observedSuccess ? 1 : 0;
+  const observed =
+    observedSuccess === true ||
+    observedSuccess === 1 ||
+    observedSuccess === '1' ||
+    observedSuccess === 'true'
+      ? 1
+      : 0;
   const brier = computeBrierScore(predictedProbability01, observed);
   const logLoss = computeLogLoss(predictedProbability01, observed);
 
@@ -521,10 +527,10 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
     weightedSum += normNdcg * 0.35;
     totalWeight += 0.35;
   }
-  if (rawDeltaMae !== null && totalWeight < 0.65) {
+  if (rawDeltaMae !== null) {
     const normMae = clampFinite(rawDeltaMae / Math.max(1.0, Math.abs(toFinite(baseScore.mae, 5))), -2, 2, 0);
-    weightedSum += -normMae * 0.20;
-    totalWeight += 0.20;
+    weightedSum += -normMae * 0.15;
+    totalWeight += 0.15;
   }
 
   // FIX: renormaliza pelos pesos efetivamente disponíveis e limita em [-1, 1]
@@ -657,10 +663,10 @@ export function saveEvaluationResult(result, contestId) {
       if (!Number.isFinite(sanitized.timestamp)) {
         sanitized.timestamp = Number.isFinite(sanitized.generatedAt) ? sanitized.generatedAt : Date.now();
       }
-      if (Number.isFinite(sanitized.probability)) {
-        sanitized.probability = Math.max(0, Math.min(100, sanitized.probability));
-      } else {
-        sanitized.probability = null;
+      if (typeof sanitized.probability === 'number') {
+        sanitized.probability = Number.isFinite(sanitized.probability)
+          ? Math.max(0, Math.min(100, sanitized.probability))
+          : null;
       }
       return sanitized;
     }).filter(Boolean);

@@ -115,8 +115,10 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
 
     displayName.set(norm, String(topic?.name ?? norm));
 
-    const rawProficiency = Number(topic?.proficiency);
-    const rawPercentage = Number(topic?.percentage);
+    const hasProf = topic?.proficiency !== null && topic?.proficiency !== undefined && topic?.proficiency !== '' && typeof topic?.proficiency !== 'boolean';
+    const hasPct = topic?.percentage !== null && topic?.percentage !== undefined && topic?.percentage !== '' && typeof topic?.percentage !== 'boolean';
+    const rawProficiency = hasProf ? Number(topic.proficiency) : NaN;
+    const rawPercentage = hasPct ? Number(topic.percentage) : NaN;
 
     let safeProficiency = 0.25;
 
@@ -128,7 +130,8 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
 
     proficiency.set(norm, safeProficiency);
 
-    const rawEvidence = Number(topic?.evidence);
+    const hasEvidence = topic?.evidence !== null && topic?.evidence !== undefined && topic?.evidence !== '' && typeof topic?.evidence !== 'boolean';
+    const rawEvidence = hasEvidence ? Number(topic.evidence) : NaN;
     evidence.set(norm, Number.isFinite(rawEvidence) ? clampFinite(rawEvidence, 0, 1, 0) : 0);
   });
 
@@ -136,6 +139,7 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
   const nodeSet = new Set(nodes);
 
   const rawEdges = [];
+  const seenEdgeMap = new Map();
   const prereqMap = new Map();
 
   nodes.forEach((node) => {
@@ -149,12 +153,19 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
     if (!fromNorm || !toNorm || fromNorm === toNorm) return;
 
     const safeWeight = Math.max(0.1, Number(weight) || 1);
-
-    rawEdges.push({
-      from: fromNorm,
-      to: toNorm,
-      weight: safeWeight,
-    });
+    const edgeKey = `${fromNorm}->${toNorm}`;
+    const existingEdge = seenEdgeMap.get(edgeKey);
+    if (existingEdge) {
+      existingEdge.weight = Math.max(existingEdge.weight, safeWeight);
+    } else {
+      const edgeObj = {
+        from: fromNorm,
+        to: toNorm,
+        weight: safeWeight,
+      };
+      seenEdgeMap.set(edgeKey, edgeObj);
+      rawEdges.push(edgeObj);
+    }
 
     if (nodeSet.has(toNorm)) {
       const current = prereqMap.get(toNorm) || [];
@@ -262,7 +273,7 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
 
     if (prerequisites.length > 0) {
       const values = prerequisites.map((prereq) => {
-        return proficiency.get(prereq) ?? 0.35;
+        return proficiency.get(prereq) ?? 0.25;
       });
 
       const sum = values.reduce((acc, val) => acc + val, 0);
@@ -271,7 +282,7 @@ export function computeTopicGraphMetrics(topics = [], graphConfig = {}, options 
       prereqGap = Math.max(0, readinessThreshold - prereqReadiness);
 
       prerequisites.forEach((prereq, idx) => {
-        const prereqProficiency = values[idx] ?? 0.35;
+        const prereqProficiency = values[idx] ?? 0.25;
         if (prereqProficiency < readinessThreshold) {
           blockedBy.push(displayName.get(prereq) || prereq);
         }

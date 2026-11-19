@@ -8,12 +8,30 @@
 
 import {
     clamp,
-    normalizeArray,
     toDateMs,
     toFiniteNumber,
     MS_PER_DAY
 } from '../../utils/retentionCore.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
+
+function mapDifficulty01(rawDiff, difficultyScale = 'auto') {
+  if (difficultyScale === 'anki') {
+    return clamp((rawDiff - 1) / 9, 0, 1);
+  }
+  if (difficultyScale === 'app') {
+    return clamp(((rawDiff - 0.7) / (1.6 - 0.7)) * 0.7 + 0.2, 0.1, 0.95);
+  }
+  // Mapeamento contínuo e monotônico sem descontinuidade em 0.6 ou 2.0:
+  // [0, 0.7] -> [0.05, 0.20]; [0.7, 1.6] -> [0.20, 0.90]; [1.6, 10] -> [0.90, 1.00]
+  const d = Math.max(0, rawDiff);
+  if (d <= 0.7) {
+    return clamp(0.05 + (d / 0.7) * 0.15, 0.05, 0.2);
+  }
+  if (d <= 1.6) {
+    return clamp(0.2 + ((d - 0.7) / 0.9) * 0.7, 0.2, 0.9);
+  }
+  return clamp(0.9 + ((d - 1.6) / 8.4) * 0.1, 0.9, 1.0);
+}
 
 /**
  * Retrievability FSRS: probabilidade de lembrança após `daysSince` dias.
@@ -23,8 +41,10 @@ import { getSafeScore } from '../../utils/scoreHelper.js';
  * @returns {number} retenção em [0, 1]
  */
 export function fsrsRetrievability(daysSince, stabilityDays) {
-  const S = Math.max(0.1, Number(stabilityDays) || 1);
-  const t = Math.max(0, Number(daysSince) || 0);
+  const rawS = Number(stabilityDays);
+  const S = Math.max(0.1, Number.isFinite(rawS) && stabilityDays !== null && stabilityDays !== undefined && stabilityDays !== '' ? rawS : 1);
+  const rawT = Number(daysSince);
+  const t = Math.max(0, Number.isFinite(rawT) ? rawT : 0);
   const r = Math.pow(1 + t / (9 * S), -1);
   return Number.isFinite(r) ? Math.max(0, Math.min(1, r)) : 0;
 }
@@ -37,8 +57,10 @@ export function fsrsRetrievability(daysSince, stabilityDays) {
  * @returns {number} intervalo em dias (inteiro, mínimo 1)
  */
 export function fsrsIntervalForRetention(stabilityDays, targetRetention = 0.7) {
-  const S = Math.max(0.1, Number(stabilityDays) || 1);
-  const R = Math.max(0.05, Math.min(0.99, Number(targetRetention) || 0.7));
+  const rawS = Number(stabilityDays);
+  const S = Math.max(0.1, Number.isFinite(rawS) && stabilityDays !== null && stabilityDays !== undefined && stabilityDays !== '' ? rawS : 1);
+  const rawR = Number(targetRetention);
+  const R = Math.max(0.05, Math.min(0.99, Number.isFinite(rawR) && targetRetention !== null && targetRetention !== undefined && targetRetention !== '' ? rawR : 0.7));
   const interval = 9 * S * ((1 / R) - 1);
   return Number.isFinite(interval) ? Math.max(1, Math.round(interval)) : 1;
 }
@@ -61,15 +83,21 @@ export function estimateTopicFsrs(topic, options = {}) {
   const now = options.now ?? Date.now();
   const desiredRetention = clamp(toFiniteNumber(options.desiredRetention, 0.85), 0.5, 0.95);
 
-  const scores = normalizeArray(topic.scores)
-    .map(item => toFiniteNumber(item?.score ?? item, null))
+  // FIX: preservar scores numéricos 0 (normalizeArray usa filter(Boolean) e descartava zeros!)
+  const rawScoreList = Array.isArray(topic.scores)
+    ? topic.scores
+    : (topic.scores && typeof topic.scores === 'object' ? Object.values(topic.scores) : []);
+  const scores = rawScoreList
+    .filter(item => item !== null && item !== undefined && item !== '' && typeof item !== 'boolean')
+    .map(item => toFiniteNumber(typeof item === 'object' ? item?.score : item, null))
     .filter(value => value != null);
 
   if (scores.length === 0) return null;
 
-  const lastStudiedMs = toDateMs(
+  const rawLastStudiedMs = toDateMs(
     topic.lastStudiedAt ?? topic.lastReviewedAt ?? topic.lastSeen ?? topic.date
   );
+  const lastStudiedMs = Number.isFinite(rawLastStudiedMs) && rawLastStudiedMs > 0 ? rawLastStudiedMs : null;
 
   let daysSince = toFiniteNumber(topic.daysSince, null);
 
@@ -96,8 +124,8 @@ export function estimateTopicFsrs(topic, options = {}) {
     Number.isFinite(optMaxScore) && optMaxScore > 0
       ? optMaxScore
       : (Number.isFinite(metaMaxScore) && metaMaxScore > 0
-          ? metaMaxScore
-          : 100)
+        ? metaMaxScore
+        : 100)
   );
 
   const metaMinScore = toFiniteNumber(topic.minScore ?? options.minScore, 0);
@@ -108,17 +136,7 @@ export function estimateTopicFsrs(topic, options = {}) {
   const reviewFactor = Math.min(1, Math.log1p(scores.length) / Math.log1p(20));
 
   const rawDiff = toFiniteNumber(topic.difficulty, 1.0);
-  let difficulty;
-  if (rawDiff > 2) {
-    // Escala Anki/FSRS tradicional 1..10
-    difficulty = clamp((rawDiff - 1) / 9, 0, 1);
-  } else if (rawDiff >= 0.6 && rawDiff <= 2.0) {
-    // Escala do app: 0.7 (facil), 1.0 (medio), 1.3 (dificil), 1.6 (expert)
-    // Mapeia monotonicamente [0.7, 1.6] para [0.2, 0.9]
-    difficulty = clamp(((rawDiff - 0.7) / (1.6 - 0.7)) * 0.7 + 0.2, 0.1, 0.95);
-  } else {
-    difficulty = clamp(rawDiff / 2, 0, 1);
-  }
+  const difficulty = mapDifficulty01(rawDiff, options.difficultyScale);
 
   const difficultyFactor = 1 - (difficulty * 0.35);
 
@@ -168,11 +186,13 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
   if (safeHistory.length === 0) return null;
 
   const cfg = options.cfg || {};
-  const maxScore = Math.max(1, Number(options.maxScore) || 100);
+  const rawMax = Number(options.maxScore);
+  const maxScore = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
   const desiredRetention = Math.max(0.5, Math.min(0.95, Number(options.desiredRetention) || 0.85));
   const daysSince = Math.max(0, Number(options.daysSince) || 0);
 
-  const minScore = Number(options.minScore) || 0;
+  const rawMin = Number(options.minScore);
+  const minScore = Number.isFinite(rawMin) ? Math.min(rawMin, maxScore - 1e-6) : 0;
   // FIX-C01b: aceitar difficulty como option (padrão: neutro)
   const rawDifficulty = toFiniteNumber(options.difficulty, 1.0);
   const domain = Math.max(1e-6, maxScore - minScore);
@@ -188,19 +208,12 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
     : 0;
   const sd = Math.sqrt(Math.max(0, variance));
 
-  const consistencyFactor = Math.max(0.1, 1 - (sd / domain));
-  const performanceFactor = Math.max(0.1, (mean - minScore) / domain);
+  const consistencyFactor = clamp(1 - (sd / domain), 0.1, 1);
+  const performanceFactor = clamp((mean - minScore) / domain, 0.1, 1);
   const reviewFactor = Math.min(1, Math.log1p(scores.length) / Math.log1p(20));
-  // FIX-C01: mesmo multiplicador e mapeamento de dificuldade do estimateTopicFsrs
+  // FIX-C01: mesmo multiplicador e mapeamento contínuo de dificuldade do estimateTopicFsrs
   const FSRS_STABILITY_MULTIPLIER = 14;
-  let difficulty;
-  if (rawDifficulty > 2) {
-    difficulty = clamp((rawDifficulty - 1) / 9, 0, 1);
-  } else if (rawDifficulty >= 0.6 && rawDifficulty <= 2.0) {
-    difficulty = clamp(((rawDifficulty - 0.7) / (1.6 - 0.7)) * 0.7 + 0.2, 0.1, 0.95);
-  } else {
-    difficulty = clamp(rawDifficulty / 2, 0, 1);
-  }
+  const difficulty = mapDifficulty01(rawDifficulty, options.difficultyScale);
   const difficultyFactor = 1 - (difficulty * 0.35);
   const baseStability = (3 + (FSRS_STABILITY_MULTIPLIER * consistencyFactor * performanceFactor * reviewFactor)) * difficultyFactor;
 

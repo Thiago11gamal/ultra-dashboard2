@@ -20,7 +20,11 @@ export {
   applyRecommendedFlags,
 } from '../engine/optimization/flagOptimizer.js';
 
-import { writeFlags, setCoachFeatureContestScope } from './coachFeatureStore.js';
+import {
+  writeFlags,
+  setCoachFeatureContestScope,
+  getCoachFeatureContestScope,
+} from './coachFeatureStore.js';
 import { DEFAULT_COACH_FEATURES, isValidFeatureKey } from './coachFeatures.js';
 
 export {
@@ -47,18 +51,19 @@ import {
 /**
  * Inicializa flags persistidas preservando todas as chaves válidas do Coach.
  */
-export function bootstrapCoachFlags(contestId = 'default', options = {}) {
-  if (options?.syncGlobalScope !== false && contestId) {
-    setCoachFeatureContestScope(contestId);
+export function bootstrapCoachFlags(contestId, options = {}) {
+  const resolvedContestId = contestId || getCoachFeatureContestScope() || 'default';
+  if (options?.syncGlobalScope !== false && resolvedContestId) {
+    setCoachFeatureContestScope(resolvedContestId);
   }
   const baseline = {
     ...DEFAULT_COACH_FEATURES,
     ...getSafeBaselineFeatures(),
   };
-  const persisted = loadPersistedCoachFlags(contestId);
+  const persisted = loadPersistedCoachFlags(resolvedContestId, { applyToStore: false });
 
   if (!persisted || typeof persisted !== 'object') {
-    writeFlags({ ...baseline }, contestId);
+    writeFlags({ ...baseline }, resolvedContestId);
     return { ...baseline };
   }
 
@@ -69,7 +74,7 @@ export function bootstrapCoachFlags(contestId = 'default', options = {}) {
     }
   }
 
-  writeFlags(merged, contestId);
+  writeFlags(merged, resolvedContestId);
   return merged;
 }
 

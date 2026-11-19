@@ -32,11 +32,11 @@ export function buildHumanExplanation({
     intervalWidth,
     maxScore = 100,
     minScore = 0
-}) {
+} = {}) {
     const { scale } = safeDomainScale(maxScore, minScore, 0.01);
     const messages = [];
 
-    if (confidenceTier === 'HIGH') {
+    if (confidenceTier === 'HIGH' && !(volatility > 15 * scale)) {
         messages.push('Seu desempenho recente está consistente.');
     }
 
@@ -70,7 +70,7 @@ export function getConfidenceTier({
     sampleSize,
     maxScore = 100,
     minScore = 0
-}) {
+} = {}) {
     const { scale } = safeDomainScale(maxScore, minScore, 0.01);
     const safeSampleSize = toFiniteMetric(sampleSize);
     const safeVolatility = toFiniteMetric(volatility);
@@ -88,9 +88,11 @@ export function getConfidenceTier({
     }
 
     // Tolerância adaptativa: normalizar a volatilidade para a escala base de 100
-    // calibrationPenalty está entre 0 e 1 (0.1 = 10% de penalidade).
+    // FIX: peso 0.65 na volatilidade (antes 0.2 nunca ultrapassava 10 < 18 pela desigualdade de Popoviciu)
+    // + penalidade leve para amostras pequenas (< 6)
     const normalizedVolatility = safeVolatility / scale;
-    const instability = (safeCalibrationPenalty * 100) + (normalizedVolatility * 0.2);
+    const smallSamplePenalty = safeSampleSize < 6 ? (6 - safeSampleSize) * 3 : 0;
+    const instability = (safeCalibrationPenalty * 100) + (normalizedVolatility * 0.65) + smallSamplePenalty;
 
     if (instability < 18) {
         return {
@@ -125,19 +127,30 @@ export function detectPerformanceDrift({
     maxScore = 100,
     minScore = 0,
     margin = 2 // % do domínio
-}) {
+} = {}) {
     const alerts = [];
-    const { scale } = safeDomainScale(maxScore, minScore, 0.1);
+    const { scale } = safeDomainScale(maxScore, minScore, 0.01);
     const diff = recentMean - baselineMean;
+    const isHighVol = Number.isFinite(Number(recentVolatility)) && Number(recentVolatility) > (20 * scale);
 
-    // ✅ PATCH-12: Se estiver em platô/estagnado, retorna sem gerar alertas falsos de "queda"
+    if (isHighVol) {
+        alerts.push({
+            type: 'high_volatility',
+            severity: 'medium',
+            message: 'Suas notas recentes estão muito instáveis.',
+        });
+    }
+
+    // ✅ PATCH-12: Só emite 'plateau' estável quando não há alta instabilidade mascarando a média
     if (Math.abs(diff) <= (margin * scale)) {
-       alerts.push({
-          type: 'plateau',
-          severity: 'low',
-          message: 'Desempenho estável, em fase de consolidação.'
-       });
-       return alerts; // Interrompe para não gerar falsos positivos
+        if (!isHighVol) {
+            alerts.push({
+                type: 'plateau',
+                severity: 'low',
+                message: 'Desempenho estável, em fase de consolidação.'
+            });
+        }
+        return alerts;
     }
 
     if (diff < -(12 * scale)) {
@@ -148,23 +161,15 @@ export function detectPerformanceDrift({
         });
     }
 
-    if (recentVolatility > (20 * scale)) {
-        alerts.push({
-            type: 'high_volatility',
-            severity: 'medium',
-            message: 'Suas notas recentes estão muito instáveis.',
-        });
-    }
-
     return alerts;
 }
 
 export function buildPredictionMood({
     probability,
     confidenceTier,
-}) {
-    const prob = Number.isFinite(Number(probability)) ? Number(probability) : null;
-    if (prob === null) return 'unknown';
+} = {}) {
+    const prob = toFiniteMetric(probability);
+    if (!Number.isFinite(prob)) return 'unknown';
 
     if (prob >= 80) {
         return confidenceTier === 'HIGH' ? 'stable' : 'moderate';
@@ -176,7 +181,14 @@ export function buildPredictionMood({
 }
 
 export function normalizeAlertSeverity(severity, confidenceTier) {
-    if (severity === 'high' && confidenceTier === 'LOW') {
+    if (severity === 'low') {
+        return {
+            color: '#38bdf8',
+            label: 'Informação',
+            glow: 'shadow-sky-500/20'
+        };
+    }
+    if (severity === 'medium' || (severity === 'high' && confidenceTier === 'LOW')) {
         return {
             color: '#f59e0b',
             label: 'Atenção moderada',
@@ -190,7 +202,7 @@ export function normalizeAlertSeverity(severity, confidenceTier) {
     };
 }
 
-export function smoothConfidenceTier({ previousTier, currentTier, stabilityCounter = 0 }) {
+export function smoothConfidenceTier({ previousTier, currentTier, stabilityCounter = 0 } = {}) {
     if (previousTier && previousTier !== currentTier && stabilityCounter < 3) {
         return { tier: previousTier, stabilityCounter: stabilityCounter + 1 };
     }

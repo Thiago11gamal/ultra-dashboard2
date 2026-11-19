@@ -26,7 +26,14 @@ import {
 import {
   loadModelHealthSnapshots,
 } from '../utils/coachObservability.js';
-import { replaceFlags, writeFlags, readFlags, getCoachFeatureContestScope } from '../utils/coachFeatureStore.js';
+import {
+  replaceFlags,
+  writeFlags,
+  readFlags,
+  subscribeFlags,
+  getCoachFeatureContestScope,
+} from '../utils/coachFeatureStore.js';
+import { isValidFeatureKey } from '../utils/coachFeatures.js';
 
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
 
@@ -151,6 +158,12 @@ export function useCoachControlCenter({
     prevContestIdRef.current = resolvedContestId;
     syncedContestIdRef.current = null;
 
+    // Aborta execuções pendentes do concurso anterior para evitar race conditions
+    orchestratorRunIdRef.current += 1;
+    tunerRunIdRef.current += 1;
+    if (orchestratorAbortRef.current) orchestratorAbortRef.current.abort();
+    if (tunerAbortControllerRef.current) tunerAbortControllerRef.current.abort();
+
     const savedState = loadControlCenterState(resolvedContestId);
     const loadedFlags = loadPersistedCoachFlags(resolvedContestId) || {};
     const nextOverrides = savedState?.flagOverrides || {};
@@ -158,8 +171,10 @@ export function useCoachControlCenter({
       savedState?.baselineFlags && Object.keys(nextOverrides).length > 0
         ? savedState.baselineFlags
         : loadedFlags;
+    let completed = false;
     const timer = setTimeout(() => {
       if (!isMounted.current) return;
+      completed = true;
       syncedContestIdRef.current = resolvedContestId;
       setCurrentFlags(loadedFlags);
       setFlagOverrides(nextOverrides);
@@ -173,9 +188,27 @@ export function useCoachControlCenter({
       setOrchestratorResult(null);
       setDashboard(null);
       setTunerResult(null);
+      setLastRunTimestamp(null);
       setError(null);
     }, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (!completed) {
+        // StrictMode re-mount: permite que o efeito rode novamente sem travar syncedContestIdRef em null
+        prevContestIdRef.current = null;
+      }
+    };
+  }, [resolvedContestId]);
+
+  // Mantém currentFlags sincronizado com alterações externas no coachFeatureStore
+  useEffect(() => {
+    if (typeof subscribeFlags !== 'function') return undefined;
+    return subscribeFlags((snapshot, scope) => {
+      if (!isMounted.current) return;
+      if (!scope || scope === resolvedContestId) {
+        setCurrentFlags(snapshot && typeof snapshot === 'object' ? { ...snapshot } : {});
+      }
+    });
   }, [resolvedContestId]);
 
   // ==========================================================
@@ -207,8 +240,11 @@ export function useCoachControlCenter({
         ...currentFlags,
         ...flagOverrides,
         ...(options.features || {}),
-        // PATCH: orquestrador configurável
-        useCoachOrchestrator: (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? currentFlags?.useCoachOrchestrator ?? true),
+        // PATCH: orquestrador configurável; clique explícito (force: true) sempre executa
+        useCoachOrchestrator:
+          options.force === true
+            ? true
+            : (options.features?.useCoachOrchestrator ?? flagOverrides.useCoachOrchestrator ?? currentFlags?.useCoachOrchestrator ?? true),
       };
       const targetContestId = options.contestId ?? resolvedContestId;
       const result = await runCoachOrchestrator(
@@ -229,14 +265,14 @@ export function useCoachControlCenter({
         }
       );
       if (abortController.signal.aborted) return null;
-      // FIX: valida mount E que esta ainda é a execução mais recente
-      if (isMounted.current && runId === orchestratorRunIdRef.current) {
+      // FIX: valida mount, execução mais recente e mesmo concurso
+      if (isMounted.current && runId === orchestratorRunIdRef.current && targetContestId === resolvedContestId) {
         if (result && typeof result === 'object') {
           if (result.aborted) return null;
           if (result.ok === false) {
-            setOrchestratorResult(null);
+            setOrchestratorResult(result.skipped ? result : null);
             setDashboard(null);
-            setError(result.error || 'Falha ao executar orquestrador.');
+            setError(result.error || result.reason || 'Falha ao executar orquestrador.');
           } else {
             setOrchestratorResult(result);
             const dash = buildCoachOrchestratorDashboard(result);
@@ -257,8 +293,8 @@ export function useCoachControlCenter({
           setDashboard(null);
           setError('Orquestrador retornou resultado inválido.');
         }
+        setLastRunTimestamp(Date.now());
       }
-      if (isMounted.current && runId === orchestratorRunIdRef.current) setLastRunTimestamp(Date.now());
       return result;
     } catch (err) {
       if (err?.name === 'AbortError') return null;
@@ -307,11 +343,13 @@ export function useCoachControlCenter({
     pendingRunsRef.current += 1;
     setLoading(true);
     setError(null);
+    const targetContestId = options.contestId ?? resolvedContestId;
     try {
       const result = await runCoachAutoTuner({
-        contestId: options.contestId ?? resolvedContestId,
+        contestId: targetContestId,
         maxScore,
         minScore,
+        currentFeatures: { ...currentFlags, ...flagOverrides },
         force: options.force === true,
         autoApply: options.autoApply === true,
         forceApply: options.forceApply === true,
@@ -320,16 +358,18 @@ export function useCoachControlCenter({
         signal: abortController.signal,
       });
       if (abortController.signal.aborted) return null;
-      // FIX: valida mount + execução atual
+      // FIX: valida mount + execução atual + mesmo concurso
       if (!isMounted.current || runId !== tunerRunIdRef.current) return null;
-      setTunerResult(result);
-      loadAuxiliaryData();
-      if (result?.applied) {
-        clearCoachCaches();
-        const flags = loadPersistedCoachFlags(resolvedContestId) || {};
-        setCurrentFlags(flags);
-        setFlagOverrides({});
-        initialFlagsRef.current = flags;
+      if (targetContestId === resolvedContestId) {
+        setTunerResult(result);
+        loadAuxiliaryData();
+        if (result?.applied) {
+          clearCoachCaches();
+          const flags = loadPersistedCoachFlags(resolvedContestId) || {};
+          setCurrentFlags(flags);
+          setFlagOverrides({});
+          initialFlagsRef.current = flags;
+        }
       }
       return result;
     } catch (err) {
@@ -343,7 +383,7 @@ export function useCoachControlCenter({
       pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
       if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
-  }, [maxScore, minScore, loadAuxiliaryData, resolvedContestId]);
+  }, [maxScore, minScore, loadAuxiliaryData, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================
   // Aplicar recomendação de flags
@@ -357,10 +397,13 @@ export function useCoachControlCenter({
       });
       if (applied) {
         clearCoachCaches();
-        const flags = loadPersistedCoachFlags(targetContestId) || {};
-        setCurrentFlags(flags);
-        setFlagOverrides({});
-        initialFlagsRef.current = flags;
+        if (targetContestId === resolvedContestId) {
+          const flags = loadPersistedCoachFlags(targetContestId) || {};
+          setCurrentFlags(flags);
+          setFlagOverrides({});
+          initialFlagsRef.current = flags;
+          setTunerResult((prev) => (prev ? { ...prev, applied: true } : prev));
+        }
       }
       return applied;
     } catch (err) {
@@ -368,6 +411,19 @@ export function useCoachControlCenter({
       return false;
     }
   }, [resolvedContestId]);
+
+  const applyStrategyPreset = useCallback((strategy) => {
+    if (!strategy || typeof strategy !== 'object') return false;
+    const isBaseline = strategy.id === 'baseline';
+    return applyRecommendation(
+      {
+        action: isBaseline ? 'rollback' : 'promote',
+        strategyId: strategy.id,
+        features: strategy.features || {},
+      },
+      { force: true }
+    );
+  }, [applyRecommendation]);
 
   // ==========================================================
   // Rollback para baseline
@@ -393,13 +449,21 @@ export function useCoachControlCenter({
   // Toggle de flag individual
   // ==========================================================
   const toggleFlag = useCallback((flagKey, value) => {
-    // FIX: só aceita chave string + valor boolean
-    if (typeof flagKey !== 'string' || typeof value !== 'boolean') return;
+    // FIX: só aceita chave válida do registry + valor boolean
+    if (typeof flagKey !== 'string' || typeof value !== 'boolean' || !isValidFeatureKey(flagKey)) return;
 
-    setFlagOverrides((prev) => ({
-      ...prev,
-      [flagKey]: value,
-    }));
+    setFlagOverrides((prev) => {
+      const baseVal = Boolean(initialFlagsRef.current?.[flagKey]);
+      if (value === baseVal && flagKey in prev) {
+        const nextOverrides = { ...prev };
+        delete nextOverrides[flagKey];
+        return nextOverrides;
+      }
+      return {
+        ...prev,
+        [flagKey]: value,
+      };
+    });
     const next = writeFlags({ [flagKey]: value }, resolvedContestId);
     persistCoachFlags(next, resolvedContestId);
     setCurrentFlags(next);
@@ -411,12 +475,20 @@ export function useCoachControlCenter({
   // ==========================================================
   const resetOverrides = useCallback(() => {
     setFlagOverrides({});
-    const base = initialFlagsRef.current || getSafeBaselineFeatures();
+    const hasInitialKeys =
+      initialFlagsRef.current &&
+      typeof initialFlagsRef.current === 'object' &&
+      Object.keys(initialFlagsRef.current).length > 0;
+    const base = hasInitialKeys ? { ...initialFlagsRef.current } : getSafeBaselineFeatures();
     replaceFlags(base, resolvedContestId);
     persistCoachFlags(base, resolvedContestId);
     setCurrentFlags(base);
     clearCoachCaches();
   }, [resolvedContestId]);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
 
   // ==========================================================
   // Limpar caches
@@ -429,15 +501,18 @@ export function useCoachControlCenter({
   // Executar Backtest Granular
   // ==========================================================
   const runBacktest = useCallback(() => {
+    pendingRunsRef.current += 1;
+    setLoading(true);
     try {
       setError(null);
       const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
       const safeSims = Array.isArray(simulados) && simulados.length > 0
         ? simulados
         : safeCats.flatMap((cat) => {
-          const hist = Array.isArray(cat?.simuladoStats?.history)
+          const hist = (Array.isArray(cat?.simuladoStats?.history)
             ? cat.simuladoStats.history
-            : Object.values(cat?.simuladoStats?.history || {});
+            : Object.values(cat?.simuladoStats?.history || {})
+          ).filter((entry) => entry && entry.valid !== false);
           return hist.map((entry) => ({
             ...entry,
             categoryId: entry?.categoryId ?? cat?.id,
@@ -462,6 +537,9 @@ export function useCoachControlCenter({
         setError(err?.message || String(err));
       }
       return null;
+    } finally {
+      pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
+      if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
   }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, resolvedContestId]);
 
@@ -469,15 +547,18 @@ export function useCoachControlCenter({
   // Treinar Modelo Causal
   // ==========================================================
   const trainCausal = useCallback(() => {
+    pendingRunsRef.current += 1;
+    setLoading(true);
     try {
       setError(null);
       const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
       const safeSims = Array.isArray(simulados) && simulados.length > 0
         ? simulados
         : safeCats.flatMap((cat) => {
-          const hist = Array.isArray(cat?.simuladoStats?.history)
+          const hist = (Array.isArray(cat?.simuladoStats?.history)
             ? cat.simuladoStats.history
-            : Object.values(cat?.simuladoStats?.history || {});
+            : Object.values(cat?.simuladoStats?.history || {})
+          ).filter((entry) => entry && entry.valid !== false);
           return hist.map((entry) => ({
             ...entry,
             categoryId: entry?.categoryId ?? cat?.id,
@@ -492,11 +573,11 @@ export function useCoachControlCenter({
         contestId: resolvedContestId,
         maxScore,
         minScore,
-        useBootstrap: Boolean(currentFlags?.useCausalBootstrap || flagOverrides?.useCausalBootstrap),
-        save: true,
+        useBootstrap: Boolean(flagOverrides?.useCausalBootstrap ?? currentFlags?.useCausalBootstrap),
+        save: events.length > 0,
       });
       if (isMounted.current && model) {
-        setCausalModel(model);
+        setCausalModel((prev) => (model.sampleSize > 0 || !prev ? model : prev));
       }
       return model;
     } catch (err) {
@@ -504,6 +585,9 @@ export function useCoachControlCenter({
         setError(err?.message || String(err));
       }
       return null;
+    } finally {
+      pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
+      if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
   }, [categories, simulados, studyLogs, maxScore, minScore, resolvedContestId, currentFlags, flagOverrides]);
 
@@ -549,9 +633,11 @@ return {
   runBacktest,
   trainCausal,
   applyRecommendation,
+  applyStrategyPreset,
   rollbackToBaseline,
   toggleFlag,
   resetOverrides,
+  clearError,
   handleClearCaches,
 };
 }

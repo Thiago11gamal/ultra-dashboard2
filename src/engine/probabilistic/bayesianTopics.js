@@ -81,7 +81,7 @@ function varianceValues(values) {
 // Quantil da distribuição Beta por busca binária com logGamma/Lentz compartilhados
 // ============================================================
 function betaQuantile(p, a, b) {
-  const safeP = Math.max(1e-8, Math.min(1 - 1e-8, Number(p) || 0.5));
+  const safeP = clampFinite(p, 1e-8, 1 - 1e-8, 0.5);
   if (!(a > 0) || !(b > 0) || !Number.isFinite(logGamma(a))) return 0.5;
 
   let lo = 0;
@@ -136,29 +136,30 @@ export function estimateTopicProficiencies(topics = [], options = {}) {
     Math.sqrt(Math.max(0, globalTotal)) * 0.12 +
     topicsWithData.length * 0.25;
 
-  // Empirical Bayes bidirecional: pooling forte quando tópicos são homogêneos (tau^2 pequeno)
-  // e prior fraco quando há alta heterogeneidade real entre tópicos (tau^2 grande).
+  // Empirical Bayes bidirecional: Var(p_hat_i) = tau^2 * (1 - 1/n_i) + mu*(1-mu)/n_i
+  // logo tau^2 = (S^2 - mu*(1-mu)*mean(1/n_i)) / (1 - mean(1/n_i)).
   if (topicsWithData.length >= 3) {
     const topicRates = topicsWithData.map((t) => t.correct / t.total);
     const rateMean = clampFinite(meanValues(topicRates), 0.02, 0.98, globalMean);
     const rateVariance = varianceValues(topicRates);
-    const averageBinomialNoise = meanValues(
-      topicsWithData.map((t) => {
-        const n = Math.max(1, t.total);
-        return (rateMean * (1 - rateMean)) / n;
-      })
-    );
+    const invNs = topicsWithData.map((t) => 1 / Math.max(1, t.total));
+    const meanInvN = meanValues(invNs);
     const bernoulliScale = Math.max(1e-4, rateMean * (1 - rateMean));
-    const minTau2 = bernoulliScale / (maxPriorStrength + 1);
-    const tau2 = Math.max(minTau2, rateVariance - averageBinomialNoise);
-    const momentK = clampFinite(
-      bernoulliScale / tau2 - 1,
-      minPriorStrength,
-      maxPriorStrength,
-      priorStrength
-    );
-    const ebTrust = topicsWithData.length / (topicsWithData.length + 4);
-    priorStrength = (1 - ebTrust) * priorStrength + ebTrust * momentK;
+    const denom = 1 - meanInvN;
+    if (denom > 0.1) {
+      const averageBinomialNoise = bernoulliScale * meanInvN;
+      const minTau2 = bernoulliScale / (maxPriorStrength + 1);
+      const rawTau2 = (rateVariance - averageBinomialNoise) / denom;
+      const tau2 = Math.max(minTau2, rawTau2);
+      const momentK = clampFinite(
+        bernoulliScale / tau2 - 1,
+        minPriorStrength,
+        maxPriorStrength,
+        priorStrength
+      );
+      const ebTrust = topicsWithData.length / (topicsWithData.length + 4);
+      priorStrength = (1 - ebTrust) * priorStrength + ebTrust * momentK;
+    }
   }
 
   priorStrength = clampFinite(
@@ -213,7 +214,7 @@ export function estimateTopicProficiencies(topics = [], options = {}) {
       isUntested: topic.isUntested,
       priorMean,
       priorStrength: topic.isUntested
-        ? priorStrength * untestedPriorWeight
+        ? Math.max(0.5, priorStrength * untestedPriorWeight)
         : priorStrength,
       posteriorAlpha: alpha,
       posteriorBeta: beta,

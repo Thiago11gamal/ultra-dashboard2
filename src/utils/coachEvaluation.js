@@ -43,12 +43,16 @@ export function runDefaultCoachBacktest(
   studyLogs = [],
   options = {}
 ) {
+  const safeOptions = options && typeof options === 'object' ? options : {};
   return runCoachStrategyBacktest({
+    ...safeOptions,
     categories,
     simulados,
     studyLogs,
-    strategies: getDefaultCoachStrategies(),
-    ...options,
+    strategies:
+      Array.isArray(safeOptions.strategies) && safeOptions.strategies.length > 0
+        ? safeOptions.strategies
+        : getDefaultCoachStrategies(),
   });
 }
 
@@ -61,23 +65,46 @@ export function runGranularCoachBacktest(
   studyLogs = [],
   options = {}
 ) {
+  const safeOptions = options && typeof options === 'object' ? options : {};
   return runCoachStrategyBacktest({
+    ...safeOptions,
     categories,
     simulados,
     studyLogs,
-    strategies: getGranularCoachStrategies(),
-    includeTopics: options.includeTopics ?? true,
-    ...options,
+    strategies:
+      Array.isArray(safeOptions.strategies) && safeOptions.strategies.length > 0
+        ? safeOptions.strategies
+        : getGranularCoachStrategies(),
+    includeTopics: safeOptions.includeTopics ?? true,
   });
 }
 
 /**
- * Constrói dashboard a partir de avaliações salvas ou de um backtest.
+ * Constrói dashboard a partir de avaliações salvas, de um summary ou de um relatório de backtest.
  *
  * FIX: valida input e retorna null se o summary for inválido,
  * evitando exceção em chamadas com dado corrompido.
  */
 export function buildCoachEvaluationDashboard(evaluations = []) {
+  if (evaluations && typeof evaluations === 'object' && !Array.isArray(evaluations)) {
+    if (evaluations.raw && typeof evaluations.raw === 'object') {
+      const flattened = Object.values(evaluations.raw).flat().filter(Boolean);
+      const summary = summarizeCoachEvaluations(flattened);
+      return summary && typeof summary === 'object' ? buildEvaluationDashboardData(summary) : null;
+    }
+    if (evaluations.probability && evaluations.score) {
+      return buildEvaluationDashboardData(evaluations);
+    }
+    if (evaluations.summaries && typeof evaluations.summaries === 'object') {
+      const picked =
+        evaluations.summaries['all-lots'] ||
+        evaluations.summaries['all-math-lots'] ||
+        evaluations.summaries.baseline ||
+        Object.values(evaluations.summaries).find(Boolean) ||
+        null;
+      return picked ? buildEvaluationDashboardData(picked) : null;
+    }
+  }
   const safeEvaluations = Array.isArray(evaluations) ? evaluations : [];
   const summary = summarizeCoachEvaluations(safeEvaluations);
   if (!summary || typeof summary !== 'object') return null;

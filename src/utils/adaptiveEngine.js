@@ -110,13 +110,14 @@ export function detectRegimeTransition(scores = [], options = {}) {
     const meanChange = current.mean - previous.mean;
 
     // 2a. Desaceleração em evolução (possível platô)
+    const toPpPerMonth = (rawSlope) => (Number(rawSlope || 0) / safeRange) * 100;
     if (current.state === 'progression') {
         // Se o slope caiu >50% comparado com o anterior, o ritmo está desacelerando
         if (previous.slope > 0 && current.slope > 0 && current.slope < previous.slope * 0.5) {
             transitionRisk = 'deceleration';
             flags.push({
                 type: 'warning',
-                msg: `Desaceleração detectada: ritmo caiu de ${previous.slope.toFixed(1)} para ${current.slope.toFixed(1)} pp/mês. Possível platô em formação.`,
+                msg: `Desaceleração detectada: ritmo caiu de ${toPpPerMonth(previous.slope).toFixed(1)} para ${toPpPerMonth(current.slope).toFixed(1)} pp/mês. Possível platô em formação.`,
                 severity: 'medium'
             });
         }
@@ -141,7 +142,7 @@ export function detectRegimeTransition(scores = [], options = {}) {
             transitionRisk = 'acceleration_negative';
             flags.push({
                 type: 'danger',
-                msg: `Queda acelerada: declínio de ${current.slope.toFixed(1)} pp/mês (era ${previous.slope.toFixed(1)}). Intervenção urgente necessária.`,
+                msg: `Queda acelerada: declínio de ${toPpPerMonth(current.slope).toFixed(1)} pp/mês (era ${toPpPerMonth(previous.slope).toFixed(1)}). Intervenção urgente necessária.`,
                 severity: 'high'
             });
         }

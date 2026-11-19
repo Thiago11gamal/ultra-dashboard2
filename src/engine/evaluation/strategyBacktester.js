@@ -242,6 +242,8 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
     combinedCandidateSims.push({ simulado, _idx, time });
   });
 
+  const hasDatedSimulados = combinedCandidateSims.some((entry) => Number.isFinite(entry.time));
+
   const categorySimulados = combinedCandidateSims
     .sort((a, b) => {
       const aFinite = Number.isFinite(a.time);
@@ -250,9 +252,10 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
       if (aFinite && bFinite) {
         if (a.time !== b.time) return a.time - b.time;
       } else if (aFinite && !bFinite) {
-        return -1;
-      } else if (!aFinite && bFinite) {
+        // Entradas sem data ficam no prefixo histórico (treino), nunca no holdout futuro
         return 1;
+      } else if (!aFinite && bFinite) {
+        return -1;
       }
 
       return a._idx - b._idx;
@@ -290,9 +293,12 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
 
   for (let i = minTrain - 1; i < categorySimulados.length - 1; i++) {
     const train = categorySimulados.slice(0, i + 1);
-    const future = categorySimulados.slice(i + 1, i + 1 + horizon);
+    const rawFuture = categorySimulados.slice(i + 1, i + 1 + horizon);
+    const future = hasDatedSimulados
+      ? rawFuture.filter((simulado) => Number.isFinite(toTime(simulado?.date ?? simulado?.createdAt)))
+      : rawFuture;
 
-    if (future.length === 0) break;
+    if (future.length === 0) continue;
 
     const observedScores = future
       .map((simulado) => getSafeScore(simulado, maxScore, minScore))
@@ -320,11 +326,10 @@ export function buildCategorySplits(category, simulados = [], options = {}) {
       observedScore,
       observedSuccess: observedScore >= targetScore,
     });
-
-    if (splits.length >= maxSplits) break;
   }
 
-  return splits;
+  // Retorna os splits mais recentes (não apenas os mais antigos)
+  return splits.length > maxSplits ? splits.slice(-maxSplits) : splits;
 }
 
 /**
@@ -413,22 +418,73 @@ export function runCoachStrategyBacktest(config = {}) {
         }
 
         try {
-          // FIX: isolar o histórico da categoria ao split de treino (evita target leakage do futuro via category.simuladoStats.history)
-          const trainCategory = {
-            ...category,
-            simuladoStats: {
-              ...(category?.simuladoStats || {}),
-              history: split.train,
-            },
+          // FIX: isolar histórico e tarefas da categoria e das demais categorias ao cutoff do split (zero target leakage)
+          const cutoffMs = toTime(split.trainLastDate);
+          const isolateTasksBefore = (tasks) => {
+            if (!Array.isArray(tasks) || !Number.isFinite(cutoffMs)) return tasks;
+            return tasks
+              .filter((task) => {
+                if (!task) return false;
+                const createdMs = toTime(task.createdAt);
+                return !Number.isFinite(createdMs) || createdMs <= cutoffMs;
+              })
+              .map((task) => {
+                const doneMs = toTime(task.completedAt ?? task.lastStudiedAt);
+                const studiedMs = toTime(task.lastStudiedAt);
+                const futureDone = Boolean(task.completed) && Number.isFinite(doneMs) && doneMs > cutoffMs;
+                const futureStudied = Number.isFinite(studiedMs) && studiedMs > cutoffMs;
+                if (!futureDone && !futureStudied) return task;
+                return {
+                  ...task,
+                  completed: futureDone ? false : task.completed,
+                  completedAt: futureDone ? null : task.completedAt,
+                  lastStudiedAt: futureStudied ? null : task.lastStudiedAt,
+                };
+              });
           };
+          const isolateCategory = (cat, overrideHistory = null) => {
+            const rawHistory = overrideHistory !== null
+              ? overrideHistory
+              : Number.isFinite(cutoffMs)
+                ? safeArray(cat?.simuladoStats?.history).filter((h) => {
+                    const hTime = toTime(h?.date ?? h?.createdAt);
+                    return !Number.isFinite(hTime) || hTime <= cutoffMs;
+                  })
+                : cat?.simuladoStats?.history;
+            return {
+              ...cat,
+              tasks: isolateTasksBefore(cat?.tasks),
+              simuladoStats: {
+                ...(cat?.simuladoStats || {}),
+                history: rawHistory,
+              },
+            };
+          };
+
+          const trainCategory = isolateCategory(category, split.train);
           const trainAllCategories = categories.map((c) =>
             c === category || (c?.id != null && category?.id != null && String(c.id) === String(category.id))
               ? trainCategory
-              : c
+              : isolateCategory(c, null)
           );
+
+          // Alinha o horizonte de simulação (daysToExam) ao intervalo real coberto por split.future
+          let splitHorizonDays = Math.max(7, (split.horizon || 1) * 7);
+          if (Number.isFinite(cutoffMs) && Array.isArray(split.future) && split.future.length > 0) {
+            const futureTimes = split.future
+              .map((s) => toTime(s?.date ?? s?.createdAt))
+              .filter((t) => Number.isFinite(t) && t >= cutoffMs);
+            if (futureTimes.length > 0) {
+              const spanDays = (Math.max(...futureTimes) - cutoffMs) / 86400000;
+              if (Number.isFinite(spanDays) && spanDays > 0) {
+                splitHorizonDays = Math.max(1, Math.min(365, Math.round(spanDays)));
+              }
+            }
+          }
 
           const runOptions = {
             ...(config.options || {}),
+            daysToExam: config.options?.daysToExam ?? splitHorizonDays,
             maxScore: splitMaxScore,
             minScore: splitMinScore,
             targetScore: splitTargetScore,
@@ -515,8 +571,15 @@ export function runCoachStrategyBacktest(config = {}) {
                   }]
                   : [];
               rawList.forEach((t) => {
-                const name = String(t?.name ?? t?.topic ?? t?.assunto ?? '').trim();
-                if (!name) return;
+                const rawName = String(t?.name ?? t?.topic ?? t?.assunto ?? '').trim();
+                if (!rawName) return;
+                const normKey = rawName
+                  .toLowerCase()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                if (!normKey) return;
                 const total = Number(t?.total ?? t?.questoes ?? 0);
                 const correct = Number(t?.correct ?? t?.acertos ?? NaN);
                 let pct = NaN;
@@ -526,20 +589,20 @@ export function runCoachStrategyBacktest(config = {}) {
                   const sRange = Math.max(1e-6, splitMaxScore - splitMinScore);
                   pct = ((Number(t.score) - splitMinScore) / sRange) * 100;
                 }
-                const prev = topicMap.get(name) || { sumPct: 0, count: 0 };
+                const prev = topicMap.get(normKey) || { displayName: rawName, sumPct: 0, count: 0 };
                 if (Number.isFinite(pct)) {
                   prev.sumPct += Math.max(0, Math.min(100, pct));
                   prev.count += 1;
                 }
-                topicMap.set(name, prev);
+                topicMap.set(normKey, prev);
               });
             });
             const relevant = [];
-            for (const [name, stat] of topicMap.entries()) {
+            for (const stat of topicMap.values()) {
               const avgPct = stat.count > 0 ? stat.sumPct / stat.count : 50;
               if (avgPct < 85) {
                 const relevance = Math.max(1, Math.round((100 - avgPct) / 20));
-                relevant.push({ name, relevance });
+                relevant.push({ name: stat.displayName, relevance });
               }
             }
             return relevant;

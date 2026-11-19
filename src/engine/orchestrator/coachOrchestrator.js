@@ -154,7 +154,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
   const effectiveSimulados = simulados.length > 0
     ? simulados
     : categories.flatMap((cat) => {
-      const hist = safeArray(cat?.simuladoStats?.history);
+      const hist = safeArray(cat?.simuladoStats?.history).filter((entry) => entry && entry.valid !== false);
       return hist.map((entry) => ({
         ...entry,
         categoryId: entry?.categoryId ?? cat?.id,
@@ -211,10 +211,28 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
   const initialStoreFlags = readFlags(contestId);
 
   try {
-    // Flags iniciais (não vaza overrides transitórios de options.features para fora da execução).
-    let features = {};
-    const baseFeatures = initialStoreFlags;
+    // ==========================================================
+    // 1. Bootstrap de flags persistidas ANTES de avaliar useCoachOrchestrator
+    // (sem vazar overrides transitórios de options.features para fora da execução).
+    // ==========================================================
     const optionFeatures = options.features || {};
+    const optimizerModule = await loadOptionalModule('coachOptimizer', meta);
+    if (
+      optimizerModule?.bootstrapCoachFlags &&
+      options.loadPersistedFlags !== false
+    ) {
+      try {
+        optimizerModule.bootstrapCoachFlags(contestId, { syncGlobalScope: false });
+      } catch (err) {
+        meta.errors.push({
+          step: 'bootstrapCoachFlags',
+          message: err?.message || String(err),
+        });
+      }
+    }
+
+    const baseFeatures = readFlags(contestId) || initialStoreFlags;
+    const features = {};
     for (const [k, v] of Object.entries({ ...baseFeatures, ...optionFeatures })) {
       if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
     }
@@ -224,6 +242,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
       getFeature(features, 'useCoachOrchestrator', false, contestId);
 
     if (!orchestratorEnabled) {
+      meta.flags = features;
       return {
         ok: false,
         skipped: true,
@@ -233,28 +252,6 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
       };
     }
 
-    // ==========================================================
-    // 1. Bootstrap de flags persistidas
-    // ==========================================================
-    const optimizerModule = await loadOptionalModule('coachOptimizer', meta);
-    if (
-      optimizerModule?.bootstrapCoachFlags &&
-      options.loadPersistedFlags !== false
-    ) {
-      try {
-        optimizerModule.bootstrapCoachFlags(contestId, { syncGlobalScope: false });
-        const updatedBase = readFlags(contestId);
-        features = {};
-        for (const [k, v] of Object.entries({ ...updatedBase, ...optionFeatures })) {
-          if (typeof k === 'string' && typeof v === 'boolean' && isValidFeatureKey(k)) features[k] = v;
-        }
-      } catch (err) {
-        meta.errors.push({
-          step: 'bootstrapCoachFlags',
-          message: err?.message || String(err),
-        });
-      }
-    }
     meta.flags = features;
 
     // ==========================================================
@@ -327,7 +324,10 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
             if (typeof causalModule.loadCausalModel === 'function') {
               causalModel = causalModule.loadCausalModel(contestId);
             }
-            if (options.trainCausalModel === true || (!causalModel && options.trainCausalModel !== false)) {
+            if (
+              options.trainCausalModel === true ||
+              ((!causalModel || !Number(causalModel.sampleSize)) && options.trainCausalModel !== false)
+            ) {
               const events = causalModule.buildCausalEventsFromHistory?.(
                 categories,
                 effectiveSimulados,
@@ -379,7 +379,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
 
       try {
         ensureNotAborted('getSuggestedFocus');
-        focus = getSuggestedFocus(categories, simulados, studyLogs, coachOptions);
+        focus = getSuggestedFocus(categories, effectiveSimulados, studyLogs, coachOptions);
       } catch (err) {
         if (controller.signal.aborted) throw err;
         meta.errors.push({
@@ -390,7 +390,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
 
       try {
         ensureNotAborted('generateDailyGoals');
-        tasks = generateDailyGoals(categories, simulados, studyLogs, coachOptions);
+        tasks = generateDailyGoals(categories, effectiveSimulados, studyLogs, coachOptions);
       } catch (err) {
         if (controller.signal.aborted) throw err;
         meta.errors.push({
@@ -465,23 +465,42 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
         );
         if (explanationModule?.enhanceCoachResultWithLLM) {
           let llmTimerId = null;
+          const llmController = new AbortController();
+          const onParentAbortForLlm = () => llmController.abort();
+          if (controller.signal.aborted) llmController.abort();
+          else controller.signal.addEventListener('abort', onParentAbortForLlm, { once: true });
+
           try {
+            const llmTimeoutMs = clampFinite(options.llmTimeoutMs, 500, 30000, 5000);
+            const focusMaxScore = clampFinite(focus?.maxScore, 1, 1_000_000, maxScore);
+            const focusMinScore = clampFinite(focus?.minScore, -1_000_000, focusMaxScore - 1e-6, minScore);
+            const focusTargetScore = clampFinite(
+              focus?.urgency?.details?.monteCarlo?.effectiveMCTarget ?? focus?.minCutoff ?? focus?.targetScore,
+              focusMinScore,
+              focusMaxScore,
+              targetScore
+            );
             const llmTimeout = new Promise((_, reject) => {
-              llmTimerId = setTimeout(() => reject(new Error('LLM timeout')), 5000);
+              llmTimerId = setTimeout(() => {
+                llmController.abort();
+                reject(new Error('LLM timeout'));
+              }, llmTimeoutMs);
             });
             const enhanced = await Promise.race([
               explanationModule.enhanceCoachResultWithLLM(
                 focus.urgency,
                 {
+                  timeoutMs: llmTimeoutMs,
+                  signal: llmController.signal,
                   features: {
                     ...features,
                     ...(options.runLLM === true ? { useLLMExplanations: true } : {}),
                   },
                   context: {
                     categoryName: focus.name || focus.categoryName || null,
-                    maxScore,
-                    minScore,
-                    targetScore,
+                    maxScore: focusMaxScore,
+                    minScore: focusMinScore,
+                    targetScore: focusTargetScore,
                   },
                 }
               ),
@@ -497,6 +516,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
               message: err?.message || String(err),
             });
           } finally {
+            controller.signal.removeEventListener('abort', onParentAbortForLlm);
             if (llmTimerId !== null) clearTimeout(llmTimerId);
           }
         }
@@ -524,7 +544,8 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
               minScore,
               contestId,
               currentFeatures: features,
-              force: true,
+              healthSnapshots: health ? [health] : undefined,
+              signal: controller.signal,
               autoApply: options.autoApplyTuner === true,
               forceApply: options.forceApplyTuner === true,
               minImprovement: options.minImprovement ?? 0.02,
@@ -562,7 +583,7 @@ export async function runCoachOrchestrator(input = {}, optionsArg) {
             ? {
               generatedAt: causalModel.generatedAt ?? null,
               sampleSize: causalModel.sampleSize ?? null,
-              method: causalModel.method ?? null,
+              method: causalModel.global?.method ?? causalModel.method ?? null,
               globalUplift: causalModel.global?.uplift ?? null,
               actionCount: causalModel.actions
                 ? Object.keys(causalModel.actions).length

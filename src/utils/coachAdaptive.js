@@ -14,7 +14,7 @@ import { getDateKey, safeDateParse, normalizeDate } from './dateHelper.js';
 import { kahanSum } from '../engine/math/kahan.js';
 import { detectDataAnomalies } from '../engine/diagnostics.js';
 import { pruneHistoryForMemory } from '../engine/stats.js';
-import { safeArray, toFiniteNumber, hashString } from './coachSafe.js';
+import { safeArray, safeClone, toFiniteNumber, hashString } from './coachSafe.js';
 
 const clampProbForLoss = (p) => {
   const n = Number(p);
@@ -82,47 +82,54 @@ export function deriveAdaptiveRiskThresholds(scores = [], volatility = null, cfg
     ? rawMaxNum
     : Math.max(100, safeMin + 100);
   const safeRange = Math.max(1e-9, safeMax - safeMin);
-  const cleanScores = rawScores.map(s => ((s - safeMin) / safeRange) * 100);
-  const sorted = [...cleanScores].sort((a, b) => a - b);
 
-  const q = (p) => {
-    const idx = Math.max(0, Math.min(sorted.length - 1, (sorted.length - 1) * p));
-    const lo = Math.floor(idx);
-    const hi = Math.ceil(idx);
-    if (lo === hi) return sorted[lo];
-    const t = idx - lo;
-    return sorted[lo] * (1 - t) + sorted[hi] * t;
-  };
+  // FIX: manter thresholds estritamente no domínio de PROBABILIDADE [0..100]%.
+  // Antes, percentis da NOTA (median, q25, q75) eram usados como limites de probabilidade,
+  // invertendo a severidade (alunos de 90 pts tinham danger=70%, alunos de 30 pts tinham danger=15%).
+  let danger = Math.max(15, Math.min(45, fallbackDanger));
+  let safe = Math.max(75, Math.min(97, fallbackSafe));
 
-  const median = q(0.5);
-  const isZeroVariance = cleanScores.every(s => Math.abs(s - median) < 1e-6);
-
-  if (isZeroVariance) {
-    const danger = Math.max(15, Math.min(70, median - 12.5));
-    const safe = Math.max(75, Math.min(95, Math.max(danger + 25, median + 12.5)));
-    return { danger, safe };
+  // Estima volatilidade empírica caso não seja fornecida
+  let effectiveVol = Number.isFinite(Number(volatility)) ? Math.max(0, Number(volatility)) : null;
+  if (effectiveVol === null && rawScores.length >= 2) {
+    const mean = kahanSum(rawScores) / rawScores.length;
+    const variance = kahanSum(rawScores.map(s => (s - mean) ** 2)) / (rawScores.length - 1);
+    effectiveVol = Math.sqrt(Math.max(0, variance));
   }
 
-  const aboveMedianRate = cleanScores.filter(s => s > median).length / cleanScores.length;
-  let danger = Math.max(15, Math.min(45, q(0.25) * (0.4 + aboveMedianRate * 0.3)));
-  let safe = Math.max(75, Math.min(95, q(0.75) * 1.08));
-
-  if (Number.isFinite(volatility)) {
+  if (effectiveVol !== null) {
     const highVol = (Number(cfg.MC_VOLATILITY_HIGH) || 8) * (safeRange / 100);
-    if (volatility > highVol * 0.9) { danger = Math.min(50, danger + 4); safe = Math.min(97, safe + 2); }
-    else if (volatility < highVol * 0.45) { danger = Math.max(12, danger - 3); safe = Math.max(72, safe - 2); }
+    if (effectiveVol > highVol * 0.9) {
+      danger = Math.min(45, danger + 4);
+      safe = Math.min(97, safe + 2);
+    } else if (effectiveVol < highVol * 0.45) {
+      danger = Math.max(15, danger - 3);
+      safe = Math.max(75, safe - 2);
+    }
   }
 
-  if (safe - danger < 25) safe = Math.min(97, danger + 25);
-  return { danger, safe };
+  if (safe - danger < 25) {
+    safe = Math.min(97, danger + 25);
+    if (safe - danger < 25) danger = Math.max(15, safe - 25);
+  }
+  return { danger: Math.round(danger * 10) / 10, safe: Math.round(safe * 10) / 10 };
 }
 
 // FIX M3: suavização C¹ também na dimensão de volatilidade
 export function computeContinuousMcBoost(probability, dangerThreshold, safeThreshold, volatility, maxScore, cfg = {}, minScore = 0) {
+  if (
+    probability === null ||
+    probability === undefined ||
+    probability === '' ||
+    typeof probability === 'boolean' ||
+    !Number.isFinite(Number(probability))
+  ) {
+    return { boost: 0, riskLabel: 'unknown' };
+  }
   const safeMaxScore = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
   const safeMinScore = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
   const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
-  const p = Math.max(0, Math.min(100, Number(probability) || 0));
+  const p = Math.max(0, Math.min(100, Number(probability)));
   const d = Math.max(1, Math.min(99, Number(dangerThreshold) || cfg.MC_PROB_DANGER || 30));
   const s = Math.max(d + 1, Math.min(99, Number(safeThreshold) || cfg.MC_PROB_SAFE || 90));
   const baseDangerBoost = toFiniteNumber(cfg.MC_BOOST_DANGER_BASE, 10);
@@ -358,13 +365,9 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
   const shrinkAnchorPct = neutralPct;
   const sumCorrect = history.reduce((acc, h) => acc + Number(h.score || 0), 0);
 
-  const sequenceChecksum = history.reduce((acc, h, idx) => {
-    const score = Number(h.score || 0);
-    const token = `${String(h?.date || '')}|${String(h?.subject || '')}`;
-    let charSum = 0;
-    for (let i = 0; i < token.length; i++) charSum += token.charCodeAt(i);
-    return acc + ((idx + 1) * Math.round(score * 100)) + charSum;
-  }, 0);
+  const sequenceChecksum = hashString(
+    history.map((h, idx) => `${idx}:${String(h?.date || '')}|${String(h?.subject || '')}|${Number(h?.score || 0).toFixed(2)}`).join(';')
+  );
 
   const firstDate = history[0]?.date || '';
   const lastDate = history[history.length - 1]?.date || '';
@@ -377,7 +380,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     : 'no-adapt';
 
   const cfgHash = hashString(
-      `${safeCfg.MC_SIMULATION_CAP ?? ''}|${safeCfg.MC_FORCE_MAX_SIMULATIONS ?? ''}|${safeCfg.MC_MIN_DATA_POINTS ?? ''}|${safeCfg.MC_BACKTEST_MIN_TRAIN ?? ''}|${safeCfg.MC_LOW_SAMPLE_THRESHOLD ?? ''}|${safeCfg.MC_BACKTEST_HORIZON ?? ''}|${safeCfg.MC_BACKTEST_HORIZON_MAX ?? ''}|${safeCfg.MC_ECE_BINS_MIN ?? ''}|${safeCfg.MC_ECE_BINS_MID ?? ''}|${safeCfg.MC_ECE_BINS_MAX ?? ''}|${calibHash}`
+      `${safeCfg.MC_SIMULATIONS ?? ''}|${safeCfg.MC_PROB_DANGER ?? ''}|${safeCfg.MC_PROB_SAFE ?? ''}|${safeCfg.MC_VOLATILITY_HIGH ?? ''}|${safeCfg.MC_SIMULATION_CAP ?? ''}|${safeCfg.MC_FORCE_MAX_SIMULATIONS ?? ''}|${safeCfg.MC_MIN_DATA_POINTS ?? ''}|${safeCfg.MC_BACKTEST_MIN_TRAIN ?? ''}|${safeCfg.MC_LOW_SAMPLE_THRESHOLD ?? ''}|${safeCfg.MC_BACKTEST_HORIZON ?? ''}|${safeCfg.MC_BACKTEST_HORIZON_MAX ?? ''}|${safeCfg.MC_ECE_BINS_MIN ?? ''}|${safeCfg.MC_ECE_BINS_MID ?? ''}|${safeCfg.MC_ECE_BINS_MAX ?? ''}|${calibHash}`
   );
 
   const contestId = safeCfg?.contestId || safeCfg?.userId || 'default';
@@ -396,10 +399,10 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     if (Date.now() - cachedEntry.timestamp > MC_CACHE_TTL_MS) {
       mcCache.delete(hash);
     } else {
-      // LRU: mover para o fim
+      // LRU: mover para o fim e retornar cópia isolada contra mutação externa
       mcCache.delete(hash);
       mcCache.set(hash, cachedEntry);
-      return cachedEntry.value;
+      return safeClone(cachedEntry.value);
     }
   }
 
@@ -478,10 +481,11 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
 
         try {
           let gapDays = 7;
-          if (train.length > 0 && observedRecord.date) {
-            const trainDateMs = safeDateParse(train[train.length - 1].date)?.getTime() || NaN;
+          const trainLastDate = train.length > 0 ? train[train.length - 1].date : null;
+          if (trainLastDate && observedRecord.date) {
+            const trainDateMs = safeDateParse(trainLastDate)?.getTime() || NaN;
             const obsDateMs = safeDateParse(observedRecord.date)?.getTime() || NaN;
-            if (!Number.isNaN(trainDateMs) && !Number.isNaN(obsDateMs) && obsDateMs > trainDateMs) {
+            if (!Number.isNaN(trainDateMs) && !Number.isNaN(obsDateMs) && obsDateMs >= trainDateMs) {
               gapDays = Math.max(1, (obsDateMs - trainDateMs) / 86400000);
             }
           }
@@ -489,7 +493,13 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
           const btSimulations = Math.min(200, Math.max(100, Math.floor(safeSimulations * 0.2)));
           const bt = monteCarloSimulation(train, stepTarget, gapDays,
             btSimulations,
-            { maxScore: safeMaxScore, minScore: safeMinScore, agilityPenalty, globalBaselinePct: neutralPct });
+            {
+              maxScore: safeMaxScore,
+              minScore: safeMinScore,
+              agilityPenalty,
+              globalBaselinePct: neutralPct,
+              ...(trainLastDate ? { referenceDate: trainLastDate } : {})
+            });
 
           if (!bt || !Number.isFinite(bt.probability)) continue;
 
@@ -607,11 +617,14 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       (stackingWeights[1] || 0) * isoProb01 +
       (stackingWeights[2] || 0) * bbqProb01));
 
-    const lowSampleShrink = nEff < lowSampleThreshold
+    const lowSampleShrink = enableAdaptiveCalibration && nEff < lowSampleThreshold
       ? Math.min(0.35, (lowSampleThreshold - nEff) / lowSampleThreshold)
       : 0;
-    const anomalyShrink = Math.min(0.2, dataIssues * 0.05);
-    const totalShrink = Math.min(0.65, calibrationPenalty + lowSampleShrink + anomalyShrink);
+    const anomalyShrink = enableAdaptiveCalibration ? Math.min(0.2, dataIssues * 0.05) : 0;
+    const totalShrink = enableAdaptiveCalibration
+      ? Math.min(0.65, calibrationPenalty + lowSampleShrink + anomalyShrink)
+      : 0;
+    const appliedShrinkK = enableAdaptiveCalibration ? Math.min(maxAppliedPenalty, totalShrink) : 0;
 
     const probability = enableAdaptiveCalibration
       ? shrinkProbabilityLogistic(stackedProb01 * 100, totalShrink, shrinkAnchorPct, maxAppliedPenalty)
@@ -624,20 +637,19 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
     if (ciLow > ciHigh) [ciLow, ciHigh] = [ciHigh, ciLow];
 
     const ciMid = (ciLow + ciHigh) / 2;
-    const appliedShrinkK = Math.min(maxAppliedPenalty, totalShrink);
     const ciExpand = 1 + Math.max(0, appliedShrinkK * 1.2);
     const widenedCiLow = Math.max(safeMinScore, ciMid - ((ciMid - ciLow) * ciExpand));
     // FIX: usar safeMaxScore (validado) em vez de maxScore bruto
     const widenedCiHigh = Math.min(safeMaxScore, ciMid + ((ciHigh - ciMid) * ciExpand));
 
-    const conformal = conformalizedCalibrationInterval(stackedProb01, conformalPairs, 0.1);
+    const conformal = conformalizedCalibrationInterval(probability / 100, conformalPairs, 0.1);
     const rawVolatility = Number(result.volatility) || 0;
 
     const finalResult = {
       diagnostics: result?.diagnostics || null,
       probability,
       probabilityRaw: stackedProb01 * 100,
-      shrinkTotal: Number(totalShrink.toFixed(4)),
+      shrinkTotal: Number(appliedShrinkK.toFixed(4)),
       lowSampleShrink: Number(lowSampleShrink.toFixed(4)),
       anomalyShrink: Number(anomalyShrink.toFixed(4)),
       targetScore: safeTargetScore,
@@ -651,7 +663,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       ece,
       reliability,
       sampleSize: history.length,
-      lowSampleAdjustment: Number(totalShrink.toFixed(4)),
+      lowSampleAdjustment: Number(appliedShrinkK.toFixed(4)),
       conformalLow: Number((conformal.low * 100).toFixed(2)),
       conformalHigh: Number((conformal.high * 100).toFixed(2)),
       conformalQ: Number(conformal.qHat.toFixed(4)),
@@ -680,7 +692,7 @@ export function runCoachMonteCarlo(relevantSimulados, targetScore, cfg, category
       if (firstKey !== undefined) mcCache.delete(firstKey);
     }
     if (mcCache.has(hash)) mcCache.delete(hash);
-    mcCache.set(hash, { value: finalResult, timestamp: Date.now() });
+    mcCache.set(hash, { value: safeClone(finalResult), timestamp: Date.now() });
 
     return finalResult;
   } catch (e) {

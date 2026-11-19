@@ -21,9 +21,10 @@ export const clearCoachCaches = _clearCoachCaches;
  */
 export async function coach(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
+  const rawOptions = options && typeof options === 'object' ? options : {};
   const safeOptions = {
-    force: options.force ?? true,
-    ...(options && typeof options === 'object' ? options : {}),
+    ...rawOptions,
+    force: rawOptions.force ?? true,
   };
 
   try {
@@ -55,9 +56,11 @@ export async function coach(input = {}, options = {}) {
         generatedAt: Date.now(),
         focus: null,
         tasks: [],
-        recommendation: '',
-        details: {},
         ...result,
+        recommendation: result?.recommendation || result?.focus?.urgency?.recommendation || '',
+        details: (result?.details && Object.keys(result.details).length > 0)
+          ? result.details
+          : (result?.focus?.urgency?.details || {}),
         // FIX (BUG-09): garantir que ok é sempre booleano explícito após o spread
         ok: result?.ok === false ? false : true,
         meta: safeMeta,
@@ -98,9 +101,10 @@ export function coachDashboardFromResult(result) {
  */
 export async function coachDashboard(input = {}, options = {}) {
   const safeInput = input && typeof input === 'object' ? input : {};
+  const rawOptions = options && typeof options === 'object' ? options : {};
   const safeOptions = {
-    force: options.force ?? true,
-    ...(options && typeof options === 'object' ? options : {}),
+    ...rawOptions,
+    force: rawOptions.force ?? true,
   };
   try {
       const result = await runCoachOrchestrator(safeInput, safeOptions);

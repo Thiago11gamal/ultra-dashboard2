@@ -11,8 +11,12 @@
 const ALLOWED_SEVERITIES = ['low', 'medium', 'high', 'critical'];
 
 function sanitizeText(value, maxLength = 280) {
-  return String(value ?? '')
-    .replace(/[<>]/g, '')
+  if (typeof value !== 'string' && !(typeof value === 'number' && Number.isFinite(value))) {
+    return '';
+  }
+  return String(value)
+    // Remove tags HTML (<script>, <b>, etc.) preservando operadores matemáticos como "probabilidade < 25%"
+    .replace(/<\/?[a-z][^>]*>/gi, '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, maxLength);
@@ -34,17 +38,19 @@ function sanitizeStringArray(value, maxItems = 6, maxItemLength = 220) {
  * @returns {Object|null}
  */
 export function validateCoachExplanation(raw, options = {}) {
-  if (!raw || typeof raw !== 'object') return null;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
 
   const strict = options.strict === true;
 
   const headline = sanitizeText(raw.headline, 160);
   if (!headline) return null;
 
-  const severityRaw = String(raw.severity || '').toLowerCase();
-  const severity = ALLOWED_SEVERITIES.includes(severityRaw)
-    ? severityRaw
-    : 'medium';
+  const severityRaw = typeof raw.severity === 'string' ? raw.severity.trim().toLowerCase() : '';
+  const hasValidSeverity = ALLOWED_SEVERITIES.includes(severityRaw);
+  if (strict && !hasValidSeverity) {
+    return null;
+  }
+  const severity = hasValidSeverity ? severityRaw : 'medium';
 
   let causes = sanitizeStringArray(raw.causes, 6, 220);
 
@@ -65,6 +71,13 @@ export function validateCoachExplanation(raw, options = {}) {
     raw.confidence !== '' &&
     typeof raw.confidence !== 'boolean';
   const confidenceRaw = hasConfidence ? Number(raw.confidence) : NaN;
+  const isConfidenceInRange =
+    Number.isFinite(confidenceRaw) &&
+    confidenceRaw >= 0 &&
+    confidenceRaw <= 100;
+  if (strict && raw.confidence !== undefined && !isConfidenceInRange) {
+    return null;
+  }
   const normalizedConfidence = Number.isFinite(confidenceRaw)
     ? (confidenceRaw > 1 && confidenceRaw <= 100 ? confidenceRaw / 100 : confidenceRaw)
     : NaN;

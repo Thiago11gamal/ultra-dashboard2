@@ -176,9 +176,11 @@ export function estimateDynamicVolatility(history = [], options = {}) {
 
   const totalElapsedDays = Math.max(1e-6, kahanSum(dts));
   const dailyDriftEstimate = kahanSum(rawDiffs) / totalElapsedDays;
+  // FIX: Var(y_t - y_{t-1}) = 2 * sigma^2 em séries com ruído observacional estacionário.
+  // Dividir por sqrt(2 * dt) evita inflar a volatilidade em +41.4% (sqrt(2)).
   const returns = rawDiffs.map((diff, idx) => {
     const dt = dts[idx];
-    return (diff - dailyDriftEstimate * dt) / Math.sqrt(dt);
+    return (diff - dailyDriftEstimate * dt) / Math.sqrt(2 * dt);
   });
 
   const medianGapDays = clampFinite(median(dts), 0.5, 60, 7);
@@ -248,14 +250,14 @@ export function estimateDynamicVolatility(history = [], options = {}) {
       const shock = centered * centered;
       const dtEffective = Math.min(dt, 30);
 
-      // Propagação estacionária exata de GARCH(1,1) em tempo irregular:
-      // E_t[sigma^2_{t+dt}] = sigma^2_inf * (1 - rho^dt) + rho^(dt - 1) * (alpha * shock + beta * sigma^2_t)
-      // Preserva E[sigma^2] === sigma^2_inf para qualquer dt > 0.
-      const oneDayNext = omega + alpha * shock + beta * sigma2Daily;
+      // FIX causal em tempo irregular: primeiro decai a variância ANTERIOR durante o hiato dt
+      // em direção a sigma2Inf, e SÓ ENTÃO aplica o choque de hoje com peso alpha integral.
       if (dtEffective >= 1) {
         const rhoDecay = Math.pow(persistence, dtEffective - 1);
-        sigma2Daily = sigma2Inf + rhoDecay * (oneDayNext - sigma2Inf);
+        const decayedPrior = sigma2Inf + rhoDecay * (sigma2Daily - sigma2Inf);
+        sigma2Daily = omega + alpha * shock + beta * decayedPrior;
       } else {
+        const oneDayNext = omega + alpha * shock + beta * sigma2Daily;
         sigma2Daily = sigma2Daily + dtEffective * (oneDayNext - sigma2Daily);
       }
 

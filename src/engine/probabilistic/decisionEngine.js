@@ -142,8 +142,7 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
  * Retorna posterior Beta para um candidato.
  * Usa histórico salvo + prior uniforme Beta(1, 1) para evitar dupla contagem com `utility`.
  */
-export function getBanditPosterior(actionId, _utility = 50, contestId) {
-  const state = loadBanditState(contestId);
+function buildBanditPosteriorFromState(state, actionId) {
   const entry = state?.[String(actionId)] || {};
 
   const priorAlpha = 1;
@@ -151,14 +150,20 @@ export function getBanditPosterior(actionId, _utility = 50, contestId) {
 
   const successes = clampFinite(entry.alpha, 0, 10000, 0);
   const failures = clampFinite(entry.beta, 0, 10000, 0);
+  const persistedTrials = Number(entry.trials);
 
   return {
     alpha: priorAlpha + successes,
     beta: priorBeta + failures,
     successes,
     failures,
-    trials: successes + failures,
+    trials: Number.isFinite(persistedTrials) && persistedTrials >= 0 ? persistedTrials : (successes + failures),
   };
+}
+
+export function getBanditPosterior(actionId, _utility = 50, contestId) {
+  const state = loadBanditState(contestId);
+  return buildBanditPosteriorFromState(state, actionId);
 }
 
 /**
@@ -231,8 +236,8 @@ export function rankDecisionCandidates(candidates = [], options = {}) {
   const useBandit = options.useBandit === true;
   const sessionBucket = useBandit ? new Date().toISOString().slice(0, 10) : 'static';
   const seed = options.seed ?? `decision-${safeCandidates.length}-${sessionBucket}`;
-  const rng = mulberry32(hashSeed(seed));
-  const gaussianSampler = createGaussianSampler(rng);
+  // Carrega o estado do bandit uma única vez (evita O(N) leituras/parses do localStorage)
+  const banditState = useBandit ? loadBanditState(options.contestId) : null;
 
   const explorationScale = clampFinite(options.explorationScale, 0, 100, 18);
 
@@ -247,13 +252,16 @@ export function rankDecisionCandidates(candidates = [], options = {}) {
         candidate.id ?? candidate.name ?? `candidate-${index}`
       );
 
-      posterior = getBanditPosterior(actionId, decision.utility, options.contestId);
+      posterior = buildBanditPosteriorFromState(banditState, actionId);
+      // RNG isolado por actionId para que inserir/reordenar candidatos não altere o bônus dos demais
+      const itemRng = mulberry32(hashSeed(`${seed}:${actionId}`));
+      const itemGaussian = createGaussianSampler(itemRng);
 
       const sampledRewardProbability = sampleBeta(
         posterior.alpha,
         posterior.beta,
-        rng,
-        gaussianSampler
+        itemRng,
+        itemGaussian
       );
 
       explorationBonus = sampledRewardProbability * explorationScale;

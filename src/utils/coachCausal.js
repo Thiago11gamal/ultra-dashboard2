@@ -52,6 +52,14 @@ function rollingSd(values, windowSize = 5) {
   return Math.sqrt(Math.max(0, variance));
 }
 
+function normalizeGroupKey(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 /**
  * Constrói eventos causais baseados em volume de estudo entre simulados.
  */
@@ -62,10 +70,12 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
   const categoryId = options.categoryId || null;
   const categoryName = options.categoryName || null;
 
+  const seenVolSigs = new Set();
   const safeSimulados = safeArray(simulados)
     .filter((simulado) => {
+      if (!simulado || simulado.valid === false) return false;
       if (!categoryId && !categoryName) return true;
-      if (categoryId && simulado?.categoryId && (simulado.categoryId === categoryId || String(simulado.categoryId) === String(categoryId))) {
+      if (categoryId && simulado?.categoryId != null && (simulado.categoryId === categoryId || String(simulado.categoryId) === String(categoryId))) {
         return true;
       }
       if (categoryName) {
@@ -84,8 +94,26 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
         simulado,
       };
     })
-    // FIX: descarta timestamps inválidos OU no futuro além da tolerância
-    .filter((entry) => Number.isFinite(entry.time) && Number.isFinite(entry.score) && isReasonableTime(entry.time))
+    // FIX: descarta timestamps inválidos OU no futuro além da tolerância, e deduplica
+    .filter((entry) => {
+      if (!Number.isFinite(entry.time) || !Number.isFinite(entry.score) || !isReasonableTime(entry.time)) {
+        return false;
+      }
+      const subjSig = normalizeGroupKey(
+        entry.simulado?.subject ||
+        entry.simulado?.categoryName ||
+        entry.simulado?.materia ||
+        entry.simulado?.disciplina ||
+        entry.simulado?.categoryId ||
+        '__global__'
+      );
+      const sig = entry.simulado?.id && !String(entry.simulado.id).startsWith('legacy-')
+        ? `id:${entry.simulado.id}`
+        : `ts:${subjSig}:${Math.floor(entry.time / 86400000)}:${Math.round(entry.score * 10)}`;
+      if (seenVolSigs.has(sig)) return false;
+      seenVolSigs.add(sig);
+      return true;
+    })
     .sort((a, b) => a.time - b.time);
 
   const safeLogs = safeArray(studyLogs)
@@ -100,25 +128,25 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
       time: toTime(log?.date ?? log?.createdAt),
       minutes: Math.min(720, Math.max(0, Number(log?.minutes ?? log?.minutos ?? log?.duration ?? log?.tempo) || 0)),
       subjectLabel: String(log?.subject || log?.categoryName || log?.materia || log?.disciplina || '').trim(),
-      categoryId: log?.categoryId || null,
+      categoryId: log?.categoryId ?? null,
     }))
     // FIX: descarta logs com timestamp inválido/futuro
     .filter((entry) => Number.isFinite(entry.time) && isReasonableTime(entry.time));
 
-  // Agrupar simulados por disciplina quando categoryName não for especificado,
+  // Agrupar simulados por disciplina quando categoryName/categoryId não forem especificados,
   // evitando subtrair notas de matérias diferentes adjacentes no tempo.
   const simGroups = new Map();
   safeSimulados.forEach((entry) => {
-    const rawField = String(
+    const rawField = normalizeGroupKey(
       entry.simulado?.subject ||
       entry.simulado?.categoryName ||
       entry.simulado?.materia ||
       entry.simulado?.disciplina ||
       entry.simulado?.categoryId ||
       ''
-    ).trim().toLowerCase();
+    );
     const isGenericGlobal = !rawField || rawField === 'simulado geral' || rawField === 'geral';
-    const rawSubject = categoryName
+    const rawSubject = (categoryName || categoryId)
       ? '__filtered__'
       : (isGenericGlobal ? '__global__' : rawField);
     if (!simGroups.has(rawSubject)) {
@@ -132,17 +160,26 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
   for (const [groupKey, groupSims] of simGroups.entries()) {
     if (groupSims.length < 2) continue;
     const scores = groupSims.map((entry) => entry.score);
-    const groupSubjectName =
-      groupKey !== '__filtered__' && groupKey !== '__global__'
-        ? String(
-          groupSims[0]?.simulado?.subject ||
-          groupSims[0]?.simulado?.categoryName ||
-          groupSims[0]?.simulado?.materia ||
-          groupSims[0]?.simulado?.disciplina ||
-          ''
-        ).trim()
-        : '';
-    const groupCategoryId = groupSims[0]?.simulado?.categoryId || null;
+    let groupSubjectName = '';
+    let groupCategoryId = null;
+    if (groupKey !== '__filtered__' && groupKey !== '__global__') {
+      for (const entry of groupSims) {
+        if (!groupSubjectName) {
+          const candidateName = String(
+            entry?.simulado?.subject ||
+            entry?.simulado?.categoryName ||
+            entry?.simulado?.materia ||
+            entry?.simulado?.disciplina ||
+            ''
+          ).trim();
+          if (candidateName) groupSubjectName = candidateName;
+        }
+        if (groupCategoryId == null && entry?.simulado?.categoryId != null) {
+          groupCategoryId = entry.simulado.categoryId;
+        }
+        if (groupSubjectName && groupCategoryId != null) break;
+      }
+    }
 
     for (let i = 1; i < groupSims.length; i++) {
       const prev = groupSims[i - 1];
@@ -156,13 +193,13 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
       const intervalLogs = safeLogs.filter((log) => {
         if (log.time <= prev.time || log.time > curr.time) return false;
         if (categoryName || categoryId || groupKey === '__global__') return true;
-        if (groupCategoryId && log.categoryId) {
+        if (groupCategoryId != null && log.categoryId != null) {
           return String(log.categoryId) === String(groupCategoryId);
         }
         if (groupSubjectName && log.subjectLabel) {
           return isSubjectMatch(log.subjectLabel, groupSubjectName);
         }
-        return true;
+        return false;
       });
       const totalMinutes = intervalLogs.reduce(
         (acc, log) => acc + log.minutes,
@@ -201,11 +238,18 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
   const safeCategories = safeArray(categories);
   const events = [];
 
+  const globalRange = Math.max(1e-6, maxScore - minScore);
+
   safeCategories.forEach((category) => {
     const categoryName = category?.name || '';
     const categoryId = category?.id || categoryName || 'unknown';
     const catMax = Number.isFinite(Number(category?.maxScore)) && Number(category?.maxScore) > 0 ? Number(category.maxScore) : maxScore;
     const catMin = Number.isFinite(Number(category?.minScore)) ? Math.min(Number(category.minScore), catMax) : minScore;
+    const catRange = Math.max(1e-6, catMax - catMin);
+    const normalizeScoreToGlobal = (rawScore) =>
+      catMax === maxScore && catMin === minScore
+        ? rawScore
+        : minScore + ((rawScore - catMin) / catRange) * globalRange;
 
     const catHistoryList = safeArray(category?.simuladoStats?.history).map((h) => ({
       ...h,
@@ -227,8 +271,9 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
     [...catHistoryList, ...externalMatchingSims].forEach((simulado, idx) => {
       if (!simulado || simulado.valid === false) return;
       const time = toTime(simulado?.date ?? simulado?.createdAt);
-      const score = getSafeScore(simulado, catMax, catMin);
-      if (!Number.isFinite(time) || !Number.isFinite(score) || !isReasonableTime(time)) return;
+      const rawScore = getSafeScore(simulado, catMax, catMin);
+      if (!Number.isFinite(time) || !Number.isFinite(rawScore) || !isReasonableTime(time)) return;
+      const score = normalizeScoreToGlobal(rawScore);
       const sig = simulado.id && !String(simulado.id).startsWith('legacy-')
         ? `id:${simulado.id}`
         : `ts:${Math.floor(time / 86400000)}:${Math.round(score * 10)}`;
@@ -264,7 +309,9 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
 
     const scores = categorySimulados.map((entry) => entry.score);
 
-    // Eventos tratados: tarefa concluída entre dois simulados.
+    // Eventos tratados: tarefa concluída entre dois simulados (agrupado por intervalo + actionType
+    // para evitar pseudo-replicação do mesmo outcomeDelta quando várias tarefas são concluídas juntas).
+    const seenTreatedIntervals = new Set();
     taskTimes.forEach(({ task, time }, taskIndex) => {
       let prevSim = null;
       let prevPos = -1;
@@ -287,11 +334,19 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
       if (!prevSim || !nextSim || prevPos < 0) return;
 
       const horizonDays = (nextSim.time - prevSim.time) / 86400000;
-      if (Number.isNaN(horizonDays) || horizonDays > maxHorizonDays) return;
+      if (!Number.isFinite(horizonDays) || horizonDays <= 0 || horizonDays > maxHorizonDays) return;
+
+      const actionType = task?.actionType
+        ? inferActionType(task.actionType)
+        : inferActionType(task?.text || task?.topicName || '');
+      const intervalActionSig = `${prevPos}|${actionType}`;
+      if (seenTreatedIntervals.has(intervalActionSig)) return;
+      seenTreatedIntervals.add(intervalActionSig);
 
       const outcomeDelta = nextSim.score - prevSim.score;
       const baselineScore = prevSim.score;
-      const daysSince = (time - prevSim.time) / 86400000;
+      // FIX: mesma definição pré-tratamento de intervalo para tratados e controles (elimina leakage em daysSince)
+      const daysSince = horizonDays;
       const preSampleCount = prevPos + 1;
       // FIX: fatiar pela posição pós-ordenação cronológica (prevPos + 1), nunca pelo índice bruto pré-sort
       const volatility = rollingSd(scores.slice(0, preSampleCount), 5);
@@ -308,20 +363,25 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
         daysSince,
         weight: Number(category?.weight) || 5,
         uncertainty: preUncertainty,
-        actionType: inferActionType(task?.text || task?.topicName || ''),
+        actionType,
       });
     });
 
-    // ✅ PATCH-23: Limitar eventos controle para evitar desbalanceamento
+    // ✅ PATCH-23: Limitar eventos controle aos mais recentes para evitar desbalanceamento
     const MAX_CONTROL_EVENTS_PER_CATEGORY = 5;
     let controlCount = 0;
 
-    for (let i = 1; i < categorySimulados.length && controlCount < MAX_CONTROL_EVENTS_PER_CATEGORY; i++) {
+    for (let i = categorySimulados.length - 1; i >= 1 && controlCount < MAX_CONTROL_EVENTS_PER_CATEGORY; i--) {
       const prev = categorySimulados[i - 1];
       const curr = categorySimulados[i];
+      if (curr.time <= prev.time) continue;
 
+      const horizonDays = (curr.time - prev.time) / 86400000;
+      if (!Number.isFinite(horizonDays) || horizonDays <= 0 || horizonDays > maxHorizonDays) continue;
+
+      // Mesma fronteira [prev.time, curr.time) usada nos tratados — tarefa no mesmo dia de prev.time não vira controle
       const hasTaskInInterval = taskTimes.some(
-        ({ time }) => time > prev.time && time <= curr.time
+        ({ time }) => time >= prev.time && time < curr.time
       );
       if (hasTaskInInterval) continue;
 
@@ -329,7 +389,7 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
 
       const outcomeDelta = curr.score - prev.score;
       const baselineScore = prev.score;
-      const daysSince = (curr.time - prev.time) / 86400000;
+      const daysSince = horizonDays;
       const preSampleCount = i;
       const volatility = rollingSd(scores.slice(0, preSampleCount), 5);
       const preUncertainty = Number(Math.min(0.9, Math.max(0.1, 4 / (preSampleCount + 4))).toFixed(4));
@@ -361,8 +421,22 @@ export function buildCausalEventsFromHistory(
   studyLogs = [],
   options = {}
 ) {
-  const taskEvents = buildTaskCausalEvents(categories, simulados, options);
-  const volumeEvents = buildStudyVolumeCausalEvents(simulados, studyLogs, {
+  const safeSimuladosInput = safeArray(simulados);
+  const effectiveSimuladosForVolume =
+    safeSimuladosInput.length > 0
+      ? safeSimuladosInput
+      : safeArray(categories).flatMap((cat) =>
+          safeArray(cat?.simuladoStats?.history)
+            .filter((h) => h && h.valid !== false)
+            .map((h) => ({
+              ...h,
+              categoryId: h?.categoryId ?? cat?.id,
+              subject: h?.subject || h?.categoryName || cat?.name || '',
+            }))
+        );
+
+  const taskEvents = buildTaskCausalEvents(categories, safeSimuladosInput, options);
+  const volumeEvents = buildStudyVolumeCausalEvents(effectiveSimuladosForVolume, studyLogs, {
     ...options,
     categoryName: options.categoryName || null,
     categoryId: options.categoryId || null,
@@ -381,15 +455,16 @@ export function buildCausalEventsFromHistory(
  */
 export function trainCausalModel(events = [], options = {}) {
   const safeEvents = prepareCausalEvents(events, options);
+  const useBootstrap = options.useBootstrap === true;
 
   const estimates = estimateUpliftByAction(safeEvents, {
     method: options.method || 'auto',
     maxScore: options.maxScore ?? 100,
     minScore: options.minScore ?? 0,
-    bootstrapIterations:
-      options.useBootstrap === true
-        ? options.bootstrapIterations ?? 100
-        : 0,
+    bootstrapIterations: useBootstrap
+      ? options.bootstrapIterations ?? 100
+      : 0,
+    bootstrapActions: options.bootstrapActions ?? useBootstrap,
     covariates: options.covariates,
     minSamplesPerAction: options.minSamplesPerAction,
   });
@@ -406,7 +481,7 @@ export function trainCausalModel(events = [], options = {}) {
     actionCounts: estimates.actionCounts,
   };
 
-  if (options.save !== false) {
+  if (options.save !== false && (safeEvents.length > 0 || options.allowEmptySave === true)) {
     saveCausalModel(model, options.contestId);
   }
 
@@ -491,7 +566,9 @@ export function rerankCoachTasksWithCausalPolicy(tasks = [], causalModel = null,
         : `idx-${idx}-${task?.text || ''}`;
 
     const candidates = safeTasks.map((task, index) => {
-      const actionType = inferActionType(task?.text || task?.topicName || '');
+      const actionType = task?.actionType
+        ? inferActionType(task.actionType)
+        : inferActionType(task?.text || task?.topicName || '');
       return {
         id: getCandidateKey(task, index),
         type: actionType,

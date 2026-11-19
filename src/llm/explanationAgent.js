@@ -19,10 +19,20 @@ import {
 } from './llmPrompts.js';
 import { generateStructuredLLM, getLLMProvider } from './llmClient.js';
 import { getCoachFeature } from '../utils/coachFeatures.js';
+import { getFlag } from '../utils/coachFeatureStore.js';
+import { hashString64 } from '../utils/coachSafe.js';
 
 const explanationCache = new Map();
 const CACHE_MAX_SIZE = 60;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+try {
+  if (typeof globalThis !== 'undefined') {
+    globalThis.__COACH_LLM_CACHE__ = explanationCache;
+  }
+} catch {
+  // ignore
+}
 
 function getFeature(options, key, fallback = false) {
   try {
@@ -31,6 +41,10 @@ function getFeature(options, key, fallback = false) {
     }
     if (options && typeof options[key] === 'boolean') {
       return options[key];
+    }
+    const storeVal = getFlag(key, undefined, options?.contestId || options?.config?.contestId);
+    if (typeof storeVal === 'boolean') {
+      return storeVal;
     }
     if (
       typeof globalThis !== 'undefined' &&
@@ -46,15 +60,7 @@ function getFeature(options, key, fallback = false) {
 }
 
 function hashString(str) {
-  let h = 0;
-  const s = String(str || '');
-
-  for (let i = 0; i < s.length; i++) {
-    h = (h << 5) - h + s.charCodeAt(i);
-    h |= 0;
-  }
-
-  return Math.abs(h).toString(36);
+  return hashString64(String(str || ''));
 }
 
 function clamp(value, min, max, fallback = min) {
@@ -121,7 +127,11 @@ export function normalizeCoachExplanationInput(coachResult = {}, context = {}) {
 
     trend: toFinite(details.trend, null),
 
-    daysSinceLastStudy: toFinite(details.daysSinceLastStudy, null),
+    daysSinceLastStudy: details.recencyUnknown
+      ? null
+      : toFinite(details.daysSinceLastStudy, null),
+
+    recencyUnknown: Boolean(details.recencyUnknown),
 
     srsLabel: details.srsLabel ?? null,
 
@@ -321,38 +331,56 @@ export async function explainCoachMetrics(input = {}, options = {}) {
     };
   }
 
-  const cachePayload = {
-    ...input,
-    originalRecommendation: String(input?.originalRecommendation || ''),
-  };
+  const temperature = options.temperature ?? 0.2;
+  const maxTokens = options.maxTokens ?? 800;
 
-  const cacheKey = hashString(
-    JSON.stringify({
-      payload: cachePayload,
-      strict,
-      providerId: provider.id || 'unknown',
-    })
-  );
+  let cacheKey = null;
+  try {
+    const cachePayload = {
+      ...input,
+      originalRecommendation: String(input?.originalRecommendation || ''),
+    };
+    cacheKey = hashString(
+      JSON.stringify({
+        payload: cachePayload,
+        strict,
+        providerId: provider.id || 'unknown',
+        temperature,
+        maxTokens,
+      })
+    );
+  } catch {
+    cacheKey = null;
+  }
 
   const now = Date.now();
-  const cached = explanationCache.get(cacheKey);
+  const cached = cacheKey ? explanationCache.get(cacheKey) : null;
 
   if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    // Atualiza ordem LRU e retorna cópia defensiva para evitar mutação externa do cache
+    explanationCache.delete(cacheKey);
+    explanationCache.set(cacheKey, cached);
     return {
       ...cached.output,
+      causes: Array.isArray(cached.output.causes) ? [...cached.output.causes] : [],
       cached: true,
     };
   }
 
   try {
     const prompt = buildCoachExplanationPrompt(input);
+    let failureReason = null;
 
     const raw = await generateStructuredLLM({
       system: COACH_EXPLANATION_SYSTEM_PROMPT,
       user: prompt,
       timeoutMs: options.timeoutMs,
-      temperature: options.temperature ?? 0.2,
-      maxTokens: options.maxTokens ?? 800,
+      temperature,
+      maxTokens,
+      signal: options.signal,
+      onFailure: (reason) => {
+        failureReason = reason;
+      },
     });
 
     const valid = validateCoachExplanation(raw, { strict });
@@ -360,20 +388,28 @@ export async function explainCoachMetrics(input = {}, options = {}) {
     if (valid) {
       const output = {
         ...valid,
+        causes: Array.isArray(valid.causes) ? [...valid.causes] : [],
         source: 'llm',
         provider: provider.id || 'unknown',
         cached: false,
       };
 
-      if (explanationCache.size >= CACHE_MAX_SIZE) {
-        const oldestKey = explanationCache.keys().next().value;
-        explanationCache.delete(oldestKey);
-      }
+      if (cacheKey) {
+        if (explanationCache.has(cacheKey)) {
+          explanationCache.delete(cacheKey);
+        } else if (explanationCache.size >= CACHE_MAX_SIZE) {
+          const oldestKey = explanationCache.keys().next().value;
+          explanationCache.delete(oldestKey);
+        }
 
-      explanationCache.set(cacheKey, {
-        timestamp: now,
-        output,
-      });
+        explanationCache.set(cacheKey, {
+          timestamp: now,
+          output: {
+            ...output,
+            causes: [...output.causes],
+          },
+        });
+      }
 
       return output;
     }
@@ -383,7 +419,7 @@ export async function explainCoachMetrics(input = {}, options = {}) {
       source: 'fallback',
       provider: provider.id || 'unknown',
       cached: false,
-      reason: 'llm_invalid_output',
+      reason: failureReason || 'llm_invalid_output',
     };
   } catch {
     return {
@@ -415,7 +451,13 @@ export async function enhanceCoachResultWithLLM(coachResult = {}, options = {}) 
     llmExplanation = await explainCoachMetrics(normalizedInput, options);
   } catch (err) {
     console.warn('[CoachLLM] enhanceCoachResultWithLLM failed, falling back to deterministic explanation:', err?.message || String(err));
-    llmExplanation = deterministicCoachExplanation(normalizedInput);
+    llmExplanation = {
+      ...deterministicCoachExplanation(normalizedInput),
+      source: 'fallback',
+      provider: null,
+      cached: false,
+      reason: 'llm_error',
+    };
   }
 
   return {

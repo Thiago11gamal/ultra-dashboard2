@@ -23,7 +23,9 @@ function safePromptNum(val, fallback) {
 }
 
 function safePromptStr(val, maxLen = 100) {
-  if (val === null || val === undefined) return '';
+  if (typeof val !== 'string' && !(typeof val === 'number' && Number.isFinite(val))) {
+    return '';
+  }
   return String(val).replace(/[\r\n\t]+/g, ' ').trim().slice(0, maxLen);
 }
 
@@ -43,10 +45,13 @@ export function buildCoachExplanationPrompt(payload = {}) {
     trend: safePromptNum(safePayload.trend, null),
     volatility: safePromptNum(safePayload.volatility, null),
     daysSinceLastStudy: safePromptNum(safePayload.daysSinceLastStudy, null),
+    recencyUnknown: Boolean(safePayload.recencyUnknown),
     srsLabel: safePromptStr(safePayload.srsLabel, 100),
     maxScore: safePromptNum(safePayload.maxScore, 100),
     minScore: safePromptNum(safePayload.minScore, 0),
     probability: safePromptNum(safePayload.probability, null),
+    probabilityRaw: safePromptNum(safePayload.probabilityRaw, null),
+    riskLabel: safePromptStr(safePayload.riskLabel, 40),
     isBurnoutRisk: Boolean(safePayload.isBurnoutRisk),
     sampleSize: safePromptNum(safePayload.sampleSize, null),
     calibrationPenalty: safePromptNum(safePayload.calibrationPenalty, 0),

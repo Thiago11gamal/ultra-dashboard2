@@ -61,6 +61,7 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
   const windowSize = Math.max(3, Number(options.volatilityWindow) || 5);
 
   const sorted = safeArray(simulados)
+    .filter((simulado) => simulado && simulado.valid !== false)
     // FIX (A6): preserva o índice original — o tiebreak do sort lia
     // `a._idx`, que nunca era criado (código morto).
     .map((simulado, _idx) => ({
@@ -72,7 +73,11 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
         simulado?.disciplina ||
         simulado?.categoryId ||
         ''
-      ).trim().toLowerCase(),
+      )
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase(),
       time: toTime(simulado?.date ?? simulado?.createdAt),
       score: getSafeScore(simulado, maxScore, minScore),
       _idx,
@@ -85,9 +90,10 @@ export function extractObservabilitySeries(simulados = [], options = {}) {
       if (aFinite && bFinite) {
         if (a.time !== b.time) return a.time - b.time;
       } else if (aFinite && !bFinite) {
-        return -1; // a vem antes
+        // Entradas sem data ficam no início (nunca na janela recente de drift)
+        return 1;
       } else if (!aFinite && bFinite) {
-        return 1;  // b vem antes
+        return -1;
       }
       // Ambos inválidos: manter ordem original via _idx
       return (a._idx || 0) - (b._idx || 0);
@@ -202,11 +208,19 @@ export function runCoachDriftGuard(options = {}) {
       .filter(Boolean);
   }
 
+  const maxCalibrationTimestamp = calibrationEvents.reduce((maxTs, ev) => {
+    const ts = Number(ev?.timestamp);
+    return Number.isFinite(ts) && ts > maxTs ? ts : maxTs;
+  }, 0);
+
   const lastTelemetryTimestamp =
-    Number(options.lastTelemetryTimestamp) ||
-    (calibrationEvents.length > 0
-      ? Number(calibrationEvents[calibrationEvents.length - 1]?.timestamp) || 0
-      : 0);
+    Number(options.lastTelemetryTimestamp) || maxCalibrationTimestamp;
+
+  const {
+    probabilityPairs: _rawProbabilityPairs,
+    probabilityPairsOptions,
+    ...healthOptions
+  } = options || {};
 
   const health = evaluateModelHealth(
     {
@@ -218,7 +232,13 @@ export function runCoachDriftGuard(options = {}) {
       features: options.features || {},
       lastTelemetryTimestamp,
     },
-    options
+    {
+      ...healthOptions,
+      probabilityPairs:
+        probabilityPairsOptions && typeof probabilityPairsOptions === 'object'
+          ? probabilityPairsOptions
+          : {},
+    }
   );
 
   if (options.saveSnapshot !== false) {

@@ -483,12 +483,17 @@ export default function Coach() {
     // VIS-FIX: projectedMean está na escala da prova (pontos), não em %.
     // Antes o banner exibia "Global MC: 742%" para provas com maxScore=1000.
     const globalProjection = useMemo(() => {
-        const mean = Number(suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean);
+        const rawMean = suggestedFocus?.globalProjectedMean ?? suggestedFocus?.globalMcContext?.projectedMean;
+        if (rawMean === null || rawMean === undefined || rawMean === '' || typeof rawMean === 'boolean') return null;
+        const mean = Number(rawMean);
         if (!Number.isFinite(mean)) return null;
         const safeMax = Math.max(1, Number(currentMaxScore) || 100);
         const safeMin = Number.isFinite(Number(currentMinScore)) ? Math.min(Number(currentMinScore), safeMax - 1) : 0;
         const pct = Math.max(0, Math.min(100, ((mean - safeMin) / (safeMax - safeMin)) * 100));
-        const prob = Number(suggestedFocus?.globalMcContext?.probability);
+        const rawProb = suggestedFocus?.globalMcContext?.probability;
+        const prob = (rawProb !== null && rawProb !== undefined && rawProb !== '' && typeof rawProb !== 'boolean')
+            ? Number(rawProb)
+            : NaN;
         return {
             points: mean,
             max: safeMax,
@@ -555,6 +560,17 @@ export default function Coach() {
             sd: mcStats?.sd
         };
     }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability, mcStats?.statsData, mcStats?.sd]);
+
+    // Chave primitiva estável para hidratar getSuggestedFocus/generateDailyGoals assim que
+    // o Worker de Monte Carlo concluir (sem disparar loop #185 por mudança de referência de objeto).
+    const mcStatsSyncKey = useMemo(() => {
+        if (!isMcStatsReady || mcStats?.projectedMean === null || mcStats?.projectedMean === undefined) return '';
+        const meanNum = Number(mcStats.projectedMean);
+        if (!Number.isFinite(meanNum)) return '';
+        const probRaw = mcStats?.probability;
+        const probNum = (probRaw !== null && probRaw !== undefined && probRaw !== '') ? Number(probRaw) : NaN;
+        return `${meanNum.toFixed(1)}|${Number.isFinite(probNum) ? probNum.toFixed(1) : 'na'}`;
+    }, [isMcStatsReady, mcStats?.projectedMean, mcStats?.probability]);
 
     // FIX-#185: Stable ref so the analysis useEffect doesn't need mcStatsContext
     // as a dependency. Without this, any isFlashing toggle inside useMonteCarloStats
@@ -903,7 +919,8 @@ return () => {
     persistCalibrationMetric,
     patchData,
     planRefreshTick,
-    flagRevision
+    flagRevision,
+    mcStatsSyncKey
 ]);
 
 useEffect(() => {

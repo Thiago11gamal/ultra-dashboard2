@@ -15,29 +15,42 @@ function clampFinite(value, min, max, fallback = min) {
   return Math.min(max, Math.max(min, n));
 }
 
+const KNOWN_ACTION_TYPES = new Set([
+  'agility_training',
+  'srs_review',
+  'mock_exam',
+  'general_review',
+  'weak_topic_practice',
+  'study_volume',
+]);
+
 /**
- * Infere tipo de ação a partir do texto.
+ * Infere tipo de ação a partir do texto ou ação explícita.
  */
 export function inferActionType(text = '') {
-  const s = String(text || '').toLowerCase();
+  const s = String(text || '').trim().toLowerCase();
 
-  if (/agilidade|cronômetro|cronometro|tempo|velocidade/.test(s)) {
+  if (KNOWN_ACTION_TYPES.has(s)) {
+    return s;
+  }
+
+  if (/agilidade|cron[ôo]metro|velocidade|revis[ãa]o expressa|treino de tempo|gest[ãa]o de tempo/.test(s)) {
     return 'agility_training';
   }
 
-  if (/revisão espaçada|revisao espacada|srs|flashcard|memória|memoria|retenção|retencao/.test(s)) {
+  if (/revis[ãa]o espa[çc]ada|revis[ãa]o por rec[êe]ncia|\bsrs\b|flashcard|reten[çc][ãa]o|curva de esquecimento/.test(s)) {
     return 'srs_review';
   }
 
-  if (/simulado|prova|mock|exame/.test(s)) {
+  if (/simulado|vetor cr[íi]tico|\bmock\b|exame simulado|prova simulada|prova completa|prova anterior/.test(s)) {
     return 'mock_exam';
   }
 
-  if (/revisão geral|revisao geral|manutenção|manutencao/.test(s)) {
+  if (/revis[ãa]o geral|manuten[çc][ãa]o|cruzeiro seguro|consolida[çc][ãa]o te[óo]rica/.test(s)) {
     return 'general_review';
   }
 
-  if (/questões|questoes|exercícios|exercicios|prática|pratica|bateria/.test(s)) {
+  if (/quest[õo]es|exerc[íi]cios|pr[áa]tica|bateria/.test(s)) {
     return 'weak_topic_practice';
   }
 
@@ -237,9 +250,15 @@ export function scoreCandidatesWithCausal(candidates = [], causalModel = null, o
           : 0;
 
       const evidenceFactor = sampleSize / (sampleSize + 20);
+      const hasCausalEvidence =
+        Boolean(causalEstimate) &&
+        sampleSize > 0 &&
+        causalEstimate?.method !== 'insufficient_arms' &&
+        causalEstimate?.method !== 'none';
 
-      const effectiveCausalWeight =
-        baseCausalWeight * (0.25 + 0.75 * evidenceFactor);
+      const effectiveCausalWeight = hasCausalEvidence
+        ? baseCausalWeight * (0.25 + 0.75 * evidenceFactor)
+        : 0;
 
       const modelMaxScore = Number.isFinite(Number(causalModel?.maxScore)) && Number(causalModel.maxScore) > 0
         ? Number(causalModel.maxScore)
@@ -356,7 +375,10 @@ export function buildPolicyReport(selectedActions = [], causalModel = null, opti
 export function estimateUplift({ outcome, treatment, propensity, weight = 1 } = {}) {
   const toStrict = (v) => (v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v))) ? Number(v) : NaN;
   const y = toStrict(outcome);
-  const t = treatment ? 1 : 0;
+  const t =
+    treatment === true || treatment === 1 || treatment === '1' || treatment === 'true'
+      ? 1
+      : 0;
   const p = toStrict(propensity);
   const w = toStrict(weight);
 

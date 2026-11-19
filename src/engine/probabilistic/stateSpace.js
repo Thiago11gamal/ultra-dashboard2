@@ -110,7 +110,7 @@ function parseObservationTime(entry) {
   const rawDate = entry.date ?? entry.createdAt ?? entry.timestamp ?? entry.time;
   if (rawDate === null || rawDate === undefined || rawDate === '' || typeof rawDate === 'boolean') return NaN;
   if (typeof rawDate === 'number') {
-    return Number.isFinite(rawDate) ? (rawDate < 1e11 ? rawDate * 1000 : rawDate) : NaN;
+    return Number.isFinite(rawDate) && rawDate > 0 ? (rawDate < 1e11 ? rawDate * 1000 : rawDate) : NaN;
   }
 
   const normalized = normalizeDate(rawDate);
@@ -126,7 +126,7 @@ function parseObservationTime(entry) {
  * Compatível com o código do coach que espera campos como abilitySd/trendPerDay.
  */
 export function kalmanAbilityTrend(observations = [], options = {}) {
-  const maxScore = clampNumber(options.maxScore ?? 100, 1, 100000);
+  const maxScore = clampNumber(options.maxScore ?? 100, 1, 1_000_000);
   const minScore = clampNumber(options.minScore ?? 0, -1_000_000, maxScore);
   const domain = Math.max(1e-6, maxScore - minScore);
 
@@ -196,7 +196,7 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
   // FIX-PARAM: maxTrendPerDay reduzido de 0.015 para 0.005 do domínio.
   // Antes: domain=100 → 1.5 pts/dia = 45 pts/mês (irrealista).
   // Agora: domain=100 → 0.5 pts/dia = 15 pts/mês (realista).
-  const maxTrendPerDay = Math.max(0.05, domain * 0.005);
+  const maxTrendPerDay = Math.max(domain * 0.0005, domain * 0.005);
 
   let previousTime = obs[0].time;
   let logLikelihood = 0;
@@ -307,10 +307,18 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
  * Filtro de Kalman simplificado para estimativa de habilidade.
  */
 export function runStateSpaceModel(scores, options = {}) {
+  const toPositiveOpt = (val, fallback) => {
+    if (val === null || val === undefined || val === '' || typeof val === 'boolean') return fallback;
+    const n = Number(val);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
   const rawMax = Number(options?.maxScore);
   const rawMin = Number(options?.minScore);
-  const safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
-  const safeMin = Number.isFinite(rawMin) ? rawMin : 0;
+  let safeMax = Number.isFinite(rawMax) && rawMax > 0 ? rawMax : 100;
+  let safeMin = Number.isFinite(rawMin) ? rawMin : 0;
+  if (safeMin >= safeMax) {
+    safeMin = Math.min(0, safeMax - 1);
+  }
   const domain = Math.max(1e-6, safeMax - safeMin);
 
   // Default parameters scaled to domain to ensure scale invariance
@@ -318,15 +326,9 @@ export function runStateSpaceModel(scores, options = {}) {
   const defaultObservationNoise = Math.pow(domain * 0.10, 2);
   const defaultInitialVariance = Math.pow(domain * 0.35, 2);
 
-  const processNoise = Number.isFinite(Number(options.processNoise))
-    ? Number(options.processNoise)
-    : defaultProcessNoise;
-  const observationNoise = Number.isFinite(Number(options.observationNoise))
-    ? Number(options.observationNoise)
-    : defaultObservationNoise;
-  const initialVariance = Number.isFinite(Number(options.initialVariance))
-    ? Number(options.initialVariance)
-    : defaultInitialVariance;
+  const processNoise = toPositiveOpt(options?.processNoise, defaultProcessNoise);
+  const observationNoise = toPositiveOpt(options?.observationNoise, defaultObservationNoise);
+  const initialVariance = toPositiveOpt(options?.initialVariance, defaultInitialVariance);
 
   const fallbackMean = (safeMax + safeMin) / 2;
 
@@ -365,9 +367,11 @@ export function runStateSpaceModel(scores, options = {}) {
 
   for (let i = 0; i < validEntries.length; i++) {
     const { score, time } = validEntries[i];
-    const dtDays = i > 0 && Number.isFinite(time) && Number.isFinite(prevTime)
-      ? clampNumber((time - prevTime) / 86400000, 0.25, 60)
-      : 1;
+    const dtDays = i === 0
+      ? 0
+      : (Number.isFinite(time) && Number.isFinite(prevTime)
+        ? clampNumber((time - prevTime) / 86400000, 0.25, 60)
+        : 1);
 
     // Predição escalada pelo intervalo temporal dtDays
     const predictedVariance = variance + processNoise * dtDays;

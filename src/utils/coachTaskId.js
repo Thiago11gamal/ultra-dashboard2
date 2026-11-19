@@ -23,21 +23,15 @@ export const ensureCoachTaskId = (task) => {
     task.subject || '',
     task.topicName || task.topic || ''
   ].join('|');
-  const currentKey = [
-    identityKey,
-    task.priority || '',
-    task.date || task.createdAt || ''
-  ].join('|');
   const cached = _taskIdWeakMap.get(task);
-  if (cached && cached.compositeKey === currentKey) {
-    return cached.enrichedTask;
+  if (cached && cached.identityKey === identityKey) {
+    return { ...task, id: cached.stableId };
   }
 
   const candidateId = getSafeId(task);
-  const stableId = (candidateId && candidateId !== 'task-null-sentinel')
+  const stableId = (candidateId && candidateId !== 'task-null-sentinel' && !candidateId.startsWith('task-fb-'))
     ? candidateId
     : `coach-task-${hashString(identityKey)}`;
-const enrichedTask = { ...task, id: stableId };
-_taskIdWeakMap.set(task, { compositeKey: currentKey, enrichedTask });
-return enrichedTask;
+  _taskIdWeakMap.set(task, { identityKey, stableId });
+  return { ...task, id: stableId };
 };

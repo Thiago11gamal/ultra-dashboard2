@@ -227,7 +227,11 @@ export function runAutoTunerCycle(options = {}) {
     throw abortErr;
   }
   const contestId = options.contestId;
-  const persistedFlags = loadPersistedCoachFlags(contestId);
+  // Leitura pura sem mutar coachFeatureStore em ciclos read-only
+  const persistedFlags = loadPersistedCoachFlags(contestId, { applyToStore: false });
+
+  const hasExplicitEvaluations =
+    Array.isArray(options.evaluations) && options.evaluations.length > 0;
 
   const evaluations = Array.isArray(options.evaluations)
     ? options.evaluations
@@ -245,7 +249,9 @@ export function runAutoTunerCycle(options = {}) {
   const backtestReport =
     options.backtestReport !== undefined
       ? options.backtestReport
-      : loadLastBacktestReport(contestId);
+      : hasExplicitEvaluations
+        ? null
+        : loadLastBacktestReport(contestId);
 
   let summaries = {};
 
@@ -275,6 +281,7 @@ export function runAutoTunerCycle(options = {}) {
     {};
 
   const recommendation = recommendFlagConfig({
+    contestId,
     ranked,
     latestHealth,
     currentFeatures,
