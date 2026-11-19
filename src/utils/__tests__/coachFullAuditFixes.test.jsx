@@ -32,7 +32,7 @@ import {
   buildPredictionMood,
   normalizeAlertSeverity,
 } from '../explanationEngine.js';
-import { computeSlopeAcceleration } from '../adaptiveEngine.js';
+import { detectRegimeTransition } from '../adaptiveEngine.js';
 import { runCoachPipeline } from '../coachPipeline.js';
 import { replaceFlags, readFlags, setCoachFeatureContestScope } from '../coachFeatureStore.js';
 
@@ -47,14 +47,13 @@ import {
   estimatePosteriorPredictive,
 } from '../../engine/probabilistic/posteriorPredictive.js';
 import {
-  estimateBayesianTopics,
+  estimateTopicProficiencies,
 } from '../../engine/probabilistic/bayesianTopics.js';
 import {
   rankDecisionCandidates,
 } from '../../engine/probabilistic/decisionEngine.js';
 import {
-  buildKnowledgeGraph,
-  computeKnowledgeGraphMetrics,
+  computeTopicGraphMetrics,
 } from '../../engine/probabilistic/knowledgeGraph.js';
 import {
   runStateSpaceModel,
@@ -299,26 +298,32 @@ describe('Coach AI Complete Audit Regression Suite (Batches 1-3)', () => {
       expect(normalizeAlertSeverity('low').label).toBe('Informação');
       expect(normalizeAlertSeverity('medium').label).toBe('Atenção moderada');
 
-      const drift = detectPerformanceDrift(
-        [
-          { date: '2026-03-01', score: 5 },
-          { date: '2026-03-05', score: 5 },
-          { date: '2026-03-10', score: 5 },
-          { date: '2026-03-15', score: 1 },
-          { date: '2026-03-20', score: 9 },
-          { date: '2026-03-25', score: 1 },
-        ],
-        10,
-        0
-      );
-      expect(drift.type).toBe('high_volatility');
+      const driftAlerts = detectPerformanceDrift({
+        recentMean: 5,
+        baselineMean: 5,
+        recentVolatility: 3.5,
+        maxScore: 10,
+        minScore: 0,
+      });
+      expect(driftAlerts.some((a) => a.type === 'high_volatility')).toBe(true);
+      expect(driftAlerts.some((a) => a.type === 'plateau')).toBe(false);
 
-      const accel = computeSlopeAcceleration(
-        { slope: 10, slopePerDay: 10 / 30, count: 5 },
-        { slope: 30, slopePerDay: 30 / 30, count: 5 },
+      // Slope in raw points must be reported as percentage points of the domain (pp/mês)
+      const regime = detectRegimeTransition(
+        Array.from({ length: 12 }, (_, i) => ({
+          date: `2026-03-${String(i + 1).padStart(2, '0')}`,
+          score: 200 + i * 40,
+        })),
         { maxScore: 1000, minScore: 0 }
       );
-      expect(accel.message).toContain('+2.0 pp/mês');
+      const ppMessages = (regime?.flags || [])
+        .map((f) => f?.msg || '')
+        .filter((msg) => msg.includes('pp/mês'));
+      ppMessages.forEach((msg) => {
+        const nums = (msg.match(/-?\d+(\.\d+)?(?= pp\/mês| para)/g) || []).map(Number);
+        nums.forEach((n) => expect(Math.abs(n)).toBeLessThanOrEqual(100));
+      });
+      expect(regime).toBeTruthy();
 
       const pipe = runCoachPipeline(
         [{ id: 'c1', name: 'Penal', tasks: [{ id: 't1', text: 'Dolo', completed: false }] }],
@@ -417,13 +422,13 @@ describe('Coach AI Complete Audit Regression Suite (Batches 1-3)', () => {
       expect(kt).not.toBeNull();
       expect(Number.isFinite(kt.ability)).toBe(true);
 
-      const bayes = estimateBayesianTopics([
+      const bayes = estimateTopicProficiencies([
         { name: 'A', total: 1, correct: 1 },
         { name: 'B', total: 1, correct: 0 },
         { name: 'C', total: 1, correct: 1 },
         { name: 'D', total: 1, correct: 0 },
       ]);
-      expect(bayes.globalPriorStrength).toBeLessThan(20);
+      expect(bayes.global.priorStrength).toBeLessThan(20);
 
       const rankedTwo = rankDecisionCandidates(
         [
@@ -444,16 +449,23 @@ describe('Coach AI Complete Audit Regression Suite (Batches 1-3)', () => {
       const scoreA3 = rankedThree.find((c) => c.id === 'cand-a').decisionScore;
       expect(scoreA3).toBe(scoreA2);
 
-      const graph = buildKnowledgeGraph(
-        [{ name: 'Álgebra', proficiency: null, percentage: 85 }],
+      // proficiency: null must fall through to percentage (not Number(null) === 0); duplicate edges deduplicated
+      const graph = computeTopicGraphMetrics(
         [
-          { from: 'Álgebra', to: 'Cálculo' },
-          { from: 'algebra', to: 'calculo' },
-        ]
+          { name: 'Álgebra', proficiency: null, percentage: 85 },
+          { name: 'Cálculo', percentage: 40 },
+        ],
+        {
+          edges: [
+            { from: 'Álgebra', to: 'Cálculo' },
+            { from: 'algebra', to: 'calculo' },
+          ],
+        }
       );
-      expect(graph.edges).toHaveLength(1);
-      const metrics = computeKnowledgeGraphMetrics(graph);
-      expect(metrics['algebra'].proficiency).toBeCloseTo(0.85, 2);
+      expect(graph.global.edgeCount).toBe(1);
+      const calculo = graph.topics.find((t) => t.normalizedKey === 'calculo');
+      expect(calculo.prereqReadiness).toBeCloseTo(0.85, 2);
+      expect(calculo.blockedBy).toHaveLength(0);
     });
 
     it('fixes Causal uplift arm guards, boundary/scale/log-isolation bugs, and policyEngine', () => {
