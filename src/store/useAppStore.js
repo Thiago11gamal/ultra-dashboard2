@@ -43,8 +43,11 @@ const latestValues = {};
 
 let writeOpCounter = 0;
 const currentWriteTokens = {};
+let isClearingAllData = false;
+let suppressStorageWriteDepth = 0;
 
 const flushPendingStorage = () => {
+  if (isClearingAllData || suppressStorageWriteDepth > 0) return;
   for (const name of Object.keys(saveTimeouts)) {
     if (saveTimeouts[name]) {
       clearTimeout(saveTimeouts[name]);
@@ -121,6 +124,9 @@ const idbStorage = {
     }
   },
   setItem: (name, value) => {
+    if (isClearingAllData || suppressStorageWriteDepth > 0) {
+      return Promise.resolve();
+    }
     latestValues[name] = value;
 
     return new Promise((resolve, reject) => {
@@ -134,17 +140,21 @@ const idbStorage = {
 
       saveTimeouts[name] = setTimeout(async () => {
         try {
+          if (isClearingAllData || suppressStorageWriteDepth > 0 || currentWriteTokens[name] !== opToken) {
+            currentPromise.resolve();
+            return;
+          }
           if (hasIndexedDbSupport()) {
             await idbSet(name, value);
             try {
-              if (typeof localStorage !== 'undefined') {
+              if (!isClearingAllData && typeof localStorage !== 'undefined' && currentWriteTokens[name] === opToken) {
                 localStorage.setItem(getStorageMetaKey(name), buildStorageMetaJson(value));
                 localStorage.removeItem(name);
               }
             } catch {
               // Metadados no localStorage são best-effort
             }
-          } else if (typeof localStorage !== 'undefined') {
+          } else if (!isClearingAllData && typeof localStorage !== 'undefined' && currentWriteTokens[name] === opToken) {
             localStorage.setItem(name, value);
           }
           if (currentWriteTokens[name] === opToken) {
@@ -153,7 +163,9 @@ const idbStorage = {
         } catch (e) {
           console.error('[Storage] Falha ao escrever no IDB:', e);
           try {
-            if (typeof localStorage !== 'undefined') localStorage.setItem(name, value);
+            if (!isClearingAllData && typeof localStorage !== 'undefined' && currentWriteTokens[name] === opToken) {
+              localStorage.setItem(name, value);
+            }
             if (currentWriteTokens[name] === opToken) {
               currentPromise.resolve();
             }
@@ -265,13 +277,18 @@ export const useAppStore = create(
             useAppStore.temporal.getState().clear();
           }
 
-          set((state) => {
-            const initialState = getFullInitialState();
-            state.appState = {
-              ...initialState,
-              isHydrated: true
-            };
-          });
+          suppressStorageWriteDepth += 1;
+          try {
+            set((state) => {
+              const initialState = getFullInitialState();
+              state.appState = {
+                ...initialState,
+                isHydrated: true
+              };
+            });
+          } finally {
+            suppressStorageWriteDepth = Math.max(0, suppressStorageWriteDepth - 1);
+          }
         },
 
         /**
@@ -438,49 +455,97 @@ useAppStore.subscribe((state) => {
 // ✅ FIX S03 / BUG-05: Implementação segura para exclusão total de dados
 // Limpa bancos de dados passados, localStorage, sessionStorage e idb-keyval
 export const clearAllDataSecure = async () => {
+  isClearingAllData = true;
   try {
-    if (typeof localStorage !== 'undefined') localStorage.clear();
-    if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
-  } catch {
-    // Ignorar erros de storage
-  }
-
-  try {
-    await idbDel('ultra-dashboard-storage');
-  } catch {
-    // Ignorar erros de remoção idb-keyval
-  }
-
-  if (typeof window !== 'undefined' && window.indexedDB) {
-    try {
-      if (typeof window.indexedDB.databases === 'function') {
-        const dbs = await window.indexedDB.databases();
-        await Promise.all((dbs || []).map(db => {
-          if (!db?.name) return Promise.resolve();
-          return new Promise((resolve) => {
-            const req = window.indexedDB.deleteDatabase(db.name);
-            req.onsuccess = resolve;
-            req.onerror = resolve;
-            req.onblocked = resolve;
-          });
-        }));
-      } else {
-        throw new Error('indexedDB.databases() not supported');
+    // 1. Cancelar escritas debounced pendentes ANTES de limpar ou redirecionar
+    for (const name of Object.keys(saveTimeouts)) {
+      if (saveTimeouts[name]) {
+        clearTimeout(saveTimeouts[name]);
+        delete saveTimeouts[name];
       }
-    } catch (err) {
-      console.warn('[Storage] Fallback manual de limpeza IndexedDB', err);
-      // Fallback: Excluir chaves conhecidas
+      if (savePromises[name]) {
+        try { savePromises[name].resolve(); } catch { /* ignore */ }
+        delete savePromises[name];
+      }
+      delete latestValues[name];
+      delete currentWriteTokens[name];
+    }
+
+    // 2. Apagar backups na nuvem (se autenticado) e encerrar sessão com segurança
+    try {
+      const firebaseMod = await import('../services/firebase.js');
+      const currentUid = firebaseMod?.auth?.currentUser?.uid;
+      if (currentUid && firebaseMod?.db) {
+        try {
+          const firestoreMod = await import('firebase/firestore');
+          const contestsSnap = await firestoreMod.getDocs(
+            firestoreMod.collection(firebaseMod.db, 'backups', currentUid, 'contests')
+          );
+          const batch = firestoreMod.writeBatch(firebaseMod.db);
+          contestsSnap.forEach((cDoc) => batch.delete(cDoc.ref));
+          batch.delete(firestoreMod.doc(firebaseMod.db, 'backups', currentUid));
+          await batch.commit();
+        } catch (cloudDelErr) {
+          console.warn('[Storage] Falha ao remover backups na nuvem ao zerar conta:', cloudDelErr);
+        }
+      }
+      if (typeof firebaseMod?.secureLogout === 'function') {
+        await firebaseMod.secureLogout();
+      }
+    } catch { /* ignore */ }
+
+    // 3. Limpar store em memória e histórico de undo
+    try {
+      useAppStore.getState()?.resetStore?.();
+      useAppStore.temporal?.getState?.()?.clear?.();
+    } catch { /* ignore */ }
+
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.clear();
+      if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+    } catch {
+      // Ignorar erros de storage
+    }
+
+    try {
+      await idbDel('ultra-dashboard-storage');
+    } catch {
+      // Ignorar erros de remoção idb-keyval
+    }
+
+    if (typeof window !== 'undefined' && window.indexedDB) {
       try {
-        window.indexedDB.deleteDatabase('ultra-dashboard-storage');
-        window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
-        window.indexedDB.deleteDatabase('keyval-store');
-      } catch {
-        // Ignorar erros
+        if (typeof window.indexedDB.databases === 'function') {
+          const dbs = await window.indexedDB.databases();
+          await Promise.all((dbs || []).map(db => {
+            if (!db?.name) return Promise.resolve();
+            return new Promise((resolve) => {
+              const req = window.indexedDB.deleteDatabase(db.name);
+              req.onsuccess = resolve;
+              req.onerror = resolve;
+              req.onblocked = resolve;
+            });
+          }));
+        } else {
+          throw new Error('indexedDB.databases() not supported');
+        }
+      } catch (err) {
+        console.warn('[Storage] Fallback manual de limpeza IndexedDB', err);
+        // Fallback: Excluir chaves conhecidas
+        try {
+          window.indexedDB.deleteDatabase('ultra-dashboard-storage');
+          window.indexedDB.deleteDatabase('firebaseLocalStorageDb');
+          window.indexedDB.deleteDatabase('keyval-store');
+        } catch {
+          // Ignorar erros
+        }
       }
     }
-  }
 
-  if (typeof window !== 'undefined' && window.location) {
-    window.location.href = '/';
+    if (typeof window !== 'undefined' && window.location) {
+      window.location.href = '/';
+    }
+  } finally {
+    isClearingAllData = false;
   }
 };

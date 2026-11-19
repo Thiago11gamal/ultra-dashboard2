@@ -410,7 +410,7 @@ export default function Simulados() {
       const batchId = generateId('batch');
 
       const validRowsForToast = rawRows.filter(
-        (r) => r && r.subject && r.topic && Number(r.total) > 0
+        (r) => r && r.subject && (String(r.topic || '').trim() || parseInt(r.total, 10) > 0) && Number(r.total) > 0
       );
       const totalQForToast = validRowsForToast.reduce((s, r) => s + (Number(r.total) || 0), 0);
       let shouldAwardDailyXP = false;
@@ -435,9 +435,9 @@ export default function Simulados() {
         const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows)
           ? prev.simuladoRows : Object.values(prev.simuladoRows || {});
 
-        const actuallySubmittedRows = rawRows.filter(
-          (r) => r && r.subject && r.topic && Number.isFinite(Number(r.total)) && Number(r.total) > 0
-        );
+        const actuallySubmittedRows = rawRows
+          .filter((r) => r && r.subject && Number.isFinite(Number(r.total)) && Number(r.total) > 0)
+          .map((r) => ({ ...r, topic: String(r.topic || '').trim() || 'Geral' }));
         const submittedIds = new Set(actuallySubmittedRows.map(r => r.id).filter(Boolean));
         const submittedKeys = new Set();
         actuallySubmittedRows.forEach(r => {
@@ -462,20 +462,28 @@ export default function Simulados() {
           return true;
         });
 
-        const manualSubmittedRows = rawRows
-          .filter((r) => r && r.subject && r.topic && Number.isFinite(Number(r.total)) && Number(r.total) > 0)
+        const manualSubmittedRows = actuallySubmittedRows
           .map((r) => {
             const total = Math.max(0, Number(r.total) || 0);
             const correct = Math.max(0, Math.min(Number(r.correct) || 0, total));
             const pct = total > 0 ? Math.min(100, (correct / total) * 100) : 0;
-            const hasExplicitPoints = r.scorePoints != null && Number.isFinite(Number(r.scorePoints));
+            const hasExplicitPoints =
+              r.scorePoints != null &&
+              typeof r.scorePoints !== 'boolean' &&
+              String(r.scorePoints).trim() !== '' &&
+              Number.isFinite(Number(r.scorePoints)) &&
+              r.scoreUnit !== 'pct' &&
+              !r.isPercentage;
+            const { scorePoints: _stalePts, ...cleanRow } = r;
             return {
-              ...r, id: r.id || generateId('row'), batchId: batchId,
+              ...cleanRow, id: r.id || generateId('row'), batchId: batchId,
               date: r.date || todayKey, createdAt: nowIso, lastUpdated: nowIso,
               validated: true, isAuto: false, source: 'manual',
-              subject: String(r.subject || '').trim(), topic: String(r.topic || '').trim(),
+              subject: String(r.subject || '').trim(), topic: String(r.topic || '').trim() || 'Geral',
               correct, total,
-              ...(hasExplicitPoints ? {} : { score: pct, scorePct: pct, isPercentage: true, scoreUnit: 'pct' })
+              ...(hasExplicitPoints
+                ? { scorePoints: Number(r.scorePoints) }
+                : { score: pct, scorePct: pct, isPercentage: true, scoreUnit: 'pct' })
             };
           });
 
@@ -602,13 +610,22 @@ export default function Simulados() {
         const todayValidatedRows = validatedRows.filter(
           (r) => getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey
         );
-        const totalQ = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.total, 10) || 0), 0);
-        const totalC = todayValidatedRows.reduce((acc, r) => acc + (parseInt(r?.correct, 10) || 0), 0);
-        const contestMax = Number(prev.maxScore) > 0 ? Number(prev.maxScore) : 100;
-        const contestMin = Number.isFinite(Number(prev.minScore)) ? Number(prev.minScore) : 0;
+        let totalQ = 0;
+        let totalC = 0;
+        todayValidatedRows.forEach(r => {
+          const rT = Math.max(0, parseInt(r?.total, 10) || 0);
+          const rC = rT > 0 ? Math.min(Math.max(0, parseInt(r?.correct, 10) || 0), rT) : 0;
+          totalQ += rT;
+          totalC += rC;
+        });
+        const rawContestMax = Number.isFinite(Number(prev.maxScore)) && Number(prev.maxScore) > 0 ? Number(prev.maxScore) : 100;
+        const rawContestMin = Number.isFinite(Number(prev.minScore)) ? Number(prev.minScore) : 0;
+        const contestMin = Math.min(rawContestMin, rawContestMax);
+        const contestMax = Math.max(rawContestMin, rawContestMax);
         const contestRange = Math.max(1e-9, contestMax - contestMin);
-        const globalPoints = totalQ > 0 ? Number((contestMin + (totalC / totalQ) * contestRange).toFixed(2)) : contestMin;
-        const globalPct = totalQ > 0 ? Number(((totalC / totalQ) * 100).toFixed(2)) : 0;
+        const globalPointsRaw = totalQ > 0 ? (contestMin + (totalC / totalQ) * contestRange) : contestMin;
+        const globalPoints = Number(Math.max(contestMin, Math.min(contestMax, globalPointsRaw)).toFixed(2));
+        const globalPct = totalQ > 0 ? Math.max(0, Math.min(100, Number(((totalC / totalQ) * 100).toFixed(2)))) : 0;
 
         const existingSimuladosRaw = Array.isArray(prev.simulados) ? prev.simulados : Object.values(prev.simulados || {});
         let updatedSimulados = existingSimuladosRaw.filter(Boolean);
@@ -616,7 +633,7 @@ export default function Simulados() {
           s => s && s.type === 'auto-analyzer' && getDateKey(normalizeDate(s.date || s.createdAt)) === todayKey && s.xpAwarded
         );
         if (totalQ > 0) {
-          shouldAwardDailyXP = !alreadyAwardedToday;
+          shouldAwardDailyXP = totalQForToast > 0 && !alreadyAwardedToday;
           const newSimuladoEvent = {
             id: generateId('sim'), batchId, date: todayKey,
             score: globalPoints,
@@ -626,7 +643,7 @@ export default function Simulados() {
             source: 'manual',
             scoreUnit: 'points',
             isPercentage: false,
-            xpAwarded: true,
+            xpAwarded: Boolean(alreadyAwardedToday || totalQForToast > 0),
             createdAt: nowIso, lastUpdated: nowIso
           };
           updatedSimulados = [...updatedSimulados.filter(s => !(getDateKey(normalizeDate(s?.date || s?.createdAt)) === todayKey && s?.type === 'auto-analyzer')), newSimuladoEvent]

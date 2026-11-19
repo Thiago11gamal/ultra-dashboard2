@@ -80,7 +80,7 @@ export function removeFlag(key, contestId) {
 }
 
 /** Substitui todas as flags (para rollback). */
-export function replaceFlags(flags, contestId) {
+export function replaceFlags(flags, contestId, options = {}) {
   // BUG: replaceFlags(undefined) apagava todas as flags antes de validar o payload.
   if (!flags || typeof flags !== 'object' || Array.isArray(flags)) {
     return readFlags(contestId);
@@ -98,7 +98,9 @@ export function replaceFlags(flags, contestId) {
 
   for (const key of Object.keys(registry)) delete registry[key];
   Object.assign(registry, next);
-  notifyFlagListeners(contestId);
+  if (!options?.silent) {
+    notifyFlagListeners(contestId);
+  }
 
   return readFlags(contestId);
 }

@@ -124,6 +124,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const isInternalSyncingRef = useRef(false);
   const syncReentryCountRef = useRef(0);
   const [hasConflict, setHasConflict] = useState(false);
+  const hasConflictRef = useRef(false);
+  const pendingAutoHealRef = useRef(false);
+  const prePullExpectedSyncRef = useRef(null);
   const needsSyncRef = useRef(false);
   const appStateRef = useRef(useAppStore.getState().appState);
 
@@ -238,9 +241,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       }
     }, 5000);
 
+    const listenerUid = currentUser.uid;
+    let isEffectCancelled = false;
     let currentSnapshotId = 0;
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
-      if (!isMountedRef.current) return;
+      if (isEffectCancelled || !isMountedRef.current || activeSyncUidRef.current !== listenerUid) return;
       const snapId = ++currentSnapshotId;
       if (docSnap.metadata.hasPendingWrites) {
         pendingWritesCountRef.current += 1;
@@ -271,8 +276,8 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       if (cloudData) {
         try {
           const rawRootContestIds = new Set(Array.isArray(cloudData.contestIds) ? cloudData.contestIds : []);
-          const contestsSnap = await getDocs(collection(db, 'backups', currentUser.uid, 'contests'));
-          if (snapId !== currentSnapshotId) return; // A newer snapshot arrived during fetch
+          const contestsSnap = await getDocs(collection(db, 'backups', listenerUid, 'contests'));
+          if (isEffectCancelled || !isMountedRef.current || activeSyncUidRef.current !== listenerUid || snapId !== currentSnapshotId) return; // A newer snapshot or user change/logout arrived during fetch
           cloudData.contests = (cloudData.contests && typeof cloudData.contests === 'object' && !Array.isArray(cloudData.contests))
             ? { ...cloudData.contests }
             : {};
@@ -459,13 +464,18 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       const wasAlreadyValidated = isParityValidatedRef.current;
       confirmParity();
 
+      if (isEffectCancelled || !isMountedRef.current || activeSyncUidRef.current !== listenerUid || snapId !== currentSnapshotId) return;
+
       if (shouldPullCloud) {
         isCloudPullRef.current = true;
         const pullStartTime = Date.now();
         const isNonDestructivePull = mergeMode === "nonDestructive";
         let pullTriggerChanged = false;
+        let shouldClearTemporal = false;
         if (isMountedRef.current) {
           applyingRemoteRef.current = true;
+          const temporalApi = useAppStore.temporal?.getState?.();
+          temporalApi?.pause?.();
           try {
             setAppState(() => {
               const freshState = useAppStore.getState().appState;
@@ -473,6 +483,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
               if (!isNonDestructivePull && freshUpdated > pullStartTime) {
                 console.warn('[Sync] Mutation local durante pull — preservando dados locais');
                 return freshState;
+              }
+              if ((Number(freshState?.version) || 0) === 0 && !freshState?.lastUpdated) {
+                shouldClearTemporal = true;
               }
               const mergedNext = mergeAppState(freshState, cloudData, {
                 nonDestructive: isNonDestructivePull,
@@ -486,9 +499,13 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
               }
               return mergedNext;
             });
+            if (shouldClearTemporal) {
+              temporalApi?.clear?.();
+            }
           } catch (pullErr) {
             console.error('[Sync] Erro ao aplicar dados remotos:', pullErr);
           } finally {
+            temporalApi?.resume?.();
             applyingRemoteRef.current = false;
             if (!pullTriggerChanged) {
               isCloudPullRef.current = false;
@@ -499,24 +516,37 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         }
         const shouldHealCloudRoot = needsContestRescue || cloudRootMissingSubcollectionIds;
         if (shouldHealCloudRoot) {
+          pendingAutoHealRef.current = pullTriggerChanged;
+          prePullExpectedSyncRef.current = null;
           lastSyncedRef.current = null;
           setParityTick(t => t + 1);
         } else {
-          lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
+          pendingAutoHealRef.current = false;
+          const syncedStr = stateStringForSync(useAppStore.getState().appState);
+          prePullExpectedSyncRef.current = pullTriggerChanged ? syncedStr : null;
+          lastSyncedRef.current = syncedStr;
         }
+        hasConflictRef.current = false;
         setHasConflict(false);
         if (!wasAlreadyValidated && showToastRef.current) {
           showToastRef.current('Sincronizado via Nuvem! ☁️✨', 'success');
         }
       } else {
         if (isMountedRef.current) {
-          setAppState(() => mergeAppState(useAppStore.getState().appState, null));
+          const temporalApi = useAppStore.temporal?.getState?.();
+          temporalApi?.pause?.();
+          try {
+            setAppState(() => mergeAppState(useAppStore.getState().appState, null));
+          } finally {
+            temporalApi?.resume?.();
+          }
         }
         if (cloudRootMissingSubcollectionIds) {
           lastSyncedRef.current = null;
           setParityTick(t => t + 1);
         } else if (!localWasJustEdited && localVersion === cloudVersion && Math.abs(cloudUpdatedTime - localUpdatedTime) <= 5000) {
-          lastSyncedRef.current = stateStringForSync(useAppStore.getState().appState);
+          const syncedStr = stateStringForSync(useAppStore.getState().appState);
+          lastSyncedRef.current = syncedStr;
         }
         const isCloudSignificantlyAhead = cloudUpdatedTime > localUpdatedTime + 5000;
 
@@ -525,10 +555,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         // Se o local está na frente, é apenas um sync pendente, NÃO é conflito.
         const hasRealDivergence = isCloudSignificantlyAhead && localWasJustEdited;
 
-        setHasConflict(!isBootSync && hasRealDivergence);
+        const nextConflict = !isBootSync && hasRealDivergence;
+        hasConflictRef.current = nextConflict;
+        setHasConflict(nextConflict);
       }
     }, (err) => {
-      if (!isMountedRef.current) return;
+      if (isEffectCancelled || !isMountedRef.current || activeSyncUidRef.current !== listenerUid) return;
       logger.error("[Sync] Erro no listener:", err);
       setCloudStatus('error');
       setCloudError(err.message || 'Erro no listener');
@@ -536,6 +568,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     });
 
     return () => {
+      isEffectCancelled = true;
       unsubscribe();
       clearTimeout(safetyBootTimeout);
     };
@@ -549,6 +582,9 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   useEffect(() => {
     isParityValidatedRef.current = false;
+    hasConflictRef.current = false;
+    pendingAutoHealRef.current = false;
+    prePullExpectedSyncRef.current = null;
     scheduleUiUpdate(() => { setParityTick(t => t + 1); setHasConflict(false); });
     lastSyncedRef.current = null;
     lastSyncedContestHashesRef.current.clear();
@@ -558,7 +594,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
   const currentUid = currentUser?.uid;
   const performEmergencySync = useCallback(async () => {
-    if (isLocalMode || !currentUid || !appStateRef.current || !isParityValidatedRef.current || !db) return;
+    if (isLocalMode || !currentUid || !appStateRef.current || !isParityValidatedRef.current || !db || hasConflictRef.current) return;
     if (syncMutexRef.current) {
       needsSyncRef.current = true;
       return;
@@ -570,12 +606,25 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const currentStateString = stateStringForSync(appStateRef.current);
     if (lastSyncedRef.current === currentStateString) return;
 
+    const syncState = useAppStore.getState().appState;
+    const cloudSnap = latestCloudDataRef.current;
+    if (cloudSnap) {
+      const cloudV = Number(cloudSnap.version) || 0;
+      const localV = Number(syncState?.version) || 0;
+      const cloudMs = new Date(cloudSnap.lastUpdated || 0).getTime();
+      const localMs = new Date(syncState?.lastUpdated || 0).getTime();
+      if (cloudV > localV && Number.isFinite(cloudMs) && Number.isFinite(localMs) && cloudMs > localMs + 5000) {
+        hasConflictRef.current = true;
+        if (isMountedRef.current) setHasConflict(true);
+        return;
+      }
+    }
+
     syncMutexRef.current = true;
     setIsInternalSyncing(true);
     isInternalSyncingRef.current = true;
 
     try {
-      const syncState = useAppStore.getState().appState;
       const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
       const { batch, committedContestHashes, deletedIds } = buildSyncBatch(
         db,
@@ -609,7 +658,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
         // C-04 FIX: Disparar sync síncrono via beforeunload-like pattern.
         // performEmergencySync é async; não podemos aguardar aqui, mas
         // podemos marcar dirty para o beforeunload flush.
-        if (!isCloudPullRef.current) {
+        if (!isCloudPullRef.current && !hasConflictRef.current) {
           try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
           performEmergencySync(); // fire-and-forget, mas o dirty flag garante retry
         }
@@ -664,14 +713,21 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
       const currentState = useAppStore.getState().appState;
       const currentStateString = stateStringForSync(currentState);
       isCloudPullRef.current = false;
-      lastSyncedRef.current = currentStateString;
-      // C-06 FIX: Não descartar mutação local concorrente durante o pull.
-      const freshState = useAppStore.getState().appState;
-      if (stateStringForSync(freshState) !== currentStateString) {
+      const expectedPullStr = prePullExpectedSyncRef.current;
+      prePullExpectedSyncRef.current = null;
+      if (pendingAutoHealRef.current) {
+        pendingAutoHealRef.current = false;
+        lastSyncedRef.current = null;
+        needsSyncRef.current = true;
+      } else if (!expectedPullStr || currentStateString === expectedPullStr) {
+        lastSyncedRef.current = currentStateString;
+        return;
+      } else {
         needsSyncRef.current = true;
       }
-      return;
     }
+
+    if (hasConflictRef.current) return;
 
     lastLocalMutationRef.current = Date.now();
 
@@ -684,7 +740,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
     const syncUid = currentUser.uid;
 
     const syncToCloud = async () => {
-      if (!db || !isMountedRef.current || activeSyncUidRef.current !== syncUid) return;
+      if (!db || !isMountedRef.current || activeSyncUidRef.current !== syncUid || hasConflictRef.current) return;
       if (syncMutexRef.current || isInternalSyncingRef.current) {
         needsSyncRef.current = true;
         return;
@@ -701,11 +757,26 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
       try {
         while (attempt < MAX_RETRIES) {
-          if (!isMountedRef.current || activeSyncUidRef.current !== syncUid) break;
+          if (!isMountedRef.current || activeSyncUidRef.current !== syncUid || hasConflictRef.current) break;
           try {
             const freshState = useAppStore.getState().appState;
             const currentStateString = stateStringForSync(freshState);
             if (lastSyncedRef.current === currentStateString) break;
+
+            const cloudSnap = latestCloudDataRef.current;
+            if (cloudSnap) {
+              const cloudV = Number(cloudSnap.version) || 0;
+              const localV = Number(freshState?.version) || 0;
+              const cloudMs = new Date(cloudSnap.lastUpdated || 0).getTime();
+              const localMs = new Date(freshState?.lastUpdated || 0).getTime();
+              if (cloudV > localV && Number.isFinite(cloudMs) && Number.isFinite(localMs) && cloudMs > localMs + 5000) {
+                hasConflictRef.current = true;
+                setHasConflict(true);
+                break;
+              }
+            }
+
+            hasConflictRef.current = false;
             setHasConflict(false);
 
             const knownCloudIds = latestCloudDataRef.current?.contestIds || [];
@@ -719,7 +790,11 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
             const commitWithTimeout = (batchToCommit, timeoutMs) => {
               return new Promise((resolve, reject) => {
-                const timer = setTimeout(() => reject(new Error('Firestore timeout')), timeoutMs);
+                const timer = setTimeout(() => {
+                  const timeoutErr = new Error('Firestore timeout');
+                  timeoutErr.code = 'timeout';
+                  reject(timeoutErr);
+                }, timeoutMs);
                 batchToCommit.commit().then(() => {
                   clearTimeout(timer);
                   resolve();
@@ -740,6 +815,14 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
             break;
           } catch (e) {
             lastError = e;
+            const isTimeoutOrOffline =
+              e?.code === 'timeout' ||
+              e?.code === 'unavailable' ||
+              e?.message === 'timeout' ||
+              e?.message === 'Firestore timeout';
+            if (isTimeoutOrOffline) {
+              break;
+            }
             attempt++;
             if (attempt < MAX_RETRIES && isMountedRef.current && activeSyncUidRef.current === syncUid) {
               await new Promise(r => {
@@ -757,7 +840,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
 
         if (lastError && isMountedRef.current && activeSyncUidRef.current === syncUid) {
           logger.error("[Sync] Todas as tentativas falharam:", lastError);
-          if (showToastRef.current && lastError.code !== 'unavailable' && lastError.message !== 'timeout') {
+          const isTimeoutOrOffline =
+            lastError.code === 'timeout' ||
+            lastError.code === 'unavailable' ||
+            lastError.message === 'timeout' ||
+            lastError.message === 'Firestore timeout';
+          if (showToastRef.current && !isTimeoutOrOffline) {
             showToastRef.current(`Falha ao salvar: ${lastError.message || lastError.code || 'Erro desconhecido'}`, 'error');
           }
           // ✅ LOTE-03: resetar o contador para permitir retries futuros
@@ -771,7 +859,7 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           setIsInternalSyncing(false);
           const latestStr = stateStringForSync(useAppStore.getState().appState);
           const hasPendingMutation = needsSyncRef.current || (lastSyncedRef.current !== null && latestStr !== lastSyncedRef.current);
-          if (hasPendingMutation && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
+          if (!lastError && !hasConflictRef.current && hasPendingMutation && syncReentryCountRef.current < MAX_SYNC_REENTRY) {
             syncReentryCountRef.current++;
             syncToCloud();
           } else {
@@ -819,8 +907,12 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
   const forcePull = useCallback(() => {
     if (latestCloudDataRef.current && setAppState && isMountedRef.current) {
       let pullTriggerChanged = false;
+      pendingAutoHealRef.current = false;
+      prePullExpectedSyncRef.current = null;
       applyingRemoteRef.current = true;
       isCloudPullRef.current = true;
+      const temporalApi = useAppStore.temporal?.getState?.();
+      temporalApi?.pause?.();
       try {
         setAppState(() => {
           const freshState = useAppStore.getState().appState;
@@ -834,13 +926,20 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
           return nextState;
         });
       } finally {
+        temporalApi?.resume?.();
         applyingRemoteRef.current = false;
+        const normalizedState = useAppStore.getState().appState;
+        const syncedStr = normalizedState ? stateStringForSync(normalizedState) : null;
         if (!pullTriggerChanged) {
           isCloudPullRef.current = false;
-          const normalizedState = useAppStore.getState().appState;
-          if (normalizedState) lastSyncedRef.current = stateStringForSync(normalizedState);
+          prePullExpectedSyncRef.current = null;
+          if (syncedStr) lastSyncedRef.current = syncedStr;
+        } else {
+          prePullExpectedSyncRef.current = syncedStr;
+          if (syncedStr) lastSyncedRef.current = syncedStr;
         }
       }
+      hasConflictRef.current = false;
       setHasConflict(false);
       if (showToastRef.current) showToastRef.current('Paridade forçada com sucesso! 💎', 'success');
     }

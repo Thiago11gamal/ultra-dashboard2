@@ -9,7 +9,7 @@ import { useAppStore } from '../store/useAppStore';
  * @param {Function} logout - The logout function to call.
  * @param {number} timeoutMs - Inactivity timeout in milliseconds.
  */
-export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
+export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000, enabled = true) {
     const safeTimeout = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : 60 * 60 * 1000;
     const timerRef = useRef(null);
     const logoutRef = useRef(logout);
@@ -34,42 +34,78 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
     // legítima em timeouts curtos.
     const THROTTLE_MS = 500;
 
-    const resetTimer = useCallback((force = false) => {
+    const resetTimer = useCallback((force = false, customTimeoutMs = null, activityTimestamp = null) => {
+        if (!enabled) {
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
+            }
+            return;
+        }
         const now = Date.now();
         const isForced = force === true;
         // Skip if called within throttle window (mousemove fires 60-120x/sec), unless forced
         if (!isForced && now - lastActivityRef.current < THROTTLE_MS) return;
-        lastActivityRef.current = now;
-        try {
-            localStorage.setItem('ultra-last-activity', now.toString());
-        } catch (e) {
-            console.debug('[IdleLogout] localStorage.setItem failed:', e.message);
+        const effectiveActivityTime = (Number.isFinite(Number(activityTimestamp)) && Number(activityTimestamp) > 0)
+            ? Number(activityTimestamp)
+            : now;
+        lastActivityRef.current = effectiveActivityTime;
+        if (customTimeoutMs == null) {
+            try {
+                localStorage.setItem('ultra-last-activity', effectiveActivityTime.toString());
+            } catch (e) {
+                console.debug('[IdleLogout] localStorage.setItem failed:', e.message);
+            }
         }
-        
+
         if (timerRef.current) {
             clearTimeout(timerRef.current);
         }
+        const nextDelay = (Number.isFinite(Number(customTimeoutMs)) && Number(customTimeoutMs) > 0)
+            ? Number(customTimeoutMs)
+            : safeTimeout;
         timerRef.current = setTimeout(() => {
-            if (!isMounted.current) return;
+            if (!isMounted.current || !enabled) return;
+            try {
+                const stored = localStorage.getItem('ultra-last-activity');
+                if (stored) {
+                    const storedTime = parseInt(stored, 10);
+                    if (Number.isFinite(storedTime) && storedTime > lastActivityRef.current) {
+                        const remaining = safeTimeout - (Date.now() - storedTime);
+                        if (remaining > 0) {
+                            lastActivityRef.current = storedTime;
+                            if (typeof resetTimerRef.current === 'function') resetTimerRef.current(true, remaining, storedTime);
+                            return;
+                        }
+                    }
+                }
+            } catch { /* ignore */ }
             try {
                 const pomodoroActive = useAppStore.getState()?.appState?.pomodoro?.activeSubject;
                 if (pomodoroActive) {
                     logger.log('[IdleLogout] Pomodoro ativo — adiando logout.');
-                    if (typeof resetTimerRef.current === 'function') resetTimerRef.current();
+                    if (typeof resetTimerRef.current === 'function') resetTimerRef.current(true);
                     return;
                 }
             } catch { /* se falhar, prossegue com logout */ }
-            if (!isMounted.current) return;
+            if (!isMounted.current || !enabled) return;
             logger.log('[IdleLogout] Inatividade detectada. Deslogando...');
             if (typeof logoutRef.current === 'function') logoutRef.current();
-        }, safeTimeout);
-    }, [safeTimeout]);
+        }, nextDelay);
+    }, [safeTimeout, enabled]);
 
     useEffect(() => {
         resetTimerRef.current = resetTimer;
     }, [resetTimer]);
 
     useEffect(() => {
+        if (!enabled) {
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
+            }
+            return undefined;
+        }
         // BUG-25 FIX: Removed unused effectiveTimeout variable
 
         const events = [
@@ -140,6 +176,6 @@ export default function useIdleLogout(logout, timeoutMs = 60 * 60 * 1000) {
             });
             document.removeEventListener('visibilitychange', handleVisibility);
         };
-    }, [resetTimer, safeTimeout]);
+    }, [resetTimer, safeTimeout, enabled]);
 }
 

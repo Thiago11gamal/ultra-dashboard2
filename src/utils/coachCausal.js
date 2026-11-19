@@ -109,16 +109,18 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
   // evitando subtrair notas de matérias diferentes adjacentes no tempo.
   const simGroups = new Map();
   safeSimulados.forEach((entry) => {
+    const rawField = String(
+      entry.simulado?.subject ||
+      entry.simulado?.categoryName ||
+      entry.simulado?.materia ||
+      entry.simulado?.disciplina ||
+      entry.simulado?.categoryId ||
+      ''
+    ).trim().toLowerCase();
+    const isGenericGlobal = !rawField || rawField === 'simulado geral' || rawField === 'geral';
     const rawSubject = categoryName
       ? '__filtered__'
-      : String(
-        entry.simulado?.subject ||
-        entry.simulado?.categoryName ||
-        entry.simulado?.materia ||
-        entry.simulado?.disciplina ||
-        entry.simulado?.categoryId ||
-        ''
-      ).trim().toLowerCase() || '__global__';
+      : (isGenericGlobal ? '__global__' : rawField);
     if (!simGroups.has(rawSubject)) {
       simGroups.set(rawSubject, []);
     }

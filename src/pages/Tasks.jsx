@@ -16,6 +16,8 @@ import {
   computeCategoryPerformanceStats
 } from '../utils/tasksStatsHelper';
 
+const EMPTY_ARRAY = Object.freeze([]);
+
 export default function Tasks() {
   const navigate = useNavigate();
   const showToast = useToast();
@@ -42,7 +44,7 @@ export default function Tasks() {
     const currentActiveId = state.appState?.activeId || 'default';
     const activeContest = state.appState?.contests?.[currentActiveId];
     return {
-      rawCategories: activeContest?.categories || [],
+      rawCategories: activeContest?.categories ?? EMPTY_ARRAY,
       contestMaxScore: activeContest?.maxScore ?? activeContest?.user?.maxScore,
       contestMinScore: activeContest?.minScore ?? activeContest?.user?.minScore,
       hasContestSimulados:

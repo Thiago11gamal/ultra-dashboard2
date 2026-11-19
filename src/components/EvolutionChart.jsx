@@ -49,7 +49,7 @@ const DEFAULT_CATEGORY_PALETTE = [
 
 function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalMin = 0, globalMax = 100) {
   const safeBase = Array.isArray(baseCategories) ? baseCategories : [];
-  const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(r => r && r.valid !== false);
+  const validRows = (Array.isArray(simuladoRows) ? simuladoRows : []).filter(r => r && r.valid !== false && r.validated !== false);
   if (!validRows.length) return safeBase;
 
   const rowMatchesCategory = (row, cat) => {
@@ -621,6 +621,14 @@ export default React.memo(function EvolutionChart({
         return Math.min(3650, safeDays);
     }, [goalDate]);
 
+    const resolveUnitForScale = (rawUnit, scaleMin, scaleMax) => {
+        const trimmed = typeof rawUnit === 'string' ? rawUnit.trim() : '';
+        if (trimmed !== '' && trimmed !== '%') return trimmed;
+        return (Number(scaleMax) === 100 && Number(scaleMin) === 0) ? '%' : 'pts';
+    };
+
+    const resolvedGlobalUnit = resolveUnitForScale(unit, minScore, maxScore);
+
     const [showOnlyFocus, setShowOnlyFocus] = useState(false);
     const [timeWindow, setTimeWindow] = useState("all");
     const [isExporting, setIsExporting] = useState(false);
@@ -728,13 +736,17 @@ export default React.memo(function EvolutionChart({
     }, []);
 
     // FIX-CLEANUP-01: limpar timer de erro e refs de tab ao desmontar.
-    useEffect(() => () => {
-        isMountedRef.current = false;
-        if (exportErrorTimerRef.current) {
-            clearTimeout(exportErrorTimerRef.current);
-            exportErrorTimerRef.current = null;
-        }
-        engineTabRefs.current.clear();
+    useEffect(() => {
+        isMountedRef.current = true;
+        const tabRefs = engineTabRefs.current;
+        return () => {
+            isMountedRef.current = false;
+            if (exportErrorTimerRef.current) {
+                clearTimeout(exportErrorTimerRef.current);
+                exportErrorTimerRef.current = null;
+            }
+            tabRefs.clear();
+        };
     }, []);
 
     const focusEngineTab = (id) => {
@@ -761,6 +773,9 @@ export default React.memo(function EvolutionChart({
             ? Math.min(Number(focusCategory.minScore), focusMax)
             : minScore;
     }, [focusCategory?.minScore, focusMax, minScore]);
+
+    const resolvedFocusUnit = resolveUnitForScale(unit, focusMin, focusMax);
+    const resolvedActiveUnit = showOnlyFocus ? resolvedFocusUnit : resolvedGlobalUnit;
 
     const focusTarget = useMemo(() => {
         if (hasValidNumber(focusCategory?.minCutoff) && Number(focusCategory.minCutoff) > focusMin) {
@@ -1047,7 +1062,7 @@ export default React.memo(function EvolutionChart({
             focusCategory,
             activeEngine,
             categories,
-            unit,
+            unit: resolvedActiveUnit,
             maxScore,
             minScore,
             timeWindow,
@@ -1059,7 +1074,7 @@ export default React.memo(function EvolutionChart({
         focusCategory,
         activeEngine,
         categories,
-        unit,
+        resolvedActiveUnit,
         maxScore,
         minScore,
         timeWindow,
@@ -1073,7 +1088,7 @@ export default React.memo(function EvolutionChart({
             categories,
             focusCategory,
             targetScore,
-            unit,
+            unit: resolvedActiveUnit,
             minScore,
             maxScore,
             activeMcResult,
@@ -1089,7 +1104,7 @@ export default React.memo(function EvolutionChart({
         categories,
         focusCategory,
         targetScore,
-        unit,
+        resolvedActiveUnit,
         minScore,
         maxScore,
         activeMcResult,
@@ -1342,7 +1357,7 @@ export default React.memo(function EvolutionChart({
                                     target={targetScore}
                                     isFocused={focusCategory?.id === cat.id}
                                     onSelectCategory={handleSelectCategory}
-                                    unit={unit}
+                                    unit={resolvedGlobalUnit}
                                     maxScore={maxScore}
                                     minScore={minScore}
                                 />
@@ -1404,7 +1419,7 @@ export default React.memo(function EvolutionChart({
                                 showOnlyFocus={showOnlyFocus}
                                 minScore={showOnlyFocus ? focusMin : minScore}
                                 maxScore={showOnlyFocus ? focusMax : maxScore}
-                                unit={unit}
+                                unit={resolvedActiveUnit}
                             />
                         )}
                     </div>
@@ -1436,9 +1451,9 @@ export default React.memo(function EvolutionChart({
                              </h3>
                              <button
                                  type="button"
-                                 onClick={() => setShowEngineTooltip(!showEngineTooltip)}
+                                 onClick={() => setShowEngineTooltip(prev => !prev)}
                                  onKeyDown={(e) => {
-                                     if (e.key === 'Enter' || e.key === ' ') {
+                                     if (e.key === 'Enter') {
                                          e.preventDefault();
                                          setShowEngineTooltip(prev => !prev);
                                      } else if (e.key === 'Escape') {
@@ -1530,7 +1545,7 @@ export default React.memo(function EvolutionChart({
                     <EvolutionHeatmap 
                         heatmapData={heatmapData} 
                         targetScore={showOnlyFocus ? focusTarget : targetScore} 
-                        unit={unit} 
+                        unit={resolvedActiveUnit} 
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
                         maxScore={showOnlyFocus ? focusMax : maxScore}
@@ -1561,7 +1576,7 @@ export default React.memo(function EvolutionChart({
                     <MonteCarloEvolutionChart
                         data={effectiveMcHistoryData}
                         targetScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusTarget : targetScore}
-                        unit={unit}
+                        unit={effectiveMcHistoryData?.[0]?.__fromFocus ? resolvedFocusUnit : resolvedGlobalUnit}
                         minScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMin : minScore}
                         maxScore={effectiveMcHistoryData?.[0]?.__fromFocus ? focusMax : maxScore}
                         loading={mcLoading}
@@ -1575,7 +1590,7 @@ export default React.memo(function EvolutionChart({
                         timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}
-                        unit={unit}
+                        unit={resolvedGlobalUnit}
                     />
                 ) : activeEngine === "today_vs_general" ? (
                     <TodayVsGeneralChart
@@ -1586,7 +1601,7 @@ export default React.memo(function EvolutionChart({
                         timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}   // ✅ LOTE-01
-                        unit={unit}
+                        unit={resolvedGlobalUnit}
                         simuladoRows={simuladoRowsArray}
                     />
                 ) : !accountHasData ? (
@@ -1628,7 +1643,7 @@ export default React.memo(function EvolutionChart({
                                 targetScore={focusTarget}
                                 minScore={focusMin}
                                 maxScore={focusMax}
-                                unit={unit}
+                                unit={resolvedFocusUnit}
                             />
                         </div>
                     </div>
@@ -1644,7 +1659,7 @@ export default React.memo(function EvolutionChart({
                                 showOnlyFocus={showOnlyFocus}
                                 minScore={showOnlyFocus ? focusMin : minScore}
                                 maxScore={showOnlyFocus ? focusMax : maxScore}
-                                unit={unit}
+                                unit={resolvedActiveUnit}
                             />
                         </div>
                     </div>
@@ -1694,7 +1709,7 @@ export default React.memo(function EvolutionChart({
                                         kdeData={activeMcResult?.kdeData}
                                         minScore={focusMin}
                                         maxScore={focusMax}
-                                        unit={unit}
+                                        unit={resolvedFocusUnit}
                                     />
                                 </div>
                             </div>
@@ -1722,6 +1737,9 @@ export default React.memo(function EvolutionChart({
                                       const ciMax = Math.max(ciLow, ciHigh);
                                       const marginOfError = Math.max(0, (ciMax - ciMin) / 2);
                                 
+                                      const focusUnit = resolvedFocusUnit;
+                                      const focusUnitSuffix = focusUnit === '%' ? '%' : ` ${focusUnit}`;
+                                
                                       return [
                                         {
                                           label: 'Caminho Sucesso',
@@ -1732,27 +1750,27 @@ export default React.memo(function EvolutionChart({
                                         },
                                         {
                                           label: 'Nível Projetado',
-                                          val: unit === '%'
-                                            ? `${projectedLevel.toFixed(2)}${unit}`
-                                            : `${Math.round(projectedLevel)}${unit}`,
+                                          val: focusUnit === '%'
+                                            ? `${projectedLevel.toFixed(2)}%`
+                                            : `${Math.round(projectedLevel)}${focusUnitSuffix}`,
                                           icon: <TrendingUp size={14} />,
                                           color: 'text-blue-400',
                                           bg: 'bg-blue-500/10'
                                         },
                                         {
                                           label: 'Margem de Erro',
-                                          val: unit === '%'
-                                            ? `±${marginOfError.toFixed(2)}${unit}`
-                                            : `±${Math.round(marginOfError)}${unit}`,
+                                          val: focusUnit === '%'
+                                            ? `±${marginOfError.toFixed(2)}%`
+                                            : `±${Math.round(marginOfError)}${focusUnitSuffix}`,
                                           icon: <BarChart3 size={14} />,
                                           color: 'text-amber-400',
                                           bg: 'bg-amber-500/10'
                                         },
                                         {
                                           label: 'Confiança 95%',
-                                          val: unit === '%'
+                                          val: focusUnit === '%'
                                             ? `${ciMin.toFixed(1)} a ${ciMax.toFixed(1)}%`
-                                            : `${Math.round(ciMin)} a ${Math.round(ciMax)}${unit}`,
+                                            : `${Math.round(ciMin)} a ${Math.round(ciMax)}${focusUnitSuffix}`,
                                           icon: <Zap size={14} />,
                                           color: 'text-indigo-400',
                                           bg: 'bg-indigo-500/10'
@@ -1995,12 +2013,12 @@ export default React.memo(function EvolutionChart({
 
                 {/* Grid 1: Radar (Equilíbrio) + PerformanceBar (Volume vs Acertos) */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
-                    <RadarAnalysis radarData={radarData} maxScore={maxScore} minScore={minScore} unit={unit} />
+                    <RadarAnalysis radarData={radarData} maxScore={maxScore} minScore={minScore} unit={resolvedGlobalUnit} />
                     <PerformanceBarChart
                         subjectAggData={subjectAggData}
                         showOnlyFocus={showOnlyFocus}
                         focusCategory={focusCategory}
-                        unit={unit}
+                        unit={resolvedGlobalUnit}
                         maxScore={maxScore}
                         minScore={minScore}
                     />

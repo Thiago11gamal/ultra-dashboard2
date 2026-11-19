@@ -51,6 +51,7 @@ import { exportData } from './data/initialData';
 import useIdleLogout from './hooks/useIdleLogout';
 import { stopCleanup } from './hooks/useMonteCarloWorker';
 import { MAX_BACKUP_SIZE } from './config.js';
+import { removeCategoryTombstone } from './utils/tombstones';
 
 
 
@@ -137,7 +138,7 @@ const RootRedirect = () => {
 
     // --- AUTO-LOGOUT (60 MIN INACTIVITY) ---
     // BUG-FIX: Increased from 20 to 60 to safely handle Pomodoro sessions (25m + break)
-    useIdleLogout(logout, 60 * 60 * 1000);
+    useIdleLogout(logout, 60 * 60 * 1000, Boolean(currentUser));
 
     // Handle cross-tab sync using real-time listener inside sync context
     const [showHelpGuide, setShowHelpGuide] = useState(false);
@@ -248,7 +249,55 @@ const RootRedirect = () => {
 
     // Global Handlers
     const handleUndo = useCallback(() => {
+      const temporalApi = useAppStore.temporal?.getState?.();
+      const pastStates = temporalApi?.pastStates;
+      if (!Array.isArray(pastStates) || pastStates.length === 0) {
+        showToast('Nada para desfazer.', 'info');
+        return;
+      }
+      const preUndoState = useAppStore.getState()?.appState;
+      const preUndoVersion = Number(preUndoState?.version) || 0;
+      const preUndoActiveId = preUndoState?.activeId;
       undo();
+      temporalApi?.pause?.();
+      try {
+        useAppStore.setState((state) => {
+          if (!state?.appState) return state;
+          const postVersion = Number(state.appState.version) || 0;
+          const nowIso = new Date().toISOString();
+          const nextContests = state.appState.contests ? { ...state.appState.contests } : state.appState.contests;
+          const restoredActiveId = state.appState.activeId;
+          if (nextContests && restoredActiveId && nextContests[restoredActiveId]) {
+            nextContests[restoredActiveId] = {
+              ...nextContests[restoredActiveId],
+              lastUpdated: nowIso
+            };
+            const restoredCats = Array.isArray(nextContests[restoredActiveId].categories)
+              ? nextContests[restoredActiveId].categories
+              : Object.values(nextContests[restoredActiveId].categories || {});
+            restoredCats.filter(Boolean).forEach((cat) => {
+              removeCategoryTombstone(cat.id, cat.name, restoredActiveId);
+            });
+          }
+          if (nextContests && preUndoActiveId && preUndoActiveId !== restoredActiveId && nextContests[preUndoActiveId]) {
+            nextContests[preUndoActiveId] = {
+              ...nextContests[preUndoActiveId],
+              lastUpdated: nowIso
+            };
+          }
+          return {
+            appState: {
+              ...state.appState,
+              contests: nextContests,
+              version: Math.max(preUndoVersion, postVersion) + 1,
+              lastUpdated: nowIso
+            }
+          };
+        });
+        try { localStorage.setItem('ultra-sync-dirty', 'true'); } catch { /* ignore */ }
+      } finally {
+        temporalApi?.resume?.();
+      }
       showToast('Ação desfeita! ↩️', 'info');
     }, [undo, showToast]);
 
@@ -321,7 +370,14 @@ const RootRedirect = () => {
                 return;
               }
             }
-            setAppState(importedData);
+            const temporalApi = useAppStore.temporal?.getState?.();
+            temporalApi?.pause?.();
+            try {
+              setAppState(importedData);
+              temporalApi?.clear?.();
+            } finally {
+              temporalApi?.resume?.();
+            }
             showToast('Backup restaurado com sucesso! ✨', 'success');
           } catch (err) {
             console.error("Import Error:", err);

@@ -106,7 +106,7 @@ export function useCoachControlCenter({
     const s = loadModelHealthSnapshots(resolvedContestId);
     return Array.isArray(s) ? s : [];
   });
-  const [currentFlags, setCurrentFlags] = useState(() => loadPersistedCoachFlags(resolvedContestId) || {});
+  const [currentFlags, setCurrentFlags] = useState(() => loadPersistedCoachFlags(resolvedContestId, { silent: true }) || {});
   const [flagOverrides, setFlagOverrides] = useState(() => loadControlCenterState(resolvedContestId)?.flagOverrides || {});
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
@@ -132,6 +132,7 @@ export function useCoachControlCenter({
     return currentFlags;
   })());
   const prevContestIdRef = useRef(resolvedContestId);
+  const syncedContestIdRef = useRef(resolvedContestId);
 
   useEffect(() => {
     isMounted.current = true;
@@ -148,6 +149,7 @@ export function useCoachControlCenter({
   useEffect(() => {
     if (prevContestIdRef.current === resolvedContestId) return;
     prevContestIdRef.current = resolvedContestId;
+    syncedContestIdRef.current = null;
 
     const savedState = loadControlCenterState(resolvedContestId);
     const loadedFlags = loadPersistedCoachFlags(resolvedContestId) || {};
@@ -158,11 +160,10 @@ export function useCoachControlCenter({
         : loadedFlags;
     const timer = setTimeout(() => {
       if (!isMounted.current) return;
+      syncedContestIdRef.current = resolvedContestId;
       setCurrentFlags(loadedFlags);
       setFlagOverrides(nextOverrides);
-      if (savedState?.activeTab) {
-        setActiveTab(savedState.activeTab);
-      }
+      setActiveTab(savedState?.activeTab || 'overview');
       setBacktestReport(loadLastBacktestReport(resolvedContestId));
       const h = loadTunerHistory(resolvedContestId);
       setTunerHistory(Array.isArray(h) ? h : []);
@@ -181,6 +182,7 @@ export function useCoachControlCenter({
   // Salvar estado quando mudar
   // ==========================================================
   useEffect(() => {
+    if (syncedContestIdRef.current !== resolvedContestId) return;
     saveControlCenterState(
       { activeTab, flagOverrides, baselineFlags: initialFlagsRef.current },
       resolvedContestId

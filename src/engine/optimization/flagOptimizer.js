@@ -99,12 +99,12 @@ export function getSafeBaselineFeatures() {
 /**
  * Carrega flags persistidas e aplica no globalThis.__COACH_FEATURES__.
  */
-export function loadPersistedCoachFlags(contestId) {
+export function loadPersistedCoachFlags(contestId, options = {}) {
   const scopedKey = resolveActiveFlagsKey(contestId);
   const persisted = loadJson(scopedKey, null);
 
     if (persisted && typeof persisted === 'object' && !Array.isArray(persisted)) {
-      replaceFlags(persisted, contestId);
+      replaceFlags(persisted, contestId, options);
     }
 
     return readFlags(contestId);

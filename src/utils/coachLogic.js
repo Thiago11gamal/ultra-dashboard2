@@ -1716,6 +1716,14 @@ function buildSharedUrgencyContext(simulados, studyLogs, allCategories, options 
     const configHash = options.config
         ? simpleHash(JSON.stringify(options.config))
         : 'defcfg';
+    const optAllSims = Array.isArray(options.allSimulados) ? options.allSimulados : Object.values(options.allSimulados || {});
+    const optSimRows = Array.isArray(options.simuladoRows) ? options.simuladoRows : Object.values(options.simuladoRows || {});
+    const optSimsHash = simpleHash(
+        [...optAllSims, ...optSimRows]
+            .filter(Boolean)
+            .map(s => `${s?.id ?? ''}:${s?.date ?? s?.createdAt ?? ''}:${s?.subject ?? s?.categoryName ?? s?.materia ?? ''}:${s?.categoryId ?? ''}:${s?.score ?? s?.value ?? ''}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.timeSpent ?? s?.timedQuestoes ?? s?.avgSeconds ?? ''}:${s?.valid === false ? 0 : 1}`)
+            .join('|')
+    );
 
     return {
         safeSims,
@@ -1732,7 +1740,8 @@ function buildSharedUrgencyContext(simulados, studyLogs, allCategories, options 
         globalHash,
         goalKey,
         featuresHash,
-        configHash
+        configHash,
+        optSimsHash
     };
 }
 
@@ -1828,15 +1837,26 @@ export const calculateUrgency = (category, simulados = [], studyLogs = [], optio
         const catStatsHistory = safeArray(safeCat.simuladoStats?.history);
         const catStatsHash = simpleHash(
             catStatsHistory
-                .map(s => `${s?.date || s?.createdAt || ''}:${s?.score ?? s?.value ?? ''}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.valid === false ? 0 : 1}`)
+                .map(s => `${s?.date || s?.createdAt || ''}:${s?.score ?? s?.value ?? ''}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.timeSpent ?? ''}:${s?.timedQuestoes ?? ''}:${s?.avgSeconds ?? ''}:${Array.isArray(s?.topics) ? s.topics.reduce((acc, t) => `${acc},${t?.timeSpent ?? ''}:${t?.timedQuestoes ?? ''}`, '') : ''}:${s?.valid === false ? 0 : 1}`)
                 .join('|')
         );
+        const optSimsHash = sharedCtx
+            ? sharedCtx.optSimsHash
+            : simpleHash(
+                [
+                    ...(Array.isArray(options.allSimulados) ? options.allSimulados : Object.values(options.allSimulados || {})),
+                    ...(Array.isArray(options.simuladoRows) ? options.simuladoRows : Object.values(options.simuladoRows || {}))
+                ]
+                    .filter(Boolean)
+                    .map(s => `${s?.id ?? ''}:${s?.date ?? s?.createdAt ?? ''}:${s?.subject ?? s?.categoryName ?? s?.materia ?? ''}:${s?.categoryId ?? ''}:${s?.score ?? s?.value ?? ''}:${s?.correct ?? ''}:${s?.total ?? ''}:${s?.timeSpent ?? s?.timedQuestoes ?? s?.avgSeconds ?? ''}:${s?.valid === false ? 0 : 1}`)
+                    .join('|')
+            );
 
         // FIX (BUG-13): cache key compacta via hashString64 (evita chave de 400+ chars e colisões)
         const parsedMinCutoffForKey = parseOptionalFinite(safeCat.minCutoff);
         const minCutoffKey = parsedMinCutoffForKey !== null ? parsedMinCutoffForKey : 'na';
         const cacheKeyRaw = JSON.stringify([
-            activeId, catId, safeCat.name ?? '', safeCat.weight ?? '', simCount, logCount, scoreChecksum, catStatsHash,
+            activeId, catId, safeCat.name ?? '', safeCat.weight ?? '', simCount, logCount, scoreChecksum, catStatsHash, optSimsHash,
             refDateStr, optKey, targetKey, lastSim, lastLog,
             tasksHash, logsMinutesChecksum, weightsHash, globalHash, calibrationHash,
             goalKey, featuresHash, configHash, minCutoffKey,

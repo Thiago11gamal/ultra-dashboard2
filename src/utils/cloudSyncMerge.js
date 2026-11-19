@@ -340,7 +340,10 @@ export const mergeArraysPure = (arr1, arr2, options = {}) => {
   const map = new Map();
 
   const getStableKey = (item, index) => {
-    if (!item || typeof item !== 'object') return null;
+    if (item === null || item === undefined) return null;
+    if (typeof item === 'number') return Number.isFinite(item) ? `prim:num:${item}` : null;
+    if (typeof item === 'string' || typeof item === 'boolean') return `prim:${typeof item}:${String(item)}`;
+    if (typeof item !== 'object') return null;
 
     if (item.id) return `id:${String(item.id)}`;
 
@@ -392,18 +395,21 @@ export const mergeArraysPure = (arr1, arr2, options = {}) => {
         }
         map.set(key, item);
       } else {
-        const timeNew = new Date(item.lastUpdated || item.createdAt || 0).getTime();
-        const timeOld = new Date(existing.lastUpdated || existing.createdAt || 0).getTime();
+        const isObjNew = item && typeof item === 'object';
+        const isObjOld = existing && typeof existing === 'object';
+        if (!isObjNew || !isObjOld) return;
+        const timeNew = new Date(item.lastUpdated || item.updatedAt || item.createdAt || 0).getTime();
+        const timeOld = new Date(existing.lastUpdated || existing.updatedAt || existing.createdAt || 0).getTime();
         const validNew = Number.isFinite(timeNew) ? timeNew : 0;
         const validOld = Number.isFinite(timeOld) ? timeOld : 0;
-        if (validNew > validOld) {
+        if (validNew > validOld || (preferCloudBase && validNew === validOld)) {
           map.set(key, item);
         }
       }
     }
   });
 
-  return Array.from(map.values()).filter(Boolean);
+  return Array.from(map.values()).filter(item => item !== null && item !== undefined && item !== '');
 };
 
 export const mergeMonteCarloHistoryPure = (localMC = [], cloudMC = []) => {
@@ -427,7 +433,8 @@ export const mergeMonteCarloHistoryPure = (localMC = [], cloudMC = []) => {
     });
 };
 
-export const mergeCategoryTasksPure = (localTasks = [], cloudTasks = []) => {
+export const mergeCategoryTasksPure = (localTasks = [], cloudTasks = [], options = {}) => {
+  const { preferCloudBase = false } = options || {};
   const taskMap = new Map();
   const textToIdMap = new Map();
 
@@ -445,14 +452,24 @@ export const mergeCategoryTasksPure = (localTasks = [], cloudTasks = []) => {
 
     return `fallback:${t?.priority || ''}:${t?.createdAt || ''}`;
   };
+  const toTaskMs = (t) => {
+    const raw = Math.max(
+      new Date(t?.updatedAt || 0).getTime() || 0,
+      new Date(t?.lastUpdated || 0).getTime() || 0,
+      new Date(t?.completedAt || 0).getTime() || 0,
+      new Date(t?.lastStudiedAt || 0).getTime() || 0
+    );
+    return Number.isFinite(raw) ? raw : 0;
+  };
   const pickWinner = (a, b) => {
     if (!a) return b;
     if (!b) return a;
-    if (a.completed && !b.completed) return a;
-    if (b.completed && !a.completed) return b;
-    const aTime = new Date(a.lastStudiedAt || 0).getTime();
-    const bTime = new Date(b.lastStudiedAt || 0).getTime();
-    return (Number.isFinite(aTime) ? aTime : 0) >= (Number.isFinite(bTime) ? bTime : 0) ? a : b;
+    const aTime = toTaskMs(a);
+    const bTime = toTaskMs(b);
+    if (aTime !== bTime) {
+      return aTime > bTime ? a : b;
+    }
+    return preferCloudBase ? b : a;
   };
   const safeLocalTasks = Array.isArray(localTasks) ? localTasks : Object.values(localTasks || {});
   const safeCloudTasks = Array.isArray(cloudTasks) ? cloudTasks : Object.values(cloudTasks || {});
@@ -490,7 +507,8 @@ export const mergeContestCategoriesPure = (
   cloudCats = [],
   preferCloudBase = false,
   localTrash = [],
-  localContestTime = 0
+  localContestTime = 0,
+  contestId = null
 ) => {
   const mergedCatsMap = new Map();
   const safeLocalCats = Array.isArray(localCats) ? localCats : Object.values(localCats || {});
@@ -539,23 +557,26 @@ export const mergeContestCategoriesPure = (
       );
       mergedCatsMap.set(c.id, {
         ...baseCat,
-        tasks: mergeCategoryTasksPure(localCat.tasks, c.tasks),
+        tasks: mergeCategoryTasksPure(localCat.tasks, c.tasks, { preferCloudBase }),
         simuladoStats: mergedSimuladoStats
       });
     } else {
       const cloudCatTime = toSafeMs(c.lastUpdated || c.updatedAt);
       const isDeletedInTrash = (localTrash || []).some((t) => {
         if (t.type !== 'category') return false;
+        const sameContest = !contestId || !t.contestId || String(t.contestId) === String(contestId);
+        if (!sameContest) return false;
+        const canMatchByName = Boolean(!contestId || (t.contestId && String(t.contestId) === String(contestId)));
         const catData = t.data?.category || t.data;
         const matches =
           (catData?.id && catData.id === c.id) ||
-          (catData?.name && c.name && catData.name.trim().toLowerCase() === c.name.trim().toLowerCase());
+          (canMatchByName && catData?.name && c.name && catData.name.trim().toLowerCase() === c.name.trim().toLowerCase());
         if (!matches) return false;
         const trashTime = toSafeMs(t.deletedAt);
         return trashTime >= cloudCatTime;
       });
 
-      const isTombstoned = isCategoryTombstoned(c.id, c.name, cloudCatTime);
+      const isTombstoned = isCategoryTombstoned(c.id, c.name, cloudCatTime, contestId);
       const isLocallyPruned =
         !preferCloudBase && localContestTime > 0 && cloudCatTime > 0 && cloudCatTime <= localContestTime;
 
@@ -633,7 +654,7 @@ export const mergeCalibrationAuditLogPure = (olderLog = [], newerLog = []) => {
     .slice(-150);
 };
 
-export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudBase = false, localTrash = []) => {
+export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudBase = false, localTrash = [], contestId = null) => {
   const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
   const localContestTime = new Date(localContest?.lastUpdated || 0).getTime();
   const arrayOptions = { preferCloudBase, localContestTime };
@@ -644,7 +665,8 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
       cloudContest.categories,
       preferCloudBase,
       localTrash,
-      localContestTime
+      localContestTime,
+      contestId
     ),
     studyLogs: mergeArraysPure(localContest.studyLogs, cloudContest.studyLogs, arrayOptions),
     studySessions: mergeArraysPure(localContest.studySessions, cloudContest.studySessions, arrayOptions),
@@ -690,7 +712,39 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
           : {})
       };
     })(),
-    historicalCutoffs: mergeArraysPure(localContest.historicalCutoffs, cloudContest.historicalCutoffs, arrayOptions),
+    ...(() => {
+      const sanitizeCutoffs = (raw) => (Array.isArray(raw) ? raw : Object.values(raw || {}))
+        .filter(v => v !== null && v !== undefined && v !== '' && typeof v !== 'boolean')
+        .map(Number)
+        .filter(n => Number.isFinite(n));
+      const localCutoffs = sanitizeCutoffs(localContest.historicalCutoffs);
+      const cloudCutoffs = sanitizeCutoffs(cloudContest.historicalCutoffs);
+      const localCutoffsTs = toSafeMs(localContest.historicalCutoffsUpdatedAt);
+      const cloudCutoffsTs = toSafeMs(cloudContest.historicalCutoffsUpdatedAt);
+      let historicalCutoffs;
+      if (localCutoffsTs > 0 || cloudCutoffsTs > 0) {
+        if (localCutoffsTs !== cloudCutoffsTs) {
+          historicalCutoffs = cloudCutoffsTs > localCutoffsTs ? cloudCutoffs : localCutoffs;
+        } else {
+          historicalCutoffs = preferCloudBase ? cloudCutoffs : localCutoffs;
+        }
+      } else if (localCutoffs.length > 0 && cloudCutoffs.length === 0) {
+        historicalCutoffs = localCutoffs;
+      } else if (cloudCutoffs.length > 0 && localCutoffs.length === 0) {
+        historicalCutoffs = cloudCutoffs;
+      } else {
+        historicalCutoffs = preferCloudBase ? cloudCutoffs : localCutoffs;
+      }
+      const newerCutoffsUpdatedAt = cloudCutoffsTs > localCutoffsTs
+        ? cloudContest.historicalCutoffsUpdatedAt
+        : (localCutoffsTs > 0
+          ? localContest.historicalCutoffsUpdatedAt
+          : (cloudContest.historicalCutoffsUpdatedAt || localContest.historicalCutoffsUpdatedAt));
+      return {
+        historicalCutoffs,
+        ...(newerCutoffsUpdatedAt ? { historicalCutoffsUpdatedAt: newerCutoffsUpdatedAt } : {})
+      };
+    })(),
     calibrationEvents: mergeArraysPure(localContest.calibrationEvents, cloudContest.calibrationEvents, arrayOptions)
   };
 };
@@ -792,15 +846,15 @@ export const mergeAppStatePure = (local, cloud, options = {}) => {
     } else {
       const cloudTime = new Date(cloudContest.lastUpdated || cloud.lastUpdated || 0).getTime();
       const localTime = new Date(localContest.lastUpdated || local.lastUpdated || 0).getTime();
-      mergedContests[id] = mergeContestPayloadPure(localContest, cloudContest, cloudTime > localTime, local.trash);
+      mergedContests[id] = mergeContestPayloadPure(localContest, cloudContest, cloudTime > localTime, local.trash, id);
     }
   });
 
   const localIds = Object.keys(localContests);
   if (!options.nonDestructive) {
     localIds.forEach((id) => {
-      if (id === 'default') return;
       if (!cloudContests[id] && cloudExplicitDeleted.has(id)) {
+        if (id === 'default' && Object.keys(mergedContests).length <= 1) return;
         const cloudDeletedAt = cloudExplicitDeleted.get(id) || 0;
         const localTimeRaw = new Date(localContests[id]?.lastUpdated || 0).getTime();
         const localTime = Number.isFinite(localTimeRaw) ? localTimeRaw : 0;

@@ -7,6 +7,7 @@ import {
     persistentLocalCache,
     persistentMultipleTabManager,
     clearIndexedDbPersistence,
+    terminate,
 } from 'firebase/firestore';
 import { getAuth, signOut } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
@@ -74,13 +75,19 @@ if (!isLocalMode) {
  * Deve ser chamada no logout para evitar vazamento entre usuários.
  */
 export async function clearFirestoreCache() {
-    if (!db) return;
+    if (!db) return false;
 
+    let terminated = false;
     try {
+        if (typeof terminate === 'function') {
+            await terminate(db);
+            terminated = true;
+        }
         await clearIndexedDbPersistence(db);
     } catch (err) {
         console.warn('[Firebase] Não foi possível limpar IDB persistence:', err);
     }
+    return terminated;
 }
 
 /**
@@ -89,14 +96,18 @@ export async function clearFirestoreCache() {
 export async function secureLogout() {
     let signOutFailed = false;
     let signOutError = null;
+    let firestoreTerminated = false;
     try {
         if (auth) await signOut(auth);
-        await clearFirestoreCache();
+        firestoreTerminated = await clearFirestoreCache();
     } catch (err) {
         console.error('[Firebase] Erro durante logout:', err);
         signOutFailed = true;
         signOutError = err;
-    } finally {
+    }
+
+    // Só limpar persistência e dados locais quando o signOut remoto não falhou
+    if (!signOutFailed) {
         // ✅ FIX N-01: Limpar TODAS as chaves relevantes, incluindo IndexedDB
         const keysToRemove = [
             'ultra-dashboard-storage',
@@ -104,6 +115,7 @@ export async function secureLogout() {
             'ultra-sync-dirty',
             'pomodoroState',
             'pomodoro-endsAt',
+            'pomodoro_muted',
             'tasks_active_panel',
             'dismissed_feature_banner_v1',
             'focusPanelLocked',
@@ -139,6 +151,7 @@ export async function secureLogout() {
                     k.startsWith('ai_simulado_draft:') ||
                     k.startsWith('ai_simulado_generating:') ||
                     k.startsWith('coach_features_v1::') ||
+                    k.startsWith('coach_calibration_events_v1::') ||
                     k.startsWith('pomodoro_transition_lock_') ||
                     k.startsWith('lastRoute_') ||
                     k.startsWith('quarantine:')
@@ -160,13 +173,6 @@ export async function secureLogout() {
             console.warn('[Firebase] Falha ao limpar IndexedDB no logout:', e);
         }
 
-        // C-13 FIX: Limpar IndexedDB do Firestore (dados do usuário anterior)
-        try {
-            await clearFirestoreCache();
-        } catch (e) {
-            console.warn('[Firebase] Falha ao limpar cache Firestore:', e);
-        }
-
         // ✅ FIX N-01: Limpar chaves de quarantine
         try {
             const quarantineKeys = [];
@@ -176,12 +182,10 @@ export async function secureLogout() {
             }
             quarantineKeys.forEach(k => localStorage.removeItem(k));
         } catch { /* ignore */ }
-
-        if (signOutFailed) {
-            console.warn('[Firebase] Logout local executado, mas signOut remoto falhou.');
-        }
+    } else {
+        console.warn('[Firebase] Logout cancelado/falhou remotamente — dados locais preservados.');
     }
-    return { ok: !signOutFailed, error: signOutError };
+    return { ok: !signOutFailed, error: signOutError, firestoreTerminated };
 }
 
 export { app, db, auth, analytics };

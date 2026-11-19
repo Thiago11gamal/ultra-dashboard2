@@ -55,8 +55,10 @@ export default function PromptModal({
             return;
         }
 
-        onConfirm(cleanValue);
-        onClose();
+        const shouldClose = onConfirm(cleanValue);
+        if (shouldClose !== false) {
+            onClose();
+        }
     };
 
     const safeTitle = typeof title === 'string' ? title : 'Editar';

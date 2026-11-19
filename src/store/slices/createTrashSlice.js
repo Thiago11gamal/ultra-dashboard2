@@ -25,8 +25,8 @@ export const createTrashSlice = (set) => ({
                 catData.id = generateId('cat');
             }
             const newId = catData.id;
-            removeCategoryTombstone(oldId, catData.name);
-            removeCategoryTombstone(newId, catData.name);
+            removeCategoryTombstone(oldId, catData.name, targetContestId);
+            removeCategoryTombstone(newId, catData.name, targetContestId);
 
             // Atualizar categoryId nas tasks internas se o ID mudou
             if (catData.id !== oldId && catData.tasks) {
@@ -136,15 +136,14 @@ export const createTrashSlice = (set) => ({
     emptyTrash: () => set((state) => {
         const nowIso = new Date().toISOString();
         if (Array.isArray(state.appState.trash)) {
-            const catTombstones = state.appState.trash
+            state.appState.trash
                 .filter(item => item?.type === 'category')
-                .map(item => {
+                .forEach(item => {
                     const catData = item.data?.category || item.data;
-                    return { id: catData?.id, name: catData?.name };
+                    if (catData && (catData.id || catData.name)) {
+                        addCategoryTombstones({ id: catData.id, name: catData.name }, item.contestId || null);
+                    }
                 });
-            if (catTombstones.length > 0) {
-                addCategoryTombstones(catTombstones);
-            }
             const contestDeletions = state.appState.trash
                 .filter(item => item?.type === 'contest' && item?.contestId && item?.reason !== 'cloud-sync');
             if (contestDeletions.length > 0) {

@@ -8,8 +8,9 @@ const computeRowPercentage = (correct, total) => (total > 0 ? Math.min(100, (cor
 
 const withPctScore = (row, correct, total) => {
     const pct = computeRowPercentage(correct, total);
+    const { scorePoints: _stalePoints, ...restRow } = row || {};
     return {
-        ...row,
+        ...restRow,
         score: pct,
         scorePct: pct,
         isPercentage: true,
@@ -57,6 +58,10 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
     React.useEffect(() => {
         if (prevSignatureRef.current !== rowsSignature) {
             prevSignatureRef.current = rowsSignature;
+            if (analysisTimeoutRef.current) {
+                clearTimeout(analysisTimeoutRef.current);
+                analysisTimeoutRef.current = null;
+            }
             setAnalysisData(null);
             setLoading(false);
         }
@@ -375,8 +380,14 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 disciplines.sort((a, b) => (a.percentage || 0) - (b.percentage || 0));
 
                 // 3. General Insight
-                const totalQ = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
-                const totalC = validRows.reduce((acc, r) => acc + (parseInt(r.correct, 10) || 0), 0);
+                let totalQ = 0;
+                let totalC = 0;
+                validRows.forEach(r => {
+                    const rowT = Math.max(0, parseInt(r.total, 10) || 0);
+                    const rowC = rowT > 0 ? Math.min(Math.max(0, parseInt(r.correct, 10) || 0), rowT) : 0;
+                    totalQ += rowT;
+                    totalC += rowC;
+                });
                 const globalPct = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
                 const analyzedTopics = validRows.length;
                 const analyzedSubjects = new Set(validRows.map(r => String(r.subject || '').trim()).filter(Boolean)).size;
@@ -415,11 +426,17 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                 setAnalysisData(data);
 
                 if (onAnalysisComplete && viewMode !== 'report') {
-                    const cleanRows = rows.map(r => ({
-                        ...r,
-                        subject: String(r.subject || '').trim(),
-                        topic: String(r.topic || '').trim(),
-                    }));
+                    const cleanRows = rows.map(r => {
+                        const subj = String(r.subject || '').trim();
+                        const rawTopic = String(r.topic || '').trim();
+                        const rowTot = parseInt(r.total, 10) || 0;
+                        const rowCor = parseInt(r.correct, 10) || 0;
+                        return {
+                            ...r,
+                            subject: subj,
+                            topic: rawTopic || (subj && (rowTot > 0 || rowCor > 0) ? 'Geral' : ''),
+                        };
+                    });
                     onAnalysisComplete({ analysis: data, rawRows: cleanRows });
                 }
 

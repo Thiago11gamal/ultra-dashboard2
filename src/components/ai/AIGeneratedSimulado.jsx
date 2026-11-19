@@ -37,6 +37,24 @@ const getAiGenStorageKey = (contestIdOverride = null) => {
   return `ai_simulado_generating:${activeId}`;
 };
 
+const safeLocalSet = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    console.warn('[AI Sim] Falha ao gravar no localStorage:', err?.message || err);
+    return false;
+  }
+};
+
+const safeLocalRemove = (key) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore storage removal errors
+  }
+};
+
 function resolveMixedQuestionMeta(q, idx, targets = [], catsArray = []) {
   const safeTargets = Array.isArray(targets) ? targets.filter(Boolean) : [];
   const rawMateria = String(q?.materia || '').trim();
@@ -121,7 +139,7 @@ export default function AIGeneratedSimulado() {
     return active?.categories || EMPTY_CATEGORIES;
   }));
   const categories = useMemo(
-    () => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories)),
+    () => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean),
     [rawCategories]
   );
   const showToast = useToast();
@@ -158,6 +176,7 @@ export default function AIGeneratedSimulado() {
   const latestTimePerQuestionRef = useRef(timePerQuestion);
   const latestTimeLeftRef = useRef(timeLeft);
   const simStartMsRef = useRef(null);
+  const activeElapsedSecsRef = useRef(0);
 
   useEffect(() => { stepRef.current = step; }, [step]);
 
@@ -174,6 +193,7 @@ export default function AIGeneratedSimulado() {
           timeLeft: latestTimeLeftRef.current,
           timePerQuestion: latestTimePerQuestionRef.current,
           simStartMs: simStartMsRef.current,
+          activeElapsedSecs: activeElapsedSecsRef.current,
           savedAt: Date.now()
         };
         localStorage.setItem(getAiSimStorageKey(contestKey), JSON.stringify(draft));
@@ -226,6 +246,7 @@ export default function AIGeneratedSimulado() {
           timeLeft: timeLeftRef.current,
           timePerQuestion: latestTimePerQuestionRef.current || {},
           simStartMs: simStartMsRef.current,
+          activeElapsedSecs: activeElapsedSecsRef.current,
           savedAt: Date.now()
         };
         try {
@@ -259,6 +280,8 @@ export default function AIGeneratedSimulado() {
       latestQuestionsRef.current = [];
       latestAnswersRef.current = {};
       latestTimePerQuestionRef.current = {};
+      activeElapsedSecsRef.current = 0;
+      simStartMsRef.current = null;
       sessionContestIdRef.current = activeId;
       setStep('setup');
       setQuestions([]);
@@ -302,12 +325,12 @@ export default function AIGeneratedSimulado() {
           const currentCategories = useAppStore.getState().appState?.contests?.[
             activeId
           ]?.categories || [];
-          const catsArray = Array.isArray(currentCategories) 
-            ? currentCategories 
-            : Object.values(currentCategories);
+          const catsArray = (Array.isArray(currentCategories)
+            ? currentCategories
+            : Object.values(currentCategories || {})).filter(Boolean);
           
           const cat = catsArray.find(c => c.id === f.categoryId);
-          const safeCatTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})) : [];
+          const safeCatTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(Boolean) : [];
           const tsk = safeCatTasks.find(t => t && t.id === f.taskId);
           const isMixed = f.categoryId === 'mixed';
           
@@ -343,17 +366,18 @@ export default function AIGeneratedSimulado() {
           setStep('playing');
           setTimerActive(true);
           simStartMsRef.current = Date.now();
+          activeElapsedSecsRef.current = 0;
           setShowReview(false);
           setIsLoading(false);
-          localStorage.removeItem(getAiGenStorageKey(activeId));
+          safeLocalRemove(getAiGenStorageKey(activeId));
           showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
         }, 0);
-        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); };
+        return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); restoredContestIdRef.current = null; };
       } else if (gen.status === 'error') {
         timeoutId1 = setTimeout(() => {
           if (cancelled) return;
           showToast(gen.errorMessage || 'Erro ao gerar questões em segundo plano.', 'error');
-          localStorage.removeItem(getAiGenStorageKey(activeId));
+          safeLocalRemove(getAiGenStorageKey(activeId));
           setIsLoading(false);
         }, 0);
         return () => { cancelled = true; clearTimeout(timeoutId1); clearTimeout(timeoutId2); restoredContestIdRef.current = null; };
@@ -382,19 +406,20 @@ export default function AIGeneratedSimulado() {
                 setStep('playing');
                 setTimerActive(true);
                 simStartMsRef.current = Date.now();
+                activeElapsedSecsRef.current = 0;
                 setIsLoading(false);
-                localStorage.removeItem(getAiGenStorageKey(activeId));
+                safeLocalRemove(getAiGenStorageKey(activeId));
                 showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
               }
             }).catch((error) => {
               if (cancelled || !mountedRef.current) return;
               setIsLoading(false);
-              localStorage.removeItem(getAiGenStorageKey(activeId));
+              safeLocalRemove(getAiGenStorageKey(activeId));
               showToast(error.message || 'Erro ao gerar questões.', 'error');
             });
           } else {
             const age = Date.now() - (gen.startedAt || 0);
-            localStorage.removeItem(getAiGenStorageKey(activeId));
+            safeLocalRemove(getAiGenStorageKey(activeId));
             setIsLoading(false);
             if (age <= 5 * 60 * 1000) {
               showToast('A geração anterior foi interrompida. Gere novamente.', 'warning');
@@ -435,19 +460,19 @@ export default function AIGeneratedSimulado() {
           const currentCategories = useAppStore.getState().appState?.contests?.[
             activeId
           ]?.categories || [];
-          const catsArray = Array.isArray(currentCategories) 
-            ? currentCategories 
-            : Object.values(currentCategories);
+          const catsArray = (Array.isArray(currentCategories)
+            ? currentCategories
+            : Object.values(currentCategories || {})).filter(Boolean);
           
           // C-14 FIX: Validar que a categoria do draft existe no concurso ATUAL
           const cat = catsArray.find(c => c && c.id === f.categoryId);
           if (!cat && f.categoryId && f.categoryId !== 'mixed') {
             // Categoria não existe mais — descartar draft
-            localStorage.removeItem(getAiSimStorageKey(activeId));
-            localStorage.removeItem(getAiGenStorageKey(activeId));
+            safeLocalRemove(getAiSimStorageKey(activeId));
+            safeLocalRemove(getAiGenStorageKey(activeId));
             return;
           }
-          const safeTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})) : [];
+          const safeTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(Boolean) : [];
           const tsk = safeTasks.find(t => t && t.id === f.taskId);
           
           if (restoredForm.taskId && restoredForm.taskId !== 'mixed' && !tsk) {
@@ -474,6 +499,9 @@ export default function AIGeneratedSimulado() {
           setStep('playing');
           setTimerActive(true);
 
+          activeElapsedSecsRef.current = Number.isFinite(Number(draft.activeElapsedSecs))
+            ? Math.max(0, Number(draft.activeElapsedSecs))
+            : elapsedSeconds;
           simStartMsRef.current = Number.isFinite(Number(draft.simStartMs))
             ? Number(draft.simStartMs)
             : Date.now() - elapsedSeconds * 1000;
@@ -485,6 +513,7 @@ export default function AIGeneratedSimulado() {
       cancelled = true;
       clearTimeout(timeoutId1);
       clearTimeout(timeoutId2);
+      restoredContestIdRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
@@ -494,7 +523,7 @@ export default function AIGeneratedSimulado() {
   };
 
   const handleCategorySelect = (catId) => {
-    const cat = categories.find(c => c.id === catId);
+    const cat = categories.find(c => c && c.id === catId);
     setForm(prev => ({
       ...prev, categoryId: catId || '', materia: cat ? cat.name : '',
       taskId: '', assunto: '',
@@ -502,28 +531,28 @@ export default function AIGeneratedSimulado() {
   };
 
   const handleTaskSelect = (tskId) => {
-    const cat = categories.find(c => c.id === form.categoryId);
+    const cat = categories.find(c => c && c.id === form.categoryId);
     const rawCatTasks = cat?.tasks || [];
-    const safeCatTasks = Array.isArray(rawCatTasks) ? rawCatTasks : Object.values(rawCatTasks);
-    const tsk = safeCatTasks.find(t => t.id === tskId);
+    const safeCatTasks = (Array.isArray(rawCatTasks) ? rawCatTasks : Object.values(rawCatTasks || {})).filter(Boolean);
+    const tsk = safeCatTasks.find(t => t && t.id === tskId);
     setForm(prev => ({
       ...prev, taskId: tskId || '',
       assunto: tsk ? (tsk.title || tsk.text || '') : '',
     }));
   };
 
-  const selectedCategory = categories.find(c => c.id === form.categoryId);
+  const selectedCategory = categories.find(c => c && c.id === form.categoryId);
   const rawTasks = selectedCategory?.tasks || [];
-  const availableTasks = Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks);
+  const availableTasks = (Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks || {})).filter(Boolean);
 
   const generatePersonalizedSimulado = async () => {
     const allTasks = [];
-    categories.forEach(cat => {
+    categories.filter(Boolean).forEach(cat => {
       const stats = cat.simuladoStats;
       const level = stats?.level || 'BAIXO';
       const avg = stats?.average || 0;
       const catTasksRaw = cat.tasks || [];
-      const safeCatTasks = Array.isArray(catTasksRaw) ? catTasksRaw : Object.values(catTasksRaw);
+      const safeCatTasks = (Array.isArray(catTasksRaw) ? catTasksRaw : Object.values(catTasksRaw || {})).filter(Boolean);
       safeCatTasks.forEach(tsk => {
         const title = String(tsk.title || tsk.text || '').trim();
         if (title) {
@@ -573,7 +602,7 @@ export default function AIGeneratedSimulado() {
     };
     const genContestId = sessionContestIdRef.current;
     const genState = { status: 'generating', form: genForm, startedAt: Date.now() };
-    localStorage.setItem(getAiGenStorageKey(genContestId), JSON.stringify(genState));
+    safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify(genState));
     const activeContestName = useAppStore.getState().appState?.contests?.[genContestId]?.name || 'Concurso Geral';
 
     // FIX: Usar ref em vez de variável de módulo
@@ -611,13 +640,20 @@ export default function AIGeneratedSimulado() {
             assunto: resolved.assunto,
           };
         });
-        localStorage.setItem(getAiGenStorageKey(genContestId), JSON.stringify({
+        if (signal.aborted) {
+          safeLocalRemove(getAiGenStorageKey(genContestId));
+          return null;
+        }
+        safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify({
           status: 'done', form: genForm, questions: normalizedQuestions, completedAt: Date.now(),
         }));
         return normalizedQuestions;
       } catch (err) {
-        if (signal.aborted) return null; // ✅ FIX: Ignorar erros de abort
-        localStorage.setItem(getAiGenStorageKey(genContestId), JSON.stringify({
+        if (signal.aborted) {
+          safeLocalRemove(getAiGenStorageKey(genContestId));
+          return null; // ✅ FIX: Ignorar erros de abort
+        }
+        safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify({
           status: 'error', errorMessage: err.message,
         }));
         throw err;
@@ -638,14 +674,15 @@ export default function AIGeneratedSimulado() {
         setStep('playing');
         setTimerActive(true);
         simStartMsRef.current = Date.now();
+        activeElapsedSecsRef.current = 0;
         setShowReview(false);
-        localStorage.removeItem(getAiGenStorageKey(genContestId));
+        safeLocalRemove(getAiGenStorageKey(genContestId));
         showToast(`Personalizado: ${normalizedQuestions.length} questões focadas nas fraquezas!`, 'success');
       }
     } catch (error) {
       if (!mountedRef.current || signal.aborted) return;
       setForm(previousForm);
-      localStorage.removeItem(getAiGenStorageKey(genContestId));
+      safeLocalRemove(getAiGenStorageKey(genContestId));
       showToast(error.message || 'Erro ao gerar questões personalizadas.', 'error');
     } finally {
       const isCurrentGen = activeGenerationRef.current === localPromise;
@@ -664,11 +701,12 @@ export default function AIGeneratedSimulado() {
       return;
     }
     setIsLoading(true);
+    const genContestId = sessionContestIdRef.current;
     const genState = { status: 'generating', form: { ...form }, startedAt: Date.now() };
-    localStorage.setItem(getAiGenStorageKey(), JSON.stringify(genState));
+    safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify(genState));
     const currentForm = { ...form };
     const currentCategories = [...categories];
-    const activeContestName = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.name || 'Concurso Geral';
+    const activeContestName = useAppStore.getState().appState?.contests?.[genContestId]?.name || 'Concurso Geral';
 
     // FIX: Usar ref em vez de variável de módulo
     // ✅ FIX: Criar AbortController para esta geração
@@ -688,28 +726,34 @@ export default function AIGeneratedSimulado() {
         });
 
         // ✅ FIX: Verificar se foi abortado antes de processar
-        if (signal.aborted) return null;
+        if (signal.aborted) {
+          safeLocalRemove(getAiGenStorageKey(genContestId));
+          return null;
+        }
 
         if (!Array.isArray(generated) || generated.length === 0) {
           throw new Error('A IA não gerou questões válidas.');
         }
-        const cat = currentCategories.find(c => c.id === currentForm.categoryId);
+        const cat = currentCategories.find(c => c && c.id === currentForm.categoryId);
         const rawGenTasks = cat?.tasks || [];
-        const safeGenTasks = Array.isArray(rawGenTasks) ? rawGenTasks : Object.values(rawGenTasks);
-        const tsk = safeGenTasks.find(t => t.id === currentForm.taskId);
+        const safeGenTasks = (Array.isArray(rawGenTasks) ? rawGenTasks : Object.values(rawGenTasks || {})).filter(Boolean);
+        const tsk = safeGenTasks.find(t => t && t.id === currentForm.taskId);
         const normalizedQuestions = generated.map((q) => ({
           ...q, id: q.id || nextAiId('ai-gen'),
           categoryId: currentForm.categoryId, taskId: currentForm.taskId,
           materia: cat?.name || currentForm.materia,
           assunto: tsk ? (tsk.title || tsk.text || currentForm.assunto) : currentForm.assunto,
         }));
-        localStorage.setItem(getAiGenStorageKey(), JSON.stringify({
+        safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify({
           status: 'done', form: currentForm, questions: normalizedQuestions, completedAt: Date.now(),
         }));
         return normalizedQuestions;
       } catch (error) {
-        if (signal.aborted) return null; // ✅ FIX: Ignorar erros de abort
-        localStorage.setItem(getAiGenStorageKey(), JSON.stringify({
+        if (signal.aborted) {
+          safeLocalRemove(getAiGenStorageKey(genContestId));
+          return null; // ✅ FIX: Ignorar erros de abort
+        }
+        safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify({
           status: 'error', form: currentForm, errorMessage: error.message || 'Erro ao gerar questões com IA.', failedAt: Date.now(),
         }));
         throw error;
@@ -729,13 +773,14 @@ export default function AIGeneratedSimulado() {
       setStep('playing');
       setTimerActive(true);
       simStartMsRef.current = Date.now();
-      localStorage.removeItem(getAiGenStorageKey());
+      activeElapsedSecsRef.current = 0;
+      safeLocalRemove(getAiGenStorageKey(genContestId));
       showToast(`${normalizedQuestions.length} questões geradas com sucesso!`, 'success');
     } catch (error) {
       if (!mountedRef.current || signal.aborted) return;
       console.error('Erro na geração IA:', error);
       showToast(error.message || 'Erro ao gerar questões com IA. Tente novamente.', 'error');
-      localStorage.removeItem(getAiGenStorageKey());
+      safeLocalRemove(getAiGenStorageKey(genContestId));
     } finally {
       const isCurrentGen = activeGenerationRef.current === localPromise;
       if (isCurrentGen) {
@@ -808,9 +853,11 @@ export default function AIGeneratedSimulado() {
     // FIX: Garantir que latestTimePerQuestionRef está sincronizado
     const timePerQ = latestTimePerQuestionRef.current || timePerQuestion || {};
 
-    const absoluteElapsedSecs = simStartMsRef.current ? Math.round((Date.now() - simStartMsRef.current) / 1000) : 0;
     const totalAllowedTime = qList.length * 3 * 60;
-    const fallbackTimeSpent = Math.max(absoluteElapsedSecs, totalAllowedTime - latestTimeLeftRef.current);
+    const activeElapsed = activeElapsedSecsRef.current > 0
+      ? activeElapsedSecsRef.current
+      : Math.max(0, totalAllowedTime - latestTimeLeftRef.current);
+    const fallbackTimeSpent = Math.max(activeElapsed, totalAllowedTime - latestTimeLeftRef.current);
 
     if (isFinishingRef.current || stepRef.current === 'finished') return;
     isFinishingRef.current = true;
@@ -957,14 +1004,20 @@ export default function AIGeneratedSimulado() {
       clearTopicsCache();
       clearMcCache();
 
+      stepRef.current = 'finished';
+      latestQuestionsRef.current = [];
+      latestAnswersRef.current = {};
+      latestTimePerQuestionRef.current = {};
+      activeElapsedSecsRef.current = 0;
+      simStartMsRef.current = null;
       setResults({
         correct: correctCount, total, scorePercent,
         questions: answeredQuestions, timeSpentSecs: finalTimeSpent,
       });
       setStep('finished');
       setTimerActive(false);
-      localStorage.removeItem(getAiSimStorageKey());
-    localStorage.removeItem(getAiGenStorageKey());
+      safeLocalRemove(getAiSimStorageKey(sessionContestIdRef.current));
+      safeLocalRemove(getAiGenStorageKey(sessionContestIdRef.current));
       showToast(`Simulado finalizado! ${correctCount}/${total} acertos`, 'success');
       try {
         useAppStore.getState().awardExperience?.(500);
@@ -1004,10 +1057,11 @@ export default function AIGeneratedSimulado() {
 
     const interval = setInterval(() => {
       const now = Date.now();
-      const elapsedSecs = Math.round((now - lastTick) / 1000);
-      lastTick = now;
+      const elapsedSecs = Math.floor((now - lastTick) / 1000);
 
       if (elapsedSecs > 0) {
+        lastTick += elapsedSecs * 1000;
+        activeElapsedSecsRef.current += elapsedSecs;
         setTimeLeft((prev) => {
            const next = prev - elapsedSecs;
            return next <= 0 ? 0 : next;
@@ -1034,8 +1088,12 @@ export default function AIGeneratedSimulado() {
 
   const resetAll = useCallback(() => {
     isFinishingRef.current = false;
+    stepRef.current = 'setup';
+    latestQuestionsRef.current = [];
     latestAnswersRef.current = {};
     latestTimePerQuestionRef.current = {};
+    activeElapsedSecsRef.current = 0;
+    simStartMsRef.current = null;
     setForm(prev => prev.categoryId === 'mixed'
       ? { ...prev, categoryId: '', taskId: '', materia: '', assunto: '' }
       : prev
@@ -1049,23 +1107,29 @@ export default function AIGeneratedSimulado() {
     setTimeLeft(Math.max(1, Number(form.quantidade) || 10) * 3 * 60);
     setTimerActive(false);
     setShowReview(false);
-    localStorage.removeItem(getAiSimStorageKey());
-    localStorage.removeItem(getAiGenStorageKey());
+    safeLocalRemove(getAiSimStorageKey(sessionContestIdRef.current));
+    safeLocalRemove(getAiGenStorageKey(sessionContestIdRef.current));
   }, [form.quantidade]);
 
   const retrySameQuestions = () => {
+    const initialTimeLeft = questions.length * 3 * 60;
     isFinishingRef.current = false;
+    stepRef.current = 'playing';
+    latestQuestionsRef.current = questions;
     latestAnswersRef.current = {};
     latestTimePerQuestionRef.current = {};
+    latestCurrentIndexRef.current = 0;
+    latestTimeLeftRef.current = initialTimeLeft;
     setAnswers({});
     setTimePerQuestion({});
     setCurrentIndex(0);
     setResults(null);
-    setTimeLeft(questions.length * 3 * 60);
+    setTimeLeft(initialTimeLeft);
     setTimerActive(true);
     setShowReview(false);
     setStep('playing');
 
+    activeElapsedSecsRef.current = 0;
     simStartMsRef.current = Date.now();
 
     showToast('Questões reiniciadas. Boa sorte!', 'info');
@@ -1074,6 +1138,7 @@ export default function AIGeneratedSimulado() {
   useEffect(() => {
     if (step !== 'playing' || !currentQuestion || showEscapeConfirm) return;
     const handleKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
         return;

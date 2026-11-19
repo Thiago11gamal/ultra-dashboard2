@@ -210,7 +210,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
         const rawSub = s.subject || s.categoryName || s.materia || s.disciplina;
         const normSub = rawSub ? normalize(String(rawSub)) : '';
         const catId = s.categoryId !== undefined && s.categoryId !== null && s.categoryId !== '' ? String(s.categoryId) : '';
-        if (!normSub && !catId) {
+        const isGenericGlobal = (!normSub || normSub === 'simulado geral' || normSub === 'geral') && !catId;
+        if (isGenericGlobal) {
             hasGenericSimuladoForDate.add(dKey);
         } else {
             if (normSub) hasSimuladoForDateSubject.add(`${dKey}|subj:${normSub}`);
@@ -298,6 +299,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                     id: groupKey === dKey ? `legacy-${dKey}` : `legacy-${groupKey}`,
                     date: dKey,
                     score,
+                    sourceMinScore: minScore,
+                    sourceMaxScore: maxScore,
                     ...(stats.total > 0 ? { total: stats.total, correct: stats.correct } : {}),
                     ...(singleSubject ? { subject: singleSubject, categoryName: singleSubject } : {}),
                     ...(singleCategoryId !== undefined ? { categoryId: singleCategoryId } : {}),

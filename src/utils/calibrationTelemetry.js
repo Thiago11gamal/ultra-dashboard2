@@ -3,6 +3,11 @@ import { safeSetItem } from './coachStorage.js';
 const TELEMETRY_KEY = 'coach_calibration_events_v1';
 const TELEMETRY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
 
+export function resolveCalibrationTelemetryKey(contestId = null) {
+    if (!contestId || String(contestId) === 'default') return TELEMETRY_KEY;
+    return `${TELEMETRY_KEY}::${String(contestId)}`;
+}
+
 function toNullableFinite(val) {
     if (val === null || val === undefined || val === '' || typeof val === 'boolean') return null;
     const n = Number(val);
@@ -34,13 +39,16 @@ async function sendToFirebaseAnalytics(metric) {
     }
 }
 
-export function logCalibrationTelemetryEvent(metric) {
+export function logCalibrationTelemetryEvent(metric, contestIdOverride = null) {
     if (!metric || !metric.categoryId) return;
+    const contestId = String(contestIdOverride ?? metric.contestId ?? 'default');
+    const telemetryKey = resolveCalibrationTelemetryKey(contestId);
     try {
-        const currentRaw = JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '[]');
+        const currentRaw = JSON.parse(localStorage.getItem(telemetryKey) || '[]');
         const current = Array.isArray(currentRaw) ? currentRaw : [];
         const normalizedMetric = {
             eventType: metric.eventType || 'calibration',
+            contestId,
             categoryId: String(metric.categoryId || 'unknown'),
             avgBrier: toNullableFinite(metric.avgBrier),
             calibrationPenalty: toNullableFinite(metric.calibrationPenalty) ?? 0,
@@ -52,20 +60,24 @@ export function logCalibrationTelemetryEvent(metric) {
         const next = [...current, normalizedMetric]
             .filter(e => Number.isFinite(Number(e?.timestamp)) && Number(e.timestamp) >= cutoff)
             .slice(-1000);
-        safeSetItem(TELEMETRY_KEY, JSON.stringify(next));
+        safeSetItem(telemetryKey, JSON.stringify(next));
         void sendToFirebaseAnalytics(normalizedMetric);
     } catch {
         console.warn('[CalibrationTelemetry] Falha ao registrar telemetria (best effort)');
     }
 }
 
-export function getCalibrationTelemetrySummary(categoryId = null) {
+export function getCalibrationTelemetrySummary(categoryId = null, contestId = null) {
+  const telemetryKey = resolveCalibrationTelemetryKey(contestId);
   try {
-    const currentRaw = JSON.parse(localStorage.getItem(TELEMETRY_KEY) || '[]');
+    const currentRaw = JSON.parse(localStorage.getItem(telemetryKey) || '[]');
     const current = Array.isArray(currentRaw) ? currentRaw : [];
-    const filtered = categoryId
-      ? current.filter(item => String(item.categoryId) === String(categoryId))
+    const scoped = contestId
+      ? current.filter(item => !item?.contestId || String(item.contestId) === String(contestId))
       : current;
+    const filtered = categoryId
+      ? scoped.filter(item => String(item.categoryId) === String(categoryId))
+      : scoped;
 
     if (filtered.length === 0) {
       return {
@@ -106,9 +118,20 @@ export function getCalibrationTelemetrySummary(categoryId = null) {
   }
 }
 
-export function clearCalibrationTelemetry() {
+export function clearCalibrationTelemetry(contestId = null) {
   try {
-    localStorage.removeItem(TELEMETRY_KEY);
+    if (contestId) {
+      localStorage.removeItem(resolveCalibrationTelemetryKey(contestId));
+      return;
+    }
+    const keysToDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k === TELEMETRY_KEY || (k && k.startsWith(`${TELEMETRY_KEY}::`))) {
+        keysToDelete.push(k);
+      }
+    }
+    keysToDelete.forEach(k => localStorage.removeItem(k));
   } catch {
     // ignore
   }

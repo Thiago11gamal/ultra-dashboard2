@@ -898,12 +898,15 @@ function Checklist({
     const contestMinScore = activeContest?.minScore ?? activeContest?.user?.minScore ?? 0;
 
     useEffect(() => {
-        if (isImportModalOpen && !importSourceContest && contests) {
-            const otherIds = Object.keys(contests).filter(id => id !== activeId);
-            if (otherIds.length === 1) {
-                // eslint-disable-next-line react-hooks/set-state-in-effect
-                setImportSourceContest(otherIds[0]);
-            }
+        if (!contests) return;
+        const otherIds = Object.keys(contests).filter(id => id !== activeId);
+        if (importSourceContest && (importSourceContest === activeId || !contests[importSourceContest])) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setImportSourceContest(otherIds.length === 1 ? otherIds[0] : '');
+            return;
+        }
+        if (isImportModalOpen && !importSourceContest && otherIds.length === 1) {
+            setImportSourceContest(otherIds[0]);
         }
     }, [isImportModalOpen, importSourceContest, contests, activeId]);
 
@@ -1030,16 +1033,16 @@ const handleUpdateTask = useCallback((catId, taskId, updates) => {
 }, [onUpdateTask, safeCategories, showToast]);
 
 const handleAddTask = useCallback((catId, title) => {
-    if (!onAddTask) return;
+    if (!onAddTask) return false;
 
     const trimmedTitle = typeof title === 'string' ? title.trim() : '';
     if (!trimmedTitle) {
         showToast('O título da tarefa não pode ser vazio.', 'error');
-        return;
+        return false;
     }
     if (trimmedTitle.length > 200) {
         showToast('O título da tarefa é muito longo (máx. 200 caracteres).', 'error');
-        return;
+        return false;
     }
 
     const category = safeCategories.find(c => c && (c.id === catId || c.name === catId));
@@ -1051,7 +1054,7 @@ const handleAddTask = useCallback((catId, title) => {
         });
         if (alreadyExists) {
             showToast(`O assunto "${trimmedTitle}" já existe nesta disciplina.`, 'warning');
-            return;
+            return false;
         }
     }
 
@@ -1070,6 +1073,7 @@ const handleAddTask = useCallback((catId, title) => {
     if (isLastCategory) {
         scrollToBottom();
     }
+    return true;
 }, [onAddTask, filter, setFilter, safeCategories, scrollToBottom, showToast]);
 
 const handlePlayContext = useCallback((categoryId, taskId) => {
@@ -1370,17 +1374,18 @@ return (
                                 const trimmedName = typeof name === 'string' ? name.trim() : '';
                                 if (!trimmedName) {
                                     showToast('O nome da disciplina não pode ser vazio.', 'error');
-                                    return;
+                                    return false;
                                 }
                                 const normName = normalize(trimmedName);
                                 if (safeCategories.some(c => normalize(c.name) === normName)) {
                                     showToast(`A disciplina "${trimmedName}" já existe.`, 'warning');
-                                    return;
+                                    return false;
                                 }
                                 onAddCategory(trimmedName);
                                 showToast(`Disciplina "${trimmedName}" adicionada com sucesso! ✨`, 'success');
                                 setIsCatModalOpen(false);
                                 scrollToBottom();
+                                return true;
                             }}
                             title="Nova Disciplina"
                             placeholder="Ex: Direito Administrativo..."
@@ -1565,10 +1570,14 @@ return (
                             isOpen={taskModalCatId !== null}
                             onClose={() => setTaskModalCatId(null)}
                             onConfirm={(title) => {
-                                if (taskModalCatId) {
-                                    handleAddTask(taskModalCatId, title);
+                                if (!taskModalCatId) {
+                                    setTaskModalCatId(null);
+                                    return true;
                                 }
+                                const added = handleAddTask(taskModalCatId, title);
+                                if (added === false) return false;
                                 setTaskModalCatId(null);
+                                return true;
                             }}
                             title="Novo Assunto"
                             placeholder="Ex: Direitos e Garantias Fundamentais..."

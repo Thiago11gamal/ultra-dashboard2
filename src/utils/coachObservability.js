@@ -19,9 +19,8 @@ import {
 import { getSafeScore } from './scoreHelper.js';
 import { normalizeDate } from './dateHelper.js';
 import { safeGetJSON } from './coachStorage.js';
+import { resolveCalibrationTelemetryKey } from './calibrationTelemetry.js';
 import { loadEvaluationResults } from '../engine/evaluation/coachEvaluator.js';
-
-const CALIBRATION_TELEMETRY_KEY = 'coach_calibration_events_v1';
 
 function safeArray(value) {
   if (Array.isArray(value)) return value;
@@ -37,9 +36,12 @@ function toTime(value) {
 /**
  * Carrega eventos de telemetria de calibração salvos pelo calibrationTelemetry.js.
  */
-export function loadCalibrationTelemetryEvents() {
-  const parsed = safeGetJSON(CALIBRATION_TELEMETRY_KEY, []);
-  return Array.isArray(parsed) ? parsed : [];
+export function loadCalibrationTelemetryEvents(contestId = null) {
+  const parsed = safeGetJSON(resolveCalibrationTelemetryKey(contestId), []);
+  const events = Array.isArray(parsed) ? parsed : [];
+  if (!contestId) return events;
+  const targetId = String(contestId);
+  return events.filter(item => !item?.contestId || String(item.contestId) === targetId);
 }
 
 /**
@@ -173,7 +175,7 @@ export function observeCoachUrgencyResult(result = {}, options = {}) {
 export function runCoachDriftGuard(options = {}) {
   const calibrationEvents = Array.isArray(options.calibrationEvents)
     ? options.calibrationEvents
-    : loadCalibrationTelemetryEvents();
+    : loadCalibrationTelemetryEvents(options.contestId);
   const scores = Array.isArray(options.scores) ? options.scores : [];
   const volatilities = Array.isArray(options.volatilities)
     ? options.volatilities

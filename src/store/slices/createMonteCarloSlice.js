@@ -85,6 +85,7 @@ export const createMonteCarloSlice = (set) => ({
     
     const nowIso = new Date().toISOString();
     state.appState.contests[activeId].historicalCutoffs = safeClone(cutoffs);
+    state.appState.contests[activeId].historicalCutoffsUpdatedAt = nowIso;
     state.appState.contests[activeId].lastUpdated = nowIso;
     state.appState.version = (state.appState.version || 0) + 1;
     state.appState.lastUpdated = nowIso;

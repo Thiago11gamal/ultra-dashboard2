@@ -73,15 +73,16 @@ export const createSimuladoSlice = (set) => ({
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       const inputDatePart = normalizedInput.includes('T') ? normalizedInput.split('T')[0] : normalizedInput;
       const rawDatePart = normalizedRaw.includes('T') ? normalizedRaw.split('T')[0] : normalizedRaw;
+      const normalizedItemDateKey = getDateKey(normalizeDate(raw));
 
-      if (dateRegex.test(inputDatePart) && rawDatePart === inputDatePart) {
+      if (dateRegex.test(inputDatePart) && (rawDatePart === inputDatePart || normalizedItemDateKey === inputDatePart)) {
         return true;
       }
 
       if (normalizedInput.startsWith('ai-') || normalizedInput.startsWith('manual-')) {
         const prefixStripped = normalizedInput.replace(/^(ai|manual)-/, '');
         const strippedDatePart = prefixStripped.includes('T') ? prefixStripped.split('T')[0] : prefixStripped;
-        if (dateRegex.test(strippedDatePart) && rawDatePart === strippedDatePart) {
+        if (dateRegex.test(strippedDatePart) && (rawDatePart === strippedDatePart || normalizedItemDateKey === strippedDatePart)) {
           const itemIsAi =
             item.source === 'ai-generated' ||
             item.type === 'ai-simulado' ||
@@ -100,35 +101,6 @@ export const createSimuladoSlice = (set) => ({
       ? activeData.simulados
       : Object.values(activeData.simulados || {});
 
-    // Coleta todas as datas afetadas pelos itens excluídos
-    const affectedDates = new Set();
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    const inputDatePart = normalizedInput.includes('T') ? normalizedInput.split('T')[0] : normalizedInput;
-    if (dateRegex.test(inputDatePart)) {
-      affectedDates.add(inputDatePart);
-    }
-    if (normalizedInput.startsWith('ai-') || normalizedInput.startsWith('manual-')) {
-      const prefixStripped = normalizedInput.replace(/^(ai|manual)-/, '');
-      const strippedDatePart = prefixStripped.includes('T') ? prefixStripped.split('T')[0] : prefixStripped;
-      if (dateRegex.test(strippedDatePart)) {
-        affectedDates.add(strippedDatePart);
-      }
-    }
-
-    safeRows.forEach(r => {
-      if (matchesItem(r)) {
-        const dKey = getDateKey(normalizeDate(r.date || r.createdAt));
-        if (dKey) affectedDates.add(dKey);
-      }
-    });
-
-    safeSimulados.forEach(s => {
-      if (matchesItem(s)) {
-        const dKey = getDateKey(normalizeDate(s.date || s.createdAt));
-        if (dKey) affectedDates.add(dKey);
-      }
-    });
-
     const removedRows = safeRows.filter(matchesItem);
     const removedSimulados = safeSimulados.filter(matchesItem);
     const remainingRows = safeRows.filter(r => !matchesItem(r));
@@ -136,16 +108,28 @@ export const createSimuladoSlice = (set) => ({
     activeData.simulados = safeSimulados.filter(s => !matchesItem(s));
 
     const affectedCategorySet = new Set();
+    const affectedCategoryDates = new Map();
     const recordAffectedIfMatches = (c) => {
-      if (!c) return;
-      const matchesExternal = [...removedRows, ...removedSimulados].some(item => {
+      if (!c) return false;
+      const matchedItems = [...removedRows, ...removedSimulados].filter(item => {
         if (!item) return false;
         if (c.id && item.categoryId && String(item.categoryId) === String(c.id)) return true;
         return Boolean(c.name && isSubjectMatch(item.subject || item.categoryName || item.materia || item.disciplina || '', c.name));
       });
-      if (matchesExternal) {
-        affectedCategorySet.add(c.id || c.name);
+      if (matchedItems.length > 0) {
+        const catKey = c.id || c.name;
+        affectedCategorySet.add(catKey);
+        if (!affectedCategoryDates.has(catKey)) {
+          affectedCategoryDates.set(catKey, new Set());
+        }
+        const dateSet = affectedCategoryDates.get(catKey);
+        matchedItems.forEach(item => {
+          const dk = getDateKey(normalizeDate(item.date || item.createdAt));
+          if (dk) dateSet.add(dk);
+        });
+        return true;
       }
+      return false;
     };
 
     if (activeData.categories) {
@@ -154,7 +138,7 @@ export const createSimuladoSlice = (set) => ({
           : Object.values(activeData.categories || {});
 
         activeData.categories = safeCategories.filter(Boolean).map(c => {
-          recordAffectedIfMatches(c);
+          const catMatchedRemoved = recordAffectedIfMatches(c);
           const {
             maxScore: catMaxScore,
             minScore: catMinScore,
@@ -165,22 +149,31 @@ if (c.simuladoStats?.history) {
   const safeHistory = Array.isArray(c.simuladoStats.history)
     ? c.simuladoStats.history
     : Object.values(c.simuladoStats.history || {});
+  const catDateSet = affectedCategoryDates.get(c.id || c.name);
+  const rebuiltDates = new Set();
 
   // Reconciliar histórico para cada entrada
   const newHistory = safeHistory
     .map(h => {
       const hDateKey = getDateKey(normalizeDate(h?.date || h?.createdAt));
-      if (!affectedDates.has(hDateKey)) {
-        if (matchesItem(h)) {
-          affectedCategorySet.add(c.id || c.name);
-          return null;
-        }
+      const directMatch = matchesItem(h);
+      const isDateAffectedForCat = Boolean(catMatchedRemoved && hDateKey && catDateSet?.has(hDateKey));
+      if (!isDateAffectedForCat && !directMatch) {
         return h;
       }
 
       affectedCategorySet.add(c.id || c.name);
+      if (directMatch && !catMatchedRemoved && !hDateKey) {
+        return null;
+      }
+      if (hDateKey) {
+        if (rebuiltDates.has(hDateKey)) {
+          return null;
+        }
+        rebuiltDates.add(hDateKey);
+      }
 
-      // Data afetada: recalcular stats com as rows restantes para esta categoria nessa data
+      // Data afetada nesta categoria: recalcular stats com as rows restantes para esta categoria nessa data
       const catRowsForDay = remainingRows.filter(r => {
         if (!r) return false;
         const rDateKey = getDateKey(normalizeDate(r.date || r.createdAt));

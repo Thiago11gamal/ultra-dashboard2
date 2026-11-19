@@ -56,6 +56,7 @@ export const createTaskSlice = (set, get) => ({
             const nowIso = new Date().toISOString();
             task.completed = completed;
             task.completedAt = completed ? nowIso : null;
+            task.updatedAt = nowIso;
 
             if (completed) {
                 task.lastStudiedAt = nowIso;
@@ -106,6 +107,7 @@ export const createTaskSlice = (set, get) => ({
                     const xpChange = getTaskXP(task, completed);
                     task.completed = completed;
                     task.completedAt = completed ? nowIso : null;
+                    task.updatedAt = nowIso;
 
                     if (completed) {
                         task.lastStudiedAt = nowIso;
@@ -203,15 +205,17 @@ export const createTaskSlice = (set, get) => ({
                 return existing === normNew;
             });
             if (alreadyExists) return;
+            const nowIso = new Date().toISOString();
             category.tasks.push({
                 id: generateId('task'),
                 text: trimmedTitle,
                 title: trimmedTitle,
                 completed: false,
-                priority: 'medium'
+                priority: 'medium',
+                createdAt: nowIso,
+                updatedAt: nowIso
             });
 
-            const nowIso = new Date().toISOString();
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -264,13 +268,15 @@ export const createTaskSlice = (set, get) => ({
             ? (typeof updates.notes === 'string' ? updates.notes.trim() : updates.notes)
             : currentTask.notes;
 
+        const nowIso = new Date().toISOString();
         const sanitizedNotes = newNotes ? newNotes : undefined;
         category.tasks[taskIndex] = {
             ...currentTask,
             title: newTitle,
             text: newTitle,
             priority: newPriority,
-            notes: sanitizedNotes
+            notes: sanitizedNotes,
+            updatedAt: nowIso
         };
         if (!sanitizedNotes) {
             delete category.tasks[taskIndex].notes;
@@ -285,7 +291,6 @@ export const createTaskSlice = (set, get) => ({
             };
         }
 
-        const nowIso = new Date().toISOString();
         activeData.lastUpdated = nowIso;
         state.appState.version = (state.appState.version || 0) + 1;
         state.appState.lastUpdated = nowIso;
@@ -366,7 +371,7 @@ export const createTaskSlice = (set, get) => ({
                 const currentIndex = priorities.indexOf(oldPriority);
                 const nextIndex = currentIndex === -1 ? 1 : (currentIndex + 1) % 3;
                 const newPriority = priorities[nextIndex];
-                task = { ...task, priority: newPriority };
+                task = { ...task, priority: newPriority, updatedAt: new Date().toISOString() };
 
                 // BUG-T06 FIX: Se a tarefa já está completada, o XP concedido
                 // foi baseado na prioridade antiga. Ajustar o XP e recibo via awardExperience.

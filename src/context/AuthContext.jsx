@@ -74,24 +74,36 @@ export function AuthProvider({ children }) {
 
     const logout = useCallback(async () => {
         try {
+            let firestoreTerminated = false;
             if (isLocalMode) {
                 localStorage.removeItem('ultra_local_session');
                 setCurrentUser(null);
-                await secureLogout();
+                const res = await secureLogout();
+                firestoreTerminated = Boolean(res?.firestoreTerminated);
             } else if (auth) {
                 const res = await secureLogout();
                 if (!res?.ok) {
                     throw res?.error || new Error('signOut falhou.');
                 }
+                firestoreTerminated = Boolean(res?.firestoreTerminated);
             }
             // C-09 FIX: Só resetar store se signOut foi bem-sucedido.
             useAppStore.getState().resetStore();
             if (useAppStore.temporal) {
                 useAppStore.temporal.getState().clear();
             }
+            // Após terminate(db), o singleton do Firestore não pode ser reutilizado na mesma instância SPA.
+            // Recarregar a aplicação garante uma instância limpa do Firestore no próximo login.
+            if (firestoreTerminated && typeof window !== 'undefined' && typeof window.location?.replace === 'function') {
+                try {
+                    window.location.replace('/');
+                } catch { /* ignore in non-browser/test environments */ }
+            }
+            return true;
         } catch (err) {
             console.error('[Auth] Logout falhou, dados locais preservados:', err);
             // Não resetar store — o usuário ainda está autenticado.
+            return false;
         }
     }, []);
 

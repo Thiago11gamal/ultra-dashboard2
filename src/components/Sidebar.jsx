@@ -296,8 +296,8 @@ const Sidebar = React.memo(function Sidebar({
 
     const handleConfirmLogout = async () => {
         try {
-            await logout();
-            useAppStore.getState().resetStore();
+            const ok = await logout();
+            if (ok === false) return;
             await del('ultra-dashboard-storage');
             const appKeys = [
                 'ultra-dashboard-storage',
@@ -323,6 +323,13 @@ const Sidebar = React.memo(function Sidebar({
                     sessionStorage.removeItem(key);
                 } catch { /* ignore */ }
             });
+            try {
+                Object.keys(localStorage).forEach(k => {
+                    if (k.startsWith('coach_calibration_events_v1::')) {
+                        localStorage.removeItem(k);
+                    }
+                });
+            } catch { /* ignore */ }
         } catch (err) {
             console.error("Erro ao sair", err);
         }

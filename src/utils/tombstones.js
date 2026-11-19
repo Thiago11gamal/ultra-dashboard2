@@ -3,6 +3,15 @@
  * após exclusão local e esvaziamento de lixeira.
  */
 
+const buildScopedKey = (contestId, rawKey) => {
+  const cleanKey = String(rawKey || '').trim();
+  if (!cleanKey) return '';
+  if (contestId !== undefined && contestId !== null && String(contestId).trim() !== '') {
+    return `c::${String(contestId).trim()}::${cleanKey}`;
+  }
+  return cleanKey;
+};
+
 export const getCategoryTombstones = () => {
   try {
     if (typeof localStorage === 'undefined') return {};
@@ -13,7 +22,7 @@ export const getCategoryTombstones = () => {
   }
 };
 
-export const addCategoryTombstones = (items) => {
+export const addCategoryTombstones = (items, contestId = null) => {
   try {
     if (typeof localStorage === 'undefined') return;
     const tombstones = getCategoryTombstones();
@@ -22,11 +31,17 @@ export const addCategoryTombstones = (items) => {
     list.forEach(item => {
       if (!item) return;
       if (typeof item === 'string') {
-        tombstones[item] = now;
+        const k = buildScopedKey(contestId, item);
+        if (k) tombstones[k] = now;
       } else {
-        if (item.id) tombstones[item.id] = now;
+        const itemContestId = item.contestId ?? contestId;
+        if (item.id) {
+          const idKey = buildScopedKey(itemContestId, item.id);
+          if (idKey) tombstones[idKey] = now;
+        }
         if (item.name && typeof item.name === 'string') {
-          tombstones[item.name.trim().toLowerCase()] = now;
+          const nameKey = buildScopedKey(itemContestId, item.name.trim().toLowerCase());
+          if (nameKey) tombstones[nameKey] = now;
         }
       }
     });
@@ -41,25 +56,42 @@ export const addCategoryTombstones = (items) => {
   }
 };
 
-export const removeCategoryTombstone = (catId, catName) => {
+export const removeCategoryTombstone = (catId, catName, contestId = null) => {
   try {
     if (typeof localStorage === 'undefined') return;
     const tombstones = getCategoryTombstones();
-    if (catId && tombstones[catId]) delete tombstones[catId];
-    if (catName && tombstones[catName.trim().toLowerCase()]) {
-      delete tombstones[catName.trim().toLowerCase()];
+    const normName = catName && typeof catName === 'string' ? catName.trim().toLowerCase() : '';
+    const keysToRemove = [];
+    if (catId) {
+      keysToRemove.push(catId);
+      if (contestId) keysToRemove.push(buildScopedKey(contestId, catId));
     }
+    if (normName) {
+      if (!contestId) {
+        keysToRemove.push(normName);
+      } else {
+        keysToRemove.push(buildScopedKey(contestId, normName));
+      }
+    }
+    keysToRemove.forEach(k => {
+      if (k && tombstones[k]) delete tombstones[k];
+    });
     localStorage.setItem('ultra_category_tombstones', JSON.stringify(tombstones));
   } catch {
     // Ignorar erros de armazenamento
   }
 };
 
-export const isCategoryTombstoned = (catId, catName, cloudTimeMs = 0) => {
+export const isCategoryTombstoned = (catId, catName, cloudTimeMs = 0, contestId = null) => {
   try {
     const tombstones = getCategoryTombstones();
-    const idTime = catId ? tombstones[catId] : null;
-    const nameTime = catName && typeof catName === 'string' ? tombstones[catName.trim().toLowerCase()] : null;
+    const normName = catName && typeof catName === 'string' ? catName.trim().toLowerCase() : '';
+    const scopedIdTime = (catId && contestId) ? tombstones[buildScopedKey(contestId, catId)] : null;
+    const legacyIdTime = catId ? tombstones[catId] : null;
+    const scopedNameTime = (normName && contestId) ? tombstones[buildScopedKey(contestId, normName)] : null;
+    const legacyNameTime = (normName && !contestId) ? tombstones[normName] : null;
+    const idTime = Math.max(scopedIdTime || 0, legacyIdTime || 0);
+    const nameTime = Math.max(scopedNameTime || 0, legacyNameTime || 0);
     const tombstoneTime = Math.max(idTime || 0, nameTime || 0);
     const safeCloudTime = Number.isFinite(Number(cloudTimeMs)) ? Number(cloudTimeMs) : 0;
     if (tombstoneTime > 0) {

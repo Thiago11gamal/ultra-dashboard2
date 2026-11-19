@@ -27,12 +27,21 @@ const StudyHistory = React.memo(function StudyHistory({
     onDeleteSimulado,
     mode = 'full' // 'full', 'sessions', 'performance'
 }) {
-    const studySessions = (Array.isArray(rawStudySessions) ? rawStudySessions : Object.values(rawStudySessions || {})).filter(Boolean);
-    const categories = (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
-        ...c,
-        tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
-    }));
-    const simuladoRows = (Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {})).filter(Boolean);
+    const studySessions = useMemo(
+        () => (Array.isArray(rawStudySessions) ? rawStudySessions : Object.values(rawStudySessions || {})).filter(Boolean),
+        [rawStudySessions]
+    );
+    const categories = useMemo(
+        () => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean).map(c => ({
+            ...c,
+            tasks: (Array.isArray(c.tasks) ? c.tasks : Object.values(c.tasks || {})).filter(Boolean)
+        })),
+        [rawCategories]
+    );
+    const simuladoRows = useMemo(
+        () => (Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {})).filter(Boolean),
+        [rawSimuladoRows]
+    );
     const showToast = useToast();
     const [selectedWeekOffset, setSelectedWeekOffset] = React.useState(0);
     const [currentTime, setCurrentTime] = React.useState(() => Date.now()); // Fix B-13 Purity
@@ -450,15 +459,16 @@ const StudyHistory = React.memo(function StudyHistory({
                             const uniqueTopicStats = new Map();
 
                             groupedSimulados.forEach(group => {
-                                const valid = group.rows.filter(r => r.subject && r.topic);
+                                const valid = group.rows.filter(r => r && r.subject && (parseInt(r.total, 10) || 0) > 0);
                                 valid.forEach(r => {
-                                    const tot = parseInt(r.total, 10) || 0;
-                                    const cor = parseInt(r.correct, 10) || 0;
+                                    const tot = Math.max(0, parseInt(r.total, 10) || 0);
+                                    const cor = Math.max(0, parseInt(r.correct, 10) || 0);
                                     const safeC = Math.min(cor, tot);
                                     totalGlobalQuestions += tot;
                                     totalGlobalCorrect += safeC;
 
-                                    const tKey = `${r.subject}__${r.topic}`;
+                                    const topicLabel = String(r.topic || '').trim() || 'Geral';
+                                    const tKey = `${r.subject}__${topicLabel}`;
                                     if (!uniqueTopicStats.has(tKey)) {
                                         uniqueTopicStats.set(tKey, { correct: 0, total: 0 });
                                     }
@@ -563,20 +573,26 @@ const StudyHistory = React.memo(function StudyHistory({
 
                             // Função de processamento de simulado
                             const processSimulado = (rows) => {
-                                const validRows = (Array.isArray(rows) ? rows : []).filter(r => r && r.subject && r.topic);
-                                const totalQuestions = validRows.reduce((acc, r) => acc + (parseInt(r.total, 10) || 0), 0);
-                                const totalCorrect = validRows.reduce((acc, r) => acc + Math.min(parseInt(r.correct, 10) || 0, parseInt(r.total, 10) || 0), 0);
+                                const validRows = (Array.isArray(rows) ? rows : []).filter(
+                                    r => r && r.subject && (parseInt(r.total, 10) || 0) > 0
+                                );
+                                const totalQuestions = validRows.reduce((acc, r) => acc + Math.max(0, parseInt(r.total, 10) || 0), 0);
+                                const totalCorrect = validRows.reduce((acc, r) => {
+                                    const tot = Math.max(0, parseInt(r.total, 10) || 0);
+                                    const cor = Math.max(0, parseInt(r.correct, 10) || 0);
+                                    return acc + Math.min(cor, tot);
+                                }, 0);
                                 const globalPct = totalQuestions > 0 ? Math.max(0, Math.min(100, Math.round((totalCorrect / totalQuestions) * 100))) : 0;
 
                                 const subjectMap = {};
                                 validRows.forEach(row => {
                                     const subj = String(row.subject || '').trim();
-                                    const top = String(row.topic || '').trim();
+                                    const top = String(row.topic || '').trim() || 'Geral';
                                     if (!subjectMap[subj]) {
                                         subjectMap[subj] = { name: subj, correct: 0, total: 0, topicMap: {} };
                                     }
-                                    const cor = Math.min(parseInt(row.correct, 10) || 0, parseInt(row.total, 10) || 0);
-                                    const tot = parseInt(row.total, 10) || 0;
+                                    const tot = Math.max(0, parseInt(row.total, 10) || 0);
+                                    const cor = Math.min(Math.max(0, parseInt(row.correct, 10) || 0), tot);
                                     subjectMap[subj].correct += cor;
                                     subjectMap[subj].total += tot;
 

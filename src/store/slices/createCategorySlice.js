@@ -54,7 +54,7 @@ export const createCategorySlice = (set) => ({
             });
 
             // ✅ Remove qualquer tombstone prévio para permitir salvar e sincronizar perfeitamente
-            removeCategoryTombstone(newCatId, name);
+            removeCategoryTombstone(newCatId, name, state.appState.activeId);
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
             state.appState.lastUpdated = nowIso;
@@ -78,7 +78,7 @@ export const createCategorySlice = (set) => ({
         const matchesCatId = (candId) => Boolean(candId) && (candId === targetId || candId === id);
 
         if (category) {
-            addCategoryTombstones({ id: category.id, name: category.name });
+            addCategoryTombstones({ id: category.id, name: category.name }, state.appState.activeId);
             const normName = category ? normalize(category.name) : null;
             const safeRows = Array.isArray(activeData.simuladoRows) ? activeData.simuladoRows : Object.values(activeData.simuladoRows || {});
             const deletedSimuladoRows = safeRows.filter(r => {
@@ -257,23 +257,30 @@ export const createCategorySlice = (set) => ({
             const oldName = category.name;
             Object.assign(category, fields);
             if (fields.name) {
-                removeCategoryTombstone(category.id, fields.name);
+                removeCategoryTombstone(category.id, fields.name, state.appState.activeId);
                 if (oldName && fields.name !== oldName) {
+                    const toIterableList = (col) => (
+                        Array.isArray(col)
+                            ? col
+                            : (col && typeof col === 'object' ? Object.values(col) : null)
+                    );
                     if (activeData.mcWeights) {
                         if (activeData.mcWeights[oldName] !== undefined) {
                             activeData.mcWeights[fields.name] = activeData.mcWeights[oldName];
                             delete activeData.mcWeights[oldName];
                         }
                     }
-                    if (Array.isArray(activeData.simuladoRows)) {
-                        activeData.simuladoRows.forEach(r => {
+                    const rowsList = toIterableList(activeData.simuladoRows);
+                    if (rowsList) {
+                        rowsList.forEach(r => {
                             if (r && (matchesCatId(r.categoryId) || normalize(r.subject || '') === normalize(oldName))) {
                                 r.subject = fields.name;
                             }
                         });
                     }
-                    if (Array.isArray(activeData.simulados)) {
-                        activeData.simulados.forEach(s => {
+                    const simsList = toIterableList(activeData.simulados);
+                    if (simsList) {
+                        simsList.forEach(s => {
                             if (!s) return;
                             if (matchesCatId(s.categoryId) || normalize(s.subject || '') === normalize(oldName)) {
                                 s.subject = fields.name;
@@ -289,8 +296,9 @@ export const createCategorySlice = (set) => ({
                             }
                         });
                     }
-                    if (Array.isArray(activeData.studyLogs)) {
-                        activeData.studyLogs.forEach(l => {
+                    const logsList = toIterableList(activeData.studyLogs);
+                    if (logsList) {
+                        logsList.forEach(l => {
                             if (l && (matchesCatId(l.categoryId) || normalize(l.subject || l.category || l.categoryName || '') === normalize(oldName))) {
                                 if (l.subject) l.subject = fields.name;
                                 if (l.category) l.category = fields.name;
@@ -298,8 +306,9 @@ export const createCategorySlice = (set) => ({
                             }
                         });
                     }
-                    if (Array.isArray(activeData.studySessions)) {
-                        activeData.studySessions.forEach(s => {
+                    const sessionsList = toIterableList(activeData.studySessions);
+                    if (sessionsList) {
+                        sessionsList.forEach(s => {
                             if (s && (matchesCatId(s.categoryId) || normalize(s.subject || s.category || s.categoryName || '') === normalize(oldName))) {
                                 if (s.subject) s.subject = fields.name;
                                 if (s.category) s.category = fields.name;
@@ -363,10 +372,14 @@ export const createCategorySlice = (set) => ({
 
         const currentWeights = activeData.mcWeights || {};
         const nextWeights = typeof weightsUpdate === 'function' ? weightsUpdate(currentWeights) : weightsUpdate;
+        if (!nextWeights || typeof nextWeights !== 'object' || Array.isArray(nextWeights)) return;
 
         activeData.mcWeights = nextWeights;
         if (activeData.categories) {
-            activeData.categories.forEach(cat => {
+            const catsList = Array.isArray(activeData.categories)
+                ? activeData.categories
+                : Object.values(activeData.categories || {});
+            catsList.filter(Boolean).forEach(cat => {
                 if (nextWeights[cat.id] !== undefined) {
                     cat.weight = nextWeights[cat.id];
                 } else if (nextWeights[cat.name] !== undefined) {
@@ -664,10 +677,10 @@ export const createCategorySlice = (set) => ({
                 level: 'BAIXO'
             };
 
-        const nowIso = new Date().toISOString();
-        importedCat.createdAt = nowIso;
-        importedCat.lastUpdated = nowIso;
-        importedCat.updatedAt = nowIso;
+            const nowIso = new Date().toISOString();
+            importedCat.createdAt = nowIso;
+            importedCat.lastUpdated = nowIso;
+            importedCat.updatedAt = nowIso;
 
             // Regenerar IDs das tarefas e resetar progresso para o novo certame
             const rawTasks = Array.isArray(importedCat.tasks) ? importedCat.tasks : Object.values(importedCat.tasks || {});
@@ -683,14 +696,15 @@ export const createCategorySlice = (set) => ({
                 };
             });
 
-        activeData.categories.push(importedCat);
-        activeData.lastUpdated = nowIso;
-        state.appState.version = (state.appState.version || 0) + 1;
-        state.appState.lastUpdated = nowIso;
-        markStorageDirty();
-        result = true;
-    });
-    return result;
-},
+        removeCategoryTombstone(newId, importedCat.name, state.appState.activeId);
+            activeData.categories.push(importedCat);
+            activeData.lastUpdated = nowIso;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = nowIso;
+            markStorageDirty();
+            result = true;
+        });
+        return result;
+    },
 });
 

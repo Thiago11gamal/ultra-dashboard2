@@ -192,7 +192,7 @@ return (
                           {form.categoryId === 'mixed' && (
                             <option value="mixed">🎯 Múltiplas Matérias (Personalizado)</option>
                           )}
-                          {[...categories].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map((cat) => (
+                          {[...categories].filter(Boolean).sort((a,b) => (a.name||'').localeCompare(b.name||'')).map((cat) => (
                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                           ))}
                         </select>
@@ -221,7 +221,7 @@ return (
                           {form.categoryId === 'mixed' && form.taskId && (
                             <option value={form.taskId}>Foco em Múltiplas Fraquezas</option>
                           )}
-                          {[...safeAvailableTasks].sort((a,b) => (a.title||a.text||'').localeCompare(b.title||b.text||'')).map((tsk) => {
+                          {[...safeAvailableTasks].filter(Boolean).sort((a,b) => (a.title||a.text||'').localeCompare(b.title||b.text||'')).map((tsk) => {
                             const label = tsk.title || tsk.text || 'Sem título';
                             return <option key={tsk.id} value={tsk.id}>{label}</option>;
                           })}

@@ -101,7 +101,7 @@ export default function Coach() {
         clearTopicsCache();
         // G-03 FIX: Limpar cache de alertas ao trocar de concurso
         calibrationAlertCacheRef.current.clear();
-        lastPersistByCategoryRef.current = {};
+        lastPersistByCategoryRef.current.clear();
         lastPushedScoreRef.current = null;
 
         const timer = setTimeout(() => {
@@ -170,7 +170,8 @@ export default function Coach() {
             studyLogs: contest.studyLogs,
             settings: contest.settings,
             coachPlan: contest.coachPlan,
-            coachPlanner: contest.coachPlanner
+            coachPlanner: contest.coachPlanner,
+            coachScore: contest.coachScore
         };
     }));
     const isHydrated = useAppStore(state => state.appState.isHydrated);
@@ -243,7 +244,7 @@ export default function Coach() {
 
     // Backfill de simulados agora é gerenciado no hook useMonteCarloStats via rawSimuladoRows (evita duplicação).
 
-    const lastPersistByCategoryRef = useRef({});
+    const lastPersistByCategoryRef = useRef(new Map());
     const persistCalibrationMetric = useCallback((metric) => {
         if ((!metric?.categoryId && !metric?.categoryName) || !isMountedRef.current) return;
 
@@ -254,7 +255,7 @@ export default function Coach() {
         const storageCategoryKey = getCalibrationKey(normalizedCategoryId) || normalizedCategoryId;
 
         const catKey = String(storageCategoryKey);
-        if (now - (lastPersistByCategoryRef.current[catKey] || 0) < 500) return;
+        if (now - (lastPersistByCategoryRef.current.get(catKey) || 0) < 500) return;
 
         const toFinite = (value, fallback = null) => {
             if (value === null || value === undefined || value === '') return fallback;
@@ -275,7 +276,7 @@ export default function Coach() {
         // que poluem o histórico, escondem a barra de formação de amostra (X/8) e geram linhas com '-' no Log de Auditoria.
         const hasUsefulSignal = avgBrier !== null || ece !== null || calibrationPenalty > 0 || reliability.length > 0 || isDegraded;
         if (!hasUsefulSignal) return;
-        lastPersistByCategoryRef.current[catKey] = now;
+        lastPersistByCategoryRef.current.set(catKey, now);
 
         const normalizedMetric = {
             ...metric,
@@ -398,10 +399,11 @@ export default function Coach() {
 
         if (didSkipPersist) return;
 
+        const telemetryContestId = useAppStore.getState()?.appState?.activeId || 'default';
         if (normalizedMetric.calibrationPenalty >= HIGH_PENALTY_THRESHOLD) {
-            logCalibrationTelemetryEvent({ ...normalizedMetric, eventType: 'high_penalty_alert' });
+            logCalibrationTelemetryEvent({ ...normalizedMetric, contestId: telemetryContestId, eventType: 'high_penalty_alert' });
         } else {
-            logCalibrationTelemetryEvent(normalizedMetric);
+            logCalibrationTelemetryEvent({ ...normalizedMetric, contestId: telemetryContestId });
         }
 
         if (isDegraded) {
@@ -907,7 +909,9 @@ return () => {
 useEffect(() => {
     if (!isMcStatsReady) return;
     if (typeof projectedScore !== 'number' || Number.isNaN(projectedScore)) return;
-    const persistedScore = Number(data?.coachScore);
+    const persistedScore = (data?.coachScore !== null && data?.coachScore !== undefined && data?.coachScore !== '')
+        ? Number(data.coachScore)
+        : NaN;
     if (Number.isFinite(persistedScore) && Math.abs(projectedScore - persistedScore) <= 0.01) {
         lastPushedScoreRef.current = projectedScore;
         return;

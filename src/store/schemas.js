@@ -412,6 +412,8 @@ export const sanitizeContest = (data, contestId = '') => {
         completed: Boolean(t.completed),
         completedAt: t.completedAt || null,
         lastStudiedAt: t.lastStudiedAt || null,
+        ...(t.updatedAt ? { updatedAt: t.updatedAt } : {}),
+        ...(t.lastUpdated ? { lastUpdated: t.lastUpdated } : {}),
         priority: normalizePriority(t.priority || "medium"),
         ...(t.notes ? { notes: String(t.notes) } : {}),
         ...(t.awardedXP != null && Number.isFinite(Number(t.awardedXP)) ? { awardedXP: Number(t.awardedXP) } : {}),
@@ -483,6 +485,12 @@ export const sanitizeContest = (data, contestId = '') => {
         level: Number(cat.level) || 0,
         totalMinutes: Number(cat.totalMinutes) || 0,
         lastStudiedAt: cat.lastStudiedAt || null,
+        ...(cat.createdAt ? { createdAt: cat.createdAt } : {}),
+        ...(cat.updatedAt ? { updatedAt: cat.updatedAt } : {}),
+        ...(cat.lastUpdated ? { lastUpdated: cat.lastUpdated } : {}),
+        ...(cat.flashcardReviews != null && Number.isFinite(Number(cat.flashcardReviews)) ? { flashcardReviews: Math.max(0, Number(cat.flashcardReviews)) } : {}),
+        ...(cat.lastFlashcardReview ? { lastFlashcardReview: cat.lastFlashcardReview } : {}),
+        ...(cat.flashcardCorrect != null && Number.isFinite(Number(cat.flashcardCorrect)) ? { flashcardCorrect: Math.max(0, Number(cat.flashcardCorrect)) } : {}),
         simuladoStats: {
           history: cleanHistory,
           average,
@@ -536,6 +544,7 @@ export const sanitizeContest = (data, contestId = '') => {
       .filter(v => v !== null && v !== undefined && v !== '' && typeof v !== 'boolean')
       .map(Number)
       .filter(n => Number.isFinite(n)),
+    ...(source.historicalCutoffsUpdatedAt ? { historicalCutoffsUpdatedAt: source.historicalCutoffsUpdatedAt } : {}),
     // BUG-10 REVERSION: monteCarloHistory MUST be an Array for charts and slices to work.
     // Migration: If it's an object (legacy), convert it to an array of {date, probability}.
     monteCarloHistory: (() => {
@@ -565,6 +574,11 @@ export const sanitizeContest = (data, contestId = '') => {
       || (typeof source.name === 'string' && source.name.trim())
       || (typeof source.user?.name === 'string' && source.user.name.trim())
       || "Novo Concurso",
+    ...(typeof source.unit === 'string' && source.unit.trim() ? { unit: source.unit.trim() } : {}),
+    ...(source.pomodorosCompleted != null && Number.isFinite(Number(source.pomodorosCompleted))
+      ? { pomodorosCompleted: Math.max(0, Number(source.pomodorosCompleted)) }
+      : {}),
+    ...(source.lastPomodoroDate ? { lastPomodoroDate: source.lastPomodoroDate } : {}),
     lastUpdated: (source.lastUpdated && !isNaN(new Date(source.lastUpdated).getTime())) ? source.lastUpdated : new Date().toISOString(),
   };
 };

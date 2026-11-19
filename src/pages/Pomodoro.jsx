@@ -1676,6 +1676,10 @@ export default function Pomodoro() {
                     }
                     return;
                 }
+                const p = useAppStore.getState().appState?.pomodoro;
+                if (completedSessionId && p?.activeSubject?.sessionInstanceId && p.activeSubject.sessionInstanceId !== completedSessionId) {
+                    return;
+                }
                 showToast('Sessão finalizada! Retornando ao menu de origem...', 'info');
                 handleExit({ source: sourceAfterFinish, _subjectSnapshot: currentSubject });
             }, 1000);

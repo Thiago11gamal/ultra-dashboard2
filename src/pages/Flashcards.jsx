@@ -55,6 +55,7 @@ export default function Flashcards() {
   const [pendingClose, setPendingClose] = useState(false);
 
   const closeStudy = React.useCallback(() => {
+    setPendingClose(false);
     setIsStudying(false);
     setStudyDeck(null);
     setStudyIndex(0);
@@ -76,15 +77,16 @@ export default function Flashcards() {
 
   function persistDecks(nextDecksOrUpdater) {
     setData(contest => {
-      const currentDecks = Array.isArray(contest.flashcardDecks)
+      if (!contest || typeof contest !== 'object') return contest;
+      const currentDecks = (Array.isArray(contest.flashcardDecks)
         ? contest.flashcardDecks
-        : Object.values(contest.flashcardDecks || {});
+        : Object.values(contest.flashcardDecks || {})).filter(Boolean);
       const resolved = typeof nextDecksOrUpdater === 'function'
         ? nextDecksOrUpdater(currentDecks)
         : nextDecksOrUpdater;
       return {
         ...contest,
-        flashcardDecks: resolved
+        flashcardDecks: (Array.isArray(resolved) ? resolved : []).filter(Boolean)
       };
     });
   }
@@ -95,16 +97,17 @@ export default function Flashcards() {
       showToast('Nome do deck obrigatório', 'error');
       return;
     }
+    const nowIso = new Date().toISOString();
     const newDeck = {
       id: generateId('deck'),
       name: newDeckName.trim(),
       subject: newDeckSubject.trim() || 'Geral',
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      lastUpdated: nowIso,
       cards: [],
       stats: { totalReviews: 0, mastered: 0 }
     };
-    const next = [...decks, newDeck];
-    persistDecks(next);
+    persistDecks(currentDecks => [...currentDecks, newDeck]);
     setSelectedDeckId(newDeck.id);
     setNewDeckName('');
     setNewDeckSubject('');
@@ -120,9 +123,9 @@ export default function Flashcards() {
 
   const handleConfirmDeleteDeck = () => {
     if (!deckToDelete) return;
-    const next = decks.filter(d => d.id !== deckToDelete.id);
-    persistDecks(next);
-    if (selectedDeckId === deckToDelete.id) setSelectedDeckId(null);
+    const deletedId = deckToDelete.id;
+    persistDecks(currentDecks => currentDecks.filter(d => d.id !== deletedId));
+    if (selectedDeckId === deletedId) setSelectedDeckId(null);
     showToast('Deck removido', 'info');
     setDeckToDelete(null);
   };
@@ -133,24 +136,27 @@ export default function Flashcards() {
       showToast('Preencha frente e verso', 'error');
       return;
     }
-    const nextDecks = decks.map(deck => {
-      if (deck.id !== selectedDeckId) return deck;
-      const cards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+    const nowIso = new Date().toISOString();
+    const targetDeckId = selectedDeckId;
+    const nextCard = {
+      id: generateId('card'),
+      front: front.trim(),
+      back: back.trim(),
+      interval: 1,
+      ease: 2.5,
+      due: getFlashcardTodayKey(),   // consistent TZ key
+      lastReviewed: null,
+      reviews: 0
+    };
+    persistDecks(currentDecks => currentDecks.map(deck => {
+      if (deck.id !== targetDeckId) return deck;
+      const cards = (Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {})).filter(Boolean);
       return {
         ...deck,
-        cards: [...cards, {
-          id: generateId('card'),
-          front: front.trim(),
-          back: back.trim(),
-          interval: 1,
-          ease: 2.5,
-          due: getFlashcardTodayKey(),   // consistent TZ key
-          lastReviewed: null,
-          reviews: 0
-        }]
+        lastUpdated: nowIso,
+        cards: [...cards, nextCard]
       };
-    });
-    persistDecks(nextDecks);
+    }));
     setFront('');
     setBack('');
     setShowAddCard(false);
@@ -158,20 +164,22 @@ export default function Flashcards() {
   };
 
   const deleteCard = (cardId) => {
-    const nextDecks = decks.map(deck => {
-      if (deck.id !== selectedDeckId) return deck;
-      const cards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+    const nowIso = new Date().toISOString();
+    const targetDeckId = selectedDeckId;
+    persistDecks(currentDecks => currentDecks.map(deck => {
+      if (deck.id !== targetDeckId) return deck;
+      const cards = (Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {})).filter(Boolean);
       const nextCards = cards.filter(c => c.id !== cardId);
-      return { 
-        ...deck, 
+      return {
+        ...deck,
+        lastUpdated: nowIso,
         cards: nextCards,
         stats: {
           ...deck.stats,
           mastered: nextCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) >= 6).length
         }
       };
-    });
-    persistDecks(nextDecks);
+    }));
     showToast('Cartão excluído', 'info');
   };
 
@@ -191,7 +199,7 @@ export default function Flashcards() {
     }
 
     const dueForDeck = getDueCardsForDeck(deck);
-    
+
     if (dueForDeck.length === 0) {
       showToast('Nenhum cartão para revisar hoje!', 'success');
       return;
@@ -239,10 +247,11 @@ export default function Flashcards() {
 
     const nextDue = getFlashcardNextDueKey(newInterval);
 
+    const nowIso = new Date().toISOString();
     persistDecks(currentDecks => {
       return currentDecks.map(deck => {
         if (deck.id !== studyDeck.id) return deck;
-        const safeCards = Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {});
+        const safeCards = (Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {})).filter(Boolean);
         const updatedCards = safeCards.map(card => {
           if (card.id === currentCard.id) {
             return {
@@ -250,7 +259,7 @@ export default function Flashcards() {
               interval: newInterval,
               ease: newEase,
               due: nextDue,
-              lastReviewed: new Date().toISOString(),
+              lastReviewed: nowIso,
               reviews: (card.reviews || 0) + 1
             };
           }
@@ -258,6 +267,7 @@ export default function Flashcards() {
         });
         return {
           ...deck,
+          lastUpdated: nowIso,
           cards: updatedCards,
           stats: {
             totalReviews: (deck.stats?.totalReviews || 0) + 1,
@@ -269,7 +279,7 @@ export default function Flashcards() {
 
     // Integrate as measure: log review for stats, activity, gamification, coach
     if (typeof logFlashcardReview === 'function' && studyDeck) {
-        logFlashcardReview(studyDeck.id, currentCard.id, rating, studyDeck.subject || studyDeck.name);
+      logFlashcardReview(studyDeck.id, currentCard.id, rating, studyDeck.subject || studyDeck.name);
     }
 
     // Update local study session copy
@@ -293,11 +303,11 @@ export default function Flashcards() {
       const pIsKnown = pSafeRating >= 2;
       const newReviewed = prev.reviewed + 1;
       const newKnown = prev.known + (pIsKnown ? 1 : 0);
-      
+
       if (prev.reviewed === newReviewed && prev.known === newKnown) {
         return prev;
       }
-      
+
       return {
         ...prev,
         reviewed: newReviewed,
@@ -324,267 +334,267 @@ export default function Flashcards() {
 
   return (
     <PageErrorBoundary pageName={pageTitle}>
-    <div className="animate-fade-in pb-12">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-3">
-            <BookOpen className="text-amber-400" size={28} />
-            <h1 className="tool-header">Flashcards</h1>
-          </div>
-          <p className="text-slate-400 mt-1.5 text-sm">Sistema de repetição espaçada para concursos</p>
-        </div>
-
-        <button
-          onClick={() => setShowCreateDeck(true)}
-          className="tool-btn"
-        >
-          <Plus size={17} /> Novo Deck
-        </button>
-      </div>
-
-      {/* Previsão de Cartões a Vencer - compact header insight */}
-      {decks.length > 0 && (
-        <div className="mb-6">
-          <DueForecast decks={decks} horizon={10} />
-        </div>
-      )}
-
-      {/* Create deck modal */}
-      {showCreateDeck && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4" onClick={() => setShowCreateDeck(false)}>
-          <div className="premium-card w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-4 leading-tight">Criar Novo Deck</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="micro-label block mb-1">Nome do Deck</label>
-                <input
-                  value={newDeckName}
-                  onChange={e => setNewDeckName(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-amber-500/60 focus:outline-none"
-                  placeholder="Ex: Direito Constitucional"
-                />
-              </div>
-              <div>
-                <label className="micro-label block mb-1">Disciplina (opcional)</label>
-                <input
-                  value={newDeckSubject}
-                  onChange={e => setNewDeckSubject(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-amber-500/60 focus:outline-none"
-                  placeholder="Direito"
-                />
-              </div>
+      <div className="animate-fade-in pb-12">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <div>
+            <div className="flex items-center gap-3">
+              <BookOpen className="text-amber-400" size={28} />
+              <h1 className="tool-header">Flashcards</h1>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowCreateDeck(false)} className="tool-btn secondary flex-1">Cancelar</button>
-              <button onClick={createDeck} className="tool-btn flex-1">Criar Deck</button>
-            </div>
+            <p className="text-slate-400 mt-1.5 text-sm">Sistema de repetição espaçada para concursos</p>
           </div>
-        </div>
-      )}
 
-      {/* Decks grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
-        {decks.length === 0 && (
-          <div className="empty-state col-span-full text-center">
-            <BookOpen className="mx-auto mb-4 text-amber-400/70" size={42} />
-            <p className="text-lg font-semibold">Nenhum deck ainda</p>
-            <p className="text-slate-400 mt-1">Crie decks de flashcards para revisar com repetição espaçada.</p>
-            <button onClick={() => setShowCreateDeck(true)} className="tool-btn mt-6 mx-auto">Criar Primeiro Deck</button>
+          <button
+            onClick={() => setShowCreateDeck(true)}
+            className="tool-btn"
+          >
+            <Plus size={17} /> Novo Deck
+          </button>
+        </div>
+
+        {/* Previsão de Cartões a Vencer - compact header insight */}
+        {decks.length > 0 && (
+          <div className="mb-6">
+            <DueForecast decks={decks} horizon={10} />
           </div>
         )}
 
-        {decks.map(deck => {
-          const safeCards = getSafeDeckCards(deck);
-          const cardCount = safeCards.length;
-          const isSelected = deck.id === selectedDeckId;
-          const dueCount = safeCards.filter(c => isFlashcardDue(c.due)).length;
-          return (
-            <div
-              key={deck.id}
-              className={`deck-card premium-card p-5 cursor-pointer border ${isSelected ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-white/5'}`}
-              onClick={() => setSelectedDeckId(deck.id)}
-            >
-              <div className="flex justify-between items-start">
+        {/* Create deck modal */}
+        {showCreateDeck && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4" onClick={() => setShowCreateDeck(false)}>
+            <div className="premium-card w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg mb-4 leading-tight">Criar Novo Deck</h3>
+              <div className="space-y-3">
                 <div>
-                  <div className="font-bold text-lg leading-tight tracking-[-0.01em]">{deck.name}</div>
-                  <div className="text-xs text-amber-300/90 uppercase tracking-widest mt-1">{deck.subject}</div>
+                  <label className="micro-label block mb-1">Nome do Deck</label>
+                  <input
+                    value={newDeckName}
+                    onChange={e => setNewDeckName(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-amber-500/60 focus:outline-none"
+                    placeholder="Ex: Direito Constitucional"
+                  />
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteDeck(deck.id); }}
-                  className="text-rose-400/70 hover:text-rose-400 p-1"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
-              <div className="mt-6 flex items-center justify-between text-sm">
                 <div>
-                  <span className="font-mono text-2xl font-bold tabular-nums">{cardCount}</span>
-                  <span className="ml-1.5 text-slate-400">cartões</span>
-                </div>
-                <div className="text-emerald-400 text-xs font-bold">
-                  {dueCount > 0 ? `${dueCount} para revisar` : 'Em dia'}
+                  <label className="micro-label block mb-1">Disciplina (opcional)</label>
+                  <input
+                    value={newDeckSubject}
+                    onChange={e => setNewDeckSubject(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-white placeholder:text-slate-500 focus:border-amber-500/60 focus:outline-none"
+                    placeholder="Direito"
+                  />
                 </div>
               </div>
-
-              <button
-                onClick={(e) => { e.stopPropagation(); startStudy(deck); }}
-                disabled={cardCount === 0}
-                className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 border border-amber-500/30 py-2.5 text-sm font-bold disabled:opacity-50 transition-colors"
-              >
-                <Play size={15} /> ESTUDAR AGORA
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Selected deck panel */}
-      {selectedDeck && (
-        <div className="premium-card p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <div className="font-extrabold text-2xl leading-tight tracking-[-0.01em]">{selectedDeck.name}</div>
-              <div className="text-amber-300/80 text-sm tracking-wider mt-0.5">{selectedDeck.subject} • {getSafeDeckCards(selectedDeck).length} cartões</div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button onClick={() => startStudy(selectedDeck)} disabled={getSafeDeckCards(selectedDeck).length === 0} className="tool-btn">
-                <Play size={16} /> Iniciar Revisão
-              </button>
-              <button onClick={() => setShowAddCard(true)} className="tool-btn secondary">
-                <Plus size={16} /> Adicionar Cartão
-              </button>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowCreateDeck(false)} className="tool-btn secondary flex-1">Cancelar</button>
+                <button onClick={createDeck} className="tool-btn flex-1">Criar Deck</button>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Add card form */}
-          {showAddCard && (
-            <div className="mb-6 p-4 rounded-2xl border border-white/10 bg-slate-950/60">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <div className="micro-label mb-1.5">FRENTE (Pergunta)</div>
-                  <textarea value={front} onChange={e => setFront(e.target.value)} rows={3} className="w-full rounded-xl bg-black/40 border border-white/10 p-3 text-sm resize-y" placeholder="O que é... ?" />
-                </div>
-                <div>
-                  <div className="micro-label mb-1.5">VERSO (Resposta)</div>
-                  <textarea value={back} onChange={e => setBack(e.target.value)} rows={3} className="w-full rounded-xl bg-black/40 border border-white/10 p-3 text-sm resize-y" placeholder="Resposta completa..." />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-4">
-                <button onClick={() => { setShowAddCard(false); setFront(''); setBack(''); }} className="tool-btn secondary flex-1">Cancelar</button>
-                <button onClick={addCard} className="tool-btn flex-1">Adicionar Cartão</button>
-              </div>
+        {/* Decks grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8">
+          {decks.length === 0 && (
+            <div className="empty-state col-span-full text-center">
+              <BookOpen className="mx-auto mb-4 text-amber-400/70" size={42} />
+              <p className="text-lg font-semibold">Nenhum deck ainda</p>
+              <p className="text-slate-400 mt-1">Crie decks de flashcards para revisar com repetição espaçada.</p>
+              <button onClick={() => setShowCreateDeck(true)} className="tool-btn mt-6 mx-auto">Criar Primeiro Deck</button>
             </div>
           )}
 
-          {/* Cards list */}
-          <div>
-            <div className="micro-label mb-3">CARTÕES ({getSafeDeckCards(selectedDeck).length})</div>
-            {getSafeDeckCards(selectedDeck).length === 0 ? (
-              <div className="text-sm text-slate-400 py-3">Nenhum cartão. Adicione alguns acima.</div>
-            ) : (
-              <div className="space-y-2">
-                {getSafeDeckCards(selectedDeck).map((card) => (
-                  <div key={card.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 text-sm group">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-amber-100 line-clamp-2 leading-snug">{card.front}</div>
-                      <div className="text-slate-400 mt-1 text-xs line-clamp-2 leading-snug">{card.back}</div>
-                      <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
-                        <span>Intervalo: {card.interval || 1}d</span>
-                        {card.due && <span>Próxima: {formatDueShort(card.due)}</span>}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deleteCard(card.id)}
-                      className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-500 transition p-1"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+          {decks.map(deck => {
+            const safeCards = getSafeDeckCards(deck);
+            const cardCount = safeCards.length;
+            const isSelected = deck.id === selectedDeckId;
+            const dueCount = safeCards.filter(c => isFlashcardDue(c.due)).length;
+            return (
+              <div
+                key={deck.id}
+                className={`deck-card premium-card p-5 cursor-pointer border ${isSelected ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-white/5'}`}
+                onClick={() => setSelectedDeckId(deck.id)}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-lg leading-tight tracking-[-0.01em]">{deck.name}</div>
+                    <div className="text-xs text-amber-300/90 uppercase tracking-widest mt-1">{deck.subject}</div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteDeck(deck.id); }}
+                    className="text-rose-400/70 hover:text-rose-400 p-1"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
 
-      {/* STUDY MODAL */}
-      {isStudying && currentStudyCard && (
-        <div className="fixed inset-0 z-[300] bg-[#05070f]/95 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-[680px]">
-            {/* Top bar */}
-            <div className="flex items-center justify-between mb-4 px-1 text-sm">
-              <div className="flex items-center gap-2 text-amber-300">
-                <BookOpen size={18} />
-                <span className="font-semibold">{studyDeck?.name}</span>
+                <div className="mt-6 flex items-center justify-between text-sm">
+                  <div>
+                    <span className="font-mono text-2xl font-bold tabular-nums">{cardCount}</span>
+                    <span className="ml-1.5 text-slate-400">cartões</span>
+                  </div>
+                  <div className="text-emerald-400 text-xs font-bold">
+                    {dueCount > 0 ? `${dueCount} para revisar` : 'Em dia'}
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); startStudy(deck); }}
+                  disabled={cardCount === 0}
+                  className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 border border-amber-500/30 py-2.5 text-sm font-bold disabled:opacity-50 transition-colors"
+                >
+                  <Play size={15} /> ESTUDAR AGORA
+                </button>
               </div>
-              <div className="flex items-center gap-4 text-xs text-slate-400">
-                <span>{studyIndex + 1} / {studyDeck?.cardsToStudy?.length}</span>
-                <span className="text-emerald-400">{studyStats.known} bons</span>
-                <button onClick={closeStudy} className="text-slate-400 hover:text-white flex items-center gap-1">
-                  <X size={15} /> Sair
+            );
+          })}
+        </div>
+
+        {/* Selected deck panel */}
+        {selectedDeck && (
+          <div className="premium-card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <div className="font-extrabold text-2xl leading-tight tracking-[-0.01em]">{selectedDeck.name}</div>
+                <div className="text-amber-300/80 text-sm tracking-wider mt-0.5">{selectedDeck.subject} • {getSafeDeckCards(selectedDeck).length} cartões</div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button onClick={() => startStudy(selectedDeck)} disabled={getSafeDeckCards(selectedDeck).length === 0} className="tool-btn">
+                  <Play size={16} /> Iniciar Revisão
+                </button>
+                <button onClick={() => setShowAddCard(true)} className="tool-btn secondary">
+                  <Plus size={16} /> Adicionar Cartão
                 </button>
               </div>
             </div>
 
-            {/* Flashcard - generous framing */}
-            <div className="flashcard-container mx-auto my-2" onClick={flipCard}>
-              <div className={`flashcard ${isFlipped ? 'flipped' : ''}`}>
-                {/* FRONT */}
-                <div className="flashcard-front">
-                  <div className="uppercase tracking-[2.5px] text-[10px] text-amber-300/70 mb-1.5 font-bold">PERGUNTA</div>
-                  <div className="flashcard-content mt-1 mb-1">{currentStudyCard.front}</div>
-                  <div className="absolute bottom-4 text-[10px] text-slate-500/80 tracking-wide">Toque para virar ↻</div>
+            {/* Add card form */}
+            {showAddCard && (
+              <div className="mb-6 p-4 rounded-2xl border border-white/10 bg-slate-950/60">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="micro-label mb-1.5">FRENTE (Pergunta)</div>
+                    <textarea value={front} onChange={e => setFront(e.target.value)} rows={3} className="w-full rounded-xl bg-black/40 border border-white/10 p-3 text-sm resize-y" placeholder="O que é... ?" />
+                  </div>
+                  <div>
+                    <div className="micro-label mb-1.5">VERSO (Resposta)</div>
+                    <textarea value={back} onChange={e => setBack(e.target.value)} rows={3} className="w-full rounded-xl bg-black/40 border border-white/10 p-3 text-sm resize-y" placeholder="Resposta completa..." />
+                  </div>
                 </div>
-                {/* BACK */}
-                <div className="flashcard-back">
-                  <div className="uppercase tracking-[2.5px] text-[10px] text-violet-300/70 mb-1.5 font-bold">RESPOSTA</div>
-                  <div className="flashcard-content mt-1 mb-1">{currentStudyCard.back}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Controls - better spacing */}
-            {!isFlipped ? (
-              <div className="mt-5 mb-1 text-center text-xs text-slate-400">Toque no cartão para revelar a resposta</div>
-            ) : (
-              <div className="mt-6">
-                <div className="text-center text-sm font-medium text-amber-300 mb-3.5">Como foi a sua resposta?</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <button onClick={() => rateCard(0)} className="rounded-2xl bg-rose-600/10 hover:bg-rose-600/25 border border-rose-600/30 py-3 text-rose-300 font-semibold active:scale-[0.985]">Esqueci</button>
-                  <button onClick={() => rateCard(1)} className="rounded-2xl bg-orange-500/10 hover:bg-orange-500/25 border border-orange-400/30 py-3 text-orange-300 font-semibold active:scale-[0.985]">Difícil</button>
-                  <button onClick={() => rateCard(2)} className="rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-400/30 py-3 text-emerald-300 font-semibold active:scale-[0.985]">Bom</button>
-                  <button onClick={() => rateCard(3)} className="rounded-2xl bg-sky-500/10 hover:bg-sky-500/25 border border-sky-400/30 py-3 text-sky-300 font-semibold active:scale-[0.985]">Fácil</button>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => { setShowAddCard(false); setFront(''); setBack(''); }} className="tool-btn secondary flex-1">Cancelar</button>
+                  <button onClick={addCard} className="tool-btn flex-1">Adicionar Cartão</button>
                 </div>
               </div>
             )}
 
-            <div className="text-center mt-7">
-              <button onClick={flipCard} className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-slate-400 hover:text-slate-200">
-                <RotateCw size={14} /> Virar Cartão
-              </button>
+            {/* Cards list */}
+            <div>
+              <div className="micro-label mb-3">CARTÕES ({getSafeDeckCards(selectedDeck).length})</div>
+              {getSafeDeckCards(selectedDeck).length === 0 ? (
+                <div className="text-sm text-slate-400 py-3">Nenhum cartão. Adicione alguns acima.</div>
+              ) : (
+                <div className="space-y-2">
+                  {getSafeDeckCards(selectedDeck).map((card) => (
+                    <div key={card.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 text-sm group">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-amber-100 line-clamp-2 leading-snug">{card.front}</div>
+                        <div className="text-slate-400 mt-1 text-xs line-clamp-2 leading-snug">{card.back}</div>
+                        <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
+                          <span>Intervalo: {card.interval || 1}d</span>
+                          {card.due && <span>Próxima: {formatDueShort(card.due)}</span>}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => deleteCard(card.id)}
+                        className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-500 transition p-1"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {!selectedDeck && decks.length > 0 && (
-        <p className="text-center text-slate-500 mt-4 text-sm">Selecione um deck acima para gerenciar ou estudar.</p>
-      )}
+        {/* STUDY MODAL */}
+        {isStudying && currentStudyCard && (
+          <div className="fixed inset-0 z-[300] bg-[#05070f]/95 flex flex-col items-center justify-center p-4">
+            <div className="w-full max-w-[680px]">
+              {/* Top bar */}
+              <div className="flex items-center justify-between mb-4 px-1 text-sm">
+                <div className="flex items-center gap-2 text-amber-300">
+                  <BookOpen size={18} />
+                  <span className="font-semibold">{studyDeck?.name}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-slate-400">
+                  <span>{studyIndex + 1} / {studyDeck?.cardsToStudy?.length}</span>
+                  <span className="text-emerald-400">{studyStats.known} bons</span>
+                  <button onClick={closeStudy} className="text-slate-400 hover:text-white flex items-center gap-1">
+                    <X size={15} /> Sair
+                  </button>
+                </div>
+              </div>
 
-      <ConfirmModal
-        isOpen={!!deckToDelete}
-        onClose={() => setDeckToDelete(null)}
-        onConfirm={handleConfirmDeleteDeck}
-        title="Excluir Deck"
-        message={`Tem certeza que deseja excluir o deck "${deckToDelete?.name || ''}" e todos os seus cartões? Essa ação não pode ser desfeita.`}
-        confirmText="Excluir Deck"
-        type="danger"
-        icon={Trash2}
-      />
-    </div>
+              {/* Flashcard - generous framing */}
+              <div className="flashcard-container mx-auto my-2" onClick={flipCard}>
+                <div className={`flashcard ${isFlipped ? 'flipped' : ''}`}>
+                  {/* FRONT */}
+                  <div className="flashcard-front">
+                    <div className="uppercase tracking-[2.5px] text-[10px] text-amber-300/70 mb-1.5 font-bold">PERGUNTA</div>
+                    <div className="flashcard-content mt-1 mb-1">{currentStudyCard.front}</div>
+                    <div className="absolute bottom-4 text-[10px] text-slate-500/80 tracking-wide">Toque para virar ↻</div>
+                  </div>
+                  {/* BACK */}
+                  <div className="flashcard-back">
+                    <div className="uppercase tracking-[2.5px] text-[10px] text-violet-300/70 mb-1.5 font-bold">RESPOSTA</div>
+                    <div className="flashcard-content mt-1 mb-1">{currentStudyCard.back}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Controls - better spacing */}
+              {!isFlipped ? (
+                <div className="mt-5 mb-1 text-center text-xs text-slate-400">Toque no cartão para revelar a resposta</div>
+              ) : (
+                <div className="mt-6">
+                  <div className="text-center text-sm font-medium text-amber-300 mb-3.5">Como foi a sua resposta?</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button onClick={() => rateCard(0)} className="rounded-2xl bg-rose-600/10 hover:bg-rose-600/25 border border-rose-600/30 py-3 text-rose-300 font-semibold active:scale-[0.985]">Esqueci</button>
+                    <button onClick={() => rateCard(1)} className="rounded-2xl bg-orange-500/10 hover:bg-orange-500/25 border border-orange-400/30 py-3 text-orange-300 font-semibold active:scale-[0.985]">Difícil</button>
+                    <button onClick={() => rateCard(2)} className="rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-400/30 py-3 text-emerald-300 font-semibold active:scale-[0.985]">Bom</button>
+                    <button onClick={() => rateCard(3)} className="rounded-2xl bg-sky-500/10 hover:bg-sky-500/25 border border-sky-400/30 py-3 text-sky-300 font-semibold active:scale-[0.985]">Fácil</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-center mt-7">
+                <button onClick={flipCard} className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-slate-400 hover:text-slate-200">
+                  <RotateCw size={14} /> Virar Cartão
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!selectedDeck && decks.length > 0 && (
+          <p className="text-center text-slate-500 mt-4 text-sm">Selecione um deck acima para gerenciar ou estudar.</p>
+        )}
+
+        <ConfirmModal
+          isOpen={!!deckToDelete}
+          onClose={() => setDeckToDelete(null)}
+          onConfirm={handleConfirmDeleteDeck}
+          title="Excluir Deck"
+          message={`Tem certeza que deseja excluir o deck "${deckToDelete?.name || ''}" e todos os seus cartões? Essa ação não pode ser desfeita.`}
+          confirmText="Excluir Deck"
+          type="danger"
+          icon={Trash2}
+        />
+      </div>
     </PageErrorBoundary>
   );
 }

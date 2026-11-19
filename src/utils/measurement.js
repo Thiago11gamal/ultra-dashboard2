@@ -473,12 +473,36 @@ export function getSafeScore(row, maxScore, minScore = 0) {
     }
     if (isPct && Number.isFinite(score)) {
       score = safeMin + (Math.max(0, Math.min(100, score)) / 100) * range;
+    } else if (
+      Number.isFinite(score) &&
+      isStrictNumericInput(row.sourceMinScore) &&
+      isStrictNumericInput(row.sourceMaxScore) &&
+      Number(row.sourceMaxScore) > Number(row.sourceMinScore)
+    ) {
+      const srcMin = Number(row.sourceMinScore);
+      const srcMax = Number(row.sourceMaxScore);
+      if (srcMin !== safeMin || srcMax !== safeMax) {
+        const clampedProp = Math.max(0, Math.min(1, (score - srcMin) / (srcMax - srcMin)));
+        score = safeMin + clampedProp * range;
+      }
     }
   } else if (row.value != null && row.value !== '') {
     score = parseNum(row.value);
     const isPct = Boolean(row.isPercentage || row.unit === 'pct' || row.unit === 'percentage' || row.scoreUnit === 'pct');
     if (isPct && Number.isFinite(score)) {
       score = safeMin + (Math.max(0, Math.min(100, score)) / 100) * range;
+    } else if (
+      Number.isFinite(score) &&
+      isStrictNumericInput(row.sourceMinScore) &&
+      isStrictNumericInput(row.sourceMaxScore) &&
+      Number(row.sourceMaxScore) > Number(row.sourceMinScore)
+    ) {
+      const srcMin = Number(row.sourceMinScore);
+      const srcMax = Number(row.sourceMaxScore);
+      if (srcMin !== safeMin || srcMax !== safeMax) {
+        const clampedProp = Math.max(0, Math.min(1, (score - srcMin) / (srcMax - srcMin)));
+        score = safeMin + clampedProp * range;
+      }
     }
   } else if ((row.correct != null || row.acertos != null || row.correctCount != null) && (row.total != null || row.questoes != null || row.totalQuestoes != null || row.questions != null)) {
     const total = Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions);
