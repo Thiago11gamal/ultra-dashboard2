@@ -5,15 +5,15 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Login from './components/Login';
-import HelpGuide from './components/HelpGuide';
 import Toast from './components/Toast';
 import { lazyWithRetry } from './utils/lazyRetry';
 
 // ✅ FIX P01: Importação Tardia (Lazy Loading) de Modais e Componentes Pesados
-// Movemos LevelUpToast, OnboardingTour e TrashModal para fora do bundle principal.
+// Movemos LevelUpToast, OnboardingTour, TrashModal e HelpGuide para fora do bundle principal.
 const LevelUpToast = lazyWithRetry(() => import('./components/LevelUpToast'));
 const OnboardingTour = lazyWithRetry(() => import('./components/OnboardingTour'));
 const TrashModal = lazyWithRetry(() => import('./components/TrashModal'));
+const HelpGuide = lazyWithRetry(() => import('./components/HelpGuide'));
 // WelcomeScreen não pode ser lazy porque precisa bloquear a interface no primeiro render
 import WelcomeScreen from './components/WelcomeScreen';
 
@@ -543,7 +543,11 @@ const RootRedirect = () => {
                       {routesContent}
                     </Motion.div>
                   </main>
-                  <HelpGuide isOpen={showHelpGuide} onClose={handleCloseHelp} />
+                  {showHelpGuide && (
+                    <Suspense fallback={null}>
+                      <HelpGuide isOpen={showHelpGuide} onClose={handleCloseHelp} />
+                    </Suspense>
+                  )}
                   {!hasSeenTour && (
                     <Suspense fallback={null}>
                       <OnboardingTour />

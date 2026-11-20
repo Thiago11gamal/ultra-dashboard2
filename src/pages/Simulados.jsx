@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../hooks/useToast';
 import { normalize, isSubjectMatch } from '../utils/normalization';
 import { computeCategorySimuladoStats, DEFAULT_SIMULADO_HISTORY_CAP, resolveCategoryScoreDomain } from '../utils/simuladoReconciler';
+import { computeEffectiveScoreRatio } from '../utils/aiSaveHelper';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { generateId } from '../utils/idGenerator';
 import { clearUrgencyCache, clearTopicsCache } from '../utils/coachCaches';
@@ -63,9 +64,9 @@ const getSimuladoSource = (rows) => {
 const SourceBadge = ({ source }) => {
   if (!source) return null;
   const config = {
-    ai:     { label: 'Simulado IA',     icon: Sparkles, cls: 'bg-purple-500/15 text-purple-300 border-purple-500/30' },
-    manual: { label: 'Simulado Manual', icon: PenLine,  cls: 'bg-blue-500/15 text-blue-300 border-blue-500/30' },
-    mixed:  { label: 'IA + Manual',     icon: BarChart3, cls: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' },
+    ai: { label: 'Simulado IA', icon: Sparkles, cls: 'bg-purple-500/15 text-purple-300 border-purple-500/30' },
+    manual: { label: 'Simulado Manual', icon: PenLine, cls: 'bg-blue-500/15 text-blue-300 border-blue-500/30' },
+    mixed: { label: 'IA + Manual', icon: BarChart3, cls: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' },
   };
   const c = config[source] || config.manual;
   const Icon = c.icon;
@@ -97,9 +98,8 @@ const DailyCard = ({ label, icon: Icon, data, accent, accentText, comparison }) 
           <span className="text-sm text-slate-400 font-medium">acerto</span>
           {/* Tendência */}
           {comparison !== null && (
-            <span className={`ml-auto flex items-center gap-1 text-xs font-bold ${
-              comparison > 0 ? 'text-emerald-400' : comparison < 0 ? 'text-rose-400' : 'text-slate-400'
-            }`}>
+            <span className={`ml-auto flex items-center gap-1 text-xs font-bold ${comparison > 0 ? 'text-emerald-400' : comparison < 0 ? 'text-rose-400' : 'text-slate-400'
+              }`}>
               {comparison > 0 ? <TrendingUp size={14} /> : comparison < 0 ? <TrendingDown size={14} /> : <Minus size={14} />}
               {comparison > 0 ? '+' : ''}{comparison}pp
             </span>
@@ -349,13 +349,13 @@ export default function Simulados() {
         // Cai para estratégia B
       }
     }
-    
+
     if (!lastRef.batchId || (lastRef.batchId && resultRows.length === 0) || lastRef.source === 'manual') {
       // 4. Estratégia B: mesma data + mesma origem (manual)
       const refDateKey = getDateKey(normalizeDate(
         lastRef.date || lastRef.lastUpdated || lastRef.createdAt || new Date()
       ));
-      
+
       // ✅ FIX BUG-36: cache de dateKey por row (evita N chamadas de normalizeDate)
       const dateKeyCache = new WeakMap();
       const getRowDateKey = (r) => {
@@ -365,7 +365,7 @@ export default function Simulados() {
         dateKeyCache.set(r, key);
         return key;
       };
-      
+
       resultRows = simuladoRowsArray.filter((r) => {
         if (!r || typeof r !== 'object') return false;
         // Para manual, queremos agrupar todos do dia excluindo linhas de IA
@@ -378,7 +378,7 @@ export default function Simulados() {
         if (!isManual) return false;
         return getRowDateKey(r) === refDateKey;
       });
-      
+
       // ✅ FIX BUG-49: fallback final se nada encontrado
       if (resultRows.length === 0) {
         console.warn(`[SimuladoFilter] Data ${refDateKey} não encontrou rows manual.`);
@@ -426,11 +426,11 @@ export default function Simulados() {
             ...c,
             simuladoStats: c.simuladoStats
               ? {
-                  ...c.simuladoStats,
-                  history: Array.isArray(c.simuladoStats.history)
-                    ? [...c.simuladoStats.history]
-                    : Object.values(c.simuladoStats.history || {})
-                }
+                ...c.simuladoStats,
+                history: Array.isArray(c.simuladoStats.history)
+                  ? [...c.simuladoStats.history]
+                  : Object.values(c.simuladoStats.history || {})
+              }
               : undefined
           }));
         const prevSimuladoRowsArray = Array.isArray(prev.simuladoRows)
@@ -449,17 +449,17 @@ export default function Simulados() {
         const rowsToKeep = prevSimuladoRowsArray.filter((r) => {
           const isToday = getDateKey(normalizeDate(r?.date || r?.createdAt)) === todayKey;
           const isManual = r && !r.isAuto && r.source !== 'ai-generated';
-          
+
           if (isToday && isManual) {
             if (r?.id && submittedIds.has(r.id)) return false;
-            
+
             const key1 = (r?.categoryId && r?.topicId) ? `${r.categoryId}-${r.topicId}` : null;
             const key2 = (r?.subject && r?.topic) ? `${normalize(r.subject)}-${normalize(r.topic)}` : null;
-            
+
             if (key1 && submittedKeys.has(key1)) return false;
             if (key2 && submittedKeys.has(key2)) return false;
           }
-          
+
           return true;
         });
 
@@ -531,10 +531,12 @@ export default function Simulados() {
 
           const finalC = todayRows.reduce((sum, r) => sum + (Number(r.correct) || 0), 0);
           const finalQ = todayRows.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+          const finalBlanks = todayRows.reduce((sum, r) => sum + Math.max(0, Number(r.blanks) || 0), 0);
           const finalTimeSpent = todayRows.reduce((sum, r) => sum + (Number(r.timeSpent) || 0), 0);
           const finalTimedQuestoes = todayRows.reduce(
             (sum, r) => sum + (Number(r.timeSpent) > 0 ? Number(r.total) || 0 : 0), 0
           );
+          const contestPenalty = Math.max(0, Number(prev?.penaltyPerWrong) || 0);
 
           const topicsMap = {};
           todayRows.forEach((r) => {
@@ -571,9 +573,17 @@ export default function Simulados() {
           if (finalQ > 0) {
             const totalDifficultyWeight = finalTopics.reduce((acc, t) => acc + (Number(t.difficulty) || 1.0) * (Number(t.total) || 0), 0);
             const avgDifficulty = finalTopics.length > 0 && totalDifficultyWeight > 0 ? totalDifficultyWeight / finalQ : 1.0;
-            const computedScore = minScore + (finalC / finalQ) * scoreRange;
+            const effCat = computeEffectiveScoreRatio(finalC, finalQ, {
+              blanks: finalBlanks,
+              penaltyPerWrong: contestPenalty,
+              minScore,
+              maxScore,
+            });
+            const computedScore = minScore + effCat.ratio * scoreRange;
             historyWithoutToday.push({
               date: todayKey, correct: finalC, total: finalQ,
+              ...(finalBlanks > 0 ? { blanks: effCat.blanks } : {}),
+              ...(effCat.penaltyApplied ? { netPoints: effCat.netPoints, penaltyPerWrong: contestPenalty } : {}),
               difficulty: Number(avgDifficulty.toFixed(2)),
               score: Math.min(maxScore, Math.max(minScore, computedScore)),
               timeSpent: finalTimeSpent, timedQuestoes: finalTimedQuestoes, topics: finalTopics,
@@ -613,20 +623,30 @@ export default function Simulados() {
         );
         let totalQ = 0;
         let totalC = 0;
+        let totalBlanks = 0;
         todayValidatedRows.forEach(r => {
           const rT = Math.max(0, parseInt(r?.total, 10) || 0);
           const rC = rT > 0 ? Math.min(Math.max(0, parseInt(r?.correct, 10) || 0), rT) : 0;
+          const rB = rT > 0 ? Math.min(Math.max(0, rT - rC), Math.max(0, parseInt(r?.blanks, 10) || 0)) : 0;
           totalQ += rT;
           totalC += rC;
+          totalBlanks += rB;
         });
         const rawContestMax = Number.isFinite(Number(prev.maxScore)) && Number(prev.maxScore) > 0 ? Number(prev.maxScore) : 100;
         const rawContestMin = Number.isFinite(Number(prev.minScore)) ? Number(prev.minScore) : 0;
         const contestMin = Math.min(rawContestMin, rawContestMax);
         const contestMax = Math.max(rawContestMin, rawContestMax);
         const contestRange = Math.max(1e-9, contestMax - contestMin);
-        const globalPointsRaw = totalQ > 0 ? (contestMin + (totalC / totalQ) * contestRange) : contestMin;
+        const globalPenalty = Math.max(0, Number(prev?.penaltyPerWrong) || 0);
+        const globalEff = computeEffectiveScoreRatio(totalC, totalQ, {
+          blanks: totalBlanks,
+          penaltyPerWrong: globalPenalty,
+          minScore: contestMin,
+          maxScore: contestMax,
+        });
+        const globalPointsRaw = totalQ > 0 ? (contestMin + globalEff.ratio * contestRange) : contestMin;
         const globalPoints = Number(Math.max(contestMin, Math.min(contestMax, globalPointsRaw)).toFixed(2));
-        const globalPct = totalQ > 0 ? Math.max(0, Math.min(100, Number(((totalC / totalQ) * 100).toFixed(2)))) : 0;
+        const globalPct = totalQ > 0 ? Math.max(0, Math.min(100, Number((globalEff.ratio * 100).toFixed(2)))) : 0;
 
         const existingSimuladosRaw = Array.isArray(prev.simulados) ? prev.simulados : Object.values(prev.simulados || {});
         let updatedSimulados = existingSimuladosRaw.filter(Boolean);
@@ -726,9 +746,9 @@ export default function Simulados() {
 
   const tabs = [
     { id: 'ai-generator', label: 'Gerar Simulado', icon: Brain },
-    { id: 'analyzer',     label: 'Último Simulado', icon: ListChecks },
-    { id: 'errors',       label: 'Caderno de Erros', icon: AlertTriangle },
-    { id: 'history',      label: 'Histórico', icon: HistoryIcon },
+    { id: 'analyzer', label: 'Último Simulado', icon: ListChecks },
+    { id: 'errors', label: 'Caderno de Erros', icon: AlertTriangle },
+    { id: 'history', label: 'Histórico', icon: HistoryIcon },
   ];
 
   // Guarda de segurança
@@ -768,11 +788,10 @@ export default function Simulados() {
               <button
                 key={tab.id}
                 onClick={() => setMode(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black rounded-xl transition-all duration-200 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
+                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black rounded-xl transition-all duration-200 ${isActive
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
               >
                 <Icon size={16} className={isActive ? '' : 'opacity-70'} />
                 {tab.label}
@@ -816,22 +835,20 @@ export default function Simulados() {
             <div className="flex gap-3 bg-slate-800/50 p-1.5 rounded-2xl w-fit border border-slate-700/50 shadow-inner">
               <button
                 onClick={() => setSubMode('ia')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm transition-all duration-300 ${
-                  subMode === 'ia'
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm transition-all duration-300 ${subMode === 'ia'
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
               >
                 <Brain size={16} className={subMode === 'ia' ? '' : 'opacity-70'} />
                 Simulado IA
               </button>
               <button
                 onClick={() => setSubMode('manual')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm transition-all duration-300 ${
-                  subMode === 'manual'
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-sm transition-all duration-300 ${subMode === 'manual'
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
               >
                 <ListChecks size={16} className={subMode === 'manual' ? '' : 'opacity-70'} />
                 Simulado Manual

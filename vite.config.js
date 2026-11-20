@@ -60,6 +60,8 @@ export default defineConfig({
           charts: ['recharts'],
           pdf: ['html-to-image', 'jspdf'],
           motion: ['framer-motion'],
+          icons: ['lucide-react'],
+          dates: ['date-fns'],
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
         },
       },

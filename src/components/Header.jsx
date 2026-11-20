@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RotateCcw, CloudDownload, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { RotateCcw, CloudDownload, Menu, PanelLeftClose, PanelLeftOpen, WifiOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import useClock, { useClockDate } from '../hooks/useClock';
@@ -53,7 +53,20 @@ const Header = React.memo(function Header({
 }) {
     const displayName = user?.name ?? 'Estudante';
     const [localName, setLocalName] = useState(displayName);
+    const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine === false : false));
     const prevDisplayNameRef = useRef(displayName);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const handleOnline = () => setIsOffline(false);
+        const handleOffline = () => setIsOffline(true);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
     const debounceRef = useRef(null);
     const isMountedRef = useRef(true); // FIX 5.3a: Proteção contra setState após unmount
 
@@ -163,6 +176,17 @@ const Header = React.memo(function Header({
                         </button>
                         <div className="flex items-center gap-3 min-w-0">
                             <DateDisplay />
+                            {isOffline && (
+                                <div
+                                    className="flex items-center shrink-0 gap-1.5 px-2.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-200 text-[9px] font-black uppercase tracking-wider"
+                                    role="status"
+                                    aria-live="polite"
+                                    title="Sem conexão com a internet. Suas alterações estão sendo salvas localmente e sincronizarão ao reconectar."
+                                >
+                                    <WifiOff size={10} aria-hidden="true" />
+                                    <span>Modo Offline</span>
+                                </div>
+                            )}
                             {cloudStatus.status !== 'idle' && (
                                 <div 
                                     className={`flex items-center shrink-0 min-w-[100px] justify-center gap-2 px-2.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wider transition-all duration-500 ${

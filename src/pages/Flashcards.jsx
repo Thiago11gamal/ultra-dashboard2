@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { PageErrorBoundary } from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
-import { BookOpen, Plus, Trash2, Play, X, RotateCw, Award } from 'lucide-react';
+import { BookOpen, Plus, Trash2, Play, X, RotateCw, Award, Edit2, Download, Upload, Check } from 'lucide-react';
 import { generateId } from '../utils/idGenerator';
 import { format } from 'date-fns';
 import { getFlashcardTodayKey, getFlashcardNextDueKey, isFlashcardDue, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
@@ -46,6 +46,11 @@ export default function Flashcards() {
   const [showAddCard, setShowAddCard] = useState(false);
   const [front, setFront] = useState('');
   const [back, setBack] = useState('');
+  const [editingCardId, setEditingCardId] = useState(null);
+  const [editFront, setEditFront] = useState('');
+  const [editBack, setEditBack] = useState('');
+  const [showImportCsv, setShowImportCsv] = useState(false);
+  const [csvText, setCsvText] = useState('');
 
   // Study session
   const [isStudying, setIsStudying] = useState(false);
@@ -177,6 +182,103 @@ export default function Flashcards() {
     setBack('');
     setShowAddCard(false);
     showToast('Cartão adicionado!', 'success');
+  };
+
+  const startEditCard = (card) => {
+    setEditingCardId(card.id);
+    setEditFront(card.front || '');
+    setEditBack(card.back || '');
+  };
+
+  const saveEditCard = () => {
+    if (!selectedDeckId || !editingCardId || !editFront.trim() || !editBack.trim()) {
+      showToast('Preencha frente e verso do cartão.', 'error');
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    const targetDeckId = selectedDeckId;
+    const targetCardId = editingCardId;
+    persistDecks(currentDecks => currentDecks.map(deck => {
+      if (deck.id !== targetDeckId) return deck;
+      const cards = getSafeDeckCards(deck).map(c => (
+        c.id === targetCardId ? { ...c, front: editFront.trim(), back: editBack.trim(), updatedAt: nowIso } : c
+      ));
+      return { ...deck, lastUpdated: nowIso, cards };
+    }));
+    setEditingCardId(null);
+    setEditFront('');
+    setEditBack('');
+    showToast('Cartão atualizado!', 'success');
+  };
+
+  const exportDeckCsv = () => {
+    if (!selectedDeck) return;
+    const cards = getSafeDeckCards(selectedDeck);
+    if (!cards.length) {
+      showToast('Este deck não possui cartões para exportar.', 'warning');
+      return;
+    }
+    const escapeField = (v) => String(v || '').replace(/\r?\n/g, ' ').replace(/\t/g, ' ').trim();
+    const tsv = cards.map((c) => `${escapeField(c.front)}\t${escapeField(c.back)}`).join('\n');
+    try {
+      const blob = new Blob([tsv], { type: 'text/tab-separated-values;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(selectedDeck.name || 'deck').replace(/[^a-zA-Z0-9_-]/g, '_')}_anki.tsv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(`${cards.length} cartão(ões) exportado(s) (compatível com Anki)!`, 'success');
+    } catch {
+      showToast('Falha ao exportar arquivo.', 'error');
+    }
+  };
+
+  const importDeckCsv = () => {
+    if (!selectedDeckId || !csvText.trim()) {
+      showToast('Cole linhas no formato "Frente ; Verso" ou "Frente [TAB] Verso".', 'warning');
+      return;
+    }
+    const lines = csvText.replace(/\r\n/g, '\n').split('\n').map((l) => l.trim()).filter(Boolean);
+    const nowIso = new Date().toISOString();
+    const todayKey = getFlashcardTodayKey();
+    const newCards = [];
+
+    lines.forEach((line) => {
+      const sep = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
+      const idx = line.indexOf(sep);
+      if (idx <= 0) return;
+      const f = line.slice(0, idx).replace(/^"|"$/g, '').trim();
+      const b = line.slice(idx + 1).replace(/^"|"$/g, '').trim();
+      if (f && b) {
+        newCards.push({
+          id: generateId('card'),
+          front: f,
+          back: b,
+          interval: 1,
+          ease: 2.5,
+          due: todayKey,
+          lastReviewed: null,
+          reviews: 0,
+          createdAt: nowIso,
+          source: 'csv-import',
+        });
+      }
+    });
+
+    if (!newCards.length) {
+      showToast('Nenhum par Frente/Verso válido encontrado.', 'error');
+      return;
+    }
+
+    const targetDeckId = selectedDeckId;
+    persistDecks(currentDecks => currentDecks.map(deck => {
+      if (deck.id !== targetDeckId) return deck;
+      return { ...deck, lastUpdated: nowIso, cards: [...getSafeDeckCards(deck), ...newCards] };
+    }));
+    setCsvText('');
+    setShowImportCsv(false);
+    showToast(`${newCards.length} cartão(ões) importado(s) com sucesso!`, 'success');
   };
 
   const deleteCard = (cardId) => {
@@ -478,15 +580,38 @@ export default function Flashcards() {
                 <div className="text-amber-300/80 text-sm tracking-wider mt-0.5">{selectedDeck.subject} • {getSafeDeckCards(selectedDeck).length} cartões</div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button onClick={() => startStudy(selectedDeck)} disabled={getSafeDeckCards(selectedDeck).length === 0} className="tool-btn">
                   <Play size={16} /> Iniciar Revisão
                 </button>
                 <button onClick={() => setShowAddCard(true)} className="tool-btn secondary">
                   <Plus size={16} /> Adicionar Cartão
                 </button>
+                <button type="button" onClick={() => setShowImportCsv((v) => !v)} className="tool-btn secondary" title="Importar cartões CSV / TSV (Anki)">
+                  <Upload size={15} /> Importar CSV
+                </button>
+                <button type="button" onClick={exportDeckCsv} disabled={getSafeDeckCards(selectedDeck).length === 0} className="tool-btn secondary" title="Exportar deck em TSV compatível com Anki">
+                  <Download size={15} /> Exportar Anki
+                </button>
               </div>
             </div>
+
+            {showImportCsv && (
+              <div className="mb-6 p-4 rounded-2xl border border-indigo-500/30 bg-slate-950/70 space-y-3">
+                <div className="micro-label text-indigo-300">IMPORTAR CSV / ANKI (1 cartão por linha: Frente ; Verso ou TAB)</div>
+                <textarea
+                  value={csvText}
+                  onChange={(e) => setCsvText(e.target.value)}
+                  rows={4}
+                  placeholder={'Art. 5º CF;Direitos e garantias individuais e coletivos\nControle concentrado;Exercido pelo STF via ADI, ADC, ADPF'}
+                  className="w-full rounded-xl bg-black/40 border border-white/10 p-3 text-xs font-mono resize-y"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button type="button" onClick={() => { setShowImportCsv(false); setCsvText(''); }} className="tool-btn secondary">Cancelar</button>
+                  <button type="button" onClick={importDeckCsv} className="tool-btn">Importar Cartões</button>
+                </div>
+              </div>
+            )}
 
             {/* Add card form */}
             {showAddCard && (
@@ -517,31 +642,70 @@ export default function Flashcards() {
                 <div className="space-y-2">
                   {getSafeDeckCards(selectedDeck).map((card) => (
                     <div key={card.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-slate-950/40 p-3 text-sm group">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-amber-100 line-clamp-2 leading-snug">{card.front}</div>
-                        <div className="text-slate-400 mt-1 text-xs line-clamp-2 leading-snug">{card.back}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                          <span>Intervalo: {card.interval || 1}d</span>
-                          {card.due && <span>Próxima: {formatDueShort(card.due)}</span>}
-                          <span className="font-mono text-cyan-400/80">
-                            R: {Math.round(computeFlashcardRetrievability(card) * 100)}%
-                          </span>
-                          {card.fsrs?.stability != null && (
-                            <span className="font-mono text-indigo-300/80">FSRS S={card.fsrs.stability}d</span>
-                          )}
-                          {(card.priority === 'critical' || card.confidence === 'certeza') && (
-                            <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold">
-                              Conceito Crítico
-                            </span>
-                          )}
+                      {editingCardId === card.id ? (
+                        <div className="flex-1 space-y-2">
+                          <textarea
+                            value={editFront}
+                            onChange={(e) => setEditFront(e.target.value)}
+                            rows={2}
+                            aria-label="Editar frente do cartão"
+                            className="w-full rounded-lg bg-black/50 border border-indigo-400/40 p-2 text-xs text-white outline-none"
+                          />
+                          <textarea
+                            value={editBack}
+                            onChange={(e) => setEditBack(e.target.value)}
+                            rows={2}
+                            aria-label="Editar verso do cartão"
+                            className="w-full rounded-lg bg-black/50 border border-indigo-400/40 p-2 text-xs text-slate-200 outline-none"
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button type="button" onClick={() => setEditingCardId(null)} className="px-2.5 py-1 rounded-lg bg-white/5 text-xs text-slate-400 hover:text-white">Cancelar</button>
+                            <button type="button" onClick={saveEditCard} className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 text-xs font-bold text-emerald-200">
+                              <Check size={12} /> Salvar
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <button
-                        onClick={() => deleteCard(card.id)}
-                        className="opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-500 transition p-1"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      ) : (
+                        <>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-amber-100 line-clamp-2 leading-snug">{card.front}</div>
+                            <div className="text-slate-400 mt-1 text-xs line-clamp-2 leading-snug">{card.back}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                              <span>Intervalo: {card.interval || 1}d</span>
+                              {card.due && <span>Próxima: {formatDueShort(card.due)}</span>}
+                              <span className="font-mono text-cyan-400/80">
+                                R: {Math.round(computeFlashcardRetrievability(card) * 100)}%
+                              </span>
+                              {card.fsrs?.stability != null && (
+                                <span className="font-mono text-indigo-300/80">FSRS S={card.fsrs.stability}d</span>
+                              )}
+                              {(card.priority === 'critical' || card.confidence === 'certeza') && (
+                                <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold">
+                                  Conceito Crítico
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
+                            <button
+                              type="button"
+                              onClick={() => startEditCard(card)}
+                              aria-label="Editar cartão"
+                              className="text-indigo-300 hover:text-indigo-200 p-1"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteCard(card.id)}
+                              aria-label="Excluir cartão"
+                              className="text-rose-400 hover:text-rose-500 p-1"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>

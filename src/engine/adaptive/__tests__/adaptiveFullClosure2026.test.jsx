@@ -19,6 +19,8 @@ import ErrorNotebook from '../../../components/ai/ErrorNotebook';
 import SyllabusImporterModal from '../../../components/ai/SyllabusImporterModal';
 import ActivityHeatmap from '../../../components/ActivityHeatmap';
 import SimuladoAnalysis from '../../../components/SimuladoAnalysis';
+import Header from '../../../components/Header';
+import { applyAIResultsToDraft, computeEffectiveScoreRatio } from '../../../utils/aiSaveHelper';
 
 const NOW = new Date('2026-05-06T14:00:00Z'); // Wednesday
 
@@ -299,5 +301,63 @@ Direito Penal (peso 30)
     expect(flags.useCustomFlag).toBe(true);
     expect(flags.useStateSpace).toBe(true);
     expect(flags.useAutoTuner).toBe(false);
+  });
+
+  it('Fix A: persists Cebraspe net score (with blanks) across AI simuladoRows, simulados and category history', () => {
+    // 6 correct, 2 blank, 2 wrong out of 10 with penalty 1.0 => net = 4/10 = 40%
+    const eff = computeEffectiveScoreRatio(6, 10, { blanks: 2, penaltyPerWrong: 1.0, minScore: 0, maxScore: 100 });
+    expect(eff.ratio).toBeCloseTo(0.4, 4);
+    expect(eff.netPoints).toBe(4);
+    expect(eff.penaltyApplied).toBe(true);
+
+    // Negative scale (-120..120): 30 correct, 10 blank, 80 wrong => rawNet = -50
+    const negEff = computeEffectiveScoreRatio(30, 120, { blanks: 10, penaltyPerWrong: 1.0, minScore: -120, maxScore: 120 });
+    expect(-120 + negEff.ratio * 240).toBeCloseTo(-50, 1);
+
+    const draft = {
+      minScore: 0,
+      maxScore: 100,
+      penaltyPerWrong: 1.0,
+      categories: [{ id: 'c1', name: 'Direito Penal', tasks: [], simuladoStats: { history: [] } }],
+      simuladoRows: [],
+      simulados: [],
+    };
+    applyAIResultsToDraft(
+      draft,
+      {
+        categoryId: 'c1',
+        materia: 'Direito Penal',
+        assunto: 'Teoria do Crime',
+        dificuldade: 'medio',
+        questionTelemetry: [
+          ...Array.from({ length: 6 }, (_, i) => ({ id: `ok-${i}`, correct: true, wasAnswered: true })),
+          { id: 'b1', correct: false, wasAnswered: false },
+          { id: 'b2', correct: false, wasAnswered: false },
+          { id: 'w1', correct: false, wasAnswered: true },
+          { id: 'w2', correct: false, wasAnswered: true },
+        ],
+      },
+      6,
+      10,
+      300,
+      false,
+      'batch-cebraspe'
+    );
+
+    expect(draft.simuladoRows[0].score).toBe(40);
+    expect(draft.simuladoRows[0].blanks).toBe(2);
+    expect(draft.simulados[0].scorePoints).toBeCloseTo(40, 1);
+    expect(draft.categories[0].simuladoStats.history[0].score).toBeCloseTo(40, 1);
+  });
+
+  it('Fix B: Header displays Modo Offline status pill when browser loses connectivity', () => {
+    const prevOnLine = navigator.onLine;
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    try {
+      const { container } = render(<Header user={{ name: 'Aluno' }} />);
+      expect(container.textContent).toContain('Modo Offline');
+    } finally {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: prevOnLine });
+    }
   });
 });

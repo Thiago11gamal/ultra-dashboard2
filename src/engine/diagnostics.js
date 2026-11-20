@@ -822,6 +822,8 @@ export function computeCategoryDiagnostics({
 export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100, minScore = 0) {
   const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
   if (safeCats.length < 2) return { categories: [], matrix: [], pairs: [] };
+  const safeMax = Math.max(Number(maxScore) || 100, Number(minScore) || 0);
+  const safeMin = Math.min(Number(maxScore) || 100, Number(minScore) || 0);
 
   const weekKey = (rawDate) => {
     const dk = getDateKey(rawDate);
@@ -837,8 +839,8 @@ export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100
   const activeCats = [];
 
   safeCats.forEach((cat) => {
-    const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
-    const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
+    const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
+    const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMax;
     const cRange = Math.max(1e-6, cMax - cMin);
     const hist = Array.isArray(cat?.simuladoStats?.history)
       ? cat.simuladoStats.history

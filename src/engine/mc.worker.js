@@ -40,6 +40,18 @@ function sanitizeSubjects(subjects) {
     });
 }
 
+function sanitizeExamGroupCutoffs(cutoffs) {
+    if (!cutoffs || typeof cutoffs !== 'object' || Array.isArray(cutoffs)) return undefined;
+    const clean = {};
+    for (const [grp, val] of Object.entries(cutoffs)) {
+        const n = safeNum(val, NaN);
+        if (grp && Number.isFinite(n) && n > 0) {
+            clean[String(grp).trim()] = n;
+        }
+    }
+    return Object.keys(clean).length > 0 ? clean : undefined;
+}
+
 function sanitizeBayesianCI(ci) {
     if (!ci || typeof ci !== 'object') return undefined;
 
@@ -105,6 +117,9 @@ function sanitizeOptions(options) {
             ? options.historicalCutoffs.map(v => Number(v)).filter(n => Number.isFinite(n))
             : [];
     }
+    if (options.examGroupCutoffs !== undefined) {
+        newOpts.examGroupCutoffs = sanitizeExamGroupCutoffs(options.examGroupCutoffs);
+    }
 
     return newOpts;
 }
@@ -148,6 +163,7 @@ self.onmessage = function (e) {
                                 ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n))
                                 : [])
                             : undefined,
+                        examGroupCutoffs: sanitizeExamGroupCutoffs(input.examGroupCutoffs),
                         flashcardImmunity: input.flashcardImmunity !== undefined ? safeNum(input.flashcardImmunity, 1.0) : undefined,
                         simuladoRows: input.simuladoRows,
                         categoryNames: input.categoryNames,
@@ -177,6 +193,7 @@ self.onmessage = function (e) {
                                 ? input.historicalCutoffs.map(Number).filter(n => Number.isFinite(n))
                                 : [])
                             : undefined,
+                        examGroupCutoffs: sanitizeExamGroupCutoffs(input.examGroupCutoffs),
                         flashcardImmunity: input.flashcardImmunity != null ? safeNum(input.flashcardImmunity, 1.0) : undefined,
                         subjects: input.subjects != null ? sanitizeSubjects(input.subjects) : undefined
                     };

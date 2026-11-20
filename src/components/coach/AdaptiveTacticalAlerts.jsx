@@ -36,7 +36,7 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
     }
 
     // 2. Crowding-Out detection
-    const corr = computeWeeklyCategoryCorrelation(categories, minScore, maxScore);
+    const corr = computeWeeklyCategoryCorrelation(categories, maxScore, minScore);
     const worstCrowding = (corr.pairs || []).find((p) => p.type === 'crowding_out');
     if (worstCrowding) {
       list.push({

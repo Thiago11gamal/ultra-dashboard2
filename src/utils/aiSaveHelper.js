@@ -10,6 +10,52 @@ function safeArray(val) {
     return [];
 }
 
+/**
+ * Calcula a proporção efetiva de pontuação considerando penalidade da banca (ex.: CEBRASPE)
+ * e questões deixadas em branco. Quando penaltyPerWrong <= 0, equivale exatamente a correct / total.
+ */
+export function computeEffectiveScoreRatio(
+  correct,
+  total,
+  { blanks = 0, penaltyPerWrong = 0, minScore = 0, maxScore = 100 } = {}
+) {
+  const safeT = Math.max(0, Number(total) || 0);
+  if (safeT <= 0) {
+    return { ratio: 0, netPoints: 0, wrong: 0, blanks: 0, penaltyApplied: false };
+  }
+  const safeC = Math.max(0, Math.min(safeT, Number(correct) || 0));
+  const safePenalty = Math.max(0, Number(penaltyPerWrong) || 0);
+  const safeBlanks = Math.max(0, Math.min(safeT - safeC, Number(blanks) || 0));
+  const wrong = Math.max(0, safeT - safeC - safeBlanks);
+
+  if (safePenalty <= 0) {
+    return { ratio: safeC / safeT, netPoints: safeC, wrong, blanks: safeBlanks, penaltyApplied: false };
+  }
+
+  const rawNet = safeC - wrong * safePenalty;
+  if (Number(minScore) < 0 && Number(maxScore) > 0) {
+    const scaled = (rawNet / safeT) * Number(maxScore);
+    const clamped = Math.max(Number(minScore), Math.min(Number(maxScore), scaled));
+    const range = Math.max(1e-9, Number(maxScore) - Number(minScore));
+    return {
+      ratio: Math.max(0, Math.min(1, (clamped - Number(minScore)) / range)),
+      netPoints: Number(rawNet.toFixed(2)),
+      wrong,
+      blanks: safeBlanks,
+      penaltyApplied: true,
+    };
+  }
+
+  const clampedNet = Math.max(0, rawNet);
+  return {
+    ratio: Math.max(0, Math.min(1, clampedNet / safeT)),
+    netPoints: Number(clampedNet.toFixed(2)),
+    wrong,
+    blanks: safeBlanks,
+    penaltyApplied: true,
+  };
+}
+
 export function applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId) {
   if (!draft || typeof draft !== 'object') return;
   const todayKey = getDateKey(normalizeDate(new Date()));
@@ -27,7 +73,21 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
   });
   const catResolved = matchedCat ? resolveCategoryScoreDomain(matchedCat, domain.max, domain.min) : null;
   const rowDomain = catResolved ? { min: catResolved.minScore, max: catResolved.maxScore, range: catResolved.range } : domain;
-  const ratio = (total > 0 && Number.isFinite(correct) && Number.isFinite(total)) ? Math.max(0, Math.min(1, correct / total)) : 0;
+
+  const penaltyPerWrong = Math.max(0, Number(draft.penaltyPerWrong ?? formData?.penaltyPerWrong) || 0);
+  const inferredBlanks = Number.isFinite(Number(formData?.blanks))
+    ? Math.max(0, Number(formData.blanks))
+    : (Array.isArray(formData?.questionTelemetry)
+      ? formData.questionTelemetry.filter((q) => q && q.wasAnswered === false).length
+      : 0);
+
+  const effectiveScore = computeEffectiveScoreRatio(correct, total, {
+    blanks: inferredBlanks,
+    penaltyPerWrong,
+    minScore: rowDomain.min,
+    maxScore: rowDomain.max,
+  });
+  const ratio = effectiveScore.ratio;
   const computedScore = Math.round(ratio * 100);
   const diffMap = { facil: 0.7, medio: 1.0, dificil: 1.3, expert: 1.6 };
   const numericDifficulty = diffMap[formData.dificuldade] || 1.0;
@@ -41,6 +101,8 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     taskId,
     correct,
     total,
+    ...(inferredBlanks > 0 ? { blanks: effectiveScore.blanks } : {}),
+    ...(effectiveScore.penaltyApplied ? { netPoints: effectiveScore.netPoints, penaltyPerWrong } : {}),
     score: computedScore,
     scorePct: ratio * 100,
     scorePoints: rowDomain.min + ratio * rowDomain.range,
@@ -172,17 +234,25 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         }
         const dayTotal = prevTotal + total;
         const dayCorrect = prevCorrect + correct;
+        const dayBlanks = (Number(existing.blanks) || 0) + effectiveScore.blanks;
         const dayTimeSpent = (Number(existing.timeSpent) || 0) + timeSpentSecs;
         const dayTimedQuestoes = (Number(existing.timedQuestoes) || 0) + (timeSpentSecs > 0 ? total : 0);
 
         const prevWeight = (existing.difficulty || 1.0) * (existing.total || 0);
         const newWeight = numericDifficulty * total;
         const newDiff = dayTotal > 0 ? (prevWeight + newWeight) / dayTotal : 1.0;
+        const dayEff = computeEffectiveScoreRatio(dayCorrect, dayTotal, {
+          blanks: dayBlanks,
+          penaltyPerWrong,
+          minScore: catMinScore,
+          maxScore: catMaxScore,
+        });
 
         existing.correct = dayCorrect;
         existing.total = dayTotal;
+        if (dayBlanks > 0) existing.blanks = dayBlanks;
         existing.isPercentage = false;
-        existing.score = dayTotal > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (dayCorrect / dayTotal) * catScoreRange)) : catMinScore;
+        existing.score = dayTotal > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + dayEff.ratio * catScoreRange)) : catMinScore;
         existing.difficulty = newDiff;
         existing.timeSpent = dayTimeSpent;
         existing.timedQuestoes = dayTimedQuestoes;
@@ -195,6 +265,12 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         existing.batchIds = Array.from(new Set([...prevBatchIds, assignedBatchId]));
         
       } else {
+        const entryEff = computeEffectiveScoreRatio(correct, total, {
+          blanks: effectiveScore.blanks,
+          penaltyPerWrong,
+          minScore: catMinScore,
+          maxScore: catMaxScore,
+        });
         history.push({
           id: generateId('ai-hist'),
           batchId: assignedBatchId,
@@ -202,12 +278,13 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
           date: todayKey,
           correct,
           total,
+          ...(effectiveScore.blanks > 0 ? { blanks: effectiveScore.blanks } : {}),
           isPercentage: false,
           timeSpent: timeSpentSecs,
           timedQuestoes: timeSpentSecs > 0 ? total : 0,
           lastSessionTimeSpent: timeSpentSecs,
           lastSessionTotal: total,
-          score: total > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + (correct / total) * catScoreRange)) : catMinScore,
+          score: total > 0 ? Math.min(catMaxScore, Math.max(catMinScore, catMinScore + entryEff.ratio * catScoreRange)) : catMinScore,
           difficulty: formData.dificuldade === 'facil' ? 0.7 : formData.dificuldade === 'medio' ? 1.0 : formData.dificuldade === 'dificil' ? 1.3 : 1.6,
           topics: [newTopicEntry],
         });
