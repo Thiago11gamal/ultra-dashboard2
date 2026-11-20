@@ -9,7 +9,7 @@ import { getSafeScore } from '../utils/scoreHelper.js';
 import { getPercentile } from './math/percentile.js';
 import { SCENARIO_CONFIG } from '../utils/monteCarloScenario.js';
 
-import { sampleTruncatedNormal, truncatedNormalFromUniform, normalCDF_complement, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian, generateKDE } from './math/gaussian.js';
+import { sampleTruncatedNormal, truncatedNormalFromUniform, truncatedNormalMean, normalCDF_complement, ensurePositiveSemiDefinite, choleskyDecomposition, applyCovariance, generateGaussian, generateKDE } from './math/gaussian.js';
 // ✅ LOTE-04 FIX: Z_95 e MIN_SD_FLOOR removidos — não eram usados aqui
 // (Z_95 vive em stats.js; MIN_SD_FLOOR vive em gaussian.js)
 import { kahanSum, kahanMean } from './math/kahan.js';
@@ -275,14 +275,14 @@ export function calculateMSSD(history, maxScore = 100, minScore = 0) {
         }
     }
 
-    // FIX-RMSSD-01: RMSSD = sqrt(mean(d²)). O fator 2 artificial subestimava
-    // a variabilidade em √2 (~29%), mascarando instabilidade do desempenho.
+    // FIX-RMSSD-01b: Para ruído i.i.d. com desvio σ, E[(X_t - X_{t-1})²] = 2σ²
+    // logo o estimador não-viesado de von Neumann para σ de prova única é sqrt(mean(d²) / 2).
     if (validTransitions < 1) {
         const range = maxScore - minScore > 0 ? maxScore - minScore : maxScore;
         return 0.05 * range;
     }
-    const rmssd = sumSqDiff / validTransitions;
-    return Math.sqrt(Math.max(1e-6, rmssd));
+    const unbiasedVar = sumSqDiff / (2 * validTransitions);
+    return Math.sqrt(Math.max(1e-6, unbiasedVar));
 }
 
 // -----------------------------
@@ -434,14 +434,37 @@ export function logisticRegression(history, maxScore = 100, options = {}) {
     };
 }
 
+function solveTruncatedMuProjection(targetMean, sd, domainMin, domainMax) {
+    const safeTarget = Math.max(domainMin, Math.min(domainMax, Number.isFinite(targetMean) ? targetMean : (domainMin + domainMax) / 2));
+    if (!Number.isFinite(sd) || sd <= 1e-9) return safeTarget;
+    if ((safeTarget - domainMin) >= sd * 1.5 && (domainMax - safeTarget) >= sd * 1.5) return safeTarget;
+    const span = Math.max(1e-9, domainMax - domainMin);
+    const spread = Math.max(sd * 25, span * 2.5);
+    let lo = domainMin - spread;
+    let hi = domainMax + spread;
+    let mu = safeTarget;
+    const tol = Math.max(1e-6, span * 0.0002);
+    for (let iter = 0; iter < 30; iter++) {
+        const tm = truncatedNormalMean(mu, sd, domainMin, domainMax);
+        if (!Number.isFinite(tm)) break;
+        const err = tm - safeTarget;
+        if (Math.abs(err) < tol) break;
+        if (err > 0) hi = mu;
+        else lo = mu;
+        mu = (lo + hi) / 2;
+    }
+    return Number.isFinite(mu) ? mu : safeTarget;
+}
+
 export function projectScore(history, projectDays = 60, minScore = 0, maxScore = 100, options = {}) {
     const sortedHistory = getSortedHistory(history);
-    if (!sortedHistory || sortedHistory.length === 0) return { projected: minScore, marginOfError: 0 };
-
-    // FIX: propagar minScore explicitamente para logisticRegression e calculateSlope (suporte a escalas negativas)
     const hasOptMin = options?.minScore !== undefined && options?.minScore !== null && options?.minScore !== '' && Number.isFinite(Number(options.minScore));
     const effectiveMinScore = hasOptMin ? Number(options.minScore) : (Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
+    if (!sortedHistory || sortedHistory.length === 0) return { projected: effectiveMinScore, marginOfError: 0 };
+
+    // FIX: propagar effectiveMinScore consistentemente em toda a projeção (suporte a escalas negativas)
     const resolvedOptions = hasOptMin ? options : { ...options, minScore: effectiveMinScore };
+    const effectiveRange = Math.max(1e-9, (maxScore - effectiveMinScore) > 0 ? (maxScore - effectiveMinScore) : maxScore);
 
     const logisticFit = logisticRegression(sortedHistory, maxScore, resolvedOptions);
     let projectedScore;
@@ -461,8 +484,8 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         sampleSize: sortedHistory.length,
         drift: linearSlope,
         driftUncertainty: slopeStdError,
-        scaleFactor: (maxScore - minScore > 0 ? maxScore - minScore : maxScore) / 100,
-        normalizedVol: (eventVolatility / (maxScore - minScore > 0 ? maxScore - minScore : maxScore)) * 100
+        scaleFactor: effectiveRange / 100,
+        normalizedVol: (eventVolatility / effectiveRange) * 100
     });
 
     const maxEffectiveDays = dampingBase * Math.log(1 + projectDays / dampingBase);
@@ -479,19 +502,18 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
         // Removemos a mistura corrompida. O EMA continuará a usar o `linearSlope`
         // para projetar o futuro no Random Walk.
 
-        const rawScore = getSafeScore(sortedHistory[0], maxScore, minScore);
-        let ema = Number.isFinite(rawScore) ? rawScore : minScore;
+        const rawScore = getSafeScore(sortedHistory[0], maxScore, effectiveMinScore);
+        let ema = Number.isFinite(rawScore) ? rawScore : effectiveMinScore;
         for (let i = 1; i < sortedHistory.length; i++) {
             const daysSinceLast = getDaysBetweenEntries(sortedHistory[i - 1], sortedHistory[i]);
-            let currentPoint = getSafeScore(sortedHistory[i], maxScore, minScore);
+            let currentPoint = getSafeScore(sortedHistory[i], maxScore, effectiveMinScore);
 
-            // PSEUDO-TRI: Rebalanceamento por dificuldade global invariante a [minScore, maxScore]
+            // PSEUDO-TRI: Rebalanceamento por dificuldade global invariante a [effectiveMinScore, maxScore]
             if (options.globalBaselinePct !== undefined && options.globalBaselinePct > 0 && Number.isFinite(currentPoint)) {
-                const triRange = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
-                const globalMean = minScore + (options.globalBaselinePct / 100) * triRange;
-                const difficultyDiff = (currentPoint - globalMean) / Math.max(1e-9, triRange);
-                currentPoint = currentPoint + (difficultyDiff * triRange * 0.05);
-                currentPoint = Math.max(minScore, Math.min(maxScore, currentPoint));
+                const globalMean = effectiveMinScore + (options.globalBaselinePct / 100) * effectiveRange;
+                const difficultyDiff = (currentPoint - globalMean) / effectiveRange;
+                currentPoint = currentPoint + (difficultyDiff * effectiveRange * 0.05);
+                currentPoint = Math.max(effectiveMinScore, Math.min(maxScore, currentPoint));
             }
 
             if (!Number.isNaN(currentPoint)) {
@@ -540,11 +562,11 @@ export function projectScore(history, projectDays = 60, minScore = 0, maxScore =
     const predictionSD = Math.sqrt(Math.pow(angularUncertainty, 2) + Math.pow(randomWalkUncertainty, 2));
     // Usar T-Student adaptativo para amostras pequenas em vez de Z=1.96 fixo
     const tMult = getConfidenceMultiplier(sortedHistory.length);
-    const marginOfError = Math.min((maxScore - minScore), tMult * predictionSD);
+    const marginOfError = Math.min(effectiveRange, tMult * predictionSD);
 
     return {
         // FIX #2: Precisão completa
-        projected: Number.isNaN(projectedScore) ? minScore : Math.max(minScore, Math.min(maxScore, projectedScore)),
+        projected: Number.isNaN(projectedScore) ? effectiveMinScore : Math.max(effectiveMinScore, Math.min(maxScore, projectedScore)),
         marginOfError
     };
 }
@@ -794,10 +816,14 @@ export function monteCarloSimulation(
             ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
             : gaps[Math.floor(gaps.length / 2)];
     }
-    // A volatilidade estocástica diária deve ser escalada pelo gap médio entre provas
-    // para que a variância cresça corretamente como um Random Walk/OU process.
-    const dailyVolatility = Math.max(0.001 * (maxScore - minScore > 0 ? maxScore - minScore : maxScore),
-        volatility / Math.sqrt(Math.max(1, medianGap)));
+    // Calibra a difusão diária do processo Ornstein-Uhlenbeck pela variância estacionária exata:
+    // Var_inf(OU) = sigma_day² / (2*theta - theta²) = volatility² => sigma_day = volatility * sqrt(2*theta - theta²).
+    // Evita explosão de 5x em simulados diários (medianGap=1) e colapso de -62% em simulados mensais (medianGap=30).
+    const ouStationaryScale = Math.sqrt(Math.max(0.02, 2 * thetaOU - thetaOU * thetaOU));
+    const dailyVolatility = Math.max(
+        0.001 * (maxScore - minScore > 0 ? maxScore - minScore : maxScore),
+        volatility * ouStationaryScale
+    );
 
     // [BUG-1 FIX] Usar o damping adaptativo em vez do hardcode de 45.
     // Com poucos dados/alta vol, dampingBase ≈ 30 (amortece rápido).
@@ -824,9 +850,22 @@ export function monteCarloSimulation(
     const rangeVolClamp = (maxScore - minScore) > 0 ? (maxScore - minScore) : maxScore;
     const maxVolSqClamp = Math.pow(rangeVolClamp * 0.2, 2);
 
-    // FIX #3: Prepare Cholesky on correlation matrix (unit SD) for Gaussian Copula subject minCutoffs
+    // FIX #3 + Group Cutoffs: Prepare Cholesky on correlation matrix (unit SD) for Gaussian Copula subject & group cutoffs
+    const examGroupCutoffs = (options.examGroupCutoffs && typeof options.examGroupCutoffs === 'object')
+        ? options.examGroupCutoffs
+        : null;
+    const activeGroupEntries = examGroupCutoffs
+        ? Object.entries(examGroupCutoffs).filter(([, v]) => {
+            const n = Number(v);
+            return Number.isFinite(n) && n > minScore;
+        })
+        : [];
+    const activeGroupSet = new Set(activeGroupEntries.map(([g]) => g));
+
     const hasValidMinCutoff = (s) => s != null && s.minCutoff !== undefined && s.minCutoff !== null && s.minCutoff !== '' && Number.isFinite(Number(s.minCutoff)) && (minScore < 0 ? Number(s.minCutoff) >= minScore : Number(s.minCutoff) > 0);
-    const cutoffSubjects = (options.subjects || []).filter(hasValidMinCutoff);
+    const cutoffSubjects = (options.subjects || []).filter((s) =>
+        hasValidMinCutoff(s) || (s != null && s.examGroup && activeGroupSet.has(s.examGroup))
+    );
     let subjectCholesky = null;
     if (cutoffSubjects.length > 1) {
         const stats = cutoffSubjects.map(s => ({
@@ -854,11 +893,15 @@ export function monteCarloSimulation(
     const residualsSkew = calcularAssimetria(safeResiduals);
 
     const minCutoffFailures = new Uint8Array(safeSimulations);
+    const choleskySize = cutoffSubjects.length;
+    const subjectFailCounts = new Uint32Array(choleskySize);
+    const groupFailCounts = new Map();
+    const globalSpanProj = Math.max(1e-9, maxScore - minScore);
 
     // CORREÇÃO GC THRASHING: Alocação estática fora do loop de Monte Carlo
-    const choleskySize = cutoffSubjects.length;
     const zVecStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
     const zCorrStatic = choleskySize > 0 ? new Float64Array(choleskySize) : null;
+    const sampledProjSubj = choleskySize > 0 ? new Float64Array(choleskySize) : null;
 
     for (let i = 0; i < safeSimulations; i++) {
         // CORREÇÃO: O truncamento normal tem de respeitar o driftLimit dinâmico e não hardcodes de 1%.
@@ -957,10 +1000,9 @@ export function monteCarloSimulation(
         let passedMins = true;
         if (choleskySize > 0) {
             const trajShiftRatio = simulationDays > 0
-                ? ((currentSimScore - baselineScore) / Math.max(1e-6, maxScore - minScore)) * 0.25
+                ? ((currentSimScore - baselineScore) / globalSpanProj) * 0.25
                 : 0;
             if (subjectCholesky) {
-                // Reutilização extrema de memória: mutar o array em vez de re-alocar
                 for (let k = 0; k < choleskySize; k++) {
                     zVecStatic[k] = generateGaussian(rng);
                 }
@@ -973,16 +1015,12 @@ export function monteCarloSimulation(
                     const safeSubSd = (s.sd !== null && s.sd !== undefined && typeof s.sd !== 'boolean' && String(s.sd).trim() !== '' && Number.isFinite(rawSubSd) && rawSubSd >= 0) ? rawSubSd : 1;
                     const effSd = Math.max(1e-6, safeSubSd * Math.max(0.80, s.immunityFactor || 1.0));
                     const sMeanProjected = Math.max(sMin, Math.min(sMax, Number(s.mean) + trajShiftRatio * (sMax - sMin)));
+                    const sMu = solveTruncatedMuProjection(sMeanProjected, effSd, sMin, sMax);
                     const u = 1 - normalCDF_complement(zCorrStatic[j]);
-                    const subjScore = truncatedNormalFromUniform(sMeanProjected, effSd, sMin, sMax, u);
-                    if (!Number.isFinite(subjScore) || subjScore < Number(s.minCutoff)) {
-                        passedMins = false;
-                        break;
-                    }
+                    sampledProjSubj[j] = truncatedNormalFromUniform(sMu, effSd, sMin, sMax, u);
                 }
             } else {
-                // fallback independent
-                for (let j = 0; j < cutoffSubjects.length; j++) {
+                for (let j = 0; j < choleskySize; j++) {
                     const s = cutoffSubjects[j];
                     const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
                     const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
@@ -990,11 +1028,39 @@ export function monteCarloSimulation(
                     const safeSubSd = (s.sd !== null && s.sd !== undefined && typeof s.sd !== 'boolean' && String(s.sd).trim() !== '' && Number.isFinite(rawSubSd) && rawSubSd >= 0) ? rawSubSd : 1;
                     const effSd = Math.max(1e-6, safeSubSd * Math.max(0.80, s.immunityFactor || 1.0));
                     const sMeanProjected = Math.max(sMin, Math.min(sMax, Number(s.mean) + trajShiftRatio * (sMax - sMin)));
-                    const subjScore = sampleTruncatedNormal(sMeanProjected, effSd, sMin, sMax, rng);
-                    // G-08 FIX: Verificar se subjScore é finito antes de comparar
-                    if (!Number.isFinite(subjScore) || subjScore < Number(s.minCutoff)) {
+                    const sMu = solveTruncatedMuProjection(sMeanProjected, effSd, sMin, sMax);
+                    sampledProjSubj[j] = sampleTruncatedNormal(sMu, effSd, sMin, sMax, rng);
+                }
+            }
+
+            const groupSums = activeGroupEntries.length > 0 ? new Map() : null;
+            const groupWeights = activeGroupEntries.length > 0 ? new Map() : null;
+            for (let j = 0; j < choleskySize; j++) {
+                const s = cutoffSubjects[j];
+                const subjScore = sampledProjSubj[j];
+                if (hasValidMinCutoff(s) && (!Number.isFinite(subjScore) || subjScore < Number(s.minCutoff))) {
+                    passedMins = false;
+                    subjectFailCounts[j] += 1;
+                }
+                if (groupSums && s.examGroup && activeGroupSet.has(s.examGroup) && Number.isFinite(subjScore)) {
+                    const sMin = Number.isFinite(s.minScore) ? s.minScore : minScore;
+                    const sMax = Number.isFinite(s.maxScore) ? s.maxScore : maxScore;
+                    const sRange = Math.max(1e-9, sMax - sMin);
+                    const globalSubjScore = (sMin === minScore && sMax === maxScore)
+                        ? subjScore
+                        : minScore + ((subjScore - sMin) / sRange) * globalSpanProj;
+                    const w = Math.max(1e-6, Number(s.weight) || 1);
+                    groupSums.set(s.examGroup, (groupSums.get(s.examGroup) || 0) + globalSubjScore * w);
+                    groupWeights.set(s.examGroup, (groupWeights.get(s.examGroup) || 0) + w);
+                }
+            }
+            if (groupSums) {
+                for (const [grp, gCutRaw] of activeGroupEntries) {
+                    const gCut = Number(gCutRaw);
+                    const gW = groupWeights.get(grp) || 0;
+                    if (gW > 0 && (groupSums.get(grp) / gW) < gCut) {
                         passedMins = false;
-                        break;
+                        groupFailCounts.set(grp, (groupFailCounts.get(grp) || 0) + 1);
                     }
                 }
             }
@@ -1008,11 +1074,23 @@ export function monteCarloSimulation(
     const hasHistCutoffs = rawCutoffs.length > 0;
     const cutoffsMean = hasHistCutoffs ? kahanSum(rawCutoffs) / rawCutoffs.length : targetScore;
     const cutoffsSD = hasHistCutoffs ? (rawCutoffs.length > 1 ? Math.sqrt(Math.max(1e-6, kahanSum(rawCutoffs.map(v => Math.pow(v - cutoffsMean, 2))) / (rawCutoffs.length - 1))) : Math.max(1e-6, (maxScore - minScore) * 0.025, Math.abs(cutoffsMean) * 0.05)) : 0;
+    const cutoffsMuProj = hasHistCutoffs ? solveTruncatedMuProjection(cutoffsMean, cutoffsSD, minScore, maxScore) : targetScore;
     let successes = 0;
+    let failedGlobalOnly = 0;
+    let failedMinOnly = 0;
+    let failedBoth = 0;
     for (let i = 0; i < safeSimulations; i++) {
-        const effectiveSimTarget = hasHistCutoffs ? sampleTruncatedNormal(cutoffsMean, cutoffsSD, minScore, maxScore, rng) : targetScore;
-        if (results[i] >= effectiveSimTarget && !minCutoffFailures[i]) {
+        const effectiveSimTarget = hasHistCutoffs ? sampleTruncatedNormal(cutoffsMuProj, cutoffsSD, minScore, maxScore, rng) : targetScore;
+        const passedGlobal = results[i] >= effectiveSimTarget;
+        const passedMins = !minCutoffFailures[i];
+        if (passedGlobal && passedMins) {
             successes++;
+        } else if (!passedGlobal && passedMins) {
+            failedGlobalOnly++;
+        } else if (passedGlobal && !passedMins) {
+            failedMinOnly++;
+        } else {
+            failedBoth++;
         }
     }
 
@@ -1078,6 +1156,28 @@ export function monteCarloSimulation(
         confidence: sortedHistory.length < 5 ? 'low' : sortedHistory.length < 15 ? 'medium' : 'high',
         // NEW: non-linear trend availability
         trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
+        riskDecomposition: {
+            passedAllPct: Number(((successes / safeSimulations) * 100).toFixed(1)),
+            failedGlobalOnlyPct: Number(((failedGlobalOnly / safeSimulations) * 100).toFixed(1)),
+            failedMinCutoffOnlyPct: Number(((failedMinOnly / safeSimulations) * 100).toFixed(1)),
+            failedBothPct: Number(((failedBoth / safeSimulations) * 100).toFixed(1)),
+            subjectEliminationRates: cutoffSubjects
+                .map((s, idx) => ({
+                    id: s.id || s.name || `s-${idx}`,
+                    name: s.name || s.id || `Matéria ${idx + 1}`,
+                    minCutoff: hasValidMinCutoff(s) ? Number(s.minCutoff) : null,
+                    eliminationPct: Number(((subjectFailCounts[idx] / safeSimulations) * 100).toFixed(1)),
+                }))
+                .filter((r) => r.eliminationPct > 0 || r.minCutoff !== null)
+                .sort((a, b) => b.eliminationPct - a.eliminationPct),
+            groupEliminationRates: Array.from(groupFailCounts.entries())
+                .map(([group, count]) => ({
+                    group,
+                    minCutoff: Number.isFinite(Number(examGroupCutoffs?.[group])) ? Number(examGroupCutoffs[group]) : null,
+                    eliminationPct: Number(((count / safeSimulations) * 100).toFixed(1)),
+                }))
+                .sort((a, b) => b.eliminationPct - a.eliminationPct),
+        },
         diagnostics: {
             trendType: typeof trendType !== 'undefined' ? trendType : 'linear',
             effectiveDriftSlope: typeof effectiveDriftSlope !== 'undefined' ? effectiveDriftSlope : 0,

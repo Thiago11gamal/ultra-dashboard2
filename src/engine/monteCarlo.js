@@ -362,6 +362,7 @@ export function simulateNormalDistribution(
 
     let cutoffsMean = 0;
     let cutoffsSD = 0;
+    let cutoffsMuParam = 0;
 
     const numericCutoffs = historicalCutoffs;
     const hasCutoffs = numericCutoffs.length > 0;
@@ -379,6 +380,7 @@ export function simulateNormalDistribution(
         if (!Number.isFinite(cutoffsSD) || cutoffsSD <= 0) {
             cutoffsSD = Math.max(1e-6, (maxScore - minScore) * 0.025, Math.abs(cutoffsMean) * 0.05);
         }
+        cutoffsMuParam = solveTruncatedNormalMu(cutoffsMean, cutoffsSD, minScore, maxScore);
     }
 
     // ✅ LOTE-01 FIX (C1): o score composto deve amostrar TODAS as matérias.
@@ -388,7 +390,7 @@ export function simulateNormalDistribution(
     // aprovação (passedMins), nunca a composição do score.
     const allSubjects = sanitizeSubjects(subjects).filter(s => {
         const w = Number(s?.weight);
-        return Number.isFinite(w) && w > 0.01;
+        return Number.isFinite(w) && w > 1e-6;
     });
     const subjectStats = allSubjects.map(s => {
         const safeSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
@@ -498,7 +500,7 @@ export function simulateNormalDistribution(
         let currentTarget = effectiveTarget;
 
         if (hasCutoffs) {
-            currentTarget = sampleTruncatedNormal(cutoffsMean, cutoffsSD, minScore, maxScore, rng);
+            currentTarget = sampleTruncatedNormal(cutoffsMuParam, cutoffsSD, minScore, maxScore, rng);
             if (!Number.isFinite(currentTarget)) currentTarget = effectiveTarget;
         }
 
@@ -810,6 +812,7 @@ export function simulateNormalDistribution(
             groupEliminationRates: Array.from(groupFailCounts.entries())
                 .map(([group, count]) => ({
                     group,
+                    minCutoff: Number.isFinite(Number(groupCutoffs?.[group])) ? Number(groupCutoffs[group]) : null,
                     eliminationPct: Number(((count / safeSimulations) * 100).toFixed(1)),
                 }))
                 .sort((a, b) => b.eliminationPct - a.eliminationPct),
@@ -860,12 +863,15 @@ export function runTornadoSensitivity({
         }, 0);
     };
 
-    const runOne = (list, seedTag) => simulateNormalDistribution({
+    // Common Random Numbers (CRN): mesma seed entre base / up / down elimina ruído MC (~±4pp)
+    // e garante monotonicidade estrita P(up) >= P(base) >= P(down).
+    const crnSeed = `tornado-crn-${baseSubjects.length}-${Math.round(targetScore)}-${Math.round(deltaPct)}`;
+    const runOne = (list) => simulateNormalDistribution({
         mean: weightedMean(list),
         sd: Math.max(1, (maxScore - minScore) * 0.08),
         targetScore,
         simulations,
-        seed: `tornado-${seedTag}`,
+        seed: crnSeed,
         minScore,
         maxScore,
         subjects: list,
@@ -873,7 +879,7 @@ export function runTornadoSensitivity({
         examGroupCutoffs,
     });
 
-    const baseRes = runOne(baseSubjects, 'base');
+    const baseRes = runOne(baseSubjects);
     const baseProb = Number(baseRes.probability.toFixed(1));
 
     const items = baseSubjects.map((subj, idx) => {
@@ -883,8 +889,8 @@ export function runTornadoSensitivity({
         const upList = baseSubjects.map((s, j) => (j === idx ? { ...s, mean: clamp(s.mean + stepPts, s.minScore, s.maxScore) } : s));
         const downList = baseSubjects.map((s, j) => (j === idx ? { ...s, mean: clamp(s.mean - stepPts, s.minScore, s.maxScore) } : s));
 
-        const upRes = runOne(upList, `up-${idx}`);
-        const downRes = runOne(downList, `down-${idx}`);
+        const upRes = runOne(upList);
+        const downRes = runOne(downList);
 
         const upside = Number((upRes.probability - baseProb).toFixed(1));
         const downside = Number((downRes.probability - baseProb).toFixed(1));

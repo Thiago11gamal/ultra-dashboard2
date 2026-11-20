@@ -48,17 +48,19 @@ export function computeACWR(studyLogs = [], options = {}) {
     }
   });
 
-  // Build 42-day window so 28-day chronic rolling average is well-defined for the last 21 days
+  // Build 49-day window so ALL 21 plotted days (indices 28..48) have a full 28-day chronic lookback
   const historySpanDays = Number.isFinite(earliestMs) ? Math.max(1, Math.round((todayMs - earliestMs) / MS_PER_DAY) + 1) : 0;
   const daysArray = [];
-  for (let offset = 41; offset >= 0; offset--) {
-    const d = new Date(todayMs - offset * MS_PER_DAY);
+  for (let offset = 48; offset >= 0; offset--) {
+    const dayMs = todayMs - offset * MS_PER_DAY;
+    const d = new Date(dayMs);
     const key = getDateKey(d) || '';
     const mins = dailyMinutes.get(key) || 0;
     const eCnt = dailyEnergyCount.get(key) || 0;
     const avgEnergy = eCnt > 0 ? Number((dailyEnergySum.get(key) / eCnt).toFixed(2)) : null;
     daysArray.push({
       date: key,
+      ms: dayMs,
       label: key ? `${key.slice(8, 10)}/${key.slice(5, 7)}` : '',
       minutes: Math.round(mins),
       hours: Number((mins / 60).toFixed(2)),
@@ -66,20 +68,26 @@ export function computeACWR(studyLogs = [], options = {}) {
     });
   }
 
-  // Rolling ACWR series for the last 21 days
+  // Rolling ACWR series for the last 21 days (indices 28..48)
   const series = [];
-  for (let i = 21; i < daysArray.length; i++) {
+  for (let i = 28; i < daysArray.length; i++) {
     let acuteMin = 0;
     for (let j = i - 6; j <= i; j++) acuteMin += daysArray[j].minutes;
 
     let chronicMin28 = 0;
-    const chronicStart = Math.max(0, i - 27);
+    const chronicStart = i - 27;
     for (let j = chronicStart; j <= i; j++) chronicMin28 += daysArray[j].minutes;
 
     const acuteHours = acuteMin / 60;
-    const rawChronicWeeklyHours = (chronicMin28 / 60) / 4;
-    // Prior baseline semanal de 14h suaviza o Cold Start nas primeiras 2 semanas
-    const observedWeeks = Math.min(4, Math.max(0, historySpanDays / 7));
+    // Ajusta o denominador crônico pelo span ativo real até o dia `i` (mín. 7d, máx. 28d),
+    // evitando dividir 14 dias de estudo por 28 dias zerados pré-cadastro (falso Burnout no Cold Start).
+    const spanUpToDay = Number.isFinite(earliestMs) && daysArray[i].ms >= earliestMs
+      ? Math.max(1, Math.round((daysArray[i].ms - earliestMs) / MS_PER_DAY) + 1)
+      : 0;
+    const activeChronicDays = spanUpToDay > 0 ? Math.min(28, Math.max(7, spanUpToDay)) : 28;
+    const rawChronicWeeklyHours = (chronicMin28 / 60) / (activeChronicDays / 7);
+    // Prior baseline semanal de 14h suaviza o Cold Start proporcionalmente às semanas observadas até o dia i
+    const observedWeeks = Math.min(4, Math.max(0, spanUpToDay / 7));
     const chronicWeeklyHours = Math.max(
       1.5,
       blendPriorEmpirical(14, rawChronicWeeklyHours, observedWeeks, 1.5)

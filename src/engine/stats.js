@@ -134,11 +134,10 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
     const firstValid = sorted.find(h => Number.isFinite(safeDateParse(h?.date || h?.createdAt)?.getTime()));
     const t0 = firstValid ? safeDateParse(firstValid.date || firstValid.createdAt).getTime() : now;
 
+    const pts = [];
     let sumW = 0, cW = 0;
     let sumWX = 0, cWX = 0;
     let sumWY = 0, cWY = 0;
-    let sumWXX = 0, cWXX = 0;
-    let sumWXY = 0, cWXY = 0;
 
     for (let i = 0; i < sorted.length; i++) {
         const h = sorted[i];
@@ -153,26 +152,35 @@ export function weightedRegression(history, lambda = 0.08, maxScore = 100, optio
         const rawWeight = Math.exp(-effectiveLambda * t);
         const w = Math.max(EPSILON_WEIGHT, rawWeight);
         const x = (timeMs - t0) / 86400000;
+        pts.push({ x, y, w });
 
         const yW = w - cW; const tW = sumW + yW; cW = (tW - sumW) - yW; sumW = tW;
-
         const valWX = w * x;
         const yWX = valWX - cWX; const tWX = sumWX + yWX; cWX = (tWX - sumWX) - yWX; sumWX = tWX;
-
         const valWY = w * y;
         const yWY = valWY - cWY; const tWY = sumWY + yWY; cWY = (tWY - sumWY) - yWY; sumWY = tWY;
-
-        const valWXX = w * x * x;
-        const yWXX = valWXX - cWXX; const tWXX = sumWXX + yWXX; cWXX = (tWXX - sumWXX) - yWXX; sumWXX = tWXX;
-
-        const valWXY = w * x * y;
-        const yWXY = valWXY - cWXY; const tWXY = sumWXY + yWXY; cWXY = (tWXY - sumWXY) - yWXY; sumWXY = tWXY;
     }
 
-    const RIDGE_PENALTY = Math.max(1e-8, (sumWXX > 0 ? sumWXX / Math.max(1, sumW) : 1) * 1e-4);
     const safeSumW = Math.max(1e-15, sumW);
-    const varianceX = Math.max(0, sumWXX - (sumWX * sumWX) / safeSumW);
-    const covXY = sumWXY - (sumWX * sumWY) / safeSumW;
+    const meanX = sumWX / safeSumW;
+    const meanY = sumWY / safeSumW;
+
+    // 2ª passagem centralizada em (meanX, meanY): elimina cancelamento catastrófico e
+    // impede que contas antigas (x ≈ 1000d) inflacionem o RIDGE_PENALTY e esmaguem o slope.
+    let varianceX = 0, cVX = 0;
+    let covXY = 0, cCXY = 0;
+    for (let i = 0; i < pts.length; i++) {
+        const { x, y, w } = pts[i];
+        const dx = x - meanX;
+        const dy = y - meanY;
+        const valVX = w * dx * dx;
+        const yVX = valVX - cVX; const tVX = varianceX + yVX; cVX = (tVX - varianceX) - yVX; varianceX = tVX;
+        const valCXY = w * dx * dy;
+        const yCXY = valCXY - cCXY; const tCXY = covXY + yCXY; cCXY = (tCXY - covXY) - yCXY; covXY = tCXY;
+    }
+    varianceX = Math.max(0, varianceX);
+
+    const RIDGE_PENALTY = Math.max(1e-8, varianceX * 1e-4);
     const regularizedDenominator = varianceX + RIDGE_PENALTY;
 
     if (sumW < 1e-15 || regularizedDenominator < 1e-15) {

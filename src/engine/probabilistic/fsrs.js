@@ -286,7 +286,7 @@ export function scheduleFlashcardFsrs(card = {}, rating = 2, options = {}) {
   const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
 
   const reviews = Math.max(0, Math.round(Number(card?.reviews) || 0));
-  const prevLapses = Math.max(0, Math.round(Number(card?.fsrs?.lapses) || 0));
+  const prevLapses = Math.max(0, Math.round(Number(card?.fsrs?.lapses ?? card?.lapses) || 0));
   const legacyInterval = Math.max(1, Number(card?.interval) || 1);
   const prevEase = clamp(Number(card?.ease) || 2.5, 1.3, 3.2);
 
@@ -320,16 +320,18 @@ export function scheduleFlashcardFsrs(card = {}, rating = 2, options = {}) {
     D = clamp(prevD + ratingDeltaD + 0.08 * (5.0 - prevD), 1.0, 10.0);
 
     if (safeRating === 0) {
-      // Lapse: reduz estabilidade drasticamente mas preserva memória residual
+      // Lapse: reduz estabilidade drasticamente (máx. 5 dias para forçar reconsolidação real)
       lapses += 1;
       state = 'relearning';
-      S = clamp(Math.max(0.5, prevS * 0.25 * Math.pow(11 - D, 0.15)), 0.5, 14);
+      S = clamp(Math.max(0.5, prevS * 0.25 * Math.pow(11 - D, 0.15)), 0.5, 5);
     } else {
-      // Recall bem-sucedido: bônus maior quanto menor era R (desirable difficulty!)
+      // Recall bem-sucedido (FSRS-4.5): exp(w*(1-R)) - 1 zera o ganho quando R ≈ 1 (revisão imediata)
       const hardPenalty = safeRating === 1 ? 0.65 : 1.0;
       const easyBonus = safeRating === 3 ? 1.35 : 1.0;
-      const recallGain = 1 + (11 - D) * 0.16 * Math.pow(prevS, -0.18) * (Math.exp(0.95 * (1 - R)) - 0.15) * hardPenalty * easyBonus;
-      S = clamp(prevS * Math.max(safeRating === 1 ? 1.05 : 1.25, recallGain), 0.6, 365 * 5);
+      const forgetGain = Math.max(0, Math.exp(1.15 * (1 - R)) - 1);
+      const recallGain = 1 + (11 - D) * 0.28 * Math.pow(prevS, -0.18) * forgetGain * hardPenalty * easyBonus;
+      const minGrowth = R > 0.98 ? 1.0 : (safeRating === 1 ? 1.05 : 1.2);
+      S = clamp(prevS * Math.max(minGrowth, recallGain), 0.6, 365 * 5);
       state = 'review';
     }
   }

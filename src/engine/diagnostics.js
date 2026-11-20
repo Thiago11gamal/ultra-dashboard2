@@ -455,7 +455,7 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
 
 export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
   const domain = Math.max(1, maxScore - minScore);
-  const fallback = { velocity: 0, velocityLabel: 'Dados insuficientes', plateau: minScore + domain * 0.7, timeToPlateauDays: null };
+  const fallback = { velocity: 0, velocityPerWeek: 0, velocityLabel: 'Dados insuficientes', plateau: minScore + domain * 0.7, timeToPlateauDays: null };
   if (!Array.isArray(history) || history.length < 4) return fallback;
 
   const validHistory = history.filter(h => _getEntryDate(h) !== null);
@@ -468,8 +468,26 @@ export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
     y: Math.max(minScore, Math.min(maxScore, getSafeScore(h, maxScore, minScore))),
   })).filter(d => Number.isFinite(d.y));
 
+  // Tendência linear com sinal (OLS centralizado) para detectar regressão real sem mascarar quedas
+  const meanAllT = _mean(data.map((d) => d.t));
+  const meanAllY = _mean(data.map((d) => d.y));
+  const sTTAll = kahanSum(data.map((d) => (d.t - meanAllT) ** 2));
+  const sTYAll = kahanSum(data.map((d) => (d.t - meanAllT) * (d.y - meanAllY)));
+  const signedLinearSlope = sTTAll > 1e-12 ? sTYAll / sTTAll : 0;
+
   const lastThree = data.slice(-3).map((d) => d.y);
   const plateauEst = Math.min(maxScore, Math.max(minScore + domain * 0.5, Math.max(...lastThree) + domain * 0.05));
+
+  if (signedLinearSlope < -domain * 0.0007) {
+    const vDay = signedLinearSlope;
+    return {
+      velocity: Number(vDay.toFixed(4)),
+      velocityPerWeek: Number((vDay * 7).toFixed(2)),
+      velocityLabel: 'Regressão (Queda de desempenho)',
+      plateau: Number(plateauEst.toFixed(1)),
+      timeToPlateauDays: null,
+    };
+  }
 
   // Filtro invariante de escala para escalas com minScore != 0 (ex: ENEM 200-1000 ou CEBRASPE -100..100)
   const linearPts = data.filter((d) => d.y < minScore + (plateauEst - minScore) * 0.98 && d.y >= minScore);
@@ -519,6 +537,7 @@ export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
 
   return {
     velocity: Number(velocity.toFixed(4)),
+    velocityPerWeek: Number((velocity * 7).toFixed(2)),
     velocityLabel,
     plateau: Number(plateauEst.toFixed(1)),
     timeToPlateauDays: timeToPlateauDays !== null ? Math.min(999, timeToPlateauDays) : null,
@@ -925,24 +944,27 @@ export function buildRegimeMapData(categories = [], studySessions = [], simulado
         targetScore,
       });
 
+      const cRange = Math.max(1e-6, cMax - cMin);
       const hurstH = Number.isFinite(Number(diag?.hurst?.H)) ? Number(Number(diag.hurst.H).toFixed(2)) : 0.5;
       const velocity = Number.isFinite(Number(diag?.velocity?.velocityPerWeek))
         ? Number(Number(diag.velocity.velocityPerWeek).toFixed(2))
-        : (Number.isFinite(Number(diag?.velocity?.velocity)) ? Number(Number(diag.velocity.velocity).toFixed(2)) : 0);
+        : (Number.isFinite(Number(diag?.velocity?.velocity)) ? Number((Number(diag.velocity.velocity) * 7).toFixed(2)) : 0);
+      // Normaliza velocidade semanal para % do domínio (invariante a escalas 0..10, 0..100, 0..1000, -120..120)
+      const velocityPctPerWeek = (velocity / cRange) * 100;
       const consistency = Number.isFinite(Number(diag?.consistency?.index)) ? diag.consistency.index : 0.5;
 
       let regime = 'estavel';
       let regimeLabel = 'Evolução Estável';
-      if (hurstH >= 0.58 && velocity > 0.4) {
+      if (velocityPctPerWeek < -0.5) {
+        regime = 'regressing';
+        regimeLabel = 'Regressão Ativa';
+      } else if (hurstH >= 0.58 && velocityPctPerWeek > 0.4) {
         regime = 'momentum';
         regimeLabel = 'Tendência Consolidada';
       } else if (hurstH <= 0.42) {
         regime = 'mean_reverting';
         regimeLabel = 'Gangorra / Reversão';
-      } else if (velocity < -0.5) {
-        regime = 'regressing';
-        regimeLabel = 'Regressão Ativa';
-      } else if (Math.abs(velocity) <= 0.4) {
+      } else if (Math.abs(velocityPctPerWeek) <= 0.4) {
         regime = 'plateau';
         regimeLabel = 'Platô';
       }

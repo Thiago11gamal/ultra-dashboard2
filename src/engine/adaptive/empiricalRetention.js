@@ -44,6 +44,21 @@ export function estimateEmpiricalHalfLife(category, options = {}) {
     };
   }
 
+  // Coleta timestamps de estudo da matéria (se fornecidos) para não confundir ganho pós-estudo com memória lenta
+  const catIdStr = category?.id != null ? String(category.id) : '';
+  const catNameLower = String(category?.name || '').trim().toLowerCase();
+  const catStudyTimes = safeArr(options.studyLogs)
+    .filter((l) => {
+      if (!l || l.type === 'flashcard') return false;
+      const mins = Number(l.minutes ?? l.minutos ?? l.duration) || 0;
+      if (mins < 15) return false;
+      const matchId = catIdStr && l.categoryId != null && String(l.categoryId) === catIdStr;
+      const matchName = catNameLower && String(l.subject || l.categoryName || '').trim().toLowerCase() === catNameLower;
+      return matchId || matchName;
+    })
+    .map((l) => toDateMs(l.date || l.createdAt))
+    .filter(Number.isFinite);
+
   // Extract retention ratios from consecutive pairs spaced >= 2 days apart
   const impliedHalfLives = [];
   for (let i = 1; i < history.length; i++) {
@@ -55,16 +70,19 @@ export function estimateEmpiricalHalfLife(category, options = {}) {
     const prevNorm = clamp((prev.score - minScore) / range, 0.05, 1);
     const currNorm = clamp((curr.score - minScore) / range, 0.05, 1);
     const ratio = currNorm / prevNorm;
+    const studiedInBetween = catStudyTimes.some(
+      (t) => t > prev.ms + 0.5 * MS_PER_DAY && t < curr.ms - 0.5 * MS_PER_DAY
+    );
 
     // Power-law inversion: R = (1 + dt / H)^-1  =>  H = dt / (1/R - 1)
-    if (ratio < 0.96) {
+    if (ratio < 0.97) {
       const denom = (1 / Math.max(0.2, ratio)) - 1;
       if (denom > 0.02) {
         const estH = clamp(dtDays / denom, 3, 60);
         impliedHalfLives.push(estH);
       }
-    } else if (ratio >= 0.98 && dtDays >= 5) {
-      // High stability across a long gap => slow forgetting
+    } else if (ratio >= 0.97 && dtDays >= 3 && !studiedInBetween) {
+      // Estabilidade genuína sem estudo intermediário => esquecimento lento
       impliedHalfLives.push(clamp(dtDays * 2.4, 14, 55));
     }
   }

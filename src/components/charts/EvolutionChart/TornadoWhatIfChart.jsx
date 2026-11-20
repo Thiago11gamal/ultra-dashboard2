@@ -103,9 +103,11 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
           .map((h) => getSafeScore(h, cMax, cMin))
           .filter(Number.isFinite);
         if (!hist.length) return null;
-        const mean = hist.slice(-6).reduce((a, b) => a + b, 0) / Math.min(6, hist.length);
-        const sd = hist.length >= 2
-          ? Math.max(cRange * 0.03, Math.sqrt(hist.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / (hist.length - 1)))
+        const recentHist = hist.slice(-6);
+        const mean = recentHist.reduce((a, b) => a + b, 0) / recentHist.length;
+        // SD calculado sobre a MESMA janela de mean para não inflar volatilidade em alunos em evolução
+        const sd = recentHist.length >= 2
+          ? Math.max(cRange * 0.03, Math.sqrt(recentHist.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / (recentHist.length - 1)))
           : cRange * 0.1;
         const hasCutoff = cat.minCutoff !== null && cat.minCutoff !== undefined && Number(cat.minCutoff) > cMin;
         return {

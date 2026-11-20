@@ -138,22 +138,23 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
   );
 
   // A tendência não deve ser projetada linearmente para sempre.
-  // Usamos um amortecimento estilo meia-vida.
+  // Constante de tempo exata para meia-vida T_1/2: tau = T_1/2 / ln(2) => int_0^H 2^(-t/T) dt = tau * (1 - 2^(-H/T)).
   const trendHalfLifeDays = clampFinite(
     options.trendHalfLifeDays,
     7,
     120,
     45
   );
-
+  const trendTau = trendHalfLifeDays / Math.LN2;
   const effectiveTrendDays =
-    trendHalfLifeDays * (1 - Math.exp(-horizonDays / trendHalfLifeDays));
+    trendTau * (1 - Math.exp(-horizonDays / trendTau));
 
   const meanTrendShift = trendPerDay * effectiveTrendDays;
 
+  // Variância epistêmica exata da tendência amortecida: SD(r_0 * effDays) = trendSd * effDays
   const trendShiftSd = Math.max(
     1e-9,
-    trendSd * effectiveTrendDays * 0.6
+    trendSd * effectiveTrendDays
   );
 
   // Inclui ruído observacional do dia da prova para que horizonDays = 0 não colapse o ruído aleatório a zero.
@@ -206,7 +207,7 @@ export function estimatePosteriorPredictive(input = {}, options = {}) {
       0,
       abilitySd * abilitySd +
       trendShiftSd * trendShiftSd +
-      2 * abilityTrendCov * effectiveTrendDays * 0.6 +
+      2 * abilityTrendCov * effectiveTrendDays +
       baseNoiseSd * baseNoiseSd
     );
     const totalPredSd = Math.sqrt(totalPredVar);

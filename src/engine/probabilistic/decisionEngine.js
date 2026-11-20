@@ -57,7 +57,16 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
   const evidence = clampFinite(candidate.evidence, 0, 1, 0);
   const recencyDays = clampFinite(candidate.recencyDays, 0, 180, 21);
   const errorRate = clampFinite(candidate.errorRate, 0, 1, 0);
-  const weight = clampFinite(candidate.weight, 1, 10, 5);
+  const rawWeight = Number(candidate.weight);
+  const safePositiveWeight = Number.isFinite(rawWeight) && rawWeight > 0 ? rawWeight : 5;
+  const maxWeightScale = Number.isFinite(Number(options.maxWeight)) && Number(options.maxWeight) > 0
+    ? Number(options.maxWeight)
+    : (safePositiveWeight > 10 ? safePositiveWeight : 10);
+  const weight = maxWeightScale > 10
+    ? clampFinite((safePositiveWeight / maxWeightScale) * 10, 1, 10, 5)
+    : (maxWeightScale <= 1
+      ? clampFinite((safePositiveWeight / maxWeightScale) * 10, 1, 10, 5)
+      : clampFinite(safePositiveWeight, 1, 10, 5));
   const costMinutes = clampFinite(candidate.costMinutes, 0, 480, 30);
   // fatigue em [0, 100]: 0 = descansado (sem penalidade), 100 = exausto (penalidade máxima),
   // alinhado com getCognitiveState().fatigue em coachHistory.js.
@@ -85,9 +94,8 @@ export function computeDecisionUtility(candidate = {}, options = {}) {
   const weightFactor = (weight - 1) / 9;
   const recencyRisk = 1 - Math.exp(-recencyDays / 15);
 
-  const evidenceQuality =
-    evidence * 0.7 +
-    (1 - uncertainty) * 0.3;
+  // Evita cancelamento parcial de uncertaintyWeight (-2.7u) e offset artificial (+2.7)
+  const evidenceQuality = evidence;
 
   // FIX-PARAM: pesos normalizados para somar 100 (antes: 106).
   const weaknessWeight = clampFinite(options.weaknessWeight, 0, 100, 34);
@@ -240,9 +248,16 @@ export function rankDecisionCandidates(candidates = [], options = {}) {
   const banditState = useBandit ? loadBanditState(options.contestId) : null;
 
   const explorationScale = clampFinite(options.explorationScale, 0, 100, 18);
+  const candidateWeights = safeCandidates
+    .map((c) => Number(c?.weight))
+    .filter((w) => Number.isFinite(w) && w > 0);
+  const inferredMaxWeight = candidateWeights.length > 0 ? Math.max(...candidateWeights) : 10;
+  const resolvedDecisionOptions = options.maxWeight !== undefined
+    ? options
+    : { ...options, maxWeight: inferredMaxWeight > 10 || inferredMaxWeight <= 1 ? inferredMaxWeight : 10 };
 
   const enriched = safeCandidates.map((candidate, index) => {
-    const decision = computeDecisionUtility(candidate, options);
+    const decision = computeDecisionUtility(candidate, resolvedDecisionOptions);
 
     let explorationBonus = 0;
     let posterior = null;

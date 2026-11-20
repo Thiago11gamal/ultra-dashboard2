@@ -3,6 +3,7 @@ import { computeForgettingRisk } from '../../engine/diagnostics.js';
 import { rankDecisionCandidates } from '../../engine/probabilistic/decisionEngine.js';
 import { kahanSum } from '../../engine/math/kahan.js';
 import { getSafeScore } from '../scoreHelper.js';
+import { computeEffectiveScoreRatio } from '../measurement.js';
 import { normalizeDate, getDateKey } from '../dateHelper.js';
 import { computeACWR } from '../../engine/adaptive/workloadACWR.js';
 import { normalize, isSubjectMatch } from '../normalization.js';
@@ -278,6 +279,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                     dKey,
                     correct: 0,
                     total: 0,
+                    blanks: 0,
+                    penaltyPerWrong: 0,
                     directScores: [],
                     subjects: new Set(),
                     categoryIds: new Set(),
@@ -288,6 +291,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
             const _toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
             const rCorrect = _toNum(r.correct ?? r.acertos ?? r.correctCount);
             const rTotal = _toNum(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions);
+            const rBlanks = Math.min(Math.max(0, rTotal - rCorrect), Math.max(0, _toNum(r.blanks)));
+            const rPenalty = Math.max(0, _toNum(r.penaltyPerWrong));
             if (rSubj) bucket.subjects.add(String(rSubj).trim());
             if (r.categoryId !== undefined && r.categoryId !== null && r.categoryId !== '') {
                 bucket.categoryIds.add(r.categoryId);
@@ -298,6 +303,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                     name: String(rTopic).trim(),
                     total: rTotal > 0 ? rTotal : undefined,
                     correct: rTotal > 0 ? Math.min(rTotal, Math.max(0, rCorrect)) : undefined,
+                    ...(rBlanks > 0 ? { blanks: rBlanks } : {}),
+                    ...(rPenalty > 0 ? { penaltyPerWrong: rPenalty } : {}),
                     score: r.score,
                     isPercentage: r.isPercentage
                 });
@@ -307,6 +314,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
             if (rTotal > 0) {
                 bucket.correct += Math.min(rTotal, Math.max(0, rCorrect));
                 bucket.total += rTotal;
+                bucket.blanks += rBlanks;
+                bucket.penaltyPerWrong = Math.max(bucket.penaltyPerWrong, rPenalty);
             } else {
                 const s = getSafeScore(r, safeMaxScore, safeMinScore);
                 if (Number.isFinite(s)) {
@@ -319,12 +328,20 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
     Object.entries(rowsByGroup).forEach(([groupKey, stats]) => {
         const dKey = stats.dKey;
         let score = null;
+        const effStats = stats.total > 0
+            ? computeEffectiveScoreRatio(stats.correct, stats.total, {
+                blanks: stats.blanks,
+                penaltyPerWrong: stats.penaltyPerWrong,
+                minScore: safeMinScore,
+                maxScore: safeMaxScore,
+            })
+            : null;
         if (stats.total > 0 && stats.directScores && stats.directScores.length > 0) {
-            const qScore = safeMinScore + (stats.correct / stats.total) * (safeMaxScore - safeMinScore);
+            const qScore = safeMinScore + effStats.ratio * (safeMaxScore - safeMinScore);
             const dScore = kahanSum(stats.directScores) / stats.directScores.length;
             score = (qScore + dScore * stats.directScores.length) / (1 + stats.directScores.length);
         } else if (stats.total > 0) {
-            score = safeMinScore + (stats.correct / stats.total) * (safeMaxScore - safeMinScore);
+            score = safeMinScore + effStats.ratio * (safeMaxScore - safeMinScore);
         } else if (stats.directScores && stats.directScores.length > 0) {
             score = kahanSum(stats.directScores) / stats.directScores.length;
         }
@@ -341,6 +358,8 @@ export function getCombinedHistory(history, simulados, maxScore = 100, minScore 
                     sourceMinScore: safeMinScore,
                     sourceMaxScore: safeMaxScore,
                     ...(stats.total > 0 ? { total: stats.total, correct: stats.correct } : {}),
+                    ...(effStats?.blanks > 0 ? { blanks: effStats.blanks } : {}),
+                    ...(effStats?.penaltyApplied ? { penaltyPerWrong: stats.penaltyPerWrong, netPoints: effStats.netPoints } : {}),
                     ...(singleSubject ? { subject: singleSubject, categoryName: singleSubject } : {}),
                     ...(singleCategoryId !== undefined ? { categoryId: singleCategoryId } : {}),
                     ...(stats.topics.length > 0 ? { topics: stats.topics } : {}),

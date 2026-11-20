@@ -66,11 +66,14 @@ export function estimateIRTAbility(entries = [], options = {}) {
 
     const rawTotal = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
     const rawCorrect = Number(entry.correct ?? entry.acertos);
+    const rawBlanks = Math.max(0, Number(entry.blanks) || 0);
     if (Number.isFinite(rawTotal) && rawTotal > 0) {
+      // Desconta questões deixadas em branco (omissão estratégica CEBRASPE) do denominador TRI
+      const attempted = rawBlanks > 0 && rawBlanks < rawTotal ? (rawTotal - rawBlanks) : rawTotal;
       const corr = Number.isFinite(rawCorrect)
-        ? clamp(rawCorrect, 0, rawTotal)
-        : clamp(((getSafeScore(entry, maxScore, minScore) - minScore) / range) * rawTotal, 0, rawTotal);
-      bucket.total += rawTotal;
+        ? clamp(rawCorrect, 0, attempted)
+        : clamp(((getSafeScore(entry, maxScore, minScore) - minScore) / range) * attempted, 0, attempted);
+      bucket.total += attempted;
       bucket.correct += corr;
     } else {
       const sc = getSafeScore(entry, maxScore, minScore);
@@ -131,13 +134,15 @@ export function estimateIRTAbility(entries = [], options = {}) {
 
   // Build smooth ICC curve from b = -2.2 to +2.4
   const iccCurve = [];
+  const maxFisherInfo = 1.35 * 1.35 * 0.25;
   for (let b = -2.2; b <= 2.41; b += 0.2) {
     const p = irtProbability(theta, b, 1.35);
     const info = 1.35 * 1.35 * p * (1 - p);
     iccCurve.push({
       b: Number(b.toFixed(2)),
       predictedPct: Number((p * 100).toFixed(1)),
-      information: Number((info * 100).toFixed(1)),
+      information: Number(info.toFixed(3)),
+      informationPct: Number(((info / maxFisherInfo) * 100).toFixed(1)),
     });
   }
 
@@ -218,7 +223,8 @@ export function computeGuessingStrategy(questionTelemetry = [], options = {}) {
   };
 
   safeArr(questionTelemetry).forEach((q) => {
-    if (!q || !q.confidence || !buckets[q.confidence]) return;
+    // Questões deixadas em branco (wasAnswered === false) não sofrem penalidade nem entram como erro de chute
+    if (!q || q.wasAnswered === false || !q.confidence || !buckets[q.confidence]) return;
     buckets[q.confidence].total += 1;
     if (q.correct) buckets[q.confidence].correct += 1;
   });

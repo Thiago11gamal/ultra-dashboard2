@@ -135,18 +135,8 @@ export function estimateDynamicVolatility(history = [], options = {}) {
   const scores = observations.map((entry) => entry.score);
   const n = scores.length;
 
-  // Volatilidade fallback: desvio padrão amostral com shrinkage.
-  const mean = kahanSum(scores) / n;
-  const sampleVariance =
-    n > 1
-      ? kahanSum(scores.map((score) => Math.pow(score - mean, 2))) / (n - 1)
-      : 0;
-
-  const fallbackVolatility =
-    Math.sqrt(Math.max(0, sampleVariance)) * (n / (n + 4)) +
-    domain * 0.08 * (4 / (n + 4));
-
-  // Diferenças brutas e intervalos dtDays para remoção consistente do drift diário mu * dt
+  // Volatilidade fallback: desvio padrão dos resíduos detrendados com shrinkage
+  // (evita inflar volatilidade em alunos com tendência clara de evolução linear).
   const rawDiffs = [];
   const dts = [];
 
@@ -176,15 +166,33 @@ export function estimateDynamicVolatility(history = [], options = {}) {
 
   const totalElapsedDays = Math.max(1e-6, kahanSum(dts));
   const dailyDriftEstimate = kahanSum(rawDiffs) / totalElapsedDays;
-  // FIX: Var(y_t - y_{t-1}) = 2 * sigma^2 em séries com ruído observacional estacionário.
-  // Dividir por sqrt(2 * dt) evita inflar a volatilidade em +41.4% (sqrt(2)).
-  const returns = rawDiffs.map((diff, idx) => {
-    const dt = dts[idx];
-    return (diff - dailyDriftEstimate * dt) / Math.sqrt(2 * dt);
-  });
+
+  // Resíduos detrendados por ponto para fallbackVolatility sem contaminação por tendência secular
+  let accDays = 0;
+  const detrendedScores = [scores[0]];
+  for (let i = 1; i < scores.length; i++) {
+    accDays += dts[i - 1] ?? 1;
+    detrendedScores.push(scores[i] - dailyDriftEstimate * accDays);
+  }
+  const detrendedMean = kahanSum(detrendedScores) / n;
+  const sampleVariance =
+    n > 1
+      ? kahanSum(detrendedScores.map((s) => Math.pow(s - detrendedMean, 2))) / (n - 1)
+      : 0;
+
+  const fallbackVolatility =
+    Math.sqrt(Math.max(0, sampleVariance)) * (n / (n + 4)) +
+    domain * 0.08 * (4 / (n + 4));
 
   const medianGapDays = clampFinite(median(dts), 0.5, 60, 7);
   const horizonDays = clampFinite(options.horizonDays, 1, 90, medianGapDays);
+
+  // Separa escala de inovação por prova (Var(Δy) = 2 * σ_prova²) sem misturar √2 e √Δt no mesmo passo.
+  // A conversão para taxa diária usa medianGapDays apenas na saída (dailyVolatility).
+  const returns = rawDiffs.map((diff, idx) => {
+    const dt = dts[idx];
+    return (diff - dailyDriftEstimate * dt) / Math.SQRT2;
+  });
 
   // Winsorização leve dos retornos para reduzir outliers.
   const sortedReturns = [...returns].sort((a, b) => a - b);
@@ -283,18 +291,26 @@ export function estimateDynamicVolatility(history = [], options = {}) {
     }
   }
 
-  const dailyVolatility = clampFinite(
+  // sigma2Daily aqui representa a variância condicional por prova (unidade consistente com returns = Δy / √2)
+  const examVolatility = clampFinite(
     Math.sqrt(Math.max(0, sigma2Daily)),
+    0,
+    domain * 0.45,
+    0
+  );
+  const dailyVolatility = clampFinite(
+    examVolatility / Math.sqrt(Math.max(1, medianGapDays)),
     0,
     maxDailyVol,
     0
   );
 
-  // Converte volatilidade diária e fallback (por prova típica) para a mesma escala temporal horizonDays
-  const modelVolatility =
-    dailyVolatility * Math.sqrt(Math.max(1, horizonDays));
-  const scaledFallbackVolatility =
-    fallbackVolatility * Math.sqrt(Math.max(1, horizonDays) / Math.max(1, medianGapDays));
+  // Escala suave para o horizonte sem inflar ruído estacionário de prova única (+107% antes):
+  // combina variância fixa de prova (70%) + difusão proporcional ao horizonte (30%).
+  const horizonRatio = Math.max(1, horizonDays) / Math.max(1, medianGapDays);
+  const horizonScale = Math.sqrt(0.70 + 0.30 * horizonRatio);
+  const modelVolatility = examVolatility * horizonScale;
+  const scaledFallbackVolatility = fallbackVolatility * horizonScale;
 
   // Shrinkage bayesiano simples por tamanho amostral na mesma unidade de horizonte.
   const sampleTrust = Math.min(1, returns.length / (returns.length + 8));

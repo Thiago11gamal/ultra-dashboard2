@@ -228,7 +228,27 @@ export const extractMetrics = (category, simulados = [], studyLogs = [], options
     }
     const parsedWeight = Number(rawWeightVal);
     const rawWeight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 5;
-    const boundedWeight = Math.min(10, Math.max(1, rawWeight));
+    // Normalização proporcional de pesos: preserva escala [1..10] legada e evita saturação em editais [10..50+] ou [0..1]
+    const allCatWeights = safeArray(safeOptions.allCategories)
+        .map((c) => {
+            let v = c?.weight;
+            if (typeof v === 'string') {
+                const t = v.trim();
+                v = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t;
+            }
+            const n = Number(v);
+            return Number.isFinite(n) && n > 0 ? n : null;
+        })
+        .filter((n) => n !== null);
+    const maxObservedWeight = Math.max(rawWeight, ...allCatWeights, 0);
+    let boundedWeight;
+    if (maxObservedWeight > 10) {
+        boundedWeight = Math.min(10, Math.max(1, (rawWeight / maxObservedWeight) * 10));
+    } else if (maxObservedWeight > 0 && maxObservedWeight <= 1 && allCatWeights.length > 0) {
+        boundedWeight = Math.min(10, Math.max(1, (rawWeight / maxObservedWeight) * 10));
+    } else {
+        boundedWeight = Math.min(10, Math.max(1, rawWeight));
+    }
     const weight = boundedWeight * 20;
     const weightLabel = boundedWeight <= 3 ? '1 — Baixa' : boundedWeight <= 7 ? '2 — Média' : '3 — Alta';
 
@@ -1248,6 +1268,7 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
     const observedShare = totalRecentMinutesAll > 0
         ? totalRecentMinutesCat / totalRecentMinutesAll
         : (1 / activeCount);
+    // Usa pesos brutos positivos reais para idealShare (evita clamp [1..10] que distorcia editais com pesos 10..50)
     const totalSyllabusWeight = allCategoriesSafe.reduce((acc, c) => {
         if (!c) return acc;
         let rawW = c.weight;
@@ -1262,15 +1283,15 @@ export const calculateUrgencyScore = (metrics = {}, options = {}) => {
             }
         }
         const parsedW = Number(rawW);
-        const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? clamp(parsedW, 1, 10) : 5;
+        const w = (c.weight !== undefined && Number.isFinite(parsedW) && parsedW > 0) ? parsedW : 5;
         return acc + w;
     }, 0);
-    const rawCatWeight = Number.isFinite(Number(metrics.boundedWeight))
-        ? Number(metrics.boundedWeight)
-        : (Number.isFinite(Number(metrics.rawWeight))
-            ? Number(metrics.rawWeight)
-            : (Number.isFinite(Number(metrics.weight)) ? Number(metrics.weight) : 5));
-    const safeRawWeight = clamp(rawCatWeight, 1, 10);
+    const rawCatWeight = Number.isFinite(Number(metrics.rawWeight)) && Number(metrics.rawWeight) > 0
+        ? Number(metrics.rawWeight)
+        : (Number.isFinite(Number(metrics.boundedWeight)) && Number(metrics.boundedWeight) > 0
+            ? Number(metrics.boundedWeight)
+            : (Number.isFinite(Number(metrics.weight)) && Number(metrics.weight) > 0 ? Number(metrics.weight) : 5));
+    const safeRawWeight = Math.max(1e-6, rawCatWeight);
     const idealShare = totalSyllabusWeight > 0
         ? safeRawWeight / totalSyllabusWeight
         : (1 / activeCount);

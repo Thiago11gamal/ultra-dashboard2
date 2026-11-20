@@ -70,18 +70,20 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       .map((h) => getSafeScore(h, cMax, cMin))
       .filter(Number.isFinite);
 
-    const avgRaw = hist.length > 0
-      ? hist.slice(-5).reduce((a, b) => a + b, 0) / Math.min(5, hist.length)
+    const recentHist = hist.slice(-5);
+    const avgRaw = recentHist.length > 0
+      ? recentHist.reduce((a, b) => a + b, 0) / recentHist.length
       : (cMin + 0.55 * cRange);
     const currentPct = clamp(((avgRaw - cMin) / cRange) * 100, 5, 98);
 
-    const sdRaw = hist.length >= 2
-      ? Math.sqrt(hist.reduce((acc, v) => acc + Math.pow(v - avgRaw, 2), 0) / (hist.length - 1))
+    // Desvio padrão calculado sobre a MESMA janela de avgRaw (evita inflar volatilidade quando o aluno evolui)
+    const sdRaw = recentHist.length >= 2
+      ? Math.sqrt(recentHist.reduce((acc, v) => acc + Math.pow(v - avgRaw, 2), 0) / (recentHist.length - 1))
       : cRange * 0.1;
     const volPct = clamp((sdRaw / cRange) * 100, 3, 35);
 
     // Retention urgency
-    const empRet = estimateEmpiricalHalfLife(cat, { minScore: cMin, maxScore: cMax });
+    const empRet = estimateEmpiricalHalfLife(cat, { minScore: cMin, maxScore: cMax, studyLogs });
     const latestMs = getLatestStudyMs(cat, cat.tasks);
     const daysSince = latestMs ? Math.max(0, (nowMs - latestMs) / MS_PER_DAY) : 14;
     const currentRetentionPct = retentionFromHalfLife(daysSince, empRet.effectiveHalfLife);
@@ -93,8 +95,11 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       : targetPct;
     const cutoffDeficit = Math.max(0, explicitCutoff - currentPct);
 
-    // Current weekly hours for this subject
-    const catMins = (minsByCat.get(String(cat.id)) || 0) + (minsByCat.get(String(cat.name)) || 0);
+    // Current weekly hours for this subject (sem dupla contagem quando cat.id === cat.name)
+    const idKey = cat.id != null ? String(cat.id) : '';
+    const nameKey = cat.name != null ? String(cat.name) : '';
+    const catMins = (idKey ? (minsByCat.get(idKey) || 0) : 0) +
+      (nameKey && nameKey !== idKey ? (minsByCat.get(nameKey) || 0) : 0);
     const currentHours = totalMins28 > 0
       ? Number(((catMins / 60) / 4).toFixed(1))
       : Number((weeklyBudgetHours * normWeight).toFixed(1));
@@ -120,45 +125,64 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     };
   });
 
-  // Optimize allocation in 0.5h greedy marginal-utility increments (exact for separable concave objectives!)
+  // Funções exatas de ganho G_i(h) e risco R_i(h) (mesma equação na otimização e na avaliação
+  // -> garante Fronteira Eficiente estritamente Pareto-monotônica e ponderada por normWeight!)
+  const subjectGain = (s, h) => s.normWeight * s.headroomPct * (1 - Math.exp(-s.k * h));
+  const subjectRisk = (s, h) => {
+    const rawGain = s.headroomPct * (1 - Math.exp(-s.k * h));
+    const postDeficit = Math.max(0, s.cutoffDeficit - rawGain);
+    const retentionGap = Math.max(0, 80 - s.currentRetentionPct);
+    return s.normWeight * (s.volPct * 0.6 + postDeficit * 0.8 + retentionGap * 0.25) * Math.exp(-0.08 * h);
+  };
+
+  // Optimize allocation in 0.5h greedy marginal-utility increments maximizing G(h) - lambda * R(h)
+  const STEP_H = 0.5;
   const solveForRiskAversion = (lambdaRisk) => {
-    const hoursMap = new Map(subjects.map((s) => [s.id, 0.5]));
-    const remainingBudget = Math.max(0, weeklyBudgetHours - subjects.length * 0.5);
-    const steps = Math.round(remainingBudget / 0.5);
+    const canSeedHalfHour = subjects.length * STEP_H <= weeklyBudgetHours;
+    const initH = canSeedHalfHour ? STEP_H : 0;
+    const hoursMap = new Map(subjects.map((s) => [s.id, initH]));
+    const remainingBudget = Math.max(0, weeklyBudgetHours - subjects.length * initH);
+    const steps = Math.round(remainingBudget / STEP_H);
 
     const marginalValue = (s, h) => {
-      // Marginal gain in weighted percentage points: w_i * headroom * k * exp(-k*h)
-      const scoreGain = s.normWeight * s.headroomPct * s.k * Math.exp(-s.k * h);
-      // Risk reduction bonus for volatile / cutoff-threatened / decaying subjects
-      const riskTerm = lambdaRisk * (
-        (s.cutoffDeficit * 0.04 + s.volPct * 0.025 + Math.max(0, 80 - s.currentRetentionPct) * 0.02)
-      ) * Math.exp(-0.22 * h);
-      return scoreGain + riskTerm;
+      const dGain = subjectGain(s, h + STEP_H) - subjectGain(s, h);
+      const dRiskReduction = subjectRisk(s, h) - subjectRisk(s, h + STEP_H);
+      return dGain + lambdaRisk * dRiskReduction;
     };
 
     for (let step = 0; step < steps; step++) {
-      let bestSubj = subjects[0];
+      let bestSubj = null;
       let bestVal = -Infinity;
       for (const s of subjects) {
         const curH = hoursMap.get(s.id) || 0;
-        if (curH >= weeklyBudgetHours * 0.45 && subjects.length >= 3) continue;
+        if (curH + STEP_H > weeklyBudgetHours * 0.45 && subjects.length >= 3) continue;
         const val = marginalValue(s, curH);
         if (val > bestVal) {
           bestVal = val;
           bestSubj = s;
         }
       }
-      hoursMap.set(bestSubj.id, (hoursMap.get(bestSubj.id) || 0) + 0.5);
+      if (!bestSubj) {
+        // Fallback sem teto de 45% se o orçamento for muito pequeno em relação ao passo
+        for (const s of subjects) {
+          const curH = hoursMap.get(s.id) || 0;
+          const val = marginalValue(s, curH);
+          if (val > bestVal) {
+            bestVal = val;
+            bestSubj = s;
+          }
+        }
+      }
+      if (!bestSubj) break;
+      hoursMap.set(bestSubj.id, (hoursMap.get(bestSubj.id) || 0) + STEP_H);
     }
 
     let expectedGainPct = 0;
     let residualRisk = 0;
     subjects.forEach((s) => {
       const h = hoursMap.get(s.id) || 0;
-      const gain = s.headroomPct * (1 - Math.exp(-s.k * h));
-      expectedGainPct += s.normWeight * gain;
-      const postDeficit = Math.max(0, s.cutoffDeficit - gain);
-      residualRisk += s.normWeight * (s.volPct * 0.6 + postDeficit * 0.8) * Math.exp(-0.08 * h);
+      expectedGainPct += subjectGain(s, h);
+      residualRisk += subjectRisk(s, h);
     });
 
     return {
@@ -189,10 +213,8 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
   let currentRisk = 0;
   subjects.forEach((s) => {
     const h = Math.max(0, s.currentHours);
-    const gain = s.headroomPct * (1 - Math.exp(-s.k * h));
-    currentGainPct += s.normWeight * gain;
-    const postDeficit = Math.max(0, s.cutoffDeficit - gain);
-    currentRisk += s.normWeight * (s.volPct * 0.6 + postDeficit * 0.8) * Math.exp(-0.08 * h);
+    currentGainPct += subjectGain(s, h);
+    currentRisk += subjectRisk(s, h);
   });
 
   const enrichedSubjects = subjects
@@ -252,12 +274,25 @@ export function generateOptimalWeeklySchedule(
   const baseStartHour = clamp(peakSlotHour >= 6 && peakSlotHour <= 20 ? peakSlotHour : 9, 7, 19);
 
   // Build pool of 1-hour blocks prioritized by cutoff risk + FSRS urgency + Knowledge Graph blockers
+  // Arredondamento por maiores restos (Hamilton) garantindo soma exata === totalBudget sem estouro
+  const totalOptHours = allocation.subjects.reduce((acc, s) => acc + Math.max(0, Number(s.optimalHours) || 0), 0) || 1;
+  const rawShares = allocation.subjects.map((subj) => {
+    const exact = (Math.max(0, Number(subj.optimalHours) || 0) / totalOptHours) * totalBudget;
+    return { subj, floor: Math.floor(exact), frac: exact - Math.floor(exact) };
+  });
+  let blocksLeft = Math.max(0, Math.round(totalBudget) - rawShares.reduce((acc, x) => acc + x.floor, 0));
+  const byRemainder = [...rawShares].sort((a, b) => b.frac - a.frac);
+  for (let idx = 0; idx < byRemainder.length && blocksLeft > 0; idx++) {
+    byRemainder[idx].floor += 1;
+    blocksLeft -= 1;
+  }
+
   const blockPool = [];
-  allocation.subjects.forEach((subj) => {
+  rawShares.forEach(({ subj, floor: blockCount }) => {
+    if (blockCount <= 0) return;
     const catObj = safeArr(categories).find((c) => (c.id || c.name) === subj.id);
     const graph = catObj ? buildKnowledgeGraphLayout(catObj, options) : null;
     const blockedNode = graph?.nodes?.find((n) => n.isBlocked);
-    const blockCount = Math.max(1, Math.round(subj.optimalHours));
 
     for (let i = 0; i < blockCount; i++) {
       let modeTag = 'Questões + Revisão';
@@ -269,7 +304,8 @@ export function generateOptimalWeeklySchedule(
         subjectId: subj.id,
         subject: subj.name,
         modeTag,
-        priorityScore: subj.cutoffDeficit * 2 + (100 - subj.currentRetentionPct) + subj.weight - i * 8,
+        // Usa normWeight * 100 (invariante à escala de pesos 1..10 vs 10..50 vs 0..1)
+        priorityScore: subj.cutoffDeficit * 2 + (100 - subj.currentRetentionPct) + (subj.normWeight * 100) - i * 8,
       });
     }
   });
