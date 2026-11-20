@@ -95,10 +95,6 @@ export const createPomodoroSlice = (set, get) => ({
             p.completedCycles = 0;
             p.mode = 'work';
             p.isRunning = false;
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -107,9 +103,6 @@ export const createPomodoroSlice = (set, get) => ({
             const p = state.appState?.pomodoro;
             if (!p) return;
             p.isRunning = Boolean(isRunning);
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -180,10 +173,6 @@ export const createPomodoroSlice = (set, get) => ({
             const p = state.appState?.pomodoro;
             if (!p) return;
             p.sessions = Math.max(1, Number(count) || 1);
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -204,10 +193,6 @@ export const createPomodoroSlice = (set, get) => ({
             }
 
             p.sessions = Math.min(normalizedTarget, Math.max(1, p.sessions || 1));
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -231,10 +216,6 @@ export const createPomodoroSlice = (set, get) => ({
             }
 
             p.completedCycles = newCompleted;
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -243,10 +224,6 @@ export const createPomodoroSlice = (set, get) => ({
             const p = state.appState?.pomodoro;
             if (!p) return;
             p.mode = mode;
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -279,10 +256,6 @@ export const createPomodoroSlice = (set, get) => ({
             const p = state.appState?.pomodoro;
             if (!p) return;
             p.accumulatedMinutes = Math.max(0, Number(minutes) || 0);
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -349,10 +322,6 @@ export const createPomodoroSlice = (set, get) => ({
 
                 p.mode = 'work';
             }
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
 
         return savedMinutes;
@@ -406,10 +375,6 @@ export const createPomodoroSlice = (set, get) => ({
             } else {
                 p.mode = 'work';
             }
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 
@@ -461,10 +426,6 @@ export const createPomodoroSlice = (set, get) => ({
             if (payload.isRunning !== undefined) {
                 p.isRunning = Boolean(payload.isRunning);
             }
-
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-            markStorageDirty();
         });
     },
 

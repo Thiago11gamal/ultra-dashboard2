@@ -165,15 +165,21 @@ function ActivityHeatmap({ studyLogs = [] }) {
         const days = eachDayOfInterval({ start, end });
 
         const studyMap = {};
+        const sessionsMap = {};
         const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
         logsArray.forEach(log => {
-            const rawDate = normalizeDate(log?.date);
+            if (!log || log.type === 'flashcard') return;
+            const rawDateInput = log.date || log.createdAt || log.timestamp;
+            const rawDate = normalizeDate(rawDateInput);
             if (!rawDate) return;
-            const dateKey = getDateKey(rawDate) || format(rawDate, 'yyyy-MM-dd');
-            const rawMin = Number(log?.minutes);
+            const dateKey = getDateKey(rawDateInput) || getDateKey(rawDate) || format(rawDate, 'yyyy-MM-dd');
+            const rawMin = Number(log?.minutes ?? log?.minutos);
             const rawDur = Number(log?.duration);
             const minutes = Math.max(0, (Number.isFinite(rawMin) && rawMin > 0) ? rawMin : (Number.isFinite(rawDur) && rawDur > 0 ? rawDur : 0));
-            studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
+            if (minutes > 0) {
+                studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
+                sessionsMap[dateKey] = (sessionsMap[dateKey] || 0) + 1;
+            }
         });
 
         const weeks = [];
@@ -187,13 +193,16 @@ function ActivityHeatmap({ studyLogs = [] }) {
         const today = getDateKey(now) || format(now, 'yyyy-MM-dd');
 
         days.forEach(day => {
-            const dateKey = getDateKey(day) || format(day, 'yyyy-MM-dd');
+            // Usar chave civil YYYY-MM-DD do dia do calendário (evita deslocamento -1 dia entre fusos locais e APP_TIMEZONE)
+            const dateKey = format(day, 'yyyy-MM-dd');
             const minutes = studyMap[dateKey] || 0;
+            const sessions = sessionsMap[dateKey] || 0;
 
             currentWeek.push({
                 date: day,
                 dateKey,
                 minutes,
+                sessions,
                 isToday: dateKey === today,
                 level: minutes === 0 ? 0 :
                     minutes < 30 ? 1 :
@@ -215,9 +224,9 @@ function ActivityHeatmap({ studyLogs = [] }) {
         }
 
         const totalDays = days.length;
-        const monthKeys = new Set(days.map(day => getDateKey(day) || format(day, 'yyyy-MM-dd')));
+        const monthKeys = new Set(days.map(day => format(day, 'yyyy-MM-dd')));
         const studiedDays = days.filter(day => {
-            const dateKey = getDateKey(day) || format(day, 'yyyy-MM-dd');
+            const dateKey = format(day, 'yyyy-MM-dd');
             return studyMap[dateKey] > 0;
         }).length;
         const totalMinutes = Object.entries(studyMap)

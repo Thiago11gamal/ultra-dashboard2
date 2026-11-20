@@ -181,6 +181,7 @@ const RootRedirect = () => {
 
     // Flag reativa da Store para garantir hidratação atômica
     const isStoreHydrated = useAppStore(state => state.appState.isHydrated);
+    const hasSeenTour = useAppStore(state => Boolean(state.appState?.hasSeenTour));
 
     // Auto-save pipeline
     const { cloudStatus, cloudError, isSyncing: isCloudSyncing, hasConflict, forcePullCloud } = useCloudSync(
@@ -525,7 +526,11 @@ const RootRedirect = () => {
                     onOpenTrash={handleOpenTrash}
                   />
 
-                  <TrashModal isOpen={trashOpen} onClose={handleCloseTrash} />
+                  {trashOpen && (
+                    <Suspense fallback={null}>
+                      <TrashModal isOpen={trashOpen} onClose={handleCloseTrash} />
+                    </Suspense>
+                  )}
 
                   <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 mt-0 pt-[110px] lg:pt-0 pb-24 lg:pb-12 overflow-y-auto overflow-x-hidden custom-scrollbar relative z-0">
                     <Motion.div
@@ -539,18 +544,24 @@ const RootRedirect = () => {
                     </Motion.div>
                   </main>
                   <HelpGuide isOpen={showHelpGuide} onClose={handleCloseHelp} />
-                  <OnboardingTour />
+                  {!hasSeenTour && (
+                    <Suspense fallback={null}>
+                      <OnboardingTour />
+                    </Suspense>
+                  )}
                 </div>
               </div>
             )}
 
             {levelUpData && (
-              <LevelUpToast
-                key={levelUpData.level}
-                level={levelUpData.level}
-                title={levelUpData.title}
-                onClose={clearLevelUp}
-              />
+              <Suspense fallback={null}>
+                <LevelUpToast
+                  key={levelUpData.level}
+                  level={levelUpData.level}
+                  title={levelUpData.title}
+                  onClose={clearLevelUp}
+                />
+              </Suspense>
             )}
 
             {/* Global Event Driven Toast Container */}

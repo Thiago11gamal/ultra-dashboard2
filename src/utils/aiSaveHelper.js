@@ -185,8 +185,11 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
         existing.timedQuestoes = dayTimedQuestoes;
         existing.lastSessionTimeSpent = timeSpentSecs;
         existing.lastSessionTotal = total;
+        const prevBatchIds = Array.isArray(existing.batchIds)
+          ? existing.batchIds
+          : (existing.batchId ? [existing.batchId] : []);
         existing.batchId = assignedBatchId;
-        existing.batchIds = Array.from(new Set([...(Array.isArray(existing.batchIds) ? existing.batchIds : (existing.batchId ? [existing.batchId] : [])), assignedBatchId]));
+        existing.batchIds = Array.from(new Set([...prevBatchIds, assignedBatchId]));
         
       } else {
         history.push({

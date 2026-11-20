@@ -106,8 +106,9 @@ function checkRateLimit(bucketKey) {
 
 async function verifyFirebaseBearerToken(req) {
   const firebaseWebApiKey = process.env.FIREBASE_WEB_API_KEY || process.env.FIREBASE_API_KEY;
-  const requireAuth = process.env.REQUIRE_AI_AUTH === 'true' || Boolean(firebaseWebApiKey);
-  if (!requireAuth) return { ok: true, uid: null };
+  const isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+  const explicitDevBypass = !isProd && process.env.REQUIRE_AI_AUTH === 'false';
+  if (explicitDevBypass) return { ok: true, uid: null };
 
   const authHeader = String(req.headers?.authorization || '');
   const match = /^Bearer\s+(.+)$/i.exec(authHeader);
@@ -138,7 +139,24 @@ async function verifyFirebaseBearerToken(req) {
   return { ok: true, uid };
 }
 
+function applyCorsHeaders(req, res) {
+  const origin = req.headers?.origin;
+  if (!origin) return;
+  const allowedOrigins = String(process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+}
+
 export default async function handler(req, res) {
+  applyCorsHeaders(req, res);
+
   if (req.method === 'OPTIONS') {
     res.setHeader('Allow', 'POST, OPTIONS');
     return res.status(204).end();
@@ -157,6 +175,7 @@ export default async function handler(req, res) {
   const forwarded = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
   const clientKey = authCheck.uid || forwarded || req.socket?.remoteAddress || 'anonymous';
   if (!checkRateLimit(clientKey)) {
+    res.setHeader('Retry-After', '60');
     return res.status(429).json({ error: 'Limite de requisições excedido. Tente novamente em 1 minuto.' });
   }
 

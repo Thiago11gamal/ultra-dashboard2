@@ -61,16 +61,19 @@ export function aggregateHeatmap(filtered, granularity = 'daily', _maxScore = 10
         if (typeof val === 'string') val = val.replace(',', '.');
         return a + (Number.isFinite(Number(val)) ? Number(val) : 0);
       }, 0);
-      const isSynthetic = samples.every(c => c?.isSynthetic === true);
+      const allSynthetic = samples.every(c => c?.isSynthetic === true);
+      const anySynthetic = samples.some(c => c?.isSynthetic === true);
+      const hasRealVolume = realTotal > 0;
+      const isSynthetic = allSynthetic || (!hasRealVolume && anySynthetic && total > 0);
       // ✅ FIX: pct é SEMPRE percentual [0,100], invariante à escala
-      const effTotal = realTotal > 0 ? realTotal : total;
-      const effCorrect = realTotal > 0 ? realCorrect : correct;
+      const effTotal = hasRealVolume ? realTotal : total;
+      const effCorrect = hasRealVolume ? realCorrect : correct;
       const pct = effTotal > 0
         ? Math.max(0, Math.min(100, Number.isFinite(effCorrect / effTotal) ? (effCorrect / effTotal) * 100 : 0))
         : null;
       const baseCell = {
-        total: isSynthetic ? total : (realTotal > 0 ? realTotal : total),
-        correct: isSynthetic ? correct : (realTotal > 0 ? realCorrect : correct),
+        total: isSynthetic ? total : (hasRealVolume ? realTotal : total),
+        correct: isSynthetic ? correct : (hasRealVolume ? realCorrect : correct),
         pct,
       };
       if (hasSyntheticMeta) {
@@ -104,12 +107,19 @@ export const calculateSubjectMastery = (subtopics) => {
   }
   if (safeSubtopics.length === 0) return 0;
 
+  const parseSafeNonNeg = (raw) => {
+    if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') return 0;
+    const normalized = typeof raw === 'string' ? raw.trim().replace(',', '.') : raw;
+    const num = Number(normalized);
+    return Number.isFinite(num) ? Math.max(0, num) : 0;
+  };
+
   let totalAcertos = 0;
   let totalQuestoes = 0;
   safeSubtopics.forEach(topic => {
     if (!topic) return;
-    const total = Math.max(0, Number(topic.total ?? topic.questoes ?? 0));
-    const rawHits = Math.max(0, Number(topic.acertos ?? topic.hits ?? topic.correct ?? 0));
+    const total = parseSafeNonNeg(topic.total ?? topic.questoes ?? 0);
+    const rawHits = parseSafeNonNeg(topic.acertos ?? topic.hits ?? topic.correct ?? 0);
     const hits = Math.min(total, rawHits);
     if (Number.isFinite(hits) && Number.isFinite(total)) {
       totalAcertos += hits;

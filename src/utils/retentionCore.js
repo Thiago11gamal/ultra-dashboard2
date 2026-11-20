@@ -167,12 +167,18 @@ export function halfLifeFromMastery(masterySignal, base = 7, range = 23) {
   return base + range * clamp(masterySignal, 0, 1);
 }
 
+/**
+ * Retenção alinhada à lei de potência FSRS: R(t, S) = (1 + t / (9 * S))^-1.
+ * Calibrada para meia-vida `halfLife` (S = halfLife / 9 => R(halfLife) = 50%),
+ * garantindo consistência entre Painel de Retenção, Gráficos e Coach FSRS.
+ */
 export function retentionFromHalfLife(days, halfLife) {
   const safeDays = Math.max(0, toFiniteNumber(days, 0));
   const safeHalfLife = Math.max(1e-6, toFiniteNumber(halfLife, 1));
+  const retrievability = Math.pow(1 + safeDays / safeHalfLife, -1);
 
   return clamp(
-    Math.round(100 * Math.exp(-Math.LN2 * safeDays / safeHalfLife)),
+    Math.round(100 * (Number.isFinite(retrievability) ? retrievability : 0)),
     0,
     100
   );

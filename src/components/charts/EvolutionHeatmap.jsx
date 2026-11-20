@@ -350,8 +350,11 @@ export const EvolutionHeatmap = React.memo(({
         if (cat?.minCutoff !== null && cat?.minCutoff !== undefined && String(cat.minCutoff).trim() !== '' && Number.isFinite(Number(cat.minCutoff))) {
             const catMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMin;
             const catMax = Number(cat?.maxScore) > catMin ? Number(cat.maxScore) : safeMax;
-            const catRange = Math.max(1e-9, catMax - catMin);
-            return Math.max(0, Math.min(100, ((Number(cat.minCutoff) - catMin) / catRange) * 100));
+            const cutoffNum = Number(cat.minCutoff);
+            if (cutoffNum > catMin) {
+                const catRange = Math.max(1e-9, catMax - catMin);
+                return Math.max(0, Math.min(100, ((cutoffNum - catMin) / catRange) * 100));
+            }
         }
         return targetScorePct;
     }, [safeMin, safeMax, targetScorePct]);

@@ -112,6 +112,9 @@ export const createTaskSlice = (set, get) => ({
                     if (completed) {
                         task.lastStudiedAt = nowIso;
                         task.awardedXP = Math.abs(xpChange);
+                        if (task.status === 'studying') {
+                            task.status = null;
+                        }
                     } else {
                         delete task.awardedXP;
                     }
@@ -162,7 +165,18 @@ export const createTaskSlice = (set, get) => ({
             if (activeData.categories) {
                     (Array.isArray(activeData.categories) ? activeData.categories : Object.values(activeData.categories)).forEach(cat => {
                         const task = (Array.isArray(cat?.tasks) ? cat.tasks : Object.values(cat?.tasks || {})).find(matchesTask);
-                        if (task) handleTask(task);
+                        if (task) {
+                            handleTask(task);
+                            const activeSubject = state.appState.pomodoro?.activeSubject;
+                            if (
+                                targetCompleted === true &&
+                                !state.appState.pomodoro?.neuralMode &&
+                                activeSubject &&
+                                matchesActiveSubjectTask(cat, task, activeSubject, taskId)
+                            ) {
+                                clearPomodoroSession(state);
+                            }
+                        }
                     });
                 }
 
@@ -206,6 +220,11 @@ export const createTaskSlice = (set, get) => ({
             });
             if (alreadyExists) return;
             const nowIso = new Date().toISOString();
+            if (Array.isArray(category.deletedTaskIds) && category.deletedTaskIds.length > 0) {
+                category.deletedTaskIds = category.deletedTaskIds.filter(
+                    (entry) => entry && normalize(String(entry.text || '')) !== normNew
+                );
+            }
             category.tasks.push({
                 id: generateId('task'),
                 text: trimmedTitle,
@@ -334,6 +353,15 @@ export const createTaskSlice = (set, get) => ({
                 category.tasks = category.tasks.filter(t => t && t.id !== taskId && t.text !== taskId && t.title !== taskId);
 
                 const nowIso = new Date().toISOString();
+                const tombstoneId = task?.id != null ? String(task.id) : (taskId != null ? String(taskId) : '');
+                const tombstoneText = normalize(String(task?.text || task?.title || ''));
+                if (tombstoneId || tombstoneText) {
+                    const prevDeleted = Array.isArray(category.deletedTaskIds) ? category.deletedTaskIds : [];
+                    category.deletedTaskIds = [
+                        ...prevDeleted.filter((e) => e && e.id !== tombstoneId && (!tombstoneText || e.text !== tombstoneText)),
+                        { ...(tombstoneId ? { id: tombstoneId } : {}), ...(tombstoneText ? { text: tombstoneText } : {}), deletedAt: nowIso }
+                    ].slice(-100);
+                }
                 activeData.lastUpdated = nowIso;
                 state.appState.version = (state.appState.version || 0) + 1;
                 state.appState.lastUpdated = nowIso;

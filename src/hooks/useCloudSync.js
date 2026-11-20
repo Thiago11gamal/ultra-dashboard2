@@ -295,18 +295,17 @@ export function useCloudSync(currentUser, setAppState, showToast, syncTrigger) {
                   return;
                 }
               }
-              const wasDireitoPatched = (cDoc.id === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || cData.contestName === 'Direito') &&
+              const isLegacyDireitoId = cDoc.id === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66';
+              const wasDireitoPatched = isLegacyDireitoId &&
                 (!cData.categories || !Array.isArray(cData.categories) || cData.categories.length === 0);
               if (!isFromCache && !wasDireitoPatched && rawRootContestIds.has(cDoc.id)) {
                 const serverHash = computeContestSyncHash(cleanUndefined(safeguardContest(cData)));
                 if (serverHash) subcollectionHashes.set(cDoc.id, serverHash);
               }
-              if (cDoc.id === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' || cData.contestName === 'Direito') {
+              if (wasDireitoPatched) {
                 cData.contestName = 'Direito';
-                if (!cData.categories || !Array.isArray(cData.categories) || cData.categories.length === 0) {
-                  cData.categories = safeClone(RECOVERED_DIREITO_CONTEST.categories);
-                  cData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(cData.user || {}) };
-                }
+                cData.categories = safeClone(RECOVERED_DIREITO_CONTEST.categories);
+                cData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(cData.user || {}) };
               }
               if (!rawRootContestIds.has(cDoc.id)) {
                 cloudRootMissingSubcollectionIds = true;

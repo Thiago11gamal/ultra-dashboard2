@@ -124,7 +124,22 @@ export default function Flashcards() {
   const handleConfirmDeleteDeck = () => {
     if (!deckToDelete) return;
     const deletedId = deckToDelete.id;
-    persistDecks(currentDecks => currentDecks.filter(d => d.id !== deletedId));
+    const nowIso = new Date().toISOString();
+    setData(contest => {
+      if (!contest || typeof contest !== 'object') return contest;
+      const currentDecks = (Array.isArray(contest.flashcardDecks)
+        ? contest.flashcardDecks
+        : Object.values(contest.flashcardDecks || {})).filter(Boolean);
+      const prevDeleted = Array.isArray(contest.deletedFlashcardDeckIds) ? contest.deletedFlashcardDeckIds : [];
+      return {
+        ...contest,
+        flashcardDecks: currentDecks.filter(d => d.id !== deletedId),
+        deletedFlashcardDeckIds: [
+          ...prevDeleted.filter(e => e && e.id !== deletedId),
+          { id: deletedId, deletedAt: nowIso }
+        ].slice(-100)
+      };
+    });
     if (selectedDeckId === deletedId) setSelectedDeckId(null);
     showToast('Deck removido', 'info');
     setDeckToDelete(null);
@@ -170,10 +185,15 @@ export default function Flashcards() {
       if (deck.id !== targetDeckId) return deck;
       const cards = (Array.isArray(deck.cards) ? deck.cards : Object.values(deck.cards || {})).filter(Boolean);
       const nextCards = cards.filter(c => c.id !== cardId);
+      const prevDeletedCards = Array.isArray(deck.deletedCardIds) ? deck.deletedCardIds : [];
       return {
         ...deck,
         lastUpdated: nowIso,
         cards: nextCards,
+        deletedCardIds: [
+          ...prevDeletedCards.filter(e => e && e.id !== cardId),
+          { id: cardId, deletedAt: nowIso }
+        ].slice(-200),
         stats: {
           ...deck.stats,
           mastered: nextCards.filter(c => (c.reviews || 0) >= 3 && (c.interval || 1) >= 6).length

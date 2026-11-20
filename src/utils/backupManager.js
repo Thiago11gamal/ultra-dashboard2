@@ -172,6 +172,49 @@ export const parseImportedData = (content, currentAppState) => {
             return merged;
         };
 
+        const buildRestoredRootState = (importedRoot, resolvedActiveId, mergedContests) => {
+            const safeTrash = Array.isArray(importedRoot.trash)
+                ? importedRoot.trash.filter(Boolean).slice(-50)
+                : (Array.isArray(currentAppState?.trash) ? currentAppState.trash : []);
+            const safeDeletedContestIds = Array.isArray(importedRoot.deletedContestIds)
+                ? importedRoot.deletedContestIds.filter(Boolean).slice(-50)
+                : (Array.isArray(currentAppState?.deletedContestIds) ? currentAppState.deletedContestIds : []);
+            const safePomodoro = {
+                ...(currentAppState?.pomodoro && typeof currentAppState.pomodoro === 'object' ? currentAppState.pomodoro : {}),
+                isRunning: false,
+                activeSubject: null,
+                sessions: 1,
+                completedCycles: 0,
+                accumulatedMinutes: 0,
+                mode: 'work',
+                neuralQueue: [],
+                neuralMode: false,
+            };
+            return {
+                ...(currentAppState && typeof currentAppState === 'object' ? currentAppState : {}),
+                dashboardFilter: typeof importedRoot.dashboardFilter === 'string'
+                    ? importedRoot.dashboardFilter
+                    : (currentAppState?.dashboardFilter || 'all'),
+                hasSeenTour: typeof importedRoot.hasSeenTour === 'boolean'
+                    ? importedRoot.hasSeenTour
+                    : Boolean(currentAppState?.hasSeenTour),
+                mcEqualWeights: typeof importedRoot.mcEqualWeights === 'boolean'
+                    ? importedRoot.mcEqualWeights
+                    : (currentAppState?.mcEqualWeights ?? true),
+                activeWorkspace: typeof importedRoot.activeWorkspace === 'string'
+                    ? importedRoot.activeWorkspace
+                    : (currentAppState?.activeWorkspace || 'default'),
+                trash: safeTrash,
+                deletedContestIds: safeDeletedContestIds,
+                pomodoro: safePomodoro,
+                isHydrated: currentAppState?.isHydrated ?? true,
+                activeId: resolvedActiveId,
+                contests: mergedContests,
+                version: Math.max(Number(currentAppState?.version || 0), Number(importedRoot.version || 0)) + 1,
+                lastUpdated: nowIso
+            };
+        };
+
         // Strategy 1: Valid Full Backup (New Format)
         if (imported.contests && imported.activeId) {
             if (!validateFullBackup(imported)) {
@@ -179,7 +222,7 @@ export const parseImportedData = (content, currentAppState) => {
             }
             const sanitizedImportedContests = Object.fromEntries(
                 Object.entries(imported.contests)
-                    .filter(([id, contest]) => id !== 'length' && contest && typeof contest === 'object' && !Array.isArray(contest))
+                    .filter(([id, contest]) => id !== 'length' && id !== '__proto__' && id !== 'constructor' && id !== 'prototype' && contest && typeof contest === 'object' && !Array.isArray(contest))
                     .map(([id, contest]) => [id, sanitizeContest(contest)])
             );
             const mergedContests = mergePreservingLocalContests(sanitizedImportedContests);
@@ -190,14 +233,7 @@ export const parseImportedData = (content, currentAppState) => {
 
             return {
                 type: 'FULL_RESTORE',
-                data: {
-                    ...currentAppState,
-                    ...imported,
-                    activeId: resolvedActiveId,
-                    contests: mergedContests,
-                    version: Math.max(Number(currentAppState?.version || 0), Number(imported.version || 0)) + 1,
-                    lastUpdated: nowIso
-                }
+                data: buildRestoredRootState(imported, resolvedActiveId, mergedContests)
             };
         }
 
@@ -224,7 +260,8 @@ export const parseImportedData = (content, currentAppState) => {
 
             // Build a new appState wrapping this contest without overwriting an occupied 'default' contest
             const newState = {
-                ...currentAppState,
+                ...(currentAppState && typeof currentAppState === 'object' ? currentAppState : {}),
+                isHydrated: currentAppState?.isHydrated ?? true,
                 activeId: targetContestId,
                 contests: {
                     ...existingContests,
@@ -240,7 +277,7 @@ export const parseImportedData = (content, currentAppState) => {
         // Strategy 3: Legacy "Ultra Dashboard" Wrapper or missing activeId
         if (imported.contests && typeof imported.contests === 'object' && !Array.isArray(imported.contests)) {
             const validEntries = Object.entries(imported.contests)
-                .filter(([id, contest]) => id !== 'length' && contest && typeof contest === 'object' && !Array.isArray(contest));
+                .filter(([id, contest]) => id !== 'length' && id !== '__proto__' && id !== 'constructor' && id !== 'prototype' && contest && typeof contest === 'object' && !Array.isArray(contest));
             if (validEntries.length === 0) throw new Error("Backup não contém concursos.");
 
             if (!validateFullBackup(imported)) {
@@ -255,14 +292,7 @@ export const parseImportedData = (content, currentAppState) => {
                 ? imported.activeId
                 : (contestKeys.find(k => k !== 'default') || contestKeys[0] || 'default');
 
-            const newState = {
-                ...currentAppState,
-                ...imported,
-                activeId: fallbackId,
-                contests: mergePreservingLocalContests(sanitizedImportedContests),
-                version: Math.max(Number(currentAppState?.version || 0), Number(imported.version || 0)) + 1,
-                lastUpdated: nowIso
-            };
+            const newState = buildRestoredRootState(imported, fallbackId, mergePreservingLocalContests(sanitizedImportedContests));
 
             return { type: 'LEGACY_RESTORE', data: newState };
         }

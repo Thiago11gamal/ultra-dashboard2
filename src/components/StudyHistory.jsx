@@ -108,12 +108,14 @@ const StudyHistory = React.memo(function StudyHistory({
 
     // Calculate stats
     const stats = useMemo(() => {
-        const now = new Date(currentTime);
+        const formatYmd = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        const todayKey = todayKeyStr || formatYmd(new Date(currentTime));
+        const [ty, tm, td] = todayKey.split('-').map(Number);
+        const now = (ty && tm && td) ? new Date(ty, tm - 1, td, 12, 0, 0, 0) : new Date(currentTime);
         // Adjust now based on selected week offset (selectedWeekOffset is 0 for current week, -1 for last week, etc.)
         const referenceDate = new Date(now);
         referenceDate.setDate(now.getDate() + (selectedWeekOffset * 7));
 
-        const today = now.toDateString();
         const startOfWeek = new Date(referenceDate);
         startOfWeek.setDate(referenceDate.getDate() - referenceDate.getDay()); // Sunday
         startOfWeek.setHours(0, 0, 0, 0);
@@ -122,21 +124,22 @@ const StudyHistory = React.memo(function StudyHistory({
         const refWeekEnd = new Date(startOfWeek);
         refWeekEnd.setDate(startOfWeek.getDate() + 7);
 
-        const sessionsByDateStr = {};
+        const sessionsByDateKey = {};
         studySessions.forEach(s => {
-            const d = normalizeDate(s.startTime);
+            const rawStart = s?.startTime || s?.date || s?.createdAt;
+            const d = normalizeDate(rawStart);
             if (!d) return;
-            const dStr = d.toDateString();
-            if (!sessionsByDateStr[dStr]) {
-                sessionsByDateStr[dStr] = { minutes: 0, sessions: [] };
+            const dKey = getDateKey(rawStart) || getDateKey(d) || formatYmd(d);
+            if (!sessionsByDateKey[dKey]) {
+                sessionsByDateKey[dKey] = { minutes: 0, sessions: [] };
             }
-            sessionsByDateStr[dStr].minutes += (Number(s.duration) || 0);
-            sessionsByDateStr[dStr].sessions.push(s);
+            sessionsByDateKey[dKey].minutes += (Number(s.duration) || 0);
+            sessionsByDateKey[dKey].sessions.push(s);
         });
 
-        // Today's sessions (always actual today)
-        const todaySessions = sessionsByDateStr[today]?.sessions || [];
-        const todayMinutes = sessionsByDateStr[today]?.minutes || 0;
+        // Today's sessions (always actual today in APP_TIMEZONE)
+        const todaySessions = sessionsByDateKey[todayKey]?.sessions || [];
+        const todayMinutes = sessionsByDateKey[todayKey]?.minutes || 0;
 
         // Selected week's data (group by day)
         const weekData = [];
@@ -144,16 +147,16 @@ const StudyHistory = React.memo(function StudyHistory({
         for (let i = 0; i < 7; i++) {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + i);
-            const dateStr = date.toDateString();
+            const dateKey = formatYmd(date);
 
-            const daySessions = sessionsByDateStr[dateStr]?.sessions || [];
+            const daySessions = sessionsByDateKey[dateKey]?.sessions || [];
             weekSessions.push(...daySessions);
 
             weekData.push({
                 day: getDayName(date),
                 date: date.getDate(),
-                minutes: sessionsByDateStr[dateStr]?.minutes || 0,
-                isToday: dateStr === today
+                minutes: sessionsByDateKey[dateKey]?.minutes || 0,
+                isToday: dateKey === todayKey
             });
         }
 
@@ -166,7 +169,7 @@ const StudyHistory = React.memo(function StudyHistory({
         const maxDayMinutes = Math.max(...weekData.map(d => Number(d.minutes) || 0), 30);
 
         return { todaySessions, weekSessions, todayMinutes, weekData, totalMinutes, totalSessions, maxDayMinutes, weekStart: startOfWeek, weekEnd: refWeekEnd };
-    }, [studySessions, selectedWeekOffset, currentTime]);
+    }, [studySessions, selectedWeekOffset, currentTime, todayKeyStr]);
 
     // Get category name by ID
     const getCategoryName = (categoryId) => {

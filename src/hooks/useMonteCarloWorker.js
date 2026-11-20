@@ -71,7 +71,7 @@ function startCleanup() {
 
 function initSharedWorker() {
     startCleanup(); // Garantir coletor ativo mesmo após stopCleanup() em remount / StrictMode
-    if (sharedWorker) return;
+    if (sharedWorker || workerCrashCount >= MAX_WORKER_CRASHES) return;
     try {
         sharedWorker = new Worker(
             new URL('../engine/mc.worker.js', import.meta.url),

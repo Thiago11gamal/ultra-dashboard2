@@ -45,9 +45,7 @@ export const createContestSlice = (set) => ({
         const nowIso = new Date().toISOString();
         const activeData = state.appState.contests[targetId];
         if (activeData) {
-            const isDireito = targetId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' ||
-                activeData.contestName === 'Direito' ||
-                activeData.user?.name === 'Direito';
+            const isDireito = targetId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66';
             if (isDireito && (!activeData.categories || !Array.isArray(activeData.categories) || activeData.categories.length === 0)) {
                 activeData.categories = safeClone(RECOVERED_DIREITO_CONTEST.categories);
                 activeData.user = { ...safeClone(RECOVERED_DIREITO_CONTEST.user), ...(activeData.user || {}) };

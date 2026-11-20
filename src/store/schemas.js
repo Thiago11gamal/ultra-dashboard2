@@ -315,10 +315,7 @@ export const sanitizeContest = (data, contestId = '') => {
     ? repairContestHistory(data)
     : data;
 
-  const isDireito = contestId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66' ||
-    source.contestName === 'Direito' ||
-    data?.contestName === 'Direito' ||
-    source.user?.name === 'Direito';
+  const isDireito = contestId === 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66';
 
   if (isDireito && (!source.categories || !Array.isArray(source.categories) || source.categories.length === 0)) {
     source = {
@@ -491,6 +488,7 @@ export const sanitizeContest = (data, contestId = '') => {
         ...(cat.flashcardReviews != null && Number.isFinite(Number(cat.flashcardReviews)) ? { flashcardReviews: Math.max(0, Number(cat.flashcardReviews)) } : {}),
         ...(cat.lastFlashcardReview ? { lastFlashcardReview: cat.lastFlashcardReview } : {}),
         ...(cat.flashcardCorrect != null && Number.isFinite(Number(cat.flashcardCorrect)) ? { flashcardCorrect: Math.max(0, Number(cat.flashcardCorrect)) } : {}),
+        ...(Array.isArray(cat.deletedTaskIds) && cat.deletedTaskIds.length > 0 ? { deletedTaskIds: cat.deletedTaskIds.slice(-100) } : {}),
         simuladoStats: {
           history: cleanHistory,
           average,
@@ -522,6 +520,12 @@ export const sanitizeContest = (data, contestId = '') => {
     // NEW TOOLS
     flashcardDecks: Array.isArray(source.flashcardDecks) ? source.flashcardDecks : [],
     agenda: Array.isArray(source.agenda) ? source.agenda : [],
+    ...(Array.isArray(source.deletedFlashcardDeckIds) && source.deletedFlashcardDeckIds.length > 0
+      ? { deletedFlashcardDeckIds: source.deletedFlashcardDeckIds.slice(-100) }
+      : {}),
+    ...(Array.isArray(source.deletedAgendaIds) && source.deletedAgendaIds.length > 0
+      ? { deletedAgendaIds: source.deletedAgendaIds.slice(-100) }
+      : {}),
     // Math / Calibration history (lightweight for continuous calibration)
     calibrationEvents: Array.isArray(source.calibrationEvents) ? source.calibrationEvents.slice(-200) : [], // keep last 200 for walk-forward
     settings: {

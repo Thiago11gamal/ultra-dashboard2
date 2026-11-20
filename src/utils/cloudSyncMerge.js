@@ -262,10 +262,19 @@ export const stateStringForSync = (state) => {
 
             catFp += String(cat?.name || '').length;
             catFp += Number(cat?.weight || 0);
+            catFp += Array.isArray(cat?.deletedTaskIds) ? cat.deletedTaskIds.length * 13 : 0;
           });
         }
         catFp += (c?.simuladoRows?.length || 0) * 7;
+        catFp += (c?.simulados?.length || 0) * 5;
         catFp += (c?.studyLogs?.length || 0) * 3;
+        catFp += (c?.flashcardDecks?.length || 0) * 17;
+        catFp += (Array.isArray(c?.flashcardDecks)
+          ? c.flashcardDecks.reduce((acc, d) => acc + (Array.isArray(d?.cards) ? d.cards.length : 0), 0)
+          : 0) * 19;
+        catFp += (c?.agenda?.length || 0) * 23;
+        catFp += (c?.deletedFlashcardDeckIds?.length || 0) * 29;
+        catFp += (c?.deletedAgendaIds?.length || 0) * 31;
         catFp += c?.notes?.length || 0;
         contentFingerprint += catFp;
         const title = String(c?.contestName || c?.name || c?.user?.name || '');
@@ -433,10 +442,61 @@ export const mergeMonteCarloHistoryPure = (localMC = [], cloudMC = []) => {
     });
 };
 
+export const mergeTombstoneListsPure = (localList = [], cloudList = [], cap = 100) => {
+  const map = new Map();
+  const ingest = (list) => {
+    const safe = Array.isArray(list) ? list : Object.values(list || {});
+    safe.forEach((entry) => {
+      if (!entry) return;
+      const id = typeof entry === 'string' ? entry : (entry.id || entry.itemId || null);
+      const text = typeof entry === 'object' && entry.text
+        ? String(entry.text).trim().toLowerCase().replace(/\s+/g, ' ')
+        : '';
+      const key = id ? `id:${String(id)}` : (text ? `text:${text}` : null);
+      if (!key) return;
+      const rawMs = typeof entry === 'object' ? toSafeMs(entry.deletedAt) : 0;
+      const deletedAt = rawMs > 0 ? new Date(rawMs).toISOString() : new Date(0).toISOString();
+      const prev = map.get(key);
+      const prevMs = prev ? toSafeMs(prev.deletedAt) : -1;
+      if (!prev || rawMs >= prevMs) {
+        map.set(key, {
+          ...(id ? { id: String(id) } : {}),
+          ...(text ? { text } : {}),
+          deletedAt
+        });
+      }
+    });
+  };
+  ingest(localList);
+  ingest(cloudList);
+  return Array.from(map.values())
+    .sort((a, b) => toSafeMs(a.deletedAt) - toSafeMs(b.deletedAt))
+    .slice(-cap);
+};
+
+const buildTombstoneLookup = (tombstones = []) => {
+  const byId = new Map();
+  const byText = new Map();
+  (Array.isArray(tombstones) ? tombstones : []).forEach((entry) => {
+    if (!entry) return;
+    const ms = toSafeMs(entry.deletedAt);
+    if (entry.id) {
+      const k = String(entry.id);
+      if (!byId.has(k) || ms > byId.get(k)) byId.set(k, ms);
+    }
+    if (entry.text) {
+      const tk = String(entry.text).trim().toLowerCase().replace(/\s+/g, ' ');
+      if (tk && (!byText.has(tk) || ms > byText.get(tk))) byText.set(tk, ms);
+    }
+  });
+  return { byId, byText };
+};
+
 export const mergeCategoryTasksPure = (localTasks = [], cloudTasks = [], options = {}) => {
-  const { preferCloudBase = false } = options || {};
+  const { preferCloudBase = false, deletedTaskIds = [] } = options || {};
   const taskMap = new Map();
   const textToIdMap = new Map();
+  const tombLookup = buildTombstoneLookup(deletedTaskIds);
 
   const normalizeText = (txt) =>
     String(txt || '')
@@ -456,10 +516,21 @@ export const mergeCategoryTasksPure = (localTasks = [], cloudTasks = [], options
     const raw = Math.max(
       new Date(t?.updatedAt || 0).getTime() || 0,
       new Date(t?.lastUpdated || 0).getTime() || 0,
+      new Date(t?.createdAt || 0).getTime() || 0,
       new Date(t?.completedAt || 0).getTime() || 0,
       new Date(t?.lastStudiedAt || 0).getTime() || 0
     );
     return Number.isFinite(raw) ? raw : 0;
+  };
+  const isTaskDeleted = (t) => {
+    if (!t || (tombLookup.byId.size === 0 && tombLookup.byText.size === 0)) return false;
+    const taskMs = toTaskMs(t);
+    const idMs = t.id != null ? tombLookup.byId.get(String(t.id)) : undefined;
+    if (idMs !== undefined && (idMs === 0 || idMs >= taskMs)) return true;
+    const normText = normalizeText(t.text || t.title);
+    const textMs = normText ? tombLookup.byText.get(normText) : undefined;
+    if (textMs !== undefined && (textMs === 0 || textMs >= taskMs)) return true;
+    return false;
   };
   const pickWinner = (a, b) => {
     if (!a) return b;
@@ -474,6 +545,7 @@ export const mergeCategoryTasksPure = (localTasks = [], cloudTasks = [], options
   const safeLocalTasks = Array.isArray(localTasks) ? localTasks : Object.values(localTasks || {});
   const safeCloudTasks = Array.isArray(cloudTasks) ? cloudTasks : Object.values(cloudTasks || {});
   [...safeLocalTasks, ...safeCloudTasks].filter(Boolean).forEach((t) => {
+    if (isTaskDeleted(t)) return;
     let key = taskKey(t);
 
     const text = normalizeText(t.text || t.title);
@@ -500,6 +572,59 @@ export const mergeCategoryTasksPure = (localTasks = [], cloudTasks = [], options
     }
   });
   return Array.from(taskMap.values()).filter(Boolean);
+};
+
+export const mergeFlashcardDecksPure = (localDecks = [], cloudDecks = [], deletedDeckIds = [], arrayOptions = {}) => {
+  const { preferCloudBase = false } = arrayOptions || {};
+  const deckTombstones = buildTombstoneLookup(deletedDeckIds);
+  const deckMap = new Map();
+  const safeLocal = Array.isArray(localDecks) ? localDecks : Object.values(localDecks || {});
+  const safeCloud = Array.isArray(cloudDecks) ? cloudDecks : Object.values(cloudDecks || {});
+
+  const isDeckDeleted = (deck) => {
+    if (!deck?.id || deckTombstones.byId.size === 0) return false;
+    const delMs = deckTombstones.byId.get(String(deck.id));
+    if (delMs === undefined) return false;
+    const deckMs = toSafeMs(deck.lastUpdated || deck.updatedAt || deck.createdAt);
+    return delMs === 0 || delMs >= deckMs;
+  };
+
+  safeLocal.filter(Boolean).forEach((deck) => {
+    if (!deck.id || isDeckDeleted(deck)) return;
+    deckMap.set(String(deck.id), deck);
+  });
+
+  safeCloud.filter(Boolean).forEach((cloudDeck) => {
+    if (!cloudDeck.id || isDeckDeleted(cloudDeck)) return;
+    const key = String(cloudDeck.id);
+    const localDeck = deckMap.get(key);
+    if (!localDeck) {
+      deckMap.set(key, cloudDeck);
+      return;
+    }
+    const localMs = toSafeMs(localDeck.lastUpdated || localDeck.updatedAt || localDeck.createdAt);
+    const cloudMs = toSafeMs(cloudDeck.lastUpdated || cloudDeck.updatedAt || cloudDeck.createdAt);
+    const baseDeck = (cloudMs > localMs || (preferCloudBase && cloudMs === localMs))
+      ? { ...localDeck, ...cloudDeck }
+      : { ...cloudDeck, ...localDeck };
+    const mergedDeletedCards = mergeTombstoneListsPure(localDeck.deletedCardIds, cloudDeck.deletedCardIds, 200);
+    const cardTombs = buildTombstoneLookup(mergedDeletedCards);
+    const mergedCards = mergeArraysPure(localDeck.cards, cloudDeck.cards, { preferCloudBase: cloudMs > localMs || preferCloudBase })
+      .filter((card) => {
+        if (!card?.id) return true;
+        const delMs = cardTombs.byId.get(String(card.id));
+        if (delMs === undefined) return true;
+        const cardMs = toSafeMs(card.lastReviewed || card.updatedAt || card.createdAt);
+        return !(delMs === 0 || delMs >= cardMs);
+      });
+    deckMap.set(key, {
+      ...baseDeck,
+      cards: mergedCards,
+      ...(mergedDeletedCards.length > 0 ? { deletedCardIds: mergedDeletedCards } : {})
+    });
+  });
+
+  return Array.from(deckMap.values());
 };
 
 export const mergeContestCategoriesPure = (
@@ -555,9 +680,11 @@ export const mergeContestCategoriesPure = (
         catMaxScore,
         catMinScore
       );
+      const mergedDeletedTaskIds = mergeTombstoneListsPure(localCat.deletedTaskIds, c.deletedTaskIds, 100);
       mergedCatsMap.set(c.id, {
         ...baseCat,
-        tasks: mergeCategoryTasksPure(localCat.tasks, c.tasks, { preferCloudBase }),
+        tasks: mergeCategoryTasksPure(localCat.tasks, c.tasks, { preferCloudBase, deletedTaskIds: mergedDeletedTaskIds }),
+        ...(mergedDeletedTaskIds.length > 0 ? { deletedTaskIds: mergedDeletedTaskIds } : {}),
         simuladoStats: mergedSimuladoStats
       });
     } else {
@@ -658,6 +785,24 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
   const base = preferCloudBase ? { ...localContest, ...cloudContest } : { ...cloudContest, ...localContest };
   const localContestTime = new Date(localContest?.lastUpdated || 0).getTime();
   const arrayOptions = { preferCloudBase, localContestTime };
+  const mergedDeletedDecks = mergeTombstoneListsPure(
+    localContest.deletedFlashcardDeckIds,
+    cloudContest.deletedFlashcardDeckIds,
+    100
+  );
+  const mergedDeletedAgenda = mergeTombstoneListsPure(
+    localContest.deletedAgendaIds,
+    cloudContest.deletedAgendaIds,
+    100
+  );
+  const agendaTombs = buildTombstoneLookup(mergedDeletedAgenda);
+  const mergedAgenda = mergeArraysPure(localContest.agenda, cloudContest.agenda, arrayOptions).filter((ev) => {
+    if (!ev?.id || agendaTombs.byId.size === 0) return true;
+    const delMs = agendaTombs.byId.get(String(ev.id));
+    if (delMs === undefined) return true;
+    const evMs = toSafeMs(ev.lastUpdated || ev.updatedAt || ev.createdAt);
+    return !(delMs === 0 || delMs >= evMs);
+  });
   return {
     ...base,
     categories: mergeContestCategoriesPure(
@@ -675,8 +820,10 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
     monteCarloHistory: mergeMonteCarloHistoryPure(localContest.monteCarloHistory, cloudContest.monteCarloHistory),
     coachPlan: mergeArraysPure(localContest.coachPlan, cloudContest.coachPlan, arrayOptions),
     coachPlanner: mergeCoachPlannerPure(localContest.coachPlanner, cloudContest.coachPlanner, arrayOptions),
-    flashcardDecks: mergeArraysPure(localContest.flashcardDecks, cloudContest.flashcardDecks, arrayOptions),
-    agenda: mergeArraysPure(localContest.agenda, cloudContest.agenda, arrayOptions),
+    flashcardDecks: mergeFlashcardDecksPure(localContest.flashcardDecks, cloudContest.flashcardDecks, mergedDeletedDecks, arrayOptions),
+    agenda: mergedAgenda,
+    ...(mergedDeletedDecks.length > 0 ? { deletedFlashcardDeckIds: mergedDeletedDecks } : {}),
+    ...(mergedDeletedAgenda.length > 0 ? { deletedAgendaIds: mergedDeletedAgenda } : {}),
     ...(() => {
       const localTime = new Date(localContest.lastUpdated || 0).getTime();
       const cloudTime = new Date(cloudContest.lastUpdated || 0).getTime();

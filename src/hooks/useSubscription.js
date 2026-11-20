@@ -3,14 +3,15 @@ import { db, isLocalMode } from '../services/firebase';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 
 export function useSubscription(user) {
-  const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || 'antunest040@gmail.com')
+  const adminEmails = String(import.meta.env.VITE_ADMIN_EMAILS || '')
     .split(',')
-    .map(e => e.trim().toLowerCase());
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
   const hasTokenProvider = typeof user?.getIdTokenResult === 'function';
   const isVerifiedIdentity = Boolean(isLocalMode || import.meta.env.VITE_DEV_PREMIUM_BYPASS === 'true' || hasTokenProvider);
   const userEmail = (user?.email || '').trim().toLowerCase();
   const isAdminEmail = Boolean(
-    isVerifiedIdentity && userEmail && (userEmail === 'antunest040@gmail.com' || adminEmails.includes(userEmail))
+    isVerifiedIdentity && userEmail && adminEmails.includes(userEmail)
   );
 
   // G-17 FIX: Recalcular isDevBypass quando user muda (apenas identidades reais ou modo local explícito)
@@ -45,7 +46,8 @@ export function useSubscription(user) {
         return () => clearTimeout(t);
     }
     
-    let unsub = null;
+    let unsubPayments = null;
+    let unsubSubscriptions = null;
     let isMounted = true;
     const pendingTimers = new Set();
     const scheduleTimeout = (fn) => {
@@ -72,76 +74,122 @@ export function useSubscription(user) {
       user.getIdTokenResult(true).then((tokenResult) => {
         if (!isMounted) return;
         const claims = tokenResult.claims || {};
-        const isAdminClaim = Boolean(claims.admin || claims.premium || claims.plan === 'vitalicio');
+        const isAdminClaim = Boolean(
+          claims.admin ||
+          claims.premium ||
+          claims.plan === 'vitalicio' ||
+          claims.stripeRole === 'premium' ||
+          claims.stripeRole === 'vitalicio'
+        );
         
         if (isAdminClaim) {
             setSubState({ uid: targetUid, isPremium: true, loading: false });
             return;
         }
 
-        // Se não for admin claim, verificar pagamentos (Stripe)
+        // Se não for admin claim, verificar pagamentos únicos e assinaturas ativas (Stripe)
         if (!db) {
             setSubState({ uid: targetUid, isPremium: false, loading: false });
             return;
         }
 
+        let hasValidPayment = false;
+        let hasActiveSubscription = false;
+        let paymentsLoaded = false;
+        let subsLoaded = false;
+
+        const publishBillingState = () => {
+            if (!isMounted) return;
+            const isPremiumNow = hasValidPayment || hasActiveSubscription;
+            const stillLoading = !isPremiumNow && (!paymentsLoaded || !subsLoaded);
+            setSubState({ uid: targetUid, isPremium: isPremiumNow, loading: stillLoading });
+        };
+
+        const attachProfileFallback = () => {
+            const userRef = doc(db, 'users', targetUid);
+            if (!isMounted) return;
+            if (fallbackUnsubRef.current) {
+                fallbackUnsubRef.current();
+                fallbackUnsubRef.current = null;
+            }
+            fallbackUnsubRef.current = onSnapshot(userRef, (userDoc) => {
+                if (!isMounted) return;
+                const profile = userDoc.exists() ? userDoc.data() : {};
+                const premiumFromProfile = Boolean(
+                    profile?.isPremium
+                    || profile?.premium
+                    || profile?.subscription?.active,
+                );
+                setSubState({ uid: targetUid, isPremium: premiumFromProfile, loading: false });
+            }, (_profileErr) => {
+                if (!isMounted) return;
+                setSubState({ uid: targetUid, isPremium: false, loading: false });
+            });
+            if (!isMounted && fallbackUnsubRef.current) {
+                fallbackUnsubRef.current();
+                fallbackUnsubRef.current = null;
+            }
+        };
+
         const paymentsRef = collection(db, 'customers', targetUid, 'payments');
-        const q = query(paymentsRef, where('status', '==', 'succeeded'));
+        const qPayments = query(paymentsRef, where('status', '==', 'succeeded'));
+
+        const subsRef = collection(db, 'customers', targetUid, 'subscriptions');
+        const qSubs = query(subsRef, where('status', 'in', ['active', 'trialing']));
 
         if (!isMounted) return;
-        unsub = onSnapshot(q, (snapshot) => {
+        unsubPayments = onSnapshot(qPayments, (snapshot) => {
             if (!isMounted) return;
-            if (snapshot.empty) {
-                setSubState({ uid: targetUid, isPremium: false, loading: false });
-                return;
-            }
-
-            let hasValidPayment = false;
+            let validFound = false;
             snapshot.forEach((paymentDoc) => {
-                const data = paymentDoc.data();
-                if (data.status === 'succeeded') {
-                    hasValidPayment = true;
+                const data = paymentDoc.data() || {};
+                const amount = Number(data.amount || 0);
+                const refundedAmount = Number(data.amount_refunded || 0);
+                const isFullyRefunded = Boolean(data.refunded) || (amount > 0 && refundedAmount >= amount);
+                if (data.status === 'succeeded' && !isFullyRefunded) {
+                    validFound = true;
                 }
             });
-
-            setSubState({ uid: targetUid, isPremium: hasValidPayment, loading: false });
+            hasValidPayment = validFound;
+            paymentsLoaded = true;
+            publishBillingState();
         }, (error) => {
             if (!isMounted) return;
             console.error('[Stripe] Erro ao buscar pagamentos:', error);
-
+            paymentsLoaded = true;
             if (error?.code === 'permission-denied') {
-                const userRef = doc(db, 'users', targetUid);
-                if (!isMounted) return;
-                if (fallbackUnsubRef.current) {
-                    fallbackUnsubRef.current();
-                    fallbackUnsubRef.current = null;
-                }
-                fallbackUnsubRef.current = onSnapshot(userRef, (userDoc) => {
-                    if (!isMounted) return;
-                    const profile = userDoc.exists() ? userDoc.data() : {};
-                    const premiumFromProfile = Boolean(
-                        profile?.isPremium
-                        || profile?.premium
-                        || profile?.subscription?.active,
-                    );
-                    setSubState({ uid: targetUid, isPremium: premiumFromProfile, loading: false });
-                }, (_profileErr) => {
-                    if (!isMounted) return;
-                    setSubState({ uid: targetUid, isPremium: false, loading: false });
-                });
-                if (!isMounted && fallbackUnsubRef.current) {
-                    fallbackUnsubRef.current();
-                    fallbackUnsubRef.current = null;
-                }
+                attachProfileFallback();
                 return;
             }
-
-            setSubState({ uid: targetUid, isPremium: false, loading: false });
+            publishBillingState();
         });
 
-        if (!isMounted && unsub) {
-            unsub();
-            unsub = null;
+        unsubSubscriptions = onSnapshot(qSubs, (snapshot) => {
+            if (!isMounted) return;
+            let activeFound = false;
+            snapshot.forEach((subDoc) => {
+                const data = subDoc.data() || {};
+                if (data.status === 'active' || data.status === 'trialing') {
+                    activeFound = true;
+                }
+            });
+            hasActiveSubscription = activeFound;
+            subsLoaded = true;
+            publishBillingState();
+        }, (error) => {
+            if (!isMounted) return;
+            console.error('[Stripe] Erro ao buscar assinaturas:', error);
+            subsLoaded = true;
+            if (error?.code === 'permission-denied' && !fallbackUnsubRef.current) {
+                attachProfileFallback();
+                return;
+            }
+            publishBillingState();
+        });
+
+        if (!isMounted) {
+            if (unsubPayments) { unsubPayments(); unsubPayments = null; }
+            if (unsubSubscriptions) { unsubSubscriptions(); unsubSubscriptions = null; }
         }
 
       }).catch(() => { 
@@ -158,7 +206,8 @@ export function useSubscription(user) {
         isMounted = false;
         pendingTimers.forEach(clearTimeout);
         pendingTimers.clear();
-        if (unsub) unsub(); 
+        if (unsubPayments) unsubPayments();
+        if (unsubSubscriptions) unsubSubscriptions();
         if (fallbackUnsubRef.current) {
             fallbackUnsubRef.current();
             fallbackUnsubRef.current = null;

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { current, isDraft } from 'immer';
 import { generateAIQuestions } from '../../services/aiQuestionService';
 import { useAppStore } from '../../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useToast } from '../../hooks/useToast';
 import { getDateKey } from '../../utils/dateHelper';
 import { generateId } from '../../utils/idGenerator';
+import { safeClone } from '../../utils/safeClone';
 import { isSubjectMatch, normalize } from '../../utils/normalization';
 import SimuladoSetup from './SimuladoSetup';
 import SimuladoPlayer from './SimuladoPlayer';
@@ -805,37 +807,19 @@ export default function AIGeneratedSimulado() {
   }, [questions.length]);
 
   const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false, batchId = null) => {
-    // FIX: mutação atômica síncrona, desliga temporariamente os subscribers se preventGlobalEvent for true
+    // FIX: Evitar mutar proxies de draft do Immer enquanto retorna novo estado (causava crash no 2º simulado do dia).
     useAppStore.setState(
         (state) => {
-            const nextContests = { ...state.appState.contests };
-            const currentDraft = nextContests[state.appState.activeId];
-            if (!currentDraft) return state;
-            const draft = {
-                ...currentDraft,
-                simuladoRows: Array.isArray(currentDraft.simuladoRows)
-                    ? [...currentDraft.simuladoRows]
-                    : Object.values(currentDraft.simuladoRows || {}),
-                simulados: Array.isArray(currentDraft.simulados)
-                    ? [...currentDraft.simulados]
-                    : Object.values(currentDraft.simulados || {}),
-                categories: (Array.isArray(currentDraft.categories)
-                    ? currentDraft.categories
-                    : Object.values(currentDraft.categories || {})
-                ).map(c => c ? { ...c, simuladoStats: c.simuladoStats ? { ...c.simuladoStats, history: [...(Array.isArray(c.simuladoStats.history) ? c.simuladoStats.history : Object.values(c.simuladoStats.history || {}))] } : undefined } : c)
-            };
-            nextContests[state.appState.activeId] = draft;
-            applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId);
-            return {
-                appState: {
-                    ...state.appState,
-                    version: (state.appState.version || 0) + 1,
-                    contests: nextContests,
-                    lastUpdated: new Date().toISOString()
-                }
-            };
+            const activeContestId = state.appState?.activeId;
+            const currentDraft = state.appState?.contests?.[activeContestId];
+            if (!currentDraft) return;
+            const plainContest = safeClone(isDraft(currentDraft) ? current(currentDraft) : currentDraft);
+            applyAIResultsToDraft(plainContest, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId);
+            state.appState.contests[activeContestId] = plainContest;
+            state.appState.version = (state.appState.version || 0) + 1;
+            state.appState.lastUpdated = new Date().toISOString();
         },
-        false, 
+        false,
         preventGlobalEvent ? "AI_BACKGROUND_SAVE" : "AI_SIMULADO_SAVE"
     );
     markStorageDirty();

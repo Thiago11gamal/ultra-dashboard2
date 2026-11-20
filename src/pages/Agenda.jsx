@@ -26,8 +26,13 @@ export default function Agenda() {
 
   const [eventToDelete, setEventToDelete] = useState(null);
 
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const getTodayAlignedDate = () => {
+    const key = getDateKey(new Date());
+    return (key && parseNoonLocal(key)) || new Date();
+  };
+
+  const [currentMonth, setCurrentMonth] = useState(getTodayAlignedDate);
+  const [selectedDate, setSelectedDate] = useState(getTodayAlignedDate);
   const [showAdd, setShowAdd] = useState(false);
 
   // Form
@@ -121,8 +126,20 @@ export default function Agenda() {
 
   const handleConfirmDeleteEvent = () => {
     if (!eventToDelete) return;
-    const next = agenda.filter(e => e.id !== eventToDelete.id);
-    persistAgenda(next);
+    const deletedId = eventToDelete.id;
+    const nowIso = new Date().toISOString();
+    setData(contest => {
+      const currentAgenda = (Array.isArray(contest?.agenda) ? contest.agenda : Object.values(contest?.agenda || {})).filter(Boolean);
+      const prevDeleted = Array.isArray(contest?.deletedAgendaIds) ? contest.deletedAgendaIds : [];
+      return {
+        ...contest,
+        agenda: currentAgenda.filter(e => e.id !== deletedId),
+        deletedAgendaIds: [
+          ...prevDeleted.filter(e => e && e.id !== deletedId),
+          { id: deletedId, deletedAt: nowIso }
+        ].slice(-100)
+      };
+    });
     showToast('Removido da agenda', 'info');
     setEventToDelete(null);
   };
@@ -211,9 +228,9 @@ export default function Agenda() {
             <div>{agenda.length} blocos totais • {totalPlannedMinutes} minutos planejados</div>
             <button
               onClick={() => {
-                const now = new Date();
-                setCurrentMonth(now);
-                setSelectedDate(now);
+                const nowAligned = getTodayAlignedDate();
+                setCurrentMonth(nowAligned);
+                setSelectedDate(nowAligned);
               }}
               className="hover:text-teal-300"
             >

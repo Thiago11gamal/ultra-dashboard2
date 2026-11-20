@@ -9,11 +9,12 @@ import {
     toDateMs,
     getMasterySignal,
     halfLifeFromMastery,
+    retentionFromHalfLife,
     getLatestStudyMs,
     MS_PER_DAY
 } from '../utils/retentionCore';
 
-// Calculate retention based on Ebbinghaus Forgetting Curve
+// Calculate retention aligned with FSRS power-law forgetting curve (shared via retentionCore)
 const calculateRetention = (lastStudiedAt, halfLife = 7, now = Date.now()) => {
     const safeHalfLife = Math.max(1e-6, Number(halfLife) || 7);
 
@@ -54,11 +55,7 @@ const calculateRetention = (lastStudiedAt, halfLife = 7, now = Date.now()) => {
         };
     }
 
-    const val = clamp(
-        Math.round(100 * Math.exp(-Math.LN2 * days / safeHalfLife)),
-        0,
-        100
-    );
+    const val = retentionFromHalfLife(days, safeHalfLife);
 
     if (val >= 80) {
         return {
@@ -327,12 +324,12 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
                         <div className="relative group/tooltip cursor-help ml-3 inline-flex mt-1">
                             <Info size={16} className="text-slate-500/50 hover:text-slate-400 transition-colors" />
                             <div className="absolute top-full left-0 mt-2 w-72 p-3 bg-slate-900/95 backdrop-blur-md text-xs text-slate-300 rounded-xl shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 z-[60] pointer-events-none border border-slate-700/80 font-normal tracking-normal normal-case leading-relaxed">
-                                <strong className="text-white">Retenção (Ebbinghaus):</strong> Calcula o quanto de um assunto você ainda lembra baseado em quando foi a última revisão. Revisar antes do nível "Atenção" (abaixo de 60%) ajuda a fixar o conteúdo na memória de longo prazo.
+                                <strong className="text-white">Retenção (FSRS):</strong> Calcula o quanto de um assunto você ainda lembra usando a curva de esquecimento FSRS (alinhada ao Coach IA). Revisar antes do nível "Atenção" (abaixo de 60%) ajuda a fixar o conteúdo na memória de longo prazo.
                             </div>
                         </div>
                     </h2>
                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-0.5 opacity-80">
-                        Baseado na Curva de Esquecimento de Ebbinghaus
+                        Baseado na Curva de Esquecimento FSRS
                     </p>
                 </div>
             </div>

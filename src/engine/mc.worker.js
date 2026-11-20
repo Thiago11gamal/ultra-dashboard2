@@ -195,7 +195,7 @@ self.onmessage = function (e) {
                         : h),
                     dates: hist.map(h => typeof h === 'object' && h !== null ? (h.date ?? h.createdAt ?? '') : ''),
                     targetScore: safeNum(payload.targetScore, 0),
-                    projectionDays: safeNum(payload.projectionDays, 90)
+                    projectionDays: safeNum(payload.projectionDays ?? options.projectionDays, 90)
                 };
 
                 result = runMonteCarloAnalysis(sanitizedInput);
@@ -213,7 +213,7 @@ self.onmessage = function (e) {
                     bayesianCI: options.bayesianCI,
                     minScore: safeNum(options.minScore, 0),
                     maxScore: safeNum(options.maxScore, 100),
-                    historyLength: (options.history || []).length,
+                    historyLength: options.historyLength !== undefined ? safeNum(options.historyLength, 0) : (options.history || []).length,
                     subjects: options.subjects,
                     historicalCutoffs: options.historicalCutoffs,
                     flashcardImmunity: options.flashcardImmunity

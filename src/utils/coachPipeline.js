@@ -8,10 +8,73 @@ import {
   buildCoachOrchestratorDashboard as _buildCoachOrchestratorDashboard,
   clearCoachCaches as _clearCoachCaches,
 } from '../engine/orchestrator/coachOrchestrator.js';
+import {
+  getSuggestedFocus,
+  generateDailyGoals,
+} from './coachLogic.js';
 
 export const runCoachOrchestrator = _runCoachOrchestrator;
 export const buildCoachOrchestratorDashboard = _buildCoachOrchestratorDashboard;
 export const clearCoachCaches = _clearCoachCaches;
+
+/**
+ * Pipeline síncrono leve do Coach (foco sugerido + metas diárias).
+ * Aceita assinatura posicional (categories, simulados, studyLogs, options)
+ * ou objeto único ({ categories, simulados, studyLogs, options }).
+ */
+export function runCoachPipeline(categories, simulados = [], studyLogs = [], options = {}) {
+  const isSingleObjCall =
+    Boolean(categories) &&
+    typeof categories === 'object' &&
+    !Array.isArray(categories) &&
+    ('categories' in categories || 'simulados' in categories || 'studyLogs' in categories);
+
+  const rawCategories = isSingleObjCall ? categories.categories : categories;
+  const safeCategories = Array.isArray(rawCategories)
+    ? rawCategories
+    : (rawCategories && typeof rawCategories === 'object' ? Object.values(rawCategories) : []);
+
+  const rawSimulados = isSingleObjCall ? categories.simulados : simulados;
+  const safeSimulados = Array.isArray(rawSimulados) ? rawSimulados : [];
+
+  const rawStudyLogs = isSingleObjCall ? categories.studyLogs : studyLogs;
+  const safeStudyLogs = Array.isArray(rawStudyLogs) ? rawStudyLogs : [];
+
+  const rawOptions = isSingleObjCall
+    ? (categories.options && typeof categories.options === 'object' ? categories.options : categories)
+    : options;
+  const safeOptions = rawOptions && typeof rawOptions === 'object' ? rawOptions : {};
+
+  try {
+    const focus = getSuggestedFocus(safeCategories, safeSimulados, safeStudyLogs, safeOptions);
+    const tasks = generateDailyGoals(safeCategories, safeSimulados, safeStudyLogs, safeOptions);
+    const recommendation =
+      focus?.urgency?.recommendation ||
+      focus?.srsRecommendation ||
+      (focus?.name ? `Priorize ${focus.name} na sessão de hoje.` : '');
+    const details = focus?.urgency?.details || {};
+
+    return {
+      ok: true,
+      generatedAt: Date.now(),
+      focus: focus || null,
+      tasks: Array.isArray(tasks) ? tasks : [],
+      recommendation: typeof recommendation === 'string' ? recommendation : String(recommendation || ''),
+      details,
+    };
+  } catch (err) {
+    console.error('[CoachPipeline] Erro em runCoachPipeline:', err);
+    return {
+      ok: false,
+      error: err?.message || String(err),
+      generatedAt: Date.now(),
+      focus: null,
+      tasks: [],
+      recommendation: '',
+      details: {},
+    };
+  }
+}
 
 /**
  * API simples para executar o Coach completo.
@@ -120,6 +183,7 @@ export default {
   coach,
   coachDashboard,
   coachDashboardFromResult,
+  runCoachPipeline,
   runCoachOrchestrator,
   buildCoachOrchestratorDashboard,
   clearCoachCaches,

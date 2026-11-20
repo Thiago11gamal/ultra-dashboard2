@@ -50,10 +50,14 @@ const resolveReturnPath = (source, forceDashboard = false) => {
 const DataTriviaPanel = React.memo(function DataTriviaPanel({ studyLogs, simulados, categories }) {
     const stats = useMemo(() => {
         const startOfToday = getLocalMidnight().getTime();
-        const todayDate = new Date();
-        const dayOfWeek = (todayDate.getDay() + 6) % 7; // 0 = Monday, 6 = Sunday
+        const todayKey = getDateKey(new Date());
+        const [ty, tm, td] = todayKey && /^\d{4}-\d{2}-\d{2}$/.test(todayKey)
+            ? todayKey.split('-').map(Number)
+            : [new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate()];
+        const utcToday = new Date(Date.UTC(ty, tm - 1, td));
+        const dayOfWeek = (utcToday.getUTCDay() + 6) % 7; // 0 = Monday, 6 = Sunday
         const startOfWeek = startOfToday - (86400000 * dayOfWeek);
-        const startOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1).getTime();
+        const startOfMonth = getLocalMidnight(`${ty}-${String(tm).padStart(2, '0')}-01`).getTime();
         const startOfLast30Days = startOfToday - (86400000 * 29);
 
         let weekMins = 0;

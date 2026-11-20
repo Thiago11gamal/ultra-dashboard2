@@ -44,7 +44,7 @@ export const createCategorySlice = (set) => ({
                 weight: 10,
                 maxScore: catMaxScore,
                 minScore: catMinScore,
-                minCutoff: catMinScore,
+                minCutoff: null,
                 simuladoStats: { history: [], average: 0, lastAttempt: 0, trend: 'stable', level: 'BAIXO' },
                 totalMinutes: 0,
                 lastStudiedAt: null,
@@ -696,7 +696,7 @@ export const createCategorySlice = (set) => ({
                 };
             });
 
-        removeCategoryTombstone(newId, importedCat.name, state.appState.activeId);
+            removeCategoryTombstone(newId, importedCat.name, state.appState.activeId);
             activeData.categories.push(importedCat);
             activeData.lastUpdated = nowIso;
             state.appState.version = (state.appState.version || 0) + 1;
