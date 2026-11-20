@@ -799,23 +799,6 @@ export function monteCarloSimulation(
         : hashSeed(seedStr);
     const rng = mulberry32(Math.abs(seedValue >>> 0));
 
-    let medianGap = 7;
-    if (sortedHistory.length >= 2) {
-        const gaps = [];
-        for (let j = 1; j < sortedHistory.length; j++) {
-            const d1 = safeDateParse(sortedHistory[j].date || sortedHistory[j].createdAt);
-            const d0 = safeDateParse(sortedHistory[j - 1].date || sortedHistory[j - 1].createdAt);
-            // CORREÇÃO: Impedir que a subtração de Invalid Dates injete NaN na distribuição GARCH
-            const g = (d1 && d0 && !Number.isNaN(d1.getTime()) && !Number.isNaN(d0.getTime()))
-                ? (d1.getTime() - d0.getTime()) / 86400000
-                : 7; // Fallback seguro
-            gaps.push(Math.max(0.5, g));
-        }
-        gaps.sort((a, b) => a - b);
-        medianGap = gaps.length % 2 === 0
-            ? (gaps[gaps.length / 2 - 1] + gaps[gaps.length / 2]) / 2
-            : gaps[Math.floor(gaps.length / 2)];
-    }
     // Calibra a difusão diária do processo Ornstein-Uhlenbeck pela variância estacionária exata:
     // Var_inf(OU) = sigma_day² / (2*theta - theta²) = volatility² => sigma_day = volatility * sqrt(2*theta - theta²).
     // Evita explosão de 5x em simulados diários (medianGap=1) e colapso de -62% em simulados mensais (medianGap=30).
