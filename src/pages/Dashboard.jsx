@@ -4,6 +4,7 @@ import { X, ArrowRight } from 'lucide-react';
 import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
 import PriorityProgress from '../components/PriorityProgress';
+import { SyllabusBurndownChart } from '../components/charts/Analytics/SyllabusBurndownChart';
 import Checklist from '../components/Checklist';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -338,6 +339,10 @@ return (
             )}
 
             <PriorityProgress categories={data.categories} />
+
+            {hasTasks && (
+                <SyllabusBurndownChart categories={data.categories} user={data.user} />
+            )}
 
             <div className="tour-step-6">
                 <Checklist

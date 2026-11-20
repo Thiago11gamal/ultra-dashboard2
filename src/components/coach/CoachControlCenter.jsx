@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
+import { CausalUpliftChart } from '../charts/Coach/CausalUpliftChart.jsx';
+import { KnowledgeGraphChart } from '../charts/Coach/KnowledgeGraphChart.jsx';
+import { CalibrationDriftChart } from '../charts/Coach/CalibrationDriftChart.jsx';
 
 const toStrictFinite = (v) => {
   if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
@@ -391,9 +394,21 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
 // ==========================================================
 // Painel: Saúde do Modelo
 // ==========================================================
-function HealthPanel({ latestHealth, healthSnapshots }) {
+function HealthPanel({ latestHealth, healthSnapshots, calibrationAuditLog = [], calibrationHistoryByCategory = {} }) {
   if (!latestHealth) {
-    return <EmptyState message="Nenhum snapshot de saúde encontrado. Execute o orquestrador com observabilidade ativa." />;
+    return (
+      <div className="space-y-6">
+        <EmptyState message="Nenhum snapshot de saúde encontrado. Execute o orquestrador com observabilidade ativa." />
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+          <SectionTitle icon="📉">Evolução de Calibração (Brier / ECE)</SectionTitle>
+          <CalibrationDriftChart
+            auditLogs={calibrationAuditLog}
+            historyByCategory={calibrationHistoryByCategory}
+            healthSnapshots={healthSnapshots}
+          />
+        </div>
+      </div>
+    );
   }
   const alerts = latestHealth.alerts || [];
   const metrics = latestHealth.metrics || {};
@@ -500,6 +515,15 @@ function HealthPanel({ latestHealth, healthSnapshots }) {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+        <SectionTitle icon="📉">Evolução de Calibração (Brier / ECE)</SectionTitle>
+        <CalibrationDriftChart
+          auditLogs={calibrationAuditLog}
+          historyByCategory={calibrationHistoryByCategory}
+          healthSnapshots={healthSnapshots}
+        />
       </div>
 
       {healthSnapshots.length > 1 && (
@@ -818,8 +842,9 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                 </div>
 
                 {actionEntries.length > 0 && (
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-5">
                     <SectionTitle icon="🎬">Uplift por Tipo de Ação ({actionEntries.length})</SectionTitle>
+                    <CausalUpliftChart causalModel={causalModel} />
                     <div className="overflow-x-auto -mx-5 px-5">
                       <table className="w-full text-sm min-w-[560px]">
                         <thead>
@@ -960,6 +985,71 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
           );
 }
 
+// ==========================================================
+// Painel: Painel Científico (Uplift + Grafo + Brier/ECE)
+// ==========================================================
+function SciencePanel({
+  causalModel,
+  trainCausal,
+  loading,
+  categories,
+  minScore,
+  maxScore,
+  healthSnapshots,
+  calibrationAuditLog,
+  calibrationHistoryByCategory,
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <SectionTitle icon="🧬">Uplift Causal por Tipo de Ação</SectionTitle>
+            <p className="text-xs text-slate-400">
+              Ganho líquido estimado em pontos (com IC 95%) gerado por cada estratégia de estudo.
+            </p>
+          </div>
+          {typeof trainCausal === 'function' && (
+            <button
+              type="button"
+              onClick={() => trainCausal()}
+              disabled={loading}
+              className={`px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              ▶ Recalcular Uplift
+            </button>
+          )}
+        </div>
+        <CausalUpliftChart causalModel={causalModel} />
+      </div>
+
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-3">
+        <div>
+          <SectionTitle icon="🕸️">Grafo de Pré-Requisitos e PageRank</SectionTitle>
+          <p className="text-xs text-slate-400">
+            Mapeia dependências estruturais entre tópicos e destaca pré-requisitos fracos que bloqueiam assuntos avançados.
+          </p>
+        </div>
+        <KnowledgeGraphChart categories={categories} minScore={minScore} maxScore={maxScore} />
+      </div>
+
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-3">
+        <div>
+          <SectionTitle icon="📉">Evolução Temporal de Calibração (Brier Score & ECE)</SectionTitle>
+          <p className="text-xs text-slate-400">
+            Acompanha se as probabilidades do Coach estão ficando mais precisas ao longo das auditorias.
+          </p>
+        </div>
+        <CalibrationDriftChart
+          auditLogs={calibrationAuditLog}
+          historyByCategory={calibrationHistoryByCategory}
+          healthSnapshots={healthSnapshots}
+        />
+      </div>
+    </div>
+  );
+}
+
           // ==========================================================
           // Componente principal
           // ==========================================================
@@ -971,6 +1061,8 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
             maxScore = 100,
             minScore = 0,
             targetScore = 80,
+            calibrationAuditLog = [],
+            calibrationHistoryByCategory = {},
 }) {
   const {
             activeTab, setActiveTab, loading, error, hasError, lastRunTimestamp,
@@ -1006,6 +1098,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
 
               <div className="flex gap-2 p-1 bg-slate-800/40 rounded-xl overflow-x-auto hide-scrollbar">
                 <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon="📊">Visão Geral</TabButton>
+                <TabButton active={activeTab === 'science'} onClick={() => setActiveTab('science')} icon="🧬">Painel Científico</TabButton>
                 <TabButton active={activeTab === 'flags'} onClick={() => setActiveTab('flags')} icon="🎛️">Feature Flags</TabButton>
                 <TabButton active={activeTab === 'health'} onClick={() => setActiveTab('health')} icon="🏥">Saúde & Drift</TabButton>
                 <TabButton active={activeTab === 'causal'} onClick={() => setActiveTab('causal')} icon="🔬">Causalidade</TabButton>
@@ -1019,6 +1112,19 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
 
               <div className="min-h-[400px]">
                 {activeTab === 'overview' && <OverviewPanel dashboard={dashboard} orchestratorResult={orchestratorResult} />}
+                {activeTab === 'science' && (
+                  <SciencePanel
+                    causalModel={causalModel}
+                    trainCausal={trainCausal}
+                    loading={loading}
+                    categories={categories}
+                    minScore={minScore}
+                    maxScore={maxScore}
+                    healthSnapshots={healthSnapshots}
+                    calibrationAuditLog={calibrationAuditLog}
+                    calibrationHistoryByCategory={calibrationHistoryByCategory}
+                  />
+                )}
                 {activeTab === 'flags' && (
                   <FlagsPanel
                     currentFlags={currentFlags}
@@ -1029,7 +1135,14 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                     applyStrategyPreset={applyStrategyPreset}
                   />
                 )}
-                {activeTab === 'health' && <HealthPanel latestHealth={latestHealth} healthSnapshots={healthSnapshots} />}
+                {activeTab === 'health' && (
+                  <HealthPanel
+                    latestHealth={latestHealth}
+                    healthSnapshots={healthSnapshots}
+                    calibrationAuditLog={calibrationAuditLog}
+                    calibrationHistoryByCategory={calibrationHistoryByCategory}
+                  />
+                )}
                 {activeTab === 'causal' && <CausalPanel causalModel={causalModel} trainCausal={trainCausal} loading={loading} />}
                 {activeTab === 'autotuner' && (
                   <AutoTunerPanel tunerResult={tunerResult} tunerHistory={tunerHistory} runAutoTuner={runAutoTuner} applyRecommendation={applyRecommendation} rollbackToBaseline={rollbackToBaseline} loading={loading} />

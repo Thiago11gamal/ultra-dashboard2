@@ -33,6 +33,11 @@ import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvol
 import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView";
 import { TimeSpentChart } from "./charts/EvolutionChart/TimeSpentChart";
 import { TodayVsGeneralChart } from "./charts/EvolutionChart/TodayVsGeneralChart";
+import { SpeedAccuracyChart } from "./charts/EvolutionChart/SpeedAccuracyChart";
+import { ConsistencyBoxPlotChart } from "./charts/EvolutionChart/ConsistencyBoxPlotChart";
+import { ExamPacingChart } from "./charts/EvolutionChart/ExamPacingChart";
+import { ProjectionFanChart } from "./charts/EvolutionChart/ProjectionFanChart";
+import { KalmanLatentChart } from "./charts/EvolutionChart/KalmanLatentChart";
 
 import { generateEvolutionInsights } from '../engine/insightGenerator';
 import { StatusPill } from './ui/StatusPill';
@@ -456,6 +461,26 @@ const ENGINES = [
         id: "time_spent", label: "Agilidade AI", emoji: "⏳", color: "#06b6d4", prefix: null, style: "linear",
         explain: { titulo: "Rastreador de Agilidade AI", simples: "Analisa o tempo médio gasto por questão em cada matéria nos Simulados IA, ajudando você a encontrar gargalos que roubam minutos preciosos no dia da prova.", dica: "Matérias muito lentas podem te reprovar mesmo se você souber o conteúdo. Foque nelas para ganhar resistência." },
     },
+    {
+        id: "speed_accuracy", label: "Speed × Precisão", emoji: "⚡", color: "#22d3ee", prefix: null, style: "linear",
+        explain: { titulo: "Matriz Velocidade × Precisão (4 Quadrantes)", simples: "Cruza segundos gastos por questão contra sua taxa de acerto por disciplina ou subtópico, separando domínio rápido, leitura apressada, necessidade de agilidade e lacunas teóricas.", dica: "Itens no quadrante 'Leitura Apressada' sobem rápido só reduzindo o ritmo; itens em 'Lacuna Teórica' pedem revisão da base." },
+    },
+    {
+        id: "exam_pacing", label: "Ritmo de Prova", emoji: "⏱️", color: "#38bdf8", prefix: null, style: "linear",
+        explain: { titulo: "Simulador de Orçamento de Tempo de Prova", simples: "Projeta quanto tempo você levaria para concluir a prova inteira no seu ritmo atual por disciplina e compara com a duração oficial da banca.", dica: "Ajuste a duração e o número de questões do seu concurso para ver exatamente qual disciplina está estourando o relógio." },
+    },
+    {
+        id: "consistency_boxplot", label: "Consistência", emoji: "📦", color: "#818cf8", prefix: null, style: "linear",
+        explain: { titulo: "Box Plot de Consistência por Disciplina", simples: "Exibe mínimo, 1º quartil, mediana, 3º quartil e máximo das suas notas. Revela se uma média boa vem de estabilidade real ou de oscilação perigosa.", dica: "Disciplinas com caixa larga (IQR alto) têm maior risco de queda no dia da prova — revise os tópicos instáveis." },
+    },
+    {
+        id: "projection_fan", label: "Cone Futuro", emoji: "🎯", color: "#34d399", prefix: null, style: "monotoneX",
+        explain: { titulo: "Fan Chart — Cone de Projeção até a Prova", simples: "Projeta cenários probabilísticos futuros (P10 conservador, P25–P75 central, P50 mediano e P90 otimista) a partir de hoje até a data da prova, sobrepostos aos cortes históricos.", dica: "Observe quando a mediana P50 cruza a meta e se até a faixa conservadora P10 se aproxima dos cortes anteriores." },
+    },
+    {
+        id: "kalman_latent", label: "Kalman Latente", emoji: "🧲", color: "#10b981", prefix: null, style: "monotoneX",
+        explain: { titulo: "Habilidade Latente (Filtro de Kalman) vs. Notas Brutas", simples: "Executa o filtro State-Space passo a passo para separar sua habilidade real latente do ruído estatístico de simulados atípicos.", dica: "Pontos destacados em rosa são choques pontuais de ruído absorvidos pelo filtro — não desanime por uma prova fora da curva se a linha verde segue firme." },
+    },
 ];
 
     
@@ -519,6 +544,36 @@ const ENGINES = [
        positivo: 'Tempo estável ou diminuindo sem queda de precisão.',
        alerta: 'Matérias muito lentas podem comprometer o tempo total da prova.',
        acao: 'Treine simulados cronometrados nas disciplinas mais lentas.'
+     },
+     speed_accuracy: {
+       como: 'Posiciona cada disciplina (ou assunto) pelo tempo médio por questão (eixo X) e taxa de acerto (eixo Y). O tamanho da bolha indica o volume de questões.',
+       positivo: 'Concentração no quadrante superior esquerdo (Domínio Rápido).',
+       alerta: 'Bolhas grandes em Leitura Apressada (rápido e errando) ou Lacuna Teórica (lento e errando).',
+       acao: 'Desacelere nos temas apressados e faça revisão direcionada nas lacunas lentas.'
+     },
+     exam_pacing: {
+       como: 'Simula o tempo total necessário para resolver toda a prova no seu ritmo atual por matéria, comparado à duração oficial do concurso.',
+       positivo: 'Tempo projetado abaixo da duração da prova com folga para gabarito.',
+       alerta: 'Estouro de tempo projetado indicando questões deixadas em branco.',
+       acao: 'Ataque primeiro as matérias com maior saldo positivo de estouro de minutos.'
+     },
+     consistency_boxplot: {
+       como: 'Cada linha resume toda a distribuição das notas da disciplina: mínimo, Q1, mediana, Q3, máximo e média (losango).',
+       positivo: 'Caixa estreita (baixo IQR) posicionada à direita da meta.',
+       alerta: 'Caixas muito largas ou cauda esquerda abaixo do corte mínimo (minCutoff).',
+       acao: 'Estabilize matérias voláteis atacando subtópicos específicos com maior erro.'
+     },
+     projection_fan: {
+       como: 'Projeta a evolução futura de hoje até a data da prova em faixas de probabilidade (P10–P90 e P25–P75) sobrepostas aos cortes históricos.',
+       positivo: 'Mediana P50 cruzando a meta antes da prova com cone se estreitando.',
+       alerta: 'Até o cenário P75 abaixo da meta ou cone excessivamente aberto.',
+       acao: 'Aumente a constância de simulados para reduzir incerteza e elevar a inclinação.'
+     },
+     kalman_latent: {
+       como: 'Separa a habilidade real estimada (linha verde suave + IC 95%) das oscilações brutas de cada simulado (pontos laranja/rosa).',
+       positivo: 'Habilidade latente em alta sustentada mesmo com ruído pontual.',
+       alerta: 'Tendência estrutural negativa por várias semanas consecutivas.',
+       acao: 'Use a curva latente para avaliar evolução real sem reagir por impulso a um simulado isolado.'
      }
     };
     
@@ -581,8 +636,16 @@ export default React.memo(function EvolutionChart({
     const [selectedSubjectId, setFocusSubjectId] = useState(null);
     
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
-    const mcWeights = useAppStore(
-        (state) => state.appState?.contests?.[state.appState?.activeId]?.mcWeights || EMPTY_OBJECT
+    const { mcWeights, historicalCutoffs, examDurationMinutes, examTotalQuestions } = useAppStore(
+        useShallow((state) => {
+            const contest = state.appState?.contests?.[state.appState?.activeId];
+            return {
+                mcWeights: contest?.mcWeights || EMPTY_OBJECT,
+                historicalCutoffs: contest?.historicalCutoffs || EMPTY_ARRAY,
+                examDurationMinutes: contest?.examDurationMinutes ?? null,
+                examTotalQuestions: contest?.examTotalQuestions ?? null,
+            };
+        })
     );
     const { timeline, heatmapData, globalMetrics, activeCategories } = useChartData(categories, mcWeights, maxScore, minScore);
 
@@ -1571,6 +1634,59 @@ export default React.memo(function EvolutionChart({
                         timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}
+                    />
+                ) : activeEngine === "speed_accuracy" ? (
+                    <SpeedAccuracyChart
+                        categories={categories}
+                        simuladoRows={simuladoRowsArray}
+                        showOnlyFocus={showOnlyFocus}
+                        focusSubjectId={focusSubjectId}
+                        timeWindow={timeWindow}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                        minScore={showOnlyFocus ? focusMin : minScore}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                        examDurationMinutes={examDurationMinutes}
+                        examTotalQuestions={examTotalQuestions}
+                    />
+                ) : activeEngine === "exam_pacing" ? (
+                    <ExamPacingChart
+                        categories={categories}
+                        timeWindow={timeWindow}
+                        examDurationMinutes={examDurationMinutes}
+                        examTotalQuestions={examTotalQuestions}
+                    />
+                ) : activeEngine === "consistency_boxplot" ? (
+                    <ConsistencyBoxPlotChart
+                        categories={categories}
+                        showOnlyFocus={showOnlyFocus}
+                        focusSubjectId={focusSubjectId}
+                        timeWindow={timeWindow}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                        minScore={showOnlyFocus ? focusMin : minScore}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                        unit={resolvedActiveUnit}
+                    />
+                ) : activeEngine === "projection_fan" ? (
+                    <ProjectionFanChart
+                        focusCategory={showOnlyFocus ? focusCategory : (focusCategory || null)}
+                        timeline={timeline}
+                        projectDays={projectDays}
+                        historicalCutoffs={historicalCutoffs}
+                        targetScore={focusTarget}
+                        minScore={focusMin}
+                        maxScore={focusMax}
+                        unit={resolvedFocusUnit}
+                        activeMcResult={activeMcResult}
+                    />
+                ) : activeEngine === "kalman_latent" ? (
+                    <KalmanLatentChart
+                        focusCategory={focusCategory}
+                        timeline={timeline}
+                        timeWindow={timeWindow}
+                        targetScore={focusTarget}
+                        minScore={focusMin}
+                        maxScore={focusMax}
+                        unit={resolvedFocusUnit}
                     />
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart

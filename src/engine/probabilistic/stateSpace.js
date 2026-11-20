@@ -304,6 +304,164 @@ export function kalmanAbilityTrend(observations = [], options = {}) {
 }
 
 /**
+ * Executa o mesmo Filtro de Kalman Local-Linear-Trend retornando toda a série
+ * passo a passo para visualização (habilidade latente vs. notas brutas + IC 95%).
+ */
+export function kalmanAbilitySeries(observations = [], options = {}) {
+  const maxScore = clampNumber(options.maxScore ?? 100, 1, 1_000_000);
+  const minScore = clampNumber(options.minScore ?? 0, -1_000_000, maxScore);
+  const domain = Math.max(1e-6, maxScore - minScore);
+
+  const obs = (Array.isArray(observations) ? observations : [])
+    .map((entry, index) => {
+      const score = getSafeScore(entry, maxScore, minScore);
+      const time = parseObservationTime(entry);
+      const rawDate = entry?.date ?? entry?.createdAt ?? entry?.timestamp ?? null;
+      return {
+        index,
+        score: Number.isFinite(score) ? clampNumber(score, minScore, maxScore) : NaN,
+        time,
+        rawDate,
+      };
+    })
+    .filter((entry) => Number.isFinite(entry.score) && Number.isFinite(entry.time))
+    .sort((a, b) => a.time - b.time);
+
+  if (obs.length < 2) {
+    return { points: [], summary: null };
+  }
+
+  const scores = obs.map((entry) => entry.score);
+  let observationVariance = Math.pow(domain * 0.08, 2);
+  const qAbility = Math.pow(domain * 0.005, 2);
+  const qTrend = Math.pow(domain * 0.001, 2);
+
+  if (scores.length >= 3) {
+    const diffs = [];
+    const dts = [];
+    for (let i = 1; i < obs.length; i++) {
+      const dt = clampNumber((obs[i].time - obs[i - 1].time) / 86400000, 0.25, 60);
+      diffs.push(scores[i] - scores[i - 1]);
+      dts.push(dt);
+    }
+    const totalDt = kahanSum(dts);
+    const driftPerDay = totalDt > 1e-6 ? kahanSum(diffs) / totalDt : 0;
+    let sumNoiseSq = 0;
+    for (let i = 0; i < diffs.length; i++) {
+      const detrended = diffs[i] - driftPerDay * dts[i];
+      const pureMeasSq = Math.max(0, detrended * detrended - qAbility * dts[i]);
+      sumNoiseSq += pureMeasSq;
+    }
+    const diffVar = sumNoiseSq / Math.max(1, diffs.length - 1);
+    const estMeasurementVar = 0.5 * diffVar;
+    observationVariance = Math.max(
+      Math.pow(domain * 0.04, 2),
+      Math.min(Math.pow(domain * 0.25, 2), estMeasurementVar + Math.pow(domain * 0.02, 2))
+    );
+  }
+
+  const obsSd = Math.sqrt(Math.max(1e-9, observationVariance));
+  let ability = minScore + domain * 0.5;
+  let trend = 0;
+  let P00 = Math.max(observationVariance * 4, Math.pow(domain * 0.35, 2));
+  let P01 = 0;
+  let P11 = Math.pow(domain * 0.01, 2);
+  const maxTrendPerDay = Math.max(domain * 0.0005, domain * 0.005);
+
+  let previousTime = obs[0].time;
+  const points = [];
+
+  for (let i = 0; i < obs.length; i++) {
+    const current = obs[i];
+    const y = clampNumber(current.score, minScore, maxScore);
+
+    if (i > 0) {
+      const dtDays = clampNumber((current.time - previousTime) / 86400000, 0.25, 60);
+      ability = clampNumber(ability + trend * dtDays, minScore, maxScore);
+      const dt2 = dtDays * dtDays;
+      const dt3 = dt2 * dtDays;
+      P00 = Math.max(1e-12, P00 + 2 * dtDays * P01 + dt2 * P11 + qAbility * dtDays + (qTrend * dt3) / 3);
+      P01 = P01 + dtDays * P11 + 0.5 * qTrend * dt2;
+      P11 = Math.max(1e-12, P11 + qTrend * dtDays);
+      previousTime = current.time;
+    }
+
+    const predictedAbility = ability;
+    const innovation = y - predictedAbility;
+    const S = P00 + observationVariance;
+
+    if (Number.isFinite(S) && S > 1e-12) {
+      const K0 = P00 / S;
+      const K1 = P01 / S;
+      const prevAbilityStep = ability;
+      const prevTrendStep = trend;
+      ability = clampNumber(ability + K0 * innovation, minScore, maxScore);
+      trend = clampNumber(trend + K1 * innovation, -maxTrendPerDay, maxTrendPerDay);
+
+      const hasInnovation = Math.abs(innovation) > 1e-9;
+      const K0Eff = hasInnovation ? clampNumber((ability - prevAbilityStep) / innovation, 0, K0) : K0;
+      const K1Eff = hasInnovation
+        ? (K1 >= 0 ? clampNumber((trend - prevTrendStep) / innovation, 0, K1) : clampNumber((trend - prevTrendStep) / innovation, K1, 0))
+        : K1;
+
+      const A00 = 1 - K0Eff;
+      const A10 = -K1Eff;
+      const AP00 = A00 * P00;
+      const AP01 = A00 * P01;
+      const AP10 = A10 * P00 + P01;
+      const AP11 = A10 * P01 + P11;
+
+      P00 = Math.max(1e-12, AP00 * A00 + K0Eff * observationVariance * K0Eff);
+      P01 = AP00 * A10 + AP01 + K0Eff * observationVariance * K1Eff;
+      P11 = Math.max(1e-12, AP10 * A10 + AP11 + K1Eff * observationVariance * K1Eff);
+    }
+
+    const abilitySd = Math.sqrt(Math.max(0, P00));
+    const ci95Low = clampNumber(ability - 1.96 * abilitySd, minScore, maxScore);
+    const ci95High = clampNumber(ability + 1.96 * abilitySd, minScore, maxScore);
+    const innovationSigma = i > 0 && obsSd > 1e-6 ? Math.abs(innovation) / Math.sqrt(Math.max(1e-9, S)) : 0;
+
+    const dtObj = new Date(current.time);
+    const isoDate = `${dtObj.getFullYear()}-${String(dtObj.getMonth() + 1).padStart(2, '0')}-${String(dtObj.getDate()).padStart(2, '0')}`;
+    const displayDate = `${String(dtObj.getDate()).padStart(2, '0')}/${String(dtObj.getMonth() + 1).padStart(2, '0')}`;
+
+    points.push({
+      date: typeof current.rawDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(current.rawDate) ? current.rawDate.slice(0, 10) : isoDate,
+      displayDate,
+      timestamp: current.time,
+      rawScore: Number(y.toFixed(2)),
+      ability: Number(ability.toFixed(2)),
+      abilitySd: Number(abilitySd.toFixed(2)),
+      ciBand: [Number(ci95Low.toFixed(2)), Number(ci95High.toFixed(2))],
+      ci95Low: Number(ci95Low.toFixed(2)),
+      ci95High: Number(ci95High.toFixed(2)),
+      innovation: Number(innovation.toFixed(2)),
+      isOutlier: innovationSigma >= 1.5,
+      trendPerMonth: Number(clampNumber(trend * 30, -domain, domain).toFixed(2)),
+    });
+  }
+
+  const last = points[points.length - 1];
+  const outlierCount = points.filter((p) => p.isOutlier).length;
+  const rawSd = kahanStd(scores);
+
+  return {
+    points,
+    summary: {
+      ability: last.ability,
+      abilitySd: last.abilitySd,
+      trendPerDay: Number(clampNumber(trend, -maxTrendPerDay, maxTrendPerDay).toFixed(4)),
+      trendPerMonth: last.trendPerMonth,
+      observationSd: Number(obsSd.toFixed(2)),
+      rawSd: Number(rawSd.toFixed(2)),
+      noiseReductionPct: rawSd > 1e-6 ? Math.max(0, Math.min(99, Math.round((1 - last.abilitySd / rawSd) * 100))) : 0,
+      outlierCount,
+      sampleSize: points.length,
+    },
+  };
+}
+
+/**
  * Filtro de Kalman simplificado para estimativa de habilidade.
  */
 export function runStateSpaceModel(scores, options = {}) {
@@ -420,6 +578,7 @@ export default {
   runStateSpaceModel,
   estimateAbility,
   kalmanAbilityTrend,
+  kalmanAbilitySeries,
   kahanMean,
   kahanVariance,
   kahanStd,

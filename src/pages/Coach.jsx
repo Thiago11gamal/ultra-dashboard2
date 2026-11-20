@@ -21,6 +21,7 @@ import CoachMenuNav from '../components/coach/CoachMenuNav';
 import CoachControlCenter from '../components/coach/CoachControlCenter';
 import MonteCarloDebugger from '../components/MonteCarloDebugger';
 import ReliabilityCurveChart from '../components/charts/ReliabilityCurveChart';
+import { CalibrationDriftChart } from '../components/charts/Coach/CalibrationDriftChart';
 import { getFlashcardDueTodayCount } from '../utils/analytics';
 import { useSubscription } from '../hooks/useSubscription';
 import { useAuth } from '../context/useAuth';
@@ -1092,6 +1093,8 @@ return (
                                         maxScore={currentMaxScore}
                                         minScore={currentMinScore}
                                         targetScore={targetScorePoints}
+                                        calibrationAuditLog={data?.calibrationAuditLog}
+                                        calibrationHistoryByCategory={data?.calibrationHistoryByCategory}
                                     />
                                 ) : (
                                     <RaioXDashboard data={data} />
@@ -1847,7 +1850,8 @@ return (
             </div>
 
             {temporalSeries.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
+                    <CalibrationDriftChart series={temporalSeries} height={210} />
                     {/* VIS-FIX: legenda + escala realista */}
                     <div className="flex flex-wrap items-center gap-4 pb-2 text-[9px] font-black uppercase tracking-widest text-slate-500">
                         <span className="flex items-center gap-1.5"><span className="w-2.5 h-1.5 rounded-sm bg-rose-400/80" />Brier (escala 0–0.50)</span>

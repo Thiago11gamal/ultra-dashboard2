@@ -4,6 +4,8 @@ import VerifiedStats from '../components/VerifiedStats';
 import WeeklyAnalysis from '../components/WeeklyAnalysis';
 import { EvolucaoFocoChart } from '../components/charts/Analytics/EvolucaoFocoChart';
 import { HorasDisciplinaChart } from '../components/charts/Analytics/HorasDisciplinaChart';
+import { CircadianHeatmapChart } from '../components/charts/Analytics/CircadianHeatmapChart';
+import { SyllabusBurndownChart } from '../components/charts/Analytics/SyllabusBurndownChart';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -34,22 +36,33 @@ const useDayTick = () => {
 export default function Stats() {
     const dayTick = useDayTick();
 
-    const { rawCategories, rawStudyLogs, rawFlashcards, rawSimuladoRows, user } = useAppStore(useShallow(state => {
+    const { rawCategories, rawStudyLogs, rawStudySessions, rawFlashcards, rawSimuladoRows, user, minScore, maxScore } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
         const activeId = state?.appState?.activeId;
         const contest = contests[activeId] || {};
         return {
             rawCategories: contest.categories,
             rawStudyLogs: contest.studyLogs,
+            rawStudySessions: contest.studySessions,
             rawFlashcards: contest.flashcardDecks,
             rawSimuladoRows: contest.simuladoRows,
-            user: contest.user || null
+            user: contest.user || null,
+            minScore: contest.minScore ?? 0,
+            maxScore: contest.maxScore ?? 100
         };
     }));
 
     const studyLogs = useMemo(() => {
         return Array.isArray(rawStudyLogs) ? rawStudyLogs : Object.values(rawStudyLogs || {});
     }, [rawStudyLogs]);
+
+    const studySessions = useMemo(() => {
+        return Array.isArray(rawStudySessions) ? rawStudySessions : Object.values(rawStudySessions || {});
+    }, [rawStudySessions]);
+
+    const simuladoRows = useMemo(() => {
+        return Array.isArray(rawSimuladoRows) ? rawSimuladoRows : Object.values(rawSimuladoRows || {});
+    }, [rawSimuladoRows]);
 
     // FIX E-01: normalização profunda — garante `tasks` como array em todas as categorias.
     const categories = useMemo(() => {
@@ -196,8 +209,16 @@ export default function Stats() {
                                     </div>
                                 </div>
                                 <WeeklyAnalysis studyLogs={studyLogs} categories={categories} dayTick={dayTick} />
+                                <CircadianHeatmapChart
+                                    studyLogs={studyLogs}
+                                    studySessions={studySessions}
+                                    simuladoRows={simuladoRows}
+                                    minScore={minScore}
+                                    maxScore={maxScore}
+                                />
                             </>
                         )}
+                        <SyllabusBurndownChart categories={categories} user={user || {}} />
                     </>
                 )}
             </div>
