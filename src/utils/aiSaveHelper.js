@@ -52,6 +52,9 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     difficulty: numericDifficulty,
     timeSpent: timeSpentSecs,
     isPercentage: true,
+    ...(Array.isArray(formData?.questionTelemetry) && formData.questionTelemetry.length > 0
+      ? { questionTelemetry: formData.questionTelemetry.slice(0, 60) }
+      : {}),
   };
 
   if (!draft.simuladoRows || !Array.isArray(draft.simuladoRows)) {

@@ -17,6 +17,7 @@ import { createTrashSlice } from './slices/createTrashSlice.js';
 import { createSettingsSlice } from './slices/createSettingsSlice.js';
 import { createMonteCarloSlice } from './slices/createMonteCarloSlice.js';
 import { clearCoachCaches } from '../utils/coachPipeline.js';
+import { auth as firebaseAuth, db as firebaseDb, secureLogout as firebaseSecureLogout } from '../services/firebase.js';
 
 const STORAGE_META_SUFFIX = ':meta';
 const getStorageMetaKey = (name) => `${name}${STORAGE_META_SUFFIX}`;
@@ -473,24 +474,23 @@ export const clearAllDataSecure = async () => {
 
     // 2. Apagar backups na nuvem (se autenticado) e encerrar sessão com segurança
     try {
-      const firebaseMod = await import('../services/firebase.js');
-      const currentUid = firebaseMod?.auth?.currentUser?.uid;
-      if (currentUid && firebaseMod?.db) {
+      const currentUid = firebaseAuth?.currentUser?.uid;
+      if (currentUid && firebaseDb) {
         try {
           const firestoreMod = await import('firebase/firestore');
           const contestsSnap = await firestoreMod.getDocs(
-            firestoreMod.collection(firebaseMod.db, 'backups', currentUid, 'contests')
+            firestoreMod.collection(firebaseDb, 'backups', currentUid, 'contests')
           );
-          const batch = firestoreMod.writeBatch(firebaseMod.db);
+          const batch = firestoreMod.writeBatch(firebaseDb);
           contestsSnap.forEach((cDoc) => batch.delete(cDoc.ref));
-          batch.delete(firestoreMod.doc(firebaseMod.db, 'backups', currentUid));
+          batch.delete(firestoreMod.doc(firebaseDb, 'backups', currentUid));
           await batch.commit();
         } catch (cloudDelErr) {
           console.warn('[Storage] Falha ao remover backups na nuvem ao zerar conta:', cloudDelErr);
         }
       }
-      if (typeof firebaseMod?.secureLogout === 'function') {
-        await firebaseMod.secureLogout();
+      if (typeof firebaseSecureLogout === 'function') {
+        await firebaseSecureLogout();
       }
     } catch { /* ignore */ }
 

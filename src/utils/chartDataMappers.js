@@ -16,12 +16,12 @@ const sanitizeMinutes = (value) => Math.min(720, Math.max(0, toFiniteNumber(valu
 import {
     normalizeArray,
     getMasterySignal,
-    halfLifeFromMastery,
     retentionFromHalfLife,
     getLatestStudyMs,
     clamp,
     MS_PER_DAY as CORE_MS_PER_DAY
 } from './retentionCore.js';
+import { estimateEmpiricalHalfLife } from '../engine/adaptive/empiricalRetention.js';
 
 /**
  * Maps categories and their tasks to retention analysis data
@@ -44,7 +44,8 @@ export const mapRetentionData = (categories = [], options = {}) => {
         if (!Number.isFinite(days)) return;
 
         const mastery = getMasterySignal(cat);
-        const halfLife = halfLifeFromMastery(mastery.masterySignal);
+        const empirical = estimateEmpiricalHalfLife(cat);
+        const halfLife = empirical.effectiveHalfLife;
         const retention = retentionFromHalfLife(days, halfLife);
 
         data.push({
@@ -53,6 +54,8 @@ export const mapRetentionData = (categories = [], options = {}) => {
             diasSemRevisao: Math.floor(days),
             nivelCritico: clamp(100 - retention, 0, 100),
             retencao: retention,
+            halfLifeDias: halfLife,
+            empiricalProfile: empirical.profile,
             totalQuestoes: mastery.totalQ,
             acuraciaPct: Math.round(mastery.accuracy * 100),
             isTask: false

@@ -12,6 +12,7 @@ import DueForecast from '../components/DueForecast';
 import ConfirmModal from '../components/ConfirmModal';
 import { getFlashcardDueTodayCount, getFlashcardMasteryPct, getFlashcardTotalCards, getFlashcardDeckCount } from '../utils/analytics';
 import { normalizeArray, toFiniteNumber } from '../utils/retentionCore';
+import { estimateEmpiricalHalfLife } from '../engine/adaptive/empiricalRetention';
 
 export default function Retention() {
     const [confirmModal, setConfirmModal] = useState({
@@ -45,6 +46,15 @@ export default function Retention() {
     const startPomodoroSession = useAppStore(state => state.startPomodoroSession);
 
     const chartData = useMemo(() => mapRetentionData(categories), [categories]);
+    const empiricalProfiles = useMemo(
+        () => categories.map((cat) => ({
+            id: cat.id || cat.name,
+            name: cat.name,
+            color: cat.color || '#6366f1',
+            ...estimateEmpiricalHalfLife(cat),
+        })),
+        [categories]
+    );
 
     const srsIndicators = useMemo(() => {
         const totalCards = getFlashcardTotalCards(safeDecks);
@@ -183,6 +193,43 @@ export default function Retention() {
                         <div className="p-3 bg-black/30 rounded-xl border border-white/10 text-xs flex items-center">
                             {srsIndicators.dueToday > 0 ? 'Use a Repetição Espaçada para combater o esquecimento ativo.' : 'Parabéns — sua curva de retenção SRS está saudável.'}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Meia-Vida Empírica Calibrada por Disciplina (Bayesian Shrinkage) */}
+            {empiricalProfiles.length > 0 && (
+                <div className="glass p-6 rounded-3xl border border-white/10 shadow-2xl bg-slate-900/40 space-y-4">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                            <h2 className="text-sm font-black text-white uppercase tracking-widest">
+                                Meia-Vida Empírica Calibrada (Auto-Ajuste por Matéria)
+                            </h2>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                Combina a meia-vida teórica (prior) com a queda real observada nos seus simulados via shrinkage bayesiano
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {empiricalProfiles.map((prof) => (
+                            <div key={prof.id} className="rounded-2xl border border-white/10 bg-slate-950/60 p-3.5 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: prof.color }} />
+                                        <span className="text-xs font-bold text-white truncate">{prof.name}</span>
+                                    </div>
+                                    <span className="text-[10px] font-mono font-black text-indigo-300 shrink-0">
+                                        {prof.effectiveHalfLife}d
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                                    <span>Prior {prof.priorHalfLife}d {prof.empiricalHalfLife ? `→ Emp. ${prof.empiricalHalfLife}d` : ''}</span>
+                                    <span className={prof.profile === 'fast_decay' ? 'text-rose-400 font-bold' : prof.profile === 'high_retention' ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
+                                        {prof.profileLabel}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

@@ -10,10 +10,14 @@ export default function SimuladoPlayer({
   questions,
   currentIndex,
   answers,
+  confidences = {},
+  onSelectConfidence,
   timeLeft,
   DIFFICULTIES,
   goTo,
   selectAnswer,
+  clearAnswer,
+  penaltyPerWrong = 0,
   handleFinish,
   resetAll
 }) {
@@ -142,9 +146,35 @@ return (
               </div>
               
               {/* Enunciado */}
-              <div className="text-[17px] leading-[1.7] font-medium text-white/90 tracking-[-0.2px] mb-8">
+              <div className="text-[17px] leading-[1.7] font-medium text-white/90 tracking-[-0.2px] mb-6">
                 {currentQuestion.enunciado}
               </div>
+
+              {/* Confiança Metacognitiva (opcional, 1 clique) */}
+              {typeof onSelectConfidence === 'function' && (
+                <div className="flex flex-wrap items-center gap-2 mb-5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 mr-1">Confiança:</span>
+                  {[
+                    { key: 'certeza', label: 'Certeza', activeCls: 'bg-emerald-500/25 border-emerald-400/60 text-emerald-200' },
+                    { key: 'duvida', label: 'Dúvida', activeCls: 'bg-amber-500/25 border-amber-400/60 text-amber-200' },
+                    { key: 'chute', label: 'Chute', activeCls: 'bg-rose-500/25 border-rose-400/60 text-rose-200' },
+                  ].map((opt) => {
+                    const active = confidences[currentQuestion.id] === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => onSelectConfidence(currentQuestion.id, active ? null : opt.key)}
+                        className={`px-3 py-1 rounded-full border text-[11px] font-bold transition-all ${
+                          active ? opt.activeCls : 'bg-white/[0.03] border-white/10 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Alternatives */}
               <div className="space-y-2.5">
@@ -182,6 +212,25 @@ return (
                   );
                 })}
               </div>
+
+              {typeof clearAnswer === 'function' && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => clearAnswer(currentQuestion.id)}
+                    disabled={!answers[currentQuestion.id]}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-bold text-slate-300 disabled:opacity-35 transition-colors"
+                  >
+                    <XCircle size={13} className="text-slate-400" />
+                    Deixar em branco
+                  </button>
+                  {penaltyPerWrong > 0 && (
+                    <span className="text-[10px] font-mono text-amber-300/90 bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 rounded-lg">
+                      Penalidade ativa: -{penaltyPerWrong} pt por erro (em branco = 0)
+                    </span>
+                  )}
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>

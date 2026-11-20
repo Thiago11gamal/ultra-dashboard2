@@ -6,6 +6,7 @@ import { BookOpen, Plus, Trash2, Play, X, RotateCw, Award } from 'lucide-react';
 import { generateId } from '../utils/idGenerator';
 import { format } from 'date-fns';
 import { getFlashcardTodayKey, getFlashcardNextDueKey, isFlashcardDue, parseNoonLocal, normalizeDate } from '../utils/dateHelper';
+import { scheduleFlashcardFsrs, computeFlashcardRetrievability } from '../engine/probabilistic/fsrs';
 import DueForecast from '../components/DueForecast';
 
 import ConfirmModal from '../components/ConfirmModal';
@@ -203,9 +204,17 @@ export default function Flashcards() {
     showToast('Cartão excluído', 'info');
   };
 
-  // Start study
+  // Start study — ordena por prioridade crítica (Conceito Errado Crítico) e menor recuperabilidade FSRS
   const getDueCardsForDeck = (deck) => {
-    return getSafeDeckCards(deck).filter(c => isFlashcardDue(c.due));
+    const nowMs = Date.now();
+    return getSafeDeckCards(deck)
+      .filter(c => isFlashcardDue(c.due))
+      .sort((a, b) => {
+        const aCrit = (a?.priority === 'critical' || a?.confidence === 'certeza') ? 1 : 0;
+        const bCrit = (b?.priority === 'critical' || b?.confidence === 'certeza') ? 1 : 0;
+        if (bCrit !== aCrit) return bCrit - aCrit;
+        return computeFlashcardRetrievability(a, nowMs) - computeFlashcardRetrievability(b, nowMs);
+      });
   };
 
   const startStudy = (deck) => {
@@ -239,7 +248,7 @@ export default function Flashcards() {
 
   const flipCard = () => setIsFlipped(f => !f);
 
-  // SRS simple
+  // Agendador FSRS-4.5 real (estabilidade S, dificuldade D e recuperabilidade R)
   function rateCard(rating) {
     if (pendingClose) return;
     // rating: 0=Esqueci, 1=Difícil, 2=Bom, 3=Fácil
@@ -248,22 +257,10 @@ export default function Flashcards() {
     const currentCard = studyDeck.cardsToStudy[studyIndex];
     if (!currentCard) return;
 
-    // Update in decks
-    let newInterval = currentCard.interval || 1;
-    let newEase = currentCard.ease || 2.5;
-
-    if (rating === 0) {
-      newInterval = 1;
-    } else if (rating === 1) {
-      newInterval = Math.max(1, Math.floor(newInterval * 0.8));
-      newEase = Math.max(1.3, newEase - 0.15);
-    } else if (rating === 2) {
-      newInterval = Math.max(newInterval + 1, Math.min(365 * 5, Math.round(newInterval * newEase)));
-      newEase = Math.min(3.0, newEase + 0.05);
-    } else {
-      newInterval = Math.max(newInterval + 2, Math.min(365 * 5, Math.round(newInterval * (newEase + 0.2))));
-      newEase = Math.min(3.2, newEase + 0.1);
-    }
+    const fsrsResult = scheduleFlashcardFsrs(currentCard, rating);
+    const newInterval = fsrsResult.interval;
+    const newEase = fsrsResult.ease;
+    const nextFsrs = fsrsResult.fsrs;
 
     const nextDue = getFlashcardNextDueKey(newInterval);
 
@@ -278,6 +275,7 @@ export default function Flashcards() {
               ...card,
               interval: newInterval,
               ease: newEase,
+              fsrs: nextFsrs,
               due: nextDue,
               lastReviewed: nowIso,
               reviews: (card.reviews || 0) + 1
@@ -308,6 +306,7 @@ export default function Flashcards() {
       ...updatedStudyCards[studyIndex],
       interval: newInterval,
       ease: newEase,
+      fsrs: nextFsrs,
       due: nextDue
     };
 
@@ -521,9 +520,20 @@ export default function Flashcards() {
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-amber-100 line-clamp-2 leading-snug">{card.front}</div>
                         <div className="text-slate-400 mt-1 text-xs line-clamp-2 leading-snug">{card.back}</div>
-                        <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-500">
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                           <span>Intervalo: {card.interval || 1}d</span>
                           {card.due && <span>Próxima: {formatDueShort(card.due)}</span>}
+                          <span className="font-mono text-cyan-400/80">
+                            R: {Math.round(computeFlashcardRetrievability(card) * 100)}%
+                          </span>
+                          {card.fsrs?.stability != null && (
+                            <span className="font-mono text-indigo-300/80">FSRS S={card.fsrs.stability}d</span>
+                          )}
+                          {(card.priority === 'critical' || card.confidence === 'certeza') && (
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold">
+                              Conceito Crítico
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button

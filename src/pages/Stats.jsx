@@ -6,6 +6,9 @@ import { EvolucaoFocoChart } from '../components/charts/Analytics/EvolucaoFocoCh
 import { HorasDisciplinaChart } from '../components/charts/Analytics/HorasDisciplinaChart';
 import { CircadianHeatmapChart } from '../components/charts/Analytics/CircadianHeatmapChart';
 import { SyllabusBurndownChart } from '../components/charts/Analytics/SyllabusBurndownChart';
+import { WorkloadACWRChart } from '../components/charts/Analytics/WorkloadACWRChart';
+import { EfficientAllocationChart } from '../components/charts/Analytics/EfficientAllocationChart';
+import { AdaptiveMaturityBadge } from '../components/ui/AdaptiveMaturityBadge';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
 import { getSafeScore } from '../utils/scoreHelper';
@@ -150,6 +153,7 @@ export default function Stats() {
                         </div>
                         <p className="text-slate-400 mt-1.5 text-sm">Sua performance quantificada.</p>
                     </div>
+                    <AdaptiveMaturityBadge compact />
                 </div>
 
                 {!hasData ? (
@@ -216,8 +220,16 @@ export default function Stats() {
                                     minScore={minScore}
                                     maxScore={maxScore}
                                 />
+                                <WorkloadACWRChart studyLogs={studyLogs} />
                             </>
                         )}
+                        <EfficientAllocationChart
+                            categories={categories}
+                            studyLogs={studyLogs}
+                            targetScore={Number(user?.targetScore) || 80}
+                            minScore={minScore}
+                            maxScore={maxScore}
+                        />
                         <SyllabusBurndownChart categories={categories} user={user || {}} />
                     </>
                 )}

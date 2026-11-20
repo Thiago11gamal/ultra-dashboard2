@@ -1,4 +1,5 @@
 import { safeSetItem } from './coachStorage.js';
+import { getAppAnalytics, isLocalMode } from '../services/firebase.js';
 
 const TELEMETRY_KEY = 'coach_calibration_events_v1';
 const TELEMETRY_RETENTION_MS = 1000 * 60 * 60 * 24 * 45;
@@ -16,7 +17,6 @@ function toNullableFinite(val) {
 
 async function sendToFirebaseAnalytics(metric) {
     try {
-        const { getAppAnalytics, isLocalMode } = await import('../services/firebase.js');
         if (isLocalMode || typeof getAppAnalytics !== 'function') return;
         const analytics = await getAppAnalytics();
         if (!analytics) return;

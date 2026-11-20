@@ -1,13 +1,25 @@
 import React, { useState, useMemo } from 'react';
 import { normalize, isSubjectMatch } from '../utils/normalization';
 import ConfirmModal from './ConfirmModal';
+import { useAppStore } from '../store/useAppStore';
 
 import { BrainCircuit, Play, FileText, AlertCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 
-const computeRowPercentage = (correct, total) => (total > 0 ? Math.min(100, (correct / total) * 100) : 0);
+const computeRowPercentage = (correct, total, blanks = 0, penaltyPerWrong = 0) => {
+    if (total <= 0) return 0;
+    const safePenalty = Math.max(0, Number(penaltyPerWrong) || 0);
+    if (safePenalty > 0) {
+        const safeBlanks = Math.max(0, Math.min(total - correct, Number(blanks) || 0));
+        const wrong = Math.max(0, total - correct - safeBlanks);
+        const net = Math.max(0, correct - wrong * safePenalty);
+        return Math.min(100, (net / total) * 100);
+    }
+    return Math.min(100, (correct / total) * 100);
+};
 
-const withPctScore = (row, correct, total) => {
-    const pct = computeRowPercentage(correct, total);
+const withPctScore = (row, correct, total, penaltyPerWrong = 0) => {
+    const blanks = Math.max(0, Number(row?.blanks) || 0);
+    const pct = computeRowPercentage(correct, total, blanks, penaltyPerWrong);
     const { scorePoints: _stalePoints, ...restRow } = row || {};
     return {
         ...restRow,
@@ -18,7 +30,17 @@ const withPctScore = (row, correct, total) => {
     };
 };
 
-export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both' }) {
+export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnalysisComplete, categories = [], viewMode = 'both', penaltyPerWrong: propPenalty, examBoard: propBoard }) {
+    const storePenalty = useAppStore(state => {
+        const id = state.appState?.activeId;
+        return Number(state.appState?.contests?.[id]?.penaltyPerWrong) || 0;
+    });
+    const storeBoard = useAppStore(state => {
+        const id = state.appState?.activeId;
+        return state.appState?.contests?.[id]?.examBoard || '';
+    });
+    const effectivePenalty = propPenalty !== undefined ? Math.max(0, Number(propPenalty) || 0) : storePenalty;
+    const effectiveBoard = propBoard !== undefined ? propBoard : storeBoard;
     const categoriesArray = useMemo(
         () => (Array.isArray(categories) ? categories : Object.values(categories || {})),
         [categories]
@@ -89,23 +111,27 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
         // 1. Sanitização: Apenas números para campos numéricos
         let finalValue = value;
 
-        if (field === 'correct' || field === 'total') {
+        if (field === 'correct' || field === 'total' || field === 'blanks') {
             // Remove tudo que não for dígito
             const rawString = String(value).replace(/\D/g, '');
             const val = rawString === '' ? '' : parseInt(rawString, 10);
 
             if (field === 'correct') {
                 const currentTotal = parseInt(rows[index]?.total, 10) || 0;
-                // Enforce: Correct cannot exceed Total (unless Total is empty/0)
                 if (val !== '' && currentTotal > 0 && val > currentTotal) finalValue = currentTotal;
+                else finalValue = val;
+            } else if (field === 'blanks') {
+                const currentTotal = parseInt(rows[index]?.total, 10) || 0;
+                const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;
+                const maxBlanks = Math.max(0, currentTotal - currentCorrect);
+                if (val !== '' && currentTotal > 0 && val > maxBlanks) finalValue = maxBlanks;
                 else finalValue = val;
             } else if (field === 'total') {
                 const currentCorrect = parseInt(rows[index]?.correct, 10) || 0;
-                // If Total is reduced below Correct, clamp Correct
                 if (val !== '' && val < currentCorrect) {
                     const numTotal = Math.max(0, Number(val) || 0);
                     const newRows = rows.map((r, i) => i === index
-                        ? withPctScore({ ...r, total: val, correct: val }, numTotal, numTotal)
+                        ? withPctScore({ ...r, total: val, correct: val, blanks: 0 }, numTotal, numTotal, effectivePenalty)
                         : r);
                     setRows(newRows);
                     return;
@@ -127,8 +153,11 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                     c = t;
                     updatedRow.correct = c;
                 }
+                if (updatedRow.blanks !== undefined && updatedRow.blanks !== '') {
+                    updatedRow.blanks = Math.min(Math.max(0, t - c), Math.max(0, parseInt(updatedRow.blanks, 10) || 0));
+                }
                 
-                return withPctScore(updatedRow, c, t);
+                return withPctScore(updatedRow, c, t, effectivePenalty);
             }
             return row;
         });
@@ -515,10 +544,19 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                         </div>
                     </div>
 
+                    {effectivePenalty > 0 && (
+                        <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-200 flex items-center justify-between gap-2">
+                            <span>
+                                <strong>Regra de Banca ({effectiveBoard || 'Penalidade'}):</strong> cada erro desconta <strong>-{effectivePenalty}</strong> pt (questões em branco = 0).
+                            </span>
+                            <span className="font-mono text-[10px] text-amber-300 shrink-0">Nota Líquida ativa</span>
+                        </div>
+                    )}
+
                     {/* Colunas header */}
-                    <div className="hidden md:grid grid-cols-[1.5fr_1.5fr_48px_48px_95px_10px] gap-2 px-3 pb-1 border-b border-slate-700/50 mb-1">
-                        {['Matéria', 'Assunto', '✓', 'Total', 'Classificação', ''].map((h, i) => (
-                            <span key={i} className={`text-[9px] font-black uppercase tracking-widest ${i < 2 ? 'text-left' : 'text-center'} ${h === '✓' ? 'text-green-400 text-[11px]' : 'text-slate-400'}`}>{h}</span>
+                    <div className={`hidden md:grid ${effectivePenalty > 0 ? 'grid-cols-[1.4fr_1.4fr_46px_46px_46px_92px_10px]' : 'grid-cols-[1.5fr_1.5fr_48px_48px_95px_10px]'} gap-2 px-3 pb-1 border-b border-slate-700/50 mb-1`}>
+                        {(effectivePenalty > 0 ? ['Matéria', 'Assunto', '✓', 'Branco', 'Total', 'Classificação', ''] : ['Matéria', 'Assunto', '✓', 'Total', 'Classificação', '']).map((h, i) => (
+                            <span key={i} className={`text-[9px] font-black uppercase tracking-widest ${i < 2 ? 'text-left' : 'text-center'} ${h === '✓' ? 'text-green-400 text-[11px]' : h === 'Branco' ? 'text-amber-300' : 'text-slate-400'}`}>{h}</span>
                         ))}
                     </div>
 
@@ -538,7 +576,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                         </div>
                                     )}
                                     <div
-                                        className="group flex flex-col md:grid md:grid-cols-[1.5fr_1.5fr_48px_48px_95px_10px] gap-2 items-center bg-slate-800/30 hover:bg-slate-800/80 rounded-xl px-3 py-2.5 transition-all border border-transparent hover:border-slate-700 hover:shadow-lg">
+                                        className={`group flex flex-col md:grid ${effectivePenalty > 0 ? 'md:grid-cols-[1.4fr_1.4fr_46px_46px_46px_92px_10px]' : 'md:grid-cols-[1.5fr_1.5fr_48px_48px_95px_10px]'} gap-2 items-center bg-slate-800/30 hover:bg-slate-800/80 rounded-xl px-3 py-2.5 transition-all border border-transparent hover:border-slate-700 hover:shadow-lg`}>
 
                                         <div className="flex gap-2 w-full md:contents">
                                             <input type="text" value={row.subject}
@@ -557,6 +595,13 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
                                                 disabled={loading}
                                                 onChange={(e) => updateRow(index, 'correct', e.target.value)}
                                                 className={`bg-slate-950 border border-slate-700/80 rounded-md outline-none text-xs sm:text-sm text-green-400 font-mono font-bold text-center w-14 md:w-full h-8 focus:border-green-500 focus:ring-1 focus:ring-green-500/50 focus:bg-slate-900 transition-all shadow-inner ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-600'}`} />
+                                            {effectivePenalty > 0 && (
+                                                <input type="number" min="0" value={row.blanks ?? ''} placeholder="0"
+                                                    disabled={loading}
+                                                    title="Questões deixadas em branco"
+                                                    onChange={(e) => updateRow(index, 'blanks', e.target.value)}
+                                                    className={`bg-slate-950 border border-amber-500/30 rounded-md outline-none text-xs sm:text-sm text-amber-300 font-mono font-bold text-center w-12 md:w-full h-8 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/40 focus:bg-slate-900 transition-all shadow-inner ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-amber-500/50'}`} />
+                                            )}
                                             <input type="number" min="0" value={row.total}
                                                 disabled={loading}
                                                 onChange={(e) => updateRow(index, 'total', e.target.value)}

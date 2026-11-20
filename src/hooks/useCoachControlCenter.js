@@ -34,8 +34,31 @@ import {
   getCoachFeatureContestScope,
 } from '../utils/coachFeatureStore.js';
 import { isValidFeatureKey } from '../utils/coachFeatures.js';
+import { useAppStore } from '../store/useAppStore.js';
 
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
+const MANUAL_OVERRIDES_STORAGE_PREFIX = 'coach_manual_flag_overrides_v1';
+
+function persistManualFlagOverrides(overrides, contestId, allFlags = null) {
+  const scope = String(contestId || 'default');
+  const key = scope === 'default' ? MANUAL_OVERRIDES_STORAGE_PREFIX : `${MANUAL_OVERRIDES_STORAGE_PREFIX}:${scope}`;
+  try {
+    localStorage.setItem(key, JSON.stringify(overrides || {}));
+  } catch {
+    // ignore storage quota errors
+  }
+  try {
+    const storeState = useAppStore.getState?.();
+    if (typeof storeState?.patchData === 'function' && storeState?.appState?.activeId === scope) {
+      storeState.patchData(() => ({
+        coachManualFlagOverrides: { ...(overrides || {}) },
+        ...(allFlags && typeof allFlags === 'object' ? { coachFeatureFlags: { ...allFlags } } : {}),
+      }));
+    }
+  } catch {
+    // ignore in isolated non-store test runs
+  }
+}
 
 function resolveControlCenterStorageKey(contestId) {
   if (contestId && typeof contestId === 'string' && contestId !== 'default') {
@@ -452,20 +475,26 @@ export function useCoachControlCenter({
     // FIX: só aceita chave válida do registry + valor boolean
     if (typeof flagKey !== 'string' || typeof value !== 'boolean' || !isValidFeatureKey(flagKey)) return;
 
+    let computedNextOverrides = null;
     setFlagOverrides((prev) => {
       const baseVal = Boolean(initialFlagsRef.current?.[flagKey]);
       if (value === baseVal && flagKey in prev) {
         const nextOverrides = { ...prev };
         delete nextOverrides[flagKey];
+        computedNextOverrides = nextOverrides;
         return nextOverrides;
       }
-      return {
+      computedNextOverrides = {
         ...prev,
         [flagKey]: value,
       };
+      return computedNextOverrides;
     });
     const next = writeFlags({ [flagKey]: value }, resolvedContestId);
     persistCoachFlags(next, resolvedContestId);
+    if (computedNextOverrides) {
+      persistManualFlagOverrides(computedNextOverrides, resolvedContestId, next);
+    }
     setCurrentFlags(next);
     clearCoachCaches();
   }, [resolvedContestId]);
@@ -482,6 +511,7 @@ export function useCoachControlCenter({
     const base = hasInitialKeys ? { ...initialFlagsRef.current } : getSafeBaselineFeatures();
     replaceFlags(base, resolvedContestId);
     persistCoachFlags(base, resolvedContestId);
+    persistManualFlagOverrides({}, resolvedContestId, base);
     setCurrentFlags(base);
     clearCoachCaches();
   }, [resolvedContestId]);

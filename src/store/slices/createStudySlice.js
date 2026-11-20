@@ -7,14 +7,23 @@ import { resolveHumanTaskTitle, cleanTaskTitle } from '../../utils/taskTitleHelp
 const LOG_CAP = SYNC_LOG_CAP;
 const SESSION_CAP = SYNC_LOG_CAP;
 
+const VALID_STUDY_MODES = new Set(['teoria', 'questoes', 'revisao', 'lei_seca', 'discursiva']);
+
 export const createStudySlice = (set, get) => ({
-  handleUpdateStudyTime: (categoryId, minutes, taskId, taskTitleOverride = '') => {
+  handleUpdateStudyTime: (categoryId, minutes, taskId, taskTitleOverride = '', metadata = null) => {
     const rawMinutes = Number(minutes);
     if (!Number.isFinite(rawMinutes) || rawMinutes <= 0) {
       console.warn('[StudySlice] minutes inválido, ignorando:', minutes);
       return;
     }
     const safeMinutes = Math.min(720, Math.max(0.1, rawMinutes));
+    const safeStudyMode = (metadata && typeof metadata.studyMode === 'string' && VALID_STUDY_MODES.has(metadata.studyMode))
+      ? metadata.studyMode
+      : null;
+    const rawEnergy = metadata && metadata.energyLevel != null ? Number(metadata.energyLevel) : NaN;
+    const safeEnergyLevel = Number.isFinite(rawEnergy)
+      ? Math.min(5, Math.max(1, Math.round(rawEnergy)))
+      : null;
 
     let pendingXp = 0;
 
@@ -61,7 +70,9 @@ export const createStudySlice = (set, get) => ({
         categoryName: resolvedSubject,
         taskId,
         minutes: safeMinutes,
-        taskTitle
+        taskTitle,
+        ...(safeStudyMode ? { studyMode: safeStudyMode } : {}),
+        ...(safeEnergyLevel != null ? { energyLevel: safeEnergyLevel } : {})
       };
 
       const xpPerMinute = (XP_CONFIG.pomodoro.base / 25) || 1;
@@ -79,7 +90,9 @@ export const createStudySlice = (set, get) => ({
         taskId,
         taskTitle,
         logReferenceId: logId,
-        awardedXP: pendingXp // ✅ FIX: Guarda o recibo exato de XP concedido
+        awardedXP: pendingXp, // ✅ FIX: Guarda o recibo exato de XP concedido
+        ...(safeStudyMode ? { studyMode: safeStudyMode } : {}),
+        ...(safeEnergyLevel != null ? { energyLevel: safeEnergyLevel } : {})
       };
 
       const safeLogs = Array.isArray(activeData.studyLogs)
@@ -103,7 +116,7 @@ export const createStudySlice = (set, get) => ({
           if (task) task.lastStudiedAt = now;
         }
       }
-      
+
       const startHour = new Date(now).getHours();
       if (activeData.user) {
         if (startHour >= 4 && startHour < 7) activeData.user.studiedEarly = true;

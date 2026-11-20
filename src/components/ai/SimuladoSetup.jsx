@@ -10,7 +10,9 @@ export default function SimuladoSetup({
   handleCategorySelect, 
   handleTaskSelect, 
   availableTasks, 
-  generatePersonalizedSimulado, 
+  generatePersonalizedSimulado,
+  generateFullExamSimulado,
+  triRecommendation = null,
   handleGenerate, 
   isLoading, 
   loadingMsgIdx,
@@ -75,15 +77,29 @@ return (
                 </div>
               </div>
               
-              {/* Botão Simulado Personalizado */}
-              <button
-                onClick={generatePersonalizedSimulado}
-                disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50"
-              >
-                <Brain size={16} />
-                SIMULADO PERSONALIZADO
-              </button>
+              {/* Botões Rápidos: Personalizado + Modo Prova Completa (Edital) */}
+              <div className="flex flex-wrap items-center gap-2">
+                {typeof generateFullExamSimulado === 'function' && (
+                  <button
+                    type="button"
+                    onClick={generateFullExamSimulado}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-indigo-100 bg-indigo-600/80 hover:bg-indigo-500 border border-indigo-400/40 active:scale-95 transition-all shadow-[0_0_20px_rgba(99,102,241,0.25)] disabled:opacity-50"
+                  >
+                    <Target size={16} />
+                    MODO PROVA COMPLETA
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={generatePersonalizedSimulado}
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black text-white bg-emerald-500 hover:bg-emerald-400 active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:opacity-50"
+                >
+                  <Brain size={16} />
+                  SIMULADO PERSONALIZADO
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -267,9 +283,16 @@ return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* Difficulty */}
               <div>
-                <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 mb-3 tracking-[1px] uppercase">
-                  <Target size={12} /> Dificuldade
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 tracking-[1px] uppercase">
+                    <Target size={12} /> Dificuldade
+                  </label>
+                  {triRecommendation?.hasData && (
+                    <span className="text-[10px] font-mono font-bold text-indigo-300 bg-indigo-500/15 border border-indigo-400/30 px-2 py-0.5 rounded-md">
+                      TRI recomenda: {triRecommendation.recommendedDifficulty} (θ={triRecommendation.theta >= 0 ? '+' : ''}{triRecommendation.theta})
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-1.5">
                   {DIFFICULTIES.map(d => (
                     <button

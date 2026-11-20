@@ -469,6 +469,9 @@ export function simulateNormalDistribution(
         const effMean = clamp(toFiniteNumber(s.mean, subjDomain.minScore), subjDomain.minScore, subjDomain.maxScore);
         const effSd = Math.max(1e-6, toFiniteNumber(s.sd, 1));
         return {
+            id: s.id || s.name || 'subject',
+            name: s.name || s.id || 'Disciplina',
+            examGroup: s.examGroup || null,
             mean: effMean,
             muParam: solveTruncatedNormalMu(effMean, effSd, subjDomain.minScore, subjDomain.maxScore),
             sd: effSd,
@@ -482,6 +485,15 @@ export function simulateNormalDistribution(
         };
     });
 
+    const groupCutoffs = (meanOrObj && typeof meanOrObj === 'object' && meanOrObj.examGroupCutoffs && typeof meanOrObj.examGroupCutoffs === 'object')
+        ? meanOrObj.examGroupCutoffs
+        : null;
+    const subjectFailCounts = new Uint32Array(choleskySize);
+    const groupFailCounts = new Map();
+    let failedGlobalOnly = 0;
+    let failedMinOnly = 0;
+    let failedBoth = 0;
+
     for (let i = 0; i < safeSimulations; i++) {
         let currentTarget = effectiveTarget;
 
@@ -494,6 +506,8 @@ export function simulateNormalDistribution(
         if (!Number.isFinite(score)) score = clamp(safeMean, minScore, maxScore);
 
         let passedMins = true;
+        const groupSums = groupCutoffs ? new Map() : null;
+        const groupWeights = groupCutoffs ? new Map() : null;
 
         if (subjectParams.length > 0) {
             let subjectSum = 0;
@@ -532,18 +546,46 @@ export function simulateNormalDistribution(
                     : sp.mean;
                 if (!Number.isFinite(rawSample) || (sp.hasMinCutoff && sp.minCutoff !== null && subjScore < sp.minCutoff)) {
                     passedMins = false;
+                    subjectFailCounts[j] += 1;
                 }
                 const globalSubjScore = (sp.minScore === minScore && sp.maxScore === maxScore)
                     ? subjScore
                     : minScore + ((subjScore - sp.minScore) / sp.sRange) * globalRange;
                 subjectSum += globalSubjScore * sp.weight;
                 weightSum += sp.weight;
+                if (groupSums && sp.examGroup) {
+                    groupSums.set(sp.examGroup, (groupSums.get(sp.examGroup) || 0) + globalSubjScore * sp.weight);
+                    groupWeights.set(sp.examGroup, (groupWeights.get(sp.examGroup) || 0) + sp.weight);
+                }
+            }
+
+            if (groupCutoffs && groupSums) {
+                for (const [grp, gCut] of Object.entries(groupCutoffs)) {
+                    const cutNum = Number(gCut);
+                    const gW = groupWeights.get(grp) || 0;
+                    if (Number.isFinite(cutNum) && cutNum > minScore && gW > 0) {
+                        const gScore = groupSums.get(grp) / gW;
+                        if (gScore < cutNum) {
+                            passedMins = false;
+                            groupFailCounts.set(grp, (groupFailCounts.get(grp) || 0) + 1);
+                        }
+                    }
+                }
             }
 
             score = weightSum > 0 ? subjectSum / weightSum : score;
         }
 
-        if (score >= currentTarget && passedMins) success++;
+        const passedGlobal = score >= currentTarget;
+        if (passedGlobal && passedMins) {
+            success++;
+        } else if (!passedGlobal && passedMins) {
+            failedGlobalOnly++;
+        } else if (passedGlobal && !passedMins) {
+            failedMinOnly++;
+        } else {
+            failedBoth++;
+        }
 
         allScores[i] = score;
 
@@ -751,7 +793,122 @@ export function simulateNormalDistribution(
         minScore,
         maxScore,
         method: bayesianCI ? 'bayesian_static_hybrid' : 'normal',
+        riskDecomposition: {
+            passedAllPct: Number(((success / safeSimulations) * 100).toFixed(1)),
+            failedGlobalOnlyPct: Number(((failedGlobalOnly / safeSimulations) * 100).toFixed(1)),
+            failedMinCutoffOnlyPct: Number(((failedMinOnly / safeSimulations) * 100).toFixed(1)),
+            failedBothPct: Number(((failedBoth / safeSimulations) * 100).toFixed(1)),
+            subjectEliminationRates: subjectParams
+                .map((sp, idx) => ({
+                    id: sp.id,
+                    name: sp.name,
+                    minCutoff: sp.hasMinCutoff ? sp.minCutoff : null,
+                    eliminationPct: Number(((subjectFailCounts[idx] / safeSimulations) * 100).toFixed(1)),
+                }))
+                .filter((r) => r.eliminationPct > 0 || r.minCutoff !== null)
+                .sort((a, b) => b.eliminationPct - a.eliminationPct),
+            groupEliminationRates: Array.from(groupFailCounts.entries())
+                .map(([group, count]) => ({
+                    group,
+                    eliminationPct: Number(((count / safeSimulations) * 100).toFixed(1)),
+                }))
+                .sort((a, b) => b.eliminationPct - a.eliminationPct),
+        },
         diagnostics
+    };
+}
+
+/**
+ * Análise de Sensibilidade (Diagrama de Tornado + Simulador What-If).
+ * Varia cada disciplina em ±deltaPct sobre o mesmo motor Cholesky + minCutoff.
+ */
+export function runTornadoSensitivity({
+    subjects = [],
+    targetScore = 80,
+    minScore = 0,
+    maxScore = 100,
+    historicalCutoffs = [],
+    examGroupCutoffs = null,
+    deltaPct = 10,
+    simulations = 1500,
+    overrides = {},
+} = {}) {
+    const safeSubjects = sanitizeSubjects(subjects);
+    if (!safeSubjects.length) {
+        return { baseProbability: 0, baseMean: 0, baseRisk: null, items: [] };
+    }
+
+    const applyOverrides = (list) => list.map((s) => {
+        const key = String(s.id || s.name);
+        const shift = Number(overrides[key] || 0);
+        const sRange = Math.max(1e-6, s.maxScore - s.minScore);
+        const deltaPoints = (shift / 100) * sRange;
+        return {
+            ...s,
+            mean: clamp(s.mean + deltaPoints, s.minScore, s.maxScore),
+        };
+    });
+
+    const baseSubjects = applyOverrides(safeSubjects);
+    const totalWeight = baseSubjects.reduce((acc, s) => acc + s.weight, 0) || 1;
+    const weightedMean = (list) => {
+        const gRange = Math.max(1e-6, maxScore - minScore);
+        return list.reduce((acc, s) => {
+            const sRange = Math.max(1e-6, s.maxScore - s.minScore);
+            const norm = minScore + ((s.mean - s.minScore) / sRange) * gRange;
+            return acc + (norm * s.weight) / totalWeight;
+        }, 0);
+    };
+
+    const runOne = (list, seedTag) => simulateNormalDistribution({
+        mean: weightedMean(list),
+        sd: Math.max(1, (maxScore - minScore) * 0.08),
+        targetScore,
+        simulations,
+        seed: `tornado-${seedTag}`,
+        minScore,
+        maxScore,
+        subjects: list,
+        historicalCutoffs,
+        examGroupCutoffs,
+    });
+
+    const baseRes = runOne(baseSubjects, 'base');
+    const baseProb = Number(baseRes.probability.toFixed(1));
+
+    const items = baseSubjects.map((subj, idx) => {
+        const sRange = Math.max(1e-6, subj.maxScore - subj.minScore);
+        const stepPts = (Math.abs(deltaPct) / 100) * sRange;
+
+        const upList = baseSubjects.map((s, j) => (j === idx ? { ...s, mean: clamp(s.mean + stepPts, s.minScore, s.maxScore) } : s));
+        const downList = baseSubjects.map((s, j) => (j === idx ? { ...s, mean: clamp(s.mean - stepPts, s.minScore, s.maxScore) } : s));
+
+        const upRes = runOne(upList, `up-${idx}`);
+        const downRes = runOne(downList, `down-${idx}`);
+
+        const upside = Number((upRes.probability - baseProb).toFixed(1));
+        const downside = Number((downRes.probability - baseProb).toFixed(1));
+        const swing = Number((upRes.probability - downRes.probability).toFixed(1));
+
+        return {
+            id: subj.id || subj.name || `s-${idx}`,
+            name: subj.name || subj.id || `Matéria ${idx + 1}`,
+            weight: subj.weight,
+            currentMean: Number(subj.mean.toFixed(1)),
+            probUp: Number(upRes.probability.toFixed(1)),
+            probDown: Number(downRes.probability.toFixed(1)),
+            upside,
+            downside,
+            swing: Math.abs(swing),
+        };
+    }).sort((a, b) => b.swing - a.swing);
+
+    return {
+        baseProbability: baseProb,
+        baseMean: Number(baseRes.projectedMean.toFixed(1)),
+        baseRisk: baseRes.riskDecomposition,
+        deltaPct: Math.abs(deltaPct),
+        items,
     };
 }
 

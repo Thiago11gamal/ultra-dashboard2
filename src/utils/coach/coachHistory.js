@@ -4,6 +4,7 @@ import { rankDecisionCandidates } from '../../engine/probabilistic/decisionEngin
 import { kahanSum } from '../../engine/math/kahan.js';
 import { getSafeScore } from '../scoreHelper.js';
 import { normalizeDate, getDateKey } from '../dateHelper.js';
+import { computeACWR } from '../../engine/adaptive/workloadACWR.js';
 import { normalize, isSubjectMatch } from '../normalization.js';
 import { normalizePriority } from '../colorHelper.js';
 import { getCoachFeature } from '../coachFeatures.js';
@@ -84,13 +85,21 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
 
     const dailyLoad = Math.min(1, (minutesToday / 60) / 6);
     const weeklyLoad = Math.min(1, hours7d / 40);
-    const fatigue = clamp(Math.round((dailyLoad * 0.6 + weeklyLoad * 0.4) * 100), 0, 100);
+    const staticFatigue = clamp(Math.round((dailyLoad * 0.6 + weeklyLoad * 0.4) * 100), 0, 100);
+
+    // Fadiga adaptativa ACWR (7d agudo vs 28d crônico): entra suavemente quando há histórico crônico
+    const acwrMetrics = computeACWR(safeLogs, { now: referenceDate });
+    const fatigue = acwrMetrics.hasChronicle
+        ? clamp(Math.round(staticFatigue * 0.3 + acwrMetrics.adaptiveFatigue * 0.7), 0, 100)
+        : staticFatigue;
 
     const streakDays = Math.min(7, new Set(last7DaysLogs.map(l => getDateKey(getLogDate(l))).filter(Boolean)).size);
     const focus = clamp(Math.round((streakDays / 7) * 100), 0, 100);
 
     let recommendation = 'Ritmo saudável — mantenha o plano.';
-    if (fatigue > 75) recommendation = 'Carga cognitiva alta — prefira revisões leves hoje.';
+    if (acwrMetrics.hasChronicle && acwrMetrics.zone === 'burnout_risk') {
+        recommendation = 'Sobrecarga ACWR (>1.5×) detectada — reduza carga pesada por 48h e foque em revisões leves.';
+    } else if (fatigue > 75) recommendation = 'Carga cognitiva alta — prefira revisões leves hoje.';
     else if (fatigue > 50) recommendation = 'Carga moderada — alterne blocos curtos com pausas.';
     else if (focus < 30) recommendation = 'Consistência baixa — comece com um bloco curto para retomar o ritmo.';
 
@@ -98,6 +107,9 @@ export const getCognitiveState = (studyLogs = [], options = {}) => {
         fatigue,
         focus,
         streakDays,
+        acwr: acwrMetrics.acwr,
+        acwrZone: acwrMetrics.zone,
+        recommendedBlockMinutes: acwrMetrics.recommendedBlockMinutes,
         minutesToday: Math.round(minutesToday),
         hours7d: Number(hours7d.toFixed(2)),
         recommendation

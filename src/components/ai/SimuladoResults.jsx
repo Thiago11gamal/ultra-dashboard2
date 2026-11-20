@@ -12,7 +12,14 @@ export default function SimuladoResults({
   setShowReview,
   resetAll,
   retrySameQuestions,
-  showToast
+  showToast,
+  errorTypes = {},
+  onTagErrorType,
+  onCreateErrorFlashcards,
+  onStartAdaptiveNextRound,
+  recommendedNextDifficulty = null,
+  penaltyPerWrong = 0,
+  examBoard = '',
 }) {
   const safeResults = {
     total: results?.total || 0,
@@ -21,7 +28,12 @@ export default function SimuladoResults({
     timeSpentSecs: results?.timeSpentSecs || 0
   };
 
+  const wrongCount = safeResults.questions.filter(q => q && q.wasAnswered && !q.isCorrect).length;
+  const blankCount = safeResults.questions.filter(q => q && !q.wasAnswered).length;
   const accuracy = safeResults.total > 0 ? Math.round((safeResults.correct / safeResults.total) * 100) : 0;
+  const safePenalty = Math.max(0, Number(penaltyPerWrong) || 0);
+  const netPoints = Number((safeResults.correct - wrongCount * safePenalty).toFixed(2));
+  const netPct = safeResults.total > 0 ? Math.max(0, Math.round((netPoints / safeResults.total) * 100)) : 0;
   const colorMap = accuracy >= 80 
     ? { text: '#34d399', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)', glow: 'rgba(16,185,129,0.2)' }
     : accuracy >= 60 
@@ -72,10 +84,19 @@ return (
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="text-center"
+              className="text-center space-y-1.5"
             >
-              <span className="text-3xl font-black tracking-tight" style={{ color: colorMap.text }}>{accuracy}%</span>
-              <span className="text-[11px] font-semibold text-slate-500 ml-2 tracking-[1.5px] uppercase">aproveitamento</span>
+              <div>
+                <span className="text-3xl font-black tracking-tight" style={{ color: colorMap.text }}>{accuracy}%</span>
+                <span className="text-[11px] font-semibold text-slate-500 ml-2 tracking-[1.5px] uppercase">aproveitamento bruto</span>
+              </div>
+              {safePenalty > 0 && (
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/15 border border-amber-400/35 text-xs font-mono text-amber-200">
+                  <span>Nota Líquida{examBoard ? ` (${examBoard})` : ''}:</span>
+                  <strong>{netPoints} / {safeResults.total} ({netPct}%)</strong>
+                  <span className="text-[10px] text-amber-300/75">· {blankCount} em branco</span>
+                </div>
+              )}
             </motion.div>
           </div>
 
@@ -207,6 +228,35 @@ return (
                               {q.justificativa}
                             </div>
                           )}
+
+                          {!isCorrect && typeof onTagErrorType === 'function' && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">Causa do erro:</span>
+                              {[
+                                { key: 'teoria', label: 'Lacuna Teórica' },
+                                { key: 'atencao', label: 'Desatenção' },
+                                { key: 'esquecimento', label: 'Esquecimento' },
+                                { key: 'tempo', label: 'Tempo' },
+                                { key: 'banca', label: 'Banca' },
+                              ].map((tag) => {
+                                const isActive = errorTypes[q.id] === tag.key;
+                                return (
+                                  <button
+                                    key={tag.key}
+                                    type="button"
+                                    onClick={() => onTagErrorType(q.id, isActive ? null : tag.key)}
+                                    className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold transition-colors ${
+                                      isActive
+                                        ? 'bg-rose-500/25 border-rose-400/60 text-rose-200'
+                                        : 'bg-white/[0.03] border-white/10 text-slate-400 hover:text-white'
+                                    }`}
+                                  >
+                                    {tag.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -216,6 +266,30 @@ return (
             </AnimatePresence>
           </div>
         </div>
+
+        {/* Ações Adaptativas: Erros -> Flashcards FSRS + Próxima Rodada CAT */}
+        {(typeof onCreateErrorFlashcards === 'function' || typeof onStartAdaptiveNextRound === 'function') && (
+          <div className="flex flex-wrap gap-2.5">
+            {typeof onCreateErrorFlashcards === 'function' && safeResults.questions.some((q) => q && !q.isCorrect) && (
+              <button
+                type="button"
+                onClick={onCreateErrorFlashcards}
+                className="flex-1 min-w-[210px] py-3 px-4 rounded-2xl border border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-200 text-xs font-black uppercase tracking-wider transition-all"
+              >
+                ⚡ Enviar Erros para Flashcards FSRS
+              </button>
+            )}
+            {typeof onStartAdaptiveNextRound === 'function' && recommendedNextDifficulty && (
+              <button
+                type="button"
+                onClick={() => onStartAdaptiveNextRound(recommendedNextDifficulty)}
+                className="flex-1 min-w-[210px] py-3 px-4 rounded-2xl border border-violet-500/35 bg-violet-500/15 hover:bg-violet-500/25 text-violet-200 text-xs font-black uppercase tracking-wider transition-all"
+              >
+                🧬 Próxima Rodada Adaptativa (CAT: {recommendedNextDifficulty.toUpperCase()})
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ═══ ACTIONS ═══ */}
         <div className="shrink-0 grid grid-cols-3 gap-3">

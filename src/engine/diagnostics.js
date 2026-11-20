@@ -814,3 +814,149 @@ export function computeCategoryDiagnostics({
     adaptiveDecayFactor: computeAdaptiveDecayFactor(safeHistory),
   };
 }
+
+/**
+ * Matriz semanal de correlação (Matéria × Matéria) para detectar efeito gangorra
+ * (crowding-out) ou disciplinas que evoluem/oscilam juntas já a partir de 3 semanas.
+ */
+export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100, minScore = 0) {
+  const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
+  if (safeCats.length < 2) return { categories: [], matrix: [], pairs: [] };
+
+  const weekKey = (rawDate) => {
+    const dk = getDateKey(rawDate);
+    if (!dk || !/^\d{4}-\d{2}-\d{2}$/.test(dk)) return null;
+    const [y, m, d] = dk.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    const day = dt.getUTCDay();
+    dt.setUTCDate(dt.getUTCDate() - day + (day === 0 ? -6 : 1));
+    return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+  };
+
+  const weeklySeries = new Map();
+  const activeCats = [];
+
+  safeCats.forEach((cat) => {
+    const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
+    const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
+    const cRange = Math.max(1e-6, cMax - cMin);
+    const hist = Array.isArray(cat?.simuladoStats?.history)
+      ? cat.simuladoStats.history
+      : Object.values(cat?.simuladoStats?.history || {});
+    const byWeek = {};
+    hist.forEach((h) => {
+      if (!h || h.valid === false || h.validated === false) return;
+      const wk = weekKey(h.date || h.createdAt);
+      if (!wk) return;
+      const sc = getSafeScore(h, cMax, cMin);
+      if (!Number.isFinite(sc)) return;
+      const norm = (sc - cMin) / cRange;
+      if (!byWeek[wk]) byWeek[wk] = [];
+      byWeek[wk].push(norm);
+    });
+    const avgByWeek = Object.fromEntries(Object.entries(byWeek).map(([k, arr]) => [k, _mean(arr)]));
+    if (Object.keys(avgByWeek).length >= 2) {
+      const id = String(cat.id || cat.name);
+      weeklySeries.set(id, avgByWeek);
+      activeCats.push({ id, name: cat.name || id, color: cat.color || '#6366f1' });
+    }
+  });
+
+  if (activeCats.length < 2) return { categories: activeCats, matrix: [], pairs: [] };
+
+  const pairs = [];
+  const matrix = activeCats.map((catA, i) =>
+    activeCats.map((catB, j) => {
+      if (i === j) return { r: 1, n: Object.keys(weeklySeries.get(catA.id) || {}).length, self: true };
+      const mapA = weeklySeries.get(catA.id) || {};
+      const mapB = weeklySeries.get(catB.id) || {};
+      const common = Object.keys(mapA).filter((wk) => wk in mapB);
+      if (common.length < 3) return { r: null, n: common.length, self: false };
+      const xs = common.map((wk) => mapA[wk]);
+      const ys = common.map((wk) => mapB[wk]);
+      const muX = _mean(xs);
+      const muY = _mean(ys);
+      const sxy = kahanSum(xs.map((x, idx) => (x - muX) * (ys[idx] - muY)));
+      const sxx = kahanSum(xs.map((x) => (x - muX) ** 2));
+      const syy = kahanSum(ys.map((y) => (y - muY) ** 2));
+      const denom = Math.sqrt(Math.max(0, sxx) * Math.max(0, syy));
+      if (denom <= 1e-12) return { r: 0, n: common.length, self: false };
+      const r = Number(Math.max(-1, Math.min(1, sxy / denom)).toFixed(2));
+      if (j > i) {
+        pairs.push({
+          catA: catA.name,
+          catB: catB.name,
+          r,
+          n: common.length,
+          type: r <= -0.45 ? 'crowding_out' : (r >= 0.55 ? 'synergy' : 'neutral'),
+        });
+      }
+      return { r, n: common.length, self: false };
+    })
+  );
+
+  pairs.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+  return { categories: activeCats, matrix, pairs };
+}
+
+/**
+ * Constrói dados para o Mapa de Regimes (Expoente de Hurst H × Velocidade de Evolução).
+ */
+export function buildRegimeMapData(categories = [], studySessions = [], simulados = [], maxScore = 100, minScore = 0, targetScore = 80) {
+  const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
+  return safeCats
+    .map((cat) => {
+      const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
+      const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
+      const hist = Array.isArray(cat?.simuladoStats?.history)
+        ? cat.simuladoStats.history
+        : Object.values(cat?.simuladoStats?.history || {});
+      if (hist.length < 3) return null;
+
+      const diag = computeCategoryDiagnostics({
+        history: hist,
+        studySessions,
+        simulados,
+        maxScore: cMax,
+        minScore: cMin,
+        categoryId: cat.id,
+        targetScore,
+      });
+
+      const hurstH = Number.isFinite(Number(diag?.hurst?.H)) ? Number(Number(diag.hurst.H).toFixed(2)) : 0.5;
+      const velocity = Number.isFinite(Number(diag?.velocity?.velocityPerWeek))
+        ? Number(Number(diag.velocity.velocityPerWeek).toFixed(2))
+        : (Number.isFinite(Number(diag?.velocity?.velocity)) ? Number(Number(diag.velocity.velocity).toFixed(2)) : 0);
+      const consistency = Number.isFinite(Number(diag?.consistency?.index)) ? diag.consistency.index : 0.5;
+
+      let regime = 'estavel';
+      let regimeLabel = 'Evolução Estável';
+      if (hurstH >= 0.58 && velocity > 0.4) {
+        regime = 'momentum';
+        regimeLabel = 'Tendência Consolidada';
+      } else if (hurstH <= 0.42) {
+        regime = 'mean_reverting';
+        regimeLabel = 'Gangorra / Reversão';
+      } else if (velocity < -0.5) {
+        regime = 'regressing';
+        regimeLabel = 'Regressão Ativa';
+      } else if (Math.abs(velocity) <= 0.4) {
+        regime = 'plateau';
+        regimeLabel = 'Platô';
+      }
+
+      return {
+        id: cat.id || cat.name,
+        name: cat.name,
+        color: cat.color || '#6366f1',
+        hurstH,
+        velocity,
+        consistency,
+        klToTarget: diag?.klToTarget ?? null,
+        sampleSize: hist.length,
+        regime,
+        regimeLabel,
+      };
+    })
+    .filter(Boolean);
+}

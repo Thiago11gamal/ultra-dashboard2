@@ -3,6 +3,7 @@ import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
 import { CausalUpliftChart } from '../charts/Coach/CausalUpliftChart.jsx';
 import { KnowledgeGraphChart } from '../charts/Coach/KnowledgeGraphChart.jsx';
 import { CalibrationDriftChart } from '../charts/Coach/CalibrationDriftChart.jsx';
+import { AdaptiveMaturityBadge } from '../ui/AdaptiveMaturityBadge.jsx';
 
 const toStrictFinite = (v) => {
   if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
@@ -1095,6 +1096,8 @@ function SciencePanel({
                   </button>
                 </div>
               </div>
+
+              <AdaptiveMaturityBadge />
 
               <div className="flex gap-2 p-1 bg-slate-800/40 rounded-xl overflow-x-auto hide-scrollbar">
                 <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon="📊">Visão Geral</TabButton>

@@ -396,6 +396,7 @@ export function generateAnalyticsStats({
                     maxScore: catMaxScore,
                     minScore: catMinScore,
                     minCutoff: catMinCutoff,
+                    examGroup: cat.examGroup || null,
                     bayesianMean: baye.mean,
                     temporalBayesianMean: baye.mean,
                     bayesianSd: baye.sd,

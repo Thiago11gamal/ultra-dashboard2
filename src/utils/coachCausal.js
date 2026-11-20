@@ -413,7 +413,34 @@ export function buildTaskCausalEvents(categories = [], simulados = [], options =
 }
 
 /**
- * Combina eventos de tarefas e volume de estudo.
+ * Constrói eventos causais segmentados por modalidade de estudo (`studyMode`: teoria, questoes, revisao, lei_seca, discursiva).
+ */
+export function buildStudyModeCausalEvents(simulados = [], studyLogs = [], options = {}) {
+  const safeLogs = safeArray(studyLogs).filter((l) => l && l.type !== 'flashcard' && typeof l.studyMode === 'string' && l.studyMode.trim());
+  if (safeLogs.length === 0) return [];
+  const modes = Array.from(new Set(safeLogs.map((l) => l.studyMode.trim().toLowerCase())));
+  const modeEvents = [];
+
+  modes.forEach((mode) => {
+    const modeLogs = safeLogs.filter((l) => l.studyMode.trim().toLowerCase() === mode);
+    const rawEv = buildStudyVolumeCausalEvents(simulados, modeLogs, {
+      ...options,
+      minTreatmentMinutes: Math.max(20, Number(options.minTreatmentMinutes) || 30),
+    });
+    rawEv.forEach((ev, idx) => {
+      modeEvents.push({
+        ...ev,
+        id: `mode-${mode}-${ev.id || idx}`,
+        actionType: `mode_${mode}`,
+      });
+    });
+  });
+
+  return modeEvents;
+}
+
+/**
+ * Combina eventos de tarefas, volume de estudo e modalidade de estudo.
  */
 export function buildCausalEventsFromHistory(
   categories = [],
@@ -441,11 +468,17 @@ export function buildCausalEventsFromHistory(
     categoryName: options.categoryName || null,
     categoryId: options.categoryId || null,
   });
+  const studyModeEvents = buildStudyModeCausalEvents(effectiveSimuladosForVolume, studyLogs, {
+    ...options,
+    categoryName: options.categoryName || null,
+    categoryId: options.categoryId || null,
+  });
 
   // ✅ FIX: Validar eventos antes de combinar
   const safeTaskEvents = Array.isArray(taskEvents) ? taskEvents : [];
   const safeVolumeEvents = Array.isArray(volumeEvents) ? volumeEvents : [];
-  const combined = [...safeTaskEvents, ...safeVolumeEvents];
+  const safeStudyModeEvents = Array.isArray(studyModeEvents) ? studyModeEvents : [];
+  const combined = [...safeTaskEvents, ...safeVolumeEvents, ...safeStudyModeEvents];
 
   return prepareCausalEvents(combined, options);
 }

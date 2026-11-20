@@ -3,6 +3,7 @@ import { Play, Sparkles, Zap, BrainCircuit, ChevronDown, Download, Loader2, Comp
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import AICoachWidget from './AICoachWidget';
 import AICoachPlanner from './AICoachPlanner';
+import { AdaptiveTacticalAlerts } from './coach/AdaptiveTacticalAlerts';
 import { useAppStore } from '../store/useAppStore';
 import { useNavigate } from 'react-router-dom';
 import { exportComponentAsPDF } from '../utils/pdfExport';
@@ -552,6 +553,13 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
                             )}
                         </div>
 
+                        <AdaptiveTacticalAlerts
+                            categories={activeContest?.categories}
+                            studyLogs={activeContest?.studyLogs}
+                            simuladoRows={activeContest?.simuladoRows}
+                            minScore={activeContest?.minScore ?? 0}
+                            maxScore={activeContest?.maxScore ?? 100}
+                        />
                         {systemAlerts.length > 0 && (
                             <div className="mb-4 sm:mb-5 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                                 {systemAlerts.map((alertTask, alertIdx) => {

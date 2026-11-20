@@ -18,6 +18,8 @@ import { safeDomain } from '../../utils/measurement';
 import { DEFAULT_SIMULADO_HISTORY_CAP } from '../../utils/simuladoReconciler';
 import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches';
 import { clearMcCache } from '../../utils/coachAdaptive';
+import { syncAdaptiveFeatureFlags } from '../../engine/adaptive/adaptiveMaturityEngine';
+import { nextAdaptiveDifficulty, estimateIRTAbility } from '../../engine/adaptive/irtEngine';
 
 const normalizeAlternative = (value) =>
   String(value ?? '').trim().toUpperCase();
@@ -133,16 +135,26 @@ function nextAiId(prefix = 'ai') {
 
 const EMPTY_CATEGORIES = Object.freeze([]);
 
-export default function AIGeneratedSimulado() {
+export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsumed = null } = {}) {
   const setData = useAppStore(state => state.setData);
   const activeId = useAppStore(state => state.appState?.activeId || 'default');
-  const rawCategories = useAppStore(useShallow(state => {
+  const { rawCategories, contestPenalty, contestBoard, contestSimuladoRows, contestExamDuration } = useAppStore(useShallow(state => {
     const active = state.appState?.contests?.[state.appState?.activeId];
-    return active?.categories || EMPTY_CATEGORIES;
+    return {
+      rawCategories: active?.categories || EMPTY_CATEGORIES,
+      contestPenalty: Number(active?.penaltyPerWrong) || 0,
+      contestBoard: active?.examBoard || '',
+      contestSimuladoRows: active?.simuladoRows || EMPTY_CATEGORIES,
+      contestExamDuration: Number(active?.examDurationMinutes) || 240,
+    };
   }));
   const categories = useMemo(
     () => (Array.isArray(rawCategories) ? rawCategories : Object.values(rawCategories || {})).filter(Boolean),
     [rawCategories]
+  );
+  const simuladoRowsList = useMemo(
+    () => (Array.isArray(contestSimuladoRows) ? contestSimuladoRows : Object.values(contestSimuladoRows || {})).filter(Boolean),
+    [contestSimuladoRows]
   );
   const showToast = useToast();
 
@@ -161,6 +173,9 @@ export default function AIGeneratedSimulado() {
   const [showReview, setShowReview] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [timePerQuestion, setTimePerQuestion] = useState({});
+  const [confidences, setConfidences] = useState({});
+  const [errorTypes, setErrorTypes] = useState({});
+  const [lastSessionBatchId, setLastSessionBatchId] = useState(null);
   const [showEscapeConfirm, setShowEscapeConfirm] = useState(false);
 
   const mountedRef = useRef(true);
@@ -524,13 +539,75 @@ export default function AIGeneratedSimulado() {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const computeTriForCategory = useCallback((cat) => {
+    if (!cat) return null;
+    const catHist = Array.isArray(cat?.simuladoStats?.history)
+      ? cat.simuladoStats.history
+      : Object.values(cat?.simuladoStats?.history || {});
+    const matchingRows = simuladoRowsList.filter(
+      (r) => r && ((cat.id && r.categoryId === cat.id) || isSubjectMatch(r.subject, cat.name))
+    );
+    const entries = [...catHist, ...matchingRows];
+    if (!entries.length) return null;
+    return estimateIRTAbility(entries, {
+      minScore: Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : 0,
+      maxScore: Number(cat.maxScore) > 0 ? Number(cat.maxScore) : 100,
+    });
+  }, [simuladoRowsList]);
+
   const handleCategorySelect = (catId) => {
     const cat = categories.find(c => c && c.id === catId);
+    const tri = cat ? computeTriForCategory(cat) : null;
     setForm(prev => ({
-      ...prev, categoryId: catId || '', materia: cat ? cat.name : '',
-      taskId: '', assunto: '',
+      ...prev,
+      categoryId: catId || '',
+      materia: cat ? cat.name : '',
+      taskId: '',
+      assunto: '',
+      ...(tri?.hasData && tri.recommendedDifficulty ? { dificuldade: tri.recommendedDifficulty } : {}),
     }));
   };
+
+  const selectedCategory = categories.find(c => c && c.id === form.categoryId);
+  const triRecommendation = useMemo(
+    () => (selectedCategory ? computeTriForCategory(selectedCategory) : null),
+    [selectedCategory, computeTriForCategory]
+  );
+
+  useEffect(() => {
+    if (!drillRequest?.items?.length) return;
+    const targets = [];
+    const seen = new Set();
+    drillRequest.items.forEach((err) => {
+      const key = `${err.subject || ''}|${err.topic || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      targets.push({
+        catId: err.categoryId || null,
+        taskId: err.taskId || null,
+        materia: err.subject || 'Geral',
+        assunto: err.topic || 'Geral',
+      });
+    });
+    const timer = setTimeout(() => {
+      if (targets.length > 0) {
+        const assuntoStr = targets.map((t) => `- Matéria: ${t.materia} | Assunto: ${t.assunto} (Caderno de Erros)`).join('\n');
+        setForm((prev) => ({
+          ...prev,
+          categoryId: 'mixed',
+          taskId: 'mixed',
+          materia: 'Revisão do Caderno de Erros',
+          assunto: assuntoStr,
+          quantidade: Math.min(15, Math.max(5, drillRequest.items.length)),
+          targets,
+        }));
+        setStep('setup');
+        showToast(`Caderno de Erros carregado (${targets.length} foco(s)). Clique em GERAR SIMULADO!`, 'info');
+      }
+      if (typeof onDrillConsumed === 'function') onDrillConsumed();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [drillRequest, onDrillConsumed, showToast]);
 
   const handleTaskSelect = (tskId) => {
     const cat = categories.find(c => c && c.id === form.categoryId);
@@ -543,9 +620,128 @@ export default function AIGeneratedSimulado() {
     }));
   };
 
-  const selectedCategory = categories.find(c => c && c.id === form.categoryId);
   const rawTasks = selectedCategory?.tasks || [];
   const availableTasks = (Array.isArray(rawTasks) ? rawTasks : Object.values(rawTasks || {})).filter(Boolean);
+
+  // Modo Prova Completa (Edital): distribui questões proporcionalmente pelos pesos do edital + banca + tempo real
+  const generateFullExamSimulado = async () => {
+    const validCats = categories.filter((c) => c && c.name);
+    if (validCats.length === 0) {
+      showToast('Cadastre matérias no Dashboard primeiro.', 'warning');
+      return;
+    }
+    const totalWeight = validCats.reduce((acc, c) => acc + Math.max(1, Number(c.weight) || 10), 0) || 1;
+    const totalQuestions = Math.min(20, Math.max(10, validCats.length * 3));
+    const weightedTargets = validCats
+      .sort((a, b) => (Number(b.weight) || 10) - (Number(a.weight) || 10))
+      .slice(0, 8)
+      .map((cat) => {
+        const catTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(Boolean);
+        const pickTask = catTasks.find((t) => !t.completed) || catTasks[0];
+        const share = Math.max(1, Math.round(((Number(cat.weight) || 10) / totalWeight) * totalQuestions));
+        return {
+          catId: cat.id,
+          taskId: pickTask?.id || null,
+          materia: cat.name,
+          assunto: pickTask?.title || pickTask?.text || 'Conteúdo Geral do Edital',
+          share,
+        };
+      });
+
+    const assuntoString = weightedTargets
+      .map((t) => `- Matéria: ${t.materia} (~${t.share} questões) | Assunto: ${t.assunto}`)
+      .join('\n');
+    const serializedTargets = weightedTargets.map(({ catId, taskId, materia, assunto }) => ({ catId, taskId, materia, assunto }));
+    const currentCategoriesSnapshot = [...categories];
+    const previousForm = { ...form };
+    const genForm = {
+      categoryId: 'mixed',
+      taskId: 'mixed',
+      materia: 'Modo Prova Completa (Edital)',
+      assunto: assuntoString,
+      dificuldade: form.dificuldade || 'dificil',
+      quantidade: totalQuestions,
+      targets: serializedTargets,
+      fullExamMode: true,
+    };
+
+    setForm(genForm);
+    setIsLoading(true);
+    const genContestId = sessionContestIdRef.current;
+    const activeContestObj = useAppStore.getState().appState?.contests?.[genContestId];
+    const activeContestName = activeContestObj?.name || activeContestObj?.contestName || 'Concurso Geral';
+    const activeExamBoard = activeContestObj?.examBoard && activeContestObj.examBoard !== 'PADRAO' ? activeContestObj.examBoard : '';
+
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    const localPromise = (async () => {
+      try {
+        const generated = await generateAIQuestions({
+          materia: 'Simulado Prova Completa Proporcional ao Edital',
+          assunto: assuntoString,
+          dificuldade: genForm.dificuldade,
+          quantidade: totalQuestions,
+          contestName: activeContestName,
+          examBoard: activeExamBoard,
+          signal,
+        });
+        if (signal.aborted) return null;
+        if (!Array.isArray(generated) || generated.length === 0) throw new Error('A IA não gerou questões válidas.');
+        return generated.map((q, idx) => {
+          const resolved = resolveMixedQuestionMeta(q, idx, serializedTargets, currentCategoriesSnapshot);
+          return {
+            ...q,
+            id: q.id || nextAiId('ai-exam'),
+            categoryId: 'mixed',
+            taskId: 'mixed',
+            realCategoryId: resolved.realCategoryId,
+            realTaskId: resolved.realTaskId,
+            materia: resolved.materia,
+            assunto: resolved.assunto,
+          };
+        });
+      } catch (err) {
+        if (signal.aborted) return null;
+        throw err;
+      }
+    })();
+    activeGenerationRef.current = localPromise;
+
+    try {
+      const normalizedQuestions = await localPromise;
+      if (!mountedRef.current || signal.aborted || !normalizedQuestions?.length) return;
+      const examTotalQ = Math.max(20, Number(activeContestObj?.examTotalQuestions) || 100);
+      const proportionalSecs = Math.max(
+        normalizedQuestions.length * 120,
+        Math.round((contestExamDuration * 60) * (normalizedQuestions.length / examTotalQ))
+      );
+      isFinishingRef.current = false;
+      setQuestions(normalizedQuestions);
+      setAnswers({});
+      setConfidences({});
+      setErrorTypes({});
+      setTimePerQuestion({});
+      setCurrentIndex(0);
+      setTimeLeft(proportionalSecs);
+      setStep('playing');
+      setTimerActive(true);
+      simStartMsRef.current = Date.now();
+      activeElapsedSecsRef.current = 0;
+      setShowReview(false);
+      showToast(`Prova Completa (${normalizedQuestions.length}q${activeExamBoard ? ` · ${activeExamBoard}` : ''}) iniciada!`, 'success');
+    } catch (error) {
+      if (!mountedRef.current || signal.aborted) return;
+      setForm(previousForm);
+      showToast(error.message || 'Erro ao gerar Prova Completa.', 'error');
+    } finally {
+      if (activeGenerationRef.current === localPromise) {
+        activeGenerationRef.current = null;
+        if (mountedRef.current) setIsLoading(false);
+      }
+    }
+  };
 
   const generatePersonalizedSimulado = async () => {
     const allTasks = [];
@@ -605,7 +801,9 @@ export default function AIGeneratedSimulado() {
     const genContestId = sessionContestIdRef.current;
     const genState = { status: 'generating', form: genForm, startedAt: Date.now() };
     safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify(genState));
-    const activeContestName = useAppStore.getState().appState?.contests?.[genContestId]?.name || 'Concurso Geral';
+    const activeContestObj = useAppStore.getState().appState?.contests?.[genContestId];
+    const activeContestName = activeContestObj?.name || activeContestObj?.contestName || 'Concurso Geral';
+    const activeExamBoard = activeContestObj?.examBoard && activeContestObj.examBoard !== 'PADRAO' ? activeContestObj.examBoard : '';
 
     // FIX: Usar ref em vez de variável de módulo
     // ✅ FIX: Criar AbortController para esta geração
@@ -620,6 +818,7 @@ export default function AIGeneratedSimulado() {
         const generated = await generateAIQuestions({
           materia: 'Simulado Personalizado', assunto: assuntoString,
           dificuldade: adaptiveDifficulty, quantidade: 10, contestName: activeContestName,
+          examBoard: activeExamBoard,
           signal,
         });
 
@@ -708,7 +907,9 @@ export default function AIGeneratedSimulado() {
     safeLocalSet(getAiGenStorageKey(genContestId), JSON.stringify(genState));
     const currentForm = { ...form };
     const currentCategories = [...categories];
-    const activeContestName = useAppStore.getState().appState?.contests?.[genContestId]?.name || 'Concurso Geral';
+    const activeContestObj = useAppStore.getState().appState?.contests?.[genContestId];
+    const activeContestName = activeContestObj?.name || activeContestObj?.contestName || 'Concurso Geral';
+    const activeExamBoard = activeContestObj?.examBoard && activeContestObj.examBoard !== 'PADRAO' ? activeContestObj.examBoard : '';
 
     // FIX: Usar ref em vez de variável de módulo
     // ✅ FIX: Criar AbortController para esta geração
@@ -724,6 +925,7 @@ export default function AIGeneratedSimulado() {
           materia: currentForm.materia.trim(), assunto: currentForm.assunto.trim(),
           dificuldade: currentForm.dificuldade, quantidade: currentForm.quantidade,
           contestName: activeContestName,
+          examBoard: activeExamBoard,
           signal,
         });
 
@@ -769,6 +971,8 @@ export default function AIGeneratedSimulado() {
       isFinishingRef.current = false;
       setQuestions(normalizedQuestions);
       setAnswers({});
+      setConfidences({});
+      setErrorTypes({});
       setTimePerQuestion({});
       setCurrentIndex(0);
       setTimeLeft(normalizedQuestions.length * 3 * 60);
@@ -797,6 +1001,17 @@ export default function AIGeneratedSimulado() {
   const selectAnswer = useCallback((letra) => {
     if (!currentQuestion) return;
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: letra }));
+  }, [currentQuestion]);
+
+  const clearAnswer = useCallback((questionId) => {
+    const targetId = questionId || currentQuestion?.id;
+    if (!targetId) return;
+    setAnswers((prev) => {
+      if (!(targetId in prev)) return prev;
+      const next = { ...prev };
+      delete next[targetId];
+      return next;
+    });
   }, [currentQuestion]);
 
   const goTo = useCallback((index) => {
@@ -864,6 +1079,24 @@ export default function AIGeneratedSimulado() {
     const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (timePerQ[q.id] || 0), 0);
     const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
     const sessionBatchId = generateId('batch');
+    setLastSessionBatchId(sessionBatchId);
+
+    const buildTelemetry = (qsSlice) =>
+      qsSlice.map((q, idx) => ({
+        id: q.id,
+        idx,
+        timeSec: Math.max(0, Math.round(Number(timePerQ[q.id]) || 0)),
+        correct: Boolean(q.isCorrect),
+        wasAnswered: Boolean(q.wasAnswered),
+        confidence: confidences[q.id] || null,
+        errorType: errorTypes[q.id] || null,
+        difficulty: f.dificuldade || 'medio',
+        ...(!q.isCorrect ? {
+          statement: String(q.enunciado || '').slice(0, 240),
+          explanation: String(q.justificativa || '').slice(0, 240),
+          correctAnswer: String(q.alternativa_correta || '').slice(0, 10),
+        } : {}),
+      }));
 
     if (f.categoryId === 'mixed') {
       const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
@@ -913,6 +1146,7 @@ export default function AIGeneratedSimulado() {
               materia: cat?.name || g.materia,
               assunto: tsk ? (tsk.title || tsk.text || cleanAssunto) : cleanAssunto,
               categoryId: cat ? cat.id : null, taskId: tsk ? tsk.id : null,
+              questionTelemetry: buildTelemetry(g.qs),
             };
             const topicTime =
               g.timeSpent > 0
@@ -981,12 +1215,29 @@ export default function AIGeneratedSimulado() {
       );
       markStorageDirty();
     } else {
-      await saveAIResultsToSystem(f, correctCount, total, answeredQuestions, finalTimeSpent, false, sessionBatchId);
+      await saveAIResultsToSystem(
+        { ...f, questionTelemetry: buildTelemetry(answeredQuestions) },
+        correctCount,
+        total,
+        answeredQuestions,
+        finalTimeSpent,
+        false,
+        sessionBatchId
+      );
     }
 
       clearUrgencyCache();
       clearTopicsCache();
       clearMcCache();
+      try {
+        const st = useAppStore.getState().appState;
+        const cid = st?.activeId || 'default';
+        if (st?.contests?.[cid]) {
+          syncAdaptiveFeatureFlags(st.contests[cid], cid, { respectOverrides: true });
+        }
+      } catch {
+        // non-blocking adaptive flag sync
+      }
 
       stepRef.current = 'finished';
       latestQuestionsRef.current = [];
@@ -1161,12 +1412,109 @@ export default function AIGeneratedSimulado() {
     };
   }, [isLoading]);
 
+  const handleSelectConfidence = useCallback((questionId, level) => {
+    setConfidences((prev) => ({ ...prev, [questionId]: level }));
+  }, []);
+
+  const handleTagErrorType = useCallback((questionId, errType) => {
+    setErrorTypes((prev) => ({ ...prev, [questionId]: errType }));
+    if (!lastSessionBatchId) return;
+    setData((contest) => {
+      if (!contest || !Array.isArray(contest.simuladoRows)) return contest;
+      const nextRows = contest.simuladoRows.map((row) => {
+        if (!row || row.batchId !== lastSessionBatchId || !Array.isArray(row.questionTelemetry)) return row;
+        const nextTel = row.questionTelemetry.map((q) => (q && q.id === questionId ? { ...q, errorType: errType } : q));
+        return { ...row, questionTelemetry: nextTel };
+      });
+      return { ...contest, simuladoRows: nextRows };
+    });
+  }, [lastSessionBatchId, setData]);
+
+  const handleCreateErrorFlashcards = useCallback(() => {
+    const wrongQs = (results?.questions || []).filter((q) => q && !q.isCorrect);
+    if (!wrongQs.length) {
+      showToast('Nenhuma questão errada para converter em flashcard.', 'info');
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    const deckName = `Erros IA — ${form.materia || 'Geral'}`;
+    let createdCount = 0;
+
+    setData((contest) => {
+      if (!contest) return contest;
+      const decks = Array.isArray(contest.flashcardDecks) ? [...contest.flashcardDecks] : [];
+      let targetIdx = decks.findIndex((d) => d && normalize(d.name) === normalize(deckName));
+      const newCards = wrongQs.map((q) => {
+        const isCritical = confidences[q.id] === 'certeza';
+        const front = `${isCritical ? '[ERRO CRÍTICO] ' : ''}${String(q.enunciado || '').slice(0, 220)}`;
+        const back = `Gabarito: ${q.alternativa_correta}\n${q.justificativa || ''}`.trim();
+        return {
+          id: generateId('card'),
+          front,
+          back,
+          interval: 1,
+          ease: isCritical ? 2.1 : 2.5,
+          priority: isCritical ? 'critical' : 'normal',
+          confidence: confidences[q.id] || null,
+          errorType: errorTypes[q.id] || null,
+          reviews: 0,
+          lapses: isCritical ? 1 : 0,
+          due: getDateKey(new Date()) || nowIso.slice(0, 10),
+          createdAt: nowIso,
+          source: 'ai-error',
+        };
+      });
+      createdCount = newCards.length;
+      if (targetIdx === -1) {
+        decks.push({
+          id: generateId('deck'),
+          name: deckName,
+          categoryId: form.categoryId !== 'mixed' ? form.categoryId : null,
+          subject: form.materia || 'Geral',
+          cards: newCards,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        });
+      } else {
+        const existingDeck = decks[targetIdx];
+        const existingCards = Array.isArray(existingDeck.cards) ? existingDeck.cards : [];
+        decks[targetIdx] = {
+          ...existingDeck,
+          cards: [...existingCards, ...newCards],
+          updatedAt: nowIso,
+        };
+      }
+      return { ...contest, flashcardDecks: decks, lastUpdated: nowIso };
+    });
+
+    showToast(`${createdCount} flashcard(s) FSRS criado(s) no deck "${deckName}"!`, 'success');
+  }, [results, form.materia, form.categoryId, confidences, errorTypes, setData, showToast]);
+
+  const handleStartAdaptiveNextRound = useCallback((nextDiff) => {
+    setForm((prev) => ({ ...prev, dificuldade: nextDiff }));
+    setStep('setup');
+    setQuestions([]);
+    setAnswers({});
+    setConfidences({});
+    setErrorTypes({});
+    setResults(null);
+    showToast(`Modo Adaptativo (CAT): nível ajustado para ${nextDiff.toUpperCase()}. Clique em Gerar!`, 'info');
+  }, [showToast]);
+
+  const recommendedNextDifficulty = useMemo(() => {
+    if (!results || !results.total) return null;
+    const avgSec = results.total > 0 ? (results.timeSpentSecs || 0) / results.total : null;
+    return nextAdaptiveDifficulty(form.dificuldade, results.scorePercent, avgSec);
+  }, [results, form.dificuldade]);
+
   if (step === 'setup') {
     return (
       <SimuladoSetup
         form={form} handleInputChange={handleInputChange} categories={categories}
         handleCategorySelect={handleCategorySelect} handleTaskSelect={handleTaskSelect}
         availableTasks={availableTasks} generatePersonalizedSimulado={generatePersonalizedSimulado}
+        generateFullExamSimulado={generateFullExamSimulado}
+        triRecommendation={triRecommendation}
         handleGenerate={handleGenerate} isLoading={isLoading} loadingMsgIdx={loadingMsgIdx}
         DIFFICULTIES={DIFFICULTIES} LOADING_MESSAGES={LOADING_MESSAGES}
       />
@@ -1177,7 +1525,9 @@ export default function AIGeneratedSimulado() {
       <>
         <SimuladoPlayer
           form={form} questions={questions} currentIndex={currentIndex} answers={answers}
+          confidences={confidences} onSelectConfidence={handleSelectConfidence}
           timeLeft={timeLeft} DIFFICULTIES={DIFFICULTIES} goTo={goTo} selectAnswer={selectAnswer}
+          clearAnswer={clearAnswer} penaltyPerWrong={contestPenalty}
           handleFinish={safeFinish} resetAll={() => setShowEscapeConfirm(true)}
         />
         <ConfirmModal
@@ -1197,6 +1547,12 @@ export default function AIGeneratedSimulado() {
       <SimuladoResults
         results={results} form={form} showReview={showReview} setShowReview={setShowReview}
         resetAll={resetAll} retrySameQuestions={retrySameQuestions} showToast={showToast}
+        errorTypes={errorTypes} onTagErrorType={handleTagErrorType}
+        onCreateErrorFlashcards={handleCreateErrorFlashcards}
+        onStartAdaptiveNextRound={handleStartAdaptiveNextRound}
+        recommendedNextDifficulty={recommendedNextDifficulty}
+        penaltyPerWrong={contestPenalty}
+        examBoard={contestBoard}
       />
     );
   }

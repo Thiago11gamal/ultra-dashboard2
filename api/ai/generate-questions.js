@@ -192,6 +192,7 @@ export default async function handler(req, res) {
     dificuldade = 'medio',
     quantidade = 5,
     contestName = 'Concurso Público',
+    examBoard = '',
   } = req.body || {};
 
   const safeMateria = sanitizePromptField(materia, 150);
@@ -200,6 +201,7 @@ export default async function handler(req, res) {
     /-\s*Mat[eé]ria:/i.test(String(assunto || ''));
   const safeAssunto = sanitizePromptField(assunto, isPersonalizedMix ? 1200 : 250);
   const safeContest = sanitizePromptField(contestName, 150) || 'Concurso Público';
+  const safeBoard = sanitizePromptField(examBoard, 60);
 
   if (!safeMateria || !safeAssunto) {
     return res.status(400).json({ error: 'Campos "materia" e "assunto" são obrigatórios.' });
@@ -211,6 +213,7 @@ export default async function handler(req, res) {
 
   const specJson = JSON.stringify({
     concurso: safeContest,
+    ...(safeBoard ? { banca: safeBoard } : {}),
     materia: safeMateria,
     assunto: safeAssunto,
     dificuldade: nivel,

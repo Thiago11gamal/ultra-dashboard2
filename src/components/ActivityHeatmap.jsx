@@ -13,14 +13,30 @@ const HEATMAP_COLORS = {
     level4: 'bg-emerald-400 border-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)] font-bold text-emerald-900',
 };
 
-const getLevelColor = (level) => {
+const ENERGY_COLORS = {
+    empty: 'bg-slate-800/40 border-white/5',
+    level1: 'bg-rose-900/50 border-rose-700/50',
+    level2: 'bg-amber-700/55 border-amber-500/50',
+    level3: 'bg-cyan-600/65 border-cyan-400/60',
+    level4: 'bg-emerald-400 border-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.55)]',
+};
+
+const MODE_LABELS = {
+    teoria: 'Teoria',
+    questoes: 'Questões',
+    revisao: 'Revisão',
+    lei_seca: 'Lei Seca',
+    discursiva: 'Discursiva',
+};
+
+const getLevelColor = (level, palette = HEATMAP_COLORS) => {
     switch (level) {
-        case 0: return HEATMAP_COLORS.empty;
-        case 1: return HEATMAP_COLORS.level1;
-        case 2: return HEATMAP_COLORS.level2;
-        case 3: return HEATMAP_COLORS.level3;
-        case 4: return HEATMAP_COLORS.level4;
-        default: return HEATMAP_COLORS.empty;
+        case 0: return palette.empty;
+        case 1: return palette.level1;
+        case 2: return palette.level2;
+        case 3: return palette.level3;
+        case 4: return palette.level4;
+        default: return palette.empty;
     }
 };
 
@@ -31,6 +47,7 @@ const HeatmapTooltip = ({ day, visible, position }) => {
     const minutes = day.minutes || 0;
     const sessions = day.sessions || 0;
     const dateStr = day.date ? format(day.date, "dd 'de' MMMM (EEEE)", { locale: ptBR }) : '';
+    const modeEntries = Object.entries(day.modeMinutes || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
     
     return (
         <div 
@@ -38,7 +55,7 @@ const HeatmapTooltip = ({ day, visible, position }) => {
             role="tooltip"
             aria-hidden={!visible}
         >
-            <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-2xl min-w-[140px] text-center">
+            <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-3 shadow-2xl min-w-[165px] text-center">
                 <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-900 border-b border-r border-white/10 rotate-45"></div>
                 <p className="relative z-10 text-[10px] text-slate-400 font-bold uppercase mb-1 tracking-widest">{dateStr}</p>
                 <p className="relative z-10 text-sm font-black text-white">
@@ -47,7 +64,19 @@ const HeatmapTooltip = ({ day, visible, position }) => {
                     ) : 'Descanso'}
                 </p>
                 {sessions > 0 && (
-                    <p className="relative z-10 text-[10px] text-slate-400 mt-1">{sessions} {sessions === 1 ? 'sessão' : 'sessões'}</p>
+                    <p className="relative z-10 text-[10px] text-slate-400 mt-1">
+                        {sessions} {sessions === 1 ? 'sessão' : 'sessões'}
+                        {day.avgEnergy != null ? ` · Energia ${day.avgEnergy}/5` : ''}
+                    </p>
+                )}
+                {modeEntries.length > 0 && (
+                    <div className="relative z-10 mt-1.5 pt-1.5 border-t border-white/10 flex flex-wrap justify-center gap-1">
+                        {modeEntries.map(([m, mins]) => (
+                            <span key={m} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-slate-300 font-mono">
+                                {MODE_LABELS[m] || m}: {Math.round(mins)}m
+                            </span>
+                        ))}
+                    </div>
                 )}
             </div>
         </div>
@@ -55,7 +84,7 @@ const HeatmapTooltip = ({ day, visible, position }) => {
 };
 
 // FIX 5.5c: Célula acessível com navegação por teclado
-const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipToggle, dayIndex }) => {
+const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipToggle, dayIndex, palette }) => {
     const cellRef = useRef(null);
     
     const handleKeyDown = (e) => {
@@ -86,7 +115,7 @@ const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipTog
             <button
                 ref={cellRef}
                 className={`w-full aspect-square rounded-xl md:rounded-2xl border transition-all duration-300 cursor-pointer 
-                           ${day.level >= 0 ? getLevelColor(day.level) : HEATMAP_COLORS.empty} 
+                           ${day.level >= 0 ? getLevelColor(day.level, palette) : palette.empty} 
                            ${day.isToday ? 'ring-2 ring-emerald-500 ring-inset z-10' : ''}
                            hover:scale-110 hover:z-20 hover:border-white/50
                            focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900`}
@@ -113,6 +142,8 @@ const HeatmapCell = ({ day, index, onFocus, onBlur, tooltipVisible, onTooltipTog
 
 function ActivityHeatmap({ studyLogs = [] }) {
     const [monthOffset, setMonthOffset] = useState(0);
+    const [layer, setLayer] = useState('minutes'); // 'minutes' | 'energy'
+    const [modeFilter, setModeFilter] = useState('all');
     const [now, setNow] = useState(() => new Date());
     const [tooltipState, setTooltipState] = useState({ visible: false, day: null, dateKey: null });
     const containerRef = useRef(null);
@@ -166,9 +197,13 @@ function ActivityHeatmap({ studyLogs = [] }) {
 
         const studyMap = {};
         const sessionsMap = {};
+        const energySumMap = {};
+        const energyCntMap = {};
+        const modeMap = {};
         const logsArray = Array.isArray(studyLogs) ? studyLogs : Object.values(studyLogs || {});
         logsArray.forEach(log => {
             if (!log || log.type === 'flashcard') return;
+            if (modeFilter !== 'all' && String(log.studyMode || '').toLowerCase() !== modeFilter) return;
             const rawDateInput = log.date || log.createdAt || log.timestamp;
             const rawDate = normalizeDate(rawDateInput);
             if (!rawDate) return;
@@ -179,6 +214,16 @@ function ActivityHeatmap({ studyLogs = [] }) {
             if (minutes > 0) {
                 studyMap[dateKey] = (studyMap[dateKey] || 0) + minutes;
                 sessionsMap[dateKey] = (sessionsMap[dateKey] || 0) + 1;
+                if (log.studyMode) {
+                    if (!modeMap[dateKey]) modeMap[dateKey] = {};
+                    const mk = String(log.studyMode).toLowerCase();
+                    modeMap[dateKey][mk] = (modeMap[dateKey][mk] || 0) + minutes;
+                }
+                const eVal = Number(log.energyLevel);
+                if (Number.isFinite(eVal) && eVal >= 1 && eVal <= 5) {
+                    energySumMap[dateKey] = (energySumMap[dateKey] || 0) + eVal;
+                    energyCntMap[dateKey] = (energyCntMap[dateKey] || 0) + 1;
+                }
             }
         });
 
@@ -197,17 +242,27 @@ function ActivityHeatmap({ studyLogs = [] }) {
             const dateKey = format(day, 'yyyy-MM-dd');
             const minutes = studyMap[dateKey] || 0;
             const sessions = sessionsMap[dateKey] || 0;
+            const avgEnergy = energyCntMap[dateKey] > 0
+                ? Number((energySumMap[dateKey] / energyCntMap[dateKey]).toFixed(1))
+                : null;
+            const timeLevel = minutes === 0 ? 0 :
+                minutes < 30 ? 1 :
+                    minutes < 60 ? 2 :
+                        minutes < 120 ? 3 : 4;
+            const energyLevelIdx = avgEnergy == null ? 0 :
+                avgEnergy < 2.2 ? 1 :
+                    avgEnergy < 3.2 ? 2 :
+                        avgEnergy < 4.2 ? 3 : 4;
 
             currentWeek.push({
                 date: day,
                 dateKey,
                 minutes,
                 sessions,
+                avgEnergy,
+                modeMinutes: modeMap[dateKey] || {},
                 isToday: dateKey === today,
-                level: minutes === 0 ? 0 :
-                    minutes < 30 ? 1 :
-                        minutes < 60 ? 2 :
-                            minutes < 120 ? 3 : 4
+                level: layer === 'energy' ? energyLevelIdx : timeLevel,
             });
 
             if (currentWeek.length === 7) {
@@ -236,13 +291,14 @@ function ActivityHeatmap({ studyLogs = [] }) {
         const totalTimeStr = formatDuration(totalMinutes / 60);
 
         return { weeks, totalDays, studiedDays, totalMinutes, totalTimeStr };
-    }, [currentMonth, studyLogs, now]);
+    }, [currentMonth, studyLogs, now, layer, modeFilter]);
 
+    const activePalette = layer === 'energy' ? ENERGY_COLORS : HEATMAP_COLORS;
     const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
     return (
         <div className="w-full max-w-2xl mx-auto" ref={containerRef}>
-            <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b border-white/10 pb-4">
                 <div className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     Visão Mensal
@@ -274,6 +330,37 @@ function ActivityHeatmap({ studyLogs = [] }) {
                 </div>
             </div>
 
+            {/* Filtros adaptativos de camada (Tempo / Energia) e modalidade (studyMode) */}
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4 text-[10px]">
+                <div className="flex items-center gap-1 bg-slate-900/60 border border-white/10 rounded-xl p-0.5">
+                    <button
+                        type="button"
+                        onClick={() => setLayer('minutes')}
+                        className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${layer === 'minutes' ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Tempo Total
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setLayer('energy')}
+                        className={`px-2.5 py-1 rounded-lg font-bold transition-colors ${layer === 'energy' ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Energia Média
+                    </button>
+                </div>
+                <select
+                    aria-label="Filtrar mapa de atividade por modalidade"
+                    value={modeFilter}
+                    onChange={(e) => setModeFilter(e.target.value)}
+                    className="bg-slate-900/70 border border-white/10 rounded-xl px-2.5 py-1 text-[10px] font-bold text-slate-300 outline-none"
+                >
+                    <option value="all">Todas as modalidades</option>
+                    {Object.entries(MODE_LABELS).map(([k, lbl]) => (
+                        <option key={k} value={k}>{lbl}</option>
+                    ))}
+                </select>
+            </div>
+
             {/* FIX 5.5c: Grid com roles adequados */}
             <div 
                 className="grid grid-cols-7 gap-2"
@@ -302,6 +389,7 @@ function ActivityHeatmap({ studyLogs = [] }) {
                                 onBlur={handleBlur}
                                 tooltipVisible={tooltipState.visible && tooltipState.dateKey === day?.dateKey}
                                 onTooltipToggle={handleTooltipToggle}
+                                palette={activePalette}
                             />
                         ))}
                     </div>
@@ -310,13 +398,13 @@ function ActivityHeatmap({ studyLogs = [] }) {
 
             <div className="mt-8 pt-6 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 bg-slate-900/50 px-4 py-2 rounded-full border border-white/5">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Menos</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{layer === 'energy' ? 'Baixa' : 'Menos'}</span>
                     <div className="flex gap-1.5 mx-2">
-                        {[HEATMAP_COLORS.empty, HEATMAP_COLORS.level1, HEATMAP_COLORS.level2, HEATMAP_COLORS.level3, HEATMAP_COLORS.level4].map((color, i) => (
+                        {[activePalette.empty, activePalette.level1, activePalette.level2, activePalette.level3, activePalette.level4].map((color, i) => (
                             <div key={i} className={`w-4 h-4 rounded-md border ${color.split(' ')[0]} ${color.split(' ')[1]}`} />
                         ))}
                     </div>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Mais</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{layer === 'energy' ? 'Alta' : 'Mais'}</span>
                 </div>
 
                 <div className="flex items-center gap-4 bg-slate-900/50 px-5 py-2.5 rounded-2xl border border-white/5">

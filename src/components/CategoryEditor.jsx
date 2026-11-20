@@ -45,6 +45,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
     const [minCutoff, setMinCutoff] = useState(category?.minCutoff ?? 0);
     const [maxScore, setMaxScore] = useState(category?.maxScore ?? 100);
     const [name, setName] = useState(category?.name || '');
+    const [examGroup, setExamGroup] = useState(category?.examGroup || '');
     const [color, setColor] = useState(normalizeHexColor(category?.color, DEFAULT_CATEGORY_COLOR));
 
     useEffect(() => {
@@ -53,6 +54,7 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             setMinCutoff(category.minCutoff ?? 0);
             setMaxScore(category.maxScore ?? 100);
             setName(category.name || '');
+            setExamGroup(category.examGroup || '');
             setColor(normalizeHexColor(category.color, DEFAULT_CATEGORY_COLOR));
         }
     }, [effectiveOpen, category]);
@@ -116,7 +118,8 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
             color: safeColor,
             minCutoff: Number(safeMin.toFixed(2)),
             minScore: preservedMinScore,
-            maxScore: roundedMax
+            maxScore: roundedMax,
+            examGroup: examGroup ? String(examGroup).trim() : null,
         });
 
         showToast('Disciplina atualizada com sucesso!', 'success');
@@ -231,6 +234,22 @@ export default function CategoryEditor({ category, isOpen, onClose }) {
                                 className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs text-slate-400 font-bold uppercase mb-1">
+                            Bloco do Edital (Opcional)
+                        </label>
+                        <select
+                            value={examGroup}
+                            onChange={(e) => setExamGroup(e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
+                        >
+                            <option value="">Sem bloco específico</option>
+                            <option value="basicos">Conhecimentos Básicos</option>
+                            <option value="especificos">Conhecimentos Específicos</option>
+                            <option value="discursiva">Discursiva / Redação</option>
+                        </select>
                     </div>
 
                     <div>

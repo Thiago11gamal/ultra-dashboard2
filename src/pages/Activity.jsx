@@ -4,6 +4,7 @@ import { CalendarDays, RotateCcw, Trophy, Target, BookOpen } from 'lucide-react'
 import { StreakDisplay, XPHistory, AchievementsGrid } from '../components/GamificationComponents';
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import { CircadianHeatmapChart } from '../components/charts/Analytics/CircadianHeatmapChart';
+import { WorkloadACWRChart } from '../components/charts/Analytics/WorkloadACWRChart';
 import { useAppStore } from '../store/useAppStore';
 import { useToast } from '../hooks/useToast';
 import { buildAchievementStats } from '../utils/analytics';
@@ -135,6 +136,9 @@ export default function Activity() {
                 minScore={data?.minScore ?? 0}
                 maxScore={data?.maxScore ?? 100}
             />
+
+            {/* Monitor Adaptativo de Carga & Burnout (ACWR) */}
+            <WorkloadACWRChart studyLogs={studyLogsArray} />
 
             {/* Flashcards como Medidas e Indicadores */}
             {achievementStats && (achievementStats.flashcardReviews > 0 || achievementStats.flashcardDecks > 0) && (

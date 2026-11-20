@@ -1,4 +1,4 @@
-7import { getDateKey } from './dateHelper.js';
+import { getDateKey } from './dateHelper.js';
 
 export function getMondayKey(rawKey = '') {
   const dateKey = getDateKey(rawKey);

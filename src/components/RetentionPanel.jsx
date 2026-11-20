@@ -8,11 +8,11 @@ import {
     normalizeArray,
     toDateMs,
     getMasterySignal,
-    halfLifeFromMastery,
     retentionFromHalfLife,
     getLatestStudyMs,
     MS_PER_DAY
 } from '../utils/retentionCore';
+import { estimateEmpiricalHalfLife } from '../engine/adaptive/empiricalRetention';
 
 // Calculate retention aligned with FSRS power-law forgetting curve (shared via retentionCore)
 const calculateRetention = (lastStudiedAt, halfLife = 7, now = Date.now()) => {
@@ -224,15 +224,18 @@ export default function RetentionPanel({ categories = [], onSelectCategory }) {
             .map(cat => {
                 const safeCategoryName = String(cat.name || 'Sem nome');
 
-                const catMastery = getMasterySignal(cat);
-                const catHalfLife = halfLifeFromMastery(catMastery.masterySignal);
+                const empirical = estimateEmpiricalHalfLife(cat);
+                const catHalfLife = empirical.effectiveHalfLife;
+                const empiricalScale = empirical.priorHalfLife > 0
+                    ? clamp(empirical.effectiveHalfLife / empirical.priorHalfLife, 0.5, 2.0)
+                    : 1;
 
                 const rawTasks = normalizeArray(cat.tasks);
 
                 const tasksWithRetention = rawTasks
                     .map(task => {
                         const taskMastery = getMasterySignal(task, cat);
-                        const taskHalfLife = 7 + (16 * taskMastery.masterySignal);
+                        const taskHalfLife = clamp((7 + (16 * taskMastery.masterySignal)) * empiricalScale, 4, 60);
                         const lastStudy = task.lastStudiedAt ?? task.completedAt;
 
                         return {

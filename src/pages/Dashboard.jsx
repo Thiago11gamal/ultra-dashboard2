@@ -5,6 +5,8 @@ import StatsCards from '../components/StatsCards';
 import NextGoalCard from '../components/NextGoalCard';
 import PriorityProgress from '../components/PriorityProgress';
 import { SyllabusBurndownChart } from '../components/charts/Analytics/SyllabusBurndownChart';
+import { AdaptivePulseStrip } from '../components/dashboard/AdaptivePulseStrip';
+import SyllabusImporterModal from '../components/ai/SyllabusImporterModal';
 import Checklist from '../components/Checklist';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -250,6 +252,43 @@ const handleDismissBanner = React.useCallback(() => {
 }, []);
 
 const hasTasks = React.useMemo(() => safeCategories.some(c => (c.tasks || []).length > 0), [safeCategories]);
+const [showSyllabusImporter, setShowSyllabusImporter] = React.useState(false);
+
+const handleImportSyllabusCategories = React.useCallback((newCategories = []) => {
+    if (!Array.isArray(newCategories) || newCategories.length === 0) return;
+    setData((contest) => {
+        if (!contest) return contest;
+        const existing = Array.isArray(contest.categories)
+            ? contest.categories
+            : Object.values(contest.categories || {});
+        const merged = [...existing];
+        newCategories.forEach((incoming) => {
+            const idx = merged.findIndex((c) => c && String(c.name || '').trim().toLowerCase() === String(incoming.name || '').trim().toLowerCase());
+            if (idx >= 0) {
+                const curTasks = Array.isArray(merged[idx].tasks) ? merged[idx].tasks : Object.values(merged[idx].tasks || {});
+                const dedupTasks = [...curTasks];
+                (incoming.tasks || []).forEach((t) => {
+                    if (!dedupTasks.some((x) => x && String(x.text || x.title || '').trim().toLowerCase() === String(t.text || '').trim().toLowerCase())) {
+                        dedupTasks.push(t);
+                    }
+                });
+                merged[idx] = {
+                    ...merged[idx],
+                    weight: incoming.weight || merged[idx].weight,
+                    ...(incoming.examGroup ? { examGroup: incoming.examGroup } : {}),
+                    tasks: dedupTasks,
+                };
+            } else {
+                merged.push(incoming);
+            }
+        });
+        return { ...contest, categories: merged, lastUpdated: new Date().toISOString() };
+    });
+    clearUrgencyCache();
+    clearTopicsCache();
+    clearMcCache();
+    showToast(`Edital importado: ${newCategories.length} matéria(s) adicionada(s)!`, 'success');
+}, [setData, showToast]);
 
 if (!isHydrated) {
     return (
@@ -323,6 +362,14 @@ return (
                 </div>
             )}
 
+            <AdaptivePulseStrip
+                categories={data.categories}
+                studyLogs={data.studyLogs}
+                flashcardDecks={data.flashcardDecks}
+                targetScore={Number(data.user?.targetScore) || 80}
+                onOpenSyllabusImporter={() => setShowSyllabusImporter(true)}
+            />
+
             <div className="tour-step-4">
                 <StatsCards data={data} onUpdateGoalDate={setGoalDate} />
             </div>
@@ -363,6 +410,11 @@ return (
                     onImportCategory={importCategory}
                 />
             </div>
+            <SyllabusImporterModal
+                isOpen={showSyllabusImporter}
+                onClose={() => setShowSyllabusImporter(false)}
+                onImportCategories={handleImportSyllabusCategories}
+            />
         </div>
     </PageErrorBoundary>
 );

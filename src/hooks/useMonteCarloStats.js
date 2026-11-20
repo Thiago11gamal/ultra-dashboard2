@@ -28,139 +28,20 @@ import {
   computeCalibrationPenalty,
   generateAnalyticsStats
 } from '../engine/analyticsStats.js';
+import {
+  clamp,
+  safeClamp,
+  shrinkToNeutral,
+  calibrateSpreadWithFloor,
+  expandCIWithRatio,
+  buildSubjectsOpts,
+  getCachedSubjectSim,
+  setCachedSubjectSim,
+} from './mcStatsHelpers.js';
 
 const EMPTY_ARRAY = Object.freeze([]);
 const BASE_SIMULATIONS = 5000;
 const LOG_DAMPING_FACTOR = 45;
-
-const clamp = (value, min, max) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return min;
-  return Math.min(max, Math.max(min, n));
-};
-
-// T-005 FIX: clamp defensivo que NÃO empurra NaN para o mínimo.
-// Em projeções estatísticas, NaN deve cair para um valor neutro/seguro,
-// não para o pior caso silenciosamente.
-const safeClamp = (value, min, max, fallback = null) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
-    return fallback !== null && fallback !== undefined
-      ? fallback
-      : (min + max) / 2;
-  }
-  return Math.min(max, Math.max(min, n));
-};
-
-// FIX: encolhimento simétrico de probabilidade extrema em direção ao neutro
-const shrinkToNeutral = (p, factor, neutral = 50) => {
-  const safeP = Number.isFinite(p) ? p : neutral;
-  const safeFactor = clamp(factor, 0, 1);
-  return neutral + (safeP - neutral) * (1 - safeFactor);
-};
-
-const calibrateSpreadWithFloor = (rawSD, aleatoricFloor, penalty) => {
-  const safeSD = Number.isFinite(Number(rawSD)) ? Math.max(0, Number(rawSD)) : 0;
-  if (safeSD <= 0 || penalty <= 0) return safeSD;
-  const epistemic = Math.max(0, safeSD - aleatoricFloor);
-  return Math.min(safeSD, aleatoricFloor) + (epistemic * (1 + penalty * 2.5));
-};
-
-const expandCIWithRatio = (ci, ratio, minBound, maxBound) => {
-  if (!ci || !Number.isFinite(ratio) || ratio <= 1) return ci;
-  const low = Number(ci.ciLow ?? ci.low);
-  const high = Number(ci.ciHigh ?? ci.high);
-  if (!Number.isFinite(low) || !Number.isFinite(high)) return ci;
-  const mid = (low + high) / 2;
-  const newLow = Math.max(minBound, mid - (mid - low) * ratio);
-  const newHigh = Math.min(maxBound, mid + (high - mid) * ratio);
-  return { ...ci, ciLow: newLow, ciHigh: newHigh, low: newLow, high: newHigh };
-};
-
-const sanitizeCutoffValue = (val) => {
-  if (val === null || val === undefined || typeof val === 'boolean') return null;
-  if (typeof val === 'string' && val.trim() === '') return null;
-  const n = Number(val);
-  return Number.isFinite(n) ? n : null;
-};
-
-const buildSubjectsOpts = (statsObj, subjectImmunityMap, { isFuture, minScoreVal, maxScoreVal }) => {
-  const cats = Array.isArray(statsObj?.categoryStats) ? statsObj.categoryStats : [];
-  const baseSubjects = cats.map(c => {
-    const subjName = c.name || c.key || '';
-    const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
-    const catMin = Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreVal;
-    const catMax = Number.isFinite(Number(c.maxScore)) && Number(c.maxScore) > catMin ? Number(c.maxScore) : Math.max(catMin + 1, maxScoreVal);
-    const rawMean = isFuture
-      ? (c.bayesianMean ?? c.mean)
-      : (c.temporalBayesianMean ?? c.bayesianMean ?? c.mean);
-    return {
-      name: subjName,
-      mean: rawMean,
-      sd: isFuture ? (c.volatility ?? c.sd) : (c.bayesianSd ?? c.sd),
-      minCutoff: sanitizeCutoffValue(c.minCutoff),
-      maxScore: catMax,
-      minScore: catMin,
-      immunityFactor: immunity,
-      weight: (Number(c.weight) > 0) ? Number(c.weight) : 1
-    };
-  });
-
-  if (isFuture || baseSubjects.length === 0 || !Number.isFinite(Number(statsObj?.bayesianMean))) {
-    return baseSubjects;
-  }
-
-  // Alinhar o nível composto das matérias no modo "Hoje" com pureStatsData.bayesianMean
-  // (que agrega com decaimento temporal), preservando o spread relativo entre disciplinas.
-  const globalSpan = Math.max(1e-9, maxScoreVal - minScoreVal);
-  const targetProp = clamp((Number(statsObj.bayesianMean) - minScoreVal) / globalSpan, 0, 1);
-  let wSum = 0;
-  let propSum = 0;
-  const props = baseSubjects.map(s => {
-    const sSpan = Math.max(1e-9, s.maxScore - s.minScore);
-    const p = clamp((Number(s.mean) - s.minScore) / sSpan, 0, 1);
-    wSum += s.weight;
-    propSum += p * s.weight;
-    return { p, sSpan };
-  });
-  const compositeProp = wSum > 0 ? propSum / wSum : targetProp;
-  const shiftProp = targetProp - compositeProp;
-  if (Math.abs(shiftProp) <= 1e-6) return baseSubjects;
-
-  return baseSubjects.map((s, idx) => {
-    const adjustedProp = clamp(props[idx].p + shiftProp, 0, 1);
-    return { ...s, mean: s.minScore + adjustedProp * props[idx].sSpan };
-  });
-};
-
-// Cache com TTL para simulações por matéria (evita recalculação redundante)
-const SUBJECT_SIM_CACHE = new Map();
-const SUBJECT_SIM_TTL_MS = 60000;
-const SUBJECT_SIM_MAX_SIZE = 100; // G-01 FIX: cap menor e eviction real
-
-function getCachedSubjectSim(key) {
-  const entry = SUBJECT_SIM_CACHE.get(key);
-  if (!entry) return null;
-  if (!Number.isFinite(entry?.timestamp) || Date.now() - entry.timestamp > SUBJECT_SIM_TTL_MS) {
-    SUBJECT_SIM_CACHE.delete(key);
-    return null;
-  }
-  return entry.result;
-}
-
-function setCachedSubjectSim(key, result) {
-  const now = Date.now();
-  for (const [k, v] of SUBJECT_SIM_CACHE.entries()) {
-    if (!Number.isFinite(v?.timestamp) || now - v.timestamp > SUBJECT_SIM_TTL_MS) {
-      SUBJECT_SIM_CACHE.delete(k);
-    }
-  }
-  if (SUBJECT_SIM_CACHE.size >= SUBJECT_SIM_MAX_SIZE) {
-    const oldest = SUBJECT_SIM_CACHE.keys().next().value;
-    if (oldest !== undefined) SUBJECT_SIM_CACHE.delete(oldest);
-  }
-  SUBJECT_SIM_CACHE.set(key, { result, timestamp: now });
-}
 
 function maybeRecordGlobalCalibrationPrediction({
   result,
@@ -262,6 +143,11 @@ export function useMonteCarloStats({
     const arr = state.appState?.contests?.[currentActiveId]?.historicalCutoffs;
     return Array.isArray(arr) ? arr : Object.values(arr || {});
   }));
+
+  const examGroupCutoffs = useAppStore(state => {
+    const currentActiveId = state.appState?.activeId;
+    return state.appState?.contests?.[currentActiveId]?.examGroupCutoffs || null;
+  });
 
   // ✅ LOTE-03 FIX (A2): assinar APENAS simuladoRows em vez do concurso inteiro.
   // Antes, qualquer campo do concurso (studyLogs, flashcards, tasks, sessões...)
@@ -670,6 +556,8 @@ export function useMonteCarloStats({
 
   const historicalCutoffsRef = useRef(historicalCutoffs);
   useEffect(() => { historicalCutoffsRef.current = historicalCutoffs; }, [historicalCutoffs]);
+  const examGroupCutoffsRef = useRef(examGroupCutoffs);
+  useEffect(() => { examGroupCutoffsRef.current = examGroupCutoffs; }, [examGroupCutoffs]);
 
   const rawSimuladoRowsRef = useRef(rawSimuladoRows);
   useEffect(() => { rawSimuladoRowsRef.current = rawSimuladoRows; }, [rawSimuladoRows]);
@@ -836,6 +724,7 @@ export function useMonteCarloStats({
               examDurationMinutes: examDurationRef.current,
               flashcardImmunity: globalImmunityFactor,
               historicalCutoffs: historicalCutoffsRef.current,
+              examGroupCutoffs: examGroupCutoffsRef.current,
               simuladoRows: rawSimuladoRowsRef.current,
               categoryNames: subjectsOpts.map(s => s.name),
               cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${simCount}-tgt${debouncedTarget}`
@@ -865,6 +754,7 @@ export function useMonteCarloStats({
             subjects: subjectsOpts,
             flashcardImmunity: globalImmunityFactor,
             historicalCutoffs: historicalCutoffsRef.current,
+            examGroupCutoffs: examGroupCutoffsRef.current,
             simuladoRows: rawSimuladoRowsRef.current,
             categoryNames: subjectsOpts.map(s => s.name),
             historyLength: pureStatsData.globalHistory?.length || 0

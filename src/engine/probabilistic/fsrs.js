@@ -7,10 +7,10 @@
 // ============================================================================
 
 import {
-    clamp,
-    toDateMs,
-    toFiniteNumber,
-    MS_PER_DAY
+  clamp,
+  toDateMs,
+  toFiniteNumber,
+  MS_PER_DAY
 } from '../../utils/retentionCore.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
 
@@ -259,10 +259,125 @@ export function estimateCategoryFsrsBoost(history, options = {}) {
   };
 }
 
+/**
+ * Calcula a recuperabilidade atual R(t, S) ∈ [0, 1] de um flashcard individual.
+ * Suporta tanto cartões FSRS (card.fsrs.stability) quanto cartões legados SM-2 (card.interval).
+ */
+export function computeFlashcardRetrievability(card, nowMs = Date.now()) {
+  if (!card || typeof card !== 'object') return 1;
+  const stability = Math.max(
+    0.4,
+    Number(card.fsrs?.stability) || Number(card.interval) || 1
+  );
+  const lastMs = toDateMs(card.lastReviewed || card.createdAt);
+  if (!Number.isFinite(lastMs) || lastMs <= 0) return 0.9;
+  const elapsedDays = Math.max(0, (nowMs - lastMs) / MS_PER_DAY);
+  return fsrsRetrievability(elapsedDays, stability);
+}
+
+/**
+ * Agendador FSRS-4.5 adaptado para cartões de Flashcards individuais.
+ * rating: 0 = Esqueci (Again), 1 = Difícil (Hard), 2 = Bom (Good), 3 = Fácil (Easy).
+ * Mantém compatibilidade com `interval` e `ease` para métricas/testes legados.
+ */
+export function scheduleFlashcardFsrs(card = {}, rating = 2, options = {}) {
+  const safeRating = Math.min(3, Math.max(0, Math.round(Number(rating) || 0)));
+  const desiredRetention = clamp(toFiniteNumber(options.desiredRetention, 0.9), 0.7, 0.97);
+  const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
+
+  const reviews = Math.max(0, Math.round(Number(card?.reviews) || 0));
+  const prevLapses = Math.max(0, Math.round(Number(card?.fsrs?.lapses) || 0));
+  const legacyInterval = Math.max(1, Number(card?.interval) || 1);
+  const prevEase = clamp(Number(card?.ease) || 2.5, 1.3, 3.2);
+
+  // Migração suave de cartões legados SM-2 ou inicialização FSRS
+  const initStabilities = [0.6, 1.4, 3.2, 6.5];
+  const initDifficulties = [7.4, 6.2, 5.0, 3.6];
+
+  let S;
+  let D;
+  let lapses = prevLapses;
+  let state = 'review';
+
+  if (reviews === 0 && !card?.fsrs?.stability) {
+    S = initStabilities[safeRating];
+    D = initDifficulties[safeRating];
+    if (safeRating === 0) {
+      lapses += 1;
+      state = 'relearning';
+    }
+  } else {
+    const prevS = Math.max(0.4, Number(card?.fsrs?.stability) || legacyInterval);
+    const prevD = clamp(
+      Number(card?.fsrs?.difficulty) || (10 - ((prevEase - 1.3) / 1.9) * 7),
+      1.0,
+      10.0
+    );
+    const R = computeFlashcardRetrievability({ ...card, fsrs: { stability: prevS } }, nowMs);
+
+    // Atualização de dificuldade D ∈ [1, 10] com reversão suave à média (mean reversion)
+    const ratingDeltaD = [1.15, 0.45, -0.2, -0.75][safeRating];
+    D = clamp(prevD + ratingDeltaD + 0.08 * (5.0 - prevD), 1.0, 10.0);
+
+    if (safeRating === 0) {
+      // Lapse: reduz estabilidade drasticamente mas preserva memória residual
+      lapses += 1;
+      state = 'relearning';
+      S = clamp(Math.max(0.5, prevS * 0.25 * Math.pow(11 - D, 0.15)), 0.5, 14);
+    } else {
+      // Recall bem-sucedido: bônus maior quanto menor era R (desirable difficulty!)
+      const hardPenalty = safeRating === 1 ? 0.65 : 1.0;
+      const easyBonus = safeRating === 3 ? 1.35 : 1.0;
+      const recallGain = 1 + (11 - D) * 0.16 * Math.pow(prevS, -0.18) * (Math.exp(0.95 * (1 - R)) - 0.15) * hardPenalty * easyBonus;
+      S = clamp(prevS * Math.max(safeRating === 1 ? 1.05 : 1.25, recallGain), 0.6, 365 * 5);
+      state = 'review';
+    }
+  }
+
+  // Cartões críticos ("Conceito Errado Crítico") recebem retenção-alvo mais exigente na 1ª consolidação
+  const effectiveTargetR = (card?.priority === 'critical' || card?.confidence === 'certeza') && reviews < 2
+    ? Math.max(desiredRetention, 0.93)
+    : desiredRetention;
+
+  let intervalDays = safeRating === 0
+    ? 1
+    : Math.min(365 * 5, Math.max(1, fsrsIntervalForRetention(S, effectiveTargetR)));
+
+  // Garantir ordenação monotônica intuitiva entre botões (Difícil <= Bom < Fácil)
+  if (safeRating === 1) {
+    intervalDays = Math.max(1, Math.min(intervalDays, Math.max(1, Math.round(legacyInterval * 1.1))));
+  } else if (safeRating === 2 && reviews > 0) {
+    intervalDays = Math.max(legacyInterval + 1, intervalDays);
+  } else if (safeRating === 3) {
+    intervalDays = Math.max(legacyInterval + 2, intervalDays);
+  }
+
+  const nextEase = clamp(
+    safeRating === 0 ? prevEase - 0.2 : safeRating === 1 ? prevEase - 0.12 : safeRating === 2 ? prevEase + 0.05 : prevEase + 0.12,
+    1.3,
+    3.2
+  );
+
+  return {
+    interval: intervalDays,
+    ease: Number(nextEase.toFixed(2)),
+    fsrs: {
+      stability: Number(S.toFixed(2)),
+      difficulty: Number(D.toFixed(2)),
+      lapses,
+      state,
+      desiredRetention: effectiveTargetR,
+      model: 'fsrs_4_5',
+    },
+  };
+}
+
 export default {
   fsrsRetrievability,
   fsrsIntervalForRetention,
   estimateTopicFsrs,
   estimateCategoryFsrsBoost,
+  computeFlashcardRetrievability,
+  scheduleFlashcardFsrs,
 };
 

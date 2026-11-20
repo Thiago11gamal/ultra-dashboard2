@@ -33,11 +33,25 @@ import { MonteCarloEvolutionChart } from "./charts/EvolutionChart/MonteCarloEvol
 import { WeeklyEvolutionView } from "./charts/EvolutionChart/WeeklyEvolutionView";
 import { TimeSpentChart } from "./charts/EvolutionChart/TimeSpentChart";
 import { TodayVsGeneralChart } from "./charts/EvolutionChart/TodayVsGeneralChart";
-import { SpeedAccuracyChart } from "./charts/EvolutionChart/SpeedAccuracyChart";
-import { ConsistencyBoxPlotChart } from "./charts/EvolutionChart/ConsistencyBoxPlotChart";
-import { ExamPacingChart } from "./charts/EvolutionChart/ExamPacingChart";
-import { ProjectionFanChart } from "./charts/EvolutionChart/ProjectionFanChart";
-import { KalmanLatentChart } from "./charts/EvolutionChart/KalmanLatentChart";
+import { AdaptiveMaturityBadge } from "./ui/AdaptiveMaturityBadge";
+
+// Code-splitting: abas analíticas secundárias carregam sob demanda (reduz bundle inicial de Evolution)
+const SpeedAccuracyChart = React.lazy(() => import("./charts/EvolutionChart/SpeedAccuracyChart").then((m) => ({ default: m.SpeedAccuracyChart })));
+const ConsistencyBoxPlotChart = React.lazy(() => import("./charts/EvolutionChart/ConsistencyBoxPlotChart").then((m) => ({ default: m.ConsistencyBoxPlotChart })));
+const ExamPacingChart = React.lazy(() => import("./charts/EvolutionChart/ExamPacingChart").then((m) => ({ default: m.ExamPacingChart })));
+const ProjectionFanChart = React.lazy(() => import("./charts/EvolutionChart/ProjectionFanChart").then((m) => ({ default: m.ProjectionFanChart })));
+const KalmanLatentChart = React.lazy(() => import("./charts/EvolutionChart/KalmanLatentChart").then((m) => ({ default: m.KalmanLatentChart })));
+const TornadoWhatIfChart = React.lazy(() => import("./charts/EvolutionChart/TornadoWhatIfChart").then((m) => ({ default: m.TornadoWhatIfChart })));
+const CorrelationRegimeChart = React.lazy(() => import("./charts/EvolutionChart/CorrelationRegimeChart").then((m) => ({ default: m.CorrelationRegimeChart })));
+const IRTPsychometricChart = React.lazy(() => import("./charts/EvolutionChart/IRTPsychometricChart").then((m) => ({ default: m.IRTPsychometricChart })));
+const MetacognitionFatigueChart = React.lazy(() => import("./charts/EvolutionChart/MetacognitionFatigueChart").then((m) => ({ default: m.MetacognitionFatigueChart })));
+
+const LazyTabFallback = (
+  <div className="min-h-[260px] flex items-center justify-center gap-2.5 text-xs font-bold text-slate-400">
+    <Loader2 size={16} className="animate-spin text-indigo-400" />
+    <span>Carregando módulo analítico...</span>
+  </div>
+);
 
 import { generateEvolutionInsights } from '../engine/insightGenerator';
 import { StatusPill } from './ui/StatusPill';
@@ -481,6 +495,22 @@ const ENGINES = [
         id: "kalman_latent", label: "Kalman Latente", emoji: "🧲", color: "#10b981", prefix: null, style: "monotoneX",
         explain: { titulo: "Habilidade Latente (Filtro de Kalman) vs. Notas Brutas", simples: "Executa o filtro State-Space passo a passo para separar sua habilidade real latente do ruído estatístico de simulados atípicos.", dica: "Pontos destacados em rosa são choques pontuais de ruído absorvidos pelo filtro — não desanime por uma prova fora da curva se a linha verde segue firme." },
     },
+    {
+        id: "tornado_whatif", label: "Tornado & Risco", emoji: "🌪️", color: "#f59e0b", prefix: null, style: "linear",
+        explain: { titulo: "Decomposição de Eliminação, Tornado & Simulador 'E Se?'", simples: "Mostra exatamente se sua reprovação simulada vem da nota global ou de um corte mínimo (minCutoff/bloco), ordena as matérias por impacto real e oferece sliders interativos.", dica: "Ataque primeiro a disciplina no topo do Tornado ou a que apresenta maior % de eliminação por corte mínimo." },
+    },
+    {
+        id: "correlation_regimes", label: "Correlação & Regimes", emoji: "🔗", color: "#a855f7", prefix: null, style: "linear",
+        explain: { titulo: "Matriz de Correlação Semanal & Mapa de Regimes (Hurst × Velocidade)", simples: "Cruza semanas comuns entre disciplinas para detectar efeito gangorra (crowding-out) e classifica cada matéria por persistência (Hurst H) e velocidade de ganho.", dica: "Pares em vermelho (r < -0.45) pedem intercalação semanal; matérias com H < 0.42 exigem consolidação da base." },
+    },
+    {
+        id: "irt_psychometric", label: "TRI & Chute", emoji: "🧬", color: "#c084fc", prefix: null, style: "monotoneX",
+        explain: { titulo: "Psicometria TRI/IRT (θ) & Simulador de Chute da Banca", simples: "Estima sua habilidade latente θ independente da dificuldade da prova, indica sua Zona Proximal (~70%) e calcula a estratégia ótima de chute/abstenção para bancas com penalidade (ex.: Cebraspe).", dica: "Configure sua banca e use o nível recomendado pela Zona Proximal no próximo Simulado IA." },
+    },
+    {
+        id: "metacognition_fatigue", label: "Metacognição & Fadiga", emoji: "🧠", color: "#ec4899", prefix: null, style: "linear",
+        explain: { titulo: "Metacognição, Anatomia dos Erros & Fadiga Intraprova", simples: "Cruza sua confiança declarada contra o acerto real, classifica a causa raiz dos erros e mede se sua precisão/velocidade degrada do 1º ao 4º quarto do simulado.", dica: "Converta erros de 'Certeza + Erro' em Flashcards FSRS — eles têm o maior retorno imediato." },
+    },
 ];
 
     
@@ -574,6 +604,30 @@ const ENGINES = [
        positivo: 'Habilidade latente em alta sustentada mesmo com ruído pontual.',
        alerta: 'Tendência estrutural negativa por várias semanas consecutivas.',
        acao: 'Use a curva latente para avaliar evolução real sem reagir por impulso a um simulado isolado.'
+     },
+     tornado_whatif: {
+       como: 'Mostra o motivo das reprovações simuladas no Monte Carlo (corte global vs. minCutoff) e mede o impacto em pp de variar cada matéria em ±10%.',
+       positivo: 'Risco de eliminação por corte mínimo próximo de zero e margem confortável acima do corte global.',
+       alerta: 'Uma única disciplina respondendo por >15% das eliminações no Monte Carlo.',
+       acao: 'Use os sliders "E Se?" para descobrir qual combinação de metas coloca sua aprovação acima de 80%.'
+     },
+     correlation_regimes: {
+       como: 'A matriz mostra se duas matérias sobem juntas (verde) ou sofrem efeito gangorra (vermelho). O scatter cruza Hurst H contra velocidade semanal.',
+       positivo: 'Disciplinas no quadrante de Tendência Consolidada (H > 0.58 e velocidade positiva).',
+       alerta: 'Correlação negativa forte (r < -0.45) ou matérias presas em platô/reversão.',
+       acao: 'Intercale matérias em efeito gangorra na semana e troque a abordagem em disciplinas em platô.'
+     },
+     irt_psychometric: {
+       como: 'Estima sua habilidade θ na escala TRI [-3, +3] a partir da dificuldade das questões e calcula o valor esperado de chutar na sua banca.',
+       positivo: 'Curva real acompanhando a curva TRI prevista e θ em crescimento.',
+       alerta: 'Incoerência TRI (errando mais fáceis do que médias/difíceis) ou chutes dando saldo líquido negativo.',
+       acao: 'Treine na dificuldade da Zona Proximal (~70%) e siga a regra ótima de abstenção da sua banca.'
+     },
+     metacognition_fatigue: {
+       como: 'Analisa confiança × acerto, causas raiz dos erros e degradação de precisão/velocidade do início ao fim dos simulados IA.',
+       positivo: 'Alto Domínio Real e curva de precisão estável até o 4º quarto do simulado.',
+       alerta: 'Muitos erros com "Certeza" ou queda acentuada de acerto no final do simulado.',
+       acao: 'Envie erros críticos para Flashcards FSRS e treine blocos mais longos para ganhar resistência.'
      }
     };
     
@@ -636,7 +690,7 @@ export default React.memo(function EvolutionChart({
     const [selectedSubjectId, setFocusSubjectId] = useState(null);
     
     // RIGOR-09 FIX: Recuperar os pesos do store para o Global Pct ponderado
-    const { mcWeights, historicalCutoffs, examDurationMinutes, examTotalQuestions } = useAppStore(
+    const { mcWeights, historicalCutoffs, examDurationMinutes, examTotalQuestions, examBoard, penaltyPerWrong, examGroupCutoffs } = useAppStore(
         useShallow((state) => {
             const contest = state.appState?.contests?.[state.appState?.activeId];
             return {
@@ -644,6 +698,9 @@ export default React.memo(function EvolutionChart({
                 historicalCutoffs: contest?.historicalCutoffs || EMPTY_ARRAY,
                 examDurationMinutes: contest?.examDurationMinutes ?? null,
                 examTotalQuestions: contest?.examTotalQuestions ?? null,
+                examBoard: contest?.examBoard || 'PADRAO',
+                penaltyPerWrong: contest?.penaltyPerWrong ?? 0,
+                examGroupCutoffs: contest?.examGroupCutoffs || null,
             };
         })
     );
@@ -1491,11 +1548,14 @@ export default React.memo(function EvolutionChart({
 
             {/* TABS E GRÁFICOS SECUNDÁRIOS */}
             <motion.div variants={itemVariants} className="relative z-10">
-                <div className="flex items-center gap-2.5 mb-4 px-1">
-                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-sm sm:text-base shrink-0">
-                        🔬
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-1">
+                    <div className="flex items-center gap-2.5">
+                        <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-sm sm:text-base shrink-0">
+                            🔬
+                        </div>
+                        <h3 className="text-base sm:text-lg font-black text-slate-200 tracking-tight">Análises Secundárias</h3>
                     </div>
-                    <h3 className="text-base sm:text-lg font-black text-slate-200 tracking-tight">Análises Secundárias</h3>
+                    <AdaptiveMaturityBadge compact />
                 </div>
 
             {/* ✅ BUG-10 FIX: z-[50] → z-10 para não cortar tooltips de charts abaixo */}
@@ -1636,6 +1696,7 @@ export default React.memo(function EvolutionChart({
                         minScore={minScore}
                     />
                 ) : activeEngine === "speed_accuracy" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
                     <SpeedAccuracyChart
                         categories={categories}
                         simuladoRows={simuladoRowsArray}
@@ -1648,14 +1709,18 @@ export default React.memo(function EvolutionChart({
                         examDurationMinutes={examDurationMinutes}
                         examTotalQuestions={examTotalQuestions}
                     />
+                    </React.Suspense>
                 ) : activeEngine === "exam_pacing" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
                     <ExamPacingChart
                         categories={categories}
                         timeWindow={timeWindow}
                         examDurationMinutes={examDurationMinutes}
                         examTotalQuestions={examTotalQuestions}
                     />
+                    </React.Suspense>
                 ) : activeEngine === "consistency_boxplot" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
                     <ConsistencyBoxPlotChart
                         categories={categories}
                         showOnlyFocus={showOnlyFocus}
@@ -1666,7 +1731,9 @@ export default React.memo(function EvolutionChart({
                         maxScore={showOnlyFocus ? focusMax : maxScore}
                         unit={resolvedActiveUnit}
                     />
+                    </React.Suspense>
                 ) : activeEngine === "projection_fan" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
                     <ProjectionFanChart
                         focusCategory={showOnlyFocus ? focusCategory : (focusCategory || null)}
                         timeline={timeline}
@@ -1678,7 +1745,9 @@ export default React.memo(function EvolutionChart({
                         unit={resolvedFocusUnit}
                         activeMcResult={activeMcResult}
                     />
+                    </React.Suspense>
                 ) : activeEngine === "kalman_latent" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
                     <KalmanLatentChart
                         focusCategory={focusCategory}
                         timeline={timeline}
@@ -1688,6 +1757,56 @@ export default React.memo(function EvolutionChart({
                         maxScore={focusMax}
                         unit={resolvedFocusUnit}
                     />
+                    </React.Suspense>
+                ) : activeEngine === "tornado_whatif" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
+                    <TornadoWhatIfChart
+                        categories={categories}
+                        targetScore={targetScore}
+                        minScore={minScore}
+                        maxScore={maxScore}
+                        historicalCutoffs={historicalCutoffs}
+                        examGroupCutoffs={examGroupCutoffs}
+                        onSaveGroupCutoffs={(nextCutoffs) => {
+                            const patchData = useAppStore.getState?.()?.patchData;
+                            if (typeof patchData === 'function') {
+                                patchData(() => ({ examGroupCutoffs: nextCutoffs || {} }));
+                            }
+                        }}
+                    />
+                    </React.Suspense>
+                ) : activeEngine === "correlation_regimes" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
+                    <CorrelationRegimeChart
+                        categories={categories}
+                        studyLogs={studyLogsArray}
+                        simuladoRows={simuladoRowsArray}
+                        targetScore={targetScore}
+                        minScore={minScore}
+                        maxScore={maxScore}
+                    />
+                    </React.Suspense>
+                ) : activeEngine === "irt_psychometric" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
+                    <IRTPsychometricChart
+                        categories={categories}
+                        simuladoRows={simuladoRowsArray}
+                        focusCategory={focusCategory}
+                        showOnlyFocus={showOnlyFocus}
+                        minScore={showOnlyFocus ? focusMin : minScore}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                        examBoard={examBoard}
+                        penaltyPerWrong={penaltyPerWrong}
+                    />
+                    </React.Suspense>
+                ) : activeEngine === "metacognition_fatigue" ? (
+                    <React.Suspense fallback={LazyTabFallback}>
+                    <MetacognitionFatigueChart
+                        simuladoRows={simuladoRowsArray}
+                        focusCategory={focusCategory}
+                        showOnlyFocus={showOnlyFocus}
+                    />
+                    </React.Suspense>
                 ) : activeEngine === "mc_density" ? (
                     <MonteCarloEvolutionChart
                         data={effectiveMcHistoryData}

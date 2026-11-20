@@ -130,6 +130,7 @@ async function requestAIQuestions({
   dificuldade,
   quantidade,
   contestName,
+  examBoard,
   signal,
   errorLabel = 'Backend AI',
 }) {
@@ -163,7 +164,14 @@ async function requestAIQuestions({
       headers,
       credentials: isSameOrigin ? 'same-origin' : 'omit',
       signal: controller.signal,
-      body: JSON.stringify({ materia, assunto, dificuldade, quantidade, contestName }),
+      body: JSON.stringify({
+        materia,
+        assunto,
+        dificuldade,
+        quantidade,
+        contestName,
+        ...(examBoard ? { examBoard } : {}),
+      }),
     });
 
     if (!response.ok) {

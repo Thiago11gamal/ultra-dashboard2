@@ -14,9 +14,10 @@ import { clearMcCache } from '../utils/coachAdaptive';
 import {
   ListChecks, Brain, History as HistoryIcon,
   ChevronRight, Clock, Target, TrendingUp, TrendingDown,
-  Minus, Sparkles, PenLine, BarChart3, CalendarDays
+  Minus, Sparkles, PenLine, BarChart3, CalendarDays, AlertTriangle
 } from 'lucide-react';
 import StudyHistory from '../components/StudyHistory';
+import ErrorNotebook from '../components/ai/ErrorNotebook';
 
 /* ─────────────────────────────────────────────
    HELPER: Extrai timestamp seguro de uma row
@@ -677,9 +678,56 @@ export default function Simulados() {
   }, [setData, showToast]);
 
   /* ── Configuração das tabs ── */
+  const [drillErrors, setDrillErrors] = useState(null);
+
+  const handleSendNotebookErrorsToFlashcards = useCallback((cardsBySubject, normFn) => {
+    const nowIso = new Date().toISOString();
+    let totalCreated = 0;
+    setData((contest) => {
+      if (!contest) return contest;
+      const decks = Array.isArray(contest.flashcardDecks) ? [...contest.flashcardDecks] : [];
+      Object.entries(cardsBySubject || {}).forEach(([subj, cards]) => {
+        if (!Array.isArray(cards) || !cards.length) return;
+        totalCreated += cards.length;
+        const deckName = `Erros IA — ${subj}`;
+        const idx = decks.findIndex((d) => d && normFn(d.name) === normFn(deckName));
+        if (idx === -1) {
+          decks.push({
+            id: generateId('deck'),
+            name: deckName,
+            subject: subj,
+            cards,
+            createdAt: nowIso,
+            lastUpdated: nowIso,
+            stats: { totalReviews: 0, mastered: 0 },
+          });
+        } else {
+          const existingCards = Array.isArray(decks[idx].cards) ? decks[idx].cards : [];
+          decks[idx] = {
+            ...decks[idx],
+            cards: [...existingCards, ...cards],
+            lastUpdated: nowIso,
+          };
+        }
+      });
+      return { ...contest, flashcardDecks: decks, lastUpdated: nowIso };
+    });
+    if (totalCreated > 0) {
+      showToast(`${totalCreated} flashcard(s) FSRS criado(s) a partir do Caderno de Erros!`, 'success');
+    }
+  }, [setData, showToast]);
+
+  const handleStartErrorDrill = useCallback((filteredErrors) => {
+    if (!Array.isArray(filteredErrors) || filteredErrors.length === 0) return;
+    setDrillErrors({ id: Date.now(), items: filteredErrors.slice(0, 10) });
+    setSubMode('ia');
+    setMode('ai-generator');
+  }, []);
+
   const tabs = [
     { id: 'ai-generator', label: 'Gerar Simulado', icon: Brain },
     { id: 'analyzer',     label: 'Último Simulado', icon: ListChecks },
+    { id: 'errors',       label: 'Caderno de Erros', icon: AlertTriangle },
     { id: 'history',      label: 'Histórico', icon: HistoryIcon },
   ];
 
@@ -792,7 +840,10 @@ export default function Simulados() {
           </div>
 
           {subMode === 'ia' ? (
-            <AIGeneratedSimulado />
+            <AIGeneratedSimulado
+              drillRequest={drillErrors}
+              onDrillConsumed={() => setDrillErrors(null)}
+            />
           ) : (
             <SimuladoAnalysis
               rows={displayRows}
@@ -802,6 +853,12 @@ export default function Simulados() {
             />
           )}
         </div>
+      ) : mode === 'errors' ? (
+        <ErrorNotebook
+          simuladoRows={simuladoRowsArray}
+          onSendToFlashcards={handleSendNotebookErrorsToFlashcards}
+          onStartErrorDrill={handleStartErrorDrill}
+        />
       ) : (
         /* ── MODO HISTÓRICO ── */
         <div className="space-y-6 animate-fade-in">

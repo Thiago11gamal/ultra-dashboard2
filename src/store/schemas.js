@@ -369,6 +369,29 @@ export const sanitizeContest = (data, contestId = '') => {
     ...(source.examTotalQuestions !== undefined && source.examTotalQuestions !== null && Number.isFinite(Number(source.examTotalQuestions)) && Number(source.examTotalQuestions) > 0
       ? { examTotalQuestions: Math.round(Number(source.examTotalQuestions)) }
       : {}),
+    ...(typeof source.examBoard === 'string' && source.examBoard.trim()
+      ? { examBoard: source.examBoard.trim().slice(0, 40) }
+      : {}),
+    ...(source.penaltyPerWrong !== undefined && source.penaltyPerWrong !== null && Number.isFinite(Number(source.penaltyPerWrong)) && Number(source.penaltyPerWrong) >= 0
+      ? { penaltyPerWrong: Math.min(2, Number(source.penaltyPerWrong)) }
+      : {}),
+    ...(source.examGroupCutoffs && typeof source.examGroupCutoffs === 'object' && !Array.isArray(source.examGroupCutoffs)
+      ? { examGroupCutoffs: source.examGroupCutoffs }
+      : {}),
+    ...(source.coachFeatureFlags && typeof source.coachFeatureFlags === 'object' && !Array.isArray(source.coachFeatureFlags)
+      ? {
+          coachFeatureFlags: Object.fromEntries(
+            Object.entries(source.coachFeatureFlags).filter(([k, v]) => typeof k === 'string' && typeof v === 'boolean')
+          )
+        }
+      : {}),
+    ...(source.coachManualFlagOverrides && typeof source.coachManualFlagOverrides === 'object' && !Array.isArray(source.coachManualFlagOverrides)
+      ? {
+          coachManualFlagOverrides: Object.fromEntries(
+            Object.entries(source.coachManualFlagOverrides).filter(([k, v]) => typeof k === 'string' && typeof v === 'boolean')
+          )
+        }
+      : {}),
     coachPlan: Array.isArray(source.coachPlan)
       ? source.coachPlan
       : (typeof source.coachPlan === 'object' && source.coachPlan !== null)
@@ -479,6 +502,7 @@ export const sanitizeContest = (data, contestId = '') => {
         maxScore: catMax,
         minScore: catMin,
         minCutoff: hasExplicitMinCutoff ? Math.max(catMin, Math.min(catMax, Number(cat.minCutoff))) : null,
+        ...(typeof cat.examGroup === 'string' && cat.examGroup.trim() ? { examGroup: cat.examGroup.trim().slice(0, 40) } : {}),
         level: Number(cat.level) || 0,
         totalMinutes: Number(cat.totalMinutes) || 0,
         lastStudiedAt: cat.lastStudiedAt || null,
