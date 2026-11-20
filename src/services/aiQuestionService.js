@@ -175,7 +175,16 @@ async function requestAIQuestions({
     });
 
     if (!response.ok) {
-      throw new Error(`${errorLabel} retornou ${response.status}`);
+      let detail = '';
+      try {
+        const errBody = await response.json();
+        if (typeof errBody?.error === 'string' && errBody.error.trim()) {
+          detail = `: ${errBody.error.trim()}`;
+        }
+      } catch {
+        // ignore non-JSON error body
+      }
+      throw new Error(`${errorLabel} retornou ${response.status}${detail}`);
     }
 
     const contentType = response.headers.get('content-type');

@@ -331,7 +331,8 @@ function MainLayout() {
     if (!file) return;
     event.target.value = '';
 
-    if (!Number.isFinite(file.size) || file.size > MAX_BACKUP_SIZE) {
+    const effectiveMaxBackupSize = isAdmin ? 50 * 1024 * 1024 : MAX_BACKUP_SIZE;
+    if (!Number.isFinite(file.size) || file.size > effectiveMaxBackupSize) {
       showToast('O arquivo de backup é grande demais.', 'error');
       return;
     }
@@ -353,7 +354,9 @@ function MainLayout() {
         if (!isMountedRef.current) return;
         try {
           const currentAppState = useAppStore.getState().appState;
-          const result = parseImportedData(e.target.result, currentAppState);
+          const result = parseImportedData(e.target.result, currentAppState, {
+            maxSizeBytes: effectiveMaxBackupSize,
+          });
           if (!result || !result.data || typeof result.data !== 'object') {
             showToast('Backup inválido ou corrompido.', 'error');
             return;
@@ -404,7 +407,7 @@ function MainLayout() {
     };
 
     reader.readAsText(file);
-  }, [setAppState, showToast]);
+  }, [setAppState, showToast, isAdmin]);
 
   const handleExport = useCallback(() => {
     exportData(useAppStore.getState().appState);

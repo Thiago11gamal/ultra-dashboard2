@@ -12,6 +12,7 @@ import {
 import { getAuth, signOut } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 import { del } from 'idb-keyval';
+import { clearAllCoachFlags } from '../utils/coachFeatureStore.js';
 
 export const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -136,6 +137,7 @@ export async function secureLogout() {
             'focusPanelPosition',
             'coach_active_flags_v1',
             'coach_features_v1',
+            'coach_manual_flag_overrides_v1',
         ];
         keysToRemove.forEach(key => {
             try {
@@ -144,6 +146,11 @@ export async function secureLogout() {
             } catch { /* ignore */ }
         });
 
+        // Limpar registro em memória de flags do Coach (evita vazamento de flags Admin entre contas)
+        try {
+            clearAllCoachFlags();
+        } catch { /* ignore */ }
+
         // Limpar chaves de rascunho, geração de simulado IA e escopos de flags do Coach AI
         try {
             Object.keys(localStorage).forEach(k => {
@@ -151,6 +158,9 @@ export async function secureLogout() {
                     k.startsWith('ai_simulado_draft:') ||
                     k.startsWith('ai_simulado_generating:') ||
                     k.startsWith('coach_features_v1::') ||
+                    k.startsWith('coach_active_flags_v1:') ||
+                    k.startsWith('coach_manual_flag_overrides_v1:') ||
+                    k.startsWith('coach_control_center_state_v1:') ||
                     k.startsWith('coach_calibration_events_v1::') ||
                     k.startsWith('pomodoro_transition_lock_') ||
                     k.startsWith('lastRoute_') ||

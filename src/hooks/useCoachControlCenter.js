@@ -35,6 +35,8 @@ import {
 } from '../utils/coachFeatureStore.js';
 import { isValidFeatureKey } from '../utils/coachFeatures.js';
 import { useAppStore } from '../store/useAppStore.js';
+import { useAuth } from '../context/useAuth';
+import { isAdminUser, ALL_UNLOCKED_COACH_FLAGS, syncAdminCoachFlags } from '../utils/adminAccess.js';
 
 const CONTROL_CENTER_STORAGE_KEY = 'coach_control_center_state_v1';
 const MANUAL_OVERRIDES_STORAGE_PREFIX = 'coach_manual_flag_overrides_v1';
@@ -68,7 +70,7 @@ function resolveControlCenterStorageKey(contestId) {
 }
 
 // FIX: conjunto de abas válidas para validar estado persistido
-const VALID_TABS = new Set(['overview', 'flags', 'health', 'causal', 'autotuner', 'backtest', 'llm']);
+const VALID_TABS = new Set(['overview', 'science', 'flags', 'health', 'causal', 'autotuner', 'backtest', 'llm']);
 
 // FIX: valida shape do estado persistido (evita corromper a UI com dado inválido)
 function loadControlCenterState(contestId) {
@@ -120,6 +122,7 @@ export function useCoachControlCenter({
   targetScore = 80,
 } = {}) {
   const resolvedContestId = contestId ?? getCoachFeatureContestScope();
+  const isAdmin = isAdminUser(useAuth()?.currentUser || null);
   const [activeTab, setActiveTab] = useState(() => loadControlCenterState(resolvedContestId)?.activeTab || 'overview');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -136,8 +139,18 @@ export function useCoachControlCenter({
     const s = loadModelHealthSnapshots(resolvedContestId);
     return Array.isArray(s) ? s : [];
   });
-  const [currentFlags, setCurrentFlags] = useState(() => loadPersistedCoachFlags(resolvedContestId, { silent: true }) || {});
+  const [currentFlags, setCurrentFlags] = useState(() => {
+    const existing = readFlags(resolvedContestId);
+    if (Object.keys(existing).length === 0) {
+      loadPersistedCoachFlags(resolvedContestId, { silent: true });
+    }
+    if (isAdmin) {
+      syncAdminCoachFlags(resolvedContestId);
+    }
+    return readFlags(resolvedContestId) || {};
+  });
   const [flagOverrides, setFlagOverrides] = useState(() => loadControlCenterState(resolvedContestId)?.flagOverrides || {});
+  const flagOverridesRef = useRef(flagOverrides);
   const [lastRunTimestamp, setLastRunTimestamp] = useState(null);
 
   const isMounted = useRef(true);
@@ -188,8 +201,16 @@ export function useCoachControlCenter({
     if (tunerAbortControllerRef.current) tunerAbortControllerRef.current.abort();
 
     const savedState = loadControlCenterState(resolvedContestId);
-    const loadedFlags = loadPersistedCoachFlags(resolvedContestId) || {};
+    const existingInStore = readFlags(resolvedContestId);
+    if (Object.keys(existingInStore).length === 0) {
+      loadPersistedCoachFlags(resolvedContestId, { silent: true });
+    }
+    if (isAdmin) {
+      syncAdminCoachFlags(resolvedContestId);
+    }
+    const loadedFlags = readFlags(resolvedContestId) || {};
     const nextOverrides = savedState?.flagOverrides || {};
+    flagOverridesRef.current = nextOverrides;
     initialFlagsRef.current =
       savedState?.baselineFlags && Object.keys(nextOverrides).length > 0
         ? savedState.baselineFlags
@@ -221,7 +242,22 @@ export function useCoachControlCenter({
         prevContestIdRef.current = null;
       }
     };
-  }, [resolvedContestId]);
+  }, [resolvedContestId, isAdmin]);
+
+  // Garante desbloqueio total imediato se a sessão Admin autenticar após o mount inicial
+  useEffect(() => {
+    if (!isAdmin) return;
+    const res = syncAdminCoachFlags(resolvedContestId);
+    const nextFlags = res?.finalFlags || readFlags(resolvedContestId) || {};
+    const timer = setTimeout(() => {
+      if (!isMounted.current) return;
+      setCurrentFlags(nextFlags);
+      if (Object.keys(flagOverridesRef.current || {}).length === 0) {
+        initialFlagsRef.current = nextFlags;
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [isAdmin, resolvedContestId]);
 
   // Mantém currentFlags sincronizado com alterações externas no coachFeatureStore
   useEffect(() => {
@@ -390,6 +426,7 @@ export function useCoachControlCenter({
           clearCoachCaches();
           const flags = loadPersistedCoachFlags(resolvedContestId) || {};
           setCurrentFlags(flags);
+          flagOverridesRef.current = {};
           setFlagOverrides({});
           initialFlagsRef.current = flags;
         }
@@ -423,6 +460,7 @@ export function useCoachControlCenter({
         if (targetContestId === resolvedContestId) {
           const flags = loadPersistedCoachFlags(targetContestId) || {};
           setCurrentFlags(flags);
+          flagOverridesRef.current = {};
           setFlagOverrides({});
           initialFlagsRef.current = flags;
           setTunerResult((prev) => (prev ? { ...prev, applied: true } : prev));
@@ -460,6 +498,7 @@ export function useCoachControlCenter({
       persistCoachFlags(next, resolvedContestId);
       clearCoachCaches();
       setCurrentFlags(next);
+      flagOverridesRef.current = {};
       setFlagOverrides({});
       initialFlagsRef.current = next;
       return true;
@@ -475,26 +514,24 @@ export function useCoachControlCenter({
     // FIX: só aceita chave válida do registry + valor boolean
     if (typeof flagKey !== 'string' || typeof value !== 'boolean' || !isValidFeatureKey(flagKey)) return;
 
-    let computedNextOverrides = null;
-    setFlagOverrides((prev) => {
-      const baseVal = Boolean(initialFlagsRef.current?.[flagKey]);
-      if (value === baseVal && flagKey in prev) {
-        const nextOverrides = { ...prev };
-        delete nextOverrides[flagKey];
-        computedNextOverrides = nextOverrides;
-        return nextOverrides;
-      }
+    const prevOverrides = flagOverridesRef.current || {};
+    const baseVal = Boolean(initialFlagsRef.current?.[flagKey]);
+    let computedNextOverrides;
+    if (value === baseVal && flagKey in prevOverrides) {
+      computedNextOverrides = { ...prevOverrides };
+      delete computedNextOverrides[flagKey];
+    } else {
       computedNextOverrides = {
-        ...prev,
+        ...prevOverrides,
         [flagKey]: value,
       };
-      return computedNextOverrides;
-    });
+    }
+    flagOverridesRef.current = computedNextOverrides;
+    setFlagOverrides(computedNextOverrides);
+
     const next = writeFlags({ [flagKey]: value }, resolvedContestId);
     persistCoachFlags(next, resolvedContestId);
-    if (computedNextOverrides) {
-      persistManualFlagOverrides(computedNextOverrides, resolvedContestId, next);
-    }
+    persistManualFlagOverrides(computedNextOverrides, resolvedContestId, next);
     setCurrentFlags(next);
     clearCoachCaches();
   }, [resolvedContestId]);
@@ -503,18 +540,24 @@ export function useCoachControlCenter({
   // Reset overrides
   // ==========================================================
   const resetOverrides = useCallback(() => {
+    flagOverridesRef.current = {};
     setFlagOverrides({});
     const hasInitialKeys =
       initialFlagsRef.current &&
       typeof initialFlagsRef.current === 'object' &&
       Object.keys(initialFlagsRef.current).length > 0;
-    const base = hasInitialKeys ? { ...initialFlagsRef.current } : getSafeBaselineFeatures();
+    const base = isAdmin
+      ? { ...ALL_UNLOCKED_COACH_FLAGS }
+      : (hasInitialKeys ? { ...initialFlagsRef.current } : getSafeBaselineFeatures());
+    if (isAdmin) {
+      initialFlagsRef.current = base;
+    }
     replaceFlags(base, resolvedContestId);
     persistCoachFlags(base, resolvedContestId);
     persistManualFlagOverrides({}, resolvedContestId, base);
     setCurrentFlags(base);
     clearCoachCaches();
-  }, [resolvedContestId]);
+  }, [resolvedContestId, isAdmin]);
 
   const clearError = useCallback(() => {
     setError(null);

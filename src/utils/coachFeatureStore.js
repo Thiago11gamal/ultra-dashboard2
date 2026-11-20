@@ -119,3 +119,14 @@ export function getFlag(key, fallback = false, contestId) {
   }
   return typeof registry[key] === 'boolean' ? registry[key] : fallback;
 }
+
+/** Limpa todo o registro em memória de feature flags (usado no logout). */
+export function clearAllCoachFlags() {
+  if (typeof globalThis === 'undefined') return;
+  const currentScopes = globalThis[FLAG_REGISTRY_KEY]
+    ? Object.keys(globalThis[FLAG_REGISTRY_KEY])
+    : [];
+  globalThis[FLAG_REGISTRY_KEY] = Object.create(null);
+  globalThis[ACTIVE_CONTEST_KEY] = 'default';
+  currentScopes.forEach((scope) => notifyFlagListeners(scope));
+}

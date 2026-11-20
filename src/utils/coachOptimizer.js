@@ -21,6 +21,7 @@ export {
 } from '../engine/optimization/flagOptimizer.js';
 
 import {
+  readFlags,
   writeFlags,
   setCoachFeatureContestScope,
   getCoachFeatureContestScope,
@@ -61,16 +62,26 @@ export function bootstrapCoachFlags(contestId, options = {}) {
     ...getSafeBaselineFeatures(),
   };
   const persisted = loadPersistedCoachFlags(resolvedContestId, { applyToStore: false });
-
-  if (!persisted || typeof persisted !== 'object') {
-    writeFlags({ ...baseline }, resolvedContestId);
-    return { ...baseline };
-  }
+  const existingInStore = readFlags(resolvedContestId);
+  const hasExistingInStore =
+    existingInStore && typeof existingInStore === 'object' && Object.keys(existingInStore).length > 0;
 
   const merged = { ...baseline };
-  for (const [key, value] of Object.entries(persisted)) {
-    if (typeof value === 'boolean' && (isValidFeatureKey(key) || key in baseline)) {
-      merged[key] = value;
+  if (persisted && typeof persisted === 'object') {
+    for (const [key, value] of Object.entries(persisted)) {
+      if (typeof value === 'boolean' && (isValidFeatureKey(key) || key in baseline)) {
+        merged[key] = value;
+      }
+    }
+  }
+
+  // Preserva flags já ativas na sessão (ex.: Modo Admin Irrestrito ou Maturidade Adaptativa N1–N5)
+  // para que o bootstrap do Orquestrador nunca sobrescreva flags ativas com defaults false.
+  if (hasExistingInStore && options?.preferPersisted !== true) {
+    for (const [key, value] of Object.entries(existingInStore)) {
+      if (typeof value === 'boolean' && (isValidFeatureKey(key) || key in baseline)) {
+        merged[key] = value;
+      }
     }
   }
 

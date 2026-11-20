@@ -639,7 +639,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     const totalQuestions = Math.min(maxFullExamQ, Math.max(10, validCats.length * 3));
     const weightedTargets = validCats
       .sort((a, b) => (Number(b.weight) || 10) - (Number(a.weight) || 10))
-      .slice(0, 8)
+      .slice(0, isAdmin ? 20 : 8)
       .map((cat) => {
         const catTasks = (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(Boolean);
         const pickTask = catTasks.find((t) => !t.completed) || catTasks[0];
@@ -1263,7 +1263,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         const st = useAppStore.getState().appState;
         const cid = st?.activeId || 'default';
         if (st?.contests?.[cid]) {
-          syncAdaptiveFeatureFlags(st.contests[cid], cid, { respectOverrides: true });
+          syncAdaptiveFeatureFlags(st.contests[cid], cid, { respectOverrides: true, isAdmin });
         }
       } catch {
         // non-blocking adaptive flag sync
@@ -1296,7 +1296,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       isFinishingRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveAIResultsToSystem, showToast, setData]);
+  }, [saveAIResultsToSystem, showToast, setData, isAdmin]);
 
   const finishMutexRef = useRef(false);
 

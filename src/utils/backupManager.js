@@ -139,13 +139,19 @@ const unwrapBackupPayload = (raw) => {
     return raw;
 };
 
-export const parseImportedData = (content, currentAppState) => {
+export const parseImportedData = (content, currentAppState, options = {}) => {
     try {
         if (!content) throw new Error("Arquivo vazio");
 
-        // Security: Size check (5MB) BEFORE parse
-        if (content.length > 5 * 1024 * 1024) {
-            throw new Error("Arquivo muito grande (máximo 5MB).");
+        const maxSizeBytes =
+            Number.isFinite(Number(options?.maxSizeBytes)) && Number(options.maxSizeBytes) > 0
+                ? Number(options.maxSizeBytes)
+                : 5 * 1024 * 1024;
+        const maxSizeMb = Math.max(1, Math.round(maxSizeBytes / (1024 * 1024)));
+
+        // Security: Size check BEFORE parse
+        if (content.length > maxSizeBytes) {
+            throw new Error(`Arquivo muito grande (máximo ${maxSizeMb}MB).`);
         }
 
         const parsedJson = JSON.parse(content);

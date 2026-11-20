@@ -116,7 +116,10 @@ function checkRateLimit(bucketKey) {
 }
 
 async function verifyFirebaseBearerToken(req) {
-  const firebaseWebApiKey = process.env.FIREBASE_WEB_API_KEY || process.env.FIREBASE_API_KEY;
+  const firebaseWebApiKey =
+    process.env.FIREBASE_WEB_API_KEY ||
+    process.env.FIREBASE_API_KEY ||
+    (process.env.NODE_ENV !== 'test' ? process.env.VITE_FIREBASE_API_KEY : '');
   const isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
   const explicitDevBypass = !isProd && process.env.REQUIRE_AI_AUTH === 'false';
   if (explicitDevBypass) return { ok: true, uid: null, email: '', isAdmin: false };
@@ -213,7 +216,8 @@ export default async function handler(req, res) {
     const isPersonalizedMix =
       /^simulado personalizado$/i.test(safeMateria) ||
       /-\s*Mat[eé]ria:/i.test(String(assunto || ''));
-    const safeAssunto = sanitizePromptField(assunto, isPersonalizedMix ? 1200 : 250);
+    const maxAssuntoLen = authCheck.isAdmin ? 4000 : (isPersonalizedMix ? 1200 : 250);
+    const safeAssunto = sanitizePromptField(assunto, maxAssuntoLen);
     const safeContest = sanitizePromptField(contestName, 150) || 'Concurso Público';
     const safeBoard = sanitizePromptField(examBoard, 60);
 
