@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ComposedChart,
   Line,
@@ -33,9 +33,26 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   penaltyPerWrong: propPenalty = 0,
 }) {
   const setData = useAppStore((s) => s.setData);
-  const [selectedBoard, setSelectedBoard] = useState(propBoard || 'PADRAO');
-  const [penalty, setPenalty] = useState(() => (Number.isFinite(Number(propPenalty)) ? Number(propPenalty) : 1.0));
+  const normalizedPropBoard = propBoard || 'PADRAO';
+  const normalizedPropPenalty = Number.isFinite(Number(propPenalty)) ? Number(propPenalty) : 0;
+  const [prevPropBoard, setPrevPropBoard] = useState(normalizedPropBoard);
+  const [prevPropPenalty, setPrevPropPenalty] = useState(normalizedPropPenalty);
+  const [selectedBoard, setSelectedBoard] = useState(normalizedPropBoard);
+  const [penalty, setPenalty] = useState(normalizedPropPenalty);
   const [savedBoard, setSavedBoard] = useState(false);
+  const savedTimerRef = useRef(null);
+
+  if (normalizedPropBoard !== prevPropBoard || normalizedPropPenalty !== prevPropPenalty) {
+    setPrevPropBoard(normalizedPropBoard);
+    setPrevPropPenalty(normalizedPropPenalty);
+    setSelectedBoard(normalizedPropBoard);
+    setPenalty(normalizedPropPenalty);
+    setSavedBoard(false);
+  }
+
+  useEffect(() => () => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+  }, []);
 
   const irtEntries = useMemo(() => {
     const targetCats = showOnlyFocus && focusCategory ? [focusCategory] : safeArr(categories);
@@ -70,7 +87,11 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
       penaltyPerWrong: Math.max(0, Math.min(2, Number(penalty) || 0)),
     }));
     setSavedBoard(true);
-    setTimeout(() => setSavedBoard(false), 2000);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => {
+      savedTimerRef.current = null;
+      setSavedBoard(false);
+    }, 2000);
   };
 
   return (

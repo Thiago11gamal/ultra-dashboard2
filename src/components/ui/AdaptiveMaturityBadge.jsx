@@ -42,14 +42,24 @@ export const AdaptiveMaturityBadge = React.memo(function AdaptiveMaturityBadge({
   useEffect(() => {
     if (!autoSync || !contest) return;
     const syncRes = syncAdaptiveFeatureFlags(contest, activeId, { respectOverrides: true });
-    if (syncRes?.finalFlags && Object.keys(syncRes.finalFlags).length > 0 && typeof patchData === 'function') {
-      const prevCloud = contest.coachFeatureFlags || {};
-      const differs = Object.entries(syncRes.finalFlags).some(([k, v]) => prevCloud[k] !== v);
-      if (differs) {
-        patchData(() => ({
-          coachFeatureFlags: { ...prevCloud, ...syncRes.finalFlags },
-        }));
-      }
+    if (typeof patchData !== 'function') return;
+
+    // Persiste no documento do concurso APENAS quando há flags efetivamente desbloqueadas
+    // ou overrides explícitos que divergem da nuvem — evitando bump de version em visitas
+    // somente-leitura de concursos N0 / legados já estabilizados.
+    const desiredCloud = {
+      ...(syncRes?.maturity?.unlockedFlags || {}),
+      ...(syncRes?.manualOverrides || {}),
+    };
+    const desiredEntries = Object.entries(desiredCloud);
+    if (desiredEntries.length === 0) return;
+
+    const prevCloud = contest.coachFeatureFlags || {};
+    const differs = desiredEntries.some(([k, v]) => prevCloud[k] !== v);
+    if (differs) {
+      patchData(() => ({
+        coachFeatureFlags: { ...prevCloud, ...desiredCloud },
+      }));
     }
   }, [autoSync, contest, activeId, patchData, maturity.stage, maturity.metrics.simuladoCount, maturity.metrics.studySessionsCount]);
 

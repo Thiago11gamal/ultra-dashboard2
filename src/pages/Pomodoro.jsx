@@ -1493,11 +1493,10 @@ export default function Pomodoro() {
                                         key={opt.id}
                                         type="button"
                                         onClick={() => handleChangeStudyMode(opt.id)}
-                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all border ${
-                                            studyMode === opt.id
-                                                ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-200'
-                                                : 'bg-white/[0.03] border-white/5 text-slate-400 hover:text-white'
-                                        }`}
+                                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all border ${studyMode === opt.id
+                                            ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-200'
+                                            : 'bg-white/[0.03] border-white/5 text-slate-400 hover:text-white'
+                                            }`}
                                     >
                                         {opt.label}
                                     </button>
@@ -1513,11 +1512,10 @@ export default function Pomodoro() {
                                             type="button"
                                             onClick={() => setEnergyLevel(prev => (prev === lvl ? null : lvl))}
                                             title={`Energia ${lvl}/5`}
-                                            className={`w-5 h-5 rounded-md text-[10px] font-mono font-bold transition-all border ${
-                                                energyLevel === lvl
-                                                    ? 'bg-emerald-500/25 border-emerald-400/60 text-emerald-200'
-                                                    : 'bg-white/[0.03] border-white/10 text-slate-400 hover:text-white'
-                                            }`}
+                                            className={`w-5 h-5 rounded-md text-[10px] font-mono font-bold transition-all border ${energyLevel === lvl
+                                                ? 'bg-emerald-500/25 border-emerald-400/60 text-emerald-200'
+                                                : 'bg-white/[0.03] border-white/10 text-slate-400 hover:text-white'
+                                                }`}
                                         >
                                             {lvl}
                                         </button>
@@ -1528,6 +1526,11 @@ export default function Pomodoro() {
                                     <button
                                         type="button"
                                         onClick={() => {
+                                            const timerRunning = liveTimerState !== null ? Boolean(liveTimerState.isRunning) : Boolean(pomodoroState?.isRunning);
+                                            if (timerRunning) {
+                                                showToast('Pause o cronômetro antes de aplicar o bloco ACWR.', 'warning');
+                                                return;
+                                            }
                                             const mins = acwrSummary.recommendedBlockMinutes;
                                             setData((prev) => ({
                                                 ...prev,
@@ -1538,13 +1541,12 @@ export default function Pomodoro() {
                                             }));
                                             showToast(`Bloco Pomodoro adaptado para ${mins} min (ACWR ${acwrSummary.acwr?.toFixed(2)}×)! ⚡`, 'success');
                                         }}
-                                        className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono font-bold transition-all hover:brightness-125 active:scale-95 cursor-pointer ${
-                                            acwrSummary.zone === 'burnout_risk'
-                                                ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
-                                                : acwrSummary.zone === 'elevated'
-                                                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                                                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                                        }`}
+                                        className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono font-bold transition-all hover:brightness-125 active:scale-95 cursor-pointer ${acwrSummary.zone === 'burnout_risk'
+                                            ? 'bg-rose-500/15 border-rose-500/40 text-rose-300'
+                                            : acwrSummary.zone === 'elevated'
+                                                ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                                                : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                                            }`}
                                         title={`Clique para aplicar ${acwrSummary.recommendedBlockMinutes}m ao timer · ACWR ${acwrSummary.acwr?.toFixed(2)}× (7d ${acwrSummary.acuteHours}h vs 28d ${acwrSummary.chronicHours}h)`}
                                     >
                                         ⚡ Aplicar {acwrSummary.recommendedBlockMinutes}m (ACWR)

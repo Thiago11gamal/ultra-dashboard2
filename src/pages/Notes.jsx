@@ -13,12 +13,19 @@ export default function Notes() {
     const simuladoRowsRaw = activeContest?.simuladoRows;
     const contestMaxScore = activeContest?.maxScore;
     const contestMinScore = activeContest?.minScore;
+    const contestPenaltyPerWrong = activeContest?.penaltyPerWrong;
 
     // DATA-INTEGRITY-FIX: Reconstruct categories history by merging 'simuladoRows' (topics) 
     // with existing 'history' (aggregates) via shared pure reconciler.
     const enhancedCategories = useMemo(
-        () => reconcileContestCategoriesHistory(categoriesRaw, simuladoRowsRaw, contestMaxScore, contestMinScore),
-        [categoriesRaw, simuladoRowsRaw, contestMaxScore, contestMinScore]
+        () => reconcileContestCategoriesHistory(
+            categoriesRaw,
+            simuladoRowsRaw,
+            contestMaxScore,
+            contestMinScore,
+            { penaltyPerWrong: contestPenaltyPerWrong }
+        ),
+        [categoriesRaw, simuladoRowsRaw, contestMaxScore, contestMinScore, contestPenaltyPerWrong]
     );
 
     const maxScore = useMemo(() => {

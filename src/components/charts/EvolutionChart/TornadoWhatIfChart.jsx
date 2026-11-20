@@ -52,11 +52,33 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
 }) {
   const [deltaPct, setDeltaPct] = useState(10);
   const [overrides, setOverrides] = useState({});
+  const cutoffsPropKey = JSON.stringify({
+    basicos: examGroupCutoffs?.basicos ?? '',
+    especificos: examGroupCutoffs?.especificos ?? '',
+    discursiva: examGroupCutoffs?.discursiva ?? '',
+  });
+  const categoriesPropKey = safeArr(categories).map((c) => c?.id || c?.name || '').join('|');
+  const [prevCutoffsKey, setPrevCutoffsKey] = useState(cutoffsPropKey);
+  const [prevCategoriesKey, setPrevCategoriesKey] = useState(categoriesPropKey);
   const [draftGroupCutoffs, setDraftGroupCutoffs] = useState(() => ({
     basicos: examGroupCutoffs?.basicos ?? '',
     especificos: examGroupCutoffs?.especificos ?? '',
     discursiva: examGroupCutoffs?.discursiva ?? '',
   }));
+
+  if (cutoffsPropKey !== prevCutoffsKey) {
+    setPrevCutoffsKey(cutoffsPropKey);
+    setDraftGroupCutoffs({
+      basicos: examGroupCutoffs?.basicos ?? '',
+      especificos: examGroupCutoffs?.especificos ?? '',
+      discursiva: examGroupCutoffs?.discursiva ?? '',
+    });
+  }
+
+  if (categoriesPropKey !== prevCategoriesKey) {
+    setPrevCategoriesKey(categoriesPropKey);
+    setOverrides({});
+  }
 
   const effectiveGroupCutoffs = useMemo(() => {
     const merged = {};
@@ -66,8 +88,8 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
         merged[grp] = Number(raw);
       }
     });
-    return Object.keys(merged).length > 0 ? merged : examGroupCutoffs;
-  }, [draftGroupCutoffs, examGroupCutoffs]);
+    return merged;
+  }, [draftGroupCutoffs]);
 
   const subjects = useMemo(() => {
     const gRange = Math.max(1e-6, maxScore - minScore);

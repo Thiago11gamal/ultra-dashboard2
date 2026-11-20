@@ -331,16 +331,68 @@ function PomodoroTimer({
     const isTransitioningRef = useRef(false);
     const hasFlushedRef = useRef(false);
 
+    const prevWorkSettingRef = useRef(safeSettings.pomodoroWork);
+    const prevBreakSettingRef = useRef(safeSettings.pomodoroBreak);
+    const prevLongBreakSettingRef = useRef(safeSettings.pomodoroLongBreak);
+
     useEffect(() => {
         const w = safeSettings.pomodoroWork;
         const b = safeSettings.pomodoroBreak;
+        const lb = safeSettings.pomodoroLongBreak;
         const match = POMODORO_PRESETS.find(p => p.work === w && p.break === b);
         const nextId = match ? match.id : 'custom';
+
+        const workChanged = prevWorkSettingRef.current !== w;
+        const breakChanged = prevBreakSettingRef.current !== b;
+        const longBreakChanged = prevLongBreakSettingRef.current !== lb;
+        prevWorkSettingRef.current = w;
+        prevBreakSettingRef.current = b;
+        prevLongBreakSettingRef.current = lb;
+
         const timer = setTimeout(() => {
             setActivePresetId(prev => prev === nextId ? prev : nextId);
+
+            // Se a duração da fase atual mudou externamente (ex.: botão ACWR no Pomodoro.jsx)
+            // e o cronômetro está parado, atualiza timeLeft, relógio visual e localStorage.
+            const shouldSyncTime = !isRunning && (
+                (mode === 'work' && workChanged) ||
+                (mode === 'break' && breakChanged) ||
+                (mode === 'long_break' && longBreakChanged)
+            );
+            if (shouldSyncTime) {
+                const newSeconds = mode === 'work'
+                    ? w * 60
+                    : mode === 'long_break'
+                        ? lb * 60
+                        : b * 60;
+                flushedSecondsInPhaseRef.current = 0;
+                addedSecondsInPhaseRef.current = 0;
+                setAddedSeconds(0);
+                hasFlushedRef.current = false;
+                commitTimeLeft(newSeconds);
+                if (stateRefs.current) {
+                    stateRefs.current.lastTotalTime = newSeconds;
+                }
+                if (clockRef.current) {
+                    clockRef.current.textContent = formatTime(newSeconds);
+                }
+                if (svgCircleRef.current?.style) {
+                    svgCircleRef.current.style.strokeDashoffset = CIRCUMFERENCE;
+                }
+                savePomodoroStateRef.current?.({
+                    timeLeft: newSeconds,
+                    isRunning: false,
+                    flushedSeconds: 0,
+                    addedSeconds: 0
+                });
+                postSyncRef.current?.({
+                    type: 'TIMER_RESET',
+                    timeLeft: newSeconds
+                });
+            }
         }, 0);
         return () => clearTimeout(timer);
-    }, [safeSettings.pomodoroWork, safeSettings.pomodoroBreak]);
+    }, [safeSettings.pomodoroWork, safeSettings.pomodoroBreak, safeSettings.pomodoroLongBreak, isRunning, mode, commitTimeLeft]);
 
     const handleSelectPreset = useCallback((preset) => {
         if (isRunning) {

@@ -2,58 +2,14 @@ import { getDateKey, normalizeDate } from './dateHelper.js';
 import { generateId } from './idGenerator.js';
 import { normalize, isSubjectMatch } from './normalization.js';
 import { computeCategorySimuladoStats, DEFAULT_SIMULADO_HISTORY_CAP, resolveCategoryScoreDomain } from './simuladoReconciler.js';
-import { mergeQuestionResult, safeDomain } from './measurement.js';
+import { computeEffectiveScoreRatio, mergeQuestionResult, safeDomain } from './measurement.js';
+
+export { computeEffectiveScoreRatio };
 
 function safeArray(val) {
     if (Array.isArray(val)) return val;
     if (val && typeof val === 'object') return Object.values(val);
     return [];
-}
-
-/**
- * Calcula a proporção efetiva de pontuação considerando penalidade da banca (ex.: CEBRASPE)
- * e questões deixadas em branco. Quando penaltyPerWrong <= 0, equivale exatamente a correct / total.
- */
-export function computeEffectiveScoreRatio(
-  correct,
-  total,
-  { blanks = 0, penaltyPerWrong = 0, minScore = 0, maxScore = 100 } = {}
-) {
-  const safeT = Math.max(0, Number(total) || 0);
-  if (safeT <= 0) {
-    return { ratio: 0, netPoints: 0, wrong: 0, blanks: 0, penaltyApplied: false };
-  }
-  const safeC = Math.max(0, Math.min(safeT, Number(correct) || 0));
-  const safePenalty = Math.max(0, Number(penaltyPerWrong) || 0);
-  const safeBlanks = Math.max(0, Math.min(safeT - safeC, Number(blanks) || 0));
-  const wrong = Math.max(0, safeT - safeC - safeBlanks);
-
-  if (safePenalty <= 0) {
-    return { ratio: safeC / safeT, netPoints: safeC, wrong, blanks: safeBlanks, penaltyApplied: false };
-  }
-
-  const rawNet = safeC - wrong * safePenalty;
-  if (Number(minScore) < 0 && Number(maxScore) > 0) {
-    const scaled = (rawNet / safeT) * Number(maxScore);
-    const clamped = Math.max(Number(minScore), Math.min(Number(maxScore), scaled));
-    const range = Math.max(1e-9, Number(maxScore) - Number(minScore));
-    return {
-      ratio: Math.max(0, Math.min(1, (clamped - Number(minScore)) / range)),
-      netPoints: Number(rawNet.toFixed(2)),
-      wrong,
-      blanks: safeBlanks,
-      penaltyApplied: true,
-    };
-  }
-
-  const clampedNet = Math.max(0, rawNet);
-  return {
-    ratio: Math.max(0, Math.min(1, clampedNet / safeT)),
-    netPoints: Number(clampedNet.toFixed(2)),
-    wrong,
-    blanks: safeBlanks,
-    penaltyApplied: true,
-  };
 }
 
 export function applyAIResultsToDraft(draft, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId) {
@@ -137,7 +93,20 @@ export function applyAIResultsToDraft(draft, formData, correct, total, timeSpent
     const isSameBatch = hasExplicitBatch ? (r.batchId === assignedBatchId) : true;
     if (isCatMatch && isTaskOrTopicMatch && isSameBatch) {
       rowFound = true;
-      const updatedRow = mergeQuestionResult(r, { correct, total, timeSpentSecs, isDelta: true }, rowDomain.max, rowDomain.min);
+      const updatedRow = mergeQuestionResult(
+        r,
+        {
+          correct,
+          total,
+          blanks: effectiveScore.blanks,
+          penaltyPerWrong,
+          timeSpentSecs,
+          questionTelemetry: formData?.questionTelemetry,
+          isDelta: true,
+        },
+        rowDomain.max,
+        rowDomain.min
+      );
       Object.assign(r, updatedRow);
       r.lastUpdated = new Date().toISOString();
     }

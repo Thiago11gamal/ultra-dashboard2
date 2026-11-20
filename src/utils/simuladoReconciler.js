@@ -1,5 +1,6 @@
 import { computeCategoryStats } from '../engine/stats.js';
 import { getSafeScore, isPhantomZeroTimeAttempt } from './scoreHelper.js';
+import { computeEffectiveScoreRatio } from './measurement.js';
 import { getDateKey, normalizeDate, toDateMs } from './dateHelper.js';
 import { normalize, aliases, isSubjectMatch } from './normalization.js';
 import { displaySubject } from './displaySubject.js';
@@ -41,11 +42,19 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
       name,
       correct: 0,
       total: 0,
+      blanks: 0,
+      penaltyPerWrong: 0,
       score: topic?.score,
       isPercentage: !!topic?.isPercentage
     };
-    prev.correct += Math.max(0, Number(topic?.correct) || 0);
-    prev.total += Math.max(0, Number(topic?.total) || 0);
+    const incTotal = Math.max(0, Number(topic?.total) || 0);
+    const incCorrect = Math.min(incTotal, Math.max(0, Number(topic?.correct) || 0));
+    const incBlanks = Math.min(Math.max(0, incTotal - incCorrect), Math.max(0, Number(topic?.blanks) || 0));
+    const incPenalty = Math.max(0, Number(topic?.penaltyPerWrong) || 0);
+    prev.correct += incCorrect;
+    prev.total += incTotal;
+    prev.blanks += incBlanks;
+    prev.penaltyPerWrong = Math.max(prev.penaltyPerWrong || 0, incPenalty);
     incomingByKey.set(key, prev);
   });
 
@@ -55,13 +64,17 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
     if (!name) return;
     const key = normalize(name);
     const curTotal = Math.max(0, Number(topic?.total) || 0);
-    const curCorrect = Math.max(0, Number(topic?.correct) || 0);
+    const curCorrect = Math.min(curTotal, Math.max(0, Number(topic?.correct) || 0));
+    const curBlanks = Math.min(Math.max(0, curTotal - curCorrect), Math.max(0, Number(topic?.blanks) || 0));
+    const curPenalty = Math.max(0, Number(topic?.penaltyPerWrong) || 0);
     const prev = merged.get(key);
     if (!prev || curTotal > prev.total) {
       merged.set(key, {
         name,
         correct: curCorrect,
         total: curTotal,
+        ...(curBlanks > 0 ? { blanks: curBlanks } : {}),
+        ...(curPenalty > 0 ? { penaltyPerWrong: curPenalty } : {}),
         score: topic?.score,
         isPercentage: !!topic?.isPercentage
       });
@@ -70,16 +83,24 @@ export function reconcileDayTopics(oldTopics = [], incomingTopics = []) {
 
   incomingByKey.forEach((inc, key) => {
     const existing = merged.get(key);
+    const cleanInc = {
+      name: inc.name,
+      correct: inc.correct,
+      total: inc.total,
+      ...(inc.blanks > 0 ? { blanks: inc.blanks } : {}),
+      ...(inc.penaltyPerWrong > 0 ? { penaltyPerWrong: inc.penaltyPerWrong } : {}),
+      score: inc.score,
+      isPercentage: inc.isPercentage,
+    };
     if (!existing) {
-      merged.set(key, inc);
+      merged.set(key, cleanInc);
       return;
     }
     if (inc.total >= existing.total) {
       merged.set(key, {
         ...existing,
+        ...cleanInc,
         name: existing.name || inc.name,
-        correct: inc.correct,
-        total: inc.total,
         score: inc.score ?? existing.score,
         isPercentage: inc.total > 0 ? inc.isPercentage : existing.isPercentage
       });
@@ -165,11 +186,13 @@ export function reconcileContestCategoriesHistory(
   categoriesRaw,
   simuladoRowsRaw,
   contestMaxScore = 100,
-  contestMinScore = 0
+  contestMinScore = 0,
+  options = {}
 ) {
   const categories = Array.isArray(categoriesRaw) ? categoriesRaw : Object.values(categoriesRaw || {});
   const simuladoRows = Array.isArray(simuladoRowsRaw) ? simuladoRowsRaw : Object.values(simuladoRowsRaw || {});
   if (!categories.length) return [];
+  const contestPenalty = Math.max(0, Number(options?.penaltyPerWrong) || 0);
 
   let newCats;
   try {
@@ -207,10 +230,14 @@ export function reconcileContestCategoriesHistory(
       }
       const rowTotal = Math.max(0, Number(r.total) || 0);
       const rowCorrect = Math.min(rowTotal, Math.max(0, Number(r.correct) || 0));
+      const rowBlanks = Math.min(Math.max(0, rowTotal - rowCorrect), Math.max(0, Number(r.blanks) || 0));
+      const rowPenalty = Math.max(0, Number(r.penaltyPerWrong) || 0);
       rowsByDate[dateKey].push({
         name: r.topic || 'Geral',
         correct: rowCorrect,
         total: rowTotal,
+        ...(rowBlanks > 0 ? { blanks: rowBlanks } : {}),
+        ...(rowPenalty > 0 ? { penaltyPerWrong: rowPenalty } : {}),
         score: r.score,
         isPercentage: !!r.isPercentage
       });
@@ -230,12 +257,17 @@ export function reconcileContestCategoriesHistory(
         ...(h.batchId ? [String(h.batchId)] : []),
         ...(Array.isArray(h.batchIds) ? h.batchIds.filter(Boolean).map(String) : [])
       ]));
+      const hBlanks = Math.max(0, Number(h.blanks) || 0);
+      const hPenalty = Math.max(0, Number(h.penaltyPerWrong) || 0);
       mergedHistoryMap[dateKey] = {
         ...(h.id ? { id: h.id } : {}),
         ...(existingBatches.length > 0 ? { batchId: h.batchId || existingBatches[existingBatches.length - 1], batchIds: existingBatches } : {}),
         date: dateKey,
         correct: h.correct,
         total: h.total,
+        ...(hBlanks > 0 ? { blanks: hBlanks } : {}),
+        ...(hPenalty > 0 ? { penaltyPerWrong: hPenalty } : {}),
+        ...(h.netPoints !== undefined ? { netPoints: h.netPoints } : {}),
         score: h.score,
         isPercentage: !!h.isPercentage,
         topics: Array.isArray(h.topics) ? h.topics : Object.values(h.topics || {})
@@ -251,9 +283,18 @@ export function reconcileContestCategoriesHistory(
     Object.entries(rowsByDate).forEach(([dateKey, topics]) => {
       const totalC = topics.reduce((s, t) => s + t.correct, 0);
       const totalQ = topics.reduce((s, t) => s + t.total, 0);
+      const totalBlanks = topics.reduce((s, t) => s + (Number(t.blanks) || 0), 0);
+      const topicMaxPenalty = topics.reduce((m, t) => Math.max(m, Number(t.penaltyPerWrong) || 0), 0);
       const scoredTopics = topics.filter(t => t.score != null && String(t.score).trim() !== '' && Number.isFinite(Number(t.score)));
+      const basePenalty = Math.max(contestPenalty, topicMaxPenalty);
+      const baseEff = computeEffectiveScoreRatio(totalC, totalQ, {
+        blanks: totalBlanks,
+        penaltyPerWrong: basePenalty,
+        minScore: catMin,
+        maxScore: catMax,
+      });
       const calcScore = totalQ > 0
-        ? catMin + (totalC / totalQ) * catRange
+        ? catMin + baseEff.ratio * catRange
         : (scoredTopics.length > 0
           ? scoredTopics.reduce((sum, t) => sum + getSafeScore(t, catMax, catMin), 0) / scoredTopics.length
           : catMin);
@@ -281,25 +322,56 @@ export function reconcileContestCategoriesHistory(
       }
       const prevEntryTotal = Math.max(0, Number(entry.total) || 0);
       const prevEntryCorrect = Math.max(0, Number(entry.correct) || 0);
+      const prevEntryBlanks = Math.max(0, Number(entry.blanks) || 0);
+      const prevEntryPenalty = Math.max(0, Number(entry.penaltyPerWrong) || 0);
       entry.topics = reconcileDayTopics(entry.topics, topics);
       const combinedC = entry.topics.reduce((s, t) => s + (Number(t.correct) || 0), 0);
       const combinedQ = entry.topics.reduce((s, t) => s + (Number(t.total) || 0), 0);
+      const combinedTopicBlanks = entry.topics.reduce((s, t) => s + (Number(t.blanks) || 0), 0);
+      const combinedBlanks = Math.max(combinedTopicBlanks, totalBlanks, prevEntryBlanks);
+      const effectivePenalty = Math.max(
+        basePenalty,
+        prevEntryPenalty,
+        entry.topics.reduce((m, t) => Math.max(m, Number(t.penaltyPerWrong) || 0), 0)
+      );
 
       if (combinedQ > 0 && combinedQ >= prevEntryTotal) {
+        const eff = computeEffectiveScoreRatio(combinedC, combinedQ, {
+          blanks: combinedBlanks,
+          penaltyPerWrong: effectivePenalty,
+          minScore: catMin,
+          maxScore: catMax,
+        });
         entry.correct = combinedC;
         entry.total = combinedQ;
-        entry.score = catMin + (entry.correct / entry.total) * catRange;
+        if (eff.blanks > 0) entry.blanks = eff.blanks;
+        if (eff.penaltyApplied) {
+          entry.netPoints = eff.netPoints;
+          entry.penaltyPerWrong = effectivePenalty;
+        }
+        entry.score = catMin + eff.ratio * catRange;
         entry.isPercentage = false;
       } else if (prevEntryTotal > 0) {
         entry.correct = prevEntryCorrect;
         entry.total = prevEntryTotal;
         if (entry.score == null || !Number.isFinite(Number(entry.score))) {
-          entry.score = catMin + (prevEntryCorrect / prevEntryTotal) * catRange;
+          const eff = computeEffectiveScoreRatio(prevEntryCorrect, prevEntryTotal, {
+            blanks: prevEntryBlanks,
+            penaltyPerWrong: effectivePenalty,
+            minScore: catMin,
+            maxScore: catMax,
+          });
+          entry.score = catMin + eff.ratio * catRange;
           entry.isPercentage = false;
         }
       } else if (totalQ > 0) {
         entry.correct = totalC;
         entry.total = totalQ;
+        if (baseEff.blanks > 0) entry.blanks = baseEff.blanks;
+        if (baseEff.penaltyApplied) {
+          entry.netPoints = baseEff.netPoints;
+          entry.penaltyPerWrong = basePenalty;
+        }
         entry.score = calcScore;
         entry.isPercentage = false;
       } else if (scoredTopics.length > 0) {

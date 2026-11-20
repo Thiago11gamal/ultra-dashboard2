@@ -463,11 +463,19 @@ export default function Simulados() {
           return true;
         });
 
+        const contestPenalty = Math.max(0, Number(prev?.penaltyPerWrong) || 0);
         const manualSubmittedRows = actuallySubmittedRows
           .map((r) => {
             const total = Math.max(0, Number(r.total) || 0);
             const correct = Math.max(0, Math.min(Number(r.correct) || 0, total));
-            const pct = total > 0 ? Math.min(100, (correct / total) * 100) : 0;
+            const blanks = total > 0 ? Math.min(Math.max(0, total - correct), Math.max(0, Number(r.blanks) || 0)) : 0;
+            const effRow = computeEffectiveScoreRatio(correct, total, {
+              blanks,
+              penaltyPerWrong: contestPenalty,
+              minScore: 0,
+              maxScore: 100,
+            });
+            const pct = total > 0 ? Math.min(100, Number((effRow.ratio * 100).toFixed(2))) : 0;
             const hasExplicitPoints =
               r.scorePoints != null &&
               typeof r.scorePoints !== 'boolean' &&
@@ -482,6 +490,8 @@ export default function Simulados() {
               validated: true, isAuto: false, source: 'manual',
               subject: String(r.subject || '').trim(), topic: String(r.topic || '').trim() || 'Geral',
               correct, total,
+              ...(effRow.blanks > 0 ? { blanks: effRow.blanks } : {}),
+              ...(effRow.penaltyApplied ? { netPoints: effRow.netPoints, penaltyPerWrong: contestPenalty } : {}),
               ...(hasExplicitPoints
                 ? { scorePoints: Number(r.scorePoints) }
                 : { score: pct, scorePct: pct, isPercentage: true, scoreUnit: 'pct' })
@@ -544,26 +554,40 @@ export default function Simulados() {
             const rowTaskId = r.taskId || r.topicId || null;
             if (!topicsMap[tName]) {
               topicsMap[tName] = {
-                correct: 0, total: 0, difficulty: [], timeSpent: 0, timedQuestoes: 0,
+                correct: 0, total: 0, blanks: 0, difficulty: [], timeSpent: 0, timedQuestoes: 0,
                 taskId: rowTaskId
               };
             } else if (!topicsMap[tName].taskId && rowTaskId) {
               topicsMap[tName].taskId = rowTaskId;
             }
-            topicsMap[tName].correct += Number(r.correct) || 0;
-            topicsMap[tName].total += Number(r.total) || 0;
+            const rTotal = Number(r.total) || 0;
+            const rCorrect = Math.min(rTotal, Math.max(0, Number(r.correct) || 0));
+            const rBlanks = Math.min(Math.max(0, rTotal - rCorrect), Math.max(0, Number(r.blanks) || 0));
+            topicsMap[tName].correct += rCorrect;
+            topicsMap[tName].total += rTotal;
+            topicsMap[tName].blanks += rBlanks;
             const diff = Number(r.difficulty);
             topicsMap[tName].difficulty.push(Number.isFinite(diff) && diff > 0 ? diff : 1.0);
             const rowTime = Number(r.timeSpent) || 0;
-            if (rowTime > 0) { topicsMap[tName].timeSpent += rowTime; topicsMap[tName].timedQuestoes += Number(r.total) || 0; }
+            if (rowTime > 0) { topicsMap[tName].timeSpent += rowTime; topicsMap[tName].timedQuestoes += rTotal; }
           });
 
-          const finalTopics = Object.entries(topicsMap).map(([name, td]) => ({
-            name, taskId: td.taskId, correct: td.correct, total: td.total,
-            percentage: td.total > 0 ? (td.correct / td.total) * 100 : 0,
-            difficulty: td.difficulty.length > 0 ? td.difficulty.reduce((a, b) => a + b, 0) / td.difficulty.length : 1.0,
-            timeSpent: td.timeSpent, timedQuestoes: td.timedQuestoes
-          }));
+          const finalTopics = Object.entries(topicsMap).map(([name, td]) => {
+            const effTopic = computeEffectiveScoreRatio(td.correct, td.total, {
+              blanks: td.blanks,
+              penaltyPerWrong: contestPenalty,
+              minScore: 0,
+              maxScore: 100,
+            });
+            return {
+              name, taskId: td.taskId, correct: td.correct, total: td.total,
+              ...(td.blanks > 0 ? { blanks: td.blanks } : {}),
+              ...(effTopic.penaltyApplied ? { penaltyPerWrong: contestPenalty } : {}),
+              percentage: td.total > 0 ? Number((effTopic.ratio * 100).toFixed(2)) : 0,
+              difficulty: td.difficulty.length > 0 ? td.difficulty.reduce((a, b) => a + b, 0) / td.difficulty.length : 1.0,
+              timeSpent: td.timeSpent, timedQuestoes: td.timedQuestoes
+            };
+          });
 
           const { maxScore, minScore, range: scoreRange } = resolveCategoryScoreDomain(
             cat,

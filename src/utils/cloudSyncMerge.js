@@ -278,7 +278,8 @@ export const stateStringForSync = (state) => {
         catFp += c?.notes?.length || 0;
         contentFingerprint += catFp;
         const title = String(c?.contestName || c?.name || c?.user?.name || '');
-        contestSignatures.push(`${cid}:${title}:${c?.lastUpdated || ''}:${catFp}`);
+        const adaptiveSig = `${c?.examBoard || ''}|${Number(c?.penaltyPerWrong) || 0}|${JSON.stringify(c?.examGroupCutoffs || {})}|${JSON.stringify(c?.coachFeatureFlags || {})}|${JSON.stringify(c?.coachManualFlagOverrides || {})}`;
+        contestSignatures.push(`${cid}:${title}:${c?.lastUpdated || ''}:${catFp}:${adaptiveSig}`);
       });
   }
 
@@ -793,7 +794,7 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
   const mergedDeletedAgenda = mergeTombstoneListsPure(
     localContest.deletedAgendaIds,
     cloudContest.deletedAgendaIds,
-    100
+    200
   );
   const agendaTombs = buildTombstoneLookup(mergedDeletedAgenda);
   const mergedAgenda = mergeArraysPure(localContest.agenda, cloudContest.agenda, arrayOptions).filter((ev) => {
@@ -856,6 +857,21 @@ export const mergeContestPayloadPure = (localContest, cloudContest, preferCloudB
           : {}),
         ...(settingsSource.coachScore !== undefined || otherSource.coachScore !== undefined
           ? { coachScore: settingsSource.coachScore ?? otherSource.coachScore }
+          : {}),
+        ...(settingsSource.examBoard !== undefined || otherSource.examBoard !== undefined
+          ? { examBoard: settingsSource.examBoard ?? otherSource.examBoard }
+          : {}),
+        ...(settingsSource.penaltyPerWrong !== undefined || otherSource.penaltyPerWrong !== undefined
+          ? { penaltyPerWrong: settingsSource.penaltyPerWrong ?? otherSource.penaltyPerWrong }
+          : {}),
+        ...(settingsSource.examGroupCutoffs !== undefined || otherSource.examGroupCutoffs !== undefined
+          ? { examGroupCutoffs: settingsSource.examGroupCutoffs !== undefined ? settingsSource.examGroupCutoffs : otherSource.examGroupCutoffs }
+          : {}),
+        ...(settingsSource.coachFeatureFlags !== undefined || otherSource.coachFeatureFlags !== undefined
+          ? { coachFeatureFlags: { ...(otherSource.coachFeatureFlags || {}), ...(settingsSource.coachFeatureFlags || {}) } }
+          : {}),
+        ...(settingsSource.coachManualFlagOverrides !== undefined || otherSource.coachManualFlagOverrides !== undefined
+          ? { coachManualFlagOverrides: { ...(otherSource.coachManualFlagOverrides || {}), ...(settingsSource.coachManualFlagOverrides || {}) } }
           : {})
       };
     })(),

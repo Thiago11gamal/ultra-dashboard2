@@ -172,6 +172,7 @@ export {
   getSafeScore,
   clampCorrectToTotal,
   sanitizeSimuladoRow,
+  computeEffectiveScoreRatio,
   mergeQuestionResult,
   deduplicateSimulados,
   buildSimuladoDateSubjectKeys,

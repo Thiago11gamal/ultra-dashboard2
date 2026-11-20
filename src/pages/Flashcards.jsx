@@ -30,7 +30,36 @@ function getActiveContest(state) {
   return state.appState?.contests?.[id] || {};
 }
 
+function parseDelimitedRow(line, sep) {
+  const fields = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === sep) {
+      fields.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  fields.push(cur.trim());
+  return fields;
+}
+
 export default function Flashcards() {
+  const activeId = useAppStore(state => state.appState?.activeId || 'default');
   const rawDecks = useAppStore(state => getActiveContest(state).flashcardDecks || EMPTY_ARRAY);
   const decks = (Array.isArray(rawDecks) ? rawDecks : Object.values(rawDecks || {})).filter(Boolean);
   const setData = useAppStore(state => state.setData);
@@ -38,6 +67,8 @@ export default function Flashcards() {
   const logFlashcardReview = useAppStore(state => state.logFlashcardReview);
 
   const [selectedDeckId, setSelectedDeckId] = useState(null);
+  const [prevActiveId, setPrevActiveId] = useState(activeId);
+  const [prevSelectedDeckId, setPrevSelectedDeckId] = useState(null);
   const [deckToDelete, setDeckToDelete] = useState(null);
   const [showCreateDeck, setShowCreateDeck] = useState(false);
   const [newDeckName, setNewDeckName] = useState('');
@@ -59,6 +90,31 @@ export default function Flashcards() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [studyStats, setStudyStats] = useState({ reviewed: 0, known: 0 });
   const [pendingClose, setPendingClose] = useState(false);
+
+  if (activeId !== prevActiveId) {
+    setPrevActiveId(activeId);
+    setPrevSelectedDeckId(null);
+    setSelectedDeckId(null);
+    setDeckToDelete(null);
+    setShowAddCard(false);
+    setEditingCardId(null);
+    setEditFront('');
+    setEditBack('');
+    setShowImportCsv(false);
+    setCsvText('');
+    setPendingClose(false);
+    setIsStudying(false);
+    setStudyDeck(null);
+    setStudyIndex(0);
+    setIsFlipped(false);
+  } else if (selectedDeckId !== prevSelectedDeckId) {
+    setPrevSelectedDeckId(selectedDeckId);
+    setEditingCardId(null);
+    setEditFront('');
+    setEditBack('');
+    setShowImportCsv(false);
+    setCsvText('');
+  }
 
   const closeStudy = React.useCallback(() => {
     setPendingClose(false);
@@ -246,10 +302,9 @@ export default function Flashcards() {
 
     lines.forEach((line) => {
       const sep = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
-      const idx = line.indexOf(sep);
-      if (idx <= 0) return;
-      const f = line.slice(0, idx).replace(/^"|"$/g, '').trim();
-      const b = line.slice(idx + 1).replace(/^"|"$/g, '').trim();
+      const cols = parseDelimitedRow(line, sep);
+      const f = (cols[0] || '').trim();
+      const b = (cols[1] || '').trim();
       if (f && b) {
         newCards.push({
           id: generateId('card'),

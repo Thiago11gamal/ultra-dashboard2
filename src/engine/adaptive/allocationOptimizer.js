@@ -348,11 +348,12 @@ export function rebalanceRemainingWeekSchedule(
   const todayKey = getDateKey(now) || new Date().toISOString().slice(0, 10);
   const todayNoon = parseNoonLocal(todayKey) || now;
   const weekdayToday = todayNoon.getDay(); // 0=Dom..6=Sáb
+  const mondayIndex = (weekdayToday + 6) % 7; // 0=Seg..6=Dom (padrão Seg→Dom do app)
   const dailyHours = options.dailyHours || [2, 3, 3, 3, 3, 3, 4];
 
-  // Dias restantes incluindo hoje até o fim da semana (até sábado, mínimo 1 dia)
-  const daysRemaining = Math.max(1, 7 - weekdayToday);
-  const startOfWeekMs = todayNoon.getTime() - weekdayToday * MS_PER_DAY;
+  // Dias restantes incluindo hoje até domingo (Seg=7, ..., Sáb=2, Dom=1)
+  const daysRemaining = Math.max(1, 7 - mondayIndex);
+  const startOfWeekMs = todayNoon.getTime() - mondayIndex * MS_PER_DAY;
 
   const safeLogs = safeArr(studyLogs).filter((l) => l && l.type !== 'flashcard');
   const studiedByDay = new Map();

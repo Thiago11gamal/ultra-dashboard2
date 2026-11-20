@@ -14,7 +14,7 @@ import SimuladoResults from './SimuladoResults';
 import ConfirmModal from '../ConfirmModal';
 import { applyAIResultsToDraft } from '../../utils/aiSaveHelper';
 import { safeGetJSON, markStorageDirty } from '../../utils/storageSafe';
-import { safeDomain } from '../../utils/measurement';
+import { computeEffectiveScoreRatio, safeDomain } from '../../utils/measurement';
 import { DEFAULT_SIMULADO_HISTORY_CAP } from '../../utils/simuladoReconciler';
 import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches';
 import { clearMcCache } from '../../utils/coachAdaptive';
@@ -224,8 +224,8 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     mountedRef.current = true;
     const onBeforeUnload = () => persistDraftImmediately();
     window.addEventListener('beforeunload', onBeforeUnload);
-    return () => { 
-      mountedRef.current = false; 
+    return () => {
+      mountedRef.current = false;
       window.removeEventListener('beforeunload', onBeforeUnload);
       // G-20 FIX: Salvar draft imediatamente ao desmontar usando o concurso dono da sessão
       persistDraftImmediately(sessionContestIdRef.current);
@@ -247,6 +247,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
   // FIX: Draft persist com debounce de 5s (não a cada segundo)
   const draftTimeoutRef = useRef(null);
   const timeLeftRef = useRef(timeLeft);
+  const totalAllowedTimeRef = useRef(0);
   useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
 
   useEffect(() => {
@@ -329,7 +330,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       if (gen.status === 'done' && gen.questions?.length > 0) {
         timeoutId1 = setTimeout(() => {
           if (cancelled) return;
-          
+
           const f = gen.form || {};
           setForm({
             categoryId: f.categoryId || '', taskId: f.taskId || '',
@@ -337,7 +338,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
             dificuldade: f.dificuldade || 'medio', quantidade: f.quantidade || 10,
             ...(Array.isArray(f.targets) ? { targets: f.targets } : {}),
           });
-          
+
           // ✅ FIX: Ler categories do store ATUAL, não da closure
           const currentCategories = useAppStore.getState().appState?.contests?.[
             activeId
@@ -345,12 +346,12 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
           const catsArray = (Array.isArray(currentCategories)
             ? currentCategories
             : Object.values(currentCategories || {})).filter(Boolean);
-          
+
           const cat = catsArray.find(c => c.id === f.categoryId);
           const safeCatTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(Boolean) : [];
           const tsk = safeCatTasks.find(t => t && t.id === f.taskId);
           const isMixed = f.categoryId === 'mixed';
-          
+
           const normalizedQuestions = gen.questions.map((q, idx) => {
             if (isMixed) {
               const resolved = resolveMixedQuestionMeta(q, idx, f.targets, catsArray);
@@ -373,7 +374,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
               assunto: tsk ? (tsk.title || tsk.text || f.assunto) : (q.assunto || f.assunto),
             };
           });
-          
+
           isFinishingRef.current = false;
           setQuestions(normalizedQuestions);
           setAnswers({});
@@ -460,11 +461,11 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         const age = Date.now() - savedAt;
         return age >= 0 && age < 24 * 60 * 60 * 1000;
       }
-      
+
       if (isSimuladoDraftValid(draft)) {
         timeoutId2 = setTimeout(() => {
           if (cancelled) return;
-          
+
           const f = draft.form || {};
           let restoredForm = {
             categoryId: f.categoryId || '', taskId: f.taskId || '',
@@ -472,7 +473,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
             dificuldade: f.dificuldade || 'medio', quantidade: f.quantidade || 10,
             ...(Array.isArray(f.targets) ? { targets: f.targets } : {}),
           };
-          
+
           // ✅ FIX: Validar contra categories do store ATUAL
           const currentCategories = useAppStore.getState().appState?.contests?.[
             activeId
@@ -480,7 +481,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
           const catsArray = (Array.isArray(currentCategories)
             ? currentCategories
             : Object.values(currentCategories || {})).filter(Boolean);
-          
+
           // C-14 FIX: Validar que a categoria do draft existe no concurso ATUAL
           const cat = catsArray.find(c => c && c.id === f.categoryId);
           if (!cat && f.categoryId && f.categoryId !== 'mixed') {
@@ -491,11 +492,11 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
           }
           const safeTasks = cat ? (Array.isArray(cat.tasks) ? cat.tasks : Object.values(cat.tasks || {})).filter(Boolean) : [];
           const tsk = safeTasks.find(t => t && t.id === f.taskId);
-          
+
           if (restoredForm.taskId && restoredForm.taskId !== 'mixed' && !tsk) {
             restoredForm = { ...restoredForm, taskId: '', assunto: '' };
           }
-          
+
           const questions = Array.isArray(draft.questions) ? draft.questions : [];
           const answers = Array.isArray(draft.answers) ? draft.answers : (draft.answers || {});
           const maxIndex = Math.max(0, questions.length - 1);
@@ -503,7 +504,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
             ? Math.min(Math.max(draft.currentIndex, 0), maxIndex) : 0;
           const timeLeft = Number.isFinite(draft.timeLeft)
             ? Math.max(0, draft.timeLeft) : draft.questions.length * 3 * 60;
-          
+
           const totalAllowedTime = questions.length * 3 * 60;
           const elapsedSeconds = Math.max(0, totalAllowedTime - timeLeft);
 
@@ -532,7 +533,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       clearTimeout(timeoutId2);
       restoredContestIdRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
   const handleInputChange = (field, value) => {
@@ -724,6 +725,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       setErrorTypes({});
       setTimePerQuestion({});
       setCurrentIndex(0);
+      totalAllowedTimeRef.current = proportionalSecs;
       setTimeLeft(proportionalSecs);
       setStep('playing');
       setTimerActive(true);
@@ -871,6 +873,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         setAnswers({});
         setTimePerQuestion({});
         setCurrentIndex(0);
+        totalAllowedTimeRef.current = normalizedQuestions.length * 3 * 60;
         setTimeLeft(normalizedQuestions.length * 3 * 60);
         setStep('playing');
         setTimerActive(true);
@@ -975,6 +978,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       setErrorTypes({});
       setTimePerQuestion({});
       setCurrentIndex(0);
+      totalAllowedTimeRef.current = normalizedQuestions.length * 3 * 60;
       setTimeLeft(normalizedQuestions.length * 3 * 60);
       setStep('playing');
       setTimerActive(true);
@@ -1024,18 +1028,18 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
   const saveAIResultsToSystem = useCallback(async (formData, correct, total, _answeredQs, timeSpentSecs = 0, preventGlobalEvent = false, batchId = null) => {
     // FIX: Evitar mutar proxies de draft do Immer enquanto retorna novo estado (causava crash no 2º simulado do dia).
     useAppStore.setState(
-        (state) => {
-            const activeContestId = state.appState?.activeId;
-            const currentDraft = state.appState?.contests?.[activeContestId];
-            if (!currentDraft) return;
-            const plainContest = safeClone(isDraft(currentDraft) ? current(currentDraft) : currentDraft);
-            applyAIResultsToDraft(plainContest, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId);
-            state.appState.contests[activeContestId] = plainContest;
-            state.appState.version = (state.appState.version || 0) + 1;
-            state.appState.lastUpdated = new Date().toISOString();
-        },
-        false,
-        preventGlobalEvent ? "AI_BACKGROUND_SAVE" : "AI_SIMULADO_SAVE"
+      (state) => {
+        const activeContestId = state.appState?.activeId;
+        const currentDraft = state.appState?.contests?.[activeContestId];
+        if (!currentDraft) return;
+        const plainContest = safeClone(isDraft(currentDraft) ? current(currentDraft) : currentDraft);
+        applyAIResultsToDraft(plainContest, formData, correct, total, timeSpentSecs, preventGlobalEvent, batchId);
+        state.appState.contests[activeContestId] = plainContest;
+        state.appState.version = (state.appState.version || 0) + 1;
+        state.appState.lastUpdated = new Date().toISOString();
+      },
+      false,
+      preventGlobalEvent ? "AI_BACKGROUND_SAVE" : "AI_SIMULADO_SAVE"
     );
     markStorageDirty();
   }, []);
@@ -1052,11 +1056,13 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     // FIX: Garantir que latestTimePerQuestionRef está sincronizado
     const timePerQ = latestTimePerQuestionRef.current || timePerQuestion || {};
 
-    const totalAllowedTime = qList.length * 3 * 60;
+    const totalAllowedTime = totalAllowedTimeRef.current > 0
+      ? totalAllowedTimeRef.current
+      : (qList.length * 3 * 60);
     const activeElapsed = activeElapsedSecsRef.current > 0
       ? activeElapsedSecsRef.current
       : Math.max(0, totalAllowedTime - latestTimeLeftRef.current);
-    const fallbackTimeSpent = Math.max(activeElapsed, totalAllowedTime - latestTimeLeftRef.current);
+    const fallbackTimeSpent = Math.max(activeElapsed, Math.max(0, totalAllowedTime - latestTimeLeftRef.current));
 
     if (isFinishingRef.current || stepRef.current === 'finished') return;
     isFinishingRef.current = true;
@@ -1064,73 +1070,83 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     try {
       let correctCount = 0;
       const answeredQuestions = [];
-    qList.forEach(q => {
-      const selected = ansMap[q.id];
-      const wasAnswered = selected !== undefined && selected !== null;
-      const isCorrect =
-        wasAnswered &&
-        normalizeAlternative(selected) === normalizeAlternative(q.alternativa_correta);
-      if (isCorrect) correctCount++;
-      answeredQuestions.push({ ...q, selected: selected || null, isCorrect, wasAnswered });
-    });
+      qList.forEach(q => {
+        const selected = ansMap[q.id];
+        const wasAnswered = selected !== undefined && selected !== null;
+        const isCorrect =
+          wasAnswered &&
+          normalizeAlternative(selected) === normalizeAlternative(q.alternativa_correta);
+        if (isCorrect) correctCount++;
+        answeredQuestions.push({ ...q, selected: selected || null, isCorrect, wasAnswered });
+      });
 
     const total = qList.length;
+    const blanksCount = answeredQuestions.filter((q) => !q.wasAnswered).length;
+    const contestForScore = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
+    const finishPenalty = Math.max(0, Number(contestForScore?.penaltyPerWrong) || 0);
+    const overallEff = computeEffectiveScoreRatio(correctCount, total, {
+      blanks: blanksCount,
+      penaltyPerWrong: finishPenalty,
+      minScore: 0,
+      maxScore: 100,
+    });
     const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+    const effectiveScorePercent = total > 0 ? Math.round(overallEff.ratio * 100) : 0;
     const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (timePerQ[q.id] || 0), 0);
     const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
     const sessionBatchId = generateId('batch');
     setLastSessionBatchId(sessionBatchId);
 
-    const buildTelemetry = (qsSlice) =>
-      qsSlice.map((q, idx) => ({
-        id: q.id,
-        idx,
-        timeSec: Math.max(0, Math.round(Number(timePerQ[q.id]) || 0)),
-        correct: Boolean(q.isCorrect),
-        wasAnswered: Boolean(q.wasAnswered),
-        confidence: confidences[q.id] || null,
-        errorType: errorTypes[q.id] || null,
-        difficulty: f.dificuldade || 'medio',
-        ...(!q.isCorrect ? {
-          statement: String(q.enunciado || '').slice(0, 240),
-          explanation: String(q.justificativa || '').slice(0, 240),
-          correctAnswer: String(q.alternativa_correta || '').slice(0, 10),
-        } : {}),
-      }));
+      const buildTelemetry = (qsSlice) =>
+        qsSlice.map((q, idx) => ({
+          id: q.id,
+          idx,
+          timeSec: Math.max(0, Math.round(Number(timePerQ[q.id]) || 0)),
+          correct: Boolean(q.isCorrect),
+          wasAnswered: Boolean(q.wasAnswered),
+          confidence: confidences[q.id] || null,
+          errorType: errorTypes[q.id] || null,
+          difficulty: f.dificuldade || 'medio',
+          ...(!q.isCorrect ? {
+            statement: String(q.enunciado || '').slice(0, 240),
+            explanation: String(q.justificativa || '').slice(0, 240),
+            correctAnswer: String(q.alternativa_correta || '').slice(0, 10),
+          } : {}),
+        }));
 
-    if (f.categoryId === 'mixed') {
-      const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
-      const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
-      const groups = {};
-      answeredQuestions.forEach((q, idx) => {
-        const resolved = resolveMixedQuestionMeta(q, idx, f.targets, cats);
-        const effMateria = resolved.materia;
-        const effAssunto = resolved.assunto;
-        const key = `${effMateria}\u0000${effAssunto}`;
-        if (!groups[key]) {
-          groups[key] = {
-            materia: effMateria,
-            assunto: effAssunto,
-            categoryId: resolved.realCategoryId || null,
-            taskId: resolved.realTaskId || null,
-            correct: 0,
-            total: 0,
-            qs: [],
-            timeSpent: 0,
-          };
-        }
-        groups[key].qs.push(q);
-        groups[key].total++;
-        if (q.isCorrect) groups[key].correct++;
-        const spent = timePerQ[q.id] || 0;
-        groups[key].timeSpent += spent;
-      });
-      const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
-      const totalCorrectInMixed = Object.values(groups).reduce((acc, g) => acc + g.correct, 0);
+      if (f.categoryId === 'mixed') {
+        const rawCats = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId]?.categories || [];
+        const cats = Array.isArray(rawCats) ? rawCats : Object.values(rawCats);
+        const groups = {};
+        answeredQuestions.forEach((q, idx) => {
+          const resolved = resolveMixedQuestionMeta(q, idx, f.targets, cats);
+          const effMateria = resolved.materia;
+          const effAssunto = resolved.assunto;
+          const key = `${effMateria}\u0000${effAssunto}`;
+          if (!groups[key]) {
+            groups[key] = {
+              materia: effMateria,
+              assunto: effAssunto,
+              categoryId: resolved.realCategoryId || null,
+              taskId: resolved.realTaskId || null,
+              correct: 0,
+              total: 0,
+              qs: [],
+              timeSpent: 0,
+            };
+          }
+          groups[key].qs.push(q);
+          groups[key].total++;
+          if (q.isCorrect) groups[key].correct++;
+          const spent = timePerQ[q.id] || 0;
+          groups[key].timeSpent += spent;
+        });
+        const totalQuestionsInMixed = Object.values(groups).reduce((acc, g) => acc + g.total, 0);
+        const totalCorrectInMixed = Object.values(groups).reduce((acc, g) => acc + g.correct, 0);
 
-      const failedGroups = [];
-      const promises = Object.entries(groups).map(async ([groupKey, g]) => {
-        try {
+        const failedGroups = [];
+        const promises = Object.entries(groups).map(async ([groupKey, g]) => {
+          try {
             const [materia, assunto] = groupKey.split('\u0000');
             const cleanAssunto = String(assunto || '').replace(/\s*\(Nível:.*?\)\s*$/i, '').trim();
 
@@ -1153,22 +1169,30 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
                 ? g.timeSpent
                 : Math.round(fallbackTimeSpent * (g.total / Math.max(1, totalQuestionsInMixed)));
             await saveAIResultsToSystem(subForm, g.correct, g.total, g.qs, topicTime, true, sessionBatchId);
-        } catch (err) {
+          } catch (err) {
             console.error(`[AI Sim] Falha ao salvar grupo ${groupKey}:`, err);
             failedGroups.push(groupKey);
-        }
-      });
-      await Promise.allSettled(promises);
-      
-      if (failedGroups.length > 0) {
+          }
+        });
+        await Promise.allSettled(promises);
+
+        if (failedGroups.length > 0) {
           showToast(`⚠️ ${failedGroups.length} grupo(s) não salvos: ${failedGroups.join(', ')}`, 'warning');
-      }
+        }
 
       const nowIso = new Date().toISOString();
       const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
       const activeContest = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
       const mixedDomain = safeDomain(Number(activeContest?.maxScore) || 100, Number(activeContest?.minScore) || 0);
-      const mixedRatio = totalQuestionsInMixed > 0 ? totalCorrectInMixed / totalQuestionsInMixed : 0;
+      const mixedPenalty = Math.max(0, Number(activeContest?.penaltyPerWrong) || 0);
+      const totalBlanksInMixed = answeredQuestions.filter((q) => !q.wasAnswered).length;
+      const mixedEff = computeEffectiveScoreRatio(totalCorrectInMixed, totalQuestionsInMixed, {
+        blanks: totalBlanksInMixed,
+        penaltyPerWrong: mixedPenalty,
+        minScore: mixedDomain.min,
+        maxScore: mixedDomain.max,
+      });
+      const mixedRatio = mixedEff.ratio;
       const mixedScorePoints = mixedDomain.min + mixedRatio * mixedDomain.range;
       const mixedScorePct = mixedRatio * 100;
       const globalMixedEvent = {
@@ -1182,6 +1206,8 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         score: mixedScorePoints,
         total: totalQuestionsInMixed,
         correct: totalCorrectInMixed,
+        ...(mixedEff.blanks > 0 ? { blanks: mixedEff.blanks } : {}),
+        ...(mixedEff.penaltyApplied ? { netPoints: mixedEff.netPoints, penaltyPerWrong: mixedPenalty } : {}),
         type: 'ai-simulado',
         subject: 'Simulado Misto (IA)',
         categoryId: 'mixed',
@@ -1207,24 +1233,31 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
               version: (state.appState.version || 0) + 1,
               contests: nextContests,
               lastUpdated: new Date().toISOString()
-            }
-          };
-        },
-        false,
-        "AI_MIXED_SIMULADO_SAVE"
-      );
-      markStorageDirty();
-    } else {
-      await saveAIResultsToSystem(
-        { ...f, questionTelemetry: buildTelemetry(answeredQuestions) },
-        correctCount,
-        total,
-        answeredQuestions,
-        finalTimeSpent,
-        false,
-        sessionBatchId
-      );
-    }
+            };
+            return {
+              appState: {
+                ...state.appState,
+                version: (state.appState.version || 0) + 1,
+                contests: nextContests,
+                lastUpdated: new Date().toISOString()
+              }
+            };
+          },
+          false,
+          "AI_MIXED_SIMULADO_SAVE"
+        );
+        markStorageDirty();
+      } else {
+        await saveAIResultsToSystem(
+          { ...f, questionTelemetry: buildTelemetry(answeredQuestions) },
+          correctCount,
+          total,
+          answeredQuestions,
+          finalTimeSpent,
+          false,
+          sessionBatchId
+        );
+      }
 
       clearUrgencyCache();
       clearTopicsCache();
@@ -1246,7 +1279,8 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       activeElapsedSecsRef.current = 0;
       simStartMsRef.current = null;
       setResults({
-        correct: correctCount, total, scorePercent,
+        correct: correctCount, total, scorePercent, effectiveScorePercent,
+        blanks: blanksCount, netPoints: overallEff.netPoints,
         questions: answeredQuestions, timeSpentSecs: finalTimeSpent,
       });
       setStep('finished');
@@ -1298,10 +1332,10 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         lastTick += elapsedSecs * 1000;
         activeElapsedSecsRef.current += elapsedSecs;
         setTimeLeft((prev) => {
-           const next = prev - elapsedSecs;
-           return next <= 0 ? 0 : next;
+          const next = prev - elapsedSecs;
+          return next <= 0 ? 0 : next;
         });
-        
+
         const qId = activeQIdRef.current;
         if (qId) {
           setTimePerQuestion(prev => ({ ...prev, [qId]: (prev[qId] || 0) + elapsedSecs }));
@@ -1393,7 +1427,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-     
+
   }, [step, currentQuestion, showEscapeConfirm, questions.length, goTo, selectAnswer, resetAll]);
 
   useEffect(() => {
@@ -1420,8 +1454,11 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     setErrorTypes((prev) => ({ ...prev, [questionId]: errType }));
     if (!lastSessionBatchId) return;
     setData((contest) => {
-      if (!contest || !Array.isArray(contest.simuladoRows)) return contest;
-      const nextRows = contest.simuladoRows.map((row) => {
+      if (!contest || !contest.simuladoRows) return contest;
+      const rowsArr = Array.isArray(contest.simuladoRows)
+        ? contest.simuladoRows
+        : Object.values(contest.simuladoRows || {}).filter(Boolean);
+      const nextRows = rowsArr.map((row) => {
         if (!row || row.batchId !== lastSessionBatchId || !Array.isArray(row.questionTelemetry)) return row;
         const nextTel = row.questionTelemetry.map((q) => (q && q.id === questionId ? { ...q, errorType: errType } : q));
         return { ...row, questionTelemetry: nextTel };
@@ -1442,7 +1479,9 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
 
     setData((contest) => {
       if (!contest) return contest;
-      const decks = Array.isArray(contest.flashcardDecks) ? [...contest.flashcardDecks] : [];
+      const decks = (Array.isArray(contest.flashcardDecks)
+        ? [...contest.flashcardDecks]
+        : Object.values(contest.flashcardDecks || {})).filter(Boolean);
       let targetIdx = decks.findIndex((d) => d && normalize(d.name) === normalize(deckName));
       const newCards = wrongQs.map((q) => {
         const isCritical = confidences[q.id] === 'certeza';
@@ -1473,14 +1512,18 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
           subject: form.materia || 'Geral',
           cards: newCards,
           createdAt: nowIso,
+          lastUpdated: nowIso,
           updatedAt: nowIso,
         });
       } else {
         const existingDeck = decks[targetIdx];
-        const existingCards = Array.isArray(existingDeck.cards) ? existingDeck.cards : [];
+        const existingCards = (Array.isArray(existingDeck.cards)
+          ? existingDeck.cards
+          : Object.values(existingDeck.cards || {})).filter(Boolean);
         decks[targetIdx] = {
           ...existingDeck,
           cards: [...existingCards, ...newCards],
+          lastUpdated: nowIso,
           updatedAt: nowIso,
         };
       }
@@ -1504,7 +1547,8 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
   const recommendedNextDifficulty = useMemo(() => {
     if (!results || !results.total) return null;
     const avgSec = results.total > 0 ? (results.timeSpentSecs || 0) / results.total : null;
-    return nextAdaptiveDifficulty(form.dificuldade, results.scorePercent, avgSec);
+    const scoreForCat = results.effectiveScorePercent ?? results.scorePercent;
+    return nextAdaptiveDifficulty(form.dificuldade, scoreForCat, avgSec);
   }, [results, form.dificuldade]);
 
   if (step === 'setup') {

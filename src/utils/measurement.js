@@ -609,8 +609,54 @@ export function sanitizeSimuladoRow(row, maxScore = 100, minScore = 0) {
 }
 
 /**
+ * Calcula a proporção efetiva de pontuação considerando penalidade da banca (ex.: CEBRASPE)
+ * e questões deixadas em branco. Quando penaltyPerWrong <= 0, equivale exatamente a correct / total.
+ */
+export function computeEffectiveScoreRatio(
+  correct,
+  total,
+  { blanks = 0, penaltyPerWrong = 0, minScore = 0, maxScore = 100 } = {}
+) {
+  const safeT = Math.max(0, Number(total) || 0);
+  if (safeT <= 0) {
+    return { ratio: 0, netPoints: 0, wrong: 0, blanks: 0, penaltyApplied: false };
+  }
+  const safeC = Math.max(0, Math.min(safeT, Number(correct) || 0));
+  const safePenalty = Math.max(0, Number(penaltyPerWrong) || 0);
+  const safeBlanks = Math.max(0, Math.min(safeT - safeC, Number(blanks) || 0));
+  const wrong = Math.max(0, safeT - safeC - safeBlanks);
+
+  if (safePenalty <= 0) {
+    return { ratio: safeC / safeT, netPoints: safeC, wrong, blanks: safeBlanks, penaltyApplied: false };
+  }
+
+  const rawNet = safeC - wrong * safePenalty;
+  if (Number(minScore) < 0 && Number(maxScore) > 0) {
+    const scaled = (rawNet / safeT) * Number(maxScore);
+    const clamped = Math.max(Number(minScore), Math.min(Number(maxScore), scaled));
+    const range = Math.max(1e-9, Number(maxScore) - Number(minScore));
+    return {
+      ratio: Math.max(0, Math.min(1, (clamped - Number(minScore)) / range)),
+      netPoints: Number(rawNet.toFixed(2)),
+      wrong,
+      blanks: safeBlanks,
+      penaltyApplied: true,
+    };
+  }
+
+  const clampedNet = Math.max(0, rawNet);
+  return {
+    ratio: Math.max(0, Math.min(1, clampedNet / safeT)),
+    netPoints: Number(clampedNet.toFixed(2)),
+    wrong,
+    blanks: safeBlanks,
+    penaltyApplied: true,
+  };
+}
+
+/**
  * Atualização segura de resultado de questões.
- * Nunca deixa correct > total.
+ * Nunca deixa correct > total e preserva penalidade/brancos e telemetria.
  */
 export function mergeQuestionResult(row, delta, maxScore, minScore = 0) {
   const domain = safeDomain(maxScore, minScore);
@@ -621,9 +667,17 @@ export function mergeQuestionResult(row, delta, maxScore, minScore = 0) {
     addedTotal,
     Math.max(0, Math.trunc(Number(delta?.correct) || 0))
   );
+  const addedBlanks = Math.min(
+    Math.max(0, addedTotal - addedCorrect),
+    Math.max(0, Math.trunc(Number(delta?.blanks) || 0))
+  );
 
   const oldTotal = Math.max(0, Math.trunc(Number(r.total) || 0));
   const oldCorrect = Math.min(oldTotal, Math.max(0, Math.trunc(Number(r.correct) || 0)));
+  const oldBlanks = Math.min(
+    Math.max(0, oldTotal - oldCorrect),
+    Math.max(0, Math.trunc(Number(r.blanks) || 0))
+  );
 
   const isIncremental = Boolean(delta?.isDelta ?? delta?.incremental);
   const newTotal = isIncremental
@@ -632,19 +686,50 @@ export function mergeQuestionResult(row, delta, maxScore, minScore = 0) {
   const newCorrect = isIncremental
     ? Math.min(newTotal, oldCorrect + addedCorrect)
     : Math.min(newTotal, Math.max(oldCorrect, addedCorrect));
+  const newBlanks = Math.min(
+    Math.max(0, newTotal - newCorrect),
+    isIncremental ? oldBlanks + addedBlanks : Math.max(oldBlanks, addedBlanks)
+  );
 
-  const ratio = newTotal > 0 ? newCorrect / newTotal : 0;
+  const effPenalty = Math.max(0, Number(delta?.penaltyPerWrong ?? r.penaltyPerWrong) || 0);
+  const eff = computeEffectiveScoreRatio(newCorrect, newTotal, {
+    blanks: newBlanks,
+    penaltyPerWrong: effPenalty,
+    minScore: domain.min,
+    maxScore: domain.max,
+  });
+  const ratio = eff.ratio;
   const points = domain.min + ratio * domain.range;
+
+  const existingTel = Array.isArray(r.questionTelemetry) ? r.questionTelemetry : [];
+  const incomingTel = Array.isArray(delta?.questionTelemetry) ? delta.questionTelemetry : [];
+  let mergedTelemetry;
+  if (incomingTel.length > 0) {
+    const seen = new Set();
+    mergedTelemetry = [...existingTel, ...incomingTel]
+      .filter((item) => {
+        if (!item || typeof item !== 'object') return false;
+        if (!item.id) return true;
+        const key = String(item.id);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(-60);
+  }
 
   return {
     ...r,
     correct: newCorrect,
     total: newTotal,
+    ...(newBlanks > 0 ? { blanks: eff.blanks } : {}),
+    ...(eff.penaltyApplied ? { netPoints: eff.netPoints, penaltyPerWrong: effPenalty } : {}),
     scorePoints: points,
     scorePct: ratio * 100,
     score: points,
     scoreUnit: "points",
     isPercentage: false,
+    ...(mergedTelemetry ? { questionTelemetry: mergedTelemetry } : {}),
     timeSpent: Number.isFinite(Number(r.timeSpent)) || Number.isFinite(Number(delta?.timeSpentSecs))
       ? Math.max(0, (Number(r.timeSpent) || 0) + Math.max(0, Number(delta?.timeSpentSecs) || 0))
       : 0
