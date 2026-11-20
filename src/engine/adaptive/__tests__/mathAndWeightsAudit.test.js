@@ -170,11 +170,11 @@ describe('Math, Weights & Parameters Audit Regression Suite (15 fixes)', () => {
 
     // projectScore honors options.minScore < 0
     const negProj = projectScore(
-      [{ date: '2026-04-01', score: -40 }, { date: '2026-04-15', score: -20 }],
+      [{ date: '2026-04-01', score: -40 }, { date: '2026-04-15', score: -50 }],
       30,
       0,
       100,
-      { minScore: -100 }
+      { minScore: -100, referenceDate: '2026-04-16' }
     );
     expect(negProj.projected).toBeLessThan(0);
   });

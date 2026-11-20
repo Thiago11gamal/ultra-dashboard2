@@ -799,9 +799,10 @@ export function monteCarloSimulation(
         : hashSeed(seedStr);
     const rng = mulberry32(Math.abs(seedValue >>> 0));
 
-    // Calibra a difusão diária do processo Ornstein-Uhlenbeck pela variância estacionária exata:
-    // Var_inf(OU) = sigma_day² / (2*theta - theta²) = volatility² => sigma_day = volatility * sqrt(2*theta - theta²).
-    // Evita explosão de 5x em simulados diários (medianGap=1) e colapso de -62% em simulados mensais (medianGap=30).
+    // Calibra a difusão diária do estado latente Ornstein-Uhlenbeck pela variância estacionária:
+    // Var_inf(X_latente) = sigma_day² / (2*theta - theta²) = volatility² => sigma_day = volatility * sqrt(2*theta - theta²).
+    // Somado ao ruído observacional do dia da prova (SD = volatility), garante SD(T) estritamente monotônico
+    // de 1.0×vol (T=0) até √2×vol (T→∞), invariante à frequência de simulados (medianGap).
     const ouStationaryScale = Math.sqrt(Math.max(0.02, 2 * thetaOU - thetaOU * thetaOU));
     const dailyVolatility = Math.max(
         0.001 * (maxScore - minScore > 0 ? maxScore - minScore : maxScore),
@@ -973,6 +974,21 @@ export function monteCarloSimulation(
             // Removed complex RBM reflection which was causing boundary piling bias in declining series (scores clustering at minScore, skewing means low).
             // Fallback de segurança estrito (Clamp final diário)
             currentSimScore = Number.isNaN(currentSimScore) ? minScore : Math.max(minScore, Math.min(maxScore, currentSimScore));
+        }
+
+        if (simulationDays > 0) {
+            // Ruído observacional do dia da prova (Y_T = X_T + ε_exam): evita queda artificial de variância em T=1
+            const examObsVol = Math.max(dailyVolatility, volatility);
+            let examDayShock = 0;
+            if (safeResiduals.length > 5 && rng() > 0.25) {
+                const rawEmp = safeResiduals[Math.floor(rng() * safeResiduals.length)];
+                examDayShock = (rawEmp / standardizer) * examObsVol;
+            } else {
+                examDayShock = generateGaussian(rng) * examObsVol;
+            }
+            const examShockLim = examObsVol * 3;
+            const clampedExamShock = Math.max(-examShockLim, Math.min(examShockLim, examDayShock));
+            currentSimScore = Math.max(minScore, Math.min(maxScore, currentSimScore + clampedExamShock));
         }
 
         // Aplica os limites físicos da prova APENAS no resultado assintótico final
