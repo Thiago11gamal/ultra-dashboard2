@@ -7,6 +7,8 @@ import {
   syncAdaptiveFeatureFlags,
   ADAPTIVE_STAGES,
 } from '../../engine/adaptive/adaptiveMaturityEngine';
+import { useAuth } from '../../context/useAuth';
+import { isAdminUser } from '../../utils/adminAccess';
 
 const STAGE_STYLE = [
   'border-slate-600/40 bg-slate-800/40 text-slate-300',
@@ -37,18 +39,22 @@ export const AdaptiveMaturityBadge = React.memo(function AdaptiveMaturityBadge({
   );
 
   const patchData = useAppStore((state) => state.patchData);
-  const maturity = useMemo(() => evaluateContestMaturity(contest || {}), [contest]);
+  const currentUser = useAuth()?.currentUser || null;
+  const isAdmin = isAdminUser(currentUser);
+  const maturity = useMemo(() => evaluateContestMaturity(contest || {}, { isAdmin }), [contest, isAdmin]);
 
   useEffect(() => {
     if (!autoSync || !contest) return;
-    const syncRes = syncAdaptiveFeatureFlags(contest, activeId, { respectOverrides: true });
+    const syncRes = syncAdaptiveFeatureFlags(contest, activeId, { respectOverrides: true, isAdmin });
     if (typeof patchData !== 'function') return;
 
-    // Persiste no documento do concurso APENAS quando há flags efetivamente desbloqueadas
-    // ou overrides explícitos que divergem da nuvem — evitando bump de version em visitas
-    // somente-leitura de concursos N0 / legados já estabilizados.
+    // Persiste no documento do concurso APENAS flags derivadas de maturidade real
+    // ou overrides explícitos — evitando poluir o documento ao usar bypass administrativo.
+    const cloudMaturityUnlocked = isAdmin
+      ? evaluateContestMaturity(contest, { isAdmin: false }).unlockedFlags
+      : (syncRes?.maturity?.unlockedFlags || {});
     const desiredCloud = {
-      ...(syncRes?.maturity?.unlockedFlags || {}),
+      ...cloudMaturityUnlocked,
       ...(syncRes?.manualOverrides || {}),
     };
     const desiredEntries = Object.entries(desiredCloud);
@@ -61,69 +67,69 @@ export const AdaptiveMaturityBadge = React.memo(function AdaptiveMaturityBadge({
         coachFeatureFlags: { ...prevCloud, ...desiredCloud },
       }));
     }
-  }, [autoSync, contest, activeId, patchData, maturity.stage, maturity.metrics.simuladoCount, maturity.metrics.studySessionsCount]);
+}, [autoSync, contest, activeId, patchData, isAdmin, maturity.stage, maturity.metrics.simuladoCount, maturity.metrics.studySessionsCount]);
 
-  const cls = STAGE_STYLE[maturity.stage] || STAGE_STYLE[0];
+const cls = STAGE_STYLE[maturity.stage] || STAGE_STYLE[0];
 
-  if (compact) {
-    return (
-      <div
-        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-bold ${cls}`}
-        title={`${maturity.description} ${maturity.nextHint}`}
-      >
-        <Sparkles size={12} />
-        <span>Motor Adaptativo {maturity.code} · {maturity.name}</span>
-        {maturity.unlockedFlagCount > 0 && (
-          <span className="text-[10px] opacity-75 font-mono">({maturity.unlockedFlagCount} ativos)</span>
-        )}
-      </div>
-    );
-  }
-
+if (compact) {
   return (
-    <div className={`rounded-2xl border p-4 backdrop-blur-xl ${cls}`}>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-black/30 border border-white/10 shrink-0">
-            {maturity.stage >= 5 ? <ShieldCheck size={18} /> : <Sparkles size={18} />}
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-black/30 border border-white/10 font-mono">
-                {maturity.code} / N5
-              </span>
-              <h3 className="text-sm font-black text-white">{maturity.name}</h3>
-              <span className="text-[11px] opacity-80">· {maturity.shortLabel}</span>
-            </div>
-            <p className="text-xs text-slate-300/90 mt-1">{maturity.description}</p>
-            <p className="text-[11px] text-slate-400 mt-1">{maturity.nextHint}</p>
-          </div>
-        </div>
+    <div
+      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[11px] font-bold ${cls}`}
+      title={`${maturity.description} ${maturity.nextHint}`}
+    >
+      <Sparkles size={12} />
+      <span>Motor Adaptativo {maturity.code} · {maturity.name}</span>
+      {maturity.unlockedFlagCount > 0 && (
+        <span className="text-[10px] opacity-75 font-mono">({maturity.unlockedFlagCount} ativos)</span>
+      )}
+    </div>
+  );
+}
 
-        <div className="sm:w-44 shrink-0 space-y-1.5">
-          <div className="flex justify-between text-[10px] font-mono">
-            <span>{maturity.nextStage ? `Próx: ${maturity.nextStage.code}` : 'Nível Máximo'}</span>
-            <span className="font-bold">{maturity.progressToNextPct}%</span>
+return (
+  <div className={`rounded-2xl border p-4 backdrop-blur-xl ${cls}`}>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-xl bg-black/30 border border-white/10 shrink-0">
+          {maturity.stage >= 5 ? <ShieldCheck size={18} /> : <Sparkles size={18} />}
+        </div>
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-black/30 border border-white/10 font-mono">
+              {maturity.code} / N5
+            </span>
+            <h3 className="text-sm font-black text-white">{maturity.name}</h3>
+            <span className="text-[11px] opacity-80">· {maturity.shortLabel}</span>
           </div>
-          <div className="h-2 rounded-full bg-black/40 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-current transition-all duration-700"
-              style={{ width: `${maturity.progressToNextPct}%` }}
+          <p className="text-xs text-slate-300/90 mt-1">{maturity.description}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{maturity.nextHint}</p>
+        </div>
+      </div>
+
+      <div className="sm:w-44 shrink-0 space-y-1.5">
+        <div className="flex justify-between text-[10px] font-mono">
+          <span>{maturity.nextStage ? `Próx: ${maturity.nextStage.code}` : 'Nível Máximo'}</span>
+          <span className="font-bold">{maturity.progressToNextPct}%</span>
+        </div>
+        <div className="h-2 rounded-full bg-black/40 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-current transition-all duration-700"
+            style={{ width: `${maturity.progressToNextPct}%` }}
+          />
+        </div>
+        <div className="flex justify-between gap-0.5 pt-0.5">
+          {ADAPTIVE_STAGES.map((st) => (
+            <span
+              key={st.code}
+              className={`h-1 flex-1 rounded-full ${st.stage <= maturity.stage ? 'bg-current' : 'bg-white/10'}`}
+              title={`${st.code}: ${st.name}`}
             />
-          </div>
-          <div className="flex justify-between gap-0.5 pt-0.5">
-            {ADAPTIVE_STAGES.map((st) => (
-              <span
-                key={st.code}
-                className={`h-1 flex-1 rounded-full ${st.stage <= maturity.stage ? 'bg-current' : 'bg-white/10'}`}
-                title={`${st.code}: ${st.name}`}
-              />
-            ))}
-          </div>
+          ))}
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 });
 
 export default AdaptiveMaturityBadge;

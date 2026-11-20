@@ -20,6 +20,8 @@ import { clearUrgencyCache, clearTopicsCache } from '../../utils/coachCaches';
 import { clearMcCache } from '../../utils/coachAdaptive';
 import { syncAdaptiveFeatureFlags } from '../../engine/adaptive/adaptiveMaturityEngine';
 import { nextAdaptiveDifficulty, estimateIRTAbility } from '../../engine/adaptive/irtEngine';
+import { useAuth } from '../../context/useAuth';
+import { isAdminUser } from '../../utils/adminAccess';
 
 const normalizeAlternative = (value) =>
   String(value ?? '').trim().toUpperCase();
@@ -157,6 +159,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
     [contestSimuladoRows]
   );
   const showToast = useToast();
+  const isAdmin = isAdminUser(useAuth()?.currentUser || null);
 
   const [step, setStep] = useState('setup');
   const [form, setForm] = useState({
@@ -632,7 +635,8 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
       return;
     }
     const totalWeight = validCats.reduce((acc, c) => acc + Math.max(1, Number(c.weight) || 10), 0) || 1;
-    const totalQuestions = Math.min(20, Math.max(10, validCats.length * 3));
+    const maxFullExamQ = isAdmin ? 50 : 20;
+    const totalQuestions = Math.min(maxFullExamQ, Math.max(10, validCats.length * 3));
     const weightedTargets = validCats
       .sort((a, b) => (Number(b.weight) || 10) - (Number(a.weight) || 10))
       .slice(0, 8)
@@ -1080,22 +1084,22 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         answeredQuestions.push({ ...q, selected: selected || null, isCorrect, wasAnswered });
       });
 
-    const total = qList.length;
-    const blanksCount = answeredQuestions.filter((q) => !q.wasAnswered).length;
-    const contestForScore = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
-    const finishPenalty = Math.max(0, Number(contestForScore?.penaltyPerWrong) || 0);
-    const overallEff = computeEffectiveScoreRatio(correctCount, total, {
-      blanks: blanksCount,
-      penaltyPerWrong: finishPenalty,
-      minScore: 0,
-      maxScore: 100,
-    });
-    const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
-    const effectiveScorePercent = total > 0 ? Math.round(overallEff.ratio * 100) : 0;
-    const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (timePerQ[q.id] || 0), 0);
-    const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
-    const sessionBatchId = generateId('batch');
-    setLastSessionBatchId(sessionBatchId);
+      const total = qList.length;
+      const blanksCount = answeredQuestions.filter((q) => !q.wasAnswered).length;
+      const contestForScore = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
+      const finishPenalty = Math.max(0, Number(contestForScore?.penaltyPerWrong) || 0);
+      const overallEff = computeEffectiveScoreRatio(correctCount, total, {
+        blanks: blanksCount,
+        penaltyPerWrong: finishPenalty,
+        minScore: 0,
+        maxScore: 100,
+      });
+      const scorePercent = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+      const effectiveScorePercent = total > 0 ? Math.round(overallEff.ratio * 100) : 0;
+      const exactTotalTime = answeredQuestions.reduce((acc, q) => acc + (timePerQ[q.id] || 0), 0);
+      const finalTimeSpent = exactTotalTime > 0 ? exactTotalTime : fallbackTimeSpent;
+      const sessionBatchId = generateId('batch');
+      setLastSessionBatchId(sessionBatchId);
 
       const buildTelemetry = (qsSlice) =>
         qsSlice.map((q, idx) => ({
@@ -1180,65 +1184,72 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
           showToast(`⚠️ ${failedGroups.length} grupo(s) não salvos: ${failedGroups.join(', ')}`, 'warning');
         }
 
-      const nowIso = new Date().toISOString();
-      const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
-      const activeContest = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
-      const mixedDomain = safeDomain(Number(activeContest?.maxScore) || 100, Number(activeContest?.minScore) || 0);
-      const mixedPenalty = Math.max(0, Number(activeContest?.penaltyPerWrong) || 0);
-      const totalBlanksInMixed = answeredQuestions.filter((q) => !q.wasAnswered).length;
-      const mixedEff = computeEffectiveScoreRatio(totalCorrectInMixed, totalQuestionsInMixed, {
-        blanks: totalBlanksInMixed,
-        penaltyPerWrong: mixedPenalty,
-        minScore: mixedDomain.min,
-        maxScore: mixedDomain.max,
-      });
-      const mixedRatio = mixedEff.ratio;
-      const mixedScorePoints = mixedDomain.min + mixedRatio * mixedDomain.range;
-      const mixedScorePct = mixedRatio * 100;
-      const globalMixedEvent = {
-        id: generateId('ai-sim'),
-        batchId: sessionBatchId,
-        date: todayKey,
-        createdAt: nowIso,
-        lastUpdated: nowIso,
-        scorePoints: mixedScorePoints,
-        scorePct: mixedScorePct,
-        score: mixedScorePoints,
-        total: totalQuestionsInMixed,
-        correct: totalCorrectInMixed,
-        ...(mixedEff.blanks > 0 ? { blanks: mixedEff.blanks } : {}),
-        ...(mixedEff.penaltyApplied ? { netPoints: mixedEff.netPoints, penaltyPerWrong: mixedPenalty } : {}),
-        type: 'ai-simulado',
-        subject: 'Simulado Misto (IA)',
-        categoryId: 'mixed',
-        taskId: null,
-        validated: true,
-        scoreUnit: 'points',
-        isPercentage: false,
-      };
-      useAppStore.setState(
-        (state) => {
-          const nextContests = { ...state.appState.contests };
-          const currentDraft = nextContests[state.appState.activeId];
-          if (!currentDraft) return state;
-          const existingSims = Array.isArray(currentDraft.simulados) ? currentDraft.simulados : Object.values(currentDraft.simulados || {});
-          nextContests[state.appState.activeId] = {
-            ...currentDraft,
-            simulados: [...existingSims, globalMixedEvent].slice(-DEFAULT_SIMULADO_HISTORY_CAP),
-            lastUpdated: new Date().toISOString()
-          };
-          return {
-            appState: {
-              ...state.appState,
-              version: (state.appState.version || 0) + 1,
-              contests: nextContests,
+        const nowIso = new Date().toISOString();
+        const todayKey = getDateKey(new Date()) || new Date().toISOString().slice(0, 10);
+        const activeContest = useAppStore.getState().appState?.contests?.[useAppStore.getState().appState?.activeId];
+        const mixedDomain = safeDomain(Number(activeContest?.maxScore) || 100, Number(activeContest?.minScore) || 0);
+        const mixedPenalty = Math.max(0, Number(activeContest?.penaltyPerWrong) || 0);
+        const totalBlanksInMixed = answeredQuestions.filter((q) => !q.wasAnswered).length;
+        const mixedEff = computeEffectiveScoreRatio(totalCorrectInMixed, totalQuestionsInMixed, {
+          blanks: totalBlanksInMixed,
+          penaltyPerWrong: mixedPenalty,
+          minScore: mixedDomain.min,
+          maxScore: mixedDomain.max,
+        });
+        const mixedRatio = mixedEff.ratio;
+        const mixedScorePoints = mixedDomain.min + mixedRatio * mixedDomain.range;
+        const mixedScorePct = mixedRatio * 100;
+        const globalMixedEvent = {
+          id: generateId('ai-sim'),
+          batchId: sessionBatchId,
+          date: todayKey,
+          createdAt: nowIso,
+          lastUpdated: nowIso,
+          scorePoints: mixedScorePoints,
+          scorePct: mixedScorePct,
+          score: mixedScorePoints,
+          total: totalQuestionsInMixed,
+          correct: totalCorrectInMixed,
+          ...(mixedEff.blanks > 0 ? { blanks: mixedEff.blanks } : {}),
+          ...(mixedEff.penaltyApplied ? { netPoints: mixedEff.netPoints, penaltyPerWrong: mixedPenalty } : {}),
+          type: 'ai-simulado',
+          subject: 'Simulado Misto (IA)',
+          categoryId: 'mixed',
+          taskId: null,
+          validated: true,
+          scoreUnit: 'points',
+          isPercentage: false,
+        };
+        useAppStore.setState(
+          (state) => {
+            const nextContests = { ...state.appState.contests };
+            const currentDraft = nextContests[state.appState.activeId];
+            if (!currentDraft) return state;
+            const existingSims = Array.isArray(currentDraft.simulados) ? currentDraft.simulados : Object.values(currentDraft.simulados || {});
+            nextContests[state.appState.activeId] = {
+              ...currentDraft,
+              simulados: [...existingSims, globalMixedEvent].slice(-DEFAULT_SIMULADO_HISTORY_CAP),
               lastUpdated: new Date().toISOString()
-            }
-          };
-        },
-        false,
-        "AI_MIXED_SIMULADO_SAVE"
-      );
+            };
+            return {
+              appState: {
+                ...state.appState,
+                version: (state.appState.version || 0) + 1,
+                contests: nextContests,
+                lastUpdated: new Date().toISOString()
+              };
+              return {
+                appState: {
+                  ...state.appState,
+                  version: (state.appState.version || 0) + 1,
+                  contests: nextContests,
+                  lastUpdated: new Date().toISOString()
+                }
+              };
+            },
+              false,
+              "AI_MIXED_SIMULADO_SAVE"
+        );
         markStorageDirty();
       } else {
         await saveAIResultsToSystem(
@@ -1552,6 +1563,7 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
         availableTasks={availableTasks} generatePersonalizedSimulado={generatePersonalizedSimulado}
         generateFullExamSimulado={generateFullExamSimulado}
         triRecommendation={triRecommendation}
+        isAdmin={isAdmin}
         handleGenerate={handleGenerate} isLoading={isLoading} loadingMsgIdx={loadingMsgIdx}
         DIFFICULTIES={DIFFICULTIES} LOADING_MESSAGES={LOADING_MESSAGES}
       />
