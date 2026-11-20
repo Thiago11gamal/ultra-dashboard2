@@ -216,12 +216,10 @@ const flashcardDue = useMemo(() => {
 const userProfile = data?.user;
 
 const updateCoachScore = useAppStore(state => state.updateCoachScore);
-const { currentUser } = useAuth();
 const { isPremium } = useSubscription(currentUser);
 const navigate = useNavigate();
 
 const [activeTab, setActiveTab] = useState('insights');
-const showControlCenter = getCoachFeature({ contestId: activeId }, 'useCoachControlCenter', false);
 const showControlCenter = isAdmin || getCoachFeature({ contestId: activeId }, 'useCoachControlCenter', false);
 
 const VALID_TABS = new Set(showControlCenter ? ['insights', 'analytics', 'control'] : ['insights', 'analytics']);

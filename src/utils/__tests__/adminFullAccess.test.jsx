@@ -51,13 +51,16 @@ describe('Admin Full Unrestricted Access (antunest040@gmail.com)', () => {
     replaceFlags({}, 'admin-test-contest');
   });
 
-  it('rejects unverified spoofed objects without Firebase token provider (fail closed)', () => {
+  it('rejects unverified spoofed objects without Firebase token provider (fail closed)', async () => {
     const spoofed = { uid: 'spoof-uid', email: OWNER_ADMIN_EMAIL };
     expect(isAdminUser(spoofed)).toBe(false);
 
     const { result } = renderHook(() => useSubscription(spoofed));
     expect(result.current.isPremium).toBe(false);
-    expect(result.current.loading).toBe(false);
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.isPremium).toBe(false);
   });
 
   it('grants immediate unrestricted Premium and admin recognition to verified antunest040@gmail.com', () => {
