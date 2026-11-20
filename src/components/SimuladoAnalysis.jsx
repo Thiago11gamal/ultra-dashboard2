@@ -490,7 +490,7 @@ export default function SimuladoAnalysis({ rows: propRows, onRowsChange, onAnaly
             }
         }, viewMode === 'report' ? 0 : 100);
 
-    }, [categoriesArray, rows, viewMode, onAnalysisComplete]);
+    }, [categoriesArray, rows, viewMode, onAnalysisComplete, effectivePenalty]);
 
     React.useEffect(() => {
         if (viewMode === 'report' && rows.length > 0 && !analysisData && !loading && !error) {

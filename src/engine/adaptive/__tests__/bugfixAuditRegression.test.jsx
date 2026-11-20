@@ -143,7 +143,7 @@ describe('Bugfix Audit Regression Suite (12 verified bugs)', () => {
     const rows = [
       { id: 'r1', subject: 'Direito', topic: 'Atos', total: 10, correct: 6, blanks: 1, difficulty: 1 },
     ];
-    const { getByText } = render(
+    const { getByRole } = render(
       <SimuladoAnalysis
         rows={rows}
         onAnalysisComplete={onComplete}
@@ -153,14 +153,14 @@ describe('Bugfix Audit Regression Suite (12 verified bugs)', () => {
       />
     );
 
-    const analyzeBtn = getByText(/Gerar Diagnóstico|Analisar/i);
+    const analyzeBtn = getByRole('button', { name: /GERAR PLANO/i });
     fireEvent.click(analyzeBtn);
     act(() => {
       vi.advanceTimersByTime(1000);
     });
 
     expect(onComplete).toHaveBeenCalledTimes(1);
-    const report = onComplete.mock.calls[0][0];
+    const report = onComplete.mock.calls[0][0].analysis;
     // 6 certas - 3 erradas (1 em branco) = 3 líquidas / 10 = 30%
     expect(report.disciplines[0].percentage).toBe(30);
     expect(report.disciplines[0].topics[0].percentage).toBe(30);

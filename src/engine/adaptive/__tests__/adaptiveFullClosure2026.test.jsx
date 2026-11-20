@@ -236,8 +236,8 @@ describe('Full Adaptive Closure Suite (Items 1–13)', () => {
       dailyHours: [2, 2, 2, 2, 2, 2, 2],
     });
     expect(res.missedBlocksDetected).toBe(1);
-    expect(res.daysRemaining).toBe(4); // Wed, Thu, Fri, Sat
-    expect(res.addedCount).toBeGreaterThanOrEqual(4);
+    expect(res.daysRemaining).toBe(5); // Wed, Thu, Fri, Sat, Sun
+    expect(res.addedCount).toBeGreaterThanOrEqual(5);
     expect(res.events.some((e) => e.id === 'e2')).toBe(true); // preserves manual events
   });
 

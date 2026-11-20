@@ -1233,19 +1233,12 @@ export default function AIGeneratedSimulado({ drillRequest = null, onDrillConsum
               version: (state.appState.version || 0) + 1,
               contests: nextContests,
               lastUpdated: new Date().toISOString()
-            };
-            return {
-              appState: {
-                ...state.appState,
-                version: (state.appState.version || 0) + 1,
-                contests: nextContests,
-                lastUpdated: new Date().toISOString()
-              }
-            };
-          },
-          false,
-          "AI_MIXED_SIMULADO_SAVE"
-        );
+            }
+          };
+        },
+        false,
+        "AI_MIXED_SIMULADO_SAVE"
+      );
         markStorageDirty();
       } else {
         await saveAIResultsToSystem(
