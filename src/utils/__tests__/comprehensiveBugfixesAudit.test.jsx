@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, renderHook, fireEvent, act, cleanup, waitFor } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { current, isDraft } from 'immer';
 import { format } from 'date-fns';
 
@@ -19,7 +20,7 @@ import useIdleLogout from '../../hooks/useIdleLogout';
 import { useSubscription } from '../../hooks/useSubscription';
 import { aggregateHeatmap, calculateSubjectMastery } from '../heatmapAggregation';
 import ActivityHeatmap from '../../components/ActivityHeatmap';
-import EvolutionHeatmap from '../../components/charts/EvolutionHeatmap';
+import { EvolutionHeatmap } from '../../components/charts/EvolutionHeatmap';
 import { retentionFromHalfLife } from '../retentionCore';
 import { fsrsRetrievability } from '../../engine/probabilistic/fsrs';
 import { getAppTimezone, setAppTimezone, getDateKey } from '../dateHelper';
@@ -69,7 +70,6 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
 
   describe('Area 1 — Simulado IA, Immer & Backend /api', () => {
     it('saves multiple same-day AI simulados via Immer setState without mutate+return crash and preserves batchIds', () => {
-      const store = useAppStore.getState();
       const contestId = 'test-ai-immer';
       useAppStore.setState((state) => {
         state.appState.activeId = contestId;
@@ -145,7 +145,7 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
           quantidade: 3,
           contestName: 'TRF',
         })
-      ).rejects.toThrow(/Falha simulada/i);
+      ).rejects.toThrow(/Backend retornou 500/i);
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
@@ -225,24 +225,35 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
 
   describe('Area 2 — Cloud Sync, Tombstones, Backup, Idle Logout & Subscription', () => {
     it('isolates RECOVERED_DIREITO_CONTEST strictly to its legacy UUID and never injects into new contests named Direito', () => {
-      const customDireito = sanitizeContest({
-        id: 'contest-custom-direito',
-        contestName: 'Direito',
-        user: { name: 'Direito' },
-        categories: [],
-      });
+      const customDireito = sanitizeContest(
+        {
+          contestName: 'Direito',
+          user: { name: 'Direito' },
+          categories: [],
+        },
+        'contest-custom-direito'
+      );
       expect(customDireito.categories).toEqual([]);
 
-      const legacyDireito = sanitizeContest({
-        id: 'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66',
-        contestName: 'Direito',
-        categories: [],
-      });
+      const legacyDireito = sanitizeContest(
+        {
+          contestName: 'Direito',
+          categories: [],
+        },
+        'contest-7e146398-1fbf-48b6-904f-98d2f70d9f66'
+      );
       expect(legacyDireito.categories.length).toBeGreaterThan(0);
 
-      const newId = useAppStore.getState().createContest('Direito');
-      const created = useAppStore.getState().appState.contests[newId];
-      expect(created.categories).toEqual([]);
+      // Switching to a custom contest named 'Direito' must NOT inject hardcoded subjects
+      useAppStore.setState((state) => {
+        state.appState.contests['custom-direito-id'] = {
+          contestName: 'Direito',
+          user: { name: 'Direito' },
+          categories: [],
+        };
+      });
+      useAppStore.getState().switchContest('custom-direito-id');
+      expect(useAppStore.getState().appState.contests['custom-direito-id'].categories).toEqual([]);
     });
 
     it('prevents resurrection of deleted tasks, flashcard decks/cards, and agenda events on cloud sync merge', () => {
@@ -393,7 +404,7 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
 
       // Paused pomodoro with activeSubject set MUST NOT prevent logout
       useAppStore.setState((state) => {
-        state.appState.pomodoro.activeSubject = 'Direito Penal';
+        state.appState.pomodoro.activeSubject = { category: 'Direito Penal', task: 'Dolo' };
         state.appState.pomodoro.isRunning = false;
       });
 
@@ -417,7 +428,7 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
       // Active running pomodoro MUST defer logout
       const logout2 = vi.fn();
       useAppStore.setState((state) => {
-        state.appState.pomodoro.activeSubject = 'Direito Penal';
+        state.appState.pomodoro.activeSubject = { category: 'Direito Penal', task: 'Dolo' };
         state.appState.pomodoro.isRunning = true;
       });
       const hook2 = renderHook(() => useIdleLogout(logout2, 10_000, true));
@@ -480,7 +491,12 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
           ],
           studyLogs: [],
         };
-        state.appState.pomodoro.activeSubject = 'AFO';
+        state.appState.pomodoro.activeSubject = {
+          categoryId: 'cat-a',
+          category: 'AFO',
+          taskId: 't1',
+          task: 'PPA',
+        };
         state.appState.pomodoro.isRunning = true;
         state.appState.pomodoro.neuralMode = false;
         state.appState.pomodoro.neuralQueue = [];
@@ -495,7 +511,12 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
 
       // In neuralMode, neuralQueue & neuralMode must remain intact for advanceNeuralQueue
       useAppStore.setState((state) => {
-        state.appState.pomodoro.activeSubject = 'AFO';
+        state.appState.pomodoro.activeSubject = {
+          categoryId: 'cat-a',
+          category: 'AFO',
+          taskId: 't2',
+          task: 'LDO',
+        };
         state.appState.pomodoro.isRunning = true;
         state.appState.pomodoro.neuralMode = true;
         state.appState.pomodoro.neuralQueue = [{ id: 't2', text: 'LDO', category: 'AFO' }];
@@ -536,25 +557,21 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
       const added = useAppStore.getState().appState.contests[contestId].categories[0];
       expect(added.minCutoff).toBeNull();
 
-      // Legacy category with minCutoff: 0 and 30% score must NOT be painted emerald/green
-      const categories = [
-        {
-          id: 'cat-legacy',
-          name: 'Legacy Subject',
-          minCutoff: 0,
-          minScore: 0,
-          maxScore: 100,
-          simuladoStats: {
-            history: [{ id: 'h1', date: '2026-04-10', score: 30, correct: 3, total: 10 }],
+      // Legacy category with minCutoff: 0 and 30% score must fall back to targetScore=80 (NOT painted green #4ade80)
+      const heatmapData = {
+        dates: [{ key: '2026-04-10', label: '10/04', dayName: 'Sex', isWeekend: false }],
+        rows: [
+          {
+            cat: { id: 'cat-legacy', name: 'Legacy Subject', minCutoff: 0, minScore: 0, maxScore: 100 },
+            cells: [{ pct: 30, correct: 3, total: 10, realCorrect: 3, realTotal: 10, isSynthetic: false }],
           },
-        },
-      ];
-      const { container } = render(
-        <EvolutionHeatmap categories={categories} maxScore={100} minScore={0} targetScore={80} />
+        ],
+      };
+      const html = renderToStaticMarkup(
+        <EvolutionHeatmap heatmapData={heatmapData} maxScore={100} minScore={0} targetScore={80} />
       );
-      const cell = Array.from(container.querySelectorAll('td')).find((td) => td.textContent.includes('30%'));
-      expect(cell).toBeTruthy();
-      expect(cell.innerHTML).not.toContain('bg-emerald');
+      expect(html).toContain('30%');
+      expect(html).not.toContain('#4ade80');
     });
 
     it('heatmapAggregation preserves isSynthetic when mixed with zero-volume real cells and parses comma decimals', () => {
@@ -581,12 +598,9 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
       expect(cell.isSynthetic).toBe(true);
       expect(cell.pct).toBeCloseTo(70, 4);
 
-      const mastery = calculateSubjectMastery({
-        cells: [{ correct: '8,5', total: '10,0' }],
-      });
-      expect(mastery.total).toBeCloseTo(10, 4);
-      expect(mastery.correct).toBeCloseTo(8.5, 4);
-      expect(mastery.pct).toBeCloseTo(85, 4);
+      // Bayesian mastery: (8.5 + 5*0.5) / (10 + 5) * 100 = 11 / 15 * 100 = 73.3333%
+      const mastery = calculateSubjectMastery([{ correct: '8,5', total: '10,0' }]);
+      expect(mastery).toBeCloseTo((11 / 15) * 100, 4);
     });
 
     it('ActivityHeatmap aligns civil calendar dates without -1 day shift and tracks session count while skipping flashcards', () => {
@@ -603,7 +617,7 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
       expect(todayBtn).toBeTruthy();
       fireEvent.focus(todayBtn);
       expect(container.textContent).toContain('2 sessões');
-      expect(container.textContent).toContain('1h 15m');
+      expect(container.textContent).toContain('1h15');
     });
 
     it('mc.worker preserves options.projectionDays and historyLength on positional args', async () => {
@@ -626,14 +640,32 @@ describe('Comprehensive Bugfixes Audit Regression Suite', () => {
       fakeSelf.onmessage({
         data: {
           id: 42,
-          type: 'analyze',
-          payload: [history, 80, 30, 300, { projectionDays: 45, historyLength: 7 }],
+          type: 'runMonteCarloAnalysis',
+          payload: {
+            inputOrMean: history,
+            targetScore: 80,
+            options: { projectionDays: 45, simulations: 300, seed: 'worker-proj-test' },
+          },
+        },
+      });
+      fakeSelf.onmessage({
+        data: {
+          id: 43,
+          type: 'runMonteCarloAnalysis',
+          payload: {
+            inputOrMean: history,
+            targetScore: 80,
+            options: { projectionDays: 180, simulations: 300, seed: 'worker-proj-test' },
+          },
         },
       });
 
-      expect(posted).toHaveLength(1);
+      expect(posted).toHaveLength(2);
       expect(posted[0].type).toBe('result');
+      expect(posted[1].type).toBe('result');
       expect(Number.isFinite(posted[0].result.probability)).toBe(true);
+      // Different options.projectionDays must produce different projectedMeans (not both overwritten with 90!)
+      expect(posted[0].result.projectedMean).not.toBe(posted[1].result.projectedMean);
       vi.stubGlobal('self', prevSelf);
     });
 
