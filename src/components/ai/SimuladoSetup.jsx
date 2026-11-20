@@ -330,6 +330,7 @@ export default function SimuladoSetup({
                   ))}
                 </div>
               </div>
+              </div>
 
               {/* Ready summary */}
               <AnimatePresence>
