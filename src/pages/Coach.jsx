@@ -150,10 +150,11 @@ export default function Coach() {
         if (Object.keys(readFlags(scope)).length === 0) {
             loadPersistedCoachFlags(scope);
         }
-    if (isAdmin) {
-        syncAdminCoachFlags(scope);
-    }
-}, [activeId, isAdmin]);
+        if (isAdmin) {
+            const activeContestObj = useAppStore.getState()?.appState?.contests?.[scope] || null;
+            syncAdminCoachFlags(scope, activeContestObj);
+        }
+    }, [activeId, isAdmin]);
 
 useEffect(() => {
     return subscribeFlags(() => {
@@ -547,11 +548,29 @@ const degradedCount = useMemo(() => {
             getSafeCategoryKey(cat.name)
         );
         if (Array.isArray(history) && history.length > 0) {
+            // Alinha critério com RaioXDashboard (média móvel de 7 dias ancorada no último registro — pura)
+            const getTs = (entry) => {
+                if (!entry?.timestamp) return 0;
+                if (typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp)) return entry.timestamp;
+                const n = Number(entry.timestamp);
+                if (Number.isFinite(n)) return n;
+                const ms = toDateMs(entry.timestamp);
+                return Number.isFinite(ms) ? ms : 0;
+            };
+            const maxTs = history.reduce((max, entry) => Math.max(max, getTs(entry)), 0);
+            const sevenDaysAgo = maxTs > 0 ? maxTs - 7 * 24 * 60 * 60 * 1000 : 0;
+            const recent = maxTs > 0 ? history.filter(h => getTs(h) >= sevenDaysAgo) : history;
+            const base = recent.length > 0 ? recent : history;
+            const brierVals = base
+                .filter(h => h?.avgBrier != null && h?.avgBrier !== '' && Number.isFinite(Number(h.avgBrier)))
+                .map(h => Number(h.avgBrier));
+            const penVals = base
+                .filter(h => h?.calibrationPenalty != null && h?.calibrationPenalty !== '' && Number.isFinite(Number(h.calibrationPenalty)))
+                .map(h => Number(h.calibrationPenalty));
+            const avgBrier7d = brierVals.length > 0 ? brierVals.reduce((acc, v) => acc + v, 0) / brierVals.length : null;
+            const avgPen7d = penVals.length > 0 ? penVals.reduce((acc, v) => acc + v, 0) / penVals.length : 0;
             const latest = history[history.length - 1];
-            const brier = latest?.avgBrier != null && latest?.avgBrier !== '' ? Number(latest.avgBrier) : NaN;
-            const pen = latest?.calibrationPenalty != null && latest?.calibrationPenalty !== '' ? Number(latest.calibrationPenalty) : NaN;
-            // FIX: considerar também latest.degraded para manter paridade com isLogDegraded do log de auditoria
-            if (Boolean(latest?.degraded) || (Number.isFinite(brier) && brier >= CRITICAL_BRIER_THRESHOLD) || (Number.isFinite(pen) && pen >= HIGH_PENALTY_THRESHOLD)) {
+            if (Boolean(latest?.degraded) || (avgBrier7d !== null && avgBrier7d >= CRITICAL_BRIER_THRESHOLD) || avgPen7d >= HIGH_PENALTY_THRESHOLD) {
                 count++;
             }
         }
@@ -724,8 +743,13 @@ useEffect(() => {
                             rawSid ? String(rawSid).replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '') : '';
                         const extractTopicKeyFromSid = (rawSid) => {
                             const clean = normalizeTaskSid(rawSid);
-                            const m = clean.match(/^(.+?-topic-[a-zA-Z0-9]+)-\d+-([a-zA-Z0-9]+)$/);
-                            return m ? `${m[1]}-${m[2]}` : null;
+                            const topicMatch = clean.match(/^(.+?-topic-[a-zA-Z0-9]+)-\d+-([a-zA-Z0-9]+)$/);
+                            if (topicMatch) return `${topicMatch[1]}-${topicMatch[2]}`;
+                            const decayOrSyllabus = clean.match(/^(.+?-(?:decay|syllabus)-[a-zA-Z0-9]+)(?:-\d+)?-([a-zA-Z0-9]+)$/);
+                            if (decayOrSyllabus) return decayOrSyllabus[1];
+                            const srsOrSynth = clean.match(/^(.+?-(?:srsblitz|synthesis))(?:-\d+)?-([a-zA-Z0-9]+)$/);
+                            if (srsOrSynth) return `${srsOrSynth[1]}-${srsOrSynth[2]}`;
+                            return null;
                         };
 
                         const isTaskCategoryValid = (taskItem) => {
@@ -1096,6 +1120,7 @@ return (
                                     </>
                                 ) : safeActiveTab === 'control' && showControlCenter ? (
                                     <CoachControlCenter
+                                        embedded
                                         contestId={activeId}
                                         categories={categories}
                                         simulados={combinedHistory}
@@ -1447,7 +1472,8 @@ export function RaioXDashboard({ data }) {
                 const name = displaySubject(log?.categoryName || log?.categoryId, categories);
                 return name === effectiveCategory && Array.isArray(log?.reliability) && log.reliability.length > 0;
             });
-            if (match) return match;
+            // Quando uma disciplina específica está selecionada, nunca vazar a curva/ECE de outra disciplina
+            return match || null;
         }
         return combinedSources.find(log => Array.isArray(log?.reliability) && log.reliability.length > 0) || null;
     }, [sortedLogs, data?.calibrationHistoryByCategory, isActiveCategoryEntry, effectiveCategory, categories]);

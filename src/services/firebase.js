@@ -128,6 +128,8 @@ export async function secureLogout() {
             'coach_auto_tuner_history_v1',
             'coach_evaluation_results_v1',
             'coach_model_health_v1',
+            'coach_strategy_backtest_v1',
+            'coach_decision_bandit_v1',
             'coach_control_center_state_v1',
             'hasSeenWelcomeScreen',
             'page-has-been-force-refreshed',
@@ -151,7 +153,7 @@ export async function secureLogout() {
             clearAllCoachFlags();
         } catch { /* ignore */ }
 
-        // Limpar chaves de rascunho, geração de simulado IA e escopos de flags do Coach AI
+        // Limpar chaves de rascunho, geração de simulado IA e escopos de flags/dados do Coach AI
         try {
             Object.keys(localStorage).forEach(k => {
                 if (
@@ -162,6 +164,13 @@ export async function secureLogout() {
                     k.startsWith('coach_manual_flag_overrides_v1:') ||
                     k.startsWith('coach_control_center_state_v1:') ||
                     k.startsWith('coach_calibration_events_v1::') ||
+                    k.startsWith('coach_flag_optimizer_state_v1:') ||
+                    k.startsWith('coach_causal_model_v1:') ||
+                    k.startsWith('coach_auto_tuner_history_v1:') ||
+                    k.startsWith('coach_evaluation_results_v1:') ||
+                    k.startsWith('coach_model_health_v1:') ||
+                    k.startsWith('coach_strategy_backtest_v1:') ||
+                    k.startsWith('coach_decision_bandit_v1:') ||
                     k.startsWith('pomodoro_transition_lock_') ||
                     k.startsWith('lastRoute_') ||
                     k.startsWith('quarantine:')

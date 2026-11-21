@@ -109,7 +109,7 @@ const ReliabilityCurveChart = ({ buckets }) => {
             className="w-full h-48 sm:h-56"
         >
             <ChartFrame minHeight={192} label="Curva de Confiabilidade">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={192} minWidth={1}>
                 <LineChart
                     data={chartData}
                     margin={{ top: 16, right: 20, left: 6, bottom: 8 }}

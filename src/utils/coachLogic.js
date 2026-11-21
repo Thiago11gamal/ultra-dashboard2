@@ -3226,7 +3226,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     const dormantPriority = isSevereDecay ? 'high' : (safeDays >= 21 ? 'medium' : 'low');
 
                     activeTask = {
-                        id: `${safeCatKey}-decay-${safeSlug}-${i}-${hashString(`${safeCatKey}|decay|${dormant.name}|${i}`)}`,
+                        id: `${safeCatKey}-decay-${safeSlug}-${hashString(`${safeCatKey}|decay|${dormant.name}`)}`,
                         actionType: 'srs_review',
                         text: `${cat.name}: ${getPriorityLabel(dormantPriority)}[Revisão por Recência — ${dormant.name}]`,
                         completed: false,
@@ -3265,7 +3265,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                         const syllabusPriority = syllabusTask.priority || 'medium';
 
                         activeTask = {
-                            id: `${safeCatKey}-syllabus-${safeSlug}-${i}-${hashString(`${safeCatKey}|syllabus|${title}|${i}`)}`,
+                            id: `${safeCatKey}-syllabus-${safeSlug}-${hashString(`${safeCatKey}|syllabus|${title}`)}`,
                             text: `${cat.name}: ${getPriorityLabel(syllabusPriority)}[Avanço de Edital — ${title}]`,
                             completed: false,
                             status: 'pending',
@@ -3323,7 +3323,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                                 srsBlitzAssigned = true;
                                 const srsPriority = dueCards.length >= 15 ? 'high' : (dueCards.length >= 5 ? 'medium' : 'low');
                                 activeTask = {
-                                    id: `${safeCatKey}-srsblitz-${i}-${hashString(`${safeCatKey}|srs|${i}`)}`,
+                                    id: `${safeCatKey}-srsblitz-${hashString(`${safeCatKey}|srs`)}`,
                                     actionType: 'srs_review',
                                     text: `${cat.name}: ${getPriorityLabel(srsPriority)}[SRS Blitz — Zerar ${dueCards.length} Flashcards]`,
                                     completed: false,
@@ -3378,7 +3378,7 @@ export const generateDailyGoals = (categories, simulados, studyLogs = [], option
                     }
 
                     activeTask = {
-                        id: `${safeCatKey}-synthesis-${i}-${hashString(`${safeCatKey}|synthesis|${i}`)}`,
+                        id: `${safeCatKey}-synthesis-${hashString(`${safeCatKey}|synthesis|${resolvedTopicName}`)}`,
                         actionType: 'general_review',
                         text: `${cat.name}: ${getPriorityLabel(reviewPriority)}[Consolidação Teórica — ${resolvedTopicName}]`,
                         completed: false,

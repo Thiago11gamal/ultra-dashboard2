@@ -66,9 +66,29 @@ function normalizeGroupKey(value) {
 export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], options = {}) {
   const maxScore = Number(options.maxScore) > 0 ? Number(options.maxScore) : 100;
   const minScore = Number.isFinite(Number(options.minScore)) ? Math.min(Number(options.minScore), maxScore) : 0;
+  const globalRange = Math.max(1e-6, maxScore - minScore);
   const minTreatmentMinutes = Number(options.minTreatmentMinutes) || 60;
   const categoryId = options.categoryId || null;
   const categoryName = options.categoryName || null;
+  const categoriesList = safeArray(options.categories);
+
+  const resolveCategoryScale = (simulado) => {
+    if (categoriesList.length === 0) return { cMin: minScore, cMax: maxScore };
+    const matched = categoriesList.find((cat) => {
+      if (!cat) return false;
+      if (cat.id != null && simulado?.categoryId != null && String(cat.id) === String(simulado.categoryId)) return true;
+      const simLabel = simulado?.subject || simulado?.categoryName || simulado?.materia || simulado?.disciplina || '';
+      return Boolean(cat.name && simLabel && isSubjectMatch(simLabel, cat.name));
+    });
+    if (!matched) return { cMin: minScore, cMax: maxScore };
+    const cMax = Number.isFinite(Number(matched.maxScore)) && Number(matched.maxScore) > 0
+      ? Number(matched.maxScore)
+      : maxScore;
+    const cMin = Number.isFinite(Number(matched.minScore))
+      ? Math.min(Number(matched.minScore), cMax)
+      : minScore;
+    return { cMin, cMax };
+  };
 
   const seenVolSigs = new Set();
   const safeSimulados = safeArray(simulados)
@@ -86,7 +106,14 @@ export function buildStudyVolumeCausalEvents(simulados = [], studyLogs = [], opt
     })
     .map((simulado, index) => {
       const time = toTime(simulado?.date ?? simulado?.createdAt);
-      const score = getSafeScore(simulado, maxScore, minScore);
+      const { cMin, cMax } = resolveCategoryScale(simulado);
+      const rawScore = getSafeScore(simulado, cMax, cMin);
+      const cRange = Math.max(1e-6, cMax - cMin);
+      const score = Number.isFinite(rawScore)
+        ? (cMax === maxScore && cMin === minScore
+          ? rawScore
+          : minScore + ((rawScore - cMin) / cRange) * globalRange)
+        : NaN;
       return {
         index,
         time,
@@ -465,11 +492,13 @@ export function buildCausalEventsFromHistory(
   const taskEvents = buildTaskCausalEvents(categories, safeSimuladosInput, options);
   const volumeEvents = buildStudyVolumeCausalEvents(effectiveSimuladosForVolume, studyLogs, {
     ...options,
+    categories,
     categoryName: options.categoryName || null,
     categoryId: options.categoryId || null,
   });
   const studyModeEvents = buildStudyModeCausalEvents(effectiveSimuladosForVolume, studyLogs, {
     ...options,
+    categories,
     categoryName: options.categoryName || null,
     categoryId: options.categoryId || null,
   });

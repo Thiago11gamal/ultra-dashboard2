@@ -19,12 +19,22 @@ import {
 import { getSafeScore } from '../../utils/scoreHelper.js';
 import { normalizeDate } from '../../utils/dateHelper.js';
 import { isSubjectMatch } from '../../utils/normalization.js';
+import { DEFAULT_COACH_FEATURES } from '../../utils/coachFeatures.js';
 
 import {
   evaluateCoachSnapshot,
   summarizeCoachEvaluations,
   compareEvaluationSummaries,
 } from './coachEvaluator.js';
+
+// Mapa explícito de baseline com TODAS as flags em false para impedir que
+// estratégias do backtest herdem flags ativas do coachFeatureStore (ex.: Admin/N1-N5).
+const EXPLICIT_BASELINE_FEATURES = Object.freeze(
+  Object.keys(DEFAULT_COACH_FEATURES).reduce((acc, key) => {
+    acc[key] = false;
+    return acc;
+  }, {})
+);
 
 function safeArray(value) {
   if (Array.isArray(value)) return value;
@@ -157,6 +167,40 @@ export function getGranularCoachStrategies() {
       },
     },
     {
+      id: 'lot11-causal-policy',
+      label: 'Lote 11 — Causal Uplift & Policy',
+      features: {
+        useCausalUplift: true,
+        usePersonalizedPolicy: true,
+        useCausalTaskSelection: true,
+      },
+    },
+    {
+      id: 'conservative',
+      label: 'Conservador — Lotes 1 + 2',
+      features: {
+        useStateSpace: true,
+        useStateSpaceAverage: true,
+        useStateSpaceTrend: true,
+        useDynamicVolatility: true,
+        useGarchVolatility: true,
+      },
+    },
+    {
+      id: 'balanced',
+      label: 'Equilibrado — Lotes 1 + 2 + 3 + 4',
+      features: {
+        useStateSpace: true,
+        useStateSpaceAverage: true,
+        useStateSpaceTrend: true,
+        useDynamicVolatility: true,
+        useGarchVolatility: true,
+        usePosteriorMonteCarlo: true,
+        useBayesianTopics: true,
+        useBayesianTopicsForUrgency: true,
+      },
+    },
+    {
       id: 'all-lots',
       label: 'Todos os lotes',
       features: {
@@ -182,6 +226,10 @@ export function getGranularCoachStrategies() {
         useAdvancedFsrs: true,
         useFsrsForSrsBoost: true,
         useFsrsTopicScheduling: true,
+
+        useCausalUplift: true,
+        usePersonalizedPolicy: true,
+        useCausalTaskSelection: true,
       },
     },
   ];
@@ -490,6 +538,7 @@ export function runCoachStrategyBacktest(config = {}) {
             targetScore: splitTargetScore,
             now: split.trainLastDate,
             features: {
+              ...EXPLICIT_BASELINE_FEATURES,
               ...(config.baseFeatures || {}),
               ...(strategy.features || {}),
             },
@@ -613,10 +662,42 @@ export function runCoachStrategyBacktest(config = {}) {
               ? config.getOutcomeTopics(split, category, strategy)
               : (includeTopics ? deriveDefaultOutcomeTopics(split.future) : []);
 
+          // Calcula uplift observado no horizonte (ganho de nota ponderado por alinhamento com tópicos/estudo)
+          const lastTrainEntry = Array.isArray(split.train) && split.train.length > 0
+            ? split.train[split.train.length - 1]
+            : null;
+          const lastTrainScore = lastTrainEntry
+            ? getSafeScore(lastTrainEntry, splitMaxScore, splitMinScore)
+            : NaN;
+          const futureEndMs = Array.isArray(split.future) && split.future.length > 0
+            ? Math.max(...split.future.map((f) => toTime(f?.date ?? f?.createdAt)).filter(Number.isFinite))
+            : NaN;
+          const hadStudyInHorizon = Number.isFinite(cutoffMs) && Number.isFinite(futureEndMs)
+            ? safeArray(studyLogs).some((log) => {
+                const lt = toTime(log?.date ?? log?.createdAt);
+                if (!Number.isFinite(lt) || lt <= cutoffMs || lt > futureEndMs) return false;
+                const mins = Number(log?.minutes ?? log?.minutos ?? log?.duration ?? 0);
+                if (mins <= 0) return false;
+                if (category?.id != null && log?.categoryId != null && String(log.categoryId) === String(category.id)) return true;
+                const logSubj = log?.subject || log?.categoryName || log?.materia || log?.disciplina || '';
+                return Boolean(category?.name && logSubj && isSubjectMatch(logSubj, category.name));
+              }) || safeArray(category?.tasks).some((task) => {
+                if (!task?.completed) return false;
+                const ct = toTime(task.completedAt || task.lastStudiedAt);
+                return Number.isFinite(ct) && ct > cutoffMs && ct <= futureEndMs;
+              })
+            : false;
+
+          const observedUplift =
+            hadStudyInHorizon && Number.isFinite(lastTrainScore) && Number.isFinite(split.observedScore)
+              ? Number((split.observedScore - lastTrainScore).toFixed(4))
+              : null;
+
           const outcome = {
             score: split.observedScore,
             success: observedSuccess,
             relevantTopics: Array.isArray(outcomeTopics) ? outcomeTopics : [],
+            taskUplift: observedUplift,
           };
 
           const evaluation = evaluateCoachSnapshot(snapshot, outcome, {

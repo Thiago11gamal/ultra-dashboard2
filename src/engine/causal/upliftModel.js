@@ -855,7 +855,12 @@ export function estimateUpliftByAction(events = [], options = {}) {
   );
 
   const groups = {};
-  const globalControls = safeEvents.filter((event) => event.treated === 0);
+  const isStudyModeAction = (actionType) => String(actionType || '').startsWith('mode_');
+  // Exclui controles de modalidades (mode_*) do pool globalControls para evitar vazamento
+  // entre ações de tarefas/volume e controles de modalidades específicas.
+  const globalControls = safeEvents.filter(
+    (event) => event.treated === 0 && !isStudyModeAction(event.actionType)
+  );
   const taskControls = safeEvents.filter(
     (event) => event.treated === 0 && event.actionType === 'no_task'
   );
@@ -911,15 +916,32 @@ export function estimateUpliftByAction(events = [], options = {}) {
     });
   });
 
+  // Evita pseudo-replicação até 7x no uplift global quando buildCausalEventsFromHistory
+  // empilha taskEvents + volumeEvents + N cópias de mode_* sobre os mesmos intervalos de simulados.
+  const nonModeEvents = safeEvents.filter((e) => !isStudyModeAction(e.actionType));
+  const candidateGlobalEvents = nonModeEvents.length > 0 ? nonModeEvents : safeEvents;
+  const seenIntervalKeys = new Set();
+  const globalPool = [];
+  candidateGlobalEvents.forEach((ev) => {
+    const ts = Number(ev?.timestamp);
+    if (Number.isFinite(ts) && ts > 0) {
+      const sig = `${ts}|${Number(ev.baselineScore).toFixed(3)}|${Number(ev.outcomeDelta).toFixed(3)}`;
+      if (seenIntervalKeys.has(sig)) return;
+      seenIntervalKeys.add(sig);
+    }
+    globalPool.push(ev);
+  });
+
   const global =
-    safeEvents.length >= minSamplesPerAction
-      ? estimateCausalUplift(safeEvents, options)
-      : estimateNaiveUplift(safeEvents);
+    globalPool.length >= minSamplesPerAction
+      ? estimateCausalUplift(globalPool, options)
+      : estimateNaiveUplift(globalPool);
 
   return {
     global,
     actions,
-    sampleSize: safeEvents.length,
+    sampleSize: globalPool.length,
+    totalEventsCount: safeEvents.length,
     actionCounts: Object.fromEntries(
       Object.entries(groups).map(([actionType, groupEvents]) => [
         actionType,

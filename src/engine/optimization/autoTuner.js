@@ -19,6 +19,7 @@ import {
 import { computeCalibrationDiagnostics } from '../../utils/calibration.js';
 import { safeSetItem, safeGetJSON } from '../../utils/coachStorage.js';
 import { readFlags } from '../../utils/coachFeatureStore.js';
+import { getCoachFeature } from '../../utils/coachFeatures.js';
 
 const TUNER_HISTORY_KEY = 'coach_auto_tuner_history_v1';
 const BACKTEST_REPORT_KEY = 'coach_strategy_backtest_v1';
@@ -280,13 +281,18 @@ export function runAutoTunerCycle(options = {}) {
     persistedFlags ||
     {};
 
+  const effectiveAllowRollback =
+    typeof options.allowRollback === 'boolean'
+      ? options.allowRollback
+      : getCoachFeature({ contestId, features: currentFeatures }, 'useAutoRollback', true);
+
   const recommendation = recommendFlagConfig({
     contestId,
     ranked,
     latestHealth,
     currentFeatures,
     minImprovement: options.minImprovement ?? 0.02,
-    allowRollback: options.allowRollback !== false,
+    allowRollback: effectiveAllowRollback,
     exploration: options.exploration === true,
     seed: options.seed,
   });
@@ -306,7 +312,7 @@ export function runAutoTunerCycle(options = {}) {
       autoApply: options.autoApply === true,
       forceApply: options.forceApply === true,
       exploration: options.exploration === true,
-      allowRollback: options.allowRollback !== false,
+      allowRollback: effectiveAllowRollback,
     },
     inputs: {
       evaluationsCount: evaluations.length,

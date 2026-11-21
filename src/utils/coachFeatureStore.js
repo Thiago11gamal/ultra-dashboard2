@@ -57,7 +57,7 @@ export function readFlags(contestId) {
 }
 
 /** Atualiza flags atomicamente. Retorna o novo snapshot. */
-export function writeFlags(patch, contestId) {
+export function writeFlags(patch, contestId, options = {}) {
   if (!patch || typeof patch !== 'object') return readFlags(contestId);
   const registry = getRegistry(contestId);
   const clean = {};
@@ -67,7 +67,9 @@ export function writeFlags(patch, contestId) {
     }
   }
   Object.assign(registry, clean);
-  notifyFlagListeners(contestId);
+  if (!options?.silent) {
+    notifyFlagListeners(contestId);
+  }
   return readFlags(contestId);
 }
 

@@ -322,17 +322,20 @@ export function useMonteCarloStats({
 
   const [debouncedTarget, setDebouncedTarget] = useState(targetScore);
   const [debouncedWeights, setDebouncedWeights] = useState(() => effectiveWeights);
+  const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data', contestId: activeId });
 
   const lastRecordedGlobalPredRef = useRef('');
   const lastRecordedSubjectPredsRef = useRef('');
   const prevActiveIdRef = useRef(activeId);
 
-  // B3 FIX: sincronizar imediatamente target e pesos ao trocar de concurso ativo (sem bleed de 300ms)
+  // B3 FIX: sincronizar imediatamente target, pesos e invalidar simulationData ao trocar de concurso ativo
+  // (impede vazamento da nota projetada do concurso anterior para o novo durante o debounce de 150ms)
   useEffect(() => {
     if (prevActiveIdRef.current !== activeId) {
       prevActiveIdRef.current = activeId;
       setDebouncedTarget(targetScore);
       setDebouncedWeights(effectiveWeights);
+      setSimulationData({ status: 'waiting', missing: 'switching', contestId: activeId });
       lastRecordedGlobalPredRef.current = '';
       lastRecordedSubjectPredsRef.current = '';
     }
@@ -441,25 +444,25 @@ export function useMonteCarloStats({
 
     const calibratedCategoryStats = Array.isArray(pureStatsData.categoryStats)
       ? pureStatsData.categoryStats.map(cat => {
-          const cMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : safeMin;
-          const cMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : Math.max(cMin + 1, safeMax);
-          const cFloor = Math.max(1e-6, cMax - cMin) * 0.02;
-          const calSd = calibrateSpreadWithFloor(cat.sd, cFloor, calibrationPenalty);
-          const calBayesSd = cat.bayesianSd != null ? calibrateSpreadWithFloor(cat.bayesianSd, cFloor, calibrationPenalty) : cat.bayesianSd;
-          const calTempBayesSd = cat.temporalBayesianSd != null ? calibrateSpreadWithFloor(cat.temporalBayesianSd, cFloor, calibrationPenalty) : cat.temporalBayesianSd;
-          const calVol = cat.volatility != null ? calibrateSpreadWithFloor(cat.volatility, cFloor, calibrationPenalty) : cat.volatility;
-          const catBaseSd = Number(cat.bayesianSd ?? cat.sd ?? 0);
-          const catNextSd = Number(calBayesSd ?? calSd ?? 0);
-          const catRatio = catBaseSd > 1e-6 ? catNextSd / catBaseSd : ratioPooled;
-          return {
-            ...cat,
-            sd: calSd,
-            bayesianSd: calBayesSd,
-            temporalBayesianSd: calTempBayesSd,
-            volatility: calVol,
-            bayesianCI: expandCIWithRatio(cat.bayesianCI, catRatio, cMin, cMax)
-          };
-        })
+        const cMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : safeMin;
+        const cMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : Math.max(cMin + 1, safeMax);
+        const cFloor = Math.max(1e-6, cMax - cMin) * 0.02;
+        const calSd = calibrateSpreadWithFloor(cat.sd, cFloor, calibrationPenalty);
+        const calBayesSd = cat.bayesianSd != null ? calibrateSpreadWithFloor(cat.bayesianSd, cFloor, calibrationPenalty) : cat.bayesianSd;
+        const calTempBayesSd = cat.temporalBayesianSd != null ? calibrateSpreadWithFloor(cat.temporalBayesianSd, cFloor, calibrationPenalty) : cat.temporalBayesianSd;
+        const calVol = cat.volatility != null ? calibrateSpreadWithFloor(cat.volatility, cFloor, calibrationPenalty) : cat.volatility;
+        const catBaseSd = Number(cat.bayesianSd ?? cat.sd ?? 0);
+        const catNextSd = Number(calBayesSd ?? calSd ?? 0);
+        const catRatio = catBaseSd > 1e-6 ? catNextSd / catBaseSd : ratioPooled;
+        return {
+          ...cat,
+          sd: calSd,
+          bayesianSd: calBayesSd,
+          temporalBayesianSd: calTempBayesSd,
+          volatility: calVol,
+          bayesianCI: expandCIWithRatio(cat.bayesianCI, catRatio, cMin, cMax)
+        };
+      })
       : pureStatsData.categoryStats;
 
     return {
@@ -545,7 +548,6 @@ export function useMonteCarloStats({
   }, [statsData]);
 
   const { runAnalysis, runSubjectBatch } = useMonteCarloWorker();
-  const [simulationData, setSimulationData] = useState({ status: 'waiting', missing: 'data' });
   const [subjectBatchTick, setSubjectBatchTick] = useState(0);
 
   useEffect(() => {
@@ -878,7 +880,7 @@ export function useMonteCarloStats({
           }
 
           if (isMountedRef.current) {
-            setSimulationData({ status: 'ready', data: result });
+            setSimulationData({ status: 'ready', data: result, contestId: activeId });
           }
 
           maybeRecordGlobalCalibrationPrediction({
@@ -914,7 +916,7 @@ export function useMonteCarloStats({
           }
 
           if (isMountedRef.current) {
-            setSimulationData({ status: 'ready', data: result });
+            setSimulationData({ status: 'ready', data: result, contestId: activeId });
           }
 
           maybeRecordGlobalCalibrationPrediction({
@@ -941,6 +943,7 @@ export function useMonteCarloStats({
     // indiretamente via pureStatsHash — mudanças estruturais nas categorias
     // que não alterassem o hash usavam dados stale.
   }, [
+    activeId,
     pureStatsHash,
     runAnalysis,
     debouncedTarget,
@@ -1071,6 +1074,11 @@ export function useMonteCarloStats({
 
     const base = simulationData;
 
+    // Impede que dados prontos de um concurso anterior sejam expostos durante a troca de activeId
+    if (base?.contestId && activeId && base.contestId !== activeId) {
+      return { status: 'waiting', missing: 'switching', contestId: activeId };
+    }
+
     if (base?.status === 'ready' && base.data) {
       return {
         ...base,
@@ -1092,6 +1100,7 @@ export function useMonteCarloStats({
 
     return base;
   }, [
+    activeId,
     statsData,
     simulationData,
     calibrationSummary,
@@ -1195,8 +1204,8 @@ export function useMonteCarloStats({
 
         const simRowsSig = Array.isArray(rawSimuladoRows)
           ? rawSimuladoRows
-              .map(r => `${r?.id || ''}:${r?.date || ''}:${r?.categoryId || ''}:${r?.score ?? r?.correct ?? ''}:${r?.total ?? ''}`)
-              .join(',')
+            .map(r => `${r?.id || ''}:${r?.date || ''}:${r?.categoryId || ''}:${r?.score ?? r?.correct ?? ''}:${r?.total ?? ''}`)
+            .join(',')
           : '';
         // ✅ Cache por matéria com TTL (Performance #16)
         const simKey = [

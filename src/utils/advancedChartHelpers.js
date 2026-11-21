@@ -1364,12 +1364,13 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
   }
 
   // Assign topological layers (longest path from roots, cycle-safe)
+  const maxAllowedLayer = Math.max(5, Math.min(12, Math.max(1, metrics.topics.length - 1)));
   const layerMap = new Map(metrics.topics.map((t) => [t.normalizedKey, 0]));
   for (let pass = 0; pass < metrics.topics.length; pass++) {
     let changed = false;
     rawEdges.forEach((e) => {
       const nextLayer = (layerMap.get(e.from) || 0) + 1;
-      if (nextLayer > (layerMap.get(e.to) || 0) && nextLayer <= 5) {
+      if (nextLayer > (layerMap.get(e.to) || 0) && nextLayer <= maxAllowedLayer) {
         layerMap.set(e.to, nextLayer);
         changed = true;
       }
@@ -1386,7 +1387,7 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
 
   const sortedLayers = Array.from(byLayer.keys()).sort((a, b) => a - b);
   const layerCount = Math.max(1, sortedLayers.length);
-  const width = 760;
+  const width = Math.max(760, layerCount * 165);
   const maxNodesInLayer = Math.max(1, ...Array.from(byLayer.values()).map((arr) => arr.length));
   const height = Math.max(240, maxNodesInLayer * 78 + 48);
 
@@ -1450,6 +1451,43 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
 // ============================================================================
 export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {}, healthSnapshots = [], options = {}) {
   const categoryFilter = options.categoryFilter || 'all';
+  const activeCategories = safeArr(options.categories);
+  const hasCategoryWhitelist = activeCategories.length > 0;
+  const activeCategoryKeys = new Set();
+  const displayNameByNorm = new Map();
+  activeCategories.forEach((c) => {
+    if (!c) return;
+    const displayName = String(c.name || c.id || '').trim();
+    if (c.id != null) {
+      const nk = normalize(String(c.id));
+      if (nk) {
+        activeCategoryKeys.add(nk);
+        if (displayName) displayNameByNorm.set(nk, displayName);
+      }
+    }
+    if (c.name) {
+      const nn = normalize(String(c.name));
+      if (nn) {
+        activeCategoryKeys.add(nn);
+        if (displayName) displayNameByNorm.set(nn, displayName);
+      }
+    }
+  });
+
+  const isAllowedCategory = (rawId, rawName) => {
+    if (!hasCategoryWhitelist) return true;
+    const nkId = rawId != null ? normalize(String(rawId)) : '';
+    const nkName = rawName != null ? normalize(String(rawName)) : '';
+    if (nkId === 'global' || nkName === 'global' || nkName === 'geral') return true;
+    return (nkId && activeCategoryKeys.has(nkId)) || (nkName && activeCategoryKeys.has(nkName));
+  };
+
+  const resolveDisplayLabel = (rawId, rawName) => {
+    const nkId = rawId != null ? normalize(String(rawId)) : '';
+    const nkName = rawName != null ? normalize(String(rawName)) : '';
+    return displayNameByNorm.get(nkId) || displayNameByNorm.get(nkName) || String(rawName || rawId || 'Geral');
+  };
+
   const rawPoints = [];
 
   const pushPoint = (ts, brier, ece, label = '') => {
@@ -1457,20 +1495,23 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
     const b = toFinite(brier, null);
     const e = toFinite(ece, null);
     if (!Number.isFinite(t) || t <= 0 || (b === null && e === null)) return;
-    rawPoints.push({ ts: t, brier: b, ece: e, label });
+    rawPoints.push({ ts: t, brier: b, ece: e, label, normLabel: normalize(label) });
   };
 
   safeArr(auditLogs).forEach((log) => {
-    const cat = String(log.categoryName || log.categoryId || 'Geral');
-    if (categoryFilter !== 'all' && normalize(cat) !== normalize(categoryFilter)) return;
+    if (!isAllowedCategory(log.categoryId, log.categoryName)) return;
+    const cat = resolveDisplayLabel(log.categoryId, log.categoryName);
+    if (categoryFilter !== 'all' && normalize(cat) !== normalize(categoryFilter) && normalize(String(log.categoryId || '')) !== normalize(categoryFilter)) return;
     pushPoint(log.timestamp ?? log.ts, log.avgBrier ?? log.brier, log.ece, cat);
   });
 
   if (historyByCategory && typeof historyByCategory === 'object') {
     Object.entries(historyByCategory).forEach(([catKey, list]) => {
-      if (categoryFilter !== 'all' && normalize(catKey) !== normalize(categoryFilter)) return;
       safeArr(list).forEach((item) => {
-        pushPoint(item.timestamp ?? item.ts, item.avgBrier ?? item.brier, item.ece, catKey);
+        if (!isAllowedCategory(catKey, item?.categoryName)) return;
+        const cat = resolveDisplayLabel(catKey, item?.categoryName);
+        if (categoryFilter !== 'all' && normalize(cat) !== normalize(categoryFilter) && normalize(catKey) !== normalize(categoryFilter)) return;
+        pushPoint(item.timestamp ?? item.ts, item.avgBrier ?? item.brier, item.ece, cat);
       });
     });
   }
@@ -1480,8 +1521,8 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
       const m = snap?.metrics || {};
       pushPoint(
         snap.generatedAt ?? snap.timestamp,
-        m.avgBrier ?? m.brier ?? m.calibration?.avgBrier,
-        m.ece ?? m.calibration?.ece,
+        m.currentCalibration?.avgBrier ?? m.calibrationDrift?.recentMean ?? m.avgBrier ?? m.brier ?? m.calibration?.avgBrier,
+        m.currentCalibration?.ece ?? m.ece ?? m.calibration?.ece,
         'Global'
       );
     });
@@ -1489,19 +1530,49 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
 
   rawPoints.sort((a, b) => a.ts - b.ts);
 
-  // Dedupe points within 1 second
+  // Dedupe points within 1 second using normalized label (evita duplicatas entre auditLog e historyByCategory)
   const deduped = [];
   rawPoints.forEach((pt) => {
     const prev = deduped[deduped.length - 1];
-    if (prev && Math.abs(prev.ts - pt.ts) < 1000 && prev.label === pt.label) return;
+    if (prev && Math.abs(prev.ts - pt.ts) < 1000 && prev.normLabel === pt.normLabel) return;
     const d = new Date(pt.ts);
     deduped.push({
-      ...pt,
-      dateLabel: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
+      ts: pt.ts,
       brier: pt.brier !== null ? Number(pt.brier.toFixed(4)) : null,
       ece: pt.ece !== null ? Number(pt.ece.toFixed(4)) : null,
+      label: pt.label,
+      normLabel: pt.normLabel,
+      dateLabel: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
     });
   });
 
-  return deduped.slice(-30);
+  // Quando visualizando 'all' com múltiplas disciplinas no mesmo dia, agrega por dia
+  // para evitar zigue-zague artificial entre disciplinas diferentes.
+  const distinctLabels = new Set(deduped.map((p) => p.normLabel).filter(Boolean));
+  if (categoryFilter === 'all' && distinctLabels.size > 1) {
+    const byDay = new Map();
+    deduped.forEach((pt) => {
+      const dayKey = new Date(pt.ts).toISOString().slice(0, 10);
+      if (!byDay.has(dayKey)) {
+        byDay.set(dayKey, { ts: pt.ts, dateLabel: pt.dateLabel, briers: [], eces: [], labels: new Set() });
+      }
+      const bucket = byDay.get(dayKey);
+      bucket.ts = Math.max(bucket.ts, pt.ts);
+      if (pt.brier !== null) bucket.briers.push(pt.brier);
+      if (pt.ece !== null) bucket.eces.push(pt.ece);
+      if (pt.label) bucket.labels.add(pt.label);
+    });
+    const aggregated = Array.from(byDay.values())
+      .sort((a, b) => a.ts - b.ts)
+      .map((b) => ({
+        ts: b.ts,
+        dateLabel: b.dateLabel,
+        brier: b.briers.length > 0 ? Number((b.briers.reduce((x, y) => x + y, 0) / b.briers.length).toFixed(4)) : null,
+        ece: b.eces.length > 0 ? Number((b.eces.reduce((x, y) => x + y, 0) / b.eces.length).toFixed(4)) : null,
+        label: b.labels.size === 1 ? Array.from(b.labels)[0] : `Média (${b.labels.size} disciplinas)`,
+      }));
+    return aggregated.slice(-30);
+  }
+
+  return deduped.map(({ normLabel: _normLabel, ...rest }) => rest).slice(-30);
 }

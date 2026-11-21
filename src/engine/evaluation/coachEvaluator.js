@@ -317,6 +317,14 @@ export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {})
     );
   }
 
+  const rawOutcomeUplift = toFinite(outcome?.taskUplift, null);
+  const taskUpliftEvaluation = rawOutcomeUplift !== null
+    ? {
+        uplift: Number(rawOutcomeUplift.toFixed(4)),
+        source: 'backtest_horizon',
+      }
+    : null;
+
   return {
     id:
       snapshot?.id ||
@@ -332,7 +340,7 @@ export function evaluateCoachSnapshot(snapshot = {}, outcome = {}, options = {})
     probabilityEvaluation,
     scoreEvaluation,
     topicEvaluation,
-    taskUpliftEvaluation: null,
+    taskUpliftEvaluation,
     meta: {
       snapshotKeys: Object.keys(snapshot || {}),
       outcomeKeys: Object.keys(outcome || {}),
@@ -502,13 +510,6 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
   const rawDeltaNdcg = pairDelta(candTopics.avgNdcg, baseTopics.avgNdcg);
   const rawDeltaPrecision = pairDelta(candTopics.avgPrecisionAtK, baseTopics.avgPrecisionAtK);
 
-  const deltaBrier = rawDeltaBrier ?? 0;
-  const deltaLogLoss = rawDeltaLogLoss ?? 0;
-  const deltaEce = rawDeltaEce ?? 0;
-  const deltaMae = rawDeltaMae ?? 0;
-  const deltaNdcg = rawDeltaNdcg ?? 0;
-  const deltaPrecision = rawDeltaPrecision ?? 0;
-
   let weightedSum = 0;
   let totalWeight = 0;
 
@@ -545,16 +546,21 @@ export function compareEvaluationSummaries(baseline = {}, candidate = {}) {
     winner = 'baseline';
   }
 
+  const formatOptionalDelta = (val, digits) =>
+    val === null || val === undefined || !Number.isFinite(val)
+      ? null
+      : Number(val.toFixed(digits));
+
   return {
     baselineCount: baseline?.count ?? 0,
     candidateCount: candidate?.count ?? 0,
     delta: {
-      brier: Number(deltaBrier.toFixed(6)),
-      logLoss: Number(deltaLogLoss.toFixed(6)),
-      ece: Number(deltaEce.toFixed(6)),
-      mae: Number(deltaMae.toFixed(4)),
-      ndcg: Number(deltaNdcg.toFixed(6)),
-      precisionAtK: Number(deltaPrecision.toFixed(6)),
+      brier: formatOptionalDelta(rawDeltaBrier, 6),
+      logLoss: formatOptionalDelta(rawDeltaLogLoss, 6),
+      ece: formatOptionalDelta(rawDeltaEce, 6),
+      mae: formatOptionalDelta(rawDeltaMae, 4),
+      ndcg: formatOptionalDelta(rawDeltaNdcg, 6),
+      precisionAtK: formatOptionalDelta(rawDeltaPrecision, 6),
     },
     heuristicScore: Number(heuristicScore.toFixed(6)),
     winner,

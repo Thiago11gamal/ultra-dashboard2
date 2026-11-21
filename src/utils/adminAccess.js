@@ -92,7 +92,7 @@ export function syncAdminCoachFlags(contestId = 'default', contest = null, optio
   }
 
   if (changed) {
-    writeFlags(patch, scope);
+    writeFlags(patch, scope, { silent: options.silent === true });
   }
   return {
     changed,

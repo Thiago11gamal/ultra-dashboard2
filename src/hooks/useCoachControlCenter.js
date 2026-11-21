@@ -17,7 +17,12 @@ import {
 } from '../utils/coachOptimizer.js';
 import {
   runGranularCoachBacktest,
+  saveEvaluationResult,
 } from '../utils/coachEvaluation.js';
+import {
+  recordStrategyOutcome,
+  scoreStrategyEvaluation,
+} from '../engine/optimization/flagOptimizer.js';
 import {
   loadCausalModel,
   buildCausalEventsFromHistory,
@@ -60,6 +65,26 @@ function persistManualFlagOverrides(overrides, contestId, allFlags = null) {
   } catch {
     // ignore in isolated non-store test runs
   }
+}
+
+function getActiveContestSnapshot(contestId) {
+  try {
+    const scope = String(contestId || 'default');
+    return useAppStore.getState?.()?.appState?.contests?.[scope] || null;
+  } catch {
+    return null;
+  }
+}
+
+function buildPinnedOverridesFromFlags(flags) {
+  if (!flags || typeof flags !== 'object') return {};
+  const pinned = {};
+  for (const [k, v] of Object.entries(flags)) {
+    if (typeof v === 'boolean' && isValidFeatureKey(k)) {
+      pinned[k] = v;
+    }
+  }
+  return pinned;
 }
 
 function resolveControlCenterStorageKey(contestId) {
@@ -145,7 +170,8 @@ export function useCoachControlCenter({
       loadPersistedCoachFlags(resolvedContestId, { silent: true });
     }
     if (isAdmin) {
-      syncAdminCoachFlags(resolvedContestId);
+      // silent: true evita disparar subscribeFlags -> setFlagRevision no pai (Coach.jsx) durante o render
+      syncAdminCoachFlags(resolvedContestId, getActiveContestSnapshot(resolvedContestId), { silent: true });
     }
     return readFlags(resolvedContestId) || {};
   });
@@ -197,6 +223,7 @@ export function useCoachControlCenter({
     // Aborta execuções pendentes do concurso anterior para evitar race conditions
     orchestratorRunIdRef.current += 1;
     tunerRunIdRef.current += 1;
+    pendingRunsRef.current = 0;
     if (orchestratorAbortRef.current) orchestratorAbortRef.current.abort();
     if (tunerAbortControllerRef.current) tunerAbortControllerRef.current.abort();
 
@@ -206,7 +233,7 @@ export function useCoachControlCenter({
       loadPersistedCoachFlags(resolvedContestId, { silent: true });
     }
     if (isAdmin) {
-      syncAdminCoachFlags(resolvedContestId);
+      syncAdminCoachFlags(resolvedContestId, getActiveContestSnapshot(resolvedContestId), { silent: true });
     }
     const loadedFlags = readFlags(resolvedContestId) || {};
     const nextOverrides = savedState?.flagOverrides || {};
@@ -220,6 +247,7 @@ export function useCoachControlCenter({
       if (!isMounted.current) return;
       completed = true;
       syncedContestIdRef.current = resolvedContestId;
+      setLoading(false);
       setCurrentFlags(loadedFlags);
       setFlagOverrides(nextOverrides);
       setActiveTab(savedState?.activeTab || 'overview');
@@ -247,13 +275,14 @@ export function useCoachControlCenter({
   // Garante desbloqueio total imediato se a sessão Admin autenticar após o mount inicial
   useEffect(() => {
     if (!isAdmin) return;
-    const res = syncAdminCoachFlags(resolvedContestId);
-    const nextFlags = res?.finalFlags || readFlags(resolvedContestId) || {};
+    const res = syncAdminCoachFlags(resolvedContestId, getActiveContestSnapshot(resolvedContestId));
+    if (!res?.changed) return;
     const timer = setTimeout(() => {
       if (!isMounted.current) return;
-      setCurrentFlags(nextFlags);
+      const latestFlags = readFlags(resolvedContestId) || {};
+      setCurrentFlags(latestFlags);
       if (Object.keys(flagOverridesRef.current || {}).length === 0) {
-        initialFlagsRef.current = nextFlags;
+        initialFlagsRef.current = latestFlags;
       }
     }, 0);
     return () => clearTimeout(timer);
@@ -333,10 +362,30 @@ export function useCoachControlCenter({
             setDashboard(null);
             setError(result.error || result.reason || 'Falha ao executar orquestrador.');
           } else {
-            setOrchestratorResult(result);
-            const dash = buildCoachOrchestratorDashboard(result);
-            setDashboard(dash || null);
+            // Preserva o último health calculado quando uma execução parcial (ex.: botão do LLMPanel)
+            // dispara runHealth: false, evitando apagar o card "Saúde do Modelo" da Visão Geral.
             const updatedHealth = loadModelHealthSnapshots(targetContestId);
+            const fallbackHealth = (Array.isArray(updatedHealth) && updatedHealth.length > 0)
+              ? updatedHealth[updatedHealth.length - 1]
+              : null;
+            let mergedResult = result;
+            setOrchestratorResult((prev) => {
+              const preservedHealth = result.health ?? prev?.health ?? fallbackHealth;
+              mergedResult = preservedHealth && !result.health
+                ? { ...result, health: preservedHealth }
+                : result;
+              return mergedResult;
+            });
+            const dash = buildCoachOrchestratorDashboard(
+              !result.health && fallbackHealth ? { ...result, health: fallbackHealth } : mergedResult
+            );
+            setDashboard((prevDash) => {
+              if (!dash) return null;
+              if (!dash.health && prevDash?.health) {
+                return { ...dash, health: prevDash.health };
+              }
+              return dash;
+            });
             if (Array.isArray(updatedHealth) && updatedHealth.length > 0) {
               setHealthSnapshots(updatedHealth);
             } else if (result.health) {
@@ -369,7 +418,7 @@ export function useCoachControlCenter({
   }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, currentFlags, flagOverrides, resolvedContestId]);
 
   // ==========================================================
-  // Carregar dados auxiliares
+  // Carregar dados auxiliares (somente leitura: nunca sobrescreve store em memória)
   // ==========================================================
   const loadAuxiliaryData = useCallback(() => {
     try {
@@ -381,8 +430,10 @@ export function useCoachControlCenter({
       setCausalModel(causal);
       const health = loadModelHealthSnapshots(resolvedContestId);
       setHealthSnapshots(Array.isArray(health) ? health : []);
-      const flags = loadPersistedCoachFlags(resolvedContestId);
-      setCurrentFlags(flags || {});
+      const inMemory = readFlags(resolvedContestId);
+      const persisted = loadPersistedCoachFlags(resolvedContestId, { applyToStore: false });
+      const activeFlags = Object.keys(inMemory || {}).length > 0 ? inMemory : (persisted || {});
+      setCurrentFlags(activeFlags);
     } catch (err) {
       console.warn('[ControlCenter] Failed to load auxiliary data:', err);
     }
@@ -424,7 +475,10 @@ export function useCoachControlCenter({
         loadAuxiliaryData();
         if (result?.applied) {
           clearCoachCaches();
-          const flags = loadPersistedCoachFlags(resolvedContestId) || {};
+          const flags = loadPersistedCoachFlags(resolvedContestId, { applyToStore: false }) || readFlags(resolvedContestId) || {};
+          // Persiste como overrides explícitos no contest/storage para que AdaptiveMaturityBadge
+          // e syncAdminCoachFlags não revertam a estratégia aplicada pelo AutoTuner.
+          persistManualFlagOverrides(buildPinnedOverridesFromFlags(flags), resolvedContestId, flags);
           setCurrentFlags(flags);
           flagOverridesRef.current = {};
           setFlagOverrides({});
@@ -457,8 +511,11 @@ export function useCoachControlCenter({
       });
       if (applied) {
         clearCoachCaches();
+        const flags = loadPersistedCoachFlags(targetContestId, { applyToStore: false }) || readFlags(targetContestId) || {};
+        // Persiste os flags aplicados nos overrides do concurso para impedir reversão por
+        // AdaptiveMaturityBadge / syncAdminCoachFlags no próximo patchData.
+        persistManualFlagOverrides(buildPinnedOverridesFromFlags(flags), targetContestId, flags);
         if (targetContestId === resolvedContestId) {
-          const flags = loadPersistedCoachFlags(targetContestId) || {};
           setCurrentFlags(flags);
           flagOverridesRef.current = {};
           setFlagOverrides({});
@@ -496,6 +553,7 @@ export function useCoachControlCenter({
       const next = { ...current, ...baseline };
       replaceFlags(next, resolvedContestId);
       persistCoachFlags(next, resolvedContestId);
+      persistManualFlagOverrides(buildPinnedOverridesFromFlags(next), resolvedContestId, next);
       clearCoachCaches();
       setCurrentFlags(next);
       flagOverridesRef.current = {};
@@ -573,95 +631,131 @@ export function useCoachControlCenter({
   // ==========================================================
   // Executar Backtest Granular
   // ==========================================================
-  const runBacktest = useCallback(() => {
+  const runBacktest = useCallback((options = {}) => {
+    const execute = () => {
+      try {
+        setError(null);
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const safeSims = Array.isArray(simulados) && simulados.length > 0
+          ? simulados
+          : safeCats.flatMap((cat) => {
+            const hist = (Array.isArray(cat?.simuladoStats?.history)
+              ? cat.simuladoStats.history
+              : Object.values(cat?.simuladoStats?.history || {})
+            ).filter((entry) => entry && entry.valid !== false);
+            return hist.map((entry) => ({
+              ...entry,
+              categoryId: entry?.categoryId ?? cat?.id,
+              subject: entry?.subject || entry?.categoryName || cat?.name || '',
+            }));
+          });
+        const report = runGranularCoachBacktest(safeCats, safeSims, studyLogs, {
+          maxScore,
+          minScore,
+          targetScore,
+          contestId: resolvedContestId,
+        });
+        if (report && typeof report === 'object') {
+          saveBacktestReport(report, resolvedContestId);
+          // Conecta o pipeline de avaliação e aprendizado do otimizador (Thompson Sampling)
+          try {
+            const rawPreferred = report.raw?.['all-lots'] || report.raw?.baseline || [];
+            rawPreferred.slice(-20).forEach((ev) => {
+              if (ev && typeof ev === 'object') {
+                saveEvaluationResult(ev, resolvedContestId);
+              }
+            });
+            Object.entries(report.summaries || {}).forEach(([stratId, summary]) => {
+              if (!summary || (summary.count || 0) <= 0) return;
+              const scored = scoreStrategyEvaluation(summary, null, { maxScore, minScore });
+              if (Number.isFinite(scored?.final)) {
+                recordStrategyOutcome(stratId, scored.final, resolvedContestId);
+              }
+            });
+          } catch {
+            // telemetry best-effort
+          }
+          if (isMounted.current) {
+            setBacktestReport(report);
+          }
+        }
+        return report;
+      } catch (err) {
+        if (isMounted.current) {
+          setError(err?.message || String(err));
+        }
+        return null;
+      } finally {
+        pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
+        if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
+      }
+    };
+
     pendingRunsRef.current += 1;
     setLoading(true);
-    try {
-      setError(null);
-      const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-      const safeSims = Array.isArray(simulados) && simulados.length > 0
-        ? simulados
-        : safeCats.flatMap((cat) => {
-          const hist = (Array.isArray(cat?.simuladoStats?.history)
-            ? cat.simuladoStats.history
-            : Object.values(cat?.simuladoStats?.history || {})
-          ).filter((entry) => entry && entry.valid !== false);
-          return hist.map((entry) => ({
-            ...entry,
-            categoryId: entry?.categoryId ?? cat?.id,
-            subject: entry?.subject || entry?.categoryName || cat?.name || '',
-          }));
-        });
-      const report = runGranularCoachBacktest(safeCats, safeSims, studyLogs, {
-        maxScore,
-        minScore,
-        targetScore,
-        contestId: resolvedContestId,
+    if (options?.defer === true) {
+      return new Promise((resolve) => {
+        setTimeout(() => resolve(execute()), 0);
       });
-      if (report && typeof report === 'object') {
-        saveBacktestReport(report, resolvedContestId);
-        if (isMounted.current) {
-          setBacktestReport(report);
-        }
-      }
-      return report;
-    } catch (err) {
-      if (isMounted.current) {
-        setError(err?.message || String(err));
-      }
-      return null;
-    } finally {
-      pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
-      if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
+    return execute();
   }, [categories, simulados, studyLogs, maxScore, minScore, targetScore, resolvedContestId]);
 
   // ==========================================================
   // Treinar Modelo Causal
   // ==========================================================
-  const trainCausal = useCallback(() => {
+  const trainCausal = useCallback((options = {}) => {
+    const execute = () => {
+      try {
+        setError(null);
+        const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+        const safeSims = Array.isArray(simulados) && simulados.length > 0
+          ? simulados
+          : safeCats.flatMap((cat) => {
+            const hist = (Array.isArray(cat?.simuladoStats?.history)
+              ? cat.simuladoStats.history
+              : Object.values(cat?.simuladoStats?.history || {})
+            ).filter((entry) => entry && entry.valid !== false);
+            return hist.map((entry) => ({
+              ...entry,
+              categoryId: entry?.categoryId ?? cat?.id,
+              subject: entry?.subject || entry?.categoryName || cat?.name || '',
+            }));
+          });
+        const events = buildCausalEventsFromHistory(safeCats, safeSims, studyLogs, {
+          maxScore,
+          minScore,
+        });
+        const model = trainCausalModel(events, {
+          contestId: resolvedContestId,
+          maxScore,
+          minScore,
+          useBootstrap: Boolean(flagOverrides?.useCausalBootstrap ?? currentFlags?.useCausalBootstrap),
+          save: events.length > 0,
+        });
+        if (isMounted.current && model) {
+          setCausalModel((prev) => (model.sampleSize > 0 || !prev ? model : prev));
+        }
+        return model;
+      } catch (err) {
+        if (isMounted.current) {
+          setError(err?.message || String(err));
+        }
+        return null;
+      } finally {
+        pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
+        if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
+      }
+    };
+
     pendingRunsRef.current += 1;
     setLoading(true);
-    try {
-      setError(null);
-      const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
-      const safeSims = Array.isArray(simulados) && simulados.length > 0
-        ? simulados
-        : safeCats.flatMap((cat) => {
-          const hist = (Array.isArray(cat?.simuladoStats?.history)
-            ? cat.simuladoStats.history
-            : Object.values(cat?.simuladoStats?.history || {})
-          ).filter((entry) => entry && entry.valid !== false);
-          return hist.map((entry) => ({
-            ...entry,
-            categoryId: entry?.categoryId ?? cat?.id,
-            subject: entry?.subject || entry?.categoryName || cat?.name || '',
-          }));
-        });
-      const events = buildCausalEventsFromHistory(safeCats, safeSims, studyLogs, {
-        maxScore,
-        minScore,
+    if (options?.defer === true) {
+      return new Promise((resolve) => {
+        setTimeout(() => resolve(execute()), 0);
       });
-      const model = trainCausalModel(events, {
-        contestId: resolvedContestId,
-        maxScore,
-        minScore,
-        useBootstrap: Boolean(flagOverrides?.useCausalBootstrap ?? currentFlags?.useCausalBootstrap),
-        save: events.length > 0,
-      });
-      if (isMounted.current && model) {
-        setCausalModel((prev) => (model.sampleSize > 0 || !prev ? model : prev));
-      }
-      return model;
-    } catch (err) {
-      if (isMounted.current) {
-        setError(err?.message || String(err));
-      }
-      return null;
-    } finally {
-      pendingRunsRef.current = Math.max(0, pendingRunsRef.current - 1);
-      if (isMounted.current && pendingRunsRef.current === 0) setLoading(false);
     }
+    return execute();
   }, [categories, simulados, studyLogs, maxScore, minScore, resolvedContestId, currentFlags, flagOverrides]);
 
   // ==========================================================

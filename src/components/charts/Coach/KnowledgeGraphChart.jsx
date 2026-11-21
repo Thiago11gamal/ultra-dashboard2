@@ -9,6 +9,14 @@ function nodeColorByProficiency(pct, isBlocked) {
   return { fill: '#3b0764', stroke: '#c084fc', text: '#f3e8ff' };
 }
 
+function getCategorySelectKey(cat) {
+  if (!cat || typeof cat !== 'object') return '';
+  if (cat.id !== undefined && cat.id !== null && String(cat.id).trim() !== '') {
+    return String(cat.id);
+  }
+  return String(cat.name || '');
+}
+
 export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
   categories = [],
   minScore = 0,
@@ -20,17 +28,24 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
     [categories]
   );
 
-  const [selectedCatId, setSelectedCatId] = useState(() => safeCategories[0]?.id || '');
-  const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedCatId, setSelectedCatId] = useState(() => getCategorySelectKey(safeCategories[0]));
+  const [selectedNodeKey, setSelectedNodeKey] = useState(null);
 
   const activeCategory = useMemo(() => {
-    return safeCategories.find((c) => c.id === selectedCatId) || safeCategories[0] || null;
+    const target = String(selectedCatId || '');
+    return safeCategories.find((c) => getCategorySelectKey(c) === target) || safeCategories[0] || null;
   }, [safeCategories, selectedCatId]);
 
   const layout = useMemo(
     () => buildKnowledgeGraphLayout(activeCategory, { minScore, maxScore }),
     [activeCategory, minScore, maxScore]
   );
+
+  // Deriva selectedNode a partir do layout atual: nunca exibe nó obsoleto ao trocar de disciplina/concurso
+  const selectedNode = useMemo(() => {
+    if (!selectedNodeKey) return null;
+    return layout.nodes.find((n) => n.normalizedKey === selectedNodeKey) || null;
+  }, [layout.nodes, selectedNodeKey]);
 
   return (
     <div className="space-y-4">
@@ -50,18 +65,21 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
         {safeCategories.length > 0 && (
           <select
             aria-label="Selecionar disciplina para o Grafo de Pré-Requisitos"
-            value={activeCategory?.id || ''}
+            value={getCategorySelectKey(activeCategory)}
             onChange={(e) => {
               setSelectedCatId(e.target.value);
-              setSelectedNode(null);
+              setSelectedNodeKey(null);
             }}
             className="text-xs bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 outline-none focus:border-indigo-400"
           >
-            {safeCategories.map((c) => (
-              <option key={c.id || c.name} value={c.id || c.name}>
-                {c.name}
-              </option>
-            ))}
+            {safeCategories.map((c, idx) => {
+              const key = getCategorySelectKey(c) || `cat-${idx}`;
+              return (
+                <option key={key} value={key}>
+                  {c.name}
+                </option>
+              );
+            })}
           </select>
         )}
       </div>
@@ -91,9 +109,23 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
               {/* Arestas direcionadas */}
               {layout.edges.map((edge) => {
                 const dx = edge.to.x - edge.from.x;
-                const c1x = edge.from.x + dx * 0.45;
-                const c2x = edge.to.x - dx * 0.45;
-                const pathD = `M ${edge.from.x + 58} ${edge.from.y} C ${c1x} ${edge.from.y}, ${c2x} ${edge.to.y}, ${edge.to.x - 62} ${edge.to.y}`;
+                const dy = edge.to.y - edge.from.y;
+                let pathD;
+                if (Math.abs(dx) < 10) {
+                  // Mesmo eixo X: arco vertical lateral sem atravessar os retângulos dos nós
+                  const startY = dy >= 0 ? edge.from.y + 22 : edge.from.y - 22;
+                  const endY = dy >= 0 ? edge.to.y - 24 : edge.to.y + 24;
+                  const bendX = edge.from.x + 76;
+                  pathD = `M ${edge.from.x + 20} ${startY} C ${bendX} ${startY}, ${bendX} ${endY}, ${edge.to.x + 20} ${endY}`;
+                } else if (dx < 0) {
+                  // Aresta reversa (ex.: ciclo ou feedback): arco superior fora dos nós
+                  const arcY = Math.min(edge.from.y, edge.to.y) - 42;
+                  pathD = `M ${edge.from.x - 58} ${edge.from.y} C ${edge.from.x - 90} ${arcY}, ${edge.to.x + 90} ${arcY}, ${edge.to.x + 62} ${edge.to.y}`;
+                } else {
+                  const c1x = edge.from.x + dx * 0.45;
+                  const c2x = edge.to.x - dx * 0.45;
+                  pathD = `M ${edge.from.x + 58} ${edge.from.y} C ${c1x} ${edge.from.y}, ${c2x} ${edge.to.y}, ${edge.to.x - 62} ${edge.to.y}`;
+                }
                 return (
                   <path
                     key={edge.id}
@@ -117,8 +149,18 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
                   <g
                     key={node.normalizedKey}
                     transform={`translate(${node.x}, ${node.y})`}
-                    onClick={() => setSelectedNode(node)}
-                    className="cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelected}
+                    aria-label={`${node.name}: proficiência ${node.proficiencyPct}%, PageRank ${Math.round(node.graphImportance * 100)}${node.isBlocked ? ', bloqueado por pré-requisito' : ''}`}
+                    onClick={() => setSelectedNodeKey(node.normalizedKey)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedNodeKey(node.normalizedKey);
+                      }
+                    }}
+                    className="cursor-pointer outline-none focus-visible:opacity-95"
                   >
                     <rect
                       x={-60}
@@ -160,6 +202,7 @@ export const KnowledgeGraphChart = React.memo(function KnowledgeGraphChart({
             <div className="flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-400/80" />Dominado (≥75%)</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400/80" />Em evolução (55–74%)</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-purple-400/80" />Crítico (&lt;55%)</span>
               <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-rose-400/80" />Bloqueado por pré-requisito</span>
             </div>
             {layout.isAutoTopology && (

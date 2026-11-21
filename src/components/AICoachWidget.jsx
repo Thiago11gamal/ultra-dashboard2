@@ -507,13 +507,14 @@ export default function AICoachWidget({ suggestion }) {
                                                     </span>
                                                     <span className="text-[9.5px] text-cyan-200/80 font-mono">
                                                         Calibração: <strong className="text-white uppercase">
-                                                            {urgency.monteCarlo.explainability.calibrationQuality === 'good'
-                                                                ? 'BOA'
-                                                                : urgency.monteCarlo.explainability.calibrationQuality === 'moderate'
-                                                                    ? 'MODERADA'
-                                                                    : urgency.monteCarlo.explainability.calibrationQuality === 'low'
-                                                                        ? 'EM FORMAÇÃO'
-                                                                        : (urgency.monteCarlo.explainability.calibrationQuality || 'n/a')}
+                                                            {(() => {
+                                                                const q = String(urgency.monteCarlo.explainability.calibrationQuality || '').trim().toLowerCase();
+                                                                if (q === 'good' || q === 'boa') return 'BOA';
+                                                                if (q === 'moderate' || q === 'moderada') return 'MODERADA';
+                                                                if (q === 'degraded' || q === 'degradada') return 'DEGRADADA';
+                                                                if (q === 'low' || q === 'sem dados') return 'EM FORMAÇÃO';
+                                                                return urgency.monteCarlo.explainability.calibrationQuality || 'n/a';
+                                                            })()}
                                                         </strong>
                                                         {urgency.monteCarlo.explainability.confidenceAdjusted && (
                                                             <> • ajuste {Number.isFinite(Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct)) ? Number(urgency.monteCarlo.explainability.confidenceAdjustmentPct) : 0}%</>

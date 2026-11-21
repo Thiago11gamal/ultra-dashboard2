@@ -147,9 +147,15 @@ const TaskCard = React.memo(({ task, index, isBacklog, stableId, dayTheme, categ
   prev.index === next.index &&
   prev.isBacklog === next.isBacklog &&
   prev.dayTheme?.id === next.dayTheme?.id &&
-  prev.task === next.task &&
+  prev.task?.id === next.task?.id &&
+  prev.task?.text === next.task?.text &&
+  prev.task?.title === next.task?.title &&
+  prev.task?.topicName === next.task?.topicName &&
+  prev.task?.category === next.task?.category &&
+  prev.task?.priority === next.task?.priority &&
   prev.task?.completed === next.task?.completed &&
   prev.task?.status === next.task?.status &&
+  prev.task?.actionType === next.task?.actionType &&
   // FIX (A1): sem comparar `categories`, renomear uma matéria não
   // re-renderizava os cards já montados (displaySubject stale).
   prev.categories === next.categories &&
@@ -215,6 +221,9 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       }
       // FIX-COACH-01: dedupe entre colunas com garantia de visto
       seen.add(sid);
+      if (withId.id === sid && withId.canonicalId === baseSid && withId.draggableId === sid) {
+        return withId;
+      }
       return { ...withId, id: sid, canonicalId: baseSid, draggableId: sid };
     };
     const backlog = [];
@@ -457,13 +466,20 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
   const handleStartTask = useCallback((task, dayId) => {
     if (propOnStart) { propOnStart(task, dayId); return; }
     if (!task) return;
-    const sanitizeForSession = (item, ctx) => {
+    const usedSessionIds = new Set();
+    const sanitizeForSession = (item, ctx, seqIdx = 0) => {
       if (!item || typeof item !== 'object') return item;
       const { draggableId: _draggableId, canonicalId, ...rest } = item;
-      const cleanId = canonicalId || String(rest.id || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+      const baseId = canonicalId || String(rest.id || '').replace(/-dup\d+-[a-zA-Z0-9_-]+$/, '');
+      let uniqueId = baseId || String(rest.id || `session-task-${seqIdx}`);
+      // Impede colisões de ID na neuralQueue (evita travamento em advanceNeuralQueue via findIndex)
+      if (usedSessionIds.has(uniqueId)) {
+        uniqueId = `${uniqueId}__q${seqIdx}`;
+      }
+      usedSessionIds.add(uniqueId);
       return {
         ...rest,
-        ...(cleanId ? { id: cleanId } : {}),
+        id: uniqueId,
         sourceContext: ctx
       };
     };
@@ -477,11 +493,11 @@ export default function AICoachPlanner({ plannerData: propPlannerData, categorie
       return (taskToFind && idT === taskToFind) || t === task || (t?.title && t.title === task?.title) || (t?.text && t.text === task?.text);
     });
     if (startIndex === -1) {
-      startNeuralSession([sanitizeForSession(task, dayId || 'isolated')], 0);
+      startNeuralSession([sanitizeForSession(task, dayId || 'isolated', 0)], 0);
       navigate('/pomodoro', { state: { from: 'coach' } });
       return;
     }
-    startNeuralSession(sessionTasks.map(t => sanitizeForSession(t, dayId)), startIndex);
+    startNeuralSession(sessionTasks.map((t, idx) => sanitizeForSession(t, dayId, idx)), startIndex);
     navigate('/pomodoro', { state: { from: 'coach' } });
   }, [columns, isDragging, storeColumns, startNeuralSession, navigate, propOnStart]);
 

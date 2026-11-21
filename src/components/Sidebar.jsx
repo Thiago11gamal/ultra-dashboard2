@@ -316,6 +316,12 @@ const Sidebar = React.memo(function Sidebar({
                 'coach_auto_tuner_history_v1',
                 'coach_evaluation_results_v1',
                 'coach_model_health_v1',
+                'coach_strategy_backtest_v1',
+                'coach_decision_bandit_v1',
+                'coach_control_center_state_v1',
+                'coach_active_flags_v1',
+                'coach_features_v1',
+                'coach_manual_flag_overrides_v1',
             ];
             appKeys.forEach(key => {
                 try {
@@ -325,7 +331,20 @@ const Sidebar = React.memo(function Sidebar({
             });
             try {
                 Object.keys(localStorage).forEach(k => {
-                    if (k.startsWith('coach_calibration_events_v1::')) {
+                    if (
+                        k.startsWith('coach_calibration_events_v1::') ||
+                        k.startsWith('coach_features_v1::') ||
+                        k.startsWith('coach_active_flags_v1:') ||
+                        k.startsWith('coach_manual_flag_overrides_v1:') ||
+                        k.startsWith('coach_control_center_state_v1:') ||
+                        k.startsWith('coach_flag_optimizer_state_v1:') ||
+                        k.startsWith('coach_causal_model_v1:') ||
+                        k.startsWith('coach_auto_tuner_history_v1:') ||
+                        k.startsWith('coach_evaluation_results_v1:') ||
+                        k.startsWith('coach_model_health_v1:') ||
+                        k.startsWith('coach_strategy_backtest_v1:') ||
+                        k.startsWith('coach_decision_bandit_v1:')
+                    ) {
                         localStorage.removeItem(k);
                     }
                 });

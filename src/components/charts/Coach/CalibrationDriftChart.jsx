@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ComposedChart,
   Line,
@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { ChartFrame } from '../ChartFrame';
 import { buildCalibrationSeriesData } from '../../../utils/advancedChartHelpers';
+import { normalize } from '../../../utils/normalization';
 
 function CalibrationTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
@@ -48,9 +49,54 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
   auditLogs = [],
   historyByCategory = {},
   healthSnapshots = [],
+  categories = [],
   categoryFilter = 'all',
   height = 240,
 }) {
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const effectiveFilter = categoryFilter !== 'all' ? categoryFilter : selectedCategory;
+
+  const availableCategories = useMemo(() => {
+    if (Array.isArray(series) && series.length > 0) return [];
+    const safeCats = Array.isArray(categories) ? categories : Object.values(categories || {});
+    const nameMap = new Map();
+    safeCats.forEach((c) => {
+      if (!c?.name) return;
+      const nk = normalize(c.name);
+      if (nk) nameMap.set(nk, c.name);
+      if (c.id != null) {
+        const ik = normalize(String(c.id));
+        if (ik) nameMap.set(ik, c.name);
+      }
+    });
+    const found = new Map();
+    const logs = Array.isArray(auditLogs) ? auditLogs : Object.values(auditLogs || {});
+    logs.forEach((log) => {
+      if (!log) return;
+      const raw = String(log.categoryName || log.categoryId || '').trim();
+      const nk = normalize(raw);
+      if (!nk) return;
+      const resolved = nameMap.get(nk) || (nameMap.size === 0 ? raw : null);
+      if (resolved) found.set(normalize(resolved), resolved);
+    });
+    if (historyByCategory && typeof historyByCategory === 'object') {
+      Object.entries(historyByCategory).forEach(([k, arr]) => {
+        const list = Array.isArray(arr) ? arr : Object.values(arr || {});
+        if (list.length === 0) return;
+        const nk = normalize(k);
+        const resolved = nameMap.get(nk) || (nameMap.size === 0 ? k : null);
+        if (resolved) found.set(normalize(resolved), resolved);
+      });
+    }
+    return Array.from(found.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [series, auditLogs, historyByCategory, categories]);
+
+  const activeCategoryValue = useMemo(() => {
+    if (effectiveFilter === 'all') return 'all';
+    const match = availableCategories.find((c) => normalize(c) === normalize(effectiveFilter));
+    return match || (categoryFilter !== 'all' ? categoryFilter : 'all');
+  }, [effectiveFilter, availableCategories, categoryFilter]);
+
   const data = useMemo(() => {
     if (Array.isArray(series) && series.length > 0) {
       return series.map((pt, idx) => {
@@ -65,8 +111,11 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
         };
       });
     }
-    return buildCalibrationSeriesData(auditLogs, historyByCategory, healthSnapshots, { categoryFilter });
-  }, [series, auditLogs, historyByCategory, healthSnapshots, categoryFilter]);
+    return buildCalibrationSeriesData(auditLogs, historyByCategory, healthSnapshots, {
+      categoryFilter: activeCategoryValue,
+      categories,
+    });
+  }, [series, auditLogs, historyByCategory, healthSnapshots, activeCategoryValue, categories]);
 
   if (!data.length) {
     return (
@@ -83,9 +132,27 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
   const yMax = Math.min(1, Number((maxMetric * 1.15).toFixed(2)));
 
   return (
-    <ChartFrame minHeight={height} label="Traçando drift de calibração">
-      <div style={{ height }} className="w-full" role="img" aria-label="Evolução temporal do Brier Score e ECE">
-        <ResponsiveContainer width="100%" height="100%" minHeight={200} minWidth={1}>
+    <div className="space-y-3">
+      {categoryFilter === 'all' && availableCategories.length > 1 && (
+        <div className="flex justify-end">
+          <select
+            aria-label="Filtrar evolução de calibração por disciplina"
+            value={activeCategoryValue}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="text-xs bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 outline-none focus:border-cyan-400"
+          >
+            <option value="all">Todas (Média Diária)</option>
+            {availableCategories.map((catName) => (
+              <option key={catName} value={catName}>
+                {catName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <ChartFrame minHeight={height} label="Traçando drift de calibração">
+        <div style={{ height }} className="w-full" role="img" aria-label="Evolução temporal do Brier Score e ECE">
+          <ResponsiveContainer width="100%" height={height} minHeight={200} minWidth={1}>
           <ComposedChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
             <ReferenceArea y1={0} y2={0.18} fill="#10b981" fillOpacity={0.05} />
@@ -118,6 +185,7 @@ export const CalibrationDriftChart = React.memo(function CalibrationDriftChart({
         </ResponsiveContainer>
       </div>
     </ChartFrame>
+    </div>
   );
 });
 

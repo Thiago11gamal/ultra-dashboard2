@@ -206,6 +206,24 @@ export function runCoachDriftGuard(options = {}) {
         };
       })
       .filter(Boolean);
+
+    // Fallback: se ainda não houver avaliações persistidas, tenta extrair pares observados
+    // dos eventos de calibração (quando possuírem probability + observed)
+    if (probabilityPairs.length === 0 && calibrationEvents.length > 0) {
+      probabilityPairs = calibrationEvents
+        .map((ev) => {
+          const p = Number(ev?.probability);
+          const y = ev?.observed === true ? 1 : (ev?.observed === false ? 0 : Number(ev?.observed));
+          if (!Number.isFinite(p) || !Number.isFinite(y)) return null;
+          const p01 = p > 1 ? Math.max(0, Math.min(1, p / 100)) : Math.max(0, Math.min(1, p));
+          return {
+            probability: p01,
+            observed: y > 0.5 ? 1 : 0,
+            timestamp: Number(ev.timestamp) || 0,
+          };
+        })
+        .filter(Boolean);
+    }
   }
 
   const maxCalibrationTimestamp = calibrationEvents.reduce((maxTs, ev) => {

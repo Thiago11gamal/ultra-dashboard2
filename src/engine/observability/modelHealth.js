@@ -217,12 +217,53 @@ export function evaluateModelHealth(input = {}, options = {}) {
       );
     }
   } else {
-    metrics.currentCalibration = {
-      count: probabilityPairs.length,
-      ece: null,
-      mce: null,
-      status: 'insufficient_data',
-    };
+    // Fallback: quando há menos de 10 pares diretos mas existem eventos de telemetria
+    // de calibração (gerados pelo Coach/Raio-X) com ECE/Brier já computados, expõe os
+    // valores recentes em vez de exibir "—" permanentemente no HealthPanel.
+    const recentEces = calibrationEvents
+      .map((ev) => Number(ev?.ece))
+      .filter((v) => Number.isFinite(v) && v >= 0 && v <= 1);
+    const recentBriers = calibrationEvents
+      .map((ev) => Number(ev?.avgBrier ?? ev?.brier))
+      .filter((v) => Number.isFinite(v) && v >= 0 && v <= 1);
+    const recentMces = calibrationEvents
+      .map((ev) => {
+        if (Number.isFinite(Number(ev?.mce))) return Number(ev.mce);
+        if (Array.isArray(ev?.reliability) && ev.reliability.length > 0) {
+          const gaps = ev.reliability
+            .map((b) => Math.abs(Number(b?.gap)))
+            .filter(Number.isFinite);
+          return gaps.length > 0 ? Math.max(...gaps) : NaN;
+        }
+        return NaN;
+      })
+      .filter((v) => Number.isFinite(v) && v >= 0 && v <= 1);
+
+    if (recentEces.length > 0 || recentBriers.length > 0) {
+      const avgEce = recentEces.length > 0
+        ? Number((recentEces.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, recentEces.length)).toFixed(6))
+        : null;
+      const avgBrier = recentBriers.length > 0
+        ? Number((recentBriers.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, recentBriers.length)).toFixed(6))
+        : null;
+      const maxMce = recentMces.length > 0
+        ? Number(Math.max(...recentMces.slice(-10)).toFixed(6))
+        : null;
+      metrics.currentCalibration = {
+        count: Math.max(probabilityPairs.length, recentEces.length, recentBriers.length),
+        ece: avgEce,
+        mce: maxMce,
+        avgBrier,
+        source: 'calibration_telemetry',
+      };
+    } else {
+      metrics.currentCalibration = {
+        count: probabilityPairs.length,
+        ece: null,
+        mce: null,
+        status: 'insufficient_data',
+      };
+    }
   }
 
   // Limita penalização conjunta de métricas de calibração correlacionadas (evita tripla contagem Brier/ECE/Drift)

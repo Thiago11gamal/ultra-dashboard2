@@ -15,14 +15,45 @@ import { ChartFrame } from '../ChartFrame';
 
 const ACTION_LABELS = {
   srs_review: 'Revisão SRS',
+  mock_exam: 'Simulado',
   simulado: 'Simulado',
   error_review: 'Revisão de Erros',
   study_volume: 'Volume de Estudo',
   theory: 'Teoria / Base',
   general_review: 'Consolidação',
+  weak_topic_practice: 'Prática de Tópicos Fracos',
   practice: 'Prática / Questões',
+  agility_training: 'Treino de Agilidade',
   critical_rescue: 'Resgate Crítico',
+  mode_questoes: 'Modo: Questões',
+  mode_teoria: 'Modo: Teoria',
+  mode_revisao: 'Modo: Revisão',
+  mode_lei_seca: 'Modo: Lei Seca',
+  mode_jurisprudencia: 'Modo: Jurisprudência',
+  mode_simulado: 'Modo: Simulado',
+  mode_flashcards: 'Modo: Flashcards',
+  mode_resumo: 'Modo: Resumo',
 };
+
+function formatActionLabel(actionType) {
+  if (!actionType) return 'Ação';
+  if (ACTION_LABELS[actionType]) return ACTION_LABELS[actionType];
+  const str = String(actionType);
+  if (str.startsWith('mode_')) {
+    const modeName = str
+      .slice(5)
+      .split('_')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+    return `Modo: ${modeName || 'Estudo'}`;
+  }
+  return str
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
 
 function UpliftTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null;
@@ -74,7 +105,7 @@ export const CausalUpliftChart = React.memo(function CausalUpliftChart({ causalM
         const errPlus = hasCi ? Math.max(0, high - uplift) : 0;
         return {
           actionType,
-          label: ACTION_LABELS[actionType] || actionType,
+          label: formatActionLabel(actionType),
           uplift: Number(uplift.toFixed(3)),
           errorBar: [Number(errMinus.toFixed(3)), Number(errPlus.toFixed(3))],
           hasCi,
@@ -98,11 +129,11 @@ export const CausalUpliftChart = React.memo(function CausalUpliftChart({ causalM
   return (
     <ChartFrame minHeight={240} label="Carregando uplift causal">
       <div className="h-[240px] w-full" role="img" aria-label="Gráfico de Uplift Causal por Tipo de Ação">
-        <ResponsiveContainer width="100%" height="100%" minHeight={220} minWidth={1}>
-          <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 28, left: 20, bottom: 8 }}>
+        <ResponsiveContainer width="100%" height={240} minHeight={220} minWidth={1}>
+          <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 28, left: 16, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
             <XAxis type="number" stroke="#64748b" fontSize={10} tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}`} />
-            <YAxis type="category" dataKey="label" width={115} stroke="#94a3b8" fontSize={11} />
+            <YAxis type="category" dataKey="label" width={145} stroke="#94a3b8" fontSize={11} />
             <Tooltip content={<UpliftTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
             <ReferenceLine x={0} stroke="#94a3b8" strokeWidth={1.5} />
             <Bar dataKey="uplift" radius={[4, 4, 4, 4]} barSize={20}>

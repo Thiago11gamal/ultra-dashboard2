@@ -36,7 +36,7 @@ const MenuTab = React.memo(function MenuTab({ active, onClick, icon: Icon, label
     );
 });
 
-export default function CoachMenuNav({ activeTab, onChangeTab, isPremium, showControlCenter = false }) {
+export default function CoachMenuNav({ activeTab, onChangeTab, isPremium: _isPremium, showControlCenter = false }) {
     const availableTabs = showControlCenter
         ? ['insights', 'analytics', 'control']
         : ['insights', 'analytics']; // Analytics is now always available as a sample
@@ -116,7 +116,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium, showCo
                     aria-label="Coach AI sections"
                     aria-orientation="horizontal"
                     onKeyDown={handleTabKeyDown}
-                    className={`grid gap-2 w-full lg:w-auto coach-mobile-tabs ${showControlCenter ? 'grid-cols-3 lg:min-w-[600px]' : 'grid-cols-2 lg:min-w-[440px]'}`}
+                    className={`grid gap-2 w-full lg:w-auto coach-mobile-tabs ${showControlCenter ? 'grid-cols-1 min-[420px]:grid-cols-3 lg:min-w-[600px]' : 'grid-cols-2 lg:min-w-[440px]'}`}
                 >
                     <MenuTab
                         active={activeTab === 'insights'}
@@ -132,7 +132,7 @@ export default function CoachMenuNav({ activeTab, onChangeTab, isPremium, showCo
                         onClick={handleActivateAnalytics}
                         icon={BarChart3}
                         label="Raio-X Técnico"
-                        subtitle={isPremium ? "Telemetria e auditoria" : "Amostra Técnica"}
+                        subtitle="Telemetria e auditoria"
                         tabId="coach-tab-analytics"
                         panelId="coach-panel-analytics"
                     />

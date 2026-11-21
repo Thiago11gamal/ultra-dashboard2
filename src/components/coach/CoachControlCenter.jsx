@@ -1,9 +1,28 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useCoachControlCenter } from '../../hooks/useCoachControlCenter.js';
 import { CausalUpliftChart } from '../charts/Coach/CausalUpliftChart.jsx';
 import { KnowledgeGraphChart } from '../charts/Coach/KnowledgeGraphChart.jsx';
 import { CalibrationDriftChart } from '../charts/Coach/CalibrationDriftChart.jsx';
 import { AdaptiveMaturityBadge } from '../ui/AdaptiveMaturityBadge.jsx';
+import { useAuth } from '../../context/useAuth';
+import { isAdminUser } from '../../utils/adminAccess.js';
+
+const LLM_FALLBACK_REASONS = {
+  llm_provider_not_configured: 'Provedor LLM externo não configurado — usando motor determinístico auditável.',
+  llm_disabled: 'Explicação por LLM desativada nas feature flags — usando fallback determinístico.',
+  llm_timeout: 'Tempo limite do provedor LLM excedido — usando fallback determinístico.',
+  llm_invalid_output: 'Resposta do provedor LLM falhou na validação de schema — usando fallback determinístico.',
+  llm_error: 'Erro ao consultar o provedor LLM — usando fallback determinístico.',
+};
+
+const PANEL_FLAG_MAP = {
+  flags: 'useControlCenterFlagsPanel',
+  health: 'useControlCenterHealthPanel',
+  causal: 'useControlCenterCausalPanel',
+  autotuner: 'useControlCenterAutoTunerPanel',
+  backtest: 'useControlCenterBacktestPanel',
+  llm: 'useControlCenterLLMPanel',
+};
 
 const toStrictFinite = (v) => {
   if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
@@ -39,10 +58,15 @@ const deltaColor = (v, lowerIsBetter = true) => {
 // ==========================================================
 // Sub-componentes de painel
 // ==========================================================
-function TabButton({ active, onClick, children, icon }) {
+function TabButton({ active, onClick, onKeyDown, buttonRef, children, icon }) {
   return (
     <button
+      ref={buttonRef}
+      type="button"
+      aria-pressed={active}
+      aria-current={active ? 'page' : undefined}
       onClick={onClick}
+      onKeyDown={onKeyDown}
       className={`
         flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
         transition-all duration-150 whitespace-nowrap outline-none
@@ -53,7 +77,7 @@ function TabButton({ active, onClick, children, icon }) {
         }
       `}
     >
-      {icon && <span className="text-base">{icon}</span>}
+      {icon && <span className="text-base" aria-hidden="true">{icon}</span>}
       {children}
     </button>
   );
@@ -76,11 +100,18 @@ function StatusBadge({ status }) {
 
 function MetricCard({ label, value, sub }) {
   const formatted = value === null || value === undefined ? '—' : value;
+  const formattedStr = String(formatted);
+  const isLongText = formattedStr.length > 16;
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-      <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-2xl font-bold text-white">{formatted}</p>
-      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 min-w-0">
+      <p className="text-xs text-slate-400 uppercase tracking-wide mb-1 truncate" title={String(label || '')}>{label}</p>
+      <p
+        className={`${isLongText ? 'text-base sm:text-lg leading-snug line-clamp-2 break-words' : 'text-2xl truncate'} font-bold text-white`}
+        title={formattedStr}
+      >
+        {formatted}
+      </p>
+      {sub && <p className="text-xs text-slate-500 mt-1 truncate">{sub}</p>}
     </div>
   );
 }
@@ -147,7 +178,7 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
           Algumas análises foram executadas em modo degradado.
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {(dashboard.cards || []).map((card) => (
           <MetricCard key={card.id} label={card.label} value={card.value} />
         ))}
@@ -166,7 +197,7 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
               </p>
               {dashboard.focus?.probability != null && Number.isFinite(Number(dashboard.focus.probability)) && (
                 <p className="text-sm text-slate-400">
-                  Probabilidade MC: <span className="text-cyan-300 font-semibold">{Number(dashboard.focus.probability)}%</span>
+                  Probabilidade MC: <span className="text-cyan-300 font-semibold">{Number(dashboard.focus.probability).toFixed(1)}%</span>
                 </p>
               )}
             </div>
@@ -252,7 +283,7 @@ function OverviewPanel({ dashboard, orchestratorResult }) {
 // ==========================================================
 // Painel: Flags
 // ==========================================================
-function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, strategySpace, applyStrategyPreset }) {
+function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, strategySpace, applyStrategyPreset, isAdmin = false }) {
   const [search, setSearch] = useState('');
   const groupedFlags = useMemo(() => {
     const groups = {
@@ -299,7 +330,7 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
           <MetricCard label="Overrides Locais" value={overrideCount} />
         </div>
         {overrideCount > 0 && (
-          <button onClick={resetOverrides} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors">
+          <button type="button" onClick={resetOverrides} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-lg transition-colors">
             Reset Overrides
           </button>
         )}
@@ -345,23 +376,33 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
             {flags.map((flagKey) => {
               const isActive = currentFlags[flagKey] === true;
               const isOverridden = flagKey in flagOverrides;
-              // FIX (BUG-17): toggle switch acessível (role="switch") no lugar de checkbox nativo
+              // Protege usuários não-admin contra self-lockout ao desativar o próprio Control Center
+              const isSelfLockoutProtected = !isAdmin && flagKey === 'useCoachControlCenter' && isActive;
+              const labelId = `flag-label-${flagKey}`;
+              const handleToggle = () => {
+                if (isSelfLockoutProtected) return;
+                toggleFlag(flagKey, !isActive);
+              };
+              // FIX (BUG-17): toggle switch acessível (role="switch") com aria-labelledby
               return (
                 <div
                   key={flagKey}
                   role="switch"
                   aria-checked={isActive}
-                  tabIndex={0}
-                  onClick={() => toggleFlag(flagKey, !isActive)}
+                  aria-disabled={isSelfLockoutProtected || undefined}
+                  aria-labelledby={labelId}
+                  tabIndex={isSelfLockoutProtected ? -1 : 0}
+                  onClick={handleToggle}
                   onKeyDown={(e) => {
                     if (e.key === ' ' || e.key === 'Enter') {
                       e.preventDefault();
-                      toggleFlag(flagKey, !isActive);
+                      handleToggle();
                     }
                   }}
                   className={`
-                    flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors outline-none
+                    flex items-center gap-3 p-3 rounded-lg transition-colors outline-none
                     focus-visible:ring-2 focus-visible:ring-indigo-500
+                    ${isSelfLockoutProtected ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}
                     ${isOverridden
                       ? 'bg-indigo-500/10 border border-indigo-500/30'
                       : isActive
@@ -374,8 +415,9 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
                     <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${isActive ? 'translate-x-4' : 'translate-x-0'}`} />
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-200 truncate font-mono">{flagKey}</p>
-                    {isOverridden && <p className="text-xs text-indigo-400">override local</p>}
+                    <p id={labelId} className="text-sm text-slate-200 truncate font-mono">{flagKey}</p>
+                    {isSelfLockoutProtected && <p className="text-[11px] text-amber-400">protegido (evita ocultar este painel)</p>}
+                    {!isSelfLockoutProtected && isOverridden && <p className="text-xs text-indigo-400">override local</p>}
                   </div>
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-400' : 'bg-slate-600'}`} />
                 </div>
@@ -395,7 +437,7 @@ function FlagsPanel({ currentFlags, flagOverrides, toggleFlag, resetOverrides, s
 // ==========================================================
 // Painel: Saúde do Modelo
 // ==========================================================
-function HealthPanel({ latestHealth, healthSnapshots, calibrationAuditLog = [], calibrationHistoryByCategory = {} }) {
+function HealthPanel({ latestHealth, healthSnapshots, categories = [], calibrationAuditLog = [], calibrationHistoryByCategory = {} }) {
   if (!latestHealth) {
     return (
       <div className="space-y-6">
@@ -406,6 +448,7 @@ function HealthPanel({ latestHealth, healthSnapshots, calibrationAuditLog = [], 
             auditLogs={calibrationAuditLog}
             historyByCategory={calibrationHistoryByCategory}
             healthSnapshots={healthSnapshots}
+            categories={categories}
           />
         </div>
       </div>
@@ -524,6 +567,7 @@ function HealthPanel({ latestHealth, healthSnapshots, calibrationAuditLog = [], 
           auditLogs={calibrationAuditLog}
           historyByCategory={calibrationHistoryByCategory}
           healthSnapshots={healthSnapshots}
+          categories={categories}
         />
       </div>
 
@@ -532,7 +576,7 @@ function HealthPanel({ latestHealth, healthSnapshots, calibrationAuditLog = [], 
           <SectionTitle icon="📜">Histórico de Health ({healthSnapshots.length})</SectionTitle>
           <div className="max-h-64 overflow-y-auto space-y-1">
             {[...healthSnapshots].reverse().map((snapshot, idx) => (
-              <div key={idx} className="flex items-center gap-3 text-sm py-1.5 border-b border-slate-700/30 last:border-0">
+              <div key={`${snapshot?.generatedAt || 'snap'}-${healthSnapshots.length - 1 - idx}`} className="flex items-center gap-3 text-sm py-1.5 border-b border-slate-700/30 last:border-0">
                 <span className="text-slate-500 text-xs w-32 flex-shrink-0">
                   {formatDate(snapshot?.generatedAt)}
                 </span>
@@ -556,6 +600,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
     <div className="space-y-6">
       <div className="flex flex-wrap gap-3">
         <button
+          type="button"
           onClick={() => runAutoTuner({ autoApply: false })}
           disabled={loading}
           className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -563,6 +608,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
           🔍 Analisar Estratégias
         </button>
         <button
+          type="button"
           onClick={() => runAutoTuner({ autoApply: true, forceApply: true })}
           disabled={loading}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -570,6 +616,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
           ⚡ Analisar e Aplicar
         </button>
         <button
+          type="button"
           onClick={rollbackToBaseline}
           disabled={loading}
           className="px-4 py-2 bg-red-600/80 hover:bg-red-500 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -658,7 +705,7 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
           <SectionTitle icon="📜">Histórico do AutoTuner ({tunerHistory.length})</SectionTitle>
           <div className="max-h-80 overflow-y-auto space-y-2">
             {[...tunerHistory].reverse().map((entry, idx) => (
-              <div key={idx} className="bg-slate-900/40 rounded-lg p-3">
+              <div key={`${entry?.generatedAt || 'tuner'}-${tunerHistory.length - 1 - idx}`} className="bg-slate-900/40 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-slate-500">
                     {formatDateTime(entry?.generatedAt)}
@@ -700,11 +747,11 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
             {typeof runBacktest === 'function' && (
               <button
                 type="button"
-                onClick={() => runBacktest()}
+                onClick={() => runBacktest({ defer: true })}
                 disabled={loading}
                 className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                ▶ Executar Backtest Granular
+                {loading ? 'Executando...' : '▶ Executar Backtest Granular'}
               </button>
             )}
           </div>
@@ -814,11 +861,11 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
               {typeof trainCausal === 'function' && (
                 <button
                   type="button"
-                  onClick={() => trainCausal()}
+                  onClick={() => trainCausal({ defer: true })}
                   disabled={loading}
                   className={`px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  ▶ Treinar Modelo Causal
+                  {loading ? 'Treinando...' : '▶ Treinar Modelo Causal'}
                 </button>
               )}
             </div>
@@ -964,6 +1011,12 @@ function AutoTunerPanel({ tunerResult, tunerHistory, runAutoTuner, applyRecommen
                   </div>
                 </div>
 
+                {llm.reason && (
+                  <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                    {LLM_FALLBACK_REASONS[llm.reason] || `Motivo do fallback: ${llm.reason}`}
+                  </div>
+                )}
+
                 {llm.recommendation && (
                   <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-700/40 text-sm text-slate-200">
                     {llm.recommendation}
@@ -1013,11 +1066,11 @@ function SciencePanel({
           {typeof trainCausal === 'function' && (
             <button
               type="button"
-              onClick={() => trainCausal()}
+              onClick={() => trainCausal({ defer: true })}
               disabled={loading}
               className={`px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              ▶ Recalcular Uplift
+              {loading ? 'Recalculando...' : '▶ Recalcular Uplift'}
             </button>
           )}
         </div>
@@ -1045,6 +1098,7 @@ function SciencePanel({
           auditLogs={calibrationAuditLog}
           historyByCategory={calibrationHistoryByCategory}
           healthSnapshots={healthSnapshots}
+          categories={categories}
         />
       </div>
     </div>
@@ -1064,7 +1118,11 @@ function SciencePanel({
             targetScore = 80,
             calibrationAuditLog = [],
             calibrationHistoryByCategory = {},
+            embedded = false,
 }) {
+  const auth = useAuth();
+  const isAdmin = isAdminUser(auth?.currentUser || null);
+  const tabButtonRefs = useRef([]);
   const {
             activeTab, setActiveTab, loading, error, hasError, lastRunTimestamp,
             dashboard, orchestratorResult, backtestReport, tunerHistory, tunerResult,
@@ -1074,17 +1132,55 @@ function SciencePanel({
             resetOverrides, clearError,
   } = useCoachControlCenter({contestId, categories, simulados, studyLogs, maxScore, minScore, targetScore});
 
+  // Lote 13: respeita flags explícitas de visibilidade de painéis (oculta quando flag === false)
+  const isPanelEnabled = (tabId) => {
+    const flagKey = PANEL_FLAG_MAP[tabId];
+    if (!flagKey) return true;
+    const explicit = flagKey in (flagOverrides || {}) ? flagOverrides[flagKey] : currentFlags?.[flagKey];
+    return explicit !== false;
+  };
+
+  const visibleTabs = [
+    { id: 'overview', icon: '📊', label: 'Visão Geral' },
+    { id: 'science', icon: '🧬', label: 'Painel Científico' },
+    { id: 'flags', icon: '🎛️', label: 'Feature Flags' },
+    { id: 'health', icon: '🏥', label: 'Saúde & Drift' },
+    { id: 'causal', icon: '🔬', label: 'Causalidade' },
+    { id: 'autotuner', icon: '🤖', label: 'AutoTuner' },
+    { id: 'backtest', icon: '📈', label: 'Backtests' },
+    { id: 'llm', icon: '💬', label: 'Explicação LLM' },
+  ].filter((t) => isPanelEnabled(t.id));
+
+  const effectiveTab = visibleTabs.some((t) => t.id === activeTab) ? activeTab : 'overview';
+
+  const handleTabNavKeyDown = (e, idx) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    const len = visibleTabs.length;
+    if (len === 0) return;
+    let nextIdx = idx;
+    if (e.key === 'ArrowRight') nextIdx = (idx + 1) % len;
+    else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + len) % len;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = len - 1;
+    setActiveTab(visibleTabs[nextIdx].id);
+    tabButtonRefs.current[nextIdx]?.focus();
+  };
+
           return (
-          <div className="bg-slate-900 min-h-screen text-slate-200 p-6 font-sans">
+          <div className={embedded
+            ? 'rounded-2xl border border-white/10 bg-slate-900/90 text-slate-200 p-4 sm:p-6 font-sans shadow-xl'
+            : 'bg-slate-900 min-h-screen text-slate-200 p-4 sm:p-6 font-sans'
+          }>
             <div className="max-w-7xl mx-auto space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
                   <h1 className="text-2xl font-bold text-white">Coach Control Center</h1>
                   <p className="text-sm text-slate-400 mt-1">Centro de comando do ecossistema de predição e IA</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   {lastRunTimestamp && (
-                    <span className="text-xs text-slate-500">Última execução: {new Date(lastRunTimestamp).toLocaleTimeString('pt-BR')}</span>
+                    <span className="text-xs text-slate-400">Última execução: {new Date(lastRunTimestamp).toLocaleTimeString('pt-BR')}</span>
                   )}
                   <button
                     type="button"
@@ -1097,25 +1193,35 @@ function SciencePanel({
                 </div>
               </div>
 
-              <AdaptiveMaturityBadge />
+              {!embedded && <AdaptiveMaturityBadge />}
 
-              <div className="flex gap-2 p-1 bg-slate-800/40 rounded-xl overflow-x-auto hide-scrollbar">
-                <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon="📊">Visão Geral</TabButton>
-                <TabButton active={activeTab === 'science'} onClick={() => setActiveTab('science')} icon="🧬">Painel Científico</TabButton>
-                <TabButton active={activeTab === 'flags'} onClick={() => setActiveTab('flags')} icon="🎛️">Feature Flags</TabButton>
-                <TabButton active={activeTab === 'health'} onClick={() => setActiveTab('health')} icon="🏥">Saúde & Drift</TabButton>
-                <TabButton active={activeTab === 'causal'} onClick={() => setActiveTab('causal')} icon="🔬">Causalidade</TabButton>
-                <TabButton active={activeTab === 'autotuner'} onClick={() => setActiveTab('autotuner')} icon="🤖">AutoTuner</TabButton>
-                <TabButton active={activeTab === 'backtest'} onClick={() => setActiveTab('backtest')} icon="📈">Backtests</TabButton>
-                <TabButton active={activeTab === 'llm'} onClick={() => setActiveTab('llm')} icon="💬">Explicação LLM</TabButton>
-              </div>
+              <nav aria-label="Painéis do Coach Control Center" className="flex gap-2 p-1 bg-slate-800/40 rounded-xl overflow-x-auto scrollbar-hide">
+                {visibleTabs.map((tab, idx) => (
+                  <TabButton
+                    key={tab.id}
+                    active={effectiveTab === tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    onKeyDown={(e) => handleTabNavKeyDown(e, idx)}
+                    buttonRef={(el) => { tabButtonRefs.current[idx] = el; }}
+                    icon={tab.icon}
+                  >
+                    {tab.label}
+                  </TabButton>
+                ))}
+              </nav>
 
               {hasError && <ErrorAlert key={`${error}-${lastRunTimestamp || 0}`} message={error} onDismiss={clearError} />}
               {loading && !dashboard && <LoadingSpinner />}
+              {loading && dashboard && (
+                <div className="flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs text-indigo-200" role="status" aria-live="polite">
+                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                  <span>Processando operação no Control Center...</span>
+                </div>
+              )}
 
               <div className="min-h-[400px]">
-                {activeTab === 'overview' && <OverviewPanel dashboard={dashboard} orchestratorResult={orchestratorResult} />}
-                {activeTab === 'science' && (
+                {effectiveTab === 'overview' && <OverviewPanel dashboard={dashboard} orchestratorResult={orchestratorResult} />}
+                {effectiveTab === 'science' && (
                   <SciencePanel
                     causalModel={causalModel}
                     trainCausal={trainCausal}
@@ -1128,7 +1234,7 @@ function SciencePanel({
                     calibrationHistoryByCategory={calibrationHistoryByCategory}
                   />
                 )}
-                {activeTab === 'flags' && (
+                {effectiveTab === 'flags' && (
                   <FlagsPanel
                     currentFlags={currentFlags}
                     flagOverrides={flagOverrides}
@@ -1136,22 +1242,24 @@ function SciencePanel({
                     toggleFlag={toggleFlag}
                     resetOverrides={resetOverrides}
                     applyStrategyPreset={applyStrategyPreset}
+                    isAdmin={isAdmin}
                   />
                 )}
-                {activeTab === 'health' && (
+                {effectiveTab === 'health' && (
                   <HealthPanel
                     latestHealth={latestHealth}
                     healthSnapshots={healthSnapshots}
+                    categories={categories}
                     calibrationAuditLog={calibrationAuditLog}
                     calibrationHistoryByCategory={calibrationHistoryByCategory}
                   />
                 )}
-                {activeTab === 'causal' && <CausalPanel causalModel={causalModel} trainCausal={trainCausal} loading={loading} />}
-                {activeTab === 'autotuner' && (
+                {effectiveTab === 'causal' && <CausalPanel causalModel={causalModel} trainCausal={trainCausal} loading={loading} />}
+                {effectiveTab === 'autotuner' && (
                   <AutoTunerPanel tunerResult={tunerResult} tunerHistory={tunerHistory} runAutoTuner={runAutoTuner} applyRecommendation={applyRecommendation} rollbackToBaseline={rollbackToBaseline} loading={loading} />
                 )}
-                {activeTab === 'backtest' && <BacktestPanel backtestReport={backtestReport} runBacktest={runBacktest} loading={loading} />}
-                {activeTab === 'llm' && <LLMPanel orchestratorResult={orchestratorResult} runOrchestrator={runOrchestrator} loading={loading} />}
+                {effectiveTab === 'backtest' && <BacktestPanel backtestReport={backtestReport} runBacktest={runBacktest} loading={loading} />}
+                {effectiveTab === 'llm' && <LLMPanel orchestratorResult={orchestratorResult} runOrchestrator={runOrchestrator} loading={loading} />}
               </div>
             </div>
           </div>

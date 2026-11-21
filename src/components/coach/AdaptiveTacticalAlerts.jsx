@@ -1,17 +1,19 @@
-import React, { useMemo } from 'react';
-import { Flame, AlertTriangle, Brain, ShieldAlert } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Flame, AlertTriangle, Brain, ShieldAlert, X } from 'lucide-react';
 import { computeACWR } from '../../engine/adaptive/workloadACWR';
 import { computeWeeklyCategoryCorrelation } from '../../engine/diagnostics';
 import { estimateIRTAbility } from '../../engine/adaptive/irtEngine';
+import { normalizeDate } from '../../utils/dateHelper';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
+const ILLUSION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
 /**
  * Gera alertas táticos automáticos no topo do Coach quando detecta:
  * 1) Risco de Burnout (ACWR > 1.5×)
  * 2) Crowding-out entre disciplinas (r <= -0.45)
  * 3) Incoerência pedagógica TRI (errando fáceis e acertando difíceis)
- * 4) Ilusão de competência (certeza + erro recorrente)
+ * 4) Ilusão de competência (certeza + erro recorrente nos últimos 30 dias)
  */
 export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts({
   categories = [],
@@ -20,6 +22,8 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
   minScore = 0,
   maxScore = 100,
 }) {
+  const [dismissedIds, setDismissedIds] = useState(() => new Set());
+
   const alerts = useMemo(() => {
     const list = [];
 
@@ -48,11 +52,32 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
       });
     }
 
-    // 3. TRI Pedagogical Incoherence
-    const allEntries = [
+    // 3. TRI Pedagogical Incoherence (deduplicado entre simuladoRows e simuladoStats.history)
+    const rawEntries = [
       ...safeArr(simuladoRows),
-      ...safeArr(categories).flatMap((c) => safeArr(c?.simuladoStats?.history)),
+      ...safeArr(categories).flatMap((c) =>
+        safeArr(c?.simuladoStats?.history).map((h) => ({
+          ...h,
+          categoryId: h?.categoryId ?? c?.id,
+          subject: h?.subject || h?.categoryName || c?.name || '',
+        }))
+      ),
     ];
+    const seenSimKeys = new Set();
+    const allEntries = [];
+    rawEntries.forEach((entry, idx) => {
+      if (!entry || entry.valid === false || entry.validated === false) return;
+      const d = normalizeDate(entry.date || entry.createdAt);
+      const dayKey = d && Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : '';
+      const subjKey = String(entry.categoryId || entry.subject || entry.categoryName || '').trim().toLowerCase();
+      const scoreSig = entry.score != null ? Math.round(Number(entry.score) * 10) : `${entry.correct ?? ''}/${entry.total ?? ''}`;
+      const dedupKey = entry.id && !String(entry.id).startsWith('legacy-')
+        ? `id:${entry.id}`
+        : (dayKey ? `dt:${subjKey}:${dayKey}:${scoreSig}` : `idx:${idx}`);
+      if (seenSimKeys.has(dedupKey)) return;
+      seenSimKeys.add(dedupKey);
+      allEntries.push(entry);
+    });
     const irt = estimateIRTAbility(allEntries, { minScore, maxScore });
     if (irt.pedagogicalIncoherence && irt.incoherenceMessage) {
       list.push({
@@ -64,27 +89,40 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
       });
     }
 
-    // 4. Illusion of Competence (certeza + erro)
-    const allTelemetry = safeArr(simuladoRows).flatMap((r) => safeArr(r?.questionTelemetry));
-    const illusionErrors = allTelemetry.filter((q) => q && q.confidence === 'certeza' && q.correct === false);
+    // 4. Illusion of Competence (certeza + erro efetivamente respondido na janela recente de 30 dias)
+    const nowMs = Date.now();
+    const recentRows = safeArr(simuladoRows).filter((r) => {
+      if (!r || r.valid === false || r.validated === false) return false;
+      const d = normalizeDate(r.date || r.createdAt);
+      if (!d || !Number.isFinite(d.getTime())) return true; // preserva linhas sem data
+      return (nowMs - d.getTime()) <= ILLUSION_WINDOW_MS;
+    });
+    const allTelemetry = recentRows.flatMap((r) => safeArr(r?.questionTelemetry));
+    const illusionErrors = allTelemetry.filter((q) => {
+      if (!q || q.confidence !== 'certeza') return false;
+      if (q.wasAnswered === false) return false;
+      return q.correct === false || q.wasCorrect === false;
+    });
     if (illusionErrors.length >= 2) {
       list.push({
         id: 'illusion-competence',
         severity: 'critical',
         icon: ShieldAlert,
         title: `Ilusão de Competência (${illusionErrors.length} erros com "Certeza")`,
-        body: 'Você marcou "Certeza" mas errou essas questões. Revise no Caderno de Erros e envie para Flashcards FSRS com prioridade crítica.',
+        body: 'Você marcou "Certeza" mas errou essas questões recentemente. Revise no Caderno de Erros e envie para Flashcards FSRS com prioridade crítica.',
       });
     }
 
     return list;
   }, [categories, studyLogs, simuladoRows, minScore, maxScore]);
 
-  if (alerts.length === 0) return null;
+  const visibleAlerts = alerts.filter((a) => !dismissedIds.has(a.id));
+
+  if (visibleAlerts.length === 0) return null;
 
   return (
     <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-      {alerts.map((a) => {
+      {visibleAlerts.map((a) => {
         const Icon = a.icon;
         const isCritical = a.severity === 'critical';
         return (
@@ -99,10 +137,18 @@ export const AdaptiveTacticalAlerts = React.memo(function AdaptiveTacticalAlerts
             <div className={`p-2 rounded-xl shrink-0 ${isCritical ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'}`}>
               <Icon size={16} />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h4 className="text-xs font-black uppercase tracking-wider">{a.title}</h4>
               <p className="text-[11px] opacity-85 leading-relaxed mt-1">{a.body}</p>
             </div>
+            <button
+              type="button"
+              aria-label={`Dispensar alerta ${a.title}`}
+              onClick={() => setDismissedIds((prev) => new Set([...prev, a.id]))}
+              className="p-1 rounded-lg opacity-60 hover:opacity-100 hover:bg-white/10 transition-opacity shrink-0"
+            >
+              <X size={14} />
+            </button>
           </div>
         );
       })}

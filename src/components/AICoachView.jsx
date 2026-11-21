@@ -459,6 +459,148 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
 
 
 
+            {/* Alertas táticos e alertas críticos do sistema sempre visíveis em ambas as abas (Planner e Pendências) */}
+            <AdaptiveTacticalAlerts
+                categories={activeContest?.categories}
+                studyLogs={activeContest?.studyLogs}
+                simuladoRows={activeContest?.simuladoRows}
+                minScore={activeContest?.minScore ?? activeContest?.settings?.minScore ?? 0}
+                maxScore={activeContest?.maxScore ?? activeContest?.settings?.maxScore ?? 100}
+            />
+
+            {systemAlerts.length > 0 && (
+                <div className="mb-4 sm:mb-5 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    {systemAlerts.map((alertTask, alertIdx) => {
+                        const rawAlertText = String(alertTask?.text || alertTask?.title || '');
+                        const cleanText = rawAlertText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
+                        const explicitSubject = String(
+                            alertTask?.subjectName ||
+                            (typeof alertTask?.subject === 'string' ? alertTask.subject : (alertTask?.subject?.name || '')) ||
+                            alertTask?.category ||
+                            alertTask?.catName ||
+                            ''
+                        ).trim();
+                        let separatorIndex = cleanText.indexOf(':');
+                        if (explicitSubject && cleanText.toLowerCase().startsWith(`${explicitSubject.toLowerCase()}:`)) {
+                            separatorIndex = explicitSubject.length;
+                        }
+                        const subjectName = explicitSubject || (separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema');
+                        const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
+
+                        let type = 'info';
+                        let titlePart = message;
+                        let descPart = '';
+                        let actionDesc = '';
+
+                        if (/VETOR CRÍTICO/i.test(message)) {
+                            type = 'danger';
+                            titlePart = "Vetor Crítico";
+                            descPart = message.replace(/🚨 VETOR CRÍTICO!?\s*/i, '');
+                            actionDesc = "Conclua os focos pendentes desta matéria hoje para frear a queda imediata de rendimento.";
+                        } else if (/OSCILAÇÃO/i.test(message)) {
+                            type = 'warning';
+                            titlePart = "Oscilação Estatística";
+                            descPart = message.replace(/🌪️ OSCILAÇÃO ESTATÍSTICA:?\s*/i, '');
+                            actionDesc = "Revisite os tópicos sugeridos abaixo para estabilizar sua taxa de acertos e reduzir a imprevisibilidade.";
+                        } else if (/CRUZEIRO SEGURO/i.test(message)) {
+                            type = 'success';
+                            titlePart = "Cruzeiro Seguro";
+                            descPart = message.replace(/🏆 CRUZEIRO SEGURO:?\s*/i, '');
+                            actionDesc = "Mantenha a constância atual. Resolva apenas as manutenções leves sugeridas para não perder o ritmo.";
+                        } else {
+                            type = 'info';
+                            titlePart = "Revisão Recomendada";
+                            descPart = message;
+                            actionDesc = "Acompanhe as metas recomendadas para otimizar sua evolução nesta disciplina.";
+                        }
+
+                        const t = {
+                            danger: { bg: 'bg-[#1a0b12]', border: 'border-rose-500/20', iconBg: 'bg-rose-500/10', iconColor: 'text-rose-500', titleColor: 'text-rose-100', descColor: 'text-rose-200/70', badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-300', verdictBg: 'bg-rose-500/5 text-rose-400', glowColor: 'bg-rose-600', Icon: AlertCircle, isCritical: true },
+                            warning: { bg: 'bg-[#171109]', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', titleColor: 'text-amber-100', descColor: 'text-amber-200/70', badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-300', verdictBg: 'bg-amber-500/5 text-amber-400', glowColor: 'bg-amber-600', Icon: Activity, isCritical: false },
+                            success: { bg: 'bg-[#06140e]', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', titleColor: 'text-emerald-100', descColor: 'text-emerald-200/70', badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300', verdictBg: 'bg-emerald-500/5 text-emerald-400', glowColor: 'bg-emerald-600', Icon: Trophy, isCritical: false },
+                            info: { bg: 'bg-slate-900/50', border: 'border-slate-500/20', iconBg: 'bg-slate-500/10', iconColor: 'text-slate-400', titleColor: 'text-slate-100', descColor: 'text-slate-400', badgeBg: 'bg-slate-500/10 border-slate-500/30 text-slate-300', verdictBg: 'bg-slate-500/5 text-slate-400', glowColor: 'bg-slate-600', Icon: AlertCircle, isCritical: false }
+                        }[type];
+
+                        return (
+                            <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-3.5 sm:p-4 rounded-2xl border flex flex-col gap-3 shadow-lg ${t.bg} ${t.border}`}>
+                                <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
+
+                                <div className="flex items-start gap-3">
+                                    <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
+                                        <t.Icon size={18} className={t.isCritical ? "animate-pulse" : ""} />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md border ${t.badgeBg}`}>
+                                                {displaySubject(subjectName, activeContest?.categories)}
+                                            </span>
+                                            {t.isCritical && (
+                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
+                                                    Intervenção Exigida
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className={`text-sm sm:text-base font-black tracking-tight leading-snug uppercase ${t.titleColor}`}>
+                                            {titlePart}
+                                        </span>
+                                        {descPart && (
+                                            <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
+                                                {renderBoldText(descPart)}
+                                                {alertTask.analysis?.details && <span className="block text-[10px] font-mono text-slate-400/90 leading-relaxed mt-1">{renderBoldText(alertTask.analysis.details)}</span>}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {alertTask.analysis?.monteCarlo && (() => {
+                                    const mc = alertTask.analysis.monteCarlo;
+                                    const hasProbRaw = mc.probabilityRaw !== null && mc.probabilityRaw !== undefined && typeof mc.probabilityRaw !== 'boolean' && String(mc.probabilityRaw).trim() !== '' && Number.isFinite(Number(mc.probabilityRaw));
+                                    const hasProb = mc.probability !== null && mc.probability !== undefined && typeof mc.probability !== 'boolean' && String(mc.probability).trim() !== '' && Number.isFinite(Number(mc.probability));
+                                    const safeProb = hasProb ? Number(mc.probability) : (hasProbRaw ? Number(mc.probabilityRaw) : 0);
+                                    const hasVol = mc.volatility !== null && mc.volatility !== undefined && mc.volatility !== '' && Number.isFinite(Number(mc.volatility));
+                                    const safeVol = hasVol ? Number(mc.volatility) : 0;
+                                    return (
+                                        <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
+                                            <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                <Target size={12} className={t.iconColor} />
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Math.max(0, Math.min(100, safeProb)))}%</span></span>
+                                            </div>
+                                            <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
+                                                <Activity size={12} className={t.iconColor} />
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{safeVol.toFixed(1)} pts</span></span>
+                                            </div>
+                                            {Number(mc.calibrationPenalty) > 0.01 && (
+                                                <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
+                                                    <Zap size={12} className="text-amber-400" />
+                                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(Number(mc.calibrationPenalty) * 100)}%</span></span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {(alertTask.analysis?.verdict || actionDesc) && (
+                                    <div className="flex flex-col gap-2 mt-1">
+                                        {alertTask.analysis?.verdict && (
+                                            <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
+                                                <BrainCircuit size={14} className="shrink-0 mt-0.5" />
+                                                <span className="leading-relaxed">{renderBoldText(alertTask.analysis.verdict)}</span>
+                                            </div>
+                                        )}
+                                        {actionDesc && (
+                                            <div className={`pt-2.5 ${alertTask.analysis?.verdict ? 'border-t border-white/5' : ''} mt-0.5`}>
+                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
+                                                <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
             <AnimatePresence mode="wait">
                 {viewMode === 'cards' && (
                     <Motion.div
@@ -553,145 +695,6 @@ export default function AICoachView({ suggestedFocus, onClearHistory, onRegenera
                             )}
                         </div>
 
-                        <AdaptiveTacticalAlerts
-                            categories={activeContest?.categories}
-                            studyLogs={activeContest?.studyLogs}
-                            simuladoRows={activeContest?.simuladoRows}
-                            minScore={activeContest?.minScore ?? 0}
-                            maxScore={activeContest?.maxScore ?? 100}
-                        />
-                        {systemAlerts.length > 0 && (
-                            <div className="mb-4 sm:mb-5 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                                {systemAlerts.map((alertTask, alertIdx) => {
-                                    const rawAlertText = String(alertTask?.text || alertTask?.title || '');
-                                    const cleanText = rawAlertText.replace(/\[PROTOCOLO PRIORITÁRIO\]\s*/i, '').replace(/\[ALERTA MESTRE\]\s*/i, '').replace(/\[STATUS\]\s*/i, '');
-                                    const explicitSubject = String(
-                                        alertTask?.subjectName ||
-                                        (typeof alertTask?.subject === 'string' ? alertTask.subject : (alertTask?.subject?.name || '')) ||
-                                        alertTask?.category ||
-                                        alertTask?.catName ||
-                                        ''
-                                    ).trim();
-                                    let separatorIndex = cleanText.indexOf(':');
-                                    if (explicitSubject && cleanText.toLowerCase().startsWith(`${explicitSubject.toLowerCase()}:`)) {
-                                        separatorIndex = explicitSubject.length;
-                                    }
-                                    const subjectName = explicitSubject || (separatorIndex !== -1 ? cleanText.slice(0, separatorIndex).trim() : 'Sistema');
-                                    const message = separatorIndex !== -1 ? cleanText.slice(separatorIndex + 1).trim() : cleanText;
-
-                                    let type = 'info';
-                                    let titlePart = message;
-                                    let descPart = '';
-                                    let actionDesc = '';
-
-                                    if (/VETOR CRÍTICO/i.test(message)) {
-                                        type = 'danger';
-                                        titlePart = "Vetor Crítico";
-                                        descPart = message.replace(/🚨 VETOR CRÍTICO!?\s*/i, '');
-                                        actionDesc = "Conclua os focos pendentes desta matéria hoje para frear a queda imediata de rendimento.";
-                                    } else if (/OSCILAÇÃO/i.test(message)) {
-                                        type = 'warning';
-                                        titlePart = "Oscilação Estatística";
-                                        descPart = message.replace(/🌪️ OSCILAÇÃO ESTATÍSTICA:?\s*/i, '');
-                                        actionDesc = "Revisite os tópicos sugeridos abaixo para estabilizar sua taxa de acertos e reduzir a imprevisibilidade.";
-                                    } else if (/CRUZEIRO SEGURO/i.test(message)) {
-                                        type = 'success';
-                                        titlePart = "Cruzeiro Seguro";
-                                        descPart = message.replace(/🏆 CRUZEIRO SEGURO:?\s*/i, '');
-                                        actionDesc = "Mantenha a constância atual. Resolva apenas as manutenções leves sugeridas para não perder o ritmo.";
-                                    } else {
-                                        type = 'info';
-                                        titlePart = "Revisão Recomendada";
-                                        descPart = message;
-                                        actionDesc = "Acompanhe as metas recomendadas para otimizar sua evolução nesta disciplina.";
-                                    }
-
-                                    const t = {
-                                        danger: { bg: 'bg-[#1a0b12]', border: 'border-rose-500/20', iconBg: 'bg-rose-500/10', iconColor: 'text-rose-500', titleColor: 'text-rose-100', descColor: 'text-rose-200/70', badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-300', verdictBg: 'bg-rose-500/5 text-rose-400', glowColor: 'bg-rose-600', Icon: AlertCircle, isCritical: true },
-                                        warning: { bg: 'bg-[#171109]', border: 'border-amber-500/20', iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', titleColor: 'text-amber-100', descColor: 'text-amber-200/70', badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-300', verdictBg: 'bg-amber-500/5 text-amber-400', glowColor: 'bg-amber-600', Icon: Activity, isCritical: false },
-                                        success: { bg: 'bg-[#06140e]', border: 'border-emerald-500/20', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', titleColor: 'text-emerald-100', descColor: 'text-emerald-200/70', badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300', verdictBg: 'bg-emerald-500/5 text-emerald-400', glowColor: 'bg-emerald-600', Icon: Trophy, isCritical: false },
-                                        info: { bg: 'bg-slate-900/50', border: 'border-slate-500/20', iconBg: 'bg-slate-500/10', iconColor: 'text-slate-400', titleColor: 'text-slate-100', descColor: 'text-slate-400', badgeBg: 'bg-slate-500/10 border-slate-500/30 text-slate-300', verdictBg: 'bg-slate-500/5 text-slate-400', glowColor: 'bg-slate-600', Icon: AlertCircle, isCritical: false }
-                                    }[type];
-
-                                    return (
-                                        <div key={alertTask?.id || getSafeId(alertTask) || `alert-${alertIdx}`} className={`relative p-3.5 sm:p-4 rounded-2xl border flex flex-col gap-3 shadow-lg ${t.bg} ${t.border}`}>
-                                            <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full blur-[70px] pointer-events-none opacity-[0.15] ${t.glowColor}`} />
-
-                                            <div className="flex items-start gap-3">
-                                                <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border shadow-inner ${t.iconBg} ${t.border} ${t.iconColor}`}>
-                                                    <t.Icon size={18} className={t.isCritical ? "animate-pulse" : ""} />
-                                                </div>
-                                                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-md border ${t.badgeBg}`}>
-                                                            {displaySubject(subjectName, activeContest?.categories)}
-                                                        </span>
-                                                        {t.isCritical && (
-                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30">
-                                                                Intervenção Exigida
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <span className={`text-sm sm:text-base font-black tracking-tight leading-snug uppercase ${t.titleColor}`}>
-                                                        {titlePart}
-                                                    </span>
-                                                    {descPart && (
-                                                        <span className={`text-xs font-medium leading-relaxed ${t.descColor}`}>
-                                                            {renderBoldText(descPart)}
-                                                            {alertTask.analysis?.details && <span className="block text-[10px] font-mono text-slate-400/90 leading-relaxed mt-1">{renderBoldText(alertTask.analysis.details)}</span>}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {alertTask.analysis?.monteCarlo && (() => {
-                                                const mc = alertTask.analysis.monteCarlo;
-                                                const hasProbRaw = mc.probabilityRaw !== null && mc.probabilityRaw !== undefined && typeof mc.probabilityRaw !== 'boolean' && String(mc.probabilityRaw).trim() !== '' && Number.isFinite(Number(mc.probabilityRaw));
-                                                const hasProb = mc.probability !== null && mc.probability !== undefined && typeof mc.probability !== 'boolean' && String(mc.probability).trim() !== '' && Number.isFinite(Number(mc.probability));
-                                                const safeProb = hasProb ? Number(mc.probability) : (hasProbRaw ? Number(mc.probabilityRaw) : 0);
-                                                const hasVol = mc.volatility !== null && mc.volatility !== undefined && mc.volatility !== '' && Number.isFinite(Number(mc.volatility));
-                                                const safeVol = hasVol ? Number(mc.volatility) : 0;
-                                                return (
-                                                    <div className="flex flex-wrap items-center gap-2 mt-1 mb-1">
-                                                        <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
-                                                            <Target size={12} className={t.iconColor} />
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Projeção Base: <span className="text-white ml-1">{Math.round(Math.max(0, Math.min(100, safeProb)))}%</span></span>
-                                                        </div>
-                                                        <div className={`px-2 py-1.5 rounded-lg border ${t.border} bg-black/20 flex items-center gap-1.5`}>
-                                                            <Activity size={12} className={t.iconColor} />
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Volatilidade: <span className="text-white ml-1">±{safeVol.toFixed(1)} pts</span></span>
-                                                        </div>
-                                                        {Number(mc.calibrationPenalty) > 0.01 && (
-                                                            <div className={`px-2 py-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 flex items-center gap-1.5`}>
-                                                                <Zap size={12} className="text-amber-400" />
-                                                                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Penalidade: <span className="text-amber-400 ml-1">-{Math.round(Number(mc.calibrationPenalty) * 100)}%</span></span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })()}
-
-                                            {(alertTask.analysis?.verdict || actionDesc) && (
-                                                <div className="flex flex-col gap-2 mt-1">
-                                                    {alertTask.analysis?.verdict && (
-                                                        <div className={`p-3 rounded-xl border flex items-start gap-2.5 text-[11px] font-bold ${t.verdictBg} ${t.border}`}>
-                                                            <BrainCircuit size={14} className="shrink-0 mt-0.5" />
-                                                            <span className="leading-relaxed">{renderBoldText(alertTask.analysis.verdict)}</span>
-                                                        </div>
-                                                    )}
-                                                    {actionDesc && (
-                                                        <div className={`pt-2.5 ${alertTask.analysis?.verdict ? 'border-t border-white/5' : ''} mt-0.5`}>
-                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-1">Ação Sugerida</span>
-                                                            <p className={`text-xs font-bold ${t.titleColor} opacity-90`}>{actionDesc}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
                         <AICoachPlanner />
                     </Motion.div>
                 )}
