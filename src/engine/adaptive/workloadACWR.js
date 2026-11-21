@@ -29,7 +29,12 @@ export function computeACWR(studyLogs = [], options = {}) {
 
   safeArr(studyLogs).forEach((log) => {
     if (!log || log.type === 'flashcard') return;
-    const rawMins = Number(log.minutes ?? log.minutos ?? log.duration);
+    // D3 FIX: se minutes vier 0 mas duration > 0, usar duration; aplicar teto 720 min
+    const minField = Number(log.minutes ?? log.minutos);
+    const durField = Number(log.duration);
+    const rawMins = (Number.isFinite(minField) && minField > 0)
+      ? minField
+      : ((Number.isFinite(durField) && durField > 0) ? durField : 0);
     if (!Number.isFinite(rawMins) || rawMins <= 0) return;
     const mins = Math.min(720, rawMins);
     const dk = getDateKey(log.date || log.createdAt || log.lastUpdated);
@@ -86,13 +91,20 @@ export function computeACWR(studyLogs = [], options = {}) {
       : 0;
     const activeChronicDays = spanUpToDay > 0 ? Math.min(28, Math.max(7, spanUpToDay)) : 28;
     const rawChronicWeeklyHours = (chronicMin28 / 60) / (activeChronicDays / 7);
-    // Prior baseline semanal de 14h suaviza o Cold Start proporcionalmente às semanas observadas até o dia i
-    const observedWeeks = Math.min(4, Math.max(0, spanUpToDay / 7));
-    const chronicWeeklyHours = Math.max(
-      1.5,
-      blendPriorEmpirical(14, rawChronicWeeklyHours, observedWeeks, 1.5)
-    );
-    const acwr = acuteHours > 0 ? Number(clamp(acuteHours / chronicWeeklyHours, 0, 3.0).toFixed(2)) : 0;
+    // M5 FIX: eliminar viés permanente de 27,3% rumo a 14h/sem.
+    // A base crônica é puramente empírica; durante o Cold Start (< 14 dias), encolhemos
+    // a RAZÃO ACWR suavemente em direção ao equilíbrio (1.0x), garantindo ACWR ≈ 1.00x
+    // para qualquer rotina constante (seja 6h/sem ou 35h/sem).
+    const chronicWeeklyHours = rawChronicWeeklyHours;
+    let acwr = 0;
+    if (acuteHours > 0) {
+      const safeChronicDenom = Math.max(0.5, rawChronicWeeklyHours);
+      const rawAcwr = acuteHours / safeChronicDenom;
+      const stabilizedAcwr = spanUpToDay < 14
+        ? blendPriorEmpirical(1.0, rawAcwr, Math.max(0, spanUpToDay - 6), 4)
+        : rawAcwr;
+      acwr = Number(clamp(stabilizedAcwr, 0, 3.0).toFixed(2));
+    }
 
     series.push({
       date: daysArray[i].date,
@@ -151,9 +163,9 @@ export function computeACWR(studyLogs = [], options = {}) {
   }
   const adaptiveFatigue = clamp(Math.round(rawFatigue), 0, 100);
 
-  // Adaptive Pomodoro recommendation
+  // Adaptive Pomodoro recommendation (B5 FIX: zona 'inactive' recomenda blocos curtos de 25 min, alinhado ao texto de conselho)
   let recommendedBlockMinutes = 40;
-  if (adaptiveFatigue >= 75 || zone === 'burnout_risk' || (recentAvgEnergy !== null && recentAvgEnergy <= 2.3)) {
+  if (zone === 'inactive' || adaptiveFatigue >= 75 || zone === 'burnout_risk' || (recentAvgEnergy !== null && recentAvgEnergy <= 2.3)) {
     recommendedBlockMinutes = 25;
   } else if (adaptiveFatigue >= 55 || zone === 'elevated') {
     recommendedBlockMinutes = 30;

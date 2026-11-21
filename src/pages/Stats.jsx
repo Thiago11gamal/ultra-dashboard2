@@ -11,7 +11,7 @@ import { EfficientAllocationChart } from '../components/charts/Analytics/Efficie
 import { AdaptiveMaturityBadge } from '../components/ui/AdaptiveMaturityBadge';
 import { mapFocusEvolutionData, mapSubjectHoursData } from '../utils/chartDataMappers';
 import { getDateKey, normalizeDate } from '../utils/dateHelper';
-import { getSafeScore } from '../utils/scoreHelper';
+import { getSafeScore, isPhantomZeroTimeAttempt, resolveUserTargetScorePoints } from '../utils/scoreHelper';
 import { useAppStore } from '../store/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -39,7 +39,7 @@ const useDayTick = () => {
 export default function Stats() {
     const dayTick = useDayTick();
 
-    const { rawCategories, rawStudyLogs, rawStudySessions, rawFlashcards, rawSimuladoRows, user, minScore, maxScore } = useAppStore(useShallow(state => {
+    const { rawCategories, rawStudyLogs, rawStudySessions, rawFlashcards, rawSimuladoRows, user, rawContestMinScore, rawContestMaxScore } = useAppStore(useShallow(state => {
         const contests = state?.appState?.contests || {};
         const activeId = state?.appState?.activeId;
         const contest = contests[activeId] || {};
@@ -50,8 +50,8 @@ export default function Stats() {
             rawFlashcards: contest.flashcardDecks,
             rawSimuladoRows: contest.simuladoRows,
             user: contest.user || null,
-            minScore: contest.minScore ?? 0,
-            maxScore: contest.maxScore ?? 100
+            rawContestMinScore: contest.minScore ?? contest.settings?.minScore,
+            rawContestMaxScore: contest.maxScore ?? contest.settings?.maxScore
         };
     }));
 
@@ -79,40 +79,85 @@ export default function Stats() {
         });
     }, [rawCategories]);
 
+    // D1 + D2 FIX: resolver minScore/maxScore com paridade exata a VerifiedStats e garantir maxScore > minScore
+    const { minScore, maxScore } = useMemo(() => {
+        const toOptNum = (v) => (
+            v !== null && v !== undefined && v !== '' && typeof v !== 'boolean' && Number.isFinite(Number(v))
+        ) ? Number(v) : NaN;
+
+        let resolvedMax = toOptNum(rawContestMaxScore);
+        if (!Number.isFinite(resolvedMax) || resolvedMax <= 0) {
+            const catMaxes = categories.map(c => toOptNum(c?.maxScore)).filter(s => Number.isFinite(s) && s > 0);
+            resolvedMax = (catMaxes.length > 0 && catMaxes.length === categories.length && new Set(catMaxes).size === 1)
+                ? catMaxes[0]
+                : 100;
+        }
+
+        let resolvedMin = toOptNum(rawContestMinScore);
+        if (!Number.isFinite(resolvedMin)) {
+            const catMins = categories.map(c => toOptNum(c?.minScore)).filter(Number.isFinite);
+            resolvedMin = (catMins.length > 0 && catMins.length === categories.length && new Set(catMins).size === 1)
+                ? catMins[0]
+                : 0;
+        }
+
+        if (resolvedMax <= resolvedMin) {
+            resolvedMax = resolvedMin + 100;
+        }
+
+        return { minScore: resolvedMin, maxScore: resolvedMax };
+    }, [rawContestMinScore, rawContestMaxScore, categories]);
+
+    const allocationTargetScore = useMemo(
+        () => resolveUserTargetScorePoints(user, minScore, maxScore, 0.8),
+        [user, minScore, maxScore]
+    );
+
     const flashcardDecks = useMemo(() => {
         return Array.isArray(rawFlashcards) ? rawFlashcards : Object.values(rawFlashcards || {});
     }, [rawFlashcards]);
 
-    // FIX E-03 & BUG 11: considera apenas linhas validadas e com dado real (incluindo nota 0 e negativa em bancas Cebraspe).
+    // FIX E-03, D1 & D7: considera apenas linhas validadas, não-futuras e reais (sem 0s phantom bug)
     const hasSimuladoHistory = useMemo(() => {
+        const todayKey = dayTick || getDateKey(new Date());
+        const isOptNum = (v) => v !== null && v !== undefined && v !== '' && typeof v !== 'boolean' && Number.isFinite(Number(v));
+
         const rowsArray = Array.isArray(rawSimuladoRows)
             ? rawSimuladoRows
             : Object.values(rawSimuladoRows || {});
         const hasValidRows = rowsArray.some(r => {
             if (!r || r.validated === false || r.valid === false) return false;
+            const dk = getDateKey(r.date || r.createdAt);
+            if (dk && todayKey && dk > todayKey) return false;
+            const rMax = isOptNum(r.maxScore) && Number(r.maxScore) > 0 ? Number(r.maxScore) : maxScore;
+            const rMin = isOptNum(r.minScore) ? Number(r.minScore) : minScore;
+            const safeScore = getSafeScore(r, rMax, rMin);
+            if (Number.isFinite(safeScore) && isPhantomZeroTimeAttempt(r, safeScore)) return false;
             const rawTotal = r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions;
             const rawCorrect = r.correct ?? r.acertos ?? r.correctCount;
-            const hasScore = r.score !== null && r.score !== undefined && r.score !== '' && Number.isFinite(Number(r.score));
-            const hasTotal = rawTotal !== null && rawTotal !== undefined && rawTotal !== '' && Number.isFinite(Number(rawTotal));
+            const hasTotal = isOptNum(rawTotal);
             return (
-                (Number(rawTotal) > 0 && Number(rawCorrect) >= 0) ||
-                (hasScore && (!hasTotal || Number(rawTotal) >= 0))
+                (Number(rawTotal) > 0 && isOptNum(rawCorrect) && Number(rawCorrect) >= 0) ||
+                (Number.isFinite(safeScore) && (!hasTotal || Number(rawTotal) >= 0))
             );
         });
         if (hasValidRows) return true;
         return categories.some(category => {
             const h = category?.simuladoStats?.history;
             const hArray = Array.isArray(h) ? h : Object.values(h || {});
-            const catMax = Number(category?.maxScore) || 100;
-            const catMin = Number.isFinite(Number(category?.minScore)) ? Number(category?.minScore) : 0;
+            const catMax = isOptNum(category?.maxScore) && Number(category.maxScore) > 0 ? Number(category.maxScore) : maxScore;
+            const catMin = isOptNum(category?.minScore) ? Number(category.minScore) : minScore;
             return hArray.some(entry => {
                 if (!entry || entry.valid === false || entry.validated === false) return false;
-                const rawTotal = entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions;
+                const dk = getDateKey(entry.date || entry.createdAt);
+                if (dk && todayKey && dk > todayKey) return false;
                 const safeScore = getSafeScore(entry, catMax, catMin);
+                if (Number.isFinite(safeScore) && isPhantomZeroTimeAttempt(entry, safeScore)) return false;
+                const rawTotal = entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions;
                 return Number(rawTotal) > 0 || Number.isFinite(safeScore);
             });
         });
-    }, [rawSimuladoRows, categories]);
+    }, [rawSimuladoRows, categories, minScore, maxScore, dayTick]);
 
     const hasFlashcards = useMemo(() => {
         return flashcardDecks.some(d => {
@@ -123,18 +168,24 @@ export default function Stats() {
         });
     }, [flashcardDecks]);
 
-    // FIX Bug 6: considera apenas logs de estudo reais (não flashcards) com tempo positivo e data válida
+    // FIX Bug 6 & D7: considera apenas logs de estudo reais (não flashcards) com tempo positivo e data válida não-futura
     const hasStudyLogs = useMemo(() => {
+        const todayKey = dayTick || getDateKey(new Date());
         return studyLogs.some(log => {
             if (!log || log.type === 'flashcard') return false;
             const d = normalizeDate(log.date || log.createdAt);
             if (!d || Number.isNaN(d.getTime())) return false;
+            const dk = getDateKey(d);
+            if (dk && todayKey && dk > todayKey) return false;
             const mins = Number(log.minutes ?? log.minutos);
             const dur = Number(log.duration);
             return (Number.isFinite(mins) && mins > 0) || (Number.isFinite(dur) && dur > 0);
         });
-    }, [studyLogs]);
-    const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards;
+    }, [studyLogs, dayTick]);
+    const hasTimedStudySessions = useMemo(() => {
+        return studySessions.some(s => s && (Number(s.duration) > 0 || Number(s.minutes) > 0));
+    }, [studySessions]);
+    const hasData = hasStudyLogs || hasSimuladoHistory || hasFlashcards || hasTimedStudySessions;
 
     // dayTick força re-cálculo ao atravessar meia-noite.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -213,24 +264,29 @@ export default function Stats() {
                                     </div>
                                 </div>
                                 <WeeklyAnalysis studyLogs={studyLogs} categories={categories} dayTick={dayTick} />
-                                <CircadianHeatmapChart
-                                    studyLogs={studyLogs}
-                                    studySessions={studySessions}
-                                    simuladoRows={simuladoRows}
-                                    minScore={minScore}
-                                    maxScore={maxScore}
-                                />
-                                <WorkloadACWRChart studyLogs={studyLogs} />
+                                <WorkloadACWRChart studyLogs={studyLogs} dayTick={dayTick} />
                             </>
+                        )}
+                        {(hasStudyLogs || hasSimuladoHistory || hasTimedStudySessions) && (
+                            <CircadianHeatmapChart
+                                studyLogs={studyLogs}
+                                studySessions={studySessions}
+                                simuladoRows={simuladoRows}
+                                categories={categories}
+                                minScore={minScore}
+                                maxScore={maxScore}
+                                dayTick={dayTick}
+                            />
                         )}
                         <EfficientAllocationChart
                             categories={categories}
                             studyLogs={studyLogs}
-                            targetScore={Number(user?.targetScore) || 80}
+                            targetScore={allocationTargetScore}
                             minScore={minScore}
                             maxScore={maxScore}
+                            dayTick={dayTick}
                         />
-                        <SyllabusBurndownChart categories={categories} user={user || {}} />
+                        <SyllabusBurndownChart categories={categories} user={user || {}} dayTick={dayTick} />
                     </>
                 )}
             </div>

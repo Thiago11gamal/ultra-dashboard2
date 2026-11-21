@@ -21,6 +21,7 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
   unit = '%',
 }) {
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [pinnedRowId, setPinnedRowId] = useState(null);
 
   const data = useMemo(
     () =>
@@ -33,6 +34,12 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
       }),
     [categories, showOnlyFocus, focusSubjectId, timeWindow, minScore, maxScore]
   );
+
+  const activeRow = useMemo(() => {
+    if (hoveredRow) return hoveredRow;
+    if (pinnedRowId) return data.rows.find((r) => r.id === pinnedRowId) || null;
+    return null;
+  }, [hoveredRow, pinnedRowId, data.rows]);
 
   const domainRange = Math.max(1e-6, data.domainMax - data.domainMin);
   const toPct = (v) => Math.max(0, Math.min(100, ((v - data.domainMin) / domainRange) * 100));
@@ -80,8 +87,16 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
             <span className="inline-block w-3 border-t border-dashed border-emerald-400" />
             Meta ({fmt(targetScore)})
           </span>
+          {data.hasCutoffs && (
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-0.5 h-3.5 bg-rose-400" />
+              Corte mínimo
+            </span>
+          )}
         </div>
-        <span className="text-[10px] text-slate-500">Passe o mouse ou toque em uma matéria para detalhes</span>
+        <span className="text-[10px] text-slate-500">
+          Estável: IQR ≤ 10% · Moderada: 10–18% · Volátil: &gt; 18% · Clique para fixar detalhes
+        </span>
       </div>
 
       {/* Linhas por matéria */}
@@ -94,18 +109,25 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
           const maxP = toPct(row.max);
           const meanP = toPct(row.mean);
           const cutoffP = row.minCutoff !== null ? toPct(row.minCutoff) : null;
-          const isHovered = hoveredRow?.id === row.id;
+          const isHovered = activeRow?.id === row.id;
           const badgeClass = STABILITY_STYLE[row.stability] || STABILITY_STYLE['Poucos dados'];
 
           return (
             <div
               key={row.id}
               tabIndex={0}
+              onClick={() => setPinnedRowId((prev) => (prev === row.id ? null : row.id))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setPinnedRowId((prev) => (prev === row.id ? null : row.id));
+                }
+              }}
               onMouseEnter={() => setHoveredRow(row)}
               onMouseLeave={() => setHoveredRow(null)}
               onFocus={() => setHoveredRow(row)}
               onBlur={() => setHoveredRow(null)}
-              className={`rounded-xl border px-3.5 py-3 transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+              className={`rounded-xl border px-3.5 py-3 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                 isHovered
                   ? 'bg-slate-800/80 border-white/20 shadow-lg'
                   : 'bg-slate-950/50 border-white/5 hover:border-white/15'
@@ -199,47 +221,60 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
         })}
       </div>
 
-      {/* Eixo X inferior */}
-      <div className="sm:pl-52 sm:pr-40 relative h-5">
-        {ticks.map((t) => (
-          <span
-            key={t.pct}
-            className="absolute -translate-x-1/2 text-[10px] font-mono text-slate-500"
-            style={{ left: `${t.pct}%` }}
-          >
-            {t.label}
-          </span>
-        ))}
+      {/* Eixo X inferior perfeitamente alinhado ao trilho do Box Plot */}
+      <div className="px-3.5 sm:pl-[222px] sm:pr-[174px]">
+        <div className="relative h-5 w-full">
+          {ticks.map((t) => (
+            <span
+              key={t.pct}
+              className="absolute -translate-x-1/2 text-[10px] font-mono text-slate-500"
+              style={{ left: `${t.pct}%` }}
+            >
+              {t.label}
+            </span>
+          ))}
+        </div>
       </div>
 
-      {/* Painel de detalhe da linha selecionada */}
-      {hoveredRow && (
-        <div className="rounded-xl border border-white/10 bg-slate-950/90 p-3.5 grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
-          <div>
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Mínimo</p>
-            <p className="font-mono font-bold text-rose-300">{fmt(hoveredRow.min)}</p>
+      {/* Painel de detalhe da linha selecionada/hovered */}
+      {activeRow && (
+        <div className="rounded-xl border border-white/10 bg-slate-950/90 p-3.5 space-y-2 text-xs">
+          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/10">
+            <span className="font-black text-white flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: activeRow.color }} />
+              {activeRow.name}
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              {activeRow.count} simulados · {activeRow.stability}
+            </span>
           </div>
-          <div>
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Q1 (25%)</p>
-            <p className="font-mono font-bold text-slate-200">{fmt(hoveredRow.q1)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Mediana</p>
-            <p className="font-mono font-black text-white">{fmt(hoveredRow.median)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Q3 (75%)</p>
-            <p className="font-mono font-bold text-slate-200">{fmt(hoveredRow.q3)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase text-slate-500 font-bold">Máximo</p>
-            <p className="font-mono font-bold text-emerald-300">{fmt(hoveredRow.max)}</p>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase text-slate-500 font-bold">IQR / Desvio</p>
-            <p className="font-mono font-bold text-amber-300">
-              {hoveredRow.iqr.toFixed(1)} / ±{hoveredRow.std.toFixed(1)}
-            </p>
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+            <div>
+              <p className="text-[9px] uppercase text-slate-500 font-bold">Mínimo</p>
+              <p className="font-mono font-bold text-rose-300">{fmt(activeRow.min)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase text-slate-500 font-bold">Q1 (25%)</p>
+              <p className="font-mono font-bold text-slate-200">{fmt(activeRow.q1)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase text-slate-500 font-bold">Mediana</p>
+              <p className="font-mono font-black text-white">{fmt(activeRow.median)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase text-slate-500 font-bold">Q3 (75%)</p>
+              <p className="font-mono font-bold text-slate-200">{fmt(activeRow.q3)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase text-slate-500 font-bold">Máximo</p>
+              <p className="font-mono font-bold text-emerald-300">{fmt(activeRow.max)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase text-slate-500 font-bold">IQR / Desvio</p>
+              <p className="font-mono font-bold text-amber-300">
+                {activeRow.iqr.toFixed(1)}{unit === '%' ? ' pp' : ` ${unit}`} / ±{activeRow.std.toFixed(1)}{unit === '%' ? ' pp' : ` ${unit}`}
+              </p>
+            </div>
           </div>
         </div>
       )}

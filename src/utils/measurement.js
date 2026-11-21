@@ -507,9 +507,20 @@ export function getSafeScore(row, maxScore, minScore = 0) {
   } else if ((row.correct != null || row.acertos != null || row.correctCount != null) && (row.total != null || row.questoes != null || row.totalQuestoes != null || row.questions != null)) {
     const total = Number(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions);
     const correct = Number(row.correct ?? row.acertos ?? row.correctCount);
-    // ✅ FIX: proteger contra total=0 → divisão por zero
+    // ✅ FIX: proteger contra total=0 → divisão por zero e respeitar penalidade Cebraspe/brancos
     if (Number.isFinite(total) && total > 0 && Number.isFinite(correct)) {
-      score = safeMin + (Math.max(0, Math.min(total, correct)) / total) * range;
+      const penaltyPerWrong = Number(row.penaltyPerWrong) || 0;
+      if (penaltyPerWrong > 0) {
+        const eff = computeEffectiveScoreRatio(correct, total, {
+          blanks: Number(row.blanks) || 0,
+          penaltyPerWrong,
+          minScore: safeMin,
+          maxScore: safeMax,
+        });
+        score = safeMin + eff.ratio * range;
+      } else {
+        score = safeMin + (Math.max(0, Math.min(total, correct)) / total) * range;
+      }
     }
   }
 

@@ -182,7 +182,7 @@ export function shrinkProbabilityLogistic(probabilityPct, penalty, neutralPct = 
 // FIX: sem storeUpdateFn — retorna evento validado (loop de aprendizagem)
 export function recordPredictionEvent(prediction = {}) {
   const prob = clamp01(prediction.probability);
-  return {
+  const event = {
     id: prediction.id || generateId('calib'),
     timestamp: Number.isFinite(Number(prediction.timestamp)) ? Number(prediction.timestamp) : Date.now(),
     probability: prob,
@@ -193,12 +193,28 @@ export function recordPredictionEvent(prediction = {}) {
     category: prediction.category || 'global',
     effectiveN: Number.isFinite(Number(prediction.effectiveN)) ? Number(prediction.effectiveN) : null
   };
+  if (prediction.minBackfillDays !== undefined && prediction.minBackfillDays !== null && Number.isFinite(Number(prediction.minBackfillDays))) {
+    event.minBackfillDays = Math.max(0, Number(prediction.minBackfillDays));
+  }
+  if (prediction.maxBackfillDays !== undefined && prediction.maxBackfillDays !== null && Number.isFinite(Number(prediction.maxBackfillDays))) {
+    event.maxBackfillDays = Math.max(0, Number(prediction.maxBackfillDays));
+  }
+  if (prediction.stepTargetScore !== undefined && prediction.stepTargetScore !== null && Number.isFinite(Number(prediction.stepTargetScore))) {
+    event.stepTargetScore = Number(prediction.stepTargetScore);
+  }
+  return event;
 }
 
 export function computeCalibrationSummary(events = [], options = {}) {
-  const clean = (events || []).filter(e =>
-    Number.isFinite(e?.probability) && (e?.observed === 0 || e?.observed === 1)
-  );
+  const filterCat = options?.category != null ? String(options.category).toLowerCase() : null;
+  const clean = (events || [])
+    .filter(e => {
+      if (!Number.isFinite(e?.probability) || !(e?.observed === 0 || e?.observed === 1)) return false;
+      if (filterCat && String(e?.category || 'global').toLowerCase() !== filterCat) return false;
+      return true;
+    })
+    .slice()
+    .sort((a, b) => (Number(a?.timestamp) || 0) - (Number(b?.timestamp) || 0));
   if (clean.length < 3) {
     return { n: clean.length, ece: null, avgBrier: null, reliability: [], trend: 'insufficient_data' };
   }
@@ -298,8 +314,10 @@ export function backfillObservedFromSimulados(calibrationEvents = [], simuladoRo
         const catMeta = Array.isArray(categories)
           ? categories.find(c => isSubjectMatch(ev.category, c?.name || c?.id || c?.subject || c?.categoryName))
           : null;
-        const catMax = Number.isFinite(Number(catMeta?.maxScore)) ? Number(catMeta.maxScore) : maxScore;
-        const catMin = Number.isFinite(Number(catMeta?.minScore)) ? Number(catMeta.minScore) : minScore;
+        const hasCatMax = catMeta?.maxScore !== null && catMeta?.maxScore !== undefined && typeof catMeta?.maxScore !== 'boolean' && String(catMeta?.maxScore).trim() !== '' && Number.isFinite(Number(catMeta?.maxScore));
+        const hasCatMin = catMeta?.minScore !== null && catMeta?.minScore !== undefined && typeof catMeta?.minScore !== 'boolean' && String(catMeta?.minScore).trim() !== '' && Number.isFinite(Number(catMeta?.minScore));
+        const catMin = hasCatMin ? Number(catMeta.minScore) : minScore;
+        const catMax = hasCatMax && Number(catMeta.maxScore) > catMin ? Number(catMeta.maxScore) : maxScore;
         score = getSafeScore(hit.row, catMax, catMin);
         observedAt = hit.ts;
       }

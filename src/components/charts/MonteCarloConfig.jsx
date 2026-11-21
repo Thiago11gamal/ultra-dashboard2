@@ -485,10 +485,13 @@ export const MonteCarloConfig = ({
                                     if (setUserData && weights && Object.keys(weights).length > 0) {
                                         setUserData(contest => contest ? { ...contest, mcSavedCustomWeights: { ...weights } } : contest, false);
                                     }
-                                    const ew = getEqualWeights();
-                                    setWeights(ew);
                                 }
+                                // M6 FIX: ativar equalWeightsMode ANTES de atualizar mcWeights para preservar cat.weight do edital
                                 setEqualWeightsMode(true);
+                                if (!equalWeightsMode) {
+                                    const ew = getEqualWeights();
+                                    setWeights(ew, { skipCategorySync: true });
+                                }
                             }}
                             className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-300/60 ${equalWeightsMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                         >
@@ -499,6 +502,7 @@ export const MonteCarloConfig = ({
                             type="button"
                             onClick={() => {
                                 const savedSource = savedCustomWeights.current || contestSavedCustomWeights;
+                                setEqualWeightsMode(false);
                                 if (equalWeightsMode && savedSource) {
                                     // ✅ LOTE-02 FIX (M10): restaurar apenas chaves que ainda
                                     // existem nas categorias (pesos salvos podem estar obsoletos
@@ -514,7 +518,6 @@ export const MonteCarloConfig = ({
                                     });
                                     if (Object.keys(restored).length > 0) setWeights(restored);
                                 }
-                                setEqualWeightsMode(false);
                             }}
                             className={`flex-1 py-3 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-purple-300/60 ${!equalWeightsMode ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                         >

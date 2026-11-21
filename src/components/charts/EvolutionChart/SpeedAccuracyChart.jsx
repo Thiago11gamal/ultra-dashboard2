@@ -24,10 +24,30 @@ const formatSec = (s) => {
 };
 
 const QUADRANT_BADGE = {
-  fastAccurate: { label: 'Domínio Rápido', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
-  fastInaccurate: { label: 'Leitura Apressada', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30' },
-  slowAccurate: { label: 'Precisa Agilidade', color: 'text-sky-400', bg: 'bg-sky-500/10 border-sky-500/30' },
-  slowInaccurate: { label: 'Lacuna Teórica', color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/30' },
+  fastAccurate: {
+    label: 'Domínio Rápido',
+    hint: 'Rápido e acima da meta',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10 border-emerald-500/30',
+  },
+  fastInaccurate: {
+    label: 'Leitura Apressada',
+    hint: 'Rápido, mas abaixo da meta',
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10 border-amber-500/30',
+  },
+  slowAccurate: {
+    label: 'Precisa Agilidade',
+    hint: 'Acima da meta, mas lento',
+    color: 'text-sky-400',
+    bg: 'bg-sky-500/10 border-sky-500/30',
+  },
+  slowInaccurate: {
+    label: 'Lacuna Teórica',
+    hint: 'Lento e abaixo da meta',
+    color: 'text-rose-400',
+    bg: 'bg-rose-500/10 border-rose-500/30',
+  },
 };
 
 function SpeedAccuracyTooltip({ active, payload }) {
@@ -143,9 +163,11 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
           {Object.entries(QUADRANT_BADGE).map(([key, meta]) => (
             <span
               key={key}
+              title={meta.hint}
               className={`px-2.5 py-1 rounded-full border ${meta.bg} ${meta.color} tabular-nums`}
             >
               {meta.label}: {data.quadrants[key] || 0}
+              <span className="hidden xl:inline opacity-70 font-medium"> ({meta.hint})</span>
             </span>
           ))}
         </div>
@@ -202,7 +224,7 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
                   y={data.targetPct}
                   stroke="#10b981"
                   strokeDasharray="4 4"
-                  label={{ value: `Meta ${data.targetPct}%`, position: 'right', fill: '#10b981', fontSize: 10 }}
+                  label={{ value: `Meta ${data.targetPct}%`, position: 'insideTopRight', fill: '#10b981', fontSize: 10 }}
                 />
 
                 <Tooltip content={<SpeedAccuracyTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#94a3b8' }} />

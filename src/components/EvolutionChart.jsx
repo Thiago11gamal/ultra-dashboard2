@@ -12,7 +12,7 @@ import { getSafeScore, extractTopicsTotals, getSyntheticTotal } from "../utils/s
 import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { pointsToRatio, ratioToPoints } from "../utils/scoreHelper.conversions";
-import { Download, Loader2, Zap, Target, BarChart3, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Loader2, Zap, Target, BarChart3, TrendingUp, ChevronLeft, ChevronRight, BookOpen, LayoutGrid, List } from "lucide-react";
 import { GaussianPlot } from "./charts/GaussianPlot";
 import { useAppStore } from "../store/useAppStore";
 import { downsampleLTTB } from "../utils/downsample";
@@ -639,6 +639,14 @@ const ENGINES = [
 const BAYESIAN_ENGINE = ENGINES_WITH_GUIDE.find((e) => e.id === 'bayesian');
 const SECONDARY_ENGINES = ENGINES_WITH_GUIDE.filter((e) => e.id !== 'bayesian');
 
+const ENGINE_GROUPS = [
+    { id: 'all', label: 'Todos', ids: null },
+    { id: 'performance', label: 'Desempenho', ids: ['raw_weekly', 'raw', 'stats', 'subtopics', 'weekly_diff', 'today_vs_general', 'consistency_boxplot'] },
+    { id: 'speed', label: 'Tempo & Ritmo', ids: ['time_spent', 'speed_accuracy', 'exam_pacing'] },
+    { id: 'projection', label: 'Projeção & Risco', ids: ['compare', 'mc_density', 'projection_fan', 'kalman_latent', 'tornado_whatif'] },
+    { id: 'psychometrics', label: 'Psicometria & Erros', ids: ['correlation_regimes', 'irt_psychometric', 'metacognition_fatigue'] },
+];
+
 const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
@@ -754,8 +762,18 @@ export default React.memo(function EvolutionChart({
     const [isExporting, setIsExporting] = useState(false);
     const [exportError, setExportError] = useState(false);
     const [showEngineTooltip, setShowEngineTooltip] = useState(false);
+    const [statusViewMode, setStatusViewMode] = useState("guide");
+    const [selectedStatusId, setSelectedStatusId] = useState(null);
+    const [showHeroGuide, setShowHeroGuide] = useState(false);
+    const [engineGroup, setEngineGroup] = useState("all");
     const exportErrorTimerRef = useRef(null);
     const isMountedRef = useRef(true);
+
+    const visibleSecondaryEngines = useMemo(() => {
+        const group = ENGINE_GROUPS.find((g) => g.id === engineGroup);
+        if (!group || !group.ids) return SECONDARY_ENGINES;
+        return SECONDARY_ENGINES.filter((eng) => group.ids.includes(eng.id));
+    }, [engineGroup]);
 
     const engineTabRefs = useRef(new Map());
 
@@ -1175,6 +1193,18 @@ export default React.memo(function EvolutionChart({
         });
     }, [activeCategories, categories, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData, targetScore, categoryLevels, minScore, maxScore]);
 
+    const focusHistoricalCutoffs = useMemo(() => {
+        if (!Array.isArray(historicalCutoffs) || historicalCutoffs.length === 0) return EMPTY_ARRAY;
+        if (!focusCategory || (focusMax === maxScore && focusMin === minScore)) return historicalCutoffs;
+        return historicalCutoffs
+            .map((v) => {
+                const n = Number(v);
+                if (!Number.isFinite(n)) return null;
+                return Number(ratioToPoints(pointsToRatio(n, maxScore, minScore), focusMax, focusMin).toFixed(2));
+            })
+            .filter((v) => v !== null);
+    }, [historicalCutoffs, focusCategory, focusMax, focusMin, maxScore, minScore]);
+
     const insight = useMemo(() => {
         return generateEvolutionInsights({
             timeline,
@@ -1182,9 +1212,16 @@ export default React.memo(function EvolutionChart({
             focusCategory,
             activeEngine,
             categories,
+            simuladoRows: simuladoRowsArray,
             unit: resolvedActiveUnit,
             maxScore,
             minScore,
+            targetScore,
+            projectDays,
+            examDurationMinutes,
+            examTotalQuestions,
+            examBoard,
+            penaltyPerWrong,
             timeWindow,
             showOnlyFocus
         });
@@ -1194,9 +1231,16 @@ export default React.memo(function EvolutionChart({
         focusCategory,
         activeEngine,
         categories,
+        simuladoRowsArray,
         resolvedActiveUnit,
         maxScore,
         minScore,
+        targetScore,
+        projectDays,
+        examDurationMinutes,
+        examTotalQuestions,
+        examBoard,
+        penaltyPerWrong,
         timeWindow,
         showOnlyFocus
     ]);
@@ -1209,12 +1253,15 @@ export default React.memo(function EvolutionChart({
             focusCategory,
             targetScore,
             unit: resolvedActiveUnit,
+            focusUnit: resolvedFocusUnit,
             minScore,
             maxScore,
             activeMcResult,
             subjectAggData,
             heatmapData,
             projectDays,
+            examDurationMinutes,
+            examTotalQuestions,
             timeWindow,
             showOnlyFocus
         });
@@ -1225,15 +1272,23 @@ export default React.memo(function EvolutionChart({
         focusCategory,
         targetScore,
         resolvedActiveUnit,
+        resolvedFocusUnit,
         minScore,
         maxScore,
         activeMcResult,
         subjectAggData,
         heatmapData,
         projectDays,
+        examDurationMinutes,
+        examTotalQuestions,
         timeWindow,
         showOnlyFocus
     ]);
+
+    const selectedStatus = useMemo(() => {
+        if (!Array.isArray(statusList) || statusList.length === 0) return null;
+        return statusList.find((s) => s.id === selectedStatusId) || statusList[0];
+    }, [statusList, selectedStatusId]);
 
     const toneHex = {
         success: '#34d399',
@@ -1355,11 +1410,29 @@ export default React.memo(function EvolutionChart({
             `}</style>
 
             <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3 min-w-0">
-                <KpiCard value={safeGlobalMetrics.totalQuestions.toLocaleString()} label="Questões" color="#818cf8" icon="📚" />
-                <KpiCard value={safeGlobalMetrics.totalCorrect.toLocaleString()} label="Acertos" color="#34d399" icon="🎯" />
+                <KpiCard
+                    value={safeGlobalMetrics.totalQuestions.toLocaleString()}
+                    label="Questões"
+                    color="#818cf8"
+                    icon="📚"
+                    hint={timeWindow === 'all' ? 'Histórico completo' : `Últimos ${timeWindow}d`}
+                    title="Total de questões reais resolvidas no filtro ativo."
+                />
+                <KpiCard
+                    value={safeGlobalMetrics.totalCorrect.toLocaleString()}
+                    label="Acertos"
+                    color="#34d399"
+                    icon="🎯"
+                    hint="Respostas corretas"
+                    title="Quantidade de questões acertadas dentro do período e filtro ativos."
+                />
                 <KpiCard
                     value={`${safeGlobalMetrics.globalAccuracy.toFixed(2)}%`}
-                    label="Precisão Global" color="#fb923c" icon="⚡"
+                    label="Precisão Global"
+                    color="#fb923c"
+                    icon="⚡"
+                    hint={showOnlyFocus && focusCategory ? `Foco: ${focusCategory.name}` : 'Taxa consolidada'}
+                    title="Percentual consolidado de acertos (acertos / questões) no filtro ativo."
                 />
                 {extraKpis.map((status, idx) => {
                     const isLast = idx === extraKpis.length - 1 && extraKpis.length === 4;
@@ -1370,6 +1443,9 @@ export default React.memo(function EvolutionChart({
                             label={status.label}
                             color={toneHex[status.tone] || '#94a3b8'}
                             icon={status.icon}
+                            hint={status.scopeLabel}
+                            statusText={status.statusText}
+                            title={status.howToRead ? `${status.howToRead}${status.scaleGuide ? ` ${status.scaleGuide}` : ''}` : status.help}
                             className={isLast ? 'col-span-2 sm:col-span-3 lg:col-span-2 xl:col-span-1' : ''}
                         />
                     );
@@ -1378,35 +1454,161 @@ export default React.memo(function EvolutionChart({
 
             <motion.div
                 variants={itemVariants}
-                className="rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-3.5 sm:p-4 shadow-lg"
+                className="rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-3.5 sm:p-5 shadow-lg space-y-3.5"
             >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                     <div className="min-w-0">
-                        <h2 className="text-xs sm:text-sm font-black text-slate-200 uppercase tracking-widest">
-                            Status inteligente do desempenho
-                        </h2>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                            Leitura rápida de metas, tendências, riscos e constância.
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="text-xs sm:text-sm font-black text-slate-200 uppercase tracking-widest">
+                                Status inteligente do desempenho
+                            </h2>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
+                                Atualização automática
+                            </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                            Cada indicador abaixo explica <strong className="text-slate-200">o que mede, a qual escopo pertence e como ler seu resultado</strong>. Clique em qualquer status para ver a ação recomendada.
                         </p>
                     </div>
 
-                    <span className="self-start sm:self-auto shrink-0 text-[9px] font-black uppercase tracking-widest text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-lg whitespace-nowrap">
-                        Atualização automática
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <div className="inline-flex items-center bg-black/40 border border-white/10 rounded-xl p-1" role="group" aria-label="Modo de exibição dos status">
+                            <button
+                                type="button"
+                                onClick={() => setStatusViewMode('guide')}
+                                aria-pressed={statusViewMode === 'guide'}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                    statusViewMode === 'guide'
+                                        ? 'bg-indigo-500 text-white shadow-sm'
+                                        : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                            >
+                                <LayoutGrid size={12} />
+                                <span>Guia de leitura</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStatusViewMode('compact')}
+                                aria-pressed={statusViewMode === 'compact'}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                    statusViewMode === 'compact'
+                                        ? 'bg-indigo-500 text-white shadow-sm'
+                                        : 'text-slate-400 hover:text-slate-200'
+                                }`}
+                            >
+                                <List size={12} />
+                                <span>Compacto</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Legenda de cores dos status */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3 py-2 rounded-xl bg-black/25 border border-white/5 text-[10px] text-slate-400">
+                    <span className="font-black uppercase tracking-wider text-slate-300">Cores:</span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                        <strong className="text-emerald-300">Verde</strong> = Ideal / na meta
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-amber-400" />
+                        <strong className="text-amber-300">Amarelo</strong> = Atenção / ajuste
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-rose-400" />
+                        <strong className="text-rose-300">Vermelho</strong> = Risco / prioridade
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-sky-400" />
+                        <strong className="text-sky-300">Azul/Roxo</strong> = Tendência ou referência
                     </span>
                 </div>
 
-                <div className="flex flex-wrap gap-2" role="status" aria-live="polite">
-                    {statusList.map((status) => (
-                        <StatusPill
-                            key={status.id}
-                            label={status.label}
-                            value={status.value}
-                            tone={status.tone}
-                            icon={status.icon}
-                            help={status.help}
-                        />
-                    ))}
-                </div>
+                {statusViewMode === 'guide' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5" role="status" aria-live="polite">
+                        {statusList.map((status) => (
+                            <StatusPill
+                                key={status.id}
+                                variant="card"
+                                label={status.label}
+                                value={status.value}
+                                tone={status.tone}
+                                icon={status.icon}
+                                help={status.help}
+                                statusText={status.statusText}
+                                scopeLabel={status.scopeLabel}
+                                howToRead={status.howToRead}
+                                scaleGuide={status.scaleGuide}
+                                actionHint={status.actionHint}
+                                isSelected={selectedStatusId === status.id}
+                                onClick={() => setSelectedStatusId((prev) => (prev === status.id ? null : status.id))}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="space-y-3" role="status" aria-live="polite">
+                        <div className="flex flex-wrap gap-2">
+                            {statusList.map((status) => (
+                                <StatusPill
+                                    key={status.id}
+                                    variant="pill"
+                                    label={status.label}
+                                    value={status.value}
+                                    tone={status.tone}
+                                    icon={status.icon}
+                                    help={status.help}
+                                    statusText={status.statusText}
+                                    howToRead={status.howToRead}
+                                    scaleGuide={status.scaleGuide}
+                                    isSelected={selectedStatus?.id === status.id}
+                                    onClick={() => setSelectedStatusId(status.id)}
+                                />
+                            ))}
+                        </div>
+
+                        {selectedStatus && (
+                            <div className="rounded-xl border border-indigo-500/25 bg-black/30 p-3.5 space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span aria-hidden="true">{selectedStatus.icon}</span>
+                                        <span className="text-xs font-black uppercase tracking-wider text-slate-100">
+                                            Como ler: {selectedStatus.label}
+                                        </span>
+                                        {selectedStatus.scopeLabel && (
+                                            <span className="text-[10px] font-semibold text-slate-400 bg-white/5 px-2 py-0.5 rounded-full">
+                                                {selectedStatus.scopeLabel}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {selectedStatus.statusText && (
+                                            <span className="text-[10px] font-bold text-indigo-300 bg-indigo-500/15 border border-indigo-400/30 px-2 py-0.5 rounded-full">
+                                                {selectedStatus.statusText}
+                                            </span>
+                                        )}
+                                        <span className="text-sm font-black font-mono text-white">
+                                            {selectedStatus.value}
+                                        </span>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-slate-200 leading-relaxed">
+                                    {selectedStatus.howToRead || selectedStatus.help}
+                                </p>
+                                {selectedStatus.scaleGuide && (
+                                    <p className="text-[11px] text-slate-400 bg-black/30 border border-white/5 rounded-lg px-2.5 py-1.5">
+                                        {selectedStatus.scaleGuide}
+                                    </p>
+                                )}
+                                {selectedStatus.actionHint && (
+                                    <p className="text-[11px] text-indigo-200 bg-indigo-500/10 border border-indigo-400/20 rounded-lg px-2.5 py-1.5">
+                                        <strong className="text-indigo-300">🧭 O que fazer: </strong>
+                                        {selectedStatus.actionHint}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </motion.div>
 
             <motion.div variants={itemVariants} className="relative z-0">
@@ -1507,15 +1709,57 @@ export default React.memo(function EvolutionChart({
 
             {/* HERO CHART: Nível Bayesiano (Fixo) */}
             <motion.div variants={itemVariants} className="relative z-20 rounded-[2rem] border border-emerald-500/20 bg-slate-900/80 backdrop-blur-2xl p-4 sm:p-7 shadow-[0_10px_40px_-15px_rgba(52,211,153,0.15)] w-full overflow-visible">
-                <div className="flex items-center gap-3 mb-5">
-                    <div className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-base sm:text-lg shrink-0 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]">
-                        🧠
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-base sm:text-lg shrink-0 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]">
+                            🧠
+                        </div>
+                        <div>
+                            <h3 className="text-lg sm:text-xl font-bold text-slate-100 mb-0.5">Evolução do domínio real</h3>
+                            <p className="text-[11px] sm:text-xs text-emerald-400/80 font-medium tracking-wide uppercase">Histórico bayesiano e intervalo de confiança</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-lg sm:text-xl font-bold text-slate-100 mb-0.5">Evolução do domínio real</h3>
-                        <p className="text-[11px] sm:text-xs text-emerald-400/80 font-medium tracking-wide uppercase">Histórico bayesiano e intervalo de confiança</p>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowHeroGuide((prev) => !prev)}
+                        aria-expanded={showHeroGuide}
+                        className={`self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
+                            showHeroGuide
+                                ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
+                                : 'bg-slate-950/60 border-white/10 text-slate-300 hover:border-emerald-500/30 hover:text-emerald-200'
+                        }`}
+                    >
+                        <BookOpen size={13} />
+                        <span>{showHeroGuide ? 'Ocultar guia' : 'Como ler este gráfico'}</span>
+                    </button>
                 </div>
+
+                {/* Legenda rápida de leitura do gráfico bayesiano */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-4 px-3 py-2 rounded-xl bg-black/25 border border-white/5 text-[10px] text-slate-400">
+                    <span className="font-black uppercase tracking-wider text-slate-300">Leitura rápida:</span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-0.5 w-3.5 bg-emerald-400 inline-block" />
+                        Linha = domínio real suavizado
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-3.5 rounded-sm bg-emerald-400/25 border border-emerald-400/40 inline-block" />
+                        Faixa = incerteza (IC 95%)
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block" />
+                        Acima da linha pontilhada = na meta
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-rose-400 inline-block" />
+                        Abaixo = zona de risco
+                    </span>
+                </div>
+
+                {showHeroGuide && BAYESIAN_ENGINE?.guide && (
+                    <div className="mb-4">
+                        <ChartGuide guide={BAYESIAN_ENGINE.guide} />
+                    </div>
+                )}
                 
                 <div className="w-full no-scrollbar pb-2" style={{ overflowX: 'auto', overflowY: 'visible' }}>
                     <div className="min-w-[700px] lg:min-w-full relative">
@@ -1605,11 +1849,39 @@ export default React.memo(function EvolutionChart({
                      <ChartGuide guide={engine.guide} />
                  </div>
 
-                {/* Barra de Seleção de Motores: Segmented Pills Compacta */}
-                <div className="relative mb-6 w-full">
+                {/* Filtro por grupo de análises + Barra de Seleção de Motores */}
+                <div className="relative mb-6 w-full space-y-2">
+                    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar análises por categoria">
+                        {ENGINE_GROUPS.map((group) => {
+                            const isActiveGroup = engineGroup === group.id;
+                            const count = group.ids ? group.ids.length : SECONDARY_ENGINES.length;
+                            return (
+                                <button
+                                    key={group.id}
+                                    type="button"
+                                    aria-pressed={isActiveGroup}
+                                    onClick={() => {
+                                        setEngineGroup(group.id);
+                                        if (group.ids && !group.ids.includes(activeEngine)) {
+                                            setActiveEngine(group.ids[0]);
+                                        }
+                                    }}
+                                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                                        isActiveGroup
+                                            ? 'bg-indigo-500/20 border-indigo-400/50 text-indigo-200'
+                                            : 'bg-slate-950/50 border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/15'
+                                    }`}
+                                >
+                                    <span>{group.label}</span>
+                                    <span className="font-mono text-[9px] opacity-70">{count}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
                     <div className="p-1.5 rounded-2xl bg-slate-950/70 border border-white/[0.07] backdrop-blur-md shadow-inner">
                         <div role="tablist" aria-label="Modos de análise do gráfico de evolução" className="flex items-center overflow-x-auto gap-1.5 px-0.5 py-0.5 w-full custom-scrollbar scroll-smooth">
-                            {SECONDARY_ENGINES.map((eng, idx, arr) => {
+                            {visibleSecondaryEngines.map((eng, idx, arr) => {
                                 const active = activeEngine === eng.id;
                                 return (
                                     <button
@@ -1714,6 +1986,7 @@ export default React.memo(function EvolutionChart({
                     <React.Suspense fallback={LazyTabFallback}>
                     <ExamPacingChart
                         categories={categories}
+                        mcWeights={mcWeights}
                         timeWindow={timeWindow}
                         examDurationMinutes={examDurationMinutes}
                         examTotalQuestions={examTotalQuestions}
@@ -1735,36 +2008,39 @@ export default React.memo(function EvolutionChart({
                 ) : activeEngine === "projection_fan" ? (
                     <React.Suspense fallback={LazyTabFallback}>
                     <ProjectionFanChart
-                        focusCategory={showOnlyFocus ? focusCategory : (focusCategory || null)}
+                        focusCategory={focusCategory || null}
                         timeline={timeline}
                         projectDays={projectDays}
-                        historicalCutoffs={historicalCutoffs}
-                        targetScore={focusTarget}
-                        minScore={focusMin}
-                        maxScore={focusMax}
-                        unit={resolvedFocusUnit}
+                        historicalCutoffs={focusHistoricalCutoffs}
+                        targetScore={focusCategory ? focusTarget : targetScore}
+                        minScore={focusCategory ? focusMin : minScore}
+                        maxScore={focusCategory ? focusMax : maxScore}
+                        unit={focusCategory ? resolvedFocusUnit : resolvedGlobalUnit}
                         activeMcResult={activeMcResult}
                     />
                     </React.Suspense>
                 ) : activeEngine === "kalman_latent" ? (
                     <React.Suspense fallback={LazyTabFallback}>
                     <KalmanLatentChart
-                        focusCategory={focusCategory}
+                        focusCategory={focusCategory || null}
                         timeline={timeline}
                         timeWindow={timeWindow}
-                        targetScore={focusTarget}
-                        minScore={focusMin}
-                        maxScore={focusMax}
-                        unit={resolvedFocusUnit}
+                        targetScore={focusCategory ? focusTarget : targetScore}
+                        minScore={focusCategory ? focusMin : minScore}
+                        maxScore={focusCategory ? focusMax : maxScore}
+                        unit={focusCategory ? resolvedFocusUnit : resolvedGlobalUnit}
                     />
                     </React.Suspense>
                 ) : activeEngine === "tornado_whatif" ? (
                     <React.Suspense fallback={LazyTabFallback}>
                     <TornadoWhatIfChart
                         categories={categories}
+                        mcWeights={mcWeights}
+                        simuladoRows={simuladoRowsArray}
                         targetScore={targetScore}
                         minScore={minScore}
                         maxScore={maxScore}
+                        unit={resolvedGlobalUnit}
                         historicalCutoffs={historicalCutoffs}
                         examGroupCutoffs={examGroupCutoffs}
                         onSaveGroupCutoffs={(nextCutoffs) => {
@@ -1784,6 +2060,8 @@ export default React.memo(function EvolutionChart({
                         targetScore={targetScore}
                         minScore={minScore}
                         maxScore={maxScore}
+                        unit={resolvedGlobalUnit}
+                        focusSubjectId={focusSubjectId}
                     />
                     </React.Suspense>
                 ) : activeEngine === "irt_psychometric" ? (
@@ -1805,6 +2083,7 @@ export default React.memo(function EvolutionChart({
                         simuladoRows={simuladoRowsArray}
                         focusCategory={focusCategory}
                         showOnlyFocus={showOnlyFocus}
+                        timeWindow={timeWindow}
                     />
                     </React.Suspense>
                 ) : activeEngine === "mc_density" ? (
@@ -1979,6 +2258,7 @@ export default React.memo(function EvolutionChart({
                                         {
                                           label: 'Caminho Sucesso',
                                           val: `${normalizeProbability(activeMcResult?.probability).toFixed(2)}%`,
+                                          desc: 'Chance estimada de atingir a meta',
                                           icon: <Target size={14} />,
                                           color: 'text-emerald-400',
                                           bg: 'bg-emerald-500/10'
@@ -1988,6 +2268,7 @@ export default React.memo(function EvolutionChart({
                                           val: focusUnit === '%'
                                             ? `${projectedLevel.toFixed(2)}%`
                                             : `${Math.round(projectedLevel)}${focusUnitSuffix}`,
+                                          desc: 'Nota mediana esperada na prova',
                                           icon: <TrendingUp size={14} />,
                                           color: 'text-blue-400',
                                           bg: 'bg-blue-500/10'
@@ -1997,6 +2278,7 @@ export default React.memo(function EvolutionChart({
                                           val: focusUnit === '%'
                                             ? `±${marginOfError.toFixed(2)}%`
                                             : `±${Math.round(marginOfError)}${focusUnitSuffix}`,
+                                          desc: 'Oscilação provável para cima/baixo',
                                           icon: <BarChart3 size={14} />,
                                           color: 'text-amber-400',
                                           bg: 'bg-amber-500/10'
@@ -2006,6 +2288,7 @@ export default React.memo(function EvolutionChart({
                                           val: focusUnit === '%'
                                             ? `${ciMin.toFixed(1)} a ${ciMax.toFixed(1)}%`
                                             : `${Math.round(ciMin)} a ${Math.round(ciMax)}${focusUnitSuffix}`,
+                                          desc: 'Faixa de 95% das simulações',
                                           icon: <Zap size={14} />,
                                           color: 'text-indigo-400',
                                           bg: 'bg-indigo-500/10'
@@ -2026,6 +2309,9 @@ export default React.memo(function EvolutionChart({
                                             title={stat.val}
                                           >
                                             {stat.val}
+                                          </span>
+                                          <span className="text-[9px] text-slate-500 mt-1 leading-snug">
+                                            {stat.desc}
                                           </span>
                                         </div>
                                       ));

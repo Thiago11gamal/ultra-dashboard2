@@ -69,7 +69,8 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
 }) {
   const uid = useId().replace(/:/g, '');
   const [customHorizon, setCustomHorizon] = useState(null);
-  const effectiveHorizon = customHorizon ?? Math.max(14, Math.min(365, Number(projectDays) || 60));
+  const examHorizon = Math.max(14, Math.min(365, Math.round(Number(projectDays) || 60)));
+  const effectiveHorizon = customHorizon ?? examHorizon;
 
   const data = useMemo(
     () =>
@@ -78,10 +79,11 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
         maxScore,
         targetScore,
         horizonDays: effectiveHorizon,
+        mcHorizonDays: examHorizon,
         historicalCutoffs,
         activeMcResult,
       }),
-    [focusCategory, timeline, minScore, maxScore, targetScore, effectiveHorizon, historicalCutoffs, activeMcResult]
+    [focusCategory, timeline, minScore, maxScore, targetScore, effectiveHorizon, examHorizon, historicalCutoffs, activeMcResult]
   );
 
   const fmt = (v) => (unit === '%' ? `${Number(v).toFixed(1)}%` : `${formatValue(v)} ${unit}`);
@@ -98,39 +100,63 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
 
   return (
     <div className="w-full space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-200 font-bold">
+          <span>{focusCategory ? `🎯 Foco: ${focusCategory.name}` : '🌐 Visão Global'}</span>
+        </span>
+        <span className="text-[10px] text-slate-400">
+          Faixa clara = P25–P75 (50% dos cenários) · Faixa externa = P10–P90 (80% dos cenários)
+        </span>
+      </div>
+
       {/* Cabeçalho KPIs + Seletor de horizonte */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 flex-1 min-w-[260px]">
-          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2">
+          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2" title="Cenário pessimista: 90% de chance de ficar acima desta nota">
             <p className="text-[9px] uppercase text-slate-500 font-bold">Conservador (P10)</p>
             <p className="text-sm font-black font-mono text-amber-300">{fmt(data.summary.finalP10)}</p>
+            <p className="text-[9px] text-slate-500">piso cauteloso</p>
           </div>
-          <div className="rounded-xl bg-slate-950/70 border border-sky-500/30 px-3 py-2">
+          <div className="rounded-xl bg-slate-950/70 border border-sky-500/30 px-3 py-2" title="Cenário central mais provável mantendo o ritmo atual">
             <p className="text-[9px] uppercase text-slate-500 font-bold">Mediana (P50)</p>
             <p className="text-sm font-black font-mono text-sky-300">{fmt(data.summary.finalP50)}</p>
+            <p className="text-[9px] text-slate-500">cenário provável</p>
           </div>
-          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2">
+          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2" title="Cenário favorável se você acelerar a constância">
             <p className="text-[9px] uppercase text-slate-500 font-bold">Otimista (P90)</p>
             <p className="text-sm font-black font-mono text-emerald-300">{fmt(data.summary.finalP90)}</p>
+            <p className="text-[9px] text-slate-500">teto favorável</p>
           </div>
-          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2">
+          <div className="rounded-xl bg-slate-950/70 border border-white/5 px-3 py-2" title="Data estimada em que a linha P50 alcança a meta">
             <p className="text-[9px] uppercase text-slate-500 font-bold flex items-center gap-1">
               <Target size={10} className="text-emerald-400" /> Cruzamento Meta
             </p>
             <p className="text-xs font-black font-mono text-white">
-              {data.targetCrossingDate ? data.targetCrossingDate.split('-').reverse().join('/') : 'Acima do prazo'}
+              {data.alreadyAtTarget
+                ? 'Já na meta ✓'
+                : (data.targetCrossingDate ? data.targetCrossingDate.split('-').reverse().join('/') : 'Acima do prazo')}
             </p>
+            <p className="text-[9px] text-slate-500">quando P50 bate {fmt(targetScore)}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-950/70 border border-white/10 p-1 rounded-xl text-[10px] font-bold">
+        <div className="flex flex-wrap items-center gap-1 bg-slate-950/70 border border-white/10 p-1 rounded-xl text-[10px] font-bold">
+          <button
+            type="button"
+            onClick={() => setCustomHorizon(null)}
+            className={`px-2.5 py-1 rounded-lg transition-colors ${
+              customHorizon === null ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/40' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Prova ({examHorizon}d)
+          </button>
           {[30, 60, 90, 180].map((d) => (
             <button
               key={d}
               type="button"
               onClick={() => setCustomHorizon(d)}
               className={`px-2.5 py-1 rounded-lg transition-colors ${
-                effectiveHorizon === d ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40' : 'text-slate-400 hover:text-white'
+                customHorizon === d ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40' : 'text-slate-400 hover:text-white'
               }`}
             >
               {d}d

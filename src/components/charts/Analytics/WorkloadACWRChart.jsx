@@ -45,9 +45,15 @@ function ACWRTooltip({ active, payload }) {
   );
 }
 
-export const WorkloadACWRChart = React.memo(function WorkloadACWRChart({ studyLogs = [] }) {
-  const data = useMemo(() => computeACWR(studyLogs), [studyLogs]);
+export const WorkloadACWRChart = React.memo(function WorkloadACWRChart({ studyLogs = [], dayTick }) {
+  const data = useMemo(() => {
+    void dayTick;
+    return computeACWR(studyLogs);
+  }, [studyLogs, dayTick]);
   const badgeCls = ZONE_STYLE[data.zone] || ZONE_STYLE.optimal;
+  // B5 FIX: domínio dinâmico para não cortar picos reais de burnout (> 2.2x até 3.0x)
+  const maxSeriesAcwr = data.series.reduce((mx, p) => Math.max(mx, Number(p?.acwr) || 0), 2.0);
+  const yDomainMax = Math.min(3.0, Math.max(2.2, Math.ceil((maxSeriesAcwr + 0.2) * 2) / 2));
 
   return (
     <div className="glass p-5 sm:p-6 rounded-3xl border border-white/10 shadow-2xl bg-slate-900/45 space-y-5">
@@ -97,9 +103,9 @@ export const WorkloadACWRChart = React.memo(function WorkloadACWRChart({ studyLo
             <ComposedChart data={data.series} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
               <ReferenceArea yAxisId="left" y1={0.8} y2={1.3} fill="#10b981" fillOpacity={0.09} />
-              <ReferenceArea yAxisId="left" y1={1.5} y2={2.5} fill="#f43f5e" fillOpacity={0.07} />
+              <ReferenceArea yAxisId="left" y1={1.5} y2={yDomainMax} fill="#f43f5e" fillOpacity={0.07} />
               <XAxis dataKey="label" stroke="#64748b" fontSize={10} />
-              <YAxis yAxisId="left" domain={[0, 2.2]} stroke="#34d399" fontSize={10} tickFormatter={(v) => `${v}×`} />
+              <YAxis yAxisId="left" domain={[0, yDomainMax]} stroke="#34d399" fontSize={10} tickFormatter={(v) => `${v}×`} />
               <YAxis yAxisId="right" orientation="right" stroke="#6366f1" fontSize={10} tickFormatter={(v) => `${v}h`} />
               <Tooltip content={<ACWRTooltip />} />
               <ReferenceLine yAxisId="left" y={1.5} stroke="#f43f5e" strokeDasharray="4 4" />

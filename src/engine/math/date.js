@@ -93,22 +93,52 @@ export const ageInHours = (date, reference = new Date()) => {
   return Number.isFinite(hours) && hours > 0 ? hours : 0;
 };
 
-export const daysUntilGoal = (goalDate, { fallback = 30, min = 1, referenceDate = new Date() } = {}) => {
-  if (!goalDate) return fallback;
-  const now = safeDate(referenceDate) || new Date();
-  now.setHours(12, 0, 0, 0);
-
-  let goal = null;
-  if (typeof goalDate === 'object' && goalDate !== null && Number.isFinite(goalDate.seconds)) {
-    goal = new Date(goalDate.seconds * 1000);
-  } else {
-    goal = safeDate(goalDate);
+const toCalendarUtcNoonMs = (value, timeZone = 'America/Manaus') => {
+  if (!value) return NaN;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [y, m, d] = trimmed.split('-').map(Number);
+      const utc = Date.UTC(y, m - 1, d, 12, 0, 0, 0);
+      const check = new Date(utc);
+      if (check.getUTCFullYear() === y && check.getUTCMonth() === m - 1 && check.getUTCDate() === d) {
+        return utc;
+      }
+      return NaN;
+    }
   }
+  let parsed = null;
+  if (typeof value === 'object' && value !== null && Number.isFinite(value.seconds)) {
+    parsed = new Date(value.seconds * 1000);
+  } else {
+    parsed = safeDate(value);
+  }
+  if (!parsed || Number.isNaN(parsed.getTime())) return NaN;
+  try {
+    const key = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(parsed);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+      const [y, m, d] = key.split('-').map(Number);
+      return Date.UTC(y, m - 1, d, 12, 0, 0, 0);
+    }
+  } catch {
+    // fallback abaixo
+  }
+  return Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0, 0);
+};
 
-  if (!goal || Number.isNaN(goal.getTime())) return fallback;
-  goal.setHours(12, 0, 0, 0);
+export const daysUntilGoal = (goalDate, { fallback = 30, min = 1, referenceDate = new Date(), timeZone = 'America/Manaus' } = {}) => {
+  if (!goalDate) return fallback;
+  const nowUtcNoon = toCalendarUtcNoonMs(referenceDate, timeZone);
+  const goalUtcNoon = toCalendarUtcNoonMs(goalDate, timeZone);
 
-  const diffDays = Math.round((goal.getTime() - now.getTime()) / 86400000);
+  if (!Number.isFinite(nowUtcNoon) || !Number.isFinite(goalUtcNoon)) return fallback;
+
+  const diffDays = Math.round((goalUtcNoon - nowUtcNoon) / 86400000);
   if (!Number.isFinite(diffDays)) return fallback;
 
   // BUG: datas passadas retornavam min (1), mascarando meta vencida.

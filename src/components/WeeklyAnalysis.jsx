@@ -113,8 +113,15 @@ function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
             }
 
             // Fallback: If taskId starts with a category ID (ex: cat-1772560345316-opevcca-topic-c1-0)
+            // D7 FIX: exigir delimitador (- ou _) e ordenar pelo maior id primeiro (paridade com chartDataMappers)
             if (log.taskId && typeof log.taskId === 'string' && log.taskId.startsWith('cat-')) {
-                const matchedCat = categoriesArray.find(c => c && c.id && log.taskId.startsWith(String(c.id)));
+                const matchedCat = categoriesArray
+                    .filter(c => c && c.id && (
+                        log.taskId === String(c.id) ||
+                        log.taskId.startsWith(`${String(c.id)}-`) ||
+                        log.taskId.startsWith(`${String(c.id)}_`)
+                    ))
+                    .sort((a, b) => String(b.id).length - String(a.id).length)[0];
                 if (matchedCat) return matchedCat;
             }
 
@@ -147,11 +154,13 @@ function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
             };
         };
 
-        // Filtrar apenas logs com tempo positivo e data válida para alinhar KPIs do cabeçalho com a timeline
+        // Filtrar apenas logs com tempo positivo e data válida não-futura para alinhar KPIs do cabeçalho com a timeline
         const validStudyLogs = logsArray.filter(log => {
             if (getLogMinutes(log) <= 0) return false;
             const d = normalizeDate(log?.date || log?.createdAt);
-            return d !== null && !Number.isNaN(d.getTime());
+            if (!d || Number.isNaN(d.getTime())) return false;
+            const dk = getDateKey(d);
+            return !dk || !todayKey || dk <= todayKey;
         });
         const totalMinutes = validStudyLogs.reduce((acc, log) => acc + getLogMinutes(log), 0);
         const totalSessions = validStudyLogs.length;
@@ -253,6 +262,7 @@ function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
 
             if (existingLog) {
                 existingLog.minutes += logMinutes;
+                existingLog.sessionCount = (existingLog.sessionCount || 1) + 1;
                 const prevTime = existingLog.time ?? 0;
                 const newTime = logTime;
                 if (newTime > prevTime) {
@@ -265,6 +275,7 @@ function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
                     taskId: log.taskId,
                     taskTitle,
                     minutes: logMinutes,
+                    sessionCount: 1,
                     date: log.date,
                     time: logTime
                 };
@@ -288,7 +299,11 @@ function WeeklyAnalysis({ studyLogs = [], categories = [], dayTick }) {
             })).sort((a, b) => b.lastLogTime - a.lastLogTime);
 
             const dayTotalMinutes = cats.reduce((acc, c) => acc + c.totalMinutes, 0);
-            const dayTotalSessions = cats.reduce((acc, c) => acc + c.logs.length, 0);
+            // D7 FIX: somar sessionCount real das entradas mescladas para bater com totalSessions do cabeçalho
+            const dayTotalSessions = cats.reduce(
+                (acc, c) => acc + c.logs.reduce((s, l) => s + (l.sessionCount || 1), 0),
+                0
+            );
 
             return {
                 ...dayGroup,

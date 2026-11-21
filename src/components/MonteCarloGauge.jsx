@@ -45,18 +45,42 @@ const MonteCarloGaugeBase = ({
     const dragDebounceRef = useRef(null);
     const timeSliderRef = useRef(null);
 
+    const weights = useAppStore(state => {
+        const currentActiveId = state.appState?.activeId;
+        return state.appState?.contests?.[currentActiveId]?.mcWeights || EMPTY_WEIGHTS;
+    });
+    const storeEqualWeightsMode = useAppStore(state => {
+        const currentActiveId = state.appState?.activeId;
+        const contest = state.appState?.contests?.[currentActiveId];
+        if (contest && typeof contest.mcEqualWeights === 'boolean') return contest.mcEqualWeights;
+        return state.appState?.mcEqualWeights ?? true;
+    });
+
     const timelineDates = useMemo(() => {
         const dates = new Set();
         const todayKey = getDateKey(new Date());
-        const safeCategories = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
-        safeCategories.forEach(cat => {
+        const safeCategoriesList = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
+        safeCategoriesList.forEach(cat => {
+            // B2 FIX: filtrar datas com as mesmas regras de validade/peso do motor para não travar a Máquina do Tempo
+            if (!storeEqualWeightsMode) {
+                const rawW = weights?.[cat.id] ?? weights?.[cat.name];
+                const parsedW = (rawW === undefined || rawW === null || rawW === '') ? 1 : Number(rawW);
+                if (!Number.isFinite(parsedW) || parsedW <= 0) return;
+            }
             if (cat.simuladoStats?.history) {
+                const catMax = Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+                const hasCatMin = cat.minScore !== null && cat.minScore !== undefined && cat.minScore !== '' && typeof cat.minScore !== 'boolean' && Number.isFinite(Number(cat.minScore));
+                const catMin = hasCatMin ? Number(cat.minScore) : minScore;
                 const safeHistory = (Array.isArray(cat.simuladoStats.history) ? cat.simuladoStats.history : Object.values(cat.simuladoStats.history)).filter(Boolean);
                 safeHistory.forEach(h => {
                     if (!h || h.valid === false || h.validated === false) return;
                     const normalized = normalizeDate(h.date || h.createdAt);
                     const dk = normalized ? getDateKey(normalized) : null;
-                    if (dk && (!todayKey || dk <= todayKey)) dates.add(dk);
+                    if (!dk || (todayKey && dk > todayKey)) return;
+                    const safeScore = getSafeScore(h, catMax, catMin);
+                    if (!Number.isFinite(safeScore)) return;
+                    if (isPhantomZeroTimeAttempt(h, safeScore)) return;
+                    dates.add(dk);
                 });
             }
         });
@@ -66,7 +90,7 @@ const MonteCarloGaugeBase = ({
             const db = parseNoonLocal?.(b)?.getTime() ?? normalizeDate(b)?.getTime() ?? 0;
             return da - db;
         });
-    }, [categories]);
+    }, [categories, weights, storeEqualWeightsMode, maxScore, minScore]);
 
     useEffect(() => {
         if (!isDraggingTime.current) {
@@ -87,17 +111,8 @@ const MonteCarloGaugeBase = ({
         };
     }, []);
 
-    // ✅ LOTE-02 FIX (M7): o comentário anterior dizia que o estado tinha sido
-    // eliminado, mas ele continua aqui — e é NECESSÁRIO para o modo não-controlado
-    // (sem onSimulateTodayChange). No modo controlado, resolvedSimulateToday lê a
-    // prop diretamente e este estado é apenas fallback. Sem useEffect espelho.
+    // ✅ LOTE-02 FIX (M7): estado fallback para o modo não-controlado (sem onSimulateTodayChange).
     const [localSimulateToday, setLocalSimulateToday] = useState(Boolean(simulateToday));
-    // ✅ LOTE-02 FIX (A1): `|| {}` criava objeto NOVO a cada snapshot da store →
-    // Object.is sempre divergia → gauge re-renderizava em qualquer mudança global.
-    const weights = useAppStore(state => {
-        const currentActiveId = state.appState?.activeId;
-        return state.appState?.contests?.[currentActiveId]?.mcWeights || EMPTY_WEIGHTS;
-    });
     const activeUser = useAppStore(state => {
         const currentActiveId = state.appState?.activeId;
         return state.appState?.contests?.[currentActiveId]?.user;
@@ -159,6 +174,9 @@ const MonteCarloGaugeBase = ({
         ci95Low,
         ci95High,
         pAdjusted,
+        effectiveDisplayTarget,
+        hasHistoricalCutoffs,
+        isGoalDateExpired,
         equalWeightsMode,
         setEqualWeightsMode,
         setWeights
@@ -168,7 +186,10 @@ const MonteCarloGaugeBase = ({
     const boundedScore = (v) => Math.max(minScore, Math.min(maxScore, safe(v)));
     const projectedSafe = boundedScore(projectedMean);
     const currentSafe = boundedScore(currentMean);
-    const targetSafe = boundedScore(targetScore);
+    const effectiveTargetRaw = (hasHistoricalCutoffs && Number.isFinite(Number(effectiveDisplayTarget)))
+        ? effectiveDisplayTarget
+        : targetScore;
+    const targetSafe = boundedScore(effectiveTargetRaw);
     const ciLowSafeRaw = boundedScore(ci95Low);
     const ciHighSafeRaw = boundedScore(ci95High);
     const ciLowSafe = Math.min(ciLowSafeRaw, ciHighSafeRaw);
@@ -282,7 +303,15 @@ const MonteCarloGaugeBase = ({
                 {waitingKind === 'zeroWeights' && (
                     <AllWeightsZeroState onOpenConfig={!forcedMode ? () => setShowConfig(true) : undefined} />
                 )}
-                {waitingKind === 'insufficient' && <InsufficientHistoryState />}
+                {waitingKind === 'insufficient' && (
+                    <InsufficientHistoryState
+                        isTimeTraveling={clampedTimeIndex >= 0}
+                        onResetTimeMachine={() => {
+                            setTimeIndex(-1);
+                            setLocalTimeIndex(-1);
+                        }}
+                    />
+                )}
                 {waitingKind === 'loading' && <MonteCarloLoading />}
                 {!forcedMode && (
                     <MonteCarloConfig
@@ -429,6 +458,7 @@ const MonteCarloGaugeBase = ({
                                 stroke={gradientColor}
                                 strokeWidth="10"
                                 strokeLinecap="round"
+                                strokeOpacity={roundedProb > 0 ? 1 : 0}
                                 pathLength="100"
                                 strokeDasharray={`${roundedProb} ${inverseProb}`}
                                 style={{ transition: 'stroke-dasharray 1.5s ease-out' }}
@@ -503,22 +533,37 @@ const MonteCarloGaugeBase = ({
                                     Desempenho estável conforme o modelo estatístico.
                                 </div>
                             )}
-                            {stats.driftAlerts && stats.driftAlerts.slice(0, 1).map((alert, i) => (
-                                <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${
-                                    alert.severity === 'high' 
-                                        ? 'bg-rose-500/10 border-rose-500/25 text-rose-300' 
-                                        : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
-                                } mt-0.5`}>
-                                    <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-400" />
-                                    <span className="text-[10.5px] font-bold leading-tight">{alert.message}</span>
-                                </div>
-                            ))}
+                            {stats.driftAlerts && stats.driftAlerts.slice(0, 1).map((alert, i) => {
+                                // B1 FIX: alerta severity='low' (plateau estável) usa visual neutro/info em vez de triângulo de alerta
+                                const isLow = alert.severity === 'low';
+                                const isHigh = alert.severity === 'high';
+                                return (
+                                    <div key={i} className={`flex items-start gap-2 p-2 rounded-lg border ${
+                                        isHigh
+                                            ? 'bg-rose-500/10 border-rose-500/25 text-rose-300'
+                                            : isLow
+                                                ? 'bg-sky-500/10 border-sky-500/25 text-sky-300'
+                                                : 'bg-amber-500/10 border-amber-500/25 text-amber-300'
+                                    } mt-0.5`}>
+                                        {isLow
+                                            ? <Activity size={13} className="shrink-0 mt-0.5 text-sky-400" />
+                                            : <AlertTriangle size={13} className={`shrink-0 mt-0.5 ${isHigh ? 'text-rose-400' : 'text-amber-400'}`} />}
+                                        <span className="text-[10.5px] font-bold leading-tight">{alert.message}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Footer Guarantee Subtext */}
+                    {isGoalDateExpired && !effectiveSimulateToday && (
+                        <div className="w-full px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[10px] font-bold text-amber-300 text-center">
+                            Data-alvo expirada — projeção refletindo o desempenho atual.
+                        </div>
+                    )}
+
+                    {/* Footer Guarantee Subtext (M2 FIX: linguagem estatisticamente precisa) */}
                     <p className="pt-2 text-[9px] text-slate-500 font-medium uppercase tracking-wider text-center w-full leading-relaxed opacity-80 border-t border-white/5">
-                        Em previsões semelhantes, 95% dos resultados reais ficaram dentro desta faixa.
+                        Intervalo de 95% estimado pela simulação probabilística (quantis 2,5% a 97,5%).
                     </p>
                 </div>
             </div>
@@ -529,7 +574,7 @@ const MonteCarloGaugeBase = ({
                 <div className="grid grid-cols-3 gap-2 sm:gap-2.5 mb-4 w-full">
                 {[
                     { 
-                        label: "Sua Meta", 
+                        label: hasHistoricalCutoffs ? "Corte Médio" : "Sua Meta", 
                         badgeClass: "bg-rose-500/15 text-rose-300 border border-rose-500/30",
                         val: `${formatValue(targetSafe)}${resolvedUnit}`, 
                         color: "text-rose-400" 
@@ -679,6 +724,12 @@ const MonteCarloGaugeBase = ({
                     <ChevronDown size={12} className={`transition-transform ${showPerSubject ? 'rotate-180' : ''}`} />
                 </button>
 
+                {showPerSubject && perSubjectProbs.length === 0 && (stats.statsData?.categoryStats?.length || 0) > 0 && (
+                    <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 text-center text-[10px] font-bold text-slate-400 animate-pulse">
+                        Calculando probabilidades por matéria...
+                    </div>
+                )}
+
                 {showPerSubject && perSubjectProbs.length > 0 && (
                     <div className="w-full bg-black/30 rounded-xl p-3 border border-white/5 space-y-1.5">
                         {perSubjectProbs.map((s, idx) => {
@@ -817,8 +868,8 @@ function AllWeightsZeroState({ onOpenConfig }) {
     );
 }
 
-// T-032 FIX: Estado específico para histórico insuficiente.
-function InsufficientHistoryState() {
+// T-032 + B2 FIX: Estado específico para histórico insuficiente com saída da Máquina do Tempo.
+function InsufficientHistoryState({ isTimeTraveling = false, onResetTimeMachine }) {
     return (
         <div className="rounded-3xl p-6 border border-blue-500/20 bg-blue-950/10 flex flex-col items-center justify-center text-center h-full flex-1 w-full my-auto">
             <div className="text-3xl mb-3">📉</div>
@@ -832,9 +883,19 @@ function InsufficientHistoryState() {
                 Lance mais simulados ou revise os filtros de data/pesos.
             </p>
 
-            <div className="mt-4 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[9px] text-blue-400 font-bold uppercase tracking-wider">
-                Mínimo recomendado: 3 simulados
-            </div>
+            {isTimeTraveling && typeof onResetTimeMachine === 'function' ? (
+                <button
+                    type="button"
+                    onClick={onResetTimeMachine}
+                    className="mt-4 px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-[10px] text-indigo-200 font-bold uppercase tracking-wider transition-all"
+                >
+                    Voltar para Hoje
+                </button>
+            ) : (
+                <div className="mt-4 px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[9px] text-blue-400 font-bold uppercase tracking-wider">
+                    Mínimo recomendado: 3 simulados
+                </div>
+            )}
         </div>
     );
 }
@@ -874,6 +935,9 @@ function AnimatedProbability({ value }) {
         return () => cancelAnimationFrame(frameId);
     }, [safeValue]);
 
+    // B7 FIX: evitar afirmar 0% ou 100% absolutos quando há probabilidade residual não nula
+    if (display > 0 && display < 0.5) return <span>&lt;1%</span>;
+    if (display >= 99.5 && display < 100) return <span>&gt;99%</span>;
     return <span>{display.toFixed(0)}%</span>;
 }
 

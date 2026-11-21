@@ -56,7 +56,7 @@ function KalmanTooltip({ active, payload, unit }) {
         <div className="flex justify-between gap-4 text-[11px] text-slate-400">
           <span>Inovação (ruído):</span>
           <span className={pt.innovation >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-            {pt.innovation >= 0 ? '+' : ''}{pt.innovation}
+            {pt.innovation >= 0 ? '+' : ''}{pt.innovation}{unit === '%' ? '%' : ` ${unit}`}
           </span>
         </div>
       </div>
@@ -100,30 +100,42 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
 
   const { summary } = kalman;
   const trendPositive = summary.trendPerMonth >= 0;
+  const unitSuffix = unit === '%' ? '%' : ` ${unit}`;
 
   return (
     <div className="w-full space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 font-bold">
+          <span>{focusCategory ? `🎯 Foco: ${focusCategory.name}` : '🌐 Visão Global'}</span>
+        </span>
+        <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
+          <span className="inline-flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-400 inline-block" /> Habilidade real (Kalman)</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> Nota bruta</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-400 inline-block" /> Choque de ruído absorvido</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl bg-slate-950/70 border border-emerald-500/30 p-3">
+        <div className="rounded-xl bg-slate-950/70 border border-emerald-500/30 p-3" title="Seu domínio real estimado após filtrar oscilações aleatórias">
           <p className="text-[9px] uppercase text-slate-400 font-bold">Habilidade Latente</p>
           <p className="text-lg font-black font-mono text-emerald-300">{fmt(summary.ability)}</p>
-          <p className="text-[10px] text-slate-500 font-mono">±{summary.abilitySd.toFixed(1)} (1σ)</p>
+          <p className="text-[10px] text-slate-500 font-mono">±{summary.abilitySd.toFixed(1)}{unitSuffix} (1σ)</p>
         </div>
-        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3">
+        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3" title="Ritmo estrutural de ganho ou perda projetado a cada 30 dias">
           <p className="text-[9px] uppercase text-slate-400 font-bold">Tendência / Mês</p>
           <p className={`text-lg font-black font-mono ${trendPositive ? 'text-sky-300' : 'text-rose-400'}`}>
-            {trendPositive ? '+' : ''}{summary.trendPerMonth.toFixed(1)}
+            {trendPositive ? '+' : ''}{summary.trendPerMonth.toFixed(1)}{unitSuffix}
           </p>
           <p className="text-[10px] text-slate-500">velocidade estrutural</p>
         </div>
-        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3">
+        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3" title="Quanto da oscilação bruta foi filtrada pelo modelo">
           <p className="text-[9px] uppercase text-slate-400 font-bold flex items-center gap-1">
             <Sparkles size={10} className="text-indigo-400" /> Ruído Filtrado
           </p>
           <p className="text-lg font-black font-mono text-indigo-300">{summary.noiseReductionPct}%</p>
-          <p className="text-[10px] text-slate-500">σ bruto {summary.rawSd.toFixed(1)} → {summary.abilitySd.toFixed(1)}</p>
+          <p className="text-[10px] text-slate-500">σ obs {summary.observationSd.toFixed(1)} → σ real {summary.abilitySd.toFixed(1)}</p>
         </div>
-        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3">
+        <div className="rounded-xl bg-slate-950/70 border border-white/5 p-3" title="Simulados muito fora da curva que o filtro amortizou para não distorcer sua tendência">
           <p className="text-[9px] uppercase text-slate-400 font-bold">Choques de Ruído</p>
           <p className="text-lg font-black font-mono text-rose-300">{summary.outlierCount}</p>
           <p className="text-[10px] text-slate-500">em {summary.sampleSize} simulados</p>

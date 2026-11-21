@@ -24,16 +24,18 @@ export const CircadianHeatmapChart = React.memo(function CircadianHeatmapChart({
   studyLogs = [],
   studySessions = [],
   simuladoRows = [],
+  categories = [],
   minScore = 0,
   maxScore = 100,
+  dayTick,
 }) {
   const [metric, setMetric] = useState('study');
   const [activeCell, setActiveCell] = useState(null);
 
-  const data = useMemo(
-    () => buildCircadianHeatmapData(studyLogs, studySessions, simuladoRows, { minScore, maxScore }),
-    [studyLogs, studySessions, simuladoRows, minScore, maxScore]
-  );
+  const data = useMemo(() => {
+    void dayTick;
+    return buildCircadianHeatmapData(studyLogs, studySessions, simuladoRows, { minScore, maxScore, categories });
+  }, [studyLogs, studySessions, simuladoRows, categories, minScore, maxScore, dayTick]);
 
   const hasCurrentMetricData = metric === 'study' ? data.timedLogCount > 0 : data.timedSimCount > 0;
 

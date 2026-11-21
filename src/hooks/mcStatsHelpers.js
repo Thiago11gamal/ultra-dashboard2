@@ -51,20 +51,34 @@ export const sanitizeCutoffValue = (val) => {
   return Number.isFinite(n) ? n : null;
 };
 
+const isStrictNum = (val) => (
+  val !== null &&
+  val !== undefined &&
+  typeof val !== 'boolean' &&
+  String(val).trim() !== '' &&
+  Number.isFinite(Number(val))
+);
+
 export const buildSubjectsOpts = (statsObj, subjectImmunityMap, { isFuture, minScoreVal, maxScoreVal }) => {
   const cats = Array.isArray(statsObj?.categoryStats) ? statsObj.categoryStats : [];
   const baseSubjects = cats.map(c => {
     const subjName = c.name || c.key || '';
     const immunity = subjectImmunityMap[(subjName || '').toLowerCase().trim()] || 1.0;
-    const catMin = Number.isFinite(Number(c.minScore)) ? Number(c.minScore) : minScoreVal;
-    const catMax = Number.isFinite(Number(c.maxScore)) && Number(c.maxScore) > catMin ? Number(c.maxScore) : Math.max(catMin + 1, maxScoreVal);
-    const rawMean = isFuture
-      ? (c.bayesianMean ?? c.mean)
-      : (c.temporalBayesianMean ?? c.bayesianMean ?? c.mean);
+    const catMin = isStrictNum(c.minScore) ? Number(c.minScore) : minScoreVal;
+    const catMax = isStrictNum(c.maxScore) && Number(c.maxScore) > catMin
+      ? Number(c.maxScore)
+      : Math.max(catMin + 1, maxScoreVal);
+    // M3 + M10 FIX: usar temporalBayesianMean/Sd (nível atual com decaimento temporal)
+    // tanto no modo Hoje quanto como base no modo Futuro, preservando coerência com bayesianMean global
+    // sem deslocar artificialmente matérias através de seus limiares minCutoff.
+    const rawMean = c.temporalBayesianMean ?? c.bayesianMean ?? c.mean;
+    const rawSd = isFuture
+      ? (c.volatility ?? c.temporalBayesianSd ?? c.bayesianSd ?? c.sd)
+      : (c.temporalBayesianSd ?? c.bayesianSd ?? c.sd);
     return {
       name: subjName,
       mean: rawMean,
-      sd: isFuture ? (c.volatility ?? c.sd) : (c.bayesianSd ?? c.sd),
+      sd: rawSd,
       minCutoff: sanitizeCutoffValue(c.minCutoff),
       examGroup: c.examGroup || null,
       maxScore: catMax,
@@ -74,7 +88,7 @@ export const buildSubjectsOpts = (statsObj, subjectImmunityMap, { isFuture, minS
     };
   });
 
-  if (isFuture || baseSubjects.length === 0 || !Number.isFinite(Number(statsObj?.bayesianMean))) {
+  if (isFuture || baseSubjects.length === 0 || !isStrictNum(statsObj?.bayesianMean)) {
     return baseSubjects;
   }
 
@@ -91,11 +105,21 @@ export const buildSubjectsOpts = (statsObj, subjectImmunityMap, { isFuture, minS
   });
   const compositeProp = wSum > 0 ? propSum / wSum : targetProp;
   const shiftProp = targetProp - compositeProp;
-  if (Math.abs(shiftProp) <= 1e-6) return baseSubjects;
+  if (Math.abs(shiftProp) <= 1e-4) return baseSubjects;
 
+  // Se houver diferença residual (ex.: caller externo), aplicar shift sem cruzar minCutoff de nenhuma matéria
   return baseSubjects.map((s, idx) => {
+    const origMean = Number(s.mean);
     const adjustedProp = clamp(props[idx].p + shiftProp, 0, 1);
-    return { ...s, mean: s.minScore + adjustedProp * props[idx].sSpan };
+    let nextMean = s.minScore + adjustedProp * props[idx].sSpan;
+    if (s.minCutoff !== null && Number.isFinite(origMean)) {
+      if (origMean >= s.minCutoff && nextMean < s.minCutoff) {
+        nextMean = s.minCutoff;
+      } else if (origMean < s.minCutoff && nextMean >= s.minCutoff) {
+        nextMean = origMean;
+      }
+    }
+    return { ...s, mean: nextMean };
   });
 };
 

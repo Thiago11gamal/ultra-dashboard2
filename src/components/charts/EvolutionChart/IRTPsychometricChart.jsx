@@ -19,8 +19,64 @@ import {
   EXAM_BOARDS,
 } from '../../../engine/adaptive/irtEngine';
 import { useAppStore } from '../../../store/useAppStore';
+import { normalize } from '../../../utils/normalization';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
+
+function getThetaBand(theta) {
+  if (theta >= 1.2) return { label: 'Alto domínio', cls: 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300' };
+  if (theta >= 0.4) return { label: 'Competitivo', cls: 'bg-sky-500/15 border-sky-500/35 text-sky-300' };
+  if (theta >= -0.4) return { label: 'Intermediário', cls: 'bg-amber-500/15 border-amber-500/35 text-amber-300' };
+  return { label: 'Base inicial', cls: 'bg-rose-500/15 border-rose-500/35 text-rose-300' };
+}
+
+function IccTooltip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  const pt = payload[0]?.payload;
+  if (!pt) return null;
+  return (
+    <div className="bg-slate-950/95 border border-white/15 rounded-2xl p-3 shadow-2xl backdrop-blur-xl text-xs min-w-[185px]">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-white/10 pb-1 mb-1.5">
+        Dificuldade b = {pt.b >= 0 ? `+${pt.b}` : pt.b}
+      </p>
+      <div className="space-y-1 font-mono">
+        <div className="flex justify-between gap-3">
+          <span className="text-violet-300">P(Acerto) TRI:</span>
+          <span className="font-black text-white">{pt.predictedPct}%</span>
+        </div>
+        {pt.informationPct != null && (
+          <div className="flex justify-between gap-3 text-[10px] text-slate-400">
+            <span>Informação TRI:</span>
+            <span>{pt.informationPct}%</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TierTooltip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  const pt = payload[0]?.payload;
+  if (!pt) return null;
+  return (
+    <div className="bg-slate-950/95 border border-white/15 rounded-2xl p-3 shadow-2xl backdrop-blur-xl text-xs min-w-[190px]">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-white/10 pb-1 mb-1.5">
+        Nível: {pt.label} (n={pt.total})
+      </p>
+      <div className="space-y-1 font-mono">
+        <div className="flex justify-between gap-3">
+          <span className="text-sky-300">Acerto Real:</span>
+          <span className="font-black text-white">{pt.observedPct != null ? `${pt.observedPct}%` : '—'}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-violet-300">Previsto TRI:</span>
+          <span className="font-bold text-violet-200">{pt.predictedPct}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   categories = [],
@@ -32,6 +88,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   examBoard: propBoard = 'PADRAO',
   penaltyPerWrong: propPenalty = 0,
 }) {
+  const patchData = useAppStore((s) => s.patchData);
   const setData = useAppStore((s) => s.setData);
   const normalizedPropBoard = propBoard || 'PADRAO';
   const normalizedPropPenalty = Number.isFinite(Number(propPenalty)) ? Number(propPenalty) : 0;
@@ -54,20 +111,35 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
   }, []);
 
+  const rowMatchesFocus = (r) => {
+    if (!showOnlyFocus || !focusCategory) return true;
+    if (r.categoryId != null && focusCategory.id != null) {
+      return String(r.categoryId) === String(focusCategory.id);
+    }
+    const rSubj = normalize(r.subject || r.categoryName || r.materia || '');
+    const fName = normalize(focusCategory.name || '');
+    return Boolean(rSubj && fName && rSubj === fName);
+  };
+
   const irtEntries = useMemo(() => {
     const targetCats = showOnlyFocus && focusCategory ? [focusCategory] : safeArr(categories);
     const fromHist = targetCats.flatMap((c) => safeArr(c?.simuladoStats?.history));
     const fromRows = safeArr(simuladoRows).filter(
-      (r) => !showOnlyFocus || !focusCategory || r.categoryId === focusCategory.id
+      (r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r)
     );
     return fromRows.length > 0 ? fromRows : fromHist;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, simuladoRows, focusCategory, showOnlyFocus]);
 
   const irt = useMemo(() => estimateIRTAbility(irtEntries, { minScore, maxScore }), [irtEntries, minScore, maxScore]);
+  const thetaBand = getThetaBand(irt.theta);
 
   const allQuestionTelemetry = useMemo(() => {
-    return safeArr(simuladoRows).flatMap((r) => safeArr(r?.questionTelemetry));
-  }, [simuladoRows]);
+    return safeArr(simuladoRows)
+      .filter((r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r))
+      .flatMap((r) => safeArr(r?.questionTelemetry));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simuladoRows, focusCategory, showOnlyFocus]);
 
   const guessing = useMemo(
     () => computeGuessingStrategy(allQuestionTelemetry, { penaltyPerWrong: penalty }),
@@ -81,11 +153,19 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   };
 
   const handleSaveBoard = () => {
-    setData((prev) => ({
-      ...(prev || {}),
-      examBoard: selectedBoard,
-      penaltyPerWrong: Math.max(0, Math.min(2, Number(penalty) || 0)),
-    }));
+    const safePenalty = Math.max(0, Math.min(2, Number(penalty) || 0));
+    if (typeof patchData === 'function') {
+      patchData(() => ({
+        examBoard: selectedBoard,
+        penaltyPerWrong: safePenalty,
+      }));
+    } else if (typeof setData === 'function') {
+      setData((prev) => ({
+        ...(prev || {}),
+        examBoard: selectedBoard,
+        penaltyPerWrong: safePenalty,
+      }));
+    }
     setSavedBoard(true);
     if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     savedTimerRef.current = setTimeout(() => {
@@ -107,8 +187,11 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
           </div>
           {irt.hasData && (
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-              <span className="px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-500/30 text-violet-200 font-black">
+              <span className="px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-500/30 text-violet-200 font-black" title="Escala TRI vai de -3 (iniciante) a +3 (domínio avançado)">
                 θ = {irt.theta >= 0 ? '+' : ''}{irt.theta} (±{irt.thetaSe})
+              </span>
+              <span className={`px-2.5 py-1 rounded-lg border font-sans font-bold ${thetaBand.cls}`}>
+                {thetaBand.label}
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 font-bold capitalize">
                 Zona Proximal: {irt.recommendedDifficulty}
@@ -116,6 +199,12 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
             </div>
           )}
         </div>
+
+        {irt.hasData && (
+          <p className="text-[10px] text-slate-400">
+            Como ler θ (escala −3 a +3): &lt; −0.4 Base inicial · −0.4 a +0.4 Intermediário · +0.4 a +1.2 Competitivo · &gt; +1.2 Alto domínio. A faixa verde (65%–78%) marca sua zona ideal de treino.
+          </p>
+        )}
 
         {irt.pedagogicalIncoherence && (
           <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-3 flex items-start gap-2.5 text-xs text-amber-200">
@@ -133,13 +222,26 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
             <ChartFrame minHeight={240} label="Estimando curva TRI">
               <div className="h-[240px] w-full" role="img" aria-label="Curva Característica do Item TRI 2PL">
                 <ResponsiveContainer width="100%" height="100%" minHeight={210} minWidth={1}>
-                  <ComposedChart data={irt.iccCurve} margin={{ top: 10, right: 16, left: 0, bottom: 16 }}>
+                  <ComposedChart data={irt.iccCurve} margin={{ top: 16, right: 16, left: 0, bottom: 16 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                     <ReferenceArea y1={65} y2={78} fill="#10b981" fillOpacity={0.08} />
-                    <XAxis dataKey="b" stroke="#64748b" fontSize={10} label={{ value: 'Dificuldade do item (b)', position: 'insideBottom', offset: -10, fill: '#64748b', fontSize: 10 }} />
+                    <XAxis
+                      type="number"
+                      domain={[-2.2, 2.4]}
+                      dataKey="b"
+                      stroke="#64748b"
+                      fontSize={10}
+                      tickFormatter={(v) => (v > 0 ? `+${v}` : String(v))}
+                      label={{ value: 'Dificuldade do item (b)', position: 'insideBottom', offset: -10, fill: '#64748b', fontSize: 10 }}
+                    />
                     <YAxis domain={[0, 100]} stroke="#64748b" fontSize={10} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip formatter={(val, name) => [`${val}%`, name]} />
-                    <ReferenceLine x={irt.theta} stroke="#a78bfa" strokeDasharray="4 4" label={{ value: `θ=${irt.theta}`, position: 'top', fill: '#c4b5fd', fontSize: 10 }} />
+                    <Tooltip content={<IccTooltip />} />
+                    <ReferenceLine
+                      x={irt.theta}
+                      stroke="#a78bfa"
+                      strokeDasharray="4 4"
+                      label={{ value: `θ=${irt.theta >= 0 ? '+' : ''}${irt.theta}`, position: 'top', fill: '#c4b5fd', fontSize: 10 }}
+                    />
                     <Line type="monotone" dataKey="predictedPct" name="P(Acerto) TRI" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -149,11 +251,11 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
             <ChartFrame minHeight={240} label="Comparando acerto por dificuldade">
               <div className="h-[240px] w-full" role="img" aria-label="Acerto observado versus previsto por nível de dificuldade">
                 <ResponsiveContainer width="100%" height="100%" minHeight={210} minWidth={1}>
-                  <ComposedChart data={irt.tierBreakdown} margin={{ top: 10, right: 16, left: 0, bottom: 10 }}>
+                  <ComposedChart data={irt.tierBreakdown} margin={{ top: 16, right: 16, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} />
                     <YAxis domain={[0, 100]} stroke="#64748b" fontSize={10} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip formatter={(v) => (v == null ? '—' : `${v}%`)} />
+                    <Tooltip content={<TierTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                     <Bar dataKey="observedPct" name="Acerto Real (%)" fill="#38bdf8" radius={[6, 6, 0, 0]} barSize={28} />
                     <Line type="monotone" dataKey="predictedPct" name="Previsto TRI (%)" stroke="#a78bfa" strokeWidth={2.5} dot={{ r: 4 }} />
                   </ComposedChart>

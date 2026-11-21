@@ -504,8 +504,11 @@ export function simulateNormalDistribution(
             if (!Number.isFinite(currentTarget)) currentTarget = effectiveTarget;
         }
 
-        let score = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
-        if (!Number.isFinite(score)) score = clamp(safeMean, minScore, maxScore);
+        let score = clamp(safeMean, minScore, maxScore);
+        if (subjectParams.length === 0) {
+            const drawnScore = sampleTruncatedNormal(muParam, safeSD, minScore, maxScore, rng);
+            if (Number.isFinite(drawnScore)) score = drawnScore;
+        }
 
         let passedMins = true;
         const groupSums = groupCutoffs ? new Map() : null;
@@ -832,6 +835,7 @@ export function runTornadoSensitivity({
     maxScore = 100,
     historicalCutoffs = [],
     examGroupCutoffs = null,
+    simuladoRows = null,
     deltaPct = 10,
     simulations = 1500,
     overrides = {},
@@ -877,10 +881,12 @@ export function runTornadoSensitivity({
         subjects: list,
         historicalCutoffs,
         examGroupCutoffs,
+        ...(Array.isArray(simuladoRows) && simuladoRows.length > 0 ? { simuladoRows } : {}),
     });
 
     const baseRes = runOne(baseSubjects);
-    const baseProb = Number(baseRes.probability.toFixed(1));
+    const baseProbRaw = baseRes.probability;
+    const baseProb = Number(baseProbRaw.toFixed(1));
 
     const items = baseSubjects.map((subj, idx) => {
         const sRange = Math.max(1e-6, subj.maxScore - subj.minScore);
@@ -892,8 +898,8 @@ export function runTornadoSensitivity({
         const upRes = runOne(upList);
         const downRes = runOne(downList);
 
-        const upside = Number((upRes.probability - baseProb).toFixed(1));
-        const downside = Number((downRes.probability - baseProb).toFixed(1));
+        const upside = Number((upRes.probability - baseProbRaw).toFixed(1));
+        const downside = Number((downRes.probability - baseProbRaw).toFixed(1));
         const swing = Number((upRes.probability - downRes.probability).toFixed(1));
 
         return {

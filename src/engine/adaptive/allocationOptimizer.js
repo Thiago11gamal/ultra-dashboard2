@@ -6,7 +6,8 @@
  */
 import { getDateKey, toDateMs } from '../../utils/dateHelper.js';
 import { parseNoonLocal } from '../../utils/parseNoonLocal.js';
-import { getSafeScore } from '../../utils/scoreHelper.js';
+import { getSafeScore, isPhantomZeroTimeAttempt } from '../../utils/scoreHelper.js';
+import { normalize } from '../../utils/normalization.js';
 import { retentionFromHalfLife, getLatestStudyMs, MS_PER_DAY } from '../../utils/retentionCore.js';
 import { estimateEmpiricalHalfLife } from './empiricalRetention.js';
 import { buildCircadianHeatmapData, buildKnowledgeGraphLayout } from '../../utils/advancedChartHelpers.js';
@@ -14,19 +15,31 @@ import { generateId } from '../../utils/idGenerator.js';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
+const getPositiveLogMinutes = (log) => {
+  if (!log || log.type === 'flashcard') return 0;
+  const minField = Number(log.minutes ?? log.minutos);
+  if (Number.isFinite(minField) && minField > 0) return Math.min(720, minField);
+  const durField = Number(log.duration);
+  if (Number.isFinite(durField) && durField > 0) return Math.min(720, durField);
+  return 0;
+};
 
 /**
  * Calcula alocação ótima de horas semanais por ganho marginal decrescente + risco de corte
  * e constrói a curva da Fronteira Eficiente (Ganho Esperado × Risco).
  */
 export function computeEfficientAllocation(categories = [], studyLogs = [], options = {}) {
-  const minScore = Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : 0;
-  const maxScore = Math.max(minScore + 1, Number(options.maxScore) || 100);
+  const minScore = isStrictNum(options.minScore) ? Number(options.minScore) : 0;
+  const maxScore = Math.max(minScore + 1, isStrictNum(options.maxScore) ? Number(options.maxScore) : 100);
   const range = Math.max(1e-6, maxScore - minScore);
-  const targetScore = Number.isFinite(Number(options.targetScore)) ? Number(options.targetScore) : (minScore + 0.8 * range);
+  const targetScore = isStrictNum(options.targetScore) ? Number(options.targetScore) : (minScore + 0.8 * range);
   const now = options.now instanceof Date ? options.now : new Date();
   const nowMs = now.getTime();
   const cutoff28Ms = nowMs - 28 * MS_PER_DAY;
+  const maxAllowedMs = nowMs + MS_PER_DAY;
 
   const cats = safeArr(categories);
   if (cats.length === 0) {
@@ -40,35 +53,81 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     };
   }
 
-  // Weekly hours currently spent per category (average over last 28d)
-  const minsByCat = new Map();
+  // Weekly hours currently spent per category (average over last 28d) + latest study timestamp per category
+  const minsByCatId = new Map();
+  const minsByCatNorm = new Map();
+  const latestLogMsByCatId = new Map();
+  const latestLogMsByCatNorm = new Map();
   let totalMins28 = 0;
+
   safeArr(studyLogs).forEach((log) => {
     if (!log || log.type === 'flashcard') return;
     const ms = toDateMs(log.date || log.createdAt);
-    if (!Number.isFinite(ms) || ms < cutoff28Ms) return;
-    const m = Math.max(0, Number(log.minutes ?? log.minutos ?? log.duration) || 0);
+    if (!Number.isFinite(ms) || ms > maxAllowedMs) return;
+    const m = getPositiveLogMinutes(log);
     if (m <= 0) return;
+
+    const idKey = log.categoryId != null && String(log.categoryId).trim() !== '' ? String(log.categoryId) : '';
+    const nameCandidate = log.subject || log.categoryName || log.category || log.catName || '';
+    const normKey = normalize(nameCandidate);
+
+    if (idKey) {
+      const prev = latestLogMsByCatId.get(idKey) || 0;
+      if (ms > prev) latestLogMsByCatId.set(idKey, ms);
+    }
+    if (normKey) {
+      const prev = latestLogMsByCatNorm.get(normKey) || 0;
+      if (ms > prev) latestLogMsByCatNorm.set(normKey, ms);
+    }
+
+    if (ms < cutoff28Ms) return;
     totalMins28 += m;
-    const cid = log.categoryId || log.subject || log.categoryName || '';
-    if (cid) minsByCat.set(String(cid), (minsByCat.get(String(cid)) || 0) + m);
+
+    if (idKey) {
+      minsByCatId.set(idKey, (minsByCatId.get(idKey) || 0) + m);
+    } else if (normKey) {
+      minsByCatNorm.set(normKey, (minsByCatNorm.get(normKey) || 0) + m);
+    }
   });
 
   const inferredWeeklyBudget = totalMins28 > 60 ? clamp(Math.round((totalMins28 / 60) / 4), 6, 56) : 20;
   const weeklyBudgetHours = Math.max(4, Number(options.weeklyBudgetHours) || inferredWeeklyBudget);
-  const totalWeight = cats.reduce((acc, c) => acc + Math.max(0.5, Number(c.weight) || 10), 0) || 1;
+
+  // M6 FIX: respeitar explicitamente weight === 0 (P0) em vez de convertê-lo para 10 via `|| 10`.
+  const resolveCategoryWeight = (cat) => {
+    if (!isStrictNum(cat?.weight)) return 10;
+    const w = Number(cat.weight);
+    return w <= 0 ? 0 : Math.max(0.5, w);
+  };
+
+  const totalWeight = cats.reduce((acc, c) => acc + resolveCategoryWeight(c), 0);
 
   const subjects = cats.map((cat) => {
-    const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
-    const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
+    const cMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : minScore;
+    const cMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
     const cRange = Math.max(1e-6, cMax - cMin);
-    const weight = Math.max(0.5, Number(cat.weight) || 10);
-    const normWeight = weight / totalWeight;
+    const weight = resolveCategoryWeight(cat);
+    const normWeight = totalWeight > 0 ? weight / totalWeight : 0;
 
+    // D7 FIX: ordenar cronologicamente antes de .slice(-5), filtrando datas futuras e 0s phantom bugs
     const hist = safeArr(cat?.simuladoStats?.history)
       .filter((h) => h && h.valid !== false && h.validated !== false)
-      .map((h) => getSafeScore(h, cMax, cMin))
-      .filter(Number.isFinite);
+      .map((h, idx) => {
+        const ms = toDateMs(h.date || h.createdAt);
+        const score = getSafeScore(h, cMax, cMin);
+        return { h, ms, idx, score };
+      })
+      .filter((item) => {
+        if (!Number.isFinite(item.score)) return false;
+        if (Number.isFinite(item.ms) && item.ms > maxAllowedMs) return false;
+        return !isPhantomZeroTimeAttempt(item.h, item.score);
+      })
+      .sort((a, b) => {
+        const ta = Number.isFinite(a.ms) ? a.ms : -Infinity;
+        const tb = Number.isFinite(b.ms) ? b.ms : -Infinity;
+        return ta !== tb ? ta - tb : a.idx - b.idx;
+      })
+      .map((item) => item.score);
 
     const recentHist = hist.slice(-5);
     const avgRaw = recentHist.length > 0
@@ -82,24 +141,28 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       : cRange * 0.1;
     const volPct = clamp((sdRaw / cRange) * 100, 3, 35);
 
-    // Retention urgency
+    // Retention urgency (D7 FIX: considera também o estudo mais recente em studyLogs)
     const empRet = estimateEmpiricalHalfLife(cat, { minScore: cMin, maxScore: cMax, studyLogs });
-    const latestMs = getLatestStudyMs(cat, cat.tasks);
+    const idKey = cat.id != null ? String(cat.id) : '';
+    const normName = normalize(cat.name || '');
+    const latestFromLogs = Math.max(
+      idKey ? (latestLogMsByCatId.get(idKey) || 0) : 0,
+      normName ? (latestLogMsByCatNorm.get(normName) || 0) : 0
+    );
+    const latestMs = Math.max(getLatestStudyMs(cat, cat.tasks) || 0, latestFromLogs) || null;
     const daysSince = latestMs ? Math.max(0, (nowMs - latestMs) / MS_PER_DAY) : 14;
     const currentRetentionPct = retentionFromHalfLife(daysSince, empRet.effectiveHalfLife);
 
     // Cutoff risk boost when below minCutoff or global target
     const targetPct = ((targetScore - minScore) / range) * 100;
-    const explicitCutoff = Number.isFinite(Number(cat.minCutoff)) && Number(cat.minCutoff) > cMin
+    const explicitCutoff = isStrictNum(cat.minCutoff) && Number(cat.minCutoff) > cMin
       ? ((Number(cat.minCutoff) - cMin) / cRange) * 100
       : targetPct;
     const cutoffDeficit = Math.max(0, explicitCutoff - currentPct);
 
-    // Current weekly hours for this subject (sem dupla contagem quando cat.id === cat.name)
-    const idKey = cat.id != null ? String(cat.id) : '';
-    const nameKey = cat.name != null ? String(cat.name) : '';
-    const catMins = (idKey ? (minsByCat.get(idKey) || 0) : 0) +
-      (nameKey && nameKey !== idKey ? (minsByCat.get(nameKey) || 0) : 0);
+    // Current weekly hours for this subject (sem dupla contagem quando cat.id === cat.name e case/acento-insensível)
+    const catMins = (idKey ? (minsByCatId.get(idKey) || 0) : 0) +
+      (normName ? (minsByCatNorm.get(normName) || 0) : 0);
     const currentHours = totalMins28 > 0
       ? Number(((catMins / 60) / 4).toFixed(1))
       : Number((weeklyBudgetHours * normWeight).toFixed(1));
@@ -125,6 +188,18 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     };
   });
 
+  const activeSubjects = subjects.filter((s) => s.weight > 0);
+  if (activeSubjects.length === 0) {
+    return {
+      hasData: false,
+      weeklyBudgetHours,
+      subjects: subjects.map((s) => ({ ...s, optimalHours: 0, deltaHours: Number((-s.currentHours).toFixed(1)) })),
+      frontier: [],
+      currentPortfolio: null,
+      optimalPortfolio: null,
+    };
+  }
+
   // Funções exatas de ganho G_i(h) e risco R_i(h) (mesma equação na otimização e na avaliação
   // -> garante Fronteira Eficiente estritamente Pareto-monotônica e ponderada por normWeight!)
   const subjectGain = (s, h) => s.normWeight * s.headroomPct * (1 - Math.exp(-s.k * h));
@@ -138,10 +213,10 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
   // Optimize allocation in 0.5h greedy marginal-utility increments maximizing G(h) - lambda * R(h)
   const STEP_H = 0.5;
   const solveForRiskAversion = (lambdaRisk) => {
-    const canSeedHalfHour = subjects.length * STEP_H <= weeklyBudgetHours;
+    const canSeedHalfHour = activeSubjects.length * STEP_H <= weeklyBudgetHours;
     const initH = canSeedHalfHour ? STEP_H : 0;
-    const hoursMap = new Map(subjects.map((s) => [s.id, initH]));
-    const remainingBudget = Math.max(0, weeklyBudgetHours - subjects.length * initH);
+    const hoursMap = new Map(subjects.map((s) => [s.id, s.weight > 0 ? initH : 0]));
+    const remainingBudget = Math.max(0, weeklyBudgetHours - activeSubjects.length * initH);
     const steps = Math.round(remainingBudget / STEP_H);
 
     const marginalValue = (s, h) => {
@@ -153,9 +228,9 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     for (let step = 0; step < steps; step++) {
       let bestSubj = null;
       let bestVal = -Infinity;
-      for (const s of subjects) {
+      for (const s of activeSubjects) {
         const curH = hoursMap.get(s.id) || 0;
-        if (curH + STEP_H > weeklyBudgetHours * 0.45 && subjects.length >= 3) continue;
+        if (curH + STEP_H > weeklyBudgetHours * 0.45 && activeSubjects.length >= 3) continue;
         const val = marginalValue(s, curH);
         if (val > bestVal) {
           bestVal = val;
@@ -164,7 +239,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       }
       if (!bestSubj) {
         // Fallback sem teto de 45% se o orçamento for muito pequeno em relação ao passo
-        for (const s of subjects) {
+        for (const s of activeSubjects) {
           const curH = hoursMap.get(s.id) || 0;
           const val = marginalValue(s, curH);
           if (val > bestVal) {
@@ -179,7 +254,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
 
     let expectedGainPct = 0;
     let residualRisk = 0;
-    subjects.forEach((s) => {
+    activeSubjects.forEach((s) => {
       const h = hoursMap.get(s.id) || 0;
       expectedGainPct += subjectGain(s, h);
       residualRisk += subjectRisk(s, h);
@@ -208,11 +283,16 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
   // Recommended balanced optimum (lambda = 0.65)
   const balanced = solveForRiskAversion(0.65);
 
-  // Evaluate current portfolio on the exact same equations
+  // M7 FIX: avaliar o mix atual sob o MESMO orçamento weeklyBudgetHours da Fronteira Eficiente,
+  // evitando comparação "maçãs com laranjas" onde o portfólio atual parecia dominar o ótimo.
+  const sumCurrentHours = subjects.reduce((acc, s) => acc + Math.max(0, s.currentHours), 0);
+  const budgetScale = sumCurrentHours > 1e-6 ? (weeklyBudgetHours / sumCurrentHours) : 0;
   let currentGainPct = 0;
   let currentRisk = 0;
-  subjects.forEach((s) => {
-    const h = Math.max(0, s.currentHours);
+  activeSubjects.forEach((s) => {
+    const h = sumCurrentHours > 1e-6
+      ? Math.max(0, s.currentHours) * budgetScale
+      : (weeklyBudgetHours * s.normWeight);
     currentGainPct += subjectGain(s, h);
     currentRisk += subjectRisk(s, h);
   });
@@ -238,6 +318,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       label: 'Sua Alocação Atual',
       expectedGainPct: Number(currentGainPct.toFixed(2)),
       residualRisk: Number(currentRisk.toFixed(2)),
+      currentWeeklyHoursTotal: Number(sumCurrentHours.toFixed(1)),
     },
     optimalPortfolio: {
       label: 'Alocação Ótima Sugerida',

@@ -365,7 +365,7 @@ export const createCategorySlice = (set) => ({
         }
     }),
 
-    setMonteCarloWeights: (weightsUpdate) => set((state) => {
+    setMonteCarloWeights: (weightsUpdate, options = {}) => set((state) => {
         const activeId = state.appState.activeId;
         const activeData = state.appState.contests[activeId];
         if (!activeData || !weightsUpdate) return;
@@ -375,7 +375,13 @@ export const createCategorySlice = (set) => ({
         if (!nextWeights || typeof nextWeights !== 'object' || Array.isArray(nextWeights)) return;
 
         activeData.mcWeights = nextWeights;
-        if (activeData.categories) {
+        // M6 FIX: no modo "Pesos Iguais" (ou com skipCategorySync), NÃO sobrescrever cat.weight do edital
+        // com 1 — evita destruir os pesos reais consumidos pelo Markowitz e pelo Coach.
+        const isEqualMode = typeof activeData.mcEqualWeights === 'boolean'
+            ? activeData.mcEqualWeights
+            : Boolean(state.appState?.mcEqualWeights);
+        const shouldSyncCategoryWeights = options?.skipCategorySync !== true && !isEqualMode;
+        if (shouldSyncCategoryWeights && activeData.categories) {
             const catsList = Array.isArray(activeData.categories)
                 ? activeData.categories
                 : Object.values(activeData.categories || {});

@@ -13,6 +13,8 @@ import {
 } from 'recharts';
 import { Brain, AlertOctagon, Timer } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { normalize } from '../../../utils/normalization';
+import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
 
@@ -24,19 +26,129 @@ const ERROR_META = [
   { key: 'banca', label: 'Estilo da Banca', color: '#10b981' },
 ];
 
+const ERROR_TYPE_ALIASES = {
+  teoria: 'teoria',
+  lacuna: 'teoria',
+  base: 'teoria',
+  conteudo: 'teoria',
+  atencao: 'atencao',
+  desatencao: 'atencao',
+  interpretacao: 'atencao',
+  leitura: 'atencao',
+  esquecimento: 'esquecimento',
+  revisao: 'esquecimento',
+  memoria: 'esquecimento',
+  tempo: 'tempo',
+  pressao: 'tempo',
+  banca: 'banca',
+  pegadinha: 'banca',
+};
+
+function normalizeErrorType(raw) {
+  if (!raw) return null;
+  const clean = normalize(String(raw));
+  return ERROR_TYPE_ALIASES[clean] || null;
+}
+
+function FatigueTooltip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  const pt = payload[0]?.payload;
+  if (!pt) return null;
+  return (
+    <div className="bg-slate-950/95 border border-white/15 rounded-2xl p-3 shadow-2xl backdrop-blur-xl text-xs min-w-[190px]">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-white/10 pb-1 mb-1.5">
+        {pt.label} (n={pt.total})
+      </p>
+      <div className="space-y-1 font-mono">
+        <div className="flex justify-between gap-3">
+          <span className="text-emerald-300">Acerto:</span>
+          <span className="font-black text-white">{pt.accuracyPct}%</span>
+        </div>
+        {pt.avgSeconds != null && (
+          <div className="flex justify-between gap-3">
+            <span className="text-sky-300">Tempo Médio:</span>
+            <span className="font-bold text-sky-200">{pt.avgSeconds}s/q</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ErrorAnatomyTooltip({ active, payload }) {
+  if (!active || !payload || !payload.length) return null;
+  const pt = payload[0]?.payload;
+  if (!pt) return null;
+  return (
+    <div className="bg-slate-950/95 border border-white/15 rounded-2xl p-3 shadow-2xl backdrop-blur-xl text-xs min-w-[205px]">
+      <p className="font-black text-white border-b border-white/10 pb-1 mb-1.5">
+        {pt.subject} ({pt.total} {pt.total === 1 ? 'erro' : 'erros'})
+      </p>
+      <div className="space-y-1 font-mono">
+        {ERROR_META.filter((m) => pt[m.key] > 0).map((m) => (
+          <div key={m.key} className="flex justify-between gap-3">
+            <span className="flex items-center gap-1.5 font-sans text-slate-300">
+              <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: m.color }} />
+              {m.label}
+            </span>
+            <span className="font-bold text-white">{pt[m.key]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigueChart({
   simuladoRows = [],
   focusCategory = null,
   showOnlyFocus = false,
+  timeWindow = 'all',
 }) {
   const telemetry = useMemo(() => {
-    const rows = safeArr(simuladoRows).filter(
-      (r) => r && r.valid !== false && r.validated !== false && (!showOnlyFocus || !focusCategory || r.categoryId === focusCategory.id)
-    );
+    let cutoffMs = null;
+    if (timeWindow && timeWindow !== 'all') {
+      const days = Number.parseInt(String(timeWindow), 10);
+      if (Number.isFinite(days) && days > 0) {
+        const cutoff = new Date();
+        cutoff.setHours(12, 0, 0, 0);
+        cutoff.setDate(cutoff.getDate() - days);
+        cutoffMs = toDateMs(getDateKey(cutoff));
+      }
+    }
+
+    const rows = safeArr(simuladoRows).filter((r) => {
+      if (!r || r.valid === false || r.validated === false) return false;
+      if (cutoffMs) {
+        const ms = toDateMs(r.date || r.createdAt);
+        if (Number.isFinite(ms) && ms < cutoffMs) return false;
+      }
+      if (showOnlyFocus && focusCategory) {
+        if (r.categoryId != null && focusCategory.id != null) {
+          return String(r.categoryId) === String(focusCategory.id);
+        }
+        const rSubj = normalize(r.subject || r.categoryName || r.materia || '');
+        const fName = normalize(focusCategory.name || '');
+        return Boolean(rSubj && fName && rSubj === fName);
+      }
+      return true;
+    });
+
     const items = [];
     rows.forEach((row) => {
       const subject = row.subject || row.materia || 'Geral';
-      const tel = safeArr(row.questionTelemetry);
+      const rawTel = safeArr(row.questionTelemetry);
+      const hasExplicitIdx = rawTel.some((q) => Number.isFinite(Number(q?.questionIndex)));
+      const tel = hasExplicitIdx
+        ? rawTel
+          .map((q, origIdx) => ({ q, origIdx }))
+          .sort((a, b) => {
+            const ia = Number.isFinite(Number(a.q?.questionIndex)) ? Number(a.q.questionIndex) : a.origIdx;
+            const ib = Number.isFinite(Number(b.q?.questionIndex)) ? Number(b.q.questionIndex) : b.origIdx;
+            return ia - ib;
+          })
+          .map((x) => x.q)
+        : rawTel;
       const totalInRun = tel.length;
       tel.forEach((q, idx) => {
         items.push({
@@ -47,9 +159,9 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
       });
     });
     return items;
-  }, [simuladoRows, focusCategory, showOnlyFocus]);
+  }, [simuladoRows, focusCategory, showOnlyFocus, timeWindow]);
 
-  // 1) Matriz de Metacognição
+  // 1) Matriz de Metacognição (ignora questões em branco wasAnswered === false)
   const metaMatrix = useMemo(() => {
     const counts = {
       certezaOk: 0,
@@ -60,54 +172,71 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
       chuteErr: 0,
     };
     telemetry.forEach((q) => {
-      if (q.confidence === 'certeza') q.correct ? counts.certezaOk++ : counts.certezaErr++;
-      else if (q.confidence === 'duvida') q.correct ? counts.duvidaOk++ : counts.duvidaErr++;
-      else if (q.confidence === 'chute') q.correct ? counts.chuteOk++ : counts.chuteErr++;
+      if (q.wasAnswered === false) return;
+      const isCorrect = Boolean(q.correct ?? q.wasCorrect);
+      if (q.confidence === 'certeza') isCorrect ? counts.certezaOk++ : counts.certezaErr++;
+      else if (q.confidence === 'duvida') isCorrect ? counts.duvidaOk++ : counts.duvidaErr++;
+      else if (q.confidence === 'chute') isCorrect ? counts.chuteOk++ : counts.chuteErr++;
     });
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
     return { counts, total };
   }, [telemetry]);
 
-  // 2) Anatomia dos Erros por Disciplina
+  // 2) Anatomia dos Erros por Disciplina (com normalização de aliases legados e sem barras zeradas)
   const errorAnatomy = useMemo(() => {
     const bySubj = new Map();
     telemetry.forEach((q) => {
-      if (q.correct || !q.errorType) return;
+      const isCorrect = Boolean(q.correct ?? q.wasCorrect);
+      if (isCorrect || q.wasAnswered === false || !q.errorType) return;
+      const errKey = normalizeErrorType(q.errorType);
+      if (!errKey) return;
       if (!bySubj.has(q.subject)) {
         bySubj.set(q.subject, { subject: q.subject, teoria: 0, atencao: 0, esquecimento: 0, tempo: 0, banca: 0, total: 0 });
       }
       const entry = bySubj.get(q.subject);
-      if (q.errorType in entry) {
-        entry[q.errorType] += 1;
-        entry.total += 1;
-      }
+      entry[errKey] += 1;
+      entry.total += 1;
     });
-    return Array.from(bySubj.values()).sort((a, b) => b.total - a.total).slice(0, 8);
+    return Array.from(bySubj.values())
+      .filter((entry) => entry.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
   }, [telemetry]);
 
   // 3) Curva de Fadiga Intraprova (4 quartis: 1º ao 4º quarto do simulado)
+  // Exclui questões deixadas em branco (wasAnswered === false) do denominador de acerto
+  // para não confundir omissão estratégica (CEBRASPE) com queda por fadiga.
   const fatigueCurve = useMemo(() => {
     const labels = ['1º Quarto (Início)', '2º Quarto', '3º Quarto', '4º Quarto (Final)'];
-    const buckets = labels.map((label) => ({ label, total: 0, correct: 0, timeSum: 0, timedCount: 0 }));
+    const buckets = labels.map((label) => ({ label, total: 0, answered: 0, correct: 0, timeSum: 0, timedCount: 0 }));
     telemetry.forEach((q) => {
       const b = buckets[q.positionQuartile];
       if (!b) return;
       b.total += 1;
-      if (q.correct) b.correct += 1;
-      if (Number(q.timeSec) > 0) {
-        b.timeSum += Number(q.timeSec);
+      if (q.wasAnswered !== false) {
+        b.answered += 1;
+        if (q.correct ?? q.wasCorrect) b.correct += 1;
+      }
+      const sec = Number(q.timeSec ?? q.timeSpentSec ?? 0);
+      if (Number.isFinite(sec) && sec > 0) {
+        b.timeSum += sec;
         b.timedCount += 1;
       }
     });
     return buckets
-      .filter((b) => b.total > 0)
+      .filter((b) => b.answered > 0)
       .map((b) => ({
         label: b.label,
-        accuracyPct: Math.round((b.correct / b.total) * 100),
+        accuracyPct: Math.round((b.correct / b.answered) * 100),
         avgSeconds: b.timedCount > 0 ? Math.round(b.timeSum / b.timedCount) : null,
-        total: b.total,
+        total: b.answered,
       }));
   }, [telemetry]);
+
+  const hasTimedFatigue = fatigueCurve.some((b) => b.avgSeconds != null);
+  const fatigueDelta = fatigueCurve.length >= 2
+    ? fatigueCurve[fatigueCurve.length - 1].accuracyPct - fatigueCurve[0].accuracyPct
+    : null;
 
   if (telemetry.length === 0) {
     return (
@@ -121,39 +250,66 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
     );
   }
 
+  const pctOf = (count) => (metaMatrix.total > 0 ? `${Math.round((count / metaMatrix.total) * 100)}%` : '0%');
+  const uncertainOk = metaMatrix.counts.duvidaOk + metaMatrix.counts.chuteOk;
+  const consciousGap = metaMatrix.counts.duvidaErr + metaMatrix.counts.chuteErr;
+
   return (
     <div className="w-full space-y-6">
       {/* 1. Matriz de Metacognição */}
       <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Brain size={16} className="text-fuchsia-400" />
-          <h4 className="text-xs font-black uppercase tracking-widest text-white">
-            Matriz de Metacognição (Confiança × Resultado)
-          </h4>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Brain size={16} className="text-fuchsia-400" />
+            <h4 className="text-xs font-black uppercase tracking-widest text-white">
+              Matriz de Metacognição (Confiança × Resultado)
+            </h4>
+          </div>
+          {metaMatrix.total > 0 && (
+            <span className="text-[10px] font-mono text-slate-400">
+              {metaMatrix.total} {metaMatrix.total === 1 ? 'questão avaliada' : 'questões avaliadas'}
+            </span>
+          )}
         </div>
         {metaMatrix.total === 0 ? (
           <p className="text-xs text-slate-500 py-3">Nenhuma questão marcada com confiança ainda.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
-              <p className="text-[10px] font-bold uppercase text-emerald-300">Domínio Real</p>
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-[10px] font-bold uppercase text-emerald-300">Domínio Real</p>
+                <span className="text-[10px] font-mono text-emerald-200/80">{pctOf(metaMatrix.counts.certezaOk)}</span>
+              </div>
               <p className="text-2xl font-black font-mono text-white mt-1">{metaMatrix.counts.certezaOk}</p>
               <p className="text-[10px] text-emerald-200/70">Certeza + Acerto</p>
             </div>
             <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3">
-              <p className="text-[10px] font-bold uppercase text-rose-300">Conceito Errado Crítico</p>
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-[10px] font-bold uppercase text-rose-300">Conceito Errado Crítico</p>
+                <span className="text-[10px] font-mono text-rose-200/80">{pctOf(metaMatrix.counts.certezaErr)}</span>
+              </div>
               <p className="text-2xl font-black font-mono text-white mt-1">{metaMatrix.counts.certezaErr}</p>
               <p className="text-[10px] text-rose-200/70">Certeza + Erro (prioridade FSRS)</p>
             </div>
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
-              <p className="text-[10px] font-bold uppercase text-amber-300">Falso Domínio (Sorte)</p>
-              <p className="text-2xl font-black font-mono text-white mt-1">{metaMatrix.counts.chuteOk}</p>
-              <p className="text-[10px] text-amber-200/70">Chute + Acerto (revisar)</p>
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-[10px] font-bold uppercase text-amber-300">Falso Domínio (Sorte / Dúvida)</p>
+                <span className="text-[10px] font-mono text-amber-200/80">{pctOf(uncertainOk)}</span>
+              </div>
+              <p className="text-2xl font-black font-mono text-white mt-1">{uncertainOk}</p>
+              <p className="text-[10px] text-amber-200/70">
+                {metaMatrix.counts.duvidaOk} dúvida · {metaMatrix.counts.chuteOk} chute (revisar)
+              </p>
             </div>
             <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
-              <p className="text-[10px] font-bold uppercase text-sky-300">Lacuna Consciente</p>
-              <p className="text-2xl font-black font-mono text-white mt-1">{metaMatrix.counts.duvidaErr + metaMatrix.counts.chuteErr}</p>
-              <p className="text-[10px] text-sky-200/70">Dúvida/Chute + Erro</p>
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-[10px] font-bold uppercase text-sky-300">Lacuna Consciente</p>
+                <span className="text-[10px] font-mono text-sky-200/80">{pctOf(consciousGap)}</span>
+              </div>
+              <p className="text-2xl font-black font-mono text-white mt-1">{consciousGap}</p>
+              <p className="text-[10px] text-sky-200/70">
+                {metaMatrix.counts.duvidaErr} dúvida · {metaMatrix.counts.chuteErr} chute + Erro
+              </p>
             </div>
           </div>
         )}
@@ -162,11 +318,30 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
       {/* 2. Curva de Fadiga Intraprova */}
       {fatigueCurve.length > 0 && (
         <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Timer size={16} className="text-cyan-400" />
-            <h4 className="text-xs font-black uppercase tracking-widest text-white">
-              Curva de Fadiga Intraprova (Início → Fim da Sessão)
-            </h4>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Timer size={16} className="text-cyan-400" />
+              <h4 className="text-xs font-black uppercase tracking-widest text-white">
+                Curva de Fadiga Intraprova (Início → Fim da Sessão)
+              </h4>
+            </div>
+            {fatigueDelta !== null && (
+              <span
+                className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                  fatigueDelta <= -12
+                    ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
+                    : fatigueDelta >= 5
+                      ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                      : 'bg-sky-500/15 border-sky-500/35 text-sky-300'
+                }`}
+              >
+                {fatigueDelta <= -12
+                  ? `Queda de fadiga: ${fatigueDelta}pp no final`
+                  : fatigueDelta >= 5
+                    ? `Aquecimento positivo: +${fatigueDelta}pp`
+                    : `Resistência estável (${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp)`}
+              </span>
+            )}
           </div>
           <ChartFrame minHeight={230} label="Analisando fadiga intraprova">
             <div className="h-[230px] w-full" role="img" aria-label="Curva de fadiga intraprova por quarto do simulado">
@@ -175,10 +350,14 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                   <XAxis dataKey="label" stroke="#94a3b8" fontSize={10} />
                   <YAxis yAxisId="left" domain={[0, 100]} stroke="#34d399" fontSize={10} tickFormatter={(v) => `${v}%`} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#38bdf8" fontSize={10} tickFormatter={(v) => `${v}s`} />
-                  <Tooltip />
+                  {hasTimedFatigue && (
+                    <YAxis yAxisId="right" orientation="right" stroke="#38bdf8" fontSize={10} tickFormatter={(v) => `${v}s`} />
+                  )}
+                  <Tooltip content={<FatigueTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="right" dataKey="avgSeconds" name="Tempo Médio (s/q)" fill="#0ea5e9" fillOpacity={0.5} radius={[6, 6, 0, 0]} barSize={32} />
+                  {hasTimedFatigue && (
+                    <Bar yAxisId="right" dataKey="avgSeconds" name="Tempo Médio (s/q)" fill="#0ea5e9" fillOpacity={0.5} radius={[6, 6, 0, 0]} barSize={32} />
+                  )}
                   <Line yAxisId="left" type="monotone" dataKey="accuracyPct" name="Acerto (%)" stroke="#34d399" strokeWidth={3} dot={{ r: 4 }} />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -203,7 +382,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                   <XAxis dataKey="subject" stroke="#94a3b8" fontSize={10} tickFormatter={(v) => (String(v).length > 14 ? `${String(v).slice(0, 13)}…` : v)} />
                   <YAxis allowDecimals={false} stroke="#64748b" fontSize={10} />
-                  <Tooltip />
+                  <Tooltip content={<ErrorAnatomyTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                   <Legend wrapperStyle={{ fontSize: 10 }} />
                   {ERROR_META.map((m) => (
                     <Bar key={m.key} dataKey={m.key} name={m.label} stackId="err" fill={m.color} />

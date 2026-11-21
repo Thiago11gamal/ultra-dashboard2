@@ -32,6 +32,14 @@ const clamp = (value, min, max) => {
     return Math.min(max, Math.max(min, n));
 };
 
+const isStrictNum = (value) => (
+    value !== null &&
+    value !== undefined &&
+    typeof value !== 'boolean' &&
+    String(value).trim() !== '' &&
+    Number.isFinite(Number(value))
+);
+
 // T-011 FIX: clamp defensivo de acertos.
 // Impede que correct > total gere accuracy/projeção acima de 100%.
 const clampCorrectToTotal = (correct, total) => {
@@ -121,7 +129,7 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
     let resolvedSnapshotCount = 0;
 
     mcHistory.forEach(snapshot => {
-        if (!snapshot) return;
+        if (!snapshot || snapshot.categoryId) return;
 
         const snapshotKey = getDateKey(snapshot.date || snapshot.timestamp);
         if (snapshotKey === todayKey) return;
@@ -134,6 +142,9 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
         let actual = null;
 
         if (targetTime && !isNaN(targetTime)) {
+            // M8 FIX: não avaliar prematuramente projeções cuja data-alvo ainda está longe no futuro.
+            if (targetTime > now + 7 * MS_PER_DAY) return;
+            const maxToleranceMs = Math.max(14 * MS_PER_DAY, Math.abs(targetTime - snapTime) * 0.4);
             let minDiff = Infinity;
 
             globalHistory.forEach(h => {
@@ -141,7 +152,7 @@ export function computeCalibrationPenalty(mcHistory, globalHistory, maxScore, su
 
                 if (hTime > snapTime) {
                     const diff = Math.abs(hTime - targetTime);
-                    if (diff < minDiff) {
+                    if (diff <= maxToleranceMs && diff < minDiff) {
                         minDiff = diff;
                         actual = h;
                     }
@@ -234,10 +245,9 @@ export function generateAnalyticsStats({
     let categoryStats = [];
     let totalWeight = 0;
 
-    // FIX: pooling bayesiano agora é feito em PROPORÇÃO padronizada (0-1),
-    // não em alpha/beta absolutos misturados entre domínios diferentes.
-    let weightedPropAlpha = 0;
-    let weightedPropBeta = 0;
+    // FIX (M10): pooling bayesiano ponderado estritamente pelos pesos definidos pelo usuário,
+    // evitando que uma matéria com mais questões históricas anule mcWeights.
+    let weightedPropSum = 0;
 
     const scoresByDate = {};
     const weightsByKey = new Map();
@@ -256,16 +266,14 @@ export function generateAnalyticsStats({
         const historyArray = Array.isArray(historyRaw) ? historyRaw : Object.values(historyRaw || {});
 
         if (historyArray.length > 0) {
-            const catMaxScore = Number(cat.maxScore) || safeMaxScore;
-            const catMinScore = Number.isFinite(Number(cat.minScore))
-              ? Number(cat.minScore)
-              : safeMinScore;
+            const catMaxScore = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0
+                ? Number(cat.maxScore)
+                : safeMaxScore;
+            const catMinScore = isStrictNum(cat.minScore)
+                ? Number(cat.minScore)
+                : safeMinScore;
             const rawMinCutoff = cat.minCutoff;
-            const hasValidMinCutoff = rawMinCutoff !== null &&
-              rawMinCutoff !== undefined &&
-              typeof rawMinCutoff !== 'boolean' &&
-              String(rawMinCutoff).trim() !== '' &&
-              Number.isFinite(Number(rawMinCutoff));
+            const hasValidMinCutoff = isStrictNum(rawMinCutoff);
             const catMinCutoff = hasValidMinCutoff ? Number(rawMinCutoff) : null;
             const catDomain = Math.max(1e-6, catMaxScore - catMinScore);
 
@@ -294,27 +302,13 @@ export function generateAnalyticsStats({
             if (stats && weight > 0) {
                 totalWeight += weight;
 
-                // FIX: padronizar a média bayesiana da disciplina em proporção
-                // do seu próprio domínio ANTES do pooling global.
-                //
-                // Antes: alpha/(alpha+beta) * maxScore global.
-                // Problema 1: disciplinas com maxScore diferente contaminavam a média.
-                // Problema 2: minScore != 0 era ignorado.
                 const rawBayeMean = Number(baye.mean);
                 const safeBayeMean = Number.isFinite(rawBayeMean)
                     ? rawBayeMean
                     : (catMinScore + catDomain * 0.5);
 
                 const catProp = clamp((safeBayeMean - catMinScore) / catDomain, 0, 1);
-
-                // Força da evidência (pseudo-contagens), limitada para nenhuma
-                // disciplina dominar o pooling global sozinha.
-                const strength = (Number(baye.alpha) || 0) + (Number(baye.beta) || 0);
-                const CONFIDENCE_CAP = 50;
-                const cappedStrength = Math.min(Math.max(strength, 1e-9), CONFIDENCE_CAP);
-
-                weightedPropAlpha += catProp * cappedStrength * weight;
-                weightedPropBeta += (1 - catProp) * cappedStrength * weight;
+                weightedPropSum += catProp * weight;
 
                 weightsByKey.set(weightKey, weight);
                 maxScoreByKey.set(weightKey, catMaxScore);
@@ -323,11 +317,7 @@ export function generateAnalyticsStats({
                     const currentScore = getSafeScore(h, catMaxScore, catMinScore);
 
                     // RIGOR FIX: Proteção contra Corrupção de Dados e o "0s Bug".
-                    // 1. Evita que um NaN vicie a média do dia e destrua o dia inteiro.
                     if (!Number.isFinite(currentScore)) return;
-
-                    // 2. Filtramos o infame "0s bug" originário do simulado timer
-                    // sem descartar simulados manuais legítimos com questões registradas e nota 0.
                     if (isPhantomZeroTimeAttempt(h, currentScore)) return;
 
                     const dk = getDateKey(getHistoryDate(h));
@@ -352,9 +342,21 @@ export function generateAnalyticsStats({
                         const currentTotal = rawTotal > 0 ? rawTotal : getSyntheticTotal(catMaxScore);
                         const inferredCorrect = ((currentScore - catMinScore) / catDomain) * currentTotal;
 
-                        // T-011 FIX: clamp de correct por total antes de agregar
-                        const currentCorrect = rawTotal > 0 && Number.isFinite(rawCorrectVal)
+                        // M1 FIX: respeita nota líquida Cebraspe (penaltyPerWrong/blanks/netPoints) e TRI/scorePoints.
+                        // Só usa rawCorrectVal bruto quando não há divergência com getSafeScore.
+                        const hasPenalizedOrAuthoritative =
+                            (Number(h.penaltyPerWrong) > 0) ||
+                            (Number(h.blanks) > 0) ||
+                            isStrictNum(h.netPoints) ||
+                            isStrictNum(h.scorePoints) ||
+                            isStrictNum(h.scorePct) ||
+                            isStrictNum(h.score);
+                        const rawCorrectClamped = rawTotal > 0 && Number.isFinite(rawCorrectVal)
                             ? clampCorrectToTotal(rawCorrectVal, currentTotal)
+                            : NaN;
+                        const currentCorrect = Number.isFinite(rawCorrectClamped) &&
+                            !(hasPenalizedOrAuthoritative && Math.abs((inferredCorrect / currentTotal) - (rawCorrectClamped / currentTotal)) > 1e-4)
+                            ? rawCorrectClamped
                             : clampCorrectToTotal(inferredCorrect, currentTotal);
 
                         if (existing) {
@@ -374,16 +376,16 @@ export function generateAnalyticsStats({
                                 score: newScore,
                                 correct: safeNewCorrect,
                                 total: newTotal,
-                                minScore: catMinScore, // ✅ LOTE-01 FIX (C4)
-                                maxScore: catMaxScore  // ✅ LOTE-01 FIX (C4)
+                                minScore: catMinScore,
+                                maxScore: catMaxScore
                             };
                         } else {
                             scoresByDate[dk][weightKey] = {
                                 score: currentScore,
                                 correct: currentCorrect,
                                 total: currentTotal,
-                                minScore: catMinScore, // ✅ LOTE-01 FIX (C4)
-                                maxScore: catMaxScore  // ✅ LOTE-01 FIX (C4)
+                                minScore: catMinScore,
+                                maxScore: catMaxScore
                             };
                         }
                     }
@@ -399,6 +401,7 @@ export function generateAnalyticsStats({
                     examGroup: cat.examGroup || null,
                     bayesianMean: baye.mean,
                     temporalBayesianMean: baye.mean,
+                    temporalBayesianSd: baye.sd,
                     bayesianSd: baye.sd,
                     volatility: vol,
                     weight
@@ -415,7 +418,6 @@ export function generateAnalyticsStats({
     if (categoryStats.length === 0 || totalWeight === 0) return null;
 
     // T-025 FIX: evitar new Date('YYYY-MM-DD') diretamente.
-    // normalizeDate já é usado no projeto para ancorar datas com mais segurança.
     const sortedDates = Object.keys(scoresByDate).sort((a, b) => {
         const da = normalizeDate(a)?.getTime() ?? 0;
         const db = normalizeDate(b)?.getTime() ?? 0;
@@ -429,14 +431,15 @@ export function generateAnalyticsStats({
         subjectNames,
         undefined,
         safeMaxScore,
-        safeMinScore
+        safeMinScore,
+        cutoffDate
     );
 
     const scaleCategorySd = (cat, targetDomain) => {
         const rawSD = Number(cat.sd ?? cat.volatility ?? 0);
         if (!Number.isFinite(rawSD) || rawSD < 0) return 0;
-        const cMin = Number.isFinite(Number(cat?.minScore)) ? Number(cat.minScore) : safeMinScore;
-        const cMax = Number.isFinite(Number(cat?.maxScore)) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMaxScore;
+        const cMin = isStrictNum(cat?.minScore) ? Number(cat.minScore) : safeMinScore;
+        const cMax = isStrictNum(cat?.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : safeMaxScore;
         const cRange = Math.max(1e-6, cMax - cMin);
         return (rawSD / cRange) * targetDomain;
     };
@@ -452,18 +455,16 @@ export function generateAnalyticsStats({
 
     categoryStats = computeHierarchicalAdjustment(categoryStats, normPooledSD);
 
-    // FIX: média bayesiana global em proporção, mapeada para o domínio global
-    // respeitando minScore. Sem dados, assume o ponto médio (não zero).
-    const propSum = weightedPropAlpha + weightedPropBeta;
-    const globalProp = propSum > 0 ? (weightedPropAlpha / propSum) : 0.5;
+    // FIX (M10): média bayesiana global estritamente ponderada por mcWeights
+    const globalProp = totalWeight > 0 ? clamp(weightedPropSum / totalWeight, 0, 1) : 0.5;
     const bayesianMean = safeMinScore + (globalProp * globalDomain);
 
     const pooledBayesianVar = computeWeightedVariance(bayesianStats, totalWeight, estimatedRho);
     const pooledBayesianSD = Math.sqrt(Math.max(0, pooledBayesianVar));
 
     const rawGlobalHistory = sortedDates.map(date => {
-        let pooledCorrect = 0;
-        let pooledTotal = 0;
+        let pooledWeightedProp = 0;
+        let pooledWeightSum = 0;
 
         Object.keys(scoresByDate[date]).forEach(name => {
             const w = weightsByKey.get(name) ?? 0;
@@ -472,9 +473,7 @@ export function generateAnalyticsStats({
 
             if (w > 0 && metrics !== undefined) {
                 const rawTotal = Number(metrics.total) || getSyntheticTotal(catMaxScore);
-                // ✅ LOTE-01 FIX (C4): minScore agora é gravado no agregado diário.
-                // Fallback 0 mantido apenas para registros legados.
-                const catMinScore = Number.isFinite(Number(metrics.minScore)) ? Number(metrics.minScore) : 0;
+                const catMinScore = isStrictNum(metrics.minScore) ? Number(metrics.minScore) : 0;
                 const catDomain = Math.max(1e-9, catMaxScore - catMinScore);
 
                 const total = Number.isFinite(rawTotal) && rawTotal > 0
@@ -491,14 +490,20 @@ export function generateAnalyticsStats({
                     Math.min(total, Number.isFinite(rawCorrect) ? rawCorrect : 0)
                 );
 
-                pooledCorrect += correct * w;
-                pooledTotal += total * w;
+                // M10 FIX: cada matéria contribui proporcionalmente ao seu peso w (não total * w),
+                // mantendo ponderação por volume apenas entre tentativas da MESMA matéria no mesmo dia.
+                const subProp = total > 0
+                    ? clamp(correct / total, 0, 1)
+                    : clamp((Number(metrics.score) - catMinScore) / catDomain, 0, 1);
+
+                pooledWeightedProp += subProp * w;
+                pooledWeightSum += w;
             }
         });
 
         return {
             date,
-            score: pooledTotal > 0 ? safeMinScore + (pooledCorrect / pooledTotal) * globalDomain : null
+            score: pooledWeightSum > 0 ? safeMinScore + (pooledWeightedProp / pooledWeightSum) * globalDomain : null
         };
     }).filter(item => item.score !== null && Number.isFinite(item.score) && item.score >= safeMinScore);
 
@@ -550,7 +555,7 @@ export function generateAnalyticsStats({
       ? Number(totalWeight.toFixed(2))
       : 0;
 
-    const safeTargetScore = Number.isFinite(Number(targetScore)) ? Number(targetScore) : 'na';
+    const safeTargetScore = isStrictNum(targetScore) ? Number(targetScore) : 'na';
     const statsHash = `${bayesianMean.toFixed(4)}-${pooledSD.toFixed(4)}-${safeMinScore}-${safeMaxScore}-${scoreFingerprint}-tw[${safeTotalWeight}]-w[${weightFingerprint}]-cutoffs[${cutoffs}]-tgt[${safeTargetScore}]`;
 
     return {

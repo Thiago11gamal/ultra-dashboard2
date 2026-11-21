@@ -202,14 +202,18 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
         }
     });
 
+    const todayKey = getDateKey(new Date());
+
     logsArray.forEach(log => {
         if (!log || typeof log !== 'object') return;
 
-        // Descartar registros com data corrompida para manter paridade com WeeklyAnalysis
+        // Descartar registros com data corrompida ou futura para manter paridade com WeeklyAnalysis
         const rawDate = log.date ?? log.createdAt;
         if (rawDate !== undefined && rawDate !== null && rawDate !== '') {
             const parsedDate = normalizeDate(rawDate);
             if (!parsedDate || Number.isNaN(parsedDate.getTime())) return;
+            const dk = getDateKey(parsedDate);
+            if (dk && todayKey && dk > todayKey) return;
         }
 
         let cat = null;
@@ -254,12 +258,12 @@ export const mapSubjectHoursData = (studyLogs = [], categories = []) => {
     });
 
     return Array.from(hoursMap.values())
-        .filter(item => Number.isFinite(item.minutes) && item.minutes >= 0)
+        .filter(item => Number.isFinite(item.minutes) && item.minutes > 0)
         .map(item => ({
             disciplina: item.disciplina,
             horas: parseFloat((item.minutes / 60).toFixed(2))
         }))
-        .filter(item => Number.isFinite(item.horas))
+        .filter(item => Number.isFinite(item.horas) && item.horas > 0)
         .sort((a, b) => Number(b.horas) - Number(a.horas));
 };
 

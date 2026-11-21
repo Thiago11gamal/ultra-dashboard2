@@ -308,7 +308,9 @@ export function computeHurstExponent(scores) {
 }
 
 export function generateMathDiagnostic(history, maxScore = 100, minScore = 0) {
-  const scores = (history || []).map(h => getSafeScore(h, maxScore, minScore));
+  const validHistory = (Array.isArray(history) ? history : Object.values(history || {}))
+    .filter((h) => h && h.valid !== false && h.validated !== false);
+  const scores = validHistory.map(h => getSafeScore(h, maxScore, minScore));
   const hurst = computeHurstExponent(scores);
 
   const optimalLambda = hurst.H < 0.45 ? 0.12 : hurst.H > 0.65 ? 0.04 : 0.08;
@@ -456,17 +458,18 @@ export function computeForgettingRisk(history, maxScore = 100, baselineScore = n
 export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
   const domain = Math.max(1, maxScore - minScore);
   const fallback = { velocity: 0, velocityPerWeek: 0, velocityLabel: 'Dados insuficientes', plateau: minScore + domain * 0.7, timeToPlateauDays: null };
-  if (!Array.isArray(history) || history.length < 4) return fallback;
+  if (!Array.isArray(history) || history.length < 3) return fallback;
 
-  const validHistory = history.filter(h => _getEntryDate(h) !== null);
+  const validHistory = history.filter(h => h && h.valid !== false && h.validated !== false && _getEntryDate(h) !== null);
   const sorted = getSortedHistory(validHistory);
-  if (sorted.length < 4) return fallback;
+  if (sorted.length < 3) return fallback;
 
   const t0 = _getEntryDate(sorted[0]).getTime();
   const data = sorted.map((h, idx) => ({
     t: Math.max(0.001 * idx, (_getEntryDate(h).getTime() - t0) / 86400000),
     y: Math.max(minScore, Math.min(maxScore, getSafeScore(h, maxScore, minScore))),
   })).filter(d => Number.isFinite(d.y));
+  if (data.length < 3) return fallback;
 
   // Tendência linear com sinal (OLS centralizado) para detectar regressão real sem mascarar quedas
   const meanAllT = _mean(data.map((d) => d.t));
@@ -489,9 +492,37 @@ export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
     };
   }
 
+  // Com exatamente 3 simulados, usar inclinação linear centralizada (evita congelar em 0/Platô)
+  if (data.length === 3) {
+    const vDay = signedLinearSlope;
+    const currentScore = data[data.length - 1].y;
+    const roomToGrow = Math.max(domain * 0.01, plateauEst - currentScore);
+    const relativeVelocity = (vDay * 30) / roomToGrow;
+    let velocityLabel = 'Platô atingido / Estagnado';
+    if (vDay < -domain * 0.0001) velocityLabel = 'Regressão leve';
+    else if (relativeVelocity > 0.15) velocityLabel = 'Acelerado (Alta Tração Logística)';
+    else if (relativeVelocity > 0.05) velocityLabel = 'Constante (Fechando lacunas ativamente)';
+    else if (relativeVelocity > 0.01) velocityLabel = 'Lento (Requer revisão de método)';
+    return {
+      velocity: Number(vDay.toFixed(4)),
+      velocityPerWeek: Number((vDay * 7).toFixed(2)),
+      velocityLabel,
+      plateau: Number(plateauEst.toFixed(1)),
+      timeToPlateauDays: null,
+    };
+  }
+
   // Filtro invariante de escala para escalas com minScore != 0 (ex: ENEM 200-1000 ou CEBRASPE -100..100)
   const linearPts = data.filter((d) => d.y < minScore + (plateauEst - minScore) * 0.98 && d.y >= minScore);
-  if (linearPts.length < 3) return { ...fallback, plateau: plateauEst };
+  if (linearPts.length < 3) {
+    return {
+      velocity: Number(signedLinearSlope.toFixed(4)),
+      velocityPerWeek: Number((signedLinearSlope * 7).toFixed(2)),
+      velocityLabel: signedLinearSlope > domain * 0.0005 ? 'Constante (Fechando lacunas ativamente)' : 'Platô atingido / Estagnado',
+      plateau: Number(plateauEst.toFixed(1)),
+      timeToPlateauDays: null,
+    };
+  }
 
   const effectiveRange = Math.max(1e-6, plateauEst - minScore);
   const ys = linearPts.map((d) => Math.log(Math.max(1e-6, 1 - (d.y - minScore) / effectiveRange)));
@@ -502,19 +533,32 @@ export function computeLearningVelocity(history, maxScore = 100, minScore = 0) {
   const SttCentered = kahanSum(ts.map((t) => (t - meanT) ** 2));
   const StyCentered = kahanSum(ts.map((t, i) => (t - meanT) * (ys[i] - meanY)));
 
-  const StyOrigin = kahanSum(ts.map((t, i) => t * ys[i]));
-  const SttOrigin = kahanSum(ts.map((t) => t * t));
-  const kOrigin = SttOrigin > 1e-15 ? Math.max(1e-4, -StyOrigin / SttOrigin) : 1e-3;
-
-  let k = kOrigin;
-  let interceptA = 0;
-  if (SttCentered > 1e-12) {
-    const kCentered = -StyCentered / SttCentered;
-    if (Number.isFinite(kCentered) && kCentered > 1e-4) {
-      k = kCentered;
-      interceptA = Math.min(0, meanY + k * meanT);
-    }
+  // Se a série está estagnada ou em leve queda (kCentered <= 0), NÃO forçar curva pela origem
+  // (que fabricava velocidade positiva em séries constantes como [70, 70, 70, 70]).
+  if (SttCentered <= 1e-12) {
+    return {
+      velocity: 0,
+      velocityPerWeek: 0,
+      velocityLabel: 'Platô atingido / Estagnado',
+      plateau: Number(plateauEst.toFixed(1)),
+      timeToPlateauDays: null,
+    };
   }
+
+  const kCentered = -StyCentered / SttCentered;
+  if (!Number.isFinite(kCentered) || kCentered <= 1e-4) {
+    const vDay = signedLinearSlope;
+    return {
+      velocity: Number(vDay.toFixed(4)),
+      velocityPerWeek: Number((vDay * 7).toFixed(2)),
+      velocityLabel: vDay < -domain * 0.0001 ? 'Regressão leve' : 'Platô atingido / Estagnado',
+      plateau: Number(plateauEst.toFixed(1)),
+      timeToPlateauDays: null,
+    };
+  }
+
+  const k = kCentered;
+  const interceptA = Math.min(0, meanY + k * meanT);
 
   const tNow = data[data.length - 1].t;
   // Derivada analítica exata com offset inicial y0: d/dt [P - (P - y0)*exp(-k*t)] = effectiveRange * k * exp(a - k*t)
@@ -925,13 +969,15 @@ export function computeWeeklyCategoryCorrelation(categories = [], maxScore = 100
  */
 export function buildRegimeMapData(categories = [], studySessions = [], simulados = [], maxScore = 100, minScore = 0, targetScore = 80) {
   const safeCats = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
+  const gRange = Math.max(1e-6, (Number(maxScore) || 100) - (Number.isFinite(Number(minScore)) ? Number(minScore) : 0));
   return safeCats
     .map((cat) => {
       const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
       const cMax = Number(cat.maxScore) > cMin ? Number(cat.maxScore) : maxScore;
-      const hist = Array.isArray(cat?.simuladoStats?.history)
+      const rawHist = Array.isArray(cat?.simuladoStats?.history)
         ? cat.simuladoStats.history
         : Object.values(cat?.simuladoStats?.history || {});
+      const hist = rawHist.filter((h) => h && h.valid !== false && h.validated !== false);
       if (hist.length < 3) return null;
 
       const diag = computeCategoryDiagnostics({
@@ -946,11 +992,12 @@ export function buildRegimeMapData(categories = [], studySessions = [], simulado
 
       const cRange = Math.max(1e-6, cMax - cMin);
       const hurstH = Number.isFinite(Number(diag?.hurst?.H)) ? Number(Number(diag.hurst.H).toFixed(2)) : 0.5;
-      const velocity = Number.isFinite(Number(diag?.velocity?.velocityPerWeek))
-        ? Number(Number(diag.velocity.velocityPerWeek).toFixed(2))
-        : (Number.isFinite(Number(diag?.velocity?.velocity)) ? Number((Number(diag.velocity.velocity) * 7).toFixed(2)) : 0);
-      // Normaliza velocidade semanal para % do domínio (invariante a escalas 0..10, 0..100, 0..1000, -120..120)
-      const velocityPctPerWeek = (velocity / cRange) * 100;
+      const rawVelocity = Number.isFinite(Number(diag?.velocity?.velocityPerWeek))
+        ? Number(diag.velocity.velocityPerWeek)
+        : (Number.isFinite(Number(diag?.velocity?.velocity)) ? Number(diag.velocity.velocity) * 7 : 0);
+      // Normaliza velocidade semanal para % do domínio (invariante a escalas) e projeta para escala global no eixo Y
+      const velocityPctPerWeek = (rawVelocity / cRange) * 100;
+      const velocity = Number(((rawVelocity / cRange) * gRange).toFixed(2));
       const consistency = Number.isFinite(Number(diag?.consistency?.index)) ? diag.consistency.index : 0.5;
 
       let regime = 'estavel';

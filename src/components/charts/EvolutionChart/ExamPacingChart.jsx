@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -63,35 +63,71 @@ function PacingTooltip({ active, payload }) {
 
 export const ExamPacingChart = React.memo(function ExamPacingChart({
   categories = [],
+  mcWeights = null,
   timeWindow = 'all',
   examDurationMinutes: propDuration = null,
   examTotalQuestions: propQuestions = null,
 }) {
+  const patchData = useAppStore((s) => s.patchData);
   const setData = useAppStore((s) => s.setData);
-  const [durationInput, setDurationInput] = useState(() => Number(propDuration) > 0 ? Number(propDuration) : 240);
-  const [questionsInput, setQuestionsInput] = useState(() => Number(propQuestions) > 0 ? Number(propQuestions) : 100);
+  const normalizedPropDur = Number(propDuration) > 0 ? Number(propDuration) : 240;
+  const normalizedPropQ = Number(propQuestions) > 0 ? Number(propQuestions) : 100;
+  const [prevPropDur, setPrevPropDur] = useState(normalizedPropDur);
+  const [prevPropQ, setPrevPropQ] = useState(normalizedPropQ);
+  const [durationInput, setDurationInput] = useState(String(normalizedPropDur));
+  const [questionsInput, setQuestionsInput] = useState(String(normalizedPropQ));
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const savedTimerRef = useRef(null);
+
+  if (normalizedPropDur !== prevPropDur || normalizedPropQ !== prevPropQ) {
+    setPrevPropDur(normalizedPropDur);
+    setPrevPropQ(normalizedPropQ);
+    setDurationInput(String(normalizedPropDur));
+    setQuestionsInput(String(normalizedPropQ));
+    setSavedFeedback(false);
+  }
+
+  useEffect(() => () => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+  }, []);
+
+  const safeDurationNum = Math.max(15, Math.min(720, Math.round(Number(durationInput) || normalizedPropDur)));
+  const safeQuestionsNum = Math.max(5, Math.min(500, Math.round(Number(questionsInput) || normalizedPropQ)));
 
   const data = useMemo(
     () =>
       buildExamPacingData(categories, {
-        examDurationMinutes: durationInput,
-        examTotalQuestions: questionsInput,
+        examDurationMinutes: safeDurationNum,
+        examTotalQuestions: safeQuestionsNum,
         timeWindow,
+        mcWeights,
       }),
-    [categories, durationInput, questionsInput, timeWindow]
+    [categories, safeDurationNum, safeQuestionsNum, timeWindow, mcWeights]
   );
 
   const handleSaveExamConfig = () => {
     const safeDur = Math.max(15, Math.min(720, Math.round(Number(durationInput) || 240)));
     const safeQ = Math.max(5, Math.min(500, Math.round(Number(questionsInput) || 100)));
-    setData((prev) => ({
-      ...(prev || {}),
-      examDurationMinutes: safeDur,
-      examTotalQuestions: safeQ,
-    }));
+    setDurationInput(String(safeDur));
+    setQuestionsInput(String(safeQ));
+    if (typeof patchData === 'function') {
+      patchData(() => ({
+        examDurationMinutes: safeDur,
+        examTotalQuestions: safeQ,
+      }));
+    } else if (typeof setData === 'function') {
+      setData((prev) => ({
+        ...(prev || {}),
+        examDurationMinutes: safeDur,
+        examTotalQuestions: safeQ,
+      }));
+    }
     setSavedFeedback(true);
-    setTimeout(() => setSavedFeedback(false), 2000);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => {
+      savedTimerRef.current = null;
+      setSavedFeedback(false);
+    }, 2000);
   };
 
   const isOverTime = data.deltaMinutes > 0;
@@ -109,7 +145,8 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
               min={15}
               max={720}
               value={durationInput}
-              onChange={(e) => setDurationInput(Math.max(15, Number(e.target.value) || 15))}
+              onChange={(e) => setDurationInput(e.target.value)}
+              onBlur={() => setDurationInput(String(safeDurationNum))}
               className="w-20 rounded-lg bg-slate-900 border border-white/10 px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-cyan-400"
             />
           </label>
@@ -120,7 +157,8 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
               min={5}
               max={500}
               value={questionsInput}
-              onChange={(e) => setQuestionsInput(Math.max(5, Number(e.target.value) || 5))}
+              onChange={(e) => setQuestionsInput(e.target.value)}
+              onBlur={() => setQuestionsInput(String(safeQuestionsNum))}
               className="w-20 rounded-lg bg-slate-900 border border-white/10 px-2.5 py-1 text-white font-mono text-xs focus:outline-none focus:border-cyan-400"
             />
           </label>
@@ -144,7 +182,7 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
           <Clock size={34} className="text-cyan-400/50" />
           <p className="text-sm font-bold text-slate-300">Sem dados cronometrados para simular o ritmo de prova</p>
           <p className="text-xs text-slate-500 max-w-md">
-            Faça simulados com cronômetro ativo para estimar se você termina a prova inteira dentro de {durationInput} minutos.
+            Faça simulados com cronômetro ativo para estimar se você termina a prova inteira dentro de {safeDurationNum} minutos.
           </p>
         </div>
       ) : (

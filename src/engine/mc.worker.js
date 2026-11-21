@@ -45,7 +45,8 @@ function sanitizeExamGroupCutoffs(cutoffs) {
     const clean = {};
     for (const [grp, val] of Object.entries(cutoffs)) {
         const n = safeNum(val, NaN);
-        if (grp && Number.isFinite(n) && n > 0) {
+        // D7 FIX: suportar cortes <= 0 (ex.: Cebraspe com piso negativo), alinhado com monteCarlo.js e projection.js
+        if (grp && Number.isFinite(n)) {
             clean[String(grp).trim()] = n;
         }
     }
@@ -81,11 +82,18 @@ function sanitizeHistory(history) {
 
             if (h.score !== undefined) newH.score = safeNum(h.score, NaN);
             if (h.value !== undefined) newH.value = safeNum(h.value, NaN);
+            if (h.scorePoints !== undefined) newH.scorePoints = safeNum(h.scorePoints, NaN);
+            if (h.scorePct !== undefined) newH.scorePct = safeNum(h.scorePct, NaN);
             if (h.total !== undefined) newH.total = safeNum(h.total, 20);
             if (h.weight !== undefined) newH.weight = safeNum(h.weight, 1.0);
             if (h.difficulty !== undefined) newH.difficulty = safeNum(h.difficulty, 1.0);
 
-            const hasFiniteScore = Number.isFinite(newH.score) || Number.isFinite(newH.value);
+            const hasFiniteScore =
+                Number.isFinite(newH.score) ||
+                Number.isFinite(newH.value) ||
+                Number.isFinite(newH.scorePoints) ||
+                Number.isFinite(newH.scorePct) ||
+                (Number.isFinite(Number(h.correct ?? h.acertos ?? h.correctCount)) && Number(newH.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) > 0);
             return hasFiniteScore ? newH : null;
         }
 
@@ -174,7 +182,11 @@ self.onmessage = function (e) {
                         // FIX: Mantém o objeto inteiro para não perder metadata (fatigueFlag, weight, difficulty)
                         values: Array.isArray(input.values) ? input.values.map(v => {
                             if (typeof v === 'object' && v !== null) {
-                                return { ...v, score: safeNum(v.score ?? v.value, NaN) };
+                                // D7 FIX: não injetar score: NaN em objetos que só trazem correct/total ou scorePoints
+                                if (v.score !== undefined || v.value !== undefined) {
+                                    return { ...v, score: safeNum(v.score ?? v.value, NaN) };
+                                }
+                                return { ...v };
                             }
                             return safeNum(v, NaN);
                         }) : [],

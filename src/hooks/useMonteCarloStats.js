@@ -6,7 +6,7 @@ import { useMonteCarloWorker } from './useMonteCarloWorker';
 import { runMonteCarloAnalysis, simulateNormalDistribution } from '../engine/monteCarlo';
 import { normalCDF_complement } from '../engine/math/gaussian.js';
 import { computeNonLinearTrend } from '../engine/projection.js';
-import { getDateKey, normalizeDate, parseNoonLocal, daysUntilGoal } from '../utils/dateHelper';
+import { getDateKey, normalizeDate, parseNoonLocal, daysUntilGoal, getAppTimezone } from '../utils/dateHelper';
 import {
   shrinkProbabilityToNeutral,
   recordPredictionEvent,
@@ -43,12 +43,21 @@ const EMPTY_ARRAY = Object.freeze([]);
 const BASE_SIMULATIONS = 5000;
 const LOG_DAMPING_FACTOR = 45;
 
+const isStrictNum = (val) => (
+  val !== null &&
+  val !== undefined &&
+  typeof val !== 'boolean' &&
+  String(val).trim() !== '' &&
+  Number.isFinite(Number(val))
+);
+
 function maybeRecordGlobalCalibrationPrediction({
   result,
   projectDays,
   isTimeTraveling,
   pureStatsHash,
   debouncedTarget,
+  historicalCutoffs,
   lastRecordedGlobalPredRef,
 }) {
   try {
@@ -57,7 +66,14 @@ function maybeRecordGlobalCalibrationPrediction({
     const activeId = storeState.appState?.activeId;
     if (!(projectDays > 0 && !isTimeTraveling && setDataFn && result?.probability != null)) return;
 
-    const hash = `${pureStatsHash}-${debouncedTarget}`;
+    const validCutoffs = Array.isArray(historicalCutoffs)
+      ? historicalCutoffs.map(Number).filter(Number.isFinite)
+      : [];
+    const effectiveCalibTarget = validCutoffs.length > 0
+      ? validCutoffs.reduce((a, b) => a + b, 0) / validCutoffs.length
+      : debouncedTarget;
+
+    const hash = `${pureStatsHash}-${effectiveCalibTarget}`;
     if (lastRecordedGlobalPredRef.current === hash) return;
     lastRecordedGlobalPredRef.current = hash;
 
@@ -72,15 +88,19 @@ function maybeRecordGlobalCalibrationPrediction({
       const prevDay = getDateKey(lastGlobal.timestamp);
       const sameDay = Boolean(today && prevDay && prevDay === today);
       const sameProb = Number.isFinite(Number(lastGlobal.probability)) && Math.abs(Number(lastGlobal.probability) - prob01) < 0.005;
-      const sameTarget = Number.isFinite(Number(lastGlobal.targetScore)) && Math.abs(Number(lastGlobal.targetScore) - Number(debouncedTarget)) <= 0.1;
+      const sameTarget = Number.isFinite(Number(lastGlobal.targetScore)) && Math.abs(Number(lastGlobal.targetScore) - Number(effectiveCalibTarget)) <= 0.1;
       const sameEffN = (lastGlobal.effectiveN ?? null) === (Number.isFinite(Number(nextEffN)) ? Number(nextEffN) : null);
       if (sameDay && sameProb && sameTarget && sameEffN) return;
     }
 
+    // M8 FIX: respeitar horizonte mínimo de backfill (evita avaliar previsão de longo prazo contra simulado de minutos depois)
+    const minBackfillDays = Math.max(1, Math.min(Number(projectDays) || 1, 7));
+
     const ev = recordPredictionEvent({
       timestamp: Date.now(),
       probability: prob01,
-      targetScore: debouncedTarget,
+      targetScore: effectiveCalibTarget,
+      minBackfillDays,
       sims: result.simulationCount,
       effectiveN: nextEffN,
       category: 'global'
@@ -124,7 +144,12 @@ export function useMonteCarloStats({
     const currentActiveId = state.appState?.activeId;
     return state.appState?.contests?.[currentActiveId]?.mcWeights || {};
   }));
-  const equalWeightsMode = useAppStore(state => state.appState?.mcEqualWeights ?? true);
+  const equalWeightsMode = useAppStore(state => {
+    const currentActiveId = state.appState?.activeId;
+    const contest = state.appState?.contests?.[currentActiveId];
+    if (contest && typeof contest.mcEqualWeights === 'boolean') return contest.mcEqualWeights;
+    return state.appState?.mcEqualWeights ?? true;
+  });
 
   const mcHistory = useAppStore(useShallow(state => {
     const currentActiveId = state.appState?.activeId;
@@ -184,6 +209,9 @@ export function useMonteCarloStats({
     if (calibrationEvents.length < 3) return null;
 
     try {
+      // M8 FIX: priorizar eventos globais para saúde do modelo global (evita contaminação de per-subject)
+      const globalSummary = computeCalibrationSummary(calibrationEvents, { bins: 6, category: 'global' });
+      if (globalSummary && globalSummary.n >= 3) return globalSummary;
       return computeCalibrationSummary(calibrationEvents, { bins: 6 });
     } catch {
       return null;
@@ -297,6 +325,18 @@ export function useMonteCarloStats({
 
   const lastRecordedGlobalPredRef = useRef('');
   const lastRecordedSubjectPredsRef = useRef('');
+  const prevActiveIdRef = useRef(activeId);
+
+  // B3 FIX: sincronizar imediatamente target e pesos ao trocar de concurso ativo (sem bleed de 300ms)
+  useEffect(() => {
+    if (prevActiveIdRef.current !== activeId) {
+      prevActiveIdRef.current = activeId;
+      setDebouncedTarget(targetScore);
+      setDebouncedWeights(effectiveWeights);
+      lastRecordedGlobalPredRef.current = '';
+      lastRecordedSubjectPredsRef.current = '';
+    }
+  }, [activeId, targetScore, effectiveWeights]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedTarget(targetScore), 300);
@@ -316,7 +356,6 @@ export function useMonteCarloStats({
 
     if (timeIndex >= 0 && timeIndex < timelineDates.length) {
       // T-025 FIX: evitar new Date('YYYY-MM-DD') diretamente.
-      // normalizeDate costuma ancorar melhor a data no helper do projeto.
       const parsedTimelineDate = parseNoonLocal(timelineDates[timeIndex]) ||
         normalizeDate(timelineDates[timeIndex]);
 
@@ -336,14 +375,15 @@ export function useMonteCarloStats({
 
     if (!goal || !Number.isFinite(goal.getTime())) return 30;
 
-    // T-024/T-025 FIX: fallback para data corrente inválida
     if (!currentDate || !Number.isFinite(currentDate.getTime())) {
       currentDate = parseNoonLocal(getDateKey(new Date())) || new Date();
     }
 
-    // FIX-GOAL-02: delegar ao helper único (mesmo clamp/mesmo fuso que o useMemo).
-    return daysUntilGoal(goal, { fallback: 30, min: 1, referenceDate: currentDate });
+    // FIX-GOAL-02 + B7 FIX: delegar ao helper único com fuso APP_TIMEZONE
+    return daysUntilGoal(goal, { fallback: 30, min: 1, referenceDate: currentDate, timeZone: getAppTimezone() });
   }, [goalDate, effectiveSimulateToday, timeIndex, timelineDates]);
+
+  const isGoalDateExpired = !effectiveSimulateToday && Boolean(goalDate) && projectDays === 0;
 
   const pureStatsData = useMemo(() => {
     return generateAnalyticsStats({
@@ -385,8 +425,8 @@ export function useMonteCarloStats({
       };
     }
 
-    const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
-    const safeMax = Number.isFinite(Number(maxScore)) ? Number(maxScore) : 100;
+    const safeMin = isStrictNum(minScore) ? Number(minScore) : 0;
+    const safeMax = isStrictNum(maxScore) ? Number(maxScore) : 100;
     const domainSpan = Math.max(1e-6, safeMax - safeMin);
     const aleatoricFloor = domainSpan * 0.02;
 
@@ -401,11 +441,12 @@ export function useMonteCarloStats({
 
     const calibratedCategoryStats = Array.isArray(pureStatsData.categoryStats)
       ? pureStatsData.categoryStats.map(cat => {
-          const cMin = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : safeMin;
-          const cMax = Number.isFinite(Number(cat.maxScore)) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : Math.max(cMin + 1, safeMax);
+          const cMin = isStrictNum(cat.minScore) ? Number(cat.minScore) : safeMin;
+          const cMax = isStrictNum(cat.maxScore) && Number(cat.maxScore) > cMin ? Number(cat.maxScore) : Math.max(cMin + 1, safeMax);
           const cFloor = Math.max(1e-6, cMax - cMin) * 0.02;
           const calSd = calibrateSpreadWithFloor(cat.sd, cFloor, calibrationPenalty);
           const calBayesSd = cat.bayesianSd != null ? calibrateSpreadWithFloor(cat.bayesianSd, cFloor, calibrationPenalty) : cat.bayesianSd;
+          const calTempBayesSd = cat.temporalBayesianSd != null ? calibrateSpreadWithFloor(cat.temporalBayesianSd, cFloor, calibrationPenalty) : cat.temporalBayesianSd;
           const calVol = cat.volatility != null ? calibrateSpreadWithFloor(cat.volatility, cFloor, calibrationPenalty) : cat.volatility;
           const catBaseSd = Number(cat.bayesianSd ?? cat.sd ?? 0);
           const catNextSd = Number(calBayesSd ?? calSd ?? 0);
@@ -414,6 +455,7 @@ export function useMonteCarloStats({
             ...cat,
             sd: calSd,
             bayesianSd: calBayesSd,
+            temporalBayesianSd: calTempBayesSd,
             volatility: calVol,
             bayesianCI: expandCIWithRatio(cat.bayesianCI, catRatio, cMin, cMax)
           };
@@ -677,11 +719,52 @@ export function useMonteCarloStats({
         Number.isFinite(result.currentMean) &&
         result.projectedMean > result.currentMean
       ) {
-        // FIX: remove o boost otimista de +10% e aplica apenas teto conservador
-        result.projectedMean = Math.min(
-          result.projectedMean,
-          result.currentMean + (domain * 0.15)
-        );
+        const capVal = result.currentMean + (domain * 0.15);
+        if (result.projectedMean > capVal) {
+          // M4 FIX: ao limitar projectedMean, transladar coerente e proporcionalmente
+          // mean, intervalos (IC 95%/conformal), kdeData e recalcular probability.
+          const oldMean = result.projectedMean;
+          const delta = capVal - oldMean; // < 0
+          const loBound = minScoreRef.current;
+          const hiBound = maxScoreRef.current;
+
+          result.projectedMean = capVal;
+          if (Number.isFinite(result.mean)) {
+            result.mean = clamp(result.mean + delta, loBound, hiBound);
+          }
+          if (Number.isFinite(result.ci95Low) && Number.isFinite(result.ci95High)) {
+            const nextLow = clamp(result.ci95Low + delta, loBound, hiBound);
+            const nextHigh = clamp(result.ci95High + delta, loBound, hiBound);
+            result.ci95Low = Math.min(nextLow, nextHigh);
+            result.ci95High = Math.max(nextLow, nextHigh);
+          }
+          if (Number.isFinite(result.ciConformalLow) && Number.isFinite(result.ciConformalHigh)) {
+            const nextCLow = clamp(result.ciConformalLow + delta, loBound, hiBound);
+            const nextCHigh = clamp(result.ciConformalHigh + delta, loBound, hiBound);
+            result.ciConformalLow = Math.min(nextCLow, nextCHigh);
+            result.ciConformalHigh = Math.max(nextCLow, nextCHigh);
+          }
+          if (Array.isArray(result.kdeData)) {
+            result.kdeData = result.kdeData.map((pt) =>
+              pt && Number.isFinite(Number(pt.x))
+                ? { ...pt, x: clamp(Number(pt.x) + delta, loBound, hiBound) }
+                : pt
+            );
+          }
+          const validCutoffs = Array.isArray(historicalCutoffsRef.current)
+            ? historicalCutoffsRef.current.map(Number).filter(Number.isFinite)
+            : [];
+          const effTarget = validCutoffs.length > 0
+            ? validCutoffs.reduce((a, b) => a + b, 0) / validCutoffs.length
+            : Number(debouncedTarget);
+          const safeSd = Math.max(Number(result.sd) || 0, domain * 0.02);
+          if (Number.isFinite(effTarget) && safeSd > 0 && Number.isFinite(result.probability)) {
+            const shiftedProb = normalCDF_complement((effTarget - capVal) / safeSd) * 100;
+            const prevProb = Number(result.probability);
+            // Preserva restrições de minCutoff/grupo nunca permitindo que o cap para baixo aumente a probabilidade
+            result.probability = clamp(Math.min(prevProb, shiftedProb), 0, 100);
+          }
+        }
       }
 
       return result;
@@ -689,6 +772,14 @@ export function useMonteCarloStats({
 
     const doAnalysis = async () => {
       const projectedTotalTimeSeconds = isFuture ? computeProjectedExamTimeSeconds() : 0;
+      const activeCutoffDate = (timeIndex >= 0 && timeIndex < timelineDates.length)
+        ? timelineDates[timeIndex]
+        : getDateKey(new Date());
+      const timeFilteredSimuladoRows = (rawSimuladoRowsRef.current || []).filter(r => {
+        if (!r || r.valid === false || r.validated === false) return false;
+        const dk = getDateKey(r.date || r.createdAt);
+        return !dk || !activeCutoffDate || dk <= activeCutoffDate;
+      });
 
       const buildRunConfig = (simCount) => {
         const useFuturePath = isFuture && pureStatsData.globalHistory?.length > 0;
@@ -725,7 +816,7 @@ export function useMonteCarloStats({
               flashcardImmunity: globalImmunityFactor,
               historicalCutoffs: historicalCutoffsRef.current,
               examGroupCutoffs: examGroupCutoffsRef.current,
-              simuladoRows: rawSimuladoRowsRef.current,
+              simuladoRows: timeFilteredSimuladoRows,
               categoryNames: subjectsOpts.map(s => s.name),
               cacheKey: `${pureStatsHash}-t${projectDaysRef.current}-s${simCount}-tgt${debouncedTarget}`
             }
@@ -755,7 +846,7 @@ export function useMonteCarloStats({
             flashcardImmunity: globalImmunityFactor,
             historicalCutoffs: historicalCutoffsRef.current,
             examGroupCutoffs: examGroupCutoffsRef.current,
-            simuladoRows: rawSimuladoRowsRef.current,
+            simuladoRows: timeFilteredSimuladoRows,
             categoryNames: subjectsOpts.map(s => s.name),
             historyLength: pureStatsData.globalHistory?.length || 0
           }
@@ -796,6 +887,7 @@ export function useMonteCarloStats({
             isTimeTraveling: timeIndex >= 0 && timeIndex < timelineDates.length - 1,
             pureStatsHash,
             debouncedTarget,
+            historicalCutoffs: historicalCutoffsRef.current,
             lastRecordedGlobalPredRef,
           });
         }
@@ -831,6 +923,7 @@ export function useMonteCarloStats({
             isTimeTraveling: timeIndex >= 0 && timeIndex < timelineDates.length - 1,
             pureStatsHash,
             debouncedTarget,
+            historicalCutoffs: historicalCutoffsRef.current,
             lastRecordedGlobalPredRef,
           });
         }
@@ -865,9 +958,11 @@ export function useMonteCarloStats({
   const probabilityData = useMemo(() => {
     const rawProbability = simulationData?.data?.probability ?? 0;
 
-    // FIX: neutral da probabilidade deve ser 50%, não a média bayesiana da nota
-    let adjustedProb = shrinkProbabilityToNeutral(rawProbability, calibrationPenalty, 50, 0.5);
-
+    // M2 FIX: a variância da distribuição (largura do IC 95%) JÁ está integrada na probabilidade
+    // de Monte Carlo; aplicar um segundo shrinkToNeutral proporcional a confWidth criava
+    // dupla contagem (inflando alunos reprovados de ~0% para ~7% e travando aprovados em ~91%).
+    // Mantemos apenas o shrinkage de calibração (Brier) e saúde degradada do modelo,
+    // preservando confFactor apenas para a banda informativa probabilityLower/Upper.
     let confFactor = 0;
 
     if (
@@ -877,32 +972,18 @@ export function useMonteCarloStats({
       const confWidth = simulationData.data.ciConformalHigh - simulationData.data.ciConformalLow;
 
       if (confWidth > 0) {
-        // T-017 FIX: proteger domínio inválido/zero antes de dividir
         const confDomain = Math.max(1e-9, Number(maxScore) - Number(minScore));
-
         confFactor = Math.min(0.2, confWidth / (confDomain * 1.2)) * (1 - modelWeight);
-
-        // FIX: shrink simétrico (tanto >50 quanto <50)
-        adjustedProb = shrinkToNeutral(adjustedProb, confFactor, 50);
       }
     }
 
-    let finalProb = adjustedProb;
+    const effectivePenalty = modelHealth > 0.7
+      ? calibrationPenalty * (1 - ((modelHealth - 0.7) / 0.3) * 0.3)
+      : calibrationPenalty;
 
-    if (modelHealth > 0.7) {
-      const trust = (modelHealth - 0.7) / 0.3;
-      // ✅ FIX (BUG-CAL-07): em vez de misturar com rawProbability (que desfaz calibração),
-      // apenas reduz moderadamente o shrinkage da calibração (no máximo 30%)
-      const reducedPenalty = calibrationPenalty * (1 - trust * 0.3);
-      let recomputedProb = shrinkProbabilityToNeutral(rawProbability, reducedPenalty, 50, 0.5);
-      if (confFactor > 0) {
-        recomputedProb = shrinkToNeutral(recomputedProb, confFactor, 50);
-      }
-      finalProb = recomputedProb;
-    }
+    let finalProb = shrinkProbabilityToNeutral(rawProbability, effectivePenalty, 50, 0.5);
 
-    // FIX: saúde do modelo não deve mascarar risco crítico puxando tudo para 50.
-    // Aplicamos apenas uma suavização leve quando a saúde está baixa.
+    // Suavização leve apenas quando há evidência real de saúde degradada do modelo (< 0.5)
     let healthProb = finalProb;
 
     if (modelHealth < 0.5) {
@@ -1026,16 +1107,18 @@ export function useMonteCarloStats({
     if (!statsData?.categoryStats?.length) return [];
     if (simulationData?.status !== 'ready') return [];
 
+    const { subjectImmunityMap } = getFlashcardImmunity(flashcardDecks);
+    const isFutureHorizon = !effectiveSimulateToday && projectDays > 0;
+
     return statsData.categoryStats
       .filter(cat => cat.weight > 0)
       .map(cat => {
-        const catMaxScore = Number(cat.maxScore) || maxScore;
-        const catMinScore = Number.isFinite(Number(cat.minScore)) ? Number(cat.minScore) : minScore;
+        const catMaxScore = isStrictNum(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+        const catMinScore = isStrictNum(cat.minScore) ? Number(cat.minScore) : minScore;
 
-        const currentBaseline = cat.bayesianMean ?? cat.mean;
+        const currentBaseline = cat.temporalBayesianMean ?? cat.bayesianMean ?? cat.mean;
 
         // T-004 FIX: trend pode vir como string ('up'/'down'/'stable').
-        // Converter com segurança para número antes de qualquer aritmética.
         const rawTrend = cat.trendValue ?? cat.trend ?? 0;
         const trendPer30Days = Number.isFinite(Number(rawTrend)) ? Number(rawTrend) : 0;
 
@@ -1060,7 +1143,8 @@ export function useMonteCarloStats({
               const tEnd = validDatesMs.length >= 2
                 ? Math.max(0, (validDatesMs[validDatesMs.length - 1] - validDatesMs[0]) / 86400000)
                 : 0;
-              const nlProjection = nl.slope * (Math.log1p(tEnd + projectedDaysAmortized) - Math.log1p(tEnd));
+              // M11 FIX: usar projectDays bruto dentro de log1p (evita duplo amortecimento log(log(t)))
+              const nlProjection = nl.slope * (Math.log1p(tEnd + projectDays) - Math.log1p(tEnd));
               totalTrendProjection = totalTrendProjection * (1 - nlWeight) + nlProjection * nlWeight;
             }
           }
@@ -1069,22 +1153,24 @@ export function useMonteCarloStats({
         }
 
         // FIX: reduzir projeção quando a tendência é fraca perto da incerteza
-        const trendUncertainty = Number(cat.bayesianSd ?? cat.sd ?? 0);
+        const trendUncertainty = Number(cat.temporalBayesianSd ?? cat.bayesianSd ?? cat.sd ?? 0);
         const trendSignificance = Math.abs(trendPer30Days) / Math.max(1e-6, trendUncertainty);
 
         if (trendSignificance < 0.5) {
           totalTrendProjection *= 0.5;
         }
 
+        const catRange = Math.max(1e-9, catMaxScore - catMinScore);
+
         // T-005 FIX: limitar projeção de tendência a ±15% do domínio da disciplina.
         totalTrendProjection = safeClamp(
           totalTrendProjection,
-          -0.15 * Math.max(1e-9, catMaxScore - catMinScore),
-          0.15 * Math.max(1e-9, catMaxScore - catMinScore),
+          -0.15 * catRange,
+          0.15 * catRange,
           0
         );
 
-        const baseline = (!effectiveSimulateToday && projectDays > 0)
+        const baseline = isFutureHorizon
           ? safeClamp(
             currentBaseline + totalTrendProjection,
             catMinScore,
@@ -1093,9 +1179,16 @@ export function useMonteCarloStats({
           )
           : currentBaseline;
 
+        // M11 FIX: expandir incerteza no modo Futuro proporcionalmente ao horizonte de projeção
+        // e propagar flashcardImmunity da disciplina.
+        const rawSubjSd = Number(cat.temporalBayesianSd ?? cat.bayesianSd ?? cat.sd ?? 0);
+        const subjSd = isFutureHorizon
+          ? regularizeVolatility(rawSubjSd, projectDays, cat.n || 1, catRange) * Math.sqrt(1 + Math.min(1, projectDays / 90))
+          : regularizeVolatility(rawSubjSd, 0, cat.n || 1, catRange);
+        const subjImmunity = subjectImmunityMap[String(cat.name || '').toLowerCase().trim()] ?? 1.0;
+
         // ✅ LOTE-01 FIX: meta projetada no INTERVALO real, respeitando minScore
         const globalRange = Math.max(1e-9, Number(maxScore) - Number(minScore));
-        const catRange = Math.max(1e-9, catMaxScore - catMinScore);
         const targetRatio = clamp((Number(debouncedTarget) - Number(minScore)) / globalRange, 0, 1);
         const subjectTarget = clamp(catMinScore + targetRatio * catRange, catMinScore, catMaxScore);
         const simulationsCount = Math.min(dynamicSimulations || 2000, 3000);
@@ -1111,7 +1204,7 @@ export function useMonteCarloStats({
           cat.id || '',
           cat.name,
           Number(baseline).toFixed(3),
-          Number(cat.bayesianSd ?? cat.sd ?? 0).toFixed(3),
+          Number(subjSd).toFixed(3),
           Number(cat.bayesianCI?.ciLow ?? 0).toFixed(3),
           Number(cat.bayesianCI?.ciHigh ?? 0).toFixed(3),
           Number(subjectTarget).toFixed(3),
@@ -1119,6 +1212,9 @@ export function useMonteCarloStats({
           catMinScore,
           catMaxScore,
           cat.n || 0,
+          projectDays,
+          effectiveSimulateToday ? 1 : 0,
+          Number(subjImmunity).toFixed(3),
           Number(calibrationPenalty || 0).toFixed(4),
           simRowsSig.length
         ].join('|') + '|' + simRowsSig;
@@ -1133,12 +1229,13 @@ export function useMonteCarloStats({
           simKey,
           simInput: {
             mean: baseline,
-            sd: cat.bayesianSd ?? cat.sd,
+            sd: subjSd,
             targetScore: subjectTarget,
             simulations: simulationsCount,
             categoryName: cat.name,
             minScore: catMinScore,
             maxScore: catMaxScore,
+            flashcardImmunity: subjImmunity,
             historyLength: cat.n || 0,
             bayesianCI: cat.bayesianCI ? { ...cat.bayesianCI, n: cat.bayesianCI.n ?? (cat.n || 1) } : null
           }
@@ -1157,6 +1254,7 @@ export function useMonteCarloStats({
     rawSimuladoRows,
     dynamicSimulations,
     calibrationPenalty,
+    flashcardDecks,
     enablePerSubject
   ]);
 
@@ -1233,27 +1331,23 @@ export function useMonteCarloStats({
           modelWeight
         };
 
-        let subjProb = result.probability;
-        let subjConfFactor = 0;
-
-        if (result.ciConformalLow != null && result.ciConformalHigh != null) {
-          const subjConfWidth = result.ciConformalHigh - result.ciConformalLow;
-
-          if (subjConfWidth > 0) {
-            subjConfFactor = Math.min(0.15, subjConfWidth / (catRange * 1.5)) * (1 - modelWeight);
-
-            if (modelHealth < 0.6) {
-              subjConfFactor = Math.min(0.25, subjConfFactor * 1.4);
-            }
-
-            // FIX: shrink simétrico também por disciplina
-            subjProb = shrinkToNeutral(subjProb, subjConfFactor, 50);
-          }
+        // M11 FIX: alinhar perSubjectProbs com probabilityData global — aplicar apenas shrinkage
+        // de calibração/saúde degradada, sem dupla contagem de largura do IC nem reversão via modelHealth > 0.7.
+        const effectiveSubjPenalty = modelHealth > 0.7
+          ? calibrationPenalty * (1 - ((modelHealth - 0.7) / 0.3) * 0.3)
+          : calibrationPenalty;
+        let subjProb = shrinkProbabilityToNeutral(result.probability, effectiveSubjPenalty, 50, 0.5);
+        if (modelHealth < 0.5) {
+          const healthFactor = (0.5 - modelHealth) / 0.5;
+          subjProb = shrinkToNeutral(subjProb, healthFactor * 0.15, 50);
         }
 
-        if (modelHealth > 0.7) {
-          const trust = (modelHealth - 0.7) / 0.3;
-          subjProb = subjProb * (1 - trust * 0.4) + result.probability * (trust * 0.4);
+        let subjConfFactor = 0;
+        if (result.ciConformalLow != null && result.ciConformalHigh != null) {
+          const subjConfWidth = result.ciConformalHigh - result.ciConformalLow;
+          if (subjConfWidth > 0) {
+            subjConfFactor = Math.min(0.15, subjConfWidth / (catRange * 1.5)) * (1 - modelWeight);
+          }
         }
 
         const subjUncertainty =
@@ -1336,10 +1430,12 @@ export function useMonteCarloStats({
           if (sameDay && sameProb && sameTarget && sameEffN) return;
         }
 
+        const minBackfillDays = Math.max(1, Math.min(Number(projectDays) || 1, 7));
         const ev = recordPredictionEvent({
           timestamp: Date.now(),
           probability: prob01,
           targetScore: targetVal,
+          minBackfillDays,
           sims: 500,
           category: catName,
           effectiveN: nextEffN
@@ -1410,14 +1506,25 @@ export function useMonteCarloStats({
 
     const pAdjusted = probability;
 
+    const safeMinNum = isStrictNum(minScore) ? Number(minScore) : 0;
+    const safeMaxNum = isStrictNum(maxScore) ? Number(maxScore) : 100;
+
+    // B4 FIX: quando historicalCutoffs está preenchido, o motor MC avalia contra a média dos cortes históricos
+    const validCutoffs = Array.isArray(historicalCutoffs)
+      ? historicalCutoffs.map(Number).filter(Number.isFinite)
+      : [];
+    const hasHistoricalCutoffs = validCutoffs.length > 0;
+    const effectiveDisplayTarget = hasHistoricalCutoffs
+      ? validCutoffs.reduce((a, b) => a + b, 0) / validCutoffs.length
+      : debouncedTarget;
+
     // FIX: piso mínimo de volatilidade para evitar probabilidade degenerada
-    // T-017 FIX: usar domínio seguro em vez de maxScore bruto
     const safeSdForTrend = Math.max(
       Number.isFinite(sd) && sd > 0 ? sd : 1,
       domainWidth * 0.02
     );
 
-    const pTrend = normalCDF_complement((debouncedTarget - projectedMean) / safeSdForTrend) * 100;
+    const pTrend = normalCDF_complement((effectiveDisplayTarget - projectedMean) / safeSdForTrend) * 100;
 
     const nHistory = Array.isArray(statsData?.globalHistory)
       ? statsData.globalHistory.length
@@ -1427,8 +1534,8 @@ export function useMonteCarloStats({
       calibrationPenalty,
       volatility: sd,
       sampleSize: nHistory,
-      maxScore: Number(maxScore) || 100,
-      minScore: Number.isFinite(Number(minScore)) ? Number(minScore) : 0
+      maxScore: safeMaxNum,
+      minScore: safeMinNum
     });
 
     const explanations = buildHumanExplanation({
@@ -1437,19 +1544,33 @@ export function useMonteCarloStats({
       trend: (projectedMean - currentMean),
       confidenceTier: confidenceObj.tier,
       intervalWidth: ci95High - ci95Low,
-      maxScore: Number(maxScore) || 100,
-      minScore: Number.isFinite(Number(minScore)) ? Number(minScore) : 0
+      maxScore: safeMaxNum,
+      minScore: safeMinNum
     });
+
+    // B1 FIX: comparar a média RECENTE (últimos 2–3 simulados) contra a linha de base ANTERIOR,
+    // em vez de passar currentMean === bayesianMean (o que zerava diff e desativava o detector de queda).
+    const gHist = Array.isArray(statsData?.globalHistory) ? statsData.globalHistory : [];
+    let driftRecentMean = currentMean;
+    let driftBaselineMean = statsData?.bayesianMean ?? currentMean;
+    if (gHist.length >= 4) {
+      const recentWindow = Math.min(3, Math.floor(gHist.length / 2));
+      const recentSlice = gHist.slice(-recentWindow);
+      const earlierSlice = gHist.slice(0, -recentWindow);
+      const avgOf = (arr) => arr.reduce((acc, item) => acc + (Number(item?.score) || 0), 0) / Math.max(1, arr.length);
+      driftRecentMean = avgOf(recentSlice);
+      driftBaselineMean = avgOf(earlierSlice);
+    }
 
     const driftAlerts = detectPerformanceDrift({
-      recentMean: currentMean,
-      baselineMean: (statsData?.bayesianMean || currentMean),
+      recentMean: driftRecentMean,
+      baselineMean: driftBaselineMean,
       recentVolatility: sdLeft,
-      maxScore: Number(maxScore) || 100,
-      minScore: Number.isFinite(Number(minScore)) ? Number(minScore) : 0
+      maxScore: safeMaxNum,
+      minScore: safeMinNum
     });
 
-    const humanVol = humanizeVolatility(sdLeft, Number(maxScore) || 100, Number.isFinite(Number(minScore)) ? Number(minScore) : 0);
+    const humanVol = humanizeVolatility(sdLeft, safeMaxNum, safeMinNum);
 
     try {
       validatePrediction({
@@ -1476,6 +1597,8 @@ export function useMonteCarloStats({
       probabilityUpper,
       rawProbability,
       probabilityUncertainty,
+      effectiveDisplayTarget,
+      hasHistoricalCutoffs,
       confidenceTier: confidenceObj.label,
       confidenceColor: confidenceObj.tier === 'HIGH'
         ? 'text-emerald-400'
@@ -1499,6 +1622,7 @@ export function useMonteCarloStats({
     maxScore,
     minScore,
     debouncedTarget,
+    historicalCutoffs,
     projectedMean,
     calibrationPenalty,
     currentMean,
@@ -1541,6 +1665,7 @@ export function useMonteCarloStats({
     simulationData: effectiveSimulationData,
     perSubjectProbs,
     projectDays,
+    isGoalDateExpired,
     debouncedTarget,
     effectiveWeights,
     setWeights,
@@ -1569,6 +1694,7 @@ export function useMonteCarloStats({
     effectiveSimulationData,
     perSubjectProbs,
     projectDays,
+    isGoalDateExpired,
     debouncedTarget,
     effectiveWeights,
     setWeights,

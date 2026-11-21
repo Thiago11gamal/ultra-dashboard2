@@ -1,6 +1,6 @@
 import { getDateKey, normalizeDate, toDateMs, getAppTimezone } from './dateHelper.js';
 import { parseNoonLocal } from './parseNoonLocal.js';
-import { getSafeScore, getSyntheticTotal } from './scoreHelper.js';
+import { getSafeScore, getSyntheticTotal, extractTopicsTotals } from './scoreHelper.js';
 import { normalize } from './normalization.js';
 import { kalmanAbilitySeries } from '../engine/probabilistic/stateSpace.js';
 import {
@@ -86,6 +86,7 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
   if (mode === 'topic') {
     const topicBuckets = new Map();
     cats.forEach((cat) => {
+      const { min, max, range } = resolveScale(cat, gMax, gMin);
       const history = safeArr(cat?.simuladoStats?.history);
       history.forEach((h) => {
         if (!h || h.valid === false || h.validated === false) return;
@@ -94,9 +95,13 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
         const topics = safeArr(h.topics);
         topics.forEach((t) => {
           const ts = toFinite(t.timeSpent ?? t.durationSeconds, 0);
-          const tot = toFinite(t.total ?? t.questoes, 0);
-          const corr = toFinite(t.correct ?? t.acertos, 0);
+          const tot = toFinite(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 0);
+          const rawCorr = toFinite(t.correct ?? t.acertos ?? t.correctCount, null);
           if (ts <= 0 || tot <= 0) return;
+          const sc = getSafeScore(t, max, min);
+          const corr = rawCorr !== null
+            ? clamp(rawCorr, 0, tot)
+            : (Number.isFinite(sc) ? clamp((sc - min) / range, 0, 1) * tot : 0);
           const label = String(t.name || t.topic || t.assunto || '').trim();
           if (!label) return;
           const key = `${cat.id || cat.name}::${normalize(label)}`;
@@ -116,7 +121,7 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
           b.totalQuestions += tot;
           b.correct += clamp(corr, 0, tot);
           b.timeSpent += ts;
-          b.timedQuestions += tot;
+          b.timedQuestions += toFinite(t.timedQuestoes, 0) > 0 ? toFinite(t.timedQuestoes, 0) : tot;
         });
       });
     });
@@ -127,15 +132,20 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
         const ms = toDateMs(r.date || r.createdAt);
         if (cutoffMs && Number.isFinite(ms) && ms < cutoffMs) return;
         const ts = toFinite(r.timeSpent ?? r.durationSeconds, 0);
-        const tot = toFinite(r.total ?? r.questoes, 0);
+        const tot = toFinite(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions, 0);
         if (ts <= 0 || tot <= 0) return;
         const matchedCat = cats.find(
-          (c) => (r.categoryId && c.id === r.categoryId) || normalize(c.name) === normalize(r.subject || r.materia || '')
+          (c) => (r.categoryId && String(c.id) === String(r.categoryId)) || normalize(c.name) === normalize(r.subject || r.materia || '')
         );
         if (showOnlyFocus && focusSubjectId && matchedCat?.id !== focusSubjectId) return;
         const topicLabel = String(r.topic || r.assunto || '').trim();
         if (!topicLabel) return;
-        const corr = toFinite(r.correct ?? r.acertos, 0);
+        const { min, max, range } = resolveScale(matchedCat, gMax, gMin);
+        const rawCorr = toFinite(r.correct ?? r.acertos ?? r.correctCount, null);
+        const sc = getSafeScore(r, max, min);
+        const corr = rawCorr !== null
+          ? clamp(rawCorr, 0, tot)
+          : (Number.isFinite(sc) ? clamp((sc - min) / range, 0, 1) * tot : 0);
         const key = `${matchedCat?.id || r.subject || 'cat'}::${normalize(topicLabel)}`;
         if (!topicBuckets.has(key)) {
           topicBuckets.set(key, {
@@ -153,7 +163,7 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
         b.totalQuestions += tot;
         b.correct += clamp(corr, 0, tot);
         b.timeSpent += ts;
-        b.timedQuestions += tot;
+        b.timedQuestions += toFinite(r.timedQuestoes, 0) > 0 ? toFinite(r.timedQuestoes, 0) : tot;
       });
     }
 
@@ -188,15 +198,41 @@ export function buildSpeedAccuracyData(categories = [], simuladoRows = [], optio
       let scorePctCount = 0;
 
       history.forEach((h) => {
-        const tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
-        const ts = toFinite(h.timeSpent ?? h.durationSeconds, 0);
-        const tq = toFinite(h.timedQuestoes, 0) || (ts > 0 ? (tot > 0 ? tot : getSyntheticTotal(max)) : 0);
-        if (ts > 0 && tq > 0) {
-          timeSpent += ts;
-          timedQuestions += tq;
+        let tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+        const topics = safeArr(h.topics);
+        let topicsTs = 0;
+        let topicsTq = 0;
+        topics.forEach((t) => {
+          const tTs = toFinite(t?.timeSpent ?? t?.durationSeconds, 0);
+          const tQ = toFinite(t?.timedQuestoes, 0) || toFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions, 0);
+          if (tTs > 0 && tQ > 0) {
+            topicsTs += tTs;
+            topicsTq += tQ;
+          }
+        });
+        if (topicsTs > 0 && topicsTq > 0) {
+          timeSpent += topicsTs;
+          timedQuestions += topicsTq;
+        } else {
+          const ts = toFinite(h.timeSpent ?? h.durationSeconds, 0);
+          const tq = toFinite(h.timedQuestoes, 0) || (ts > 0 ? (tot > 0 ? tot : getSyntheticTotal(max)) : 0);
+          if (ts > 0 && tq > 0) {
+            timeSpent += ts;
+            timedQuestions += tq;
+          }
+        }
+        let topicCorrFallback = null;
+        if (tot <= 0 && h.topics != null) {
+          const tf = extractTopicsTotals(h, max, min);
+          if (tf.total > 0) {
+            tot = tf.total;
+            topicCorrFallback = tf.correct;
+          }
         }
         if (tot > 0) {
-          const rawCorr = toFinite(h.correct ?? h.acertos, null);
+          const rawCorr = !h.isPercentage
+            ? toFinite(h.correct ?? h.acertos ?? h.correctCount, topicCorrFallback)
+            : topicCorrFallback;
           const sc = getSafeScore(h, max, min);
           const corr = rawCorr !== null
             ? clamp(rawCorr, 0, tot)
@@ -312,6 +348,7 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
 
   const completionDateCounts = new Map();
   let undatedCompleted = 0;
+  let datedCompleted = 0;
   let earliestCompletionMs = Infinity;
 
   completedTasksList.forEach((t) => {
@@ -325,8 +362,12 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
       undatedCompleted += 1;
       return;
     }
-    if (ms < earliestCompletionMs) earliestCompletionMs = ms;
-    completionDateCounts.set(key, (completionDateCounts.get(key) || 0) + 1);
+    // M13 FIX: clampar datas futuras para hoje para manter continuidade exata em "Hoje"
+    const effectiveKey = ms > todayMs ? todayKey : key;
+    const effectiveMs = Math.min(ms, todayMs);
+    datedCompleted += 1;
+    if (effectiveMs < earliestCompletionMs) earliestCompletionMs = effectiveMs;
+    completionDateCounts.set(effectiveKey, (completionDateCounts.get(effectiveKey) || 0) + 1);
   });
 
   const userStartKey = getDateKey(user?.startDate);
@@ -350,12 +391,14 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
 
   const goalKey = getDateKey(user?.goalDate);
   const goalParsedMs = goalKey ? parseNoonLocal(goalKey)?.getTime() : NaN;
-  const hasGoalDate = Number.isFinite(goalParsedMs) && goalParsedMs > startMs;
-  const endMs = hasGoalDate ? Math.max(goalParsedMs, todayMs) : (todayMs + 60 * MS_PER_DAY);
+  // M13 FIX: reconhecer goalDate válida mesmo quando já expirou (goalParsedMs <= startMs ou <= todayMs)
+  const hasGoalDate = Number.isFinite(goalParsedMs);
   const daysUntilGoal = hasGoalDate ? Math.ceil((goalParsedMs - todayMs) / MS_PER_DAY) : null;
+  const isGoalExpired = hasGoalDate && daysUntilGoal <= 0;
+  const endMs = hasGoalDate ? Math.max(goalParsedMs, todayMs) : (todayMs + 60 * MS_PER_DAY);
 
-  // Recent 14-day pace
-  const window14Ms = todayMs - 14 * MS_PER_DAY;
+  // M13 FIX: janela exata de 14 dias corridos (today - 13d até today inclusive)
+  const window14Ms = todayMs - 13 * MS_PER_DAY;
   let completedLast14d = 0;
   completionDateCounts.forEach((cnt, key) => {
     const m = parseNoonLocal(key)?.getTime();
@@ -363,14 +406,20 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
       completedLast14d += cnt;
     }
   });
-  const activeElapsedDays = Math.max(1, Math.min(14, Math.round((todayMs - startMs) / MS_PER_DAY) + 1));
+  const totalElapsedDays = Math.max(1, Math.round((todayMs - startMs) / MS_PER_DAY) + 1);
+  const activeElapsedDays = Math.max(1, Math.min(14, totalElapsedDays));
+  // M13 FIX: só usar média histórica como fallback se não há datas nas tarefas concluídas
+  // ou se a conta tem menos de 14 dias; caso contrário, 0 conclusões em 14d = ritmo 0 (stalled).
+  const canUseAllTimeFallback = datedCompleted === 0 || totalElapsedDays < 14;
   const tasksPerDayPace = completedLast14d > 0
     ? completedLast14d / activeElapsedDays
-    : (completedTasks > 0 && todayMs > startMs ? completedTasks / Math.max(7, (todayMs - startMs) / MS_PER_DAY) : 0);
+    : (canUseAllTimeFallback && completedTasks > 0 && todayMs > startMs
+      ? completedTasks / Math.max(7, (todayMs - startMs) / MS_PER_DAY)
+      : 0);
 
   const currentWeeklyPace = Number((tasksPerDayPace * 7).toFixed(1));
   const daysToEnd = Math.max(1, Math.round((endMs - todayMs) / MS_PER_DAY));
-  const requiredWeeklyPace = remainingTasks > 0
+  const requiredWeeklyPace = remainingTasks > 0 && !isGoalExpired
     ? Number(((remainingTasks / daysToEnd) * 7).toFixed(1))
     : 0;
 
@@ -401,11 +450,19 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
     .filter((e) => Number.isFinite(e.ms))
     .sort((a, b) => a.ms - b.ms);
 
-  const idealDenominator = Math.max(1, (hasGoalDate ? goalParsedMs : endMs) - startMs);
+  const idealTargetMs = hasGoalDate && goalParsedMs > startMs ? goalParsedMs : endMs;
+  const idealDenominator = Math.max(1, idealTargetMs - startMs);
+  const spansMultipleYears = totalSpanDays > 300;
+  const formatAxisLabel = (isoKey) => {
+    if (!isoKey || typeof isoKey !== 'string') return '';
+    const parts = isoKey.split('-');
+    if (parts.length !== 3) return isoKey;
+    return spansMultipleYears ? `${parts[2]}/${parts[1]}/${parts[0].slice(2)}` : `${parts[2]}/${parts[1]}`;
+  };
 
   const series = sortedSampleMs.map((ms) => {
     const key = getDateKey(new Date(ms)) || '';
-    const progressRatio = clamp((ms - startMs) / idealDenominator, 0, 1);
+    const progressRatio = isGoalExpired ? 1 : clamp((ms - startMs) / idealDenominator, 0, 1);
     const idealCompleted = Number((totalTasks * progressRatio).toFixed(1));
     const idealRemaining = Number(Math.max(0, totalTasks - idealCompleted).toFixed(1));
 
@@ -439,7 +496,7 @@ export function buildSyllabusBurndownData(categories = [], user = {}, options = 
 
     return {
       date: key,
-      label: formatShortBrDate(key),
+      label: formatAxisLabel(key),
       isToday,
       idealCompleted,
       idealRemaining,
@@ -514,7 +571,42 @@ function extractWeekdayAndHourInTz(rawTimestamp) {
 export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], simuladoRows = [], options = {}) {
   const gMin = toFinite(options.minScore, 0);
   const gMax = Math.max(gMin + 1, toFinite(options.maxScore, 100));
-  const gRange = Math.max(1e-9, gMax - gMin);
+  const nowMs = (options.now instanceof Date ? options.now : new Date()).getTime();
+  const maxAllowedMs = nowMs + MS_PER_DAY;
+
+  const categories = safeArr(options.categories);
+  const catById = new Map();
+  const catByNorm = new Map();
+  categories.forEach((c) => {
+    if (c?.id != null) catById.set(String(c.id), c);
+    if (c?.name) catByNorm.set(normalize(c.name), c);
+  });
+
+  const resolvePositiveMinutes = (item) => {
+    if (!item) return 0;
+    const m = toFinite(item.minutes ?? item.minutos, 0);
+    if (m > 0) return Math.min(720, m);
+    const d = toFinite(item.duration, 0);
+    if (d > 0) return Math.min(720, d);
+    return 0;
+  };
+
+  // D4 FIX: priorizar startTime/timestamp/date com hora; só recorrer a createdAt se date não divergir de dia
+  const resolveTimedTimestamp = (item) => {
+    if (!item) return null;
+    const candidates = [item.startTime, item.timestamp, item.date];
+    for (const c of candidates) {
+      if (extractWeekdayAndHourInTz(c)) return c;
+    }
+    if (item.createdAt && extractWeekdayAndHourInTz(item.createdAt)) {
+      const dateDay = item.date ? getDateKey(item.date) : null;
+      const createdDay = getDateKey(item.createdAt);
+      if (!dateDay || !createdDay || dateDay === createdDay) {
+        return item.createdAt;
+      }
+    }
+    return null;
+  };
 
   const grid = Array.from({ length: 7 }, (_, dayIdx) =>
     Array.from({ length: 12 }, (_, slotIdx) => ({
@@ -527,6 +619,8 @@ export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], si
       simCount: 0,
       correctSum: 0,
       totalSum: 0,
+      weightedPctSum: 0,
+      weightSum: 0,
       pctSum: 0,
       pctCount: 0,
     }))
@@ -537,13 +631,16 @@ export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], si
 
   safeArr(studyLogs).forEach((log) => {
     if (!log || log.type === 'flashcard') return;
-    const mins = Math.max(0, toFinite(log.minutes ?? log.minutos ?? log.duration, 0));
+    const mins = resolvePositiveMinutes(log);
     if (mins <= 0) return;
-    const loc = extractWeekdayAndHourInTz(log.createdAt || log.timestamp || log.startTime || log.date);
+    const ts = resolveTimedTimestamp(log);
+    const loc = ts ? extractWeekdayAndHourInTz(ts) : null;
     if (!loc) {
       untimedLogCount += 1;
       return;
     }
+    const ms = normalizeDate(ts)?.getTime();
+    if (Number.isFinite(ms) && ms > maxAllowedMs) return;
     timedLogCount += 1;
     const cell = grid[loc.weekday][Math.floor(loc.hour / 2)];
     cell.minutes += mins;
@@ -552,10 +649,13 @@ export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], si
 
   if (timedLogCount === 0) {
     safeArr(studySessions).forEach((sess) => {
-      const mins = Math.max(0, toFinite(sess?.duration ?? sess?.minutes, 0));
+      const mins = resolvePositiveMinutes(sess);
       if (mins <= 0) return;
-      const loc = extractWeekdayAndHourInTz(sess?.startTime || sess?.createdAt || sess?.date);
+      const ts = resolveTimedTimestamp(sess);
+      const loc = ts ? extractWeekdayAndHourInTz(ts) : null;
       if (!loc) return;
+      const ms = normalizeDate(ts)?.getTime();
+      if (Number.isFinite(ms) && ms > maxAllowedMs) return;
       timedLogCount += 1;
       const cell = grid[loc.weekday][Math.floor(loc.hour / 2)];
       cell.minutes += mins;
@@ -564,38 +664,72 @@ export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], si
   }
 
   let timedSimCount = 0;
-  safeArr(simuladoRows).forEach((row) => {
+  const processSimEntry = (row, catMeta = null) => {
     if (!row || row.valid === false || row.validated === false) return;
-    const loc = extractWeekdayAndHourInTz(row.createdAt || row.timestamp || row.date);
+    const ts = resolveTimedTimestamp(row);
+    const loc = ts ? extractWeekdayAndHourInTz(ts) : null;
     if (!loc) return;
+    const ms = normalizeDate(ts)?.getTime();
+    if (Number.isFinite(ms) && ms > maxAllowedMs) return;
+
+    const matchedCat = catMeta ||
+      (row.categoryId != null ? catById.get(String(row.categoryId)) : null) ||
+      catByNorm.get(normalize(row.subject || row.categoryName || row.materia || row.disciplina || '')) ||
+      null;
+    const { min: rowMin, max: rowMax, range: rowRange } = resolveScale(matchedCat || row, gMax, gMin);
+
     const cell = grid[loc.weekday][Math.floor(loc.hour / 2)];
-    const tot = toFinite(row.total ?? row.questoes, 0);
-    const corr = toFinite(row.correct ?? row.acertos, null);
-    if (tot > 0 && corr !== null) {
-      cell.totalSum += tot;
-      cell.correctSum += clamp(corr, 0, tot);
+    const tot = toFinite(row.total ?? row.questoes ?? row.totalQuestoes ?? row.questions, 0);
+    const corr = toFinite(row.correct ?? row.acertos ?? row.correctCount, null);
+    const sc = getSafeScore(row, rowMax, rowMin);
+
+    // D4 FIX: unificar registros com questões e registros somente-nota na mesma média ponderada
+    // respeitando penalidades Cebraspe (getSafeScore) sem descartar nenhum registro da célula.
+    if (Number.isFinite(sc)) {
+      const pct = clamp(((sc - rowMin) / rowRange) * 100, 0, 100);
+      const weight = tot > 0 ? tot : getSyntheticTotal(rowMax);
+      cell.weightedPctSum += pct * weight;
+      cell.weightSum += weight;
+      if (tot > 0) {
+        cell.totalSum += tot;
+        cell.correctSum += clamp((pct / 100) * tot, 0, tot);
+      } else {
+        cell.pctSum += pct;
+        cell.pctCount += 1;
+      }
       cell.simCount += 1;
       timedSimCount += 1;
-    } else {
-      const sc = getSafeScore(row, gMax, gMin);
-      if (Number.isFinite(sc)) {
-        cell.pctSum += clamp(((sc - gMin) / gRange) * 100, 0, 100);
-        cell.pctCount += 1;
-        cell.simCount += 1;
-        timedSimCount += 1;
-      }
+    } else if (tot > 0 && corr !== null) {
+      const safeC = clamp(corr, 0, tot);
+      const pct = (safeC / tot) * 100;
+      cell.weightedPctSum += pct * tot;
+      cell.weightSum += tot;
+      cell.totalSum += tot;
+      cell.correctSum += safeC;
+      cell.simCount += 1;
+      timedSimCount += 1;
     }
-  });
+  };
+
+  safeArr(simuladoRows).forEach((row) => processSimEntry(row));
+
+  // Fallback para category.simuladoStats.history quando simuladoRows não tem entradas com horário
+  if (timedSimCount === 0 && categories.length > 0) {
+    categories.forEach((cat) => {
+      safeArr(cat?.simuladoStats?.history).forEach((h) => processSimEntry(h, cat));
+    });
+  }
 
   let maxMinutes = 0;
   let peakStudyCell = null;
   let peakAccuracyCell = null;
+  let bestReliableAccuracyCell = null;
 
   const flatGrid = grid.map((row) =>
     row.map((cell) => {
-      const accuracyPct = cell.totalSum > 0
-        ? Number(clamp((cell.correctSum / cell.totalSum) * 100, 0, 100).toFixed(1))
-        : (cell.pctCount > 0 ? Number((cell.pctSum / cell.pctCount).toFixed(1)) : null);
+      const accuracyPct = cell.weightSum > 0
+        ? Number(clamp(cell.weightedPctSum / cell.weightSum, 0, 100).toFixed(1))
+        : null;
       const enriched = {
         ...cell,
         minutes: Math.round(cell.minutes),
@@ -605,12 +739,20 @@ export function buildCircadianHeatmapData(studyLogs = [], studySessions = [], si
         maxMinutes = enriched.minutes;
         peakStudyCell = enriched;
       }
-      if (accuracyPct !== null && (!peakAccuracyCell || accuracyPct > peakAccuracyCell.accuracyPct)) {
-        peakAccuracyCell = enriched;
+      if (accuracyPct !== null) {
+        if (!peakAccuracyCell || accuracyPct > peakAccuracyCell.accuracyPct) {
+          peakAccuracyCell = enriched;
+        }
+        const hasReliableSample = enriched.simCount >= 2 || enriched.totalSum >= 5;
+        if (hasReliableSample && (!bestReliableAccuracyCell || accuracyPct > bestReliableAccuracyCell.accuracyPct)) {
+          bestReliableAccuracyCell = enriched;
+        }
       }
       return enriched;
     })
   );
+
+  peakAccuracyCell = bestReliableAccuracyCell || peakAccuracyCell;
 
   const periodTotals = { madrugada: 0, manha: 0, tarde: 0, noite: 0 };
   flatGrid.forEach((row) => {
@@ -735,6 +877,7 @@ export function buildConsistencyBoxPlotData(categories = [], options = {}) {
 
   return {
     rows,
+    hasCutoffs: rows.some((r) => r.minCutoff !== null),
     domainMin: showOnlyFocus && cats[0] ? resolveScale(cats[0], gMax, gMin).min : gMin,
     domainMax: showOnlyFocus && cats[0] ? resolveScale(cats[0], gMax, gMin).max : gMax,
   };
@@ -763,21 +906,38 @@ export function buildExamPacingData(categories = [], options = {}) {
     let timeSec = 0;
     let timedQ = 0;
     history.forEach((h) => {
-      const ts = toFinite(h.timeSpent ?? h.durationSeconds, 0);
-      const tot = toFinite(h.total ?? h.questoes, 0);
-      const tq = toFinite(h.timedQuestoes, 0) || (ts > 0 ? tot : 0);
-      if (ts > 0 && tq > 0) {
-        timeSec += ts;
-        timedQ += tq;
+      const topics = safeArr(h.topics);
+      let topicsTs = 0;
+      let topicsTq = 0;
+      topics.forEach((t) => {
+        const tTs = toFinite(t?.timeSpent ?? t?.durationSeconds, 0);
+        const tQ = toFinite(t?.timedQuestoes, 0) || toFinite(t?.total ?? t?.questoes ?? t?.totalQuestoes ?? t?.questions, 0);
+        if (tTs > 0 && tQ > 0) {
+          topicsTs += tTs;
+          topicsTq += tQ;
+        }
+      });
+      if (topicsTs > 0 && topicsTq > 0) {
+        timeSec += topicsTs;
+        timedQ += topicsTq;
+      } else {
+        const ts = toFinite(h.timeSpent ?? h.durationSeconds, 0);
+        const tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+        const tq = toFinite(h.timedQuestoes, 0) || (ts > 0 ? tot : 0);
+        if (ts > 0 && tq > 0) {
+          timeSec += ts;
+          timedQ += tq;
+        }
       }
     });
     globalTimeSec += timeSec;
     globalTimedQ += timedQ;
+    const overrideWeight = options.mcWeights && cat.id != null ? toFinite(options.mcWeights[cat.id], null) : null;
     rawEntries.push({
       id: cat.id || cat.name,
       name: cat.name,
       color: cat.color || '#6366f1',
-      weight: Math.max(0.5, toFinite(cat.weight, 10)),
+      weight: Math.max(0.5, overrideWeight !== null && overrideWeight > 0 ? overrideWeight : toFinite(cat.weight, 10)),
       hasTimedData: timedQ > 0,
       avgSecPerQ: timedQ > 0 ? timeSec / timedQ : null,
       timedQuestions: Math.round(timedQ),
@@ -800,9 +960,35 @@ export function buildExamPacingData(categories = [], options = {}) {
   const fallbackAvgSec = globalTimeSec / globalTimedQ;
   const totalWeight = rawEntries.reduce((acc, e) => acc + e.weight, 0) || 1;
 
-  const subjects = rawEntries.map((e) => {
-    const share = e.weight / totalWeight;
-    const allocatedQuestions = Math.max(1, Math.round(examTotalQuestions * share));
+  // Método dos Maiores Restos (Hamilton) para que sum(allocatedQuestions) === examTotalQuestions
+  // sempre que houver questões suficientes (>= número de disciplinas).
+  const allocations = rawEntries.map((e, idx) => {
+    const exact = (e.weight / totalWeight) * examTotalQuestions;
+    const floorVal = examTotalQuestions >= rawEntries.length ? Math.max(1, Math.floor(exact)) : Math.max(1, Math.round(exact));
+    return { idx, exact, allocated: floorVal, remainder: exact - Math.floor(exact) };
+  });
+
+  if (examTotalQuestions >= rawEntries.length) {
+    let diff = examTotalQuestions - allocations.reduce((sum, a) => sum + a.allocated, 0);
+    if (diff > 0) {
+      const order = [...allocations].sort((a, b) => b.remainder - a.remainder);
+      for (let i = 0; i < order.length && diff > 0; i++) {
+        order[i].allocated += 1;
+        diff -= 1;
+      }
+    } else if (diff < 0) {
+      const order = [...allocations].sort((a, b) => a.remainder - b.remainder);
+      for (let i = 0; i < order.length && diff < 0; i++) {
+        if (order[i].allocated > 1) {
+          order[i].allocated -= 1;
+          diff += 1;
+        }
+      }
+    }
+  }
+
+  const subjects = rawEntries.map((e, idx) => {
+    const allocatedQuestions = allocations[idx].allocated;
     const effectiveSec = e.avgSecPerQ ?? fallbackAvgSec;
     const projectedMinutes = (allocatedQuestions * effectiveSec) / 60;
     const budgetMinutes = (allocatedQuestions * idealSecPerQuestion) / 60;
@@ -867,7 +1053,10 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
     });
   } else {
     safeArr(timeline).forEach((row) => {
-      const sc = toFinite(row?.globalAvg ?? row?.bayGlobal ?? row?.score, NaN);
+      const sc = toFinite(
+        row?.global_bayesian ?? row?.global_raw ?? row?.global_ema ?? row?.globalAvg ?? row?.bayGlobal ?? row?.score,
+        NaN
+      );
       if (Number.isFinite(sc) && row?.date) rawObs.push({ date: row.date, score: sc });
     });
   }
@@ -891,67 +1080,101 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
     toFinite(options.activeMcResult?.sd, kalman?.summary?.abilitySd ?? domain * 0.06)
   );
 
-  // Recent historical anchor (last 8 points)
-  const recentHistory = rawObs.slice(-8).map((pt) => ({
-    date: pt.date,
-    label: formatShortBrDate(pt.date),
-    isFuture: false,
-    historical: Number(clamp(pt.score, minScore, maxScore).toFixed(2)),
-    p50: null,
-    bandOuter: null,
-    bandInner: null,
-    p10: null,
-    p25: null,
-    p75: null,
-    p90: null,
+  // Agrega mesmo dia para evitar labels duplicados no eixo X do Recharts
+  const byDay = new Map();
+  rawObs.forEach((pt) => {
+    if (!byDay.has(pt.date)) byDay.set(pt.date, { date: pt.date, sum: 0, count: 0 });
+    const entry = byDay.get(pt.date);
+    entry.sum += pt.score;
+    entry.count += 1;
+  });
+  const uniqueDailyObs = Array.from(byDay.values()).map((d) => ({
+    date: d.date,
+    score: d.sum / d.count,
   }));
 
   const now = options.now instanceof Date ? options.now : new Date();
   const todayKey = getDateKey(now) || lastObs.date;
-  const baseMs = (parseNoonLocal(todayKey) || now).getTime();
+  const effectiveTodayKey = lastObs.date > todayKey ? lastObs.date : todayKey;
+  const baseMs = (parseNoonLocal(effectiveTodayKey) || now).getTime();
+
+  // Recent historical anchor (last 8 unique days before anchor)
+  const recentHistory = uniqueDailyObs
+    .filter((p) => p.date < effectiveTodayKey)
+    .slice(-8)
+    .map((pt) => ({
+      date: pt.date,
+      label: formatShortBrDate(pt.date),
+      isFuture: false,
+      historical: Number(clamp(pt.score, minScore, maxScore).toFixed(2)),
+      p50: null,
+      bandOuter: null,
+      bandInner: null,
+      p10: null,
+      p25: null,
+      p75: null,
+      p90: null,
+    }));
 
   // Anchor "Hoje" connecting historical line to fan cone
+  const clampedBase = Number(clamp(baseLevel, minScore, maxScore).toFixed(2));
   const anchorPoint = {
-    date: todayKey,
+    date: effectiveTodayKey,
     label: 'Hoje',
     isFuture: false,
     isAnchor: true,
-    historical: Number(clamp(baseLevel, minScore, maxScore).toFixed(2)),
-    p50: Number(clamp(baseLevel, minScore, maxScore).toFixed(2)),
-    bandOuter: [Number(clamp(baseLevel, minScore, maxScore).toFixed(2)), Number(clamp(baseLevel, minScore, maxScore).toFixed(2))],
-    bandInner: [Number(clamp(baseLevel, minScore, maxScore).toFixed(2)), Number(clamp(baseLevel, minScore, maxScore).toFixed(2))],
-    p10: Number(clamp(baseLevel, minScore, maxScore).toFixed(2)),
-    p25: Number(clamp(baseLevel, minScore, maxScore).toFixed(2)),
-    p75: Number(clamp(baseLevel, minScore, maxScore).toFixed(2)),
-    p90: Number(clamp(baseLevel, minScore, maxScore).toFixed(2)),
+    historical: clampedBase,
+    p50: clampedBase,
+    bandOuter: [clampedBase, clampedBase],
+    bandInner: [clampedBase, clampedBase],
+    p10: clampedBase,
+    p25: clampedBase,
+    p75: clampedBase,
+    p90: clampedBase,
   };
 
-  // Dedupe if last historical point is already today
-  const historyClean = recentHistory.filter((p) => p.date !== todayKey);
+  const historyClean = recentHistory;
 
   const steps = Math.min(12, Math.max(4, Math.round(horizonDays / 7)));
+  const refHorizon = clamp(Math.round(toFinite(options.mcHorizonDays, 60)), 14, 365);
+  const sigma0 = Math.min(
+    baseSigma * 0.85,
+    Math.max(domain * 0.015, toFinite(kalman?.summary?.abilitySd, baseSigma * 0.45))
+  );
+  const diffVarAtRef = Math.max(Math.pow(domain * 0.015, 2), baseSigma * baseSigma - sigma0 * sigma0);
+  // Constante de tempo fixa (90d) para retornos decrescentes invariante ao zoom do horizonte (30d/60d/90d/180d)
+  const DRIFT_TAU_DAYS = 90;
+
   const futurePoints = [];
-  let targetCrossingDate = baseLevel >= targetScore ? todayKey : null;
+  const alreadyAtTarget = baseLevel >= targetScore && dailyDrift >= 0;
+  let targetCrossingDate = alreadyAtTarget ? effectiveTodayKey : null;
+  let prevD = 0;
+  let prevMean = clampedBase;
 
   for (let i = 1; i <= steps; i++) {
     const d = Math.max(1, Math.round((i / steps) * horizonDays));
-    const frac = d / horizonDays;
-    // Diminishing returns drift toward asymptote maxScore
+    const effectiveDriftDays = DRIFT_TAU_DAYS * (1 - Math.exp(-d / DRIFT_TAU_DAYS));
     const projectedMean = clamp(
-      baseLevel + dailyDrift * d * (1 - 0.25 * frac),
+      baseLevel + dailyDrift * effectiveDriftDays,
       minScore,
       maxScore
     );
-    const sigmaT = baseSigma * Math.sqrt(Math.max(0.15, frac));
+    // Difusão física proporcional a sqrt(d / T_ref): o dia +30 mantém exatamente a mesma
+    // incerteza no zoom de 30d ou 180d, e horizontes maiores ampliam o cone fisicamente.
+    const sigmaT = Math.min(domain * 0.35, Math.sqrt(sigma0 * sigma0 + diffVarAtRef * (d / refHorizon)));
     const p10 = clamp(projectedMean - 1.2816 * sigmaT, minScore, maxScore);
     const p25 = clamp(projectedMean - 0.6745 * sigmaT, minScore, maxScore);
     const p75 = clamp(projectedMean + 0.6745 * sigmaT, minScore, maxScore);
     const p90 = clamp(projectedMean + 1.2816 * sigmaT, minScore, maxScore);
 
     const dtKey = getDateKey(new Date(baseMs + d * MS_PER_DAY)) || '';
-    if (!targetCrossingDate && projectedMean >= targetScore) {
-      targetCrossingDate = dtKey;
+    if (!targetCrossingDate && prevMean < targetScore && projectedMean >= targetScore) {
+      const span = Math.max(1e-9, projectedMean - prevMean);
+      const crossDay = Math.max(1, Math.round(prevD + ((targetScore - prevMean) / span) * (d - prevD)));
+      targetCrossingDate = getDateKey(new Date(baseMs + crossDay * MS_PER_DAY)) || dtKey;
     }
+    prevD = d;
+    prevMean = projectedMean;
 
     futurePoints.push({
       date: dtKey,
@@ -983,6 +1206,7 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
     series: [...historyClean, anchorPoint, ...futurePoints],
     cutoffBand,
     targetCrossingDate,
+    alreadyAtTarget,
     summary: {
       currentLevel: Number(baseLevel.toFixed(1)),
       finalP10: finalPt.p10,
@@ -1018,7 +1242,10 @@ export function buildKalmanChartData(focusCategory, timeline = [], options = {})
       })
       .map((row) => ({
         date: row.date,
-        score: toFinite(row.globalAvg ?? row.rawGlobal ?? row.score, NaN),
+        score: toFinite(
+          row.global_raw ?? row.global_bayesian ?? row.global_ema ?? row.globalAvg ?? row.rawGlobal ?? row.score,
+          NaN
+        ),
       }))
       .filter((o) => Number.isFinite(o.score));
   }

@@ -61,14 +61,23 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
   categories = [],
   user = {},
   defaultMode = 'burnup',
+  dayTick,
 }) {
   const uid = useId().replace(/:/g, '');
   const [mode, setMode] = useState(defaultMode);
 
-  const data = useMemo(
-    () => buildSyllabusBurndownData(categories, user),
-    [categories, user]
-  );
+  const data = useMemo(() => {
+    void dayTick;
+    return buildSyllabusBurndownData(categories, user);
+  }, [categories, user, dayTick]);
+
+  const dateLabelMap = useMemo(() => {
+    const map = new Map();
+    (data.series || []).forEach((pt) => {
+      if (pt?.date) map.set(pt.date, pt.label);
+    });
+    return map;
+  }, [data.series]);
 
   if (data.totalTasks === 0) {
     return null;
@@ -138,7 +147,9 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
         </div>
         <div className="rounded-xl bg-slate-950/60 border border-white/5 p-3">
           <p className="text-[9px] uppercase text-slate-500 font-bold">Ritmo Necessário</p>
-          <p className="text-lg font-black font-mono text-amber-300">{data.requiredWeeklyPace}/sem</p>
+          <p className="text-lg font-black font-mono text-amber-300">
+            {data.status === 'overdue' ? 'Prazo encerrado' : `${data.requiredWeeklyPace}/sem`}
+          </p>
         </div>
         <div className="rounded-xl bg-slate-950/60 border border-white/5 p-3">
           <p className="text-[9px] uppercase text-slate-500 font-bold">Previsão Fechamento</p>
@@ -159,12 +170,17 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="label" stroke="#64748b" fontSize={10} />
+              <XAxis
+                dataKey="date"
+                stroke="#64748b"
+                fontSize={10}
+                tickFormatter={(d) => dateLabelMap.get(d) || d}
+              />
               <YAxis domain={[0, data.totalTasks]} stroke="#64748b" fontSize={11} allowDecimals={false} />
               <Tooltip content={<BurndownTooltip mode={mode} />} />
               {todayEntry && (
                 <ReferenceLine
-                  x={todayEntry.label}
+                  x={todayEntry.date}
                   stroke="#94a3b8"
                   strokeDasharray="3 3"
                   label={{ value: 'Hoje', position: 'top', fill: '#cbd5e1', fontSize: 10 }}

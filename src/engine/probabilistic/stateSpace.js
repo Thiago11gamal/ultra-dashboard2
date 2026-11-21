@@ -454,7 +454,9 @@ export function kalmanAbilitySeries(observations = [], options = {}) {
       trendPerMonth: last.trendPerMonth,
       observationSd: Number(obsSd.toFixed(2)),
       rawSd: Number(rawSd.toFixed(2)),
-      noiseReductionPct: rawSd > 1e-6 ? Math.max(0, Math.min(99, Math.round((1 - last.abilitySd / rawSd) * 100))) : 0,
+      // Redução real de ruído: compara incerteza latente posterior (abilitySd) contra o ruído observacional detrendado (obsSd),
+      // evitando confundir tendência linear de aprendizado com ruído.
+      noiseReductionPct: obsSd > 1e-6 ? Math.max(0, Math.min(99, Math.round((1 - last.abilitySd / obsSd) * 100))) : 0,
       outlierCount,
       sampleSize: points.length,
     },

@@ -197,6 +197,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const windowHistory = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
 
             const recentHistory = windowHistory.filter(h => {
+                if (!h || h.valid === false || h.validated === false) return false;
                 const k = getDateKey(getHistoryDate(h));
                 return k && k >= startDateKey && k <= endDateKey;
             });
@@ -273,7 +274,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const erroAbsoluto = total - correct;
             const criticidade = erroAbsoluto * (1 - accuracy);
             
-            return { name: cat.name, value: criticidade, errors: erroAbsoluto };
+            return { name: cat.name, value: criticidade, errors: Math.round(erroAbsoluto * 10) / 10 };
         });
 
         const data = rawData.filter(d => Math.round(d.value * 10) > 0).sort((a, b) => b.value - a.value);

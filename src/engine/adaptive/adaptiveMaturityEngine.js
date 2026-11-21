@@ -113,13 +113,23 @@ export function blendPriorEmpirical(priorVal, empiricalVal, sampleSize, priorStr
     let totalMinutes = 0;
     let studyModeCount = 0;
     let energyLogCount = 0;
+    let validStudySessionsCount = 0;
     studyLogs.forEach((log) => {
-      const m = Math.max(0, Number(log.minutes ?? log.minutos ?? log.duration) || 0);
-      totalMinutes += m;
+      // D3 + D5 FIX: fallback minutes=0 -> duration>0, teto 720 min e contagem apenas de sessões válidas
+      const minField = Number(log.minutes ?? log.minutos);
+      const durField = Number(log.duration);
+      const rawMins = (Number.isFinite(minField) && minField > 0)
+        ? minField
+        : ((Number.isFinite(durField) && durField > 0) ? durField : 0);
+      const m = Math.min(720, rawMins);
+      const ms = toDateMs(log.date || log.createdAt);
+      if (m > 0 && Number.isFinite(ms)) {
+        validStudySessionsCount += 1;
+        totalMinutes += m;
+        activeWeeks.add(Math.floor(ms / (7 * 86_400_000)));
+      }
       if (log.studyMode) studyModeCount += 1;
       if (Number.isFinite(Number(log.energyLevel))) energyLogCount += 1;
-      const ms = toDateMs(log.date || log.createdAt);
-      if (Number.isFinite(ms)) activeWeeks.add(Math.floor(ms / (7 * 86_400_000)));
     });
 
     let confidenceCount = 0;
@@ -136,16 +146,20 @@ export function blendPriorEmpirical(priorVal, empiricalVal, sampleSize, priorStr
 
     const simuladoCount = Math.max(historySimCount, simuladoRows.length);
     const totalStudyHours = Number((totalMinutes / 60).toFixed(1));
-    const studySessionsCount = studyLogs.length;
+    const studySessionsCount = validStudySessionsCount;
     const weeksActive = activeWeeks.size;
-    const resolvedCalibPairs = calibrationEvents.filter((e) => e && e.resolved).length + auditLogs.length;
+    // D5 FIX: eventos do calibration.js gravam observed (0|1) e backfilled: true, não `.resolved`
+    const resolvedCalibPairs = calibrationEvents.filter((e) =>
+      e && (e.resolved === true || e.observed === 0 || e.observed === 1 || e.backfilled === true)
+    ).length + auditLogs.length;
 
+    // D5 FIX: progressão estritamente encadeada N0 → N1 → N2 → N3 → N4 → N5 (sem pular pré-requisitos)
     let stage = 0;
     if (simuladoCount >= 3 || totalStudyHours >= 5) stage = 1;
-    if (simuladoCount >= 6 && categoriesWithSims >= 2) stage = 2;
-    if (simuladoCount >= 10 && (weeksActive >= 3 || studySessionsCount >= 10)) stage = 3;
-    if (simuladoCount >= 15 && studySessionsCount >= 15) stage = 4;
-    if (simuladoCount >= 25 && resolvedCalibPairs >= 8) stage = 5;
+    if (stage >= 1 && simuladoCount >= 6 && categoriesWithSims >= 2) stage = 2;
+    if (stage >= 2 && simuladoCount >= 10 && (weeksActive >= 3 || studySessionsCount >= 10)) stage = 3;
+    if (stage >= 3 && simuladoCount >= 15 && studySessionsCount >= 15) stage = 4;
+    if (stage >= 4 && simuladoCount >= 25 && resolvedCalibPairs >= 8) stage = 5;
 
     const unlockedFlags = {};
     for (let i = 1; i <= stage; i++) {
@@ -164,16 +178,39 @@ export function blendPriorEmpirical(priorVal, empiricalVal, sampleSize, priorStr
       nextHint = `Faltam ${Math.max(0, 3 - simuladoCount)} simulado(s) ou ${Math.max(0, 5 - totalStudyHours).toFixed(1)}h para ativar Kalman + FSRS + ACWR.`;
     } else if (stage === 1) {
       progressToNextPct = Math.min(99, Math.round(((Math.min(simuladoCount, 6) / 6) * 0.7 + (Math.min(categoriesWithSims, 2) / 2) * 0.3) * 100));
-      nextHint = `Faltam ${Math.max(0, 6 - simuladoCount)} simulado(s) em ≥2 matérias para ativar Volatilidade Dinâmica e Posterior MC.`;
+      const remSims = Math.max(0, 6 - simuladoCount);
+      const remCats = Math.max(0, 2 - categoriesWithSims);
+      if (remSims > 0 && remCats > 0) {
+        nextHint = `Faltam ${remSims} simulado(s) e pelo menos ${remCats} matéria(s) com simulado para ativar Volatilidade Dinâmica e Posterior MC.`;
+      } else if (remSims > 0) {
+        nextHint = `Faltam ${remSims} simulado(s) para ativar Volatilidade Dinâmica e Posterior MC.`;
+      } else {
+        nextHint = `Registre simulados em mais ${remCats} matéria(s) para ativar Volatilidade Dinâmica e Posterior MC.`;
+      }
     } else if (stage === 2) {
-      progressToNextPct = Math.min(99, Math.round((Math.min(simuladoCount, 10) / 10) * 100));
-      nextHint = `Faltam ${Math.max(0, 10 - simuladoCount)} simulado(s) para ativar Observability, Regimes e Drift Guard.`;
+      const activityProg = Math.max(Math.min(weeksActive, 3) / 3, Math.min(studySessionsCount, 10) / 10);
+      progressToNextPct = Math.min(99, Math.round(((Math.min(simuladoCount, 10) / 10) * 0.65 + activityProg * 0.35) * 100));
+      const remSims = Math.max(0, 10 - simuladoCount);
+      const needsActivity = weeksActive < 3 && studySessionsCount < 10;
+      if (remSims > 0 && needsActivity) {
+        nextHint = `Faltam ${remSims} simulado(s) e ${Math.max(0, 10 - studySessionsCount)} sessão(ões) (ou ${Math.max(0, 3 - weeksActive)} semana(s) ativa(s)) para ativar Observability, Regimes e Drift Guard.`;
+      } else if (remSims > 0) {
+        nextHint = `Faltam ${remSims} simulado(s) para ativar Observability, Regimes e Drift Guard.`;
+      } else {
+        nextHint = `Faltam ${Math.max(0, 10 - studySessionsCount)} sessão(ões) de estudo (ou ${Math.max(0, 3 - weeksActive)} semana(s) ativa(s)) para ativar Observability, Regimes e Drift Guard.`;
+      }
     } else if (stage === 3) {
       progressToNextPct = Math.min(99, Math.round(((Math.min(simuladoCount, 15) / 15) * 0.6 + (Math.min(studySessionsCount, 15) / 15) * 0.4) * 100));
-      nextHint = `Faltam ${Math.max(0, 15 - simuladoCount)} simulado(s) e ${Math.max(0, 15 - studySessionsCount)} sessões para ativar Causal Uplift e Política Personalizada.`;
+      const parts = [];
+      if (15 - simuladoCount > 0) parts.push(`${15 - simuladoCount} simulado(s)`);
+      if (15 - studySessionsCount > 0) parts.push(`${15 - studySessionsCount} sessão(ões)`);
+      nextHint = `Faltam ${parts.join(' e ')} para ativar Causal Uplift e Política Personalizada.`;
     } else if (stage === 4) {
       progressToNextPct = Math.min(99, Math.round(((Math.min(simuladoCount, 25) / 25) * 0.6 + (Math.min(resolvedCalibPairs, 8) / 8) * 0.4) * 100));
-      nextHint = `Faltam ${Math.max(0, 25 - simuladoCount)} simulado(s) e ${Math.max(0, 8 - resolvedCalibPairs)} auditorias para ativar AutoTuner + Rollback Automático.`;
+      const parts = [];
+      if (25 - simuladoCount > 0) parts.push(`${25 - simuladoCount} simulado(s)`);
+      if (8 - resolvedCalibPairs > 0) parts.push(`${8 - resolvedCalibPairs} auditoria(s) de calibração`);
+      nextHint = `Faltam ${parts.join(' e ')} para ativar AutoTuner + Rollback Automático.`;
     }
 
     const metrics = {

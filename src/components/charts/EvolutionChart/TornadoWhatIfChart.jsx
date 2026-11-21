@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart,
   Bar,
@@ -13,6 +13,7 @@ import { Sliders, RotateCcw, ShieldAlert, TrendingUp } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
 import { runTornadoSensitivity } from '../../../engine/monteCarlo';
 import { getSafeScore } from '../../../utils/scoreHelper';
+import { toDateMs } from '../../../utils/dateHelper';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
 
@@ -43,15 +44,21 @@ function TornadoTooltip({ active, payload, deltaPct }) {
 
 export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   categories = [],
+  mcWeights = null,
+  simuladoRows = [],
   targetScore = 80,
   minScore = 0,
   maxScore = 100,
+  unit = '%',
   historicalCutoffs = [],
   examGroupCutoffs = null,
   onSaveGroupCutoffs = null,
 }) {
   const [deltaPct, setDeltaPct] = useState(10);
   const [overrides, setOverrides] = useState({});
+  const [showAllSliders, setShowAllSliders] = useState(false);
+  const [savedCutoffs, setSavedCutoffs] = useState(false);
+  const savedCutoffsTimerRef = useRef(null);
   const cutoffsPropKey = JSON.stringify({
     basicos: examGroupCutoffs?.basicos ?? '',
     especificos: examGroupCutoffs?.especificos ?? '',
@@ -73,6 +80,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       especificos: examGroupCutoffs?.especificos ?? '',
       discursiva: examGroupCutoffs?.discursiva ?? '',
     });
+    setSavedCutoffs(false);
   }
 
   if (categoriesPropKey !== prevCategoriesKey) {
@@ -80,16 +88,20 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
     setOverrides({});
   }
 
+  useEffect(() => () => {
+    if (savedCutoffsTimerRef.current) clearTimeout(savedCutoffsTimerRef.current);
+  }, []);
+
   const effectiveGroupCutoffs = useMemo(() => {
     const merged = {};
     ['basicos', 'especificos', 'discursiva'].forEach((grp) => {
       const raw = draftGroupCutoffs[grp];
-      if (raw !== '' && raw !== null && raw !== undefined && Number.isFinite(Number(raw)) && Number(raw) > 0) {
+      if (raw !== '' && raw !== null && raw !== undefined && Number.isFinite(Number(raw)) && Number(raw) > minScore) {
         merged[grp] = Number(raw);
       }
     });
     return merged;
-  }, [draftGroupCutoffs]);
+  }, [draftGroupCutoffs, minScore]);
 
   const subjects = useMemo(() => {
     const gRange = Math.max(1e-6, maxScore - minScore);
@@ -100,8 +112,18 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
         const cRange = Math.max(1e-6, cMax - cMin);
         const hist = safeArr(cat?.simuladoStats?.history)
           .filter((h) => h && h.valid !== false && h.validated !== false)
-          .map((h) => getSafeScore(h, cMax, cMin))
-          .filter(Number.isFinite);
+          .map((h, idx) => ({
+            score: getSafeScore(h, cMax, cMin),
+            ms: toDateMs(h.date || h.createdAt),
+            idx,
+          }))
+          .filter((entry) => Number.isFinite(entry.score))
+          .sort((a, b) => {
+            const ta = Number.isFinite(a.ms) ? a.ms : a.idx;
+            const tb = Number.isFinite(b.ms) ? b.ms : b.idx;
+            return ta - tb;
+          })
+          .map((entry) => entry.score);
         if (!hist.length) return null;
         const recentHist = hist.slice(-6);
         const mean = recentHist.reduce((a, b) => a + b, 0) / recentHist.length;
@@ -110,10 +132,14 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
           ? Math.max(cRange * 0.03, Math.sqrt(recentHist.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / (recentHist.length - 1)))
           : cRange * 0.1;
         const hasCutoff = cat.minCutoff !== null && cat.minCutoff !== undefined && Number(cat.minCutoff) > cMin;
+        const rawOverrideWeight = mcWeights && cat.id != null ? Number(mcWeights[cat.id]) : NaN;
+        const resolvedWeight = Number.isFinite(rawOverrideWeight) && rawOverrideWeight > 0
+          ? rawOverrideWeight
+          : (Number(cat.weight) || 10);
         return {
           id: cat.id || cat.name,
           name: cat.name,
-          weight: Math.max(0.5, Number(cat.weight) || 10),
+          weight: Math.max(0.5, resolvedWeight),
           mean,
           sd,
           minScore: cMin,
@@ -124,9 +150,12 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       })
       .filter(Boolean)
       .filter((s) => Number.isFinite(s.mean) && gRange > 0);
-  }, [categories, minScore, maxScore]);
+  }, [categories, mcWeights, minScore, maxScore]);
 
-  const result = useMemo(() => {
+  const hasOverrides = Object.values(overrides).some((v) => Number(v) !== 0);
+
+  // Baseline estável (sem overrides) para manter a ordem dos sliders fixa e exibir o ganho Δpp ao simular
+  const baselineResult = useMemo(() => {
     if (!subjects.length) return null;
     return runTornadoSensitivity({
       subjects,
@@ -135,13 +164,50 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       maxScore,
       historicalCutoffs,
       examGroupCutoffs: effectiveGroupCutoffs,
+      simuladoRows,
+      deltaPct,
+      simulations: 1200,
+      overrides: {},
+    });
+  }, [subjects, targetScore, minScore, maxScore, historicalCutoffs, effectiveGroupCutoffs, simuladoRows, deltaPct]);
+
+  const result = useMemo(() => {
+    if (!subjects.length) return null;
+    if (!hasOverrides) return baselineResult;
+    return runTornadoSensitivity({
+      subjects,
+      targetScore,
+      minScore,
+      maxScore,
+      historicalCutoffs,
+      examGroupCutoffs: effectiveGroupCutoffs,
+      simuladoRows,
       deltaPct,
       simulations: 1200,
       overrides,
     });
-  }, [subjects, targetScore, minScore, maxScore, historicalCutoffs, effectiveGroupCutoffs, deltaPct, overrides]);
+  }, [subjects, hasOverrides, baselineResult, targetScore, minScore, maxScore, historicalCutoffs, effectiveGroupCutoffs, simuladoRows, deltaPct, overrides]);
 
-  const hasOverrides = Object.values(overrides).some((v) => Number(v) !== 0);
+  const sliderItems = useMemo(() => {
+    const baseList = baselineResult?.items || result?.items || [];
+    if (showAllSliders) return baseList;
+    const topSix = baseList.slice(0, 6);
+    const topIds = new Set(topSix.map((item) => item.id));
+    const extraModified = baseList.filter((item) => !topIds.has(item.id) && Number(overrides[item.id] || 0) !== 0);
+    return [...topSix, ...extraModified];
+  }, [baselineResult, result, showAllSliders, overrides]);
+
+  const handleSaveCutoffsClick = () => {
+    if (typeof onSaveGroupCutoffs === 'function') {
+      onSaveGroupCutoffs(effectiveGroupCutoffs || {});
+      setSavedCutoffs(true);
+      if (savedCutoffsTimerRef.current) clearTimeout(savedCutoffsTimerRef.current);
+      savedCutoffsTimerRef.current = setTimeout(() => {
+        savedCutoffsTimerRef.current = null;
+        setSavedCutoffs(false);
+      }, 2000);
+    }
+  };
 
   if (!result || !result.items.length) {
     return (
@@ -154,6 +220,10 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   }
 
   const risk = result.baseRisk || { passedAllPct: result.baseProbability, failedGlobalOnlyPct: 0, failedMinCutoffOnlyPct: 0, failedBothPct: 0, subjectEliminationRates: [] };
+  const unitSuffix = unit === '%' ? '%' : ` ${unit}`;
+  const probDeltaVsBase = hasOverrides && baselineResult
+    ? Number((result.baseProbability - baselineResult.baseProbability).toFixed(1))
+    : 0;
 
   return (
     <div className="w-full space-y-5">
@@ -166,9 +236,18 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
               Decomposição do Risco de Eliminação
             </h4>
           </div>
-          <div className="flex items-center gap-3 text-xs font-mono">
-            <span className="text-slate-400">Nota projetada: <strong className="text-white">{result.baseMean}</strong></span>
-            <span className="text-emerald-300 font-black">Aprovação: {result.baseProbability}%</span>
+          <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+            <span className="text-slate-400">
+              Nota projetada: <strong className="text-white">{result.baseMean}{unitSuffix}</strong>
+            </span>
+            <span className="text-emerald-300 font-black">
+              Aprovação: {result.baseProbability}%
+              {hasOverrides && baselineResult && (
+                <span className={`ml-1.5 text-[11px] ${probDeltaVsBase >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  (Base {baselineResult.baseProbability}% · {probDeltaVsBase >= 0 ? '+' : ''}{probDeltaVsBase}pp)
+                </span>
+              )}
+            </span>
           </div>
         </div>
 
@@ -240,7 +319,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
                 <span>{grp.label} ≥</span>
                 <input
                   type="number"
-                  min={0}
+                  min={minScore}
                   max={maxScore}
                   step={1}
                   placeholder="—"
@@ -253,10 +332,10 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
             {typeof onSaveGroupCutoffs === 'function' && (
               <button
                 type="button"
-                onClick={() => onSaveGroupCutoffs(effectiveGroupCutoffs || {})}
+                onClick={handleSaveCutoffsClick}
                 className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-[10px] font-bold transition-colors"
               >
-                Salvar cortes
+                {savedCutoffs ? 'Cortes salvos!' : 'Salvar cortes'}
               </button>
             )}
           </div>
@@ -302,24 +381,35 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
 
       {/* Sliders interativos "E Se?" */}
       <div className="rounded-2xl border border-indigo-500/20 bg-slate-950/60 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-indigo-300">
             <Sliders size={14} />
             Simulador &quot;E Se?&quot; em Tempo Real
           </div>
-          {hasOverrides && (
-            <button
-              type="button"
-              onClick={() => setOverrides({})}
-              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-white transition-colors"
-            >
-              <RotateCcw size={12} /> Resetar cenários
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {(baselineResult?.items?.length || 0) > 6 && (
+              <button
+                type="button"
+                onClick={() => setShowAllSliders((prev) => !prev)}
+                className="text-[11px] font-bold text-indigo-300 hover:text-indigo-200 transition-colors"
+              >
+                {showAllSliders ? 'Mostrar top 6' : `Mostrar todas (${baselineResult.items.length})`}
+              </button>
+            )}
+            {hasOverrides && (
+              <button
+                type="button"
+                onClick={() => setOverrides({})}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                <RotateCcw size={12} /> Resetar cenários
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {result.items.slice(0, 6).map((item) => {
+          {sliderItems.map((item) => {
             const val = Number(overrides[item.id] || 0);
             return (
               <label key={item.id} className="flex flex-col gap-1 bg-slate-900/60 rounded-xl p-2.5 border border-white/5 text-xs">

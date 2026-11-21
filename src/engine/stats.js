@@ -468,11 +468,15 @@ export function computeBayesianLevel(
         safeMaxScore = safeMaxScoreValue(arg2, 100);
         options = arg3 || {};
     }
-    // ✅ LOTE-01 FIX (C3): normalização no INTERVALO ÚTIL [minScore, maxScore].
-    // Antes a proporção era score/maxScore — errado em escalas com piso != 0
-    // (ex.: 200–1000: nota 600 virava 60% quando deveria ser 50%).
+    // ✅ LOTE-01 FIX (C3) + D1 FIX: normalização estrita no INTERVALO ÚTIL [minScore, maxScore],
+    // evitando que Number(null) === 0 ou Number('') === 0 mascarem minScore ausente.
+    const hasValidOptMin = options.minScore !== null &&
+        options.minScore !== undefined &&
+        typeof options.minScore !== 'boolean' &&
+        String(options.minScore).trim() !== '' &&
+        Number.isFinite(Number(options.minScore));
     const safeMinScore = Math.min(
-        Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : 0,
+        hasValidOptMin ? Number(options.minScore) : 0,
         safeMaxScore
     );
     const safeRange = Math.max(1e-9, safeMaxScore - safeMinScore);
@@ -672,11 +676,24 @@ export function computeBayesianLevel(
                 beta += Number.isFinite(betaHoje) ? betaHoje : 0;
             } else if (total >= 1) {
                 const rawCorrectField = h?.correct ?? h?.acertos ?? h?.correctCount;
-                const hasExplicitCorrect = !h?.isPercentage && rawCorrectField !== undefined && rawCorrectField !== null && String(rawCorrectField).trim() !== '' && Number.isFinite(Number(rawCorrectField));
-                let correct = hasExplicitCorrect
-                    ? Math.max(0, Number(rawCorrectField))
-                    : Math.max(0, Math.round(pct * total));
-                const safeCorrect = Math.max(0, Math.min(total, correct));
+                const hasExplicitCorrect = !h?.isPercentage && rawCorrectField !== undefined && rawCorrectField !== null && typeof rawCorrectField !== 'boolean' && String(rawCorrectField).trim() !== '' && Number.isFinite(Number(rawCorrectField));
+                const hasPenalizedOrAuthoritativeScore =
+                    (Number(h?.penaltyPerWrong) > 0) ||
+                    (Number(h?.blanks) > 0) ||
+                    (h?.netPoints !== undefined && h?.netPoints !== null && String(h.netPoints).trim() !== '' && Number.isFinite(Number(h.netPoints))) ||
+                    (h?.scorePoints !== undefined && h?.scorePoints !== null && String(h.scorePoints).trim() !== '' && Number.isFinite(Number(h.scorePoints))) ||
+                    (h?.scorePct !== undefined && h?.scorePct !== null && String(h.scorePct).trim() !== '' && Number.isFinite(Number(h.scorePct))) ||
+                    (h?.score !== undefined && h?.score !== null && typeof h.score !== 'boolean' && String(h.score).trim() !== '' && Number.isFinite(Number(h.score)));
+                // M1 FIX: quando há nota líquida Cebraspe (penaltyPerWrong/blanks/netPoints) ou nota
+                // autoritativa (scorePoints/scorePct/TRI/score que diverge de correct/total), usar
+                // a proporção efetiva pct * total derivada de getSafeScore em vez de acertos brutos.
+                const rawCorrectVal = hasExplicitCorrect ? Math.max(0, Math.min(total, Number(rawCorrectField))) : NaN;
+                const useEffectivePct = !hasExplicitCorrect ||
+                    useLegacyZeroFloorPenalizedShift ||
+                    (hasPenalizedOrAuthoritativeScore && Math.abs(pct - (rawCorrectVal / total)) > 1e-4);
+                const safeCorrect = useEffectivePct
+                    ? Math.max(0, Math.min(total, pct * total))
+                    : rawCorrectVal;
 
                 let acertosHoje = Math.max(0, safeCorrect * itemWeight);
                 let errosHoje = Math.max(0, (total - safeCorrect) * itemWeight);
@@ -1173,9 +1190,12 @@ export function computeHierarchicalAdjustment(categories, pooledSD, options = {}
         return Number.isFinite(rm) && rm > mx ? rm : mx;
     }, 100);
 
+    const isStrictNum = (v) =>
+        v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
+
     const getCatBounds = (c) => {
-        const cMin = Number.isFinite(Number(c?.minScore)) ? Number(c.minScore) : 0;
-        const rawMax = Number(c?.maxScore);
+        const cMin = isStrictNum(c?.minScore) ? Number(c.minScore) : 0;
+        const rawMax = isStrictNum(c?.maxScore) ? Number(c.maxScore) : NaN;
         const cMax = Number.isFinite(rawMax) && rawMax > cMin ? rawMax : Math.max(cMin + 100, maxProvidedMax);
         return { cMin, cRange: Math.max(1e-9, cMax - cMin) };
     };
@@ -1192,7 +1212,14 @@ export function computeHierarchicalAdjustment(categories, pooledSD, options = {}
         return cRange === 100 && cMin === 0 ? (c.mean || 0) : (((c.mean || 0) - cMin) / cRange) * 100;
     });
 
-    const globalMean = kahanSum(normMeans) / Math.max(1, validCategories.length);
+    const catWeights = validCategories.map(c => {
+        const w = isStrictNum(c?.weight) ? Number(c.weight) : NaN;
+        return Number.isFinite(w) && w > 0 ? w : 1;
+    });
+    const totalCatWeight = kahanSum(catWeights);
+    const globalMean = totalCatWeight > 0
+        ? kahanSum(normMeans.map((m, idx) => m * catWeights[idx])) / totalCatWeight
+        : kahanSum(normMeans) / Math.max(1, validCategories.length);
 
     const rawTau2 = validCategories.length > 1
         ? kahanSum(normMeans.map(m => Math.pow(m - globalMean, 2))) / (validCategories.length - 1)
@@ -1206,8 +1233,13 @@ export function computeHierarchicalAdjustment(categories, pooledSD, options = {}
             return Math.pow(normSd, 2) / Math.max(1, cat.n);
         })) / validCategories.length
         : 0;
-    // Estimador DerSimonian-Laird: desconta a variância amostral intra-categoria para evitar sub-encolhimento
+    // Estimador DerSimonian-Laird: desconta a variância amostral intra-categoria para evitar sub-encolhimento.
+    // M3 FIX: cap de encolhimento máximo (0.65) impede que tau2 === 0 colapse 100% de todas as matérias
+    // para uma média global idêntica (preservando individualidade quando n é pequeno).
     const tau2 = Math.max(0, rawTau2 - meanLocalVar);
+    const maxShrinkage = isStrictNum(options?.maxShrinkage)
+        ? Math.max(0, Math.min(1, Number(options.maxShrinkage)))
+        : 0.65;
 
     return safeCategories.map(cat => {
         if (!Number.isFinite(cat.mean) || !cat.n) {
@@ -1223,7 +1255,8 @@ export function computeHierarchicalAdjustment(categories, pooledSD, options = {}
         const normLocalSD = isStandardScale ? rawLocalSD : (rawLocalSD / cRange) * 100;
         const localVar = Math.pow(normLocalSD, 2) / Math.max(1, cat.n);
         const denom = localVar + tau2;
-        const B = denom > 1e-15 ? localVar / denom : 0;
+        const rawB = denom > 1e-15 ? localVar / denom : 0;
+        const B = Math.min(maxShrinkage, rawB);
 
         const normBayesianMean = B * globalMean + (1 - B) * normMean;
         const popVar = Math.pow(safePooled, 2);
@@ -1236,6 +1269,8 @@ export function computeHierarchicalAdjustment(categories, pooledSD, options = {}
             ...cat,
             bayesianMean,
             bayesianSd,
+            hierarchicalMean: bayesianMean,
+            hierarchicalSd: bayesianSd,
             shrinkage: B
         };
     });

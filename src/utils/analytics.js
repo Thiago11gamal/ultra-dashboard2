@@ -1020,7 +1020,9 @@ export const calculateStudyStreak = (studyLogs) => {
             if (!deck || typeof deck !== 'object') return; // ✅ FIX: validar deck
             toArray(deck?.cards).forEach(card => {
                 if (!card || typeof card !== 'object') return; // ✅ FIX: validar card
-                if (!card?.due || card.due <= todayKey) due++;
+                // D6 FIX: normalizar card.due via getDateKey para não classificar ISO futuro incorretamente
+                const dueKey = card?.due ? getDateKey(card.due) : null;
+                if (!dueKey || dueKey <= todayKey) due++;
             });
         });
         return due;
@@ -1088,12 +1090,15 @@ export const calculateStudyStreak = (studyLogs) => {
 
     export function getFlashcardTotalCards(decks = []) {
         const decksArray = toArray(decks);
-        return decksArray.reduce((sum, d) => sum + toArray(d?.cards).length, 0);
+        return decksArray.reduce((sum, d) => {
+            if (!d || typeof d !== 'object') return sum;
+            return sum + toArray(d?.cards).filter(c => c && typeof c === 'object').length;
+        }, 0);
     }
 
     export function getFlashcardDeckCount(decks = []) {
         const decksArray = toArray(decks);
-        return decksArray.length;
+        return decksArray.filter(d => d && typeof d === 'object').length;
     }
 
     export function computeFlashcardDueForecast(decks = [], horizon = 14) {
@@ -1105,11 +1110,12 @@ export const calculateStudyStreak = (studyLogs) => {
         const safeDecks = toArray(decks);
 
         safeDecks.forEach(deck => {
+            if (!deck || typeof deck !== 'object') return;
             toArray(deck?.cards).forEach(card => {
-                let dueKey = card && card.due ? String(card.due) : todayKey;
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(dueKey)) {
-                    dueKey = todayKey;
-                }
+                if (!card || typeof card !== 'object') return;
+                // D6 FIX: normalizar datas ISO / timestamps via getDateKey antes do fallback para todayKey
+                const parsedDueKey = card.due ? getDateKey(card.due) : null;
+                let dueKey = parsedDueKey || todayKey;
                 if (dueKey < todayKey) {
                     dueKey = todayKey;
                 }

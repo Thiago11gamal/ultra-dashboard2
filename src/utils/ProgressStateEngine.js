@@ -106,13 +106,21 @@ export function analyzeProgressState(scores, config = {}) {
   const recentDates = recentData.map(d => d.safeTime);
   const n = finiteRecentScores.length;
   const startTime = recentDates[0] || Date.now();
+  const rawSpanDays = n > 1 ? Math.max(0, (recentDates[n - 1] - startTime) / 86400000) : 0;
+  // M9 FIX: quando todos os pontos da janela caem no mesmo dia (span < 0.25 dia), usar
+  // espaçamento sequencial unitário (1 passo/simulado) para não esmagar o slope por ~1000x.
+  const useSequentialSpacing = rawSpanDays < 0.25;
   const xDays = [];
   recentDates.forEach((d, i) => {
-    let days = (d - startTime) / 86400000;
-    if (i > 0 && days <= xDays[i - 1]) {
-      days = xDays[i - 1] + 0.001;
+    if (useSequentialSpacing) {
+      xDays.push(i);
+    } else {
+      let days = (d - startTime) / 86400000;
+      if (i > 0 && days <= xDays[i - 1]) {
+        days = xDays[i - 1] + 0.001;
+      }
+      xDays.push(days);
     }
-    xDays.push(days);
   });
   const xMean = xDays.reduce((a, b) => a + b, 0) / n;
   let numerator = 0;

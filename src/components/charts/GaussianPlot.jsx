@@ -312,7 +312,7 @@ export const GaussianPlot = React.memo(function GaussianPlot({
         if (!Number.isFinite(num)) return `0${u || ''}`;
         if (u === 'horas') return formatDuration(num);
         if (u === '%') return `${formatValue(num)}%`;
-        return `${Number.isInteger(num) ? num : num.toFixed(2)}${u || ''}`;
+        return `${formatValue(num, 2)}${u || ''}`;
     };
 
     const updateHoverFromClientX = (clientX, el) => {

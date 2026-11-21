@@ -8,16 +8,24 @@
  */
 import { toDateMs } from '../../utils/dateHelper.js';
 import { getSafeScore } from '../../utils/scoreHelper.js';
+import { normalize } from '../../utils/normalization.js';
 import { getMasterySignal, halfLifeFromMastery } from '../../utils/retentionCore.js';
 import { blendPriorEmpirical, shrinkageAlpha } from './adaptiveMaturityEngine.js';
 
 const MS_PER_DAY = 86_400_000;
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+const isStrictNum = (v) =>
+  v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
 export function estimateEmpiricalHalfLife(category, options = {}) {
-  const minScore = Number.isFinite(Number(options.minScore)) ? Number(options.minScore) : Number(category?.minScore ?? 0);
-  const maxScore = Math.max(minScore + 1, Number(options.maxScore) || Number(category?.maxScore) || 100);
+  const minScore = isStrictNum(options.minScore)
+    ? Number(options.minScore)
+    : (isStrictNum(category?.minScore) ? Number(category.minScore) : 0);
+  const rawMax = isStrictNum(options.maxScore)
+    ? Number(options.maxScore)
+    : (isStrictNum(category?.maxScore) ? Number(category.maxScore) : 100);
+  const maxScore = Math.max(minScore + 1, rawMax);
   const range = Math.max(1e-6, maxScore - minScore);
 
   const mastery = getMasterySignal(category);
@@ -46,14 +54,19 @@ export function estimateEmpiricalHalfLife(category, options = {}) {
 
   // Coleta timestamps de estudo da matéria (se fornecidos) para não confundir ganho pós-estudo com memória lenta
   const catIdStr = category?.id != null ? String(category.id) : '';
-  const catNameLower = String(category?.name || '').trim().toLowerCase();
+  const catNameNorm = normalize(category?.name || '');
   const catStudyTimes = safeArr(options.studyLogs)
     .filter((l) => {
       if (!l || l.type === 'flashcard') return false;
-      const mins = Number(l.minutes ?? l.minutos ?? l.duration) || 0;
+      const minField = Number(l.minutes ?? l.minutos);
+      const durField = Number(l.duration);
+      const rawMins = (Number.isFinite(minField) && minField > 0)
+        ? minField
+        : ((Number.isFinite(durField) && durField > 0) ? durField : 0);
+      const mins = Math.min(720, rawMins);
       if (mins < 15) return false;
       const matchId = catIdStr && l.categoryId != null && String(l.categoryId) === catIdStr;
-      const matchName = catNameLower && String(l.subject || l.categoryName || '').trim().toLowerCase() === catNameLower;
+      const matchName = catNameNorm && normalize(l.subject || l.categoryName || l.category || '') === catNameNorm;
       return matchId || matchName;
     })
     .map((l) => toDateMs(l.date || l.createdAt))

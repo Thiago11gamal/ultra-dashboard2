@@ -73,9 +73,29 @@ export const createMonteCarloSlice = (set) => ({
   }),
 
   setMcEqualWeights: (enabled) => set((state) => {
-    state.appState.mcEqualWeights = Boolean(enabled);
+    const nextVal = Boolean(enabled);
+    const activeId = state.appState?.activeId;
+    const prevGlobal = state.appState?.mcEqualWeights ?? true;
+    const contests = state.appState?.contests;
+    const nowIso = new Date().toISOString();
+
+    // B3 FIX: armazenar mcEqualWeights por concurso sem vazar a troca para outros concursos,
+    // mantendo state.appState.mcEqualWeights sincronizado para retrocompatibilidade.
+    if (contests && typeof contests === 'object') {
+      Object.entries(contests).forEach(([cid, contest]) => {
+        if (!contest || typeof contest !== 'object') return;
+        if (cid === activeId) {
+          contest.mcEqualWeights = nextVal;
+          contest.lastUpdated = nowIso;
+        } else if (typeof contest.mcEqualWeights !== 'boolean') {
+          contest.mcEqualWeights = Boolean(prevGlobal);
+        }
+      });
+    }
+
+    state.appState.mcEqualWeights = nextVal;
     state.appState.version = (state.appState.version || 0) + 1;
-    state.appState.lastUpdated = new Date().toISOString();
+    state.appState.lastUpdated = nowIso;
     markStorageDirty();
   }),
 

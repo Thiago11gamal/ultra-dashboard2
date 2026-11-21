@@ -4,7 +4,7 @@
  * Motor Psicométrico TRI / IRT (2PL / Rasch) + Controle Adaptativo (CAT)
  * + Simulador de Valor Esperado de Chute para Bancas com Penalidade (Cebraspe/FGV/etc.).
  */
-import { getSafeScore } from '../../utils/scoreHelper.js';
+import { getSafeScore, extractTopicsTotals } from '../../utils/scoreHelper.js';
 
 const safeArr = (v) => (Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : [])).filter(Boolean);
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
@@ -64,14 +64,29 @@ export function estimateIRTAbility(entries = [], options = {}) {
     const tier = resolveDifficultyTier(entry.difficulty ?? entry.dificuldade);
     const bucket = tierStats.get(tier.key);
 
-    const rawTotal = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
-    const rawCorrect = Number(entry.correct ?? entry.acertos);
+    let rawTotal = Number(entry.total ?? entry.questoes ?? entry.totalQuestoes ?? entry.questions);
+    const rawCorrectField = entry.correct ?? entry.acertos ?? entry.correctCount;
+    const hasExplicitCorrect =
+      !entry.isPercentage &&
+      rawCorrectField !== null &&
+      rawCorrectField !== undefined &&
+      typeof rawCorrectField !== 'boolean' &&
+      String(rawCorrectField).trim() !== '' &&
+      Number.isFinite(Number(rawCorrectField));
+    let explicitCorrect = hasExplicitCorrect ? Number(rawCorrectField) : NaN;
+    if ((!Number.isFinite(rawTotal) || rawTotal <= 0) && entry.topics != null) {
+      const tf = extractTopicsTotals(entry, maxScore, minScore);
+      if (tf.total > 0) {
+        rawTotal = tf.total;
+        explicitCorrect = tf.correct;
+      }
+    }
     const rawBlanks = Math.max(0, Number(entry.blanks) || 0);
     if (Number.isFinite(rawTotal) && rawTotal > 0) {
       // Desconta questões deixadas em branco (omissão estratégica CEBRASPE) do denominador TRI
       const attempted = rawBlanks > 0 && rawBlanks < rawTotal ? (rawTotal - rawBlanks) : rawTotal;
-      const corr = Number.isFinite(rawCorrect)
-        ? clamp(rawCorrect, 0, attempted)
+      const corr = Number.isFinite(explicitCorrect)
+        ? clamp(explicitCorrect, 0, attempted)
         : clamp(((getSafeScore(entry, maxScore, minScore) - minScore) / range) * attempted, 0, attempted);
       bucket.total += attempted;
       bucket.correct += corr;
@@ -154,9 +169,9 @@ export function estimateIRTAbility(entries = [], options = {}) {
     predictedPct: Number((irtProbability(theta, t.b, t.a) * 100).toFixed(1)),
   }));
 
-  // Pedagogical incoherence: missing easy items noticeably more than medium/hard
+  // Pedagogical incoherence: missing easy items noticeably more than medium/hard/expert
   const easy = tierBreakdown.find((t) => t.key === 'facil');
-  const medOrHard = tierBreakdown.filter((t) => (t.key === 'medio' || t.key === 'dificil') && t.total >= 5);
+  const medOrHard = tierBreakdown.filter((t) => (t.key === 'medio' || t.key === 'dificil' || t.key === 'expert') && t.total >= 5);
   const bestHigherPct = medOrHard.length > 0 ? Math.max(...medOrHard.map((t) => t.observedPct || 0)) : null;
   const pedagogicalIncoherence = Boolean(
     easy && easy.total >= 5 && bestHigherPct !== null && easy.observedPct !== null && easy.observedPct + 8 < bestHigherPct
@@ -226,7 +241,7 @@ export function computeGuessingStrategy(questionTelemetry = [], options = {}) {
     // Questões deixadas em branco (wasAnswered === false) não sofrem penalidade nem entram como erro de chute
     if (!q || q.wasAnswered === false || !q.confidence || !buckets[q.confidence]) return;
     buckets[q.confidence].total += 1;
-    if (q.correct) buckets[q.confidence].correct += 1;
+    if (q.correct ?? q.wasCorrect) buckets[q.confidence].correct += 1;
   });
 
   const totalTagged = buckets.certeza.total + buckets.duvida.total + buckets.chute.total;
@@ -239,7 +254,8 @@ export function computeGuessingStrategy(questionTelemetry = [], options = {}) {
       accuracyPct: acc !== null ? Number((acc * 100).toFixed(1)) : null,
       evPerQuestion: evPerQuestion !== null ? Number(evPerQuestion.toFixed(3)) : null,
       netPoints: Number(netPoints.toFixed(1)),
-      shouldAnswer: evPerQuestion !== null ? evPerQuestion > 0 : b.key !== 'chute',
+      // Sem penalidade (penalty === 0), responder nunca reduz a pontuação esperada
+      shouldAnswer: penalty === 0 ? true : (evPerQuestion !== null ? evPerQuestion > 0 : b.key !== 'chute'),
     };
   });
 

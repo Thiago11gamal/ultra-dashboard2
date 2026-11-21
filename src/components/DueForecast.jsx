@@ -8,10 +8,11 @@ import DueForecastChart from './charts/DueForecastChart';
  * Previsão de Cartões a Vencer (Due Forecast)
  * Componente reutilizável com resumo + gráfico de barras.
  */
-function DueForecast({ decks = [], horizon = 14, compact = false }) {
+function DueForecast({ decks = [], horizon = 14, compact = false, dayTick }) {
     const safeHorizon = Math.max(1, Math.min(30, Number(horizon) || 14));
 
     const { forecast, totalDueInHorizon, maxDaily, horizon: usedHorizon, totalCards } = useMemo(() => {
+        void dayTick;
         const decksArray = toArray(decks);
         const res = computeFlashcardDueForecast(decksArray, safeHorizon);
         const cardsCount = decksArray.reduce(
@@ -22,7 +23,7 @@ function DueForecast({ decks = [], horizon = 14, compact = false }) {
             ...res,
             totalCards: cardsCount
         };
-    }, [decks, safeHorizon]);
+    }, [decks, safeHorizon, dayTick]);
 
     const todayCount = forecast[0]?.count || 0;
     // FIX CORRIGIDO: peakDay podia ser undefined quando forecast não-vazio

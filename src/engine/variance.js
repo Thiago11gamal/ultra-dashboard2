@@ -50,7 +50,7 @@ export const INTER_SUBJECT_CORRELATION = 0.25; // Prior / fallback correlation b
  * Tries to estimate from real user performance history (simulado rows) when sufficient data exists.
  * Falls back gracefully to the conservative prior.
  */
-export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION, maxScore = 100, minScore = 0) {
+export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [], categoryNames = [], fallback = INTER_SUBJECT_CORRELATION, maxScore = 100, minScore = 0, cutoffDate = null) {
   try {
     const safeSimuladoRows = (Array.isArray(simuladoRows) ? simuladoRows : Object.values(simuladoRows || {})).filter(Boolean);
     if (!Array.isArray(safeSimuladoRows) || safeSimuladoRows.length < 5 || !Array.isArray(categoryNames) || categoryNames.length < 2) {
@@ -59,11 +59,15 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
 
     const safeGlobalMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     const safeGlobalMin = Number.isFinite(Number(minScore)) && Number(minScore) < safeGlobalMax ? Number(minScore) : 0;
+    const todayKey = getDateKey(new Date());
+    const maxAllowedDateKey = cutoffDate || todayKey;
     const bucketsByDate = {};
 
     safeSimuladoRows.forEach(row => {
+      if (!row || row.valid === false || row.validated === false) return;
       const dateKey = getDateKey(row.date || row.createdAt);
       if (!dateKey) return;
+      if (maxAllowedDateKey && dateKey > maxAllowedDateKey) return;
       const subj = normalize(row.subject || row.categoryName || row.name);
       if (!subj) return;
 
@@ -94,7 +98,9 @@ export function getAdaptiveInterSubjectCorrelation(_stats = [], simuladoRows = [
       });
     });
 
-    const alignedRows = Object.values(byDate);
+    // M12 FIX: ordenar cronologicamente antes do detrending linear por índice k
+    const sortedDateKeys = Object.keys(byDate).sort((a, b) => a.localeCompare(b));
+    const alignedRows = sortedDateKeys.map(dk => byDate[dk]);
     if (alignedRows.length < 4) return fallback;
 
     // estimateInterSubjectCorrelation já aplica shrinkage Empírico-Bayesiano em espaço Fisher-Z

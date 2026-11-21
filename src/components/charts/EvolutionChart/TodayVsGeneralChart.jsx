@@ -250,7 +250,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
-            const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
+            const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false && h.validated !== false);
             history.forEach(h => {
                 const hDateKey = getDateKey(h.date || h.createdAt);
                 if (!hDateKey || hDateKey > maxAllowedDateKey) return;
@@ -321,7 +321,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
         activeCategories.forEach(cat => {
             const catMax = hasValidNumber(cat?.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : safeMaxScore;
             const catMin = hasValidNumber(cat?.minScore) ? Math.min(Number(cat.minScore), catMax) : safeMinScore;
-            const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false);
+            const history = Object.values(cat.simuladoStats?.history || {}).filter(h => h && h.valid !== false && h.validated !== false);
             history.forEach(h => {
                 const hDateKey = getDateKey(h?.date || h?.createdAt);
                 if (!hDateKey || hDateKey > maxAllowedDateKey) return;

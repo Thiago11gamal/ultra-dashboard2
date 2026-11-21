@@ -180,7 +180,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
         })();
 
         return relevantSubjectAggData
-            .filter(d => d.timedQuestoes > 0 && d.timeSpent >= 0)
+            .filter(d => d.timedQuestoes > 0 && d.timeSpent > 0)
             .map((d) => {
                 // Média geral
                 const avgSeconds = Math.round(d.timeSpent / d.timedQuestoes);
@@ -330,24 +330,25 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({ subjectAggDat
     const legendStats = useMemo(() => {
         return chartData.reduce((acc, item) => {
             if (item.displaySeconds != null && Number.isFinite(Number(item.displaySeconds))) {
-            acc.avg += Number(item.displaySeconds);
-            acc.avgCount += 1;
-        }
+                const w = Number(item.timedQuestoes) > 0 ? Number(item.timedQuestoes) : 1;
+                acc.avgWeighted += Number(item.displaySeconds) * w;
+                acc.avgWeight += w;
+            }
 
-        if (item.latestSeconds != null && Number.isFinite(Number(item.latestSeconds)) && Number(item.latestSeconds) > 0) {
-            acc.latest += Number(item.latestSeconds);
-            acc.latestCount += 1;
+            if (item.latestSeconds != null && Number.isFinite(Number(item.latestSeconds)) && Number(item.latestSeconds) > 0) {
+                acc.latest += Number(item.latestSeconds);
+                acc.latestCount += 1;
 
-            const margin = Math.max(1, Math.round((Number(item.displaySeconds) || 0) * 0.05));
-            if (Number(item.latestSeconds) > Number(item.displaySeconds) + margin) acc.above += 1;
-            if (Number(item.latestSeconds) < Number(item.displaySeconds) - margin) acc.below += 1;
-        }
-        return acc;
-    }, { avg: 0, latest: 0, above: 0, below: 0, avgCount: 0, latestCount: 0 });
+                const margin = Math.max(1, Math.round((Number(item.displaySeconds) || 0) * 0.05));
+                if (Number(item.latestSeconds) > Number(item.displaySeconds) + margin) acc.above += 1;
+                if (Number(item.latestSeconds) < Number(item.displaySeconds) - margin) acc.below += 1;
+            }
+            return acc;
+        }, { avgWeighted: 0, avgWeight: 0, latest: 0, above: 0, below: 0, latestCount: 0 });
     }, [chartData]);
 
-    const legendAvgSeconds = legendStats.avgCount > 0
-        ? Math.round(legendStats.avg / legendStats.avgCount) : null;
+    const legendAvgSeconds = legendStats.avgWeight > 0
+        ? Math.round(legendStats.avgWeighted / legendStats.avgWeight) : null;
 
     const legendLatestSeconds = legendStats.latestCount > 0
         ? Math.round(legendStats.latest / legendStats.latestCount) : null;

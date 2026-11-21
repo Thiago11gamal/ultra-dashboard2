@@ -1,6 +1,15 @@
 import { normalizeDate, toDateMs } from "../utils/dateHelper.js";
 import { getSafeScore, getSyntheticTotal, extractTopicsTotals } from "../utils/scoreHelper.js";
 import { pointsToRatio } from "../utils/scoreHelper.conversions.js";
+import {
+    buildSpeedAccuracyData,
+    buildExamPacingData,
+    buildConsistencyBoxPlotData,
+    buildProjectionFanData,
+    buildKalmanChartData
+} from "../utils/advancedChartHelpers.js";
+import { computeWeeklyCategoryCorrelation } from "./diagnostics.js";
+import { estimateIRTAbility } from "./adaptive/irtEngine.js";
 
 const toHistoryArray = (history) => {
     if (Array.isArray(history)) return history.filter(Boolean);
@@ -39,7 +48,15 @@ export function generateEvolutionInsights({
     unit = '%',
     maxScore = 100,
     minScore = 0,
-    showOnlyFocus = false
+    showOnlyFocus = false,
+    simuladoRows = [],
+    targetScore = null,
+    projectDays = 30,
+    examDurationMinutes = null,
+    examTotalQuestions = null,
+    examBoard = 'PADRAO',
+    penaltyPerWrong = 0,
+    timeWindow = 'all'
 }) {
     const defaultTitle = "Análise do Sistema";
     const effectiveTimeline =
@@ -77,6 +94,24 @@ export function generateEvolutionInsights({
                 return { type: 'info', icon: "📆", title: "Visão Global: Acelerômetro Semanal", text: "Balanço geral de ganhos e perdas na semana.", details: "Selecione uma disciplina acima para focar no esforço semanal." };
             case "today_vs_general":
                 return { type: 'info', icon: "⚖️", title: "Visão Global: Hoje vs Geral", text: "Comparativo do seu dia contra a média histórica geral.", details: "Selecione uma disciplina acima para um comparativo específico." };
+            case "speed_accuracy":
+                return { type: 'info', icon: "⚡", title: "Visão Global: Speed × Precisão", text: "Cruzando tempo por questão contra taxa de acerto em todas as disciplinas.", details: "Selecione uma disciplina ou ative 'Apenas Foco' para isolar os subtópicos mais lentos." };
+            case "exam_pacing":
+                return { type: 'info', icon: "⏱️", title: "Visão Global: Ritmo de Prova", text: "Simulação do orçamento total de tempo da prova.", details: "Configure a duração e o número de questões do seu edital para prever estouros de tempo." };
+            case "consistency_boxplot":
+                return { type: 'info', icon: "📦", title: "Visão Global: Box Plot de Consistência", text: "Distribuição estatística (Mín–Q1–Mediana–Q3–Máx) das suas disciplinas.", details: "Compare a largura das caixas (IQR) para achar matérias voláteis que ameaçam sua regularidade." };
+            case "projection_fan":
+                return { type: 'info', icon: "🎯", title: "Visão Global: Cone de Projeção", text: "Cenários probabilísticos futuros (P10 a P90) até o dia da prova.", details: "Selecione uma disciplina para projetar o cone específico dela." };
+            case "kalman_latent":
+                return { type: 'info', icon: "🧲", title: "Visão Global: Filtro de Kalman", text: "Separando habilidade latente real do ruído pontual de simulados.", details: "Selecione uma disciplina para visualizar sua curva filtrada." };
+            case "tornado_whatif":
+                return { type: 'info', icon: "🌪️", title: "Visão Global: Tornado & Risco", text: "Decomposição das causas de eliminação e impacto por disciplina.", details: "Use os sliders 'E Se?' para testar onde seu esforço gera mais pontos de aprovação." };
+            case "correlation_regimes":
+                return { type: 'info', icon: "🔗", title: "Visão Global: Correlação & Regimes", text: "Detectando efeito gangorra entre disciplinas e regimes de aprendizagem.", details: "Observe pares com correlação negativa forte para intercalá-los na semana." };
+            case "irt_psychometric":
+                return { type: 'info', icon: "🧬", title: "Visão Global: Psicometria TRI & Chute", text: "Habilidade latente θ independente da dificuldade e estratégia ótima para sua banca.", details: "Configure sua banca para descobrir o ponto de equilíbrio de chutes vs abstenção." };
+            case "metacognition_fatigue":
+                return { type: 'info', icon: "🧠", title: "Visão Global: Metacognição & Fadiga", text: "Confiança × acerto, causas raiz dos erros e queda de rendimento intraprova.", details: "Priorize erros marcados com 'Certeza' para transformar em Flashcards FSRS." };
             default:
                 return {
                     type: 'info', icon: "📊", title: "Visão Global",
@@ -372,5 +407,293 @@ export function generateEvolutionInsights({
         };
     }
 
-    return { type: 'info', icon: "✅", title: "++Rendimento de Mestre++", text: `Operando na zona de ++máxima eficiência++.`, advice: "Mantenha o ritmo." };
+    const safeCategoriesList = Array.isArray(categories)
+        ? categories.filter(Boolean)
+        : Object.values(categories || {}).filter(Boolean);
+    const safeRowsList = Array.isArray(simuladoRows)
+        ? simuladoRows.filter(Boolean)
+        : Object.values(simuladoRows || {}).filter(Boolean);
+    const effTarget = safeFinite(
+        focusCategory?.minCutoff,
+        safeFinite(targetScore, safeMinScore + (safeMaxScore - safeMinScore) * 0.8)
+    );
+
+    // Lógica Speed × Precisão
+    if (activeEngine === "speed_accuracy") {
+        const dur = safeFinite(examDurationMinutes, 0);
+        const totQ = safeFinite(examTotalQuestions, 0);
+        const idealSec = dur > 0 && totQ > 0 ? Math.round((dur * 60) / totQ) : null;
+        const speedData = buildSpeedAccuracyData(safeCategoriesList, safeRowsList, {
+            mode: 'subject',
+            showOnlyFocus,
+            focusSubjectId: focusCategory.id,
+            timeWindow,
+            targetScore: effTarget,
+            minScore: showOnlyFocus ? safeMinScore : globalMinScore,
+            maxScore: showOnlyFocus ? safeMaxScore : globalMaxScore,
+            idealSecondsPerQuestion: idealSec
+        });
+        if (!speedData.points.length) {
+            return {
+                type: 'info', icon: "⚡", title: "Matriz Speed × Precisão",
+                text: "Aguardando registros cronometrados.",
+                details: "Faça simulados com cronômetro para posicionar cada matéria nos 4 quadrantes.",
+                advice: "Use o Simulado IA ou informe o tempo gasto para mapear velocidade × acerto."
+            };
+        }
+        const { fastAccurate, fastInaccurate, slowAccurate, slowInaccurate } = speedData.quadrants;
+        if (slowInaccurate > 0) {
+            return {
+                type: 'danger', icon: "⚡", title: "!!Gargalos em Lacuna Teórica!!",
+                text: `!!${slowInaccurate} ${slowInaccurate === 1 ? 'matéria' : 'matérias'}!! com tempo alto e acerto abaixo da meta.`,
+                details: `Alvo de velocidade: ${speedData.benchmarkSeconds}s/q · Domínio Rápido: ++${fastAccurate}++ · Leitura Apressada: ${fastInaccurate} · Precisa Agilidade: ${slowAccurate}.`,
+                advice: "Revise a teoria base nos itens em !!vermelho!! antes de tentar acelerar o relógio."
+            };
+        }
+        if (fastInaccurate > 0) {
+            return {
+                type: 'warning', icon: "⚡", title: "Alerta de Leitura Apressada",
+                text: `${fastInaccurate} ${fastInaccurate === 1 ? 'matéria' : 'matérias'} em ritmo rápido, mas abaixo da meta.`,
+                details: `Você está abaixo de ${speedData.benchmarkSeconds}s/q, porém perdendo pontos por precipitação.`,
+                advice: "Desacelere 15–20s por questão e releia os comandos ('exceto', 'incorreta') para subir a precisão."
+            };
+        }
+        return {
+            type: 'success', icon: "⚡", title: "++Equilíbrio Speed × Precisão++",
+            text: `++${fastAccurate}++ em Domínio Rápido e ${slowAccurate} precisando apenas de mais agilidade.`,
+            details: `Referência atual: ${speedData.benchmarkSeconds}s/questão e meta de ${speedData.targetPct}%.`,
+            advice: slowAccurate > 0 ? "Treine blocos cronometrados nas matérias azuis para ganhar ritmo sem perder acerto." : "Excelente ritmo! Mantenha a calibragem nos simulados completos."
+        };
+    }
+
+    // Lógica Ritmo de Prova (Exam Pacing)
+    if (activeEngine === "exam_pacing") {
+        const pacing = buildExamPacingData(safeCategoriesList, {
+            examDurationMinutes: safeFinite(examDurationMinutes, 240),
+            examTotalQuestions: safeFinite(examTotalQuestions, 100),
+            timeWindow
+        });
+        if (!pacing.hasData) {
+            return {
+                type: 'info', icon: "⏱️", title: "Simulador de Ritmo de Prova",
+                text: "Sem dados cronometrados para simular a prova completa.",
+                details: "Cronometre seus simulados para estimar se o tempo total caberá no limite do edital.",
+                advice: "Registre o tempo nos próximos simulados e salve a duração oficial da sua banca."
+            };
+        }
+        if (pacing.deltaMinutes > 0) {
+            const topBottle = pacing.subjects[0];
+            return {
+                type: 'danger', icon: "⏱️", title: "!!Risco de Estouro de Relógio!!",
+                text: `Projeção de !!+${Math.round(pacing.deltaMinutes)} min acima do limite!! (~${pacing.estimatedUnanswered} questões sem tempo).`,
+                details: topBottle ? `Maior gargalo: **${topBottle.name}** (${topBottle.avgSecPerQ}s/q, saldo de +${topBottle.deltaMinutes} min).` : `Ritmo alvo: ${pacing.idealSecPerQuestion}s/q.`,
+                advice: "Treine resolução cronometrada nas disciplinas com barra ciano maior que o orçamento cinza."
+            };
+        }
+        return {
+            type: 'success', icon: "⏱️", title: "++Orçamento de Tempo Saudável++",
+            text: `++Folga estimada de ${Math.round(Math.abs(pacing.deltaMinutes))} min++ para gabarito e revisão.`,
+            details: `Tempo projetado: ${Math.round(pacing.totalProjectedMinutes)} min de ${pacing.examDurationMinutes} min (alvo ${pacing.idealSecPerQuestion}s/q).`,
+            advice: "Use a folga para revisar questões marcadas como 'Dúvida' e preencher o cartão com calma."
+        };
+    }
+
+    // Lógica Consistência (Box Plot)
+    if (activeEngine === "consistency_boxplot") {
+        const box = buildConsistencyBoxPlotData(safeCategoriesList, {
+            showOnlyFocus,
+            focusSubjectId: focusCategory.id,
+            timeWindow,
+            minScore: showOnlyFocus ? safeMinScore : globalMinScore,
+            maxScore: showOnlyFocus ? safeMaxScore : globalMaxScore
+        });
+        const volatileRows = box.rows.filter((r) => r.stability === 'Volátil');
+        if (!box.rows.length) {
+            return {
+                type: 'info', icon: "📦", title: "Consistência por Disciplina",
+                text: "Registre simulados para mapear quartis (Q1–Mediana–Q3).",
+                details: "O Box Plot revela se sua média vem de regularidade real ou de picos isolados.",
+                advice: "Mantenha ao menos 3 simulados por disciplina para medir estabilidade (IQR)."
+            };
+        }
+        if (volatileRows.length > 0) {
+            return {
+                type: 'warning', icon: "📦", title: "!!Disciplinas Voláteis Detectadas!!",
+                text: `!!${volatileRows.length} ${volatileRows.length === 1 ? 'matéria' : 'matérias'}!! com alta dispersão (IQR elevado).`,
+                details: `Mais instável: **${volatileRows[0].name}** (Mín ${volatileRows[0].min}${unit} → Máx ${volatileRows[0].max}${unit}, IQR ${volatileRows[0].iqr.toFixed(1)}).`,
+                advice: "Ataque os subtópicos que causam quedas bruscas para estreitar a caixa Q1–Q3."
+            };
+        }
+        return {
+            type: 'success', icon: "📦", title: "++Regularidade Estatística Sólida++",
+            text: `Nenhuma disciplina classificada como volátil no período.`,
+            details: `Melhor mediana: **${box.rows[0].name}** (${box.rows[0].median}${unit}).`,
+            advice: "Caixas estreitas significam baixa chance de surpresa no dia da prova. Mantenha!"
+        };
+    }
+
+    // Lógica Cone Futuro (Projection Fan)
+    if (activeEngine === "projection_fan") {
+        const fan = buildProjectionFanData(focusCategory, effectiveTimeline, {
+            minScore: safeMinScore,
+            maxScore: safeMaxScore,
+            targetScore: effTarget,
+            horizonDays: safeFinite(projectDays, 60)
+        });
+        if (!fan.summary) {
+            return {
+                type: 'info', icon: "🎯", title: "Cone de Projeção Futuro",
+                text: `Aguardando simulados em ${focusCategory.name}.`,
+                details: "Cadastre registros para projetar as faixas P10, P50 e P90 até o dia da prova.",
+                advice: "Quanto mais constante seu histórico, mais estreito e confiável fica o cone."
+            };
+        }
+        const hitsTarget = fan.summary.finalP50 >= effTarget;
+        return {
+            type: hitsTarget ? 'success' : 'warning',
+            icon: "🎯",
+            title: hitsTarget ? "++Projeção P50 no Rumo da Meta++" : "!!Projeção P50 Abaixo da Meta!!",
+            text: `Cenário provável (P50) em ${fan.summary.horizonDays}d: **${fan.summary.finalP50.toFixed(1)}${unit}** (P10: ${fan.summary.finalP10.toFixed(1)} – P90: ${fan.summary.finalP90.toFixed(1)}).`,
+            details: fan.targetCrossingDate
+                ? `A mediana P50 cruza a meta (${effTarget.toFixed(1)}${unit}) em ++${fan.targetCrossingDate.split('-').reverse().join('/')}++.`
+                : `No ritmo atual (${fan.summary.monthlyTrend >= 0 ? '+' : ''}${fan.summary.monthlyTrend}${unit}/mês), a mediana ainda não alcança ${effTarget.toFixed(1)}${unit} no prazo.`,
+            advice: hitsTarget
+                ? "Mantenha a frequência para puxar também o cenário conservador (P10) para cima da meta."
+                : "Eleve o volume de questões focadas nos subtópicos críticos para inclinar o cone para cima."
+        };
+    }
+
+    // Lógica Kalman Latente
+    if (activeEngine === "kalman_latent") {
+        const kalman = buildKalmanChartData(focusCategory, effectiveTimeline, {
+            minScore: safeMinScore,
+            maxScore: safeMaxScore,
+            timeWindow
+        });
+        if (!kalman.summary) {
+            return {
+                type: 'info', icon: "🧲", title: "Filtro de Kalman (State-Space)",
+                text: `Necessário ao menos 2 simulados em ${focusCategory.name}.`,
+                details: "O filtro separa sua habilidade real latente de choques aleatórios de simulados atípicos.",
+                advice: "Registre mais simulados para acompanhar a velocidade estrutural real."
+            };
+        }
+        const { ability, trendPerMonth, noiseReductionPct, outlierCount } = kalman.summary;
+        const positive = trendPerMonth >= 0;
+        return {
+            type: positive ? 'success' : 'warning',
+            icon: "🧲",
+            title: positive ? "++Habilidade Latente em Evolução++" : "!!Tendência Latente em Queda!!",
+            text: `Habilidade real estimada: **${ability.toFixed(1)}${unit}** (${positive ? '+' : ''}${trendPerMonth.toFixed(1)}${unit}/mês).`,
+            details: `O filtro removeu ++${noiseReductionPct}%++ do ruído bruto e absorveu ${outlierCount} ${outlierCount === 1 ? 'choque pontual' : 'choques pontuais'}.`,
+            advice: positive
+                ? "Confie na curva verde mesmo quando surgir um simulado pontual fora da curva."
+                : "A queda apareceu até na curva filtrada (não é só ruído) — revise a base de " + focusCategory.name + "."
+        };
+    }
+
+    // Lógica Tornado & Risco
+    if (activeEngine === "tornado_whatif") {
+        const withCutoff = safeCategoriesList.filter((c) => safeFinite(c?.minCutoff, 0) > (safeFinite(c?.minScore, globalMinScore)));
+        return {
+            type: 'info',
+            icon: "🌪️",
+            title: "Tornado de Sensibilidade & Risco",
+            text: `Simulando alavancagem de aprovação entre ${safeCategoriesList.length} disciplinas.`,
+            details: withCutoff.length > 0
+                ? `${withCutoff.length} disciplinas possuem corte mínimo configurado — observe a barra vermelha de eliminação por mínimo.`
+                : "Configure cortes mínimos por disciplina ou por bloco do edital para medir o risco exato de eliminação.",
+            advice: "Priorize estudo na matéria no topo do diagrama de Tornado — ela move mais pontos de aprovação por hora investida."
+        };
+    }
+
+    // Lógica Correlação & Regimes
+    if (activeEngine === "correlation_regimes") {
+        const corr = computeWeeklyCategoryCorrelation(safeCategoriesList, globalMaxScore, globalMinScore);
+        const crowding = corr.pairs.filter((p) => p.type === 'crowding_out');
+        if (crowding.length > 0) {
+            return {
+                type: 'warning',
+                icon: "🔗",
+                title: "!!Efeito Gangorra Detectado!!",
+                text: `!!${crowding[0].catA} × ${crowding[0].catB}!! oscilam em direções opostas (r = ${crowding[0].r}).`,
+                details: "Quando você foca demais em uma, a outra perde rendimento por falta de revisão semanal.",
+                advice: "Intercale sessões curtas das duas disciplinas na mesma semana para quebrar a canibalização."
+            };
+        }
+        return {
+            type: 'info',
+            icon: "🔗",
+            title: "Correlação Semanal & Regimes",
+            text: corr.pairs.length > 0 ? "Nenhum efeito gangorra forte detectado entre as disciplinas." : "Aguardando ≥ 3 semanas comuns entre disciplinas.",
+            details: "Cruza correlação semanal (r) com o Expoente de Hurst (H) e a velocidade de ganho.",
+            advice: "Busque manter suas disciplinas no quadrante verde (H > 0.58 e velocidade positiva)."
+        };
+    }
+
+    // Lógica TRI & Chute
+    if (activeEngine === "irt_psychometric") {
+        const fromRows = safeRowsList.filter((r) => r.valid !== false && r.validated !== false);
+        const fromHist = safeCategoriesList.flatMap((c) => toHistoryArray(c?.simuladoStats?.history));
+        const irt = estimateIRTAbility(fromRows.length > 0 ? fromRows : fromHist, { minScore: globalMinScore, maxScore: globalMaxScore });
+        if (!irt.hasData) {
+            return {
+                type: 'info', icon: "🧬", title: "Psicometria TRI & Estratégia de Chute",
+                text: "Aguardando simulados para calibrar sua habilidade θ.",
+                details: "A TRI mede sua proficiência descontando se a prova foi fácil ou difícil.",
+                advice: "Configure sua banca (" + examBoard + ") e marque sua confiança no Simulado IA."
+            };
+        }
+        if (irt.pedagogicalIncoherence) {
+            return {
+                type: 'warning', icon: "🧬", title: "!!Incoerência TRI Detectada!!",
+                text: `Habilidade estimada θ = **${irt.theta >= 0 ? '+' : ''}${irt.theta}**, mas com falhas em questões fáceis.`,
+                details: irt.incoherenceMessage,
+                advice: "Atenção redobrada em questões fáceis — na TRI elas pesam muito na coerência da nota."
+            };
+        }
+        return {
+            type: irt.theta >= 0.5 ? 'success' : 'info',
+            icon: "🧬",
+            title: "Diagnóstico Psicométrico TRI",
+            text: `Habilidade latente θ = **${irt.theta >= 0 ? '+' : ''}${irt.theta}** (±${irt.thetaSe}) · Zona Proximal: ++${irt.recommendedDifficulty}++.`,
+            details: penaltyPerWrong > 0
+                ? `Banca ${examBoard} com penalidade −${penaltyPerWrong}: valide seu ponto de equilíbrio de chute abaixo.`
+                : `Banca ${examBoard} sem penalidade por erro — concentre-se em treinar no nível ${irt.recommendedDifficulty}.`,
+            advice: `Gere o próximo Simulado IA no nível **${irt.recommendedDifficulty}** para maximizar o aprendizado (~70% de acerto).`
+        };
+    }
+
+    // Lógica Metacognição & Fadiga
+    if (activeEngine === "metacognition_fatigue") {
+        const tel = safeRowsList
+            .filter((r) => r.valid !== false && r.validated !== false)
+            .flatMap((r) => (Array.isArray(r.questionTelemetry) ? r.questionTelemetry : []));
+        if (!tel.length) {
+            return {
+                type: 'info', icon: "🧠", title: "Metacognição & Fadiga Intraprova",
+                text: "Telemetria aguardando seu próximo Simulado IA.",
+                details: "Marque confiança (Certeza / Dúvida / Chute) e causa dos erros para mapear ilusão de competência e queda de rendimento.",
+                advice: "Use o Simulado IA — o tempo e o quartil de cada questão são capturados automaticamente."
+            };
+        }
+        const certezaErr = tel.filter((q) => q.confidence === 'certeza' && !q.correct && q.wasAnswered !== false).length;
+        const certezaOk = tel.filter((q) => q.confidence === 'certeza' && q.correct).length;
+        if (certezaErr > 0) {
+            return {
+                type: 'warning', icon: "🧠", title: "!!Ilusão de Competência Detectada!!",
+                text: `!!${certezaErr} ${certezaErr === 1 ? 'erro crítico' : 'erros críticos'}!! em questões marcadas com 'Certeza' (vs ++${certezaOk}++ acertos seguros).`,
+                details: "Errar tendo certeza indica regra memorizada incorretamente ou pegadinha recorrente da banca.",
+                advice: "Converta esses erros em Flashcards FSRS imediatamente — eles trazem o maior retorno de pontos."
+            };
+        }
+        return {
+            type: 'success', icon: "🧠", title: "++Boa Calibração Metacognitiva++",
+            text: `++${certezaOk} acertos com certeza++ e nenhum erro crítico de ilusão de competência.`,
+            details: `Analisando ${tel.length} questões com telemetria para acompanhar fadiga do 1º ao 4º quarto.`,
+            advice: "Continue marcando confiança nos simulados para monitorar resistência em provas longas."
+        };
+    }
+
+    return { type: 'info', icon: "📊", title: "Diagnóstico Analítico", text: `Acompanhando ${focusCategory.name}.`, advice: "Combine a leitura dos gráficos com revisões direcionadas nos tópicos críticos." };
 }
