@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { Gauge, Layers, BookOpen } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { buildSpeedAccuracyData } from '../../../utils/advancedChartHelpers';
 
 const formatSec = (s) => {
@@ -128,8 +129,45 @@ export const SpeedAccuracyChart = React.memo(function SpeedAccuracyChart({
     return Math.ceil((highest * 1.15) / 15) * 15;
   }, [data]);
 
+  const speedBenchmark = useMemo(() => {
+    if (!data.points.length) return null;
+    const totalQ = data.points.reduce((acc, p) => acc + Math.max(1, Number(p.totalQuestions) || 1), 0);
+    const avgSec = data.points.reduce((acc, p) => acc + p.avgSeconds * Math.max(1, Number(p.totalQuestions) || 1), 0) / totalQ;
+    const avgAcc = data.points.reduce((acc, p) => acc + p.accuracyPct * Math.max(1, Number(p.totalQuestions) || 1), 0) / totalQ;
+    const fastAcc = data.quadrants.fastAccurate || 0;
+    const secDiff = Math.round(avgSec - data.benchmarkSeconds);
+    const accDiff = avgAcc - data.targetPct;
+    const isOptimal = secDiff <= 0 && accDiff >= 0;
+    const status = isOptimal ? 'success' : (accDiff >= -8 && secDiff <= 25 ? 'warning' : 'danger');
+    const gapParts = [];
+    if (secDiff > 0) gapParts.push(`+${secDiff}s/q`);
+    else gapParts.push(`${secDiff}s/q`);
+    gapParts.push(accDiff >= 0 ? `+${accDiff.toFixed(1)}pp` : `${accDiff.toFixed(1)}pp`);
+    return {
+      currentValue: `${formatSec(avgSec)}/q · ${avgAcc.toFixed(1)}%`,
+      targetValue: `≤ ${formatSec(data.benchmarkSeconds)}/q · ≥ ${data.targetPct}%`,
+      gapLabel: isOptimal ? 'Na zona ideal ✓' : gapParts.join(' · '),
+      status,
+      progressPct: (fastAcc / Math.max(1, data.points.length)) * 100,
+      extra: `${fastAcc}/${data.points.length} em Domínio Rápido`,
+    };
+  }, [data]);
+
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-4">
+      {speedBenchmark && (
+        <BenchmarkStrip
+          currentLabel="Seu ritmo × acerto"
+          currentValue={speedBenchmark.currentValue}
+          targetLabel="Alvo"
+          targetValue={speedBenchmark.targetValue}
+          gapLabel={speedBenchmark.gapLabel}
+          status={speedBenchmark.status}
+          progressPct={speedBenchmark.progressPct}
+          extra={speedBenchmark.extra}
+          compact
+        />
+      )}
       {/* Controles + Resumo dos 4 quadrantes */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] p-1 rounded-xl shadow-inner">

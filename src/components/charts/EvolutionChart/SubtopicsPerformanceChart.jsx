@@ -10,6 +10,7 @@ import { getSafeScore, formatValue, getSyntheticTotal, resolveEffectiveCorrect }
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 import { filterHistoryByTimeWindow } from "../../../hooks/useSubjectAggData";
 import { ChartFrame } from "../ChartFrame";
+import { BenchmarkStrip } from "../../ui/BenchmarkStrip";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -489,9 +490,32 @@ export const SubtopicsPerformanceChart = React.memo(({
         return Math.max(420, Math.min(chartData.length * 48, 1600));
     }, [chartData.length]);
 
+    const subtopicsBenchmark = useMemo(() => {
+        if (!chartData.length) return null;
+        let weightedAcc = 0;
+        let weightSum = 0;
+        let onTarget = 0;
+        chartData.forEach((item) => {
+            const w = Math.max(1, Number(item.realTotal ?? item.total) || 1);
+            weightedAcc += (Number(item.accuracy) || 0) * w;
+            weightSum += w;
+            if ((Number(item.accuracy) || 0) >= targetScorePct) onTarget += 1;
+        });
+        const avgAcc = weightSum > 0 ? weightedAcc / weightSum : 0;
+        const diff = avgAcc - targetScorePct;
+        return {
+            currentValue: `${formatValue(avgAcc)}%`,
+            targetValue: `${formatValue(targetScorePct)}%`,
+            gapLabel: diff >= 0 ? `+${formatValue(diff)}pp acima` : `Faltam ${formatValue(Math.abs(diff))}pp`,
+            status: diff >= 0 ? 'success' : diff >= -10 ? 'warning' : 'danger',
+            progressPct: targetScorePct > 0 ? (avgAcc / targetScorePct) * 100 : 100,
+            extra: `${onTarget}/${chartData.length} tópicos na meta`,
+        };
+    }, [chartData, targetScorePct]);
+
     return (
         <div className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl p-4 sm:p-5 shadow-xl w-full min-h-[540px]" id={`subtopics_container_${instanceId}`}>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5 px-1 gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-1 gap-3">
                 <div>
                     <h3 className="text-base sm:text-lg font-black text-white mb-0.5 tracking-tight">
                         Raio-X de Tópicos
@@ -518,6 +542,21 @@ export const SubtopicsPerformanceChart = React.memo(({
                     </button>
                 </div>
             </div>
+
+            {subtopicsBenchmark && (
+                <BenchmarkStrip
+                    currentLabel="Média dos assuntos"
+                    currentValue={subtopicsBenchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={subtopicsBenchmark.targetValue}
+                    gapLabel={subtopicsBenchmark.gapLabel}
+                    status={subtopicsBenchmark.status}
+                    progressPct={subtopicsBenchmark.progressPct}
+                    extra={subtopicsBenchmark.extra}
+                    compact
+                    className="mb-4"
+                />
+            )}
 
             {chartData.length === 0 ? (
                 <div className="h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 mt-4 p-6 text-center">
@@ -580,10 +619,14 @@ export const SubtopicsPerformanceChart = React.memo(({
                                     formatter={(value, name, props) => {
                                         const entry = props?.payload;
                                         if (!entry) return [value, name];
+                                        const diff = Number(value) - targetScorePct;
+                                        const gapText = Number.isFinite(diff)
+                                            ? (diff >= 0 ? ` · +${formatValue(diff)}pp meta` : ` · ${formatValue(diff)}pp meta`)
+                                            : '';
                                         if (entry.isSynthetic) {
-                                            return [`${formatValue(value)}% (simulado percentual)`, 'Precisão'];
+                                            return [`${formatValue(value)}% (simulado percentual)${gapText}`, 'Precisão'];
                                         }
-                                        return [`${formatValue(value)}% (${entry.realCorrect ?? entry.correct ?? 0}/${entry.realTotal ?? entry.total ?? 0} acertos)`, 'Precisão'];
+                                        return [`${formatValue(value)}% (${entry.realCorrect ?? entry.correct ?? 0}/${entry.realTotal ?? entry.total ?? 0} acertos)${gapText}`, 'Precisão'];
                                     }}
                                     labelFormatter={(label) => <span className="font-black text-amber-400 tracking-wider uppercase text-[10px]">{label}</span>}
                                 />

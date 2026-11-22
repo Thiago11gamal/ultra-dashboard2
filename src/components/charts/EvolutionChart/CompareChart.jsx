@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
+import { BenchmarkStrip } from "../../ui/BenchmarkStrip";
 import { normalizeDate, formatDisplayDate, formatDuration } from '../../../utils/dateHelper';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -285,15 +286,55 @@ export const CompareChart = React.memo(function CompareChart({
     }, [lastValidIdx.mc]);
 
     const renderCompareTooltip = useCallback(
-        (props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} />,
-        [chartData, unit, safeMaxScore, safeMinScore]
+        (props) => <ChartTooltip {...props} chartData={chartData} isCompare={true} unit={unit} maxScore={safeMaxScore} minScore={safeMinScore} targetScore={safeTargetScore} />,
+        [chartData, unit, safeMaxScore, safeMinScore, safeTargetScore]
     );
+
+    const compareBenchmark = useMemo(() => {
+        const latestBay = lastValidIdx.bay >= 0 ? Number(chartData[lastValidIdx.bay]?.["Nível Bayesiano"]) : null;
+        const latestMc = lastValidIdx.mc >= 0 ? Number(chartData[lastValidIdx.mc]?.["Futuro Provável"]) : null;
+        const refVal = Number.isFinite(latestMc) ? latestMc : (Number.isFinite(latestBay) ? latestBay : null);
+        if (refVal == null) return null;
+        const diff = refVal - safeTargetScore;
+        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
+        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+        const fmt = (v) => (unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit}`);
+        return {
+            currentLabel: Number.isFinite(latestMc) ? 'Projeção MC' : 'Nível atual',
+            currentValue: fmt(refVal),
+            targetValue: fmt(safeTargetScore),
+            gapLabel: diff >= 0
+                ? `+${formatValue(diff)}${gapUnit} acima`
+                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            progressPct: safeTargetScore > safeMinScore
+                ? ((refVal - safeMinScore) / Math.max(1e-9, safeTargetScore - safeMinScore)) * 100
+                : 100,
+            extra: (Number.isFinite(latestBay) && Number.isFinite(latestMc))
+                ? `Hoje: ${fmt(latestBay)}`
+                : null,
+        };
+    }, [chartData, lastValidIdx, safeTargetScore, safeMinScore, safeMaxScore, unit]);
 
     const animateSeries = false;
 
     const heightClass = expanded ? 'h-[480px] sm:h-[580px] md:h-[640px]' : 'h-[340px] sm:h-[400px] lg:h-[450px]';
 
     return (
+        <div className="w-full space-y-3">
+            {compareBenchmark && (
+                <BenchmarkStrip
+                    currentLabel={compareBenchmark.currentLabel}
+                    currentValue={compareBenchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={compareBenchmark.targetValue}
+                    gapLabel={compareBenchmark.gapLabel}
+                    status={compareBenchmark.status}
+                    progressPct={compareBenchmark.progressPct}
+                    extra={compareBenchmark.extra}
+                    compact
+                />
+            )}
         <div ref={containerRef} className={`${heightClass} w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300`}>
             <ChartFrame minHeight={340} label="Comparando evolução">
                 <ResponsiveContainer width="100%" height="100%" minHeight={340} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
@@ -437,6 +478,7 @@ export const CompareChart = React.memo(function CompareChart({
                 </ComposedChart>
                 </ResponsiveContainer>
             </ChartFrame>
+        </div>
         </div>
     );
 });

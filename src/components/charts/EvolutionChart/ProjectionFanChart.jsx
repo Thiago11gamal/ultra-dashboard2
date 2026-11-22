@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { Compass, Target, Globe } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { buildProjectionFanData } from '../../../utils/advancedChartHelpers';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -100,6 +101,24 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
 
   return (
     <div className="w-full space-y-4">
+      {data.summary && (() => {
+        const diff = data.summary.finalP50 - targetScore;
+        const range = Math.max(1e-9, maxScore - minScore);
+        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+        return (
+          <BenchmarkStrip
+            currentLabel={`Hoje ${fmt(data.summary.currentLevel)} · P50 (${effectiveHorizon}d)`}
+            currentValue={fmt(data.summary.finalP50)}
+            targetLabel="Meta"
+            targetValue={fmt(targetScore)}
+            gapLabel={diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`}
+            status={diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger'}
+            progressPct={targetScore > minScore ? ((data.summary.finalP50 - minScore) / Math.max(1e-9, targetScore - minScore)) * 100 : 100}
+            extra={data.alreadyAtTarget ? 'Já na meta ✓' : (data.targetCrossingDate ? `Cruza em ${data.targetCrossingDate.split('-').reverse().join('/')}` : 'Abaixo no prazo')}
+            compact
+          />
+        );
+      })()}
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-200 font-bold">
           {focusCategory ? <Target size={12} className="shrink-0" /> : <Globe size={12} className="shrink-0" />}

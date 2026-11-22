@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { aggregateHeatmap } from '../../utils/heatmapAggregation.js';
 import { parseNoonLocal, getDateKey } from '../../utils/dateHelper.js';
 import { addDaysNoon } from '../../utils/parseNoonLocal.js';
+import { BenchmarkStrip } from '../ui/BenchmarkStrip';
 
 // Worker singleton compartilhado entre todas as instâncias
 let sharedWorker = null;
@@ -453,6 +454,38 @@ export const EvolutionHeatmap = React.memo(({
         setHoveredCell(prev => (prev ? null : prev));
     }, []);
 
+    const heatmapBenchmark = useMemo(() => {
+        let weightedPctSum = 0;
+        let totalWeight = 0;
+        let activeCells = 0;
+        let onTargetCells = 0;
+        filteredRows.forEach(({ cat, cells }) => {
+            const rowTarget = getRowTargetPct(cat);
+            cells.forEach((cell) => {
+                if (!cell || !(Number(cell.total) > 0) || cell.pct == null || !Number.isFinite(Number(cell.pct))) return;
+                const w = Math.max(1, Number(cell.total) || 1);
+                weightedPctSum += Number(cell.pct) * w;
+                totalWeight += w;
+                activeCells += 1;
+                if (Number(cell.pct) >= rowTarget) onTargetCells += 1;
+            });
+        });
+        if (activeCells === 0 || totalWeight <= 0) return null;
+        const avgPct = weightedPctSum / totalWeight;
+        const refTarget = (showOnlyFocus && filteredRowsByFocus.length === 1)
+            ? getRowTargetPct(filteredRowsByFocus[0]?.cat)
+            : targetScorePct;
+        const diff = avgPct - refTarget;
+        return {
+            currentValue: `${avgPct.toFixed(1)}%`,
+            targetValue: `${Math.round(refTarget)}%`,
+            gapLabel: diff >= 0 ? `+${diff.toFixed(1)}pp acima` : `Faltam ${Math.abs(diff).toFixed(1)}pp`,
+            status: diff >= 0 ? 'success' : diff >= -10 ? 'warning' : 'danger',
+            progressPct: refTarget > 0 ? (avgPct / refTarget) * 100 : 100,
+            extra: `${onTargetCells}/${activeCells} registros na meta`,
+        };
+    }, [filteredRows, filteredRowsByFocus, showOnlyFocus, getRowTargetPct, targetScorePct]);
+
     if (!filteredDates.length) return (
         <div className="h-48 flex items-center justify-center text-slate-500 text-sm">
             {isAggregating ? (
@@ -535,6 +568,21 @@ export const EvolutionHeatmap = React.memo(({
                 <p className="text-[11px] text-cyan-200/90 font-semibold mb-3">
                     Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): cada célula consolida múltiplos dias do período.
                 </p>
+            )}
+
+            {heatmapBenchmark && (
+                <BenchmarkStrip
+                    currentLabel="Média no mapa"
+                    currentValue={heatmapBenchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={heatmapBenchmark.targetValue}
+                    gapLabel={heatmapBenchmark.gapLabel}
+                    status={heatmapBenchmark.status}
+                    progressPct={heatmapBenchmark.progressPct}
+                    extra={heatmapBenchmark.extra}
+                    compact
+                    className="mb-3"
+                />
             )}
 
             {/* Container com scroll horizontal dedicado */}

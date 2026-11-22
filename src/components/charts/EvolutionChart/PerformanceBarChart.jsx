@@ -6,13 +6,16 @@ import {
 } from "recharts";
 import { BarChart3, AlignLeft, Info } from 'lucide-react';
 import { ChartFrame } from "../ChartFrame";
+import { BenchmarkStrip } from "../../ui/BenchmarkStrip";
 
 export const PerformanceBarChart = React.memo(function PerformanceBarChart({
     subjectAggData,
     showOnlyFocus = false,
     focusCategory = null,
+    targetScore = null,
     unit: _unit = '%',
-    minScore: _minScore = 0
+    maxScore = 100,
+    minScore = 0
 }) {
     const instanceId = useId().replace(/:/g, "");
     const gradQuestoesId = `pb_gradQuestoes_${instanceId}`;
@@ -43,12 +46,22 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
     const [orientationOverride, setOrientationOverride] = useState(null);
     const orientation = orientationOverride || (chartData.length > 3 ? 'horizontal' : 'vertical');
 
+    const targetPct = useMemo(() => {
+        const sMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+        const sMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > sMin ? Number(maxScore) : sMin + 100;
+        const tNum = (targetScore !== null && targetScore !== undefined && targetScore !== '' && Number.isFinite(Number(targetScore)))
+            ? Number(targetScore)
+            : sMin + (sMax - sMin) * 0.8;
+        return Math.max(0, Math.min(100, ((tNum - sMin) / Math.max(1e-9, sMax - sMin)) * 100));
+    }, [targetScore, minScore, maxScore]);
+
     const totals = useMemo(() => {
         const totalQ = chartData.reduce((acc, curr) => acc + curr.questoes, 0);
         const totalA = chartData.reduce((acc, curr) => acc + curr.acertos, 0);
         const accRate = totalQ > 0 ? (totalA / totalQ) * 100 : 0;
-        return { totalQ, totalA, accRate };
-    }, [chartData]);
+        const onTarget = chartData.filter((d) => d.questoes > 0 && ((d.acertos / d.questoes) * 100) >= targetPct).length;
+        return { totalQ, totalA, accRate, onTarget };
+    }, [chartData, targetPct]);
 
     const renderTooltip = ({ active, payload }) => {
         if (active && payload && payload.length) {
@@ -56,6 +69,8 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
             const rendPctRaw = d.questoes > 0 ? ((d.acertos / d.questoes) * 100) : 0;
             const rendPct = formatValue(rendPctRaw);
             const pctAcertos = d.questoes > 0 ? (d.acertos / d.questoes) * 100 : 0;
+            const diffTarget = rendPctRaw - targetPct;
+            const warnFloor = Math.max(35, targetPct - 15);
 
             return (
                 <div className="bg-slate-950/95 backdrop-blur-xl border border-white/[0.12] p-3.5 rounded-2xl shadow-2xl min-w-[215px] max-w-[90vw]">
@@ -88,13 +103,19 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
                             <div className="h-full bg-rose-500" style={{ width: `${100 - pctAcertos}%` }} />
                         </div>
 
-                        <div className="flex justify-between items-center pt-1.5 border-t border-white/10">
+                        <div className="flex justify-between items-center pt-1.5 border-t border-white/10 gap-2">
                             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Aproveitamento</span>
-                            <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-md ${
-                                rendPctRaw >= 70 ? 'bg-emerald-500/15 text-emerald-300' :
-                                rendPctRaw >= 50 ? 'bg-amber-500/15 text-amber-300' :
+                            <span className={`text-xs font-mono font-black px-2 py-0.5 rounded-md tabular-nums ${
+                                rendPctRaw >= targetPct ? 'bg-emerald-500/15 text-emerald-300' :
+                                rendPctRaw >= warnFloor ? 'bg-amber-500/15 text-amber-300' :
                                 'bg-rose-500/15 text-rose-300'
                             }`}>{rendPct}%</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[11px] font-mono tabular-nums">
+                            <span className="text-slate-400 font-sans">vs Meta ({formatValue(targetPct)}%):</span>
+                            <span className={`font-bold ${diffTarget >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                                {diffTarget >= 0 ? `+${formatValue(diffTarget)}pp ✓` : `${formatValue(diffTarget)}pp`}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -163,6 +184,24 @@ export const PerformanceBarChart = React.memo(function PerformanceBarChart({
                         </div>
                     )}
                 </div>
+
+                {totals.totalQ > 0 && (() => {
+                    const diff = totals.accRate - targetPct;
+                    return (
+                        <BenchmarkStrip
+                            currentLabel="Precisão real"
+                            currentValue={`${formatValue(totals.accRate)}%`}
+                            targetLabel="Meta"
+                            targetValue={`${formatValue(targetPct)}%`}
+                            gapLabel={diff >= 0 ? `+${formatValue(diff)}pp acima` : `Faltam ${formatValue(Math.abs(diff))}pp`}
+                            status={diff >= 0 ? 'success' : diff >= -10 ? 'warning' : 'danger'}
+                            progressPct={targetPct > 0 ? (totals.accRate / targetPct) * 100 : 100}
+                            extra={chartData.length > 1 ? `${totals.onTarget}/${chartData.length} na meta` : null}
+                            compact
+                            className="mt-2.5"
+                        />
+                    );
+                })()}
             </div>
 
             <div className="w-full flex-1 flex flex-col justify-center">

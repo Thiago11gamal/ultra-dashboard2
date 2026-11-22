@@ -9,6 +9,7 @@ import { formatDuration, normalizeDate, getDateKey } from '../../../utils/dateHe
 import { formatValue, formatPercent } from '../../../utils/scoreHelper';
 import { applyScenarioAdjustments, classifyScenarioSignal } from '../../../utils/monteCarloScenario.js';
 import { normalizeProbability } from '../../../utils/evolutionGuards';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -211,6 +212,30 @@ export const MonteCarloEvolutionChart = React.memo(({
 
 
 
+    const mcBenchmark = useMemo(() => {
+        if (!scenarioAdjustedData.length) return null;
+        const latest = scenarioAdjustedData[scenarioAdjustedData.length - 1];
+        const proj = Number(latest?.projectedMean ?? latest?.mean);
+        if (!Number.isFinite(proj)) return null;
+        const diff = proj - safeTargetScore;
+        const range = Math.max(1e-9, safeMax - safeMin);
+        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+        const fmt = (v) => (unit === 'horas' ? formatDuration(v) : `${formatValue(v)}${unit === '%' ? '%' : ` ${unit}`}`);
+        const prob = Number(latest?.probability);
+        return {
+            currentValue: fmt(proj),
+            targetValue: fmt(safeTargetScore),
+            gapLabel: diff >= 0
+                ? `+${formatValue(diff)}${gapUnit} acima`
+                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            progressPct: safeTargetScore > safeMin
+                ? ((proj - safeMin) / Math.max(1e-9, safeTargetScore - safeMin)) * 100
+                : 100,
+            extra: Number.isFinite(prob) ? `Aprovação: ${prob.toFixed(0)}% (alvo ≥ 80%)` : null,
+        };
+    }, [scenarioAdjustedData, safeTargetScore, safeMin, safeMax, unit]);
+
     // M1 FIX: Callback estável para o Tooltip — arrow function inline criaria nova referência
     // a cada render, quebrando a memoização do Recharts e causando re-renders desnecessários.
     const renderTooltip = useCallback(
@@ -300,6 +325,21 @@ export const MonteCarloEvolutionChart = React.memo(({
                     )}
                 </div>
             </div>
+
+            {mcBenchmark && (
+                <BenchmarkStrip
+                    currentLabel="Última projeção"
+                    currentValue={mcBenchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={mcBenchmark.targetValue}
+                    gapLabel={mcBenchmark.gapLabel}
+                    status={mcBenchmark.status}
+                    progressPct={mcBenchmark.progressPct}
+                    extra={mcBenchmark.extra}
+                    compact
+                    className="mb-3"
+                />
+            )}
 
             {loading && (
               <div className="absolute inset-0 z-20 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">

@@ -19,11 +19,15 @@ export const ChartTooltip = ({
     chartData = [],
     unit = '%',
     maxScore = 100,
-    minScore = 0
+    minScore = 0,
+    targetScore = null
 }) => {
     const safeMax = Math.max(1, Number(maxScore) || 100);
     const safeMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
     const scaleRange = Math.max(1, safeMax - safeMin);
+    const hasTarget = targetScore !== null && targetScore !== undefined && targetScore !== '' && typeof targetScore !== 'boolean' && Number.isFinite(Number(targetScore));
+    const safeTarget = hasTarget ? Number(targetScore) : null;
+    const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
 
     const displayHeaderDate = React.useMemo(() => {
         if (!label) return '';
@@ -66,11 +70,18 @@ export const ChartTooltip = ({
                     <Calendar size={13} className="text-indigo-400" aria-hidden="true" />
                     <span>{displayHeaderDate}</span>
                 </span>
-                {isCompactMulti && (
-                    <span className="text-[11px] font-semibold text-slate-400 tabular-nums">
-                        {visibleItems.length} disciplinas
-                    </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                    {safeTarget != null && (
+                        <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/12 border border-emerald-500/25 px-1.5 py-0.5 rounded-md tabular-nums">
+                            Meta {formatValue(safeTarget)}{unit}
+                        </span>
+                    )}
+                    {isCompactMulti && (
+                        <span className="text-[11px] font-semibold text-slate-400 tabular-nums">
+                            {visibleItems.length} disciplinas
+                        </span>
+                    )}
+                </div>
             </div>
 
             {isCompactMulti ? (
@@ -109,6 +120,14 @@ export const ChartTooltip = ({
                                     <span className="text-xs font-black text-white">
                                         {hasMain ? `${formatValue(mainVal)}${unit}` : '—'}
                                     </span>
+                                    {hasMain && safeTarget != null && (() => {
+                                        const diff = mainVal - safeTarget;
+                                        return (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${diff >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                                                {diff >= 0 ? `+${formatValue(diff)}${gapUnit}` : `${formatValue(diff)}${gapUnit}`}
+                                            </span>
+                                        );
+                                    })()}
                                     {trendVal != null && Number.isFinite(Number(trendVal)) && Number(trendVal) !== 0 && (
                                         <span
                                             className={`inline-flex items-center gap-0.5 text-[11px] font-bold ${
@@ -133,15 +152,23 @@ export const ChartTooltip = ({
                     {visibleItems.map((p, i) => {
                         if (isCompare) {
                             const val = Number(p.value);
+                            const diff = (Number.isFinite(val) && safeTarget != null) ? (val - safeTarget) : null;
                             return (
-                                <div key={i} className="flex justify-between items-center gap-4 px-2 py-1 rounded-lg bg-slate-900/60">
+                                <div key={i} className="flex justify-between items-center gap-3 px-2 py-1 rounded-lg bg-slate-900/60">
                                     <span className="flex items-center gap-2 text-xs font-semibold text-slate-200">
                                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
                                         {p.name}
                                     </span>
-                                    <span style={{ color: p.color }} className="font-mono font-black text-xs tabular-nums">
-                                        {Number.isFinite(val) ? `${formatValue(val)}${unit}` : '—'}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 font-mono tabular-nums">
+                                        <span style={{ color: p.color }} className="font-black text-xs">
+                                            {Number.isFinite(val) ? `${formatValue(val)}${unit}` : '—'}
+                                        </span>
+                                        {diff != null && (
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${diff >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                                                {diff >= 0 ? `+${formatValue(diff)}${gapUnit}` : `${formatValue(diff)}${gapUnit}`}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         }
@@ -162,11 +189,21 @@ export const ChartTooltip = ({
 
                         return (
                             <div key={i} className="flex flex-col bg-slate-900/65 p-3 rounded-xl border border-white/[0.06]">
-                                <div className="flex justify-between items-center mb-2.5">
+                                <div className="flex justify-between items-center mb-2.5 gap-2">
                                     <span style={{ color: p.color }} className="font-bold text-xs uppercase tracking-wider flex items-center gap-2 truncate">
                                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color, boxShadow: `0 0 8px ${p.color}80` }} />
                                         <span className="truncate">{subjName}</span>
                                     </span>
+                                    {safeTarget != null && (() => {
+                                        const refVal = Number.isFinite(Number(bayVal)) ? Number(bayVal) : (Number.isFinite(Number(rawVal)) ? Number(rawVal) : (Number.isFinite(Number(statsVal)) ? Number(statsVal) : null));
+                                        if (refVal == null) return null;
+                                        const diff = refVal - safeTarget;
+                                        return (
+                                            <span className={`shrink-0 text-[10px] font-mono font-bold tabular-nums px-1.5 py-0.5 rounded-md border ${diff >= 0 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300' : 'bg-rose-500/15 border-rose-500/30 text-rose-300'}`}>
+                                                {diff >= 0 ? `+${formatValue(diff)}${gapUnit} meta` : `${formatValue(diff)}${gapUnit} meta`}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-center">
                                     <div className="flex flex-col bg-slate-950/60 p-2 rounded-lg border border-white/[0.05] relative overflow-hidden pb-2.5">

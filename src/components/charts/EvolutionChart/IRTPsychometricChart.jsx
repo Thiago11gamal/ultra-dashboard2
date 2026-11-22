@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { Brain, AlertTriangle, Scale, Save, Star } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import {
   estimateIRTAbility,
   computeGuessingStrategy,
@@ -88,6 +89,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   focusCategory = null,
   showOnlyFocus = false,
   timeWindow = 'all',
+  targetScore = null,
   minScore = 0,
   maxScore = 100,
   examBoard: propBoard = 'PADRAO',
@@ -212,11 +214,28 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
 
   const irt = useMemo(() => estimateIRTAbility(irtEntries, { minScore, maxScore }), [irtEntries, minScore, maxScore]);
   const thetaBand = getThetaBand(irt.theta);
+
+  // Calcula θ alvo correspondente à meta no modelo 2PL para item médio (b = 0, a = 1.35)
+  const { thetaTarget, targetPctLabel } = useMemo(() => {
+    const gMin = isStrictNum(minScore) ? Number(minScore) : 0;
+    const gMax = isStrictNum(maxScore) && Number(maxScore) > gMin ? Number(maxScore) : Math.max(gMin + 1, 100);
+    const effTarget = isStrictNum(targetScore)
+      ? Math.max(gMin, Math.min(gMax, Number(targetScore)))
+      : gMin + (gMax - gMin) * 0.8;
+    const rawRatio = (effTarget - gMin) / Math.max(1e-9, gMax - gMin);
+    const safeP = Math.max(0.05, Math.min(0.95, rawRatio));
+    const th = Math.max(-2.6, Math.min(2.6, Math.log(safeP / (1 - safeP)) / 1.35));
+    return {
+      thetaTarget: Number(th.toFixed(2)),
+      targetPctLabel: `${Math.round(rawRatio * 100)}%`,
+    };
+  }, [targetScore, minScore, maxScore]);
+
   const iccDomain = useMemo(() => {
-    const xMin = Math.min(-2.2, Math.floor((irt.theta - 0.4) * 5) / 5);
-    const xMax = Math.max(2.4, Math.ceil((irt.theta + 0.4) * 5) / 5);
+    const xMin = Math.min(-2.2, Math.floor((Math.min(irt.theta, thetaTarget) - 0.4) * 5) / 5);
+    const xMax = Math.max(2.4, Math.ceil((Math.max(irt.theta, thetaTarget) + 0.4) * 5) / 5);
     return [Number(xMin.toFixed(1)), Number(xMax.toFixed(1))];
-  }, [irt.theta]);
+  }, [irt.theta, thetaTarget]);
 
   const allQuestionTelemetry = useMemo(() => {
     return filterByWindow(
@@ -284,6 +303,24 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
           )}
         </div>
 
+        {irt.hasData && (() => {
+          const thetaDiff = Number((irt.theta - thetaTarget).toFixed(2));
+          const progressPct = Math.max(0, Math.min(100, ((irt.theta + 3) / Math.max(0.5, thetaTarget + 3)) * 100));
+          return (
+            <BenchmarkStrip
+              currentLabel="θ atual"
+              currentValue={`${irt.theta >= 0 ? '+' : ''}${irt.theta}`}
+              targetLabel={`θ para Meta (${targetPctLabel})`}
+              targetValue={`${thetaTarget >= 0 ? '+' : ''}${thetaTarget}`}
+              gapLabel={thetaDiff >= 0 ? `+${thetaDiff}θ acima` : `Faltam ${Math.abs(thetaDiff)}θ`}
+              status={thetaDiff >= 0 ? 'success' : thetaDiff >= -0.45 ? 'warning' : 'danger'}
+              progressPct={progressPct}
+              extra={`Nível: ${thetaBand.label}`}
+              compact
+            />
+          );
+        })()}
+
         {irt.hasData && (
           <p className="text-[11px] text-slate-400">
             Como ler θ (escala −3 a +3): &lt; −0.4 Base inicial · −0.4 a +0.4 Intermediário · +0.4 a +1.2 Competitivo · &gt; +1.2 Alto domínio. A faixa verde (65%–78%) marca sua zona ideal de treino.
@@ -325,6 +362,13 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
                       stroke="#a78bfa"
                       strokeDasharray="4 4"
                       label={{ value: `θ=${irt.theta >= 0 ? '+' : ''}${irt.theta}`, position: 'top', fill: '#c4b5fd', fontSize: 10 }}
+                    />
+                    <ReferenceLine
+                      x={thetaTarget}
+                      stroke="#10b981"
+                      strokeDasharray="5 3"
+                      strokeWidth={1.6}
+                      label={{ value: `Meta θ=${thetaTarget >= 0 ? '+' : ''}${thetaTarget}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }}
                     />
                     <Line type="monotone" dataKey="predictedPct" name="P(Acerto) TRI" stroke="#a78bfa" strokeWidth={2.5} dot={false} />
                   </ComposedChart>

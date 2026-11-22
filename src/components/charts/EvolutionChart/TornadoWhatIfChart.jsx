@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { Sliders, RotateCcw, ShieldAlert, TrendingUp } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { runTornadoSensitivity } from '../../../engine/monteCarlo';
 import { getSafeScore } from '../../../utils/scoreHelper';
 import { toDateMs } from '../../../utils/dateHelper';
@@ -235,9 +236,24 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   const probDeltaVsBase = hasOverrides && baselineResult
     ? Number((result.baseProbability - baselineResult.baseProbability).toFixed(1))
     : 0;
+  const safeProbTarget = 80;
+  const probGap = Number((result.baseProbability - safeProbTarget).toFixed(1));
+  const scoreDiff = Number((result.baseMean - targetScore).toFixed(1));
+  const scoreGapUnit = unit === '%' ? 'pp' : ` ${unit}`;
 
   return (
     <div className="w-full space-y-5">
+      <BenchmarkStrip
+        currentLabel="Chance de aprovação"
+        currentValue={`${result.baseProbability}%`}
+        targetLabel="Zona segura"
+        targetValue={`≥ ${safeProbTarget}%`}
+        gapLabel={probGap >= 0 ? `+${probGap}pp acima` : `Faltam ${Math.abs(probGap)}pp`}
+        status={probGap >= 0 ? 'success' : result.baseProbability >= 55 ? 'warning' : 'danger'}
+        progressPct={(result.baseProbability / safeProbTarget) * 100}
+        extra={`Nota ${result.baseMean}${unitSuffix} vs Meta ${targetScore}${unitSuffix} (${scoreDiff >= 0 ? '+' : ''}${scoreDiff}${scoreGapUnit})`}
+        compact
+      />
       {/* Decomposição do Risco de Eliminação (Monte Carlo Multi-Restrição) */}
       <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

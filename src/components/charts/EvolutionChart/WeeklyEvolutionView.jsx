@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, ReferenceLine, Legend, Cell, Brush
+    Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, Legend, Cell, Brush
 } from 'recharts';
 import { TrendingUp, BarChart3, HelpCircle, Zap, Info, CheckCircle2 } from 'lucide-react';
 import { getSafeScore, formatValue, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
 import WeeklyPerformanceChart from './WeeklyPerformanceChart';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { computeTopRegressions, computeTrendKpi } from '../../../utils/weeklyEvolutionInsights.js';
 import { getMondayKey } from '../../../utils/heatmapAggregation.js';
 import { toArray, getHistoryDate } from '../../../utils/evolutionGuards';
@@ -15,7 +16,7 @@ import { ratioToPoints } from '../../../utils/scoreHelper.conversions';
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
-const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, unit, stableThreshold = 2 }) => {
+const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, unit, stableThreshold = 2, targetScore = null }) => {
     if (!active || !payload || !payload.length) return null;
 
     const hasValidData = payload.some(entry =>
@@ -78,16 +79,25 @@ const WeeklyTooltip = React.memo(({ active, payload, label, hiddenKeys = {}, uni
                             </div>
                         );
                     } else {
+                        const diffTarget = hasValidNumber(targetScore) ? (Number(val) - Number(targetScore)) : null;
+                        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
                         return (
                             <div key={idx} className="flex flex-col gap-0.5">
-                                <div className="flex justify-between items-center text-[11px]">
+                                <div className="flex justify-between items-center text-[11px] gap-2">
                                     <span style={{ color: entry.color || '#fff' }} className="font-bold flex items-center gap-1.5">
                                         <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: entry.color }}></span>
                                         {entry.name}
                                     </span>
-                                    <span className="font-mono font-bold text-white text-xs tabular-nums">
-                                        {formatValue(val)}{unit}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 font-mono tabular-nums">
+                                        <span className="font-bold text-white text-xs">
+                                            {formatValue(val)}{unit}
+                                        </span>
+                                        {diffTarget != null && (
+                                            <span className={`text-[10px] font-bold px-1 rounded ${diffTarget >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>
+                                                {diffTarget >= 0 ? `+${formatValue(diffTarget)}${gapUnit}` : `${formatValue(diffTarget)}${gapUnit}`}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 {meta && meta.currTot > 0 && (
                                     <span className="text-[10px] text-slate-400 pl-3.5">
@@ -131,6 +141,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
     showOnlyFocus,
     focusSubjectId,
     timeWindow = 'all',
+    targetScore = null,
     maxScore = 100,
     minScore = 0,
     unit = '%'
@@ -586,9 +597,48 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         return chartData.some(pt => keys.some(k => !hiddenKeys[k] && hasValidNumber(pt?.[`delta_${k}`])));
     }, [chartData, keys, hiddenKeys]);
 
+    const effectiveTargetScore = useMemo(() => {
+        const range = Math.max(1e-9, effectiveMaxScore - effectiveMinScore);
+        if (hasValidNumber(targetScore)) {
+            return Math.max(effectiveMinScore, Math.min(effectiveMaxScore, Number(targetScore)));
+        }
+        return effectiveMinScore + range * 0.8;
+    }, [targetScore, effectiveMinScore, effectiveMaxScore]);
+
+    const weeklyBenchmark = useMemo(() => {
+        if (!chartData.length || !keys.length) return null;
+        const visibleKeys = keys.filter((k) => !hiddenKeys[k]);
+        if (!visibleKeys.length) return null;
+        const latestVals = [];
+        for (const k of visibleKeys) {
+            for (let i = chartData.length - 1; i >= 0; i--) {
+                if (hasValidNumber(chartData[i]?.[k])) {
+                    latestVals.push(Number(chartData[i][k]));
+                    break;
+                }
+            }
+        }
+        if (!latestVals.length) return null;
+        const avg = latestVals.reduce((a, b) => a + b, 0) / latestVals.length;
+        const diff = avg - effectiveTargetScore;
+        const range = Math.max(1e-9, effectiveMaxScore - effectiveMinScore);
+        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+        const aboveCount = latestVals.filter((v) => v >= effectiveTargetScore).length;
+        return {
+            currentValue: `${formatValue(avg)}${unit}`,
+            targetValue: `${formatValue(effectiveTargetScore)}${unit}`,
+            gapLabel: diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            progressPct: effectiveTargetScore > effectiveMinScore
+                ? ((avg - effectiveMinScore) / Math.max(1e-9, effectiveTargetScore - effectiveMinScore)) * 100
+                : 100,
+            extra: latestVals.length > 1 ? `${aboveCount}/${latestVals.length} na meta` : null,
+        };
+    }, [chartData, keys, hiddenKeys, effectiveTargetScore, effectiveMinScore, effectiveMaxScore, unit]);
+
     const renderWeeklyTooltip = useCallback(
-        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} />,
-        [hiddenKeys, unit, stableThreshold]
+        (props) => <WeeklyTooltip {...props} hiddenKeys={hiddenKeys} unit={unit} stableThreshold={stableThreshold} targetScore={effectiveTargetScore} />,
+        [hiddenKeys, unit, stableThreshold, effectiveTargetScore]
     );
 
     if (chartData.length < 1) {
@@ -667,6 +717,21 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 </div>
             </div>
 
+            {viewMode !== 'performance' && weeklyBenchmark && (
+                <BenchmarkStrip
+                    currentLabel={viewMode === 'variation' ? 'Última semana' : 'Média semanal atual'}
+                    currentValue={weeklyBenchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={weeklyBenchmark.targetValue}
+                    gapLabel={weeklyBenchmark.gapLabel}
+                    status={weeklyBenchmark.status}
+                    progressPct={weeklyBenchmark.progressPct}
+                    extra={viewMode === 'variation' ? `Alvo delta: > +${formatValue(stableThreshold)}${unit}/sem` : weeklyBenchmark.extra}
+                    compact
+                    className="mb-3"
+                />
+            )}
+
             <div className="h-[380px] sm:h-[400px] w-full mt-2 relative">
                 {viewMode === 'performance' ? (
                     <WeeklyPerformanceChart
@@ -674,6 +739,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         studyLogs={studyLogs}
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
+                        targetScore={effectiveTargetScore}
                         maxScore={effectiveMaxScore}
                         minScore={effectiveMinScore}
                         unit={unit}
@@ -693,6 +759,14 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} dy={10} minTickGap={15} />
                                 <YAxis domain={[effectiveMinScore, effectiveMaxScore]} stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} allowDataOverflow={false} tickFormatter={(v) => `${formatValue(v)}${unit}`} />
                                 <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ stroke: 'rgba(255,255,255,0.15)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
+                                <ReferenceArea y1={effectiveTargetScore} y2={effectiveMaxScore} fill="#10b981" fillOpacity={0.045} />
+                                <ReferenceLine
+                                    y={effectiveTargetScore}
+                                    stroke="#10b981"
+                                    strokeDasharray="5 3"
+                                    strokeWidth={1.6}
+                                    label={{ value: `Meta: ${formatValue(effectiveTargetScore)}${unit}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }}
+                                />
                                 <Legend verticalAlign="bottom" height={40} iconType="circle" formatter={renderLegendText} onClick={handleLegendClick} onMouseEnter={handleLegendHover} onMouseLeave={handleLegendLeave} wrapperStyle={{ paddingTop: '20px' }} />
 
                                 {keys.map(key => {
@@ -759,7 +833,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                                     onMouseLeave={handleLegendLeave} 
                                     wrapperStyle={{ paddingTop: '20px' }} 
                                 />
-                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
+                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.22)" strokeDasharray="3 3" label={{ value: 'Estável (0)', position: 'insideTopLeft', fill: '#94a3b8', fontSize: 9 }} />
+                                <ReferenceLine y={stableThreshold} stroke="#10b981" strokeOpacity={0.45} strokeDasharray="4 4" label={{ value: `Ganho (+${formatValue(stableThreshold)}${unit})`, position: 'insideTopRight', fill: '#34d399', fontSize: 9 }} />
 
                                 {chartData.length > 8 && (
                                     <Brush

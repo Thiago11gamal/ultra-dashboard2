@@ -13,6 +13,10 @@ import { RadarAnalysis } from '../RadarAnalysis';
 import { PerformanceBarChart } from '../PerformanceBarChart';
 import { MonteCarloEvolutionChart } from '../MonteCarloEvolutionChart';
 import { ConsistencyBoxPlotChart } from '../ConsistencyBoxPlotChart';
+import { IRTPsychometricChart } from '../IRTPsychometricChart';
+import { MetacognitionFatigueChart } from '../MetacognitionFatigueChart';
+import { CriticalTopicsAnalysis } from '../CriticalTopicsAnalysis';
+import { TodayVsGeneralChart } from '../TodayVsGeneralChart';
 import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
 import { buildProjectionFanData } from '../../../../utils/advancedChartHelpers';
 import {
@@ -524,5 +528,143 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
       window.sessionStorage.removeItem(key);
       window.sessionStorage.removeItem(getEvolutionPrefsStorageKey('other-contest'));
     }
+  });
+
+  it('Universal BenchmarkStrip renders "Onde está -> Onde chegar" across TimeSpent, IRT, Metacognition, PerformanceBar, CriticalTopics, and TodayVsGeneral', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-10T16:00:00.000Z'));
+
+    // 1) TimeSpentChart compares against real exam target when examDurationMinutes/examTotalQuestions are provided
+    const tsHtml = renderToStaticMarkup(
+      <TimeSpentChart
+        subjectAggData={[{ id: 'c1', fullName: 'Português', timeSpent: 1500, timedQuestoes: 10 }]}
+        activeCategories={[{ id: 'c1', name: 'Português', simuladoStats: { history: [{ date: '2026-05-09', total: 10, timeSpent: 1500 }] } }]}
+        examDurationMinutes={200}
+        examTotalQuestions={100}
+      />
+    );
+    expect(tsHtml).toContain('Alvo da prova');
+    expect(tsHtml).toContain('2m/q');
+    expect(tsHtml).toContain('+30s acima do alvo');
+
+    // 2) IRTPsychometricChart renders θ para Meta (80% -> +1.03θ)
+    const irtHtml = renderToStaticMarkup(
+      <IRTPsychometricChart
+        categories={[{ id: 'c1', name: 'Português', simuladoStats: { history: [{ date: '2026-05-09', total: 20, correct: 14, difficulty: 'medio' }] } }]}
+        targetScore={80}
+        minScore={0}
+        maxScore={100}
+      />
+    );
+    expect(irtHtml).toContain('θ para Meta (80%)');
+    expect(irtHtml).toContain('+1.03');
+
+    // 3) MetacognitionFatigueChart renders calibration benchmark (≥ 90%) and illusion target (< 5%)
+    const metaHtml = renderToStaticMarkup(
+      <MetacognitionFatigueChart
+        simuladoRows={[
+          {
+            date: '2026-05-09',
+            categoryId: 'c1',
+            subject: 'Português',
+            questionTelemetry: [
+              { questionIndex: 0, confidence: 'certeza', wasCorrect: true, wasAnswered: true },
+              { questionIndex: 1, confidence: 'certeza', wasCorrect: true, wasAnswered: true },
+              { questionIndex: 2, confidence: 'certeza', wasCorrect: false, wasAnswered: true },
+              { questionIndex: 3, confidence: 'duvida', wasCorrect: true, wasAnswered: true },
+            ],
+          },
+        ]}
+        targetScore={80}
+      />
+    );
+    expect(metaHtml).toContain('Calibração de certeza');
+    expect(metaHtml).toContain('≥ 90%');
+    expect(metaHtml).toContain('Alvo resistência: queda ≤ 5pp');
+
+    // 4) PerformanceBarChart compares real precision against contest targetScore
+    const perfHtml = renderToStaticMarkup(
+      <PerformanceBarChart
+        subjectAggData={[
+          { id: 'c1', name: 'Português', realQuestoes: 20, realAcertos: 15 },
+          { id: 'c2', name: 'Direito', realQuestoes: 20, realAcertos: 18 },
+        ]}
+        targetScore={80}
+        minScore={0}
+        maxScore={100}
+      />
+    );
+    expect(perfHtml).toContain('Precisão real');
+    expect(perfHtml).toContain('1/2 na meta');
+
+    // 5) CriticalTopicsAnalysis displays safe criticality zone (≤ 1.5) and CTA
+    const critHtml = renderToStaticMarkup(
+      <CriticalTopicsAnalysis
+        categories={[
+          {
+            id: 'c1',
+            name: 'Direito',
+            simuladoStats: {
+              history: [{ date: '2026-05-09', total: 20, correct: 8, score: 40 }],
+            },
+          },
+        ]}
+        targetScore={80}
+        onGoToSimulados={() => {}}
+      />
+    );
+    expect(critHtml).toContain('Zona segura');
+    expect(critHtml).toContain('≤ 1.5 pts');
+    expect(critHtml).toContain('Treinar pontos fracos');
+
+    // 6) TodayVsGeneralChart displays explicit vs Meta comparison badge
+    const todayHtml = renderToStaticMarkup(
+      <TodayVsGeneralChart
+        activeCategories={[
+          {
+            id: 'c1',
+            name: 'Português',
+            simuladoStats: {
+              history: [{ date: '2026-05-09', total: 10, correct: 7, score: 70 }],
+            },
+          },
+        ]}
+        globalMetrics={{ globalAccuracy: 65 }}
+        targetScore={80}
+      />
+    );
+    expect(todayHtml).toContain('vs Meta');
+    expect(todayHtml).toContain('Faltam 10.0pp');
+  });
+
+  it('EvolutionChart computes period-over-period delta on KPI cards when 30d window has prior 30d data', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-10T16:00:00.000Z'));
+
+    const categories = [
+      {
+        id: 'c1',
+        name: 'Português',
+        simuladoStats: {
+          history: [
+            // Previous 30d window (2026-03-12 .. 2026-04-09): 10q, 60%
+            { date: '2026-03-25', total: 10, correct: 6, score: 60 },
+            // Current 30d window (2026-04-10 .. 2026-05-10): 20q, 80%
+            { date: '2026-05-05', total: 20, correct: 16, score: 80 },
+          ],
+        },
+      },
+    ];
+
+    const { container, getByText } = render(
+      <MemoryRouter>
+        <EvolutionChart categories={categories} targetScore={80} minScore={0} maxScore={100} unit="%" />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(getByText('30d'));
+    expect(container.textContent).toContain('+10 vs 30d ant.');
+    expect(container.textContent).toContain('+20pp vs 30d ant.');
+    expect(container.textContent).toContain('Registrar simulado');
   });
 });

@@ -6,6 +6,7 @@ import {
 import { Compass, HelpCircle } from 'lucide-react';
 import { formatValue } from '../../../utils/scoreHelper';
 import { ChartFrame } from "../ChartFrame";
+import { BenchmarkStrip } from "../../ui/BenchmarkStrip";
 
 /**
  * RadarAnalysis
@@ -105,6 +106,24 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({
         return null;
     }, [safeMin, unit]);
 
+    const radarBenchmark = React.useMemo(() => {
+        if (!Array.isArray(radarData) || radarData.length < 3) return null;
+        const avgNivel = radarData.reduce((acc, d) => acc + (Number(d.nivel) || safeMin), 0) / radarData.length;
+        const avgMeta = radarData.reduce((acc, d) => acc + (Number(d.meta) || safeMin), 0) / radarData.length;
+        const onTarget = radarData.filter((d) => (Number(d.nivel) || 0) >= (Number(d.meta) || 0)).length;
+        const diff = avgNivel - avgMeta;
+        const range = Math.max(1e-9, safeMax - safeMin);
+        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+        return {
+            currentValue: `${formatValue(avgNivel)}${unit}`,
+            targetValue: `${formatValue(avgMeta)}${unit}`,
+            gapLabel: diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            progressPct: avgMeta > safeMin ? ((avgNivel - safeMin) / Math.max(1e-9, avgMeta - safeMin)) * 100 : 100,
+            extra: `${onTarget}/${radarData.length} na meta`,
+        };
+    }, [radarData, safeMin, safeMax, unit]);
+
     return (
         <div className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl p-4 sm:p-5 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)] hover:border-white/[0.14] transition-all flex flex-col justify-between h-full min-w-0">
             <div className="mb-2 sm:mb-3 relative group/tooltip">
@@ -137,6 +156,20 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({
                         ? 'Comparativo da proficiência real contra a meta estabelecida para a prova.'
                         : `Comparativo do acerto nos últimos ${timeWindow} dias contra a meta estabelecida para a prova.`}
                 </p>
+                {radarBenchmark && (
+                    <BenchmarkStrip
+                        currentLabel="Média das matérias"
+                        currentValue={radarBenchmark.currentValue}
+                        targetLabel="Meta"
+                        targetValue={radarBenchmark.targetValue}
+                        gapLabel={radarBenchmark.gapLabel}
+                        status={radarBenchmark.status}
+                        progressPct={radarBenchmark.progressPct}
+                        extra={radarBenchmark.extra}
+                        compact
+                        className="mt-2.5"
+                    />
+                )}
             </div>
 
             <div className="flex-1 min-h-[290px] sm:min-h-[330px] w-full relative flex flex-col justify-center">

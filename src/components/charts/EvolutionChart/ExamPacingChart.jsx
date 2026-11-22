@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { Clock, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { buildExamPacingData } from '../../../utils/advancedChartHelpers';
 import { useAppStore } from '../../../store/useAppStore';
 
@@ -187,6 +188,17 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
         </div>
       ) : (
         <>
+          <BenchmarkStrip
+            currentLabel="Ritmo projetado"
+            currentValue={`${fmtMinutes(data.totalProjectedMinutes)} (${Math.round(data.overallAvgSec)}s/q)`}
+            targetLabel="Limite edital"
+            targetValue={`${fmtMinutes(data.examDurationMinutes)} (${Math.round(data.idealSecPerQuestion)}s/q)`}
+            gapLabel={isOverTime ? `+${fmtMinutes(data.deltaMinutes)} acima` : `${fmtMinutes(Math.abs(data.deltaMinutes))} de folga`}
+            status={isOverTime ? (data.deltaMinutes > 15 ? 'danger' : 'warning') : 'success'}
+            progressPct={Math.min(100, (data.examDurationMinutes / Math.max(1, data.totalProjectedMinutes)) * 100)}
+            compact
+          />
+
           {/* Veredito + Barra de Orçamento Global */}
           <div className={`rounded-2xl border p-4 space-y-3 ${isOverTime ? 'border-rose-500/30 bg-rose-500/[0.07]' : 'border-emerald-500/30 bg-emerald-500/[0.07]'}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">

@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, LabelList, Cell
+    ResponsiveContainer, LabelList, Cell, ReferenceLine
 } from "recharts";
 import { getDateKey } from "../../../utils/dateHelper";
 import { parseNoonLocal, addDaysNoon } from "../../../utils/parseNoonLocal";
 import { getSafeScore, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 import { filterHistoryByTimeWindow } from "../../../hooks/useSubjectAggData";
-import { ShieldAlert, Flame, Crosshair, CheckCircle2, Clock, FileText } from "lucide-react";
+import { ShieldAlert, Flame, Crosshair, CheckCircle2, Clock, FileText, ArrowRight } from "lucide-react";
+import { BenchmarkStrip } from "../../ui/BenchmarkStrip";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -31,8 +32,26 @@ const WEEKS = [
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
 
-export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 100, minScore = 0, showOnlyFocus = false, focusSubjectId = null, timeWindow = 'all' }) => {
+const SAFE_CRIT_THRESHOLD = 1.5;
+
+export const CriticalTopicsAnalysis = React.memo(({
+    categories = [],
+    maxScore = 100,
+    minScore = 0,
+    targetScore = null,
+    showOnlyFocus = false,
+    focusSubjectId = null,
+    timeWindow = 'all',
+    onGoToSimulados = null
+}) => {
     const [selectedWeekOffset, setSelectedWeekOffset] = useState(0);
+
+    const targetPct = useMemo(() => {
+        const gMin = hasValidNumber(minScore) ? Number(minScore) : 0;
+        const gMax = hasValidNumber(maxScore) && Number(maxScore) > gMin ? Number(maxScore) : Math.max(100, gMin + 100);
+        const effTarget = hasValidNumber(targetScore) ? Number(targetScore) : gMin + (gMax - gMin) * 0.8;
+        return Math.round(Math.max(0, Math.min(100, ((effTarget - gMin) / Math.max(1e-9, gMax - gMin)) * 100)));
+    }, [targetScore, minScore, maxScore]);
 
     const effectiveCategories = useMemo(() => {
         const list = (Array.isArray(categories) ? categories : Object.values(categories || {})).filter(Boolean);
@@ -170,6 +189,7 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const erroAbsoluto = item.total - item.correct;
             // Índice de criticidade
             item.criticidade = erroAbsoluto * (1 - accuracy);
+            item.accuracyPct = Math.round(accuracy * 100);
         });
 
         const PALETTE = ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15"];
@@ -254,7 +274,12 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
             const erroAbsoluto = total - correct;
             const criticidade = erroAbsoluto * (1 - accuracy);
             
-            return { name: cat.name, value: criticidade, errors: Math.round(erroAbsoluto * 10) / 10 };
+            return {
+                name: cat.name,
+                value: criticidade,
+                errors: Math.round(erroAbsoluto * 10) / 10,
+                accuracyPct: total > 0 ? Math.round(accuracy * 100) : 0,
+            };
         });
 
         const data = rawData.filter(d => Math.round(d.value * 10) > 0).sort((a, b) => b.value - a.value);
@@ -315,6 +340,9 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
     }, [pointLeakageData]);
 
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
+    const worstCrit = pointLeakageData[0]?.displayValue ?? subtopicsData[0]?.value ?? 0;
+    const aboveSafeSubjects = pointLeakageData.filter((d) => d.displayValue > SAFE_CRIT_THRESHOLD).length;
+    const aboveSafeTopics = subtopicsData.filter((d) => d.value > SAFE_CRIT_THRESHOLD).length;
 
     return (
         <div className="w-full space-y-4 pt-1">
@@ -365,6 +393,31 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                 </div>
             </div>
 
+            {hasData && (
+                <BenchmarkStrip
+                    currentLabel="Maior índice de criticidade"
+                    currentValue={pointLeakageData.length > 0 || subtopicsData.length > 0 ? `${worstCrit} pts` : '0 pts'}
+                    targetLabel="Zona segura"
+                    targetValue={`≤ ${SAFE_CRIT_THRESHOLD} pts`}
+                    gapLabel={worstCrit <= SAFE_CRIT_THRESHOLD
+                        ? 'Sob controle ✓'
+                        : `${aboveSafeSubjects} ${aboveSafeSubjects === 1 ? 'matéria' : 'matérias'} · ${aboveSafeTopics} ${aboveSafeTopics === 1 ? 'assunto' : 'assuntos'} acima`}
+                    status={worstCrit <= SAFE_CRIT_THRESHOLD ? 'success' : worstCrit <= 4 ? 'warning' : 'danger'}
+                    extra={`Meta de acerto: ${targetPct}%`}
+                    action={typeof onGoToSimulados === 'function' && worstCrit > SAFE_CRIT_THRESHOLD ? (
+                        <button
+                            type="button"
+                            onClick={onGoToSimulados}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-200 text-[11px] font-bold transition-colors"
+                        >
+                            <span>Treinar pontos fracos</span>
+                            <ArrowRight size={11} />
+                        </button>
+                    ) : null}
+                    compact
+                />
+            )}
+
             {/* Painéis Lado a Lado perfeitamente enquadrados */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
                 {/* Matérias críticas */}
@@ -392,7 +445,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
                                     <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
                                     <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 22 ? `${String(v).slice(0, 20)}…` : v} stroke="#cbd5e1" tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
-                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (alvo ≤ ${SAFE_CRIT_THRESHOLD}) · Acerto ${props?.payload?.accuracyPct ?? 0}% vs Meta ${targetPct}%`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <ReferenceLine x={SAFE_CRIT_THRESHOLD} stroke="#10b981" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: `Alvo ≤ ${SAFE_CRIT_THRESHOLD}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }} />
                                     <Bar dataKey="displayValue" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                                         <LabelList dataKey="displayValue" position="right" offset={8} content={renderLeakageLabel} />
@@ -442,8 +496,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                         const total = Number(props?.payload?.total) || 0;
                                         const correct = Number(props?.payload?.correct) || 0;
                                         const errors = Math.round(Math.max(0, total - correct) * 10) / 10;
-                                        return [`${v} (Índice)`, `${props?.payload?.fullName || 'Assunto'} (${errors} erros)`];
+                                        const acc = props?.payload?.accuracyPct ?? 0;
+                                        return [`${v} (alvo ≤ ${SAFE_CRIT_THRESHOLD}) · Acerto ${acc}% vs Meta ${targetPct}%`, `${props?.payload?.fullName || 'Assunto'} (${errors} erros)`];
                                     }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
+                                    <ReferenceLine x={SAFE_CRIT_THRESHOLD} stroke="#10b981" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: `Alvo ≤ ${SAFE_CRIT_THRESHOLD}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }} />
                                     <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
                                         <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 11, fontWeight: 'bold' }} offset={8} />

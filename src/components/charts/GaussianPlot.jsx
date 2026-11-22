@@ -2,6 +2,7 @@ import React, { useMemo, useState, useId, useRef, useEffect } from 'react';
 import { asymmetricGaussian, generateGaussianPoints, normalCDF_complement } from '../../engine/math/gaussian.js';
 import { formatDuration } from '../../utils/dateHelper';
 import { formatValue } from '../../utils/scoreHelper';
+import { BenchmarkStrip } from '../ui/BenchmarkStrip';
 
 /**
  * GaussianPlot
@@ -348,9 +349,53 @@ export const GaussianPlot = React.memo(function GaussianPlot({
         setHover(null);
     };
 
+    const gaussianBenchmark = useMemo(() => {
+        const refVal = Number.isFinite(safeMean) ? safeMean : boundedCurrent;
+        if (refVal == null || !Number.isFinite(refVal)) return null;
+        const diff = refVal - targetVal;
+        const safeRange = Math.max(1e-9, domainMax - domainMin);
+        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+        const fmtVal = (v) => {
+            const num = Number(v);
+            if (!Number.isFinite(num)) return `0${unit || ''}`;
+            if (unit === 'horas') return formatDuration(num);
+            if (unit === '%') return `${formatValue(num)}%`;
+            return `${formatValue(num, 2)}${unit || ''}`;
+        };
+        const probNum = Number(prob);
+        return {
+            currentLabel: boundedCurrent != null ? 'Projeção' : 'Média',
+            currentValue: fmtVal(refVal),
+            targetValue: fmtVal(targetVal),
+            gapLabel: diff >= 0
+                ? `+${formatValue(diff)}${gapUnit} acima`
+                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+            status: diff >= 0 ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger',
+            progressPct: targetVal > domainMin
+                ? ((refVal - domainMin) / Math.max(1e-9, targetVal - domainMin)) * 100
+                : 100,
+            extra: Number.isFinite(probNum) ? `Chance ${probNum.toFixed(0)}% (zona segura ≥ 80%)` : null,
+        };
+    }, [safeMean, boundedCurrent, targetVal, domainMin, domainMax, unit, prob]);
+
     return (
+        <div className="w-full">
+            {gaussianBenchmark && (
+                <BenchmarkStrip
+                    currentLabel={gaussianBenchmark.currentLabel}
+                    currentValue={gaussianBenchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={gaussianBenchmark.targetValue}
+                    gapLabel={gaussianBenchmark.gapLabel}
+                    status={gaussianBenchmark.status}
+                    progressPct={gaussianBenchmark.progressPct}
+                    extra={gaussianBenchmark.extra}
+                    compact
+                    className="mb-1"
+                />
+            )}
         <div
-            className="relative w-full mt-10 sm:mt-12 pt-1 mb-2 cursor-crosshair group/chart"
+            className="relative w-full mt-8 sm:mt-10 pt-1 mb-2 cursor-crosshair group/chart"
             onMouseMove={(e) => updateHoverFromClientX(e.clientX, chartAreaRef.current || e.currentTarget)}
             onMouseLeave={clearHover}
             onTouchStart={(e) => {
@@ -494,6 +539,7 @@ export const GaussianPlot = React.memo(function GaussianPlot({
                     );
                 })}
             </div>
+        </div>
         </div>
     );
 });

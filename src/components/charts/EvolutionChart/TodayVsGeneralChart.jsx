@@ -9,6 +9,7 @@ import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.convers
 import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
 import { isSubjectMatch } from '../../../utils/normalization';
 import { Target, TrendingUp, TrendingDown, Minus, Scale } from 'lucide-react';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -413,6 +414,12 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
     const focusAccuracy = lastActiveEntry ? lastActiveEntry.accuracy : safeMin;
     const delta = focusAccuracy - generalAccuracy;
     const deltaAbs = Math.abs(delta);
+    const deltaMeta = focusAccuracy - effectiveTargetScore;
+    const deltaMetaAbs = Math.abs(deltaMeta);
+    const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+    const metaProgressPct = effectiveTargetScore > safeMin
+        ? ((focusAccuracy - safeMin) / Math.max(1e-9, effectiveTargetScore - safeMin)) * 100
+        : 100;
     const marginDelta = stabilityMargin;
     let deltaStatus = 'stable';
     if (delta > marginDelta) deltaStatus = 'positive';
@@ -538,6 +545,19 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                             <span className="text-[10px] font-semibold opacity-80">vs Geral</span>
                         </div>
                     </div>
+                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${
+                        deltaMeta >= 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' :
+                        deltaMeta >= -(safeRange * 0.1) ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' :
+                        'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                    }`}>
+                        <Target size={13} />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-black font-mono tabular-nums leading-tight">
+                                {deltaMeta >= 0 ? `+${safeFix(deltaMetaAbs)}${gapUnit}` : `−${safeFix(deltaMetaAbs)}${gapUnit}`}
+                            </span>
+                            <span className="text-[10px] font-semibold opacity-80">vs Meta</span>
+                        </div>
+                    </div>
                     {deltaLastVsToday !== null && (
                         <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${
                             lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' :
@@ -568,16 +588,28 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 </div>
             </div>
             <div className="w-full lg:w-2/3 flex-1 bg-slate-950/50 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex flex-col relative">
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start mb-3">
                     <div className="flex flex-col">
                         <h4 className="text-sm font-black text-slate-100 tracking-tight mb-0.5 flex items-center gap-2">
                             Histórico Recente (14 dias)
                         </h4>
                         <p className="text-xs text-slate-400">
-                            Compare suas variações diárias com a linha base
+                            Compare suas variações diárias com sua média geral e a meta da prova
                         </p>
                     </div>
                 </div>
+                <BenchmarkStrip
+                    currentLabel={todayAcc != null ? 'Hoje' : 'Último dia'}
+                    currentValue={`${safeFix(focusAccuracy)}${unit}`}
+                    targetLabel="Meta"
+                    targetValue={`${formatValue(effectiveTargetScore)}${unit}`}
+                    gapLabel={deltaMeta >= 0 ? `+${safeFix(deltaMetaAbs)}${gapUnit} acima` : `Faltam ${safeFix(deltaMetaAbs)}${gapUnit}`}
+                    status={deltaMeta >= 0 ? 'success' : deltaMeta >= -(safeRange * 0.1) ? 'warning' : 'danger'}
+                    progressPct={metaProgressPct}
+                    extra={`Média: ${safeFix(generalAccuracy)}${unit}`}
+                    compact
+                    className="mb-3"
+                />
                 <div className="flex-1 w-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={220}>
                         <ComposedChart data={chartData} margin={{ top: 25, right: 25, left: 0, bottom: 10 }}>
@@ -614,6 +646,14 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                                 strokeWidth={1.5} 
                                 opacity={0.7}
                                 label={{ value: 'Média geral', fill: COLORS.reference, fontSize: 10, fontWeight: 700, position: 'insideTopLeft', dy: -4 }}
+                            />
+                            <ReferenceLine 
+                                y={effectiveTargetScore} 
+                                stroke="#10b981" 
+                                strokeDasharray="5 3" 
+                                strokeWidth={1.6} 
+                                opacity={0.85}
+                                label={{ value: `Meta ${formatValue(effectiveTargetScore)}${unit}`, fill: '#34d399', fontSize: 10, fontWeight: 700, position: 'insideTopRight', dy: -4 }}
                             />
                             <Line 
                                 type="monotoneX" 

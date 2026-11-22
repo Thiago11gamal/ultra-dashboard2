@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { Network, Activity, Target, Info } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { computeWeeklyCategoryCorrelation, buildRegimeMapData } from '../../../engine/diagnostics';
 
 function corrCellStyle(r, self) {
@@ -95,9 +96,26 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
 
   const crowdingPairs = corr.pairs.filter((p) => p.type === 'crowding_out');
   const synergyPairs = corr.pairs.filter((p) => p.type === 'synergy');
+  const consolidatedCount = regimes.filter((r) => Number(r.hurstH) >= 0.58 && Number(r.velocity) > 0).length;
+  const positiveVelCount = regimes.filter((r) => Number(r.velocity) > 0).length;
 
   return (
     <div className="w-full space-y-6">
+      {(regimes.length > 0 || corr.pairs.length > 0) && (
+        <BenchmarkStrip
+          currentLabel="Na zona consolidada"
+          currentValue={regimes.length > 0 ? `${consolidatedCount}/${regimes.length} matérias` : `${positiveVelCount} em alta`}
+          targetLabel="Zona alvo"
+          targetValue="H ≥ 0.58 · vel. > 0"
+          gapLabel={crowdingPairs.length > 0
+            ? `${crowdingPairs.length} ${crowdingPairs.length === 1 ? 'par em gangorra' : 'pares em gangorra'}`
+            : (regimes.length > 0 && consolidatedCount === regimes.length ? 'Todas consolidadas ✓' : `${positiveVelCount}/${regimes.length} em evolução`)}
+          status={crowdingPairs.length > 0 ? 'warning' : (regimes.length > 0 && consolidatedCount > 0 ? 'success' : 'neutral')}
+          progressPct={regimes.length > 0 ? (consolidatedCount / regimes.length) * 100 : null}
+          extra={`Efeito gangorra: ${crowdingPairs.length} (alvo: 0)`}
+          compact
+        />
+      )}
       {/* Parte A — Matriz Semanal de Correlação */}
       <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -212,7 +230,18 @@ export const CorrelationRegimeChart = React.memo(function CorrelationRegimeChart
               <ResponsiveContainer width="100%" height="100%" minHeight={240} minWidth={1}>
                 <ScatterChart margin={{ top: 16, right: 20, bottom: 24, left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <ReferenceArea x1={0.58} x2={1} y1={0} y2={yExtent} fill="#10b981" fillOpacity={0.07} />
+                  <ReferenceArea
+                    x1={0.58}
+                    x2={1}
+                    y1={0}
+                    y2={yExtent}
+                    fill="#10b981"
+                    fillOpacity={0.09}
+                    stroke="#10b981"
+                    strokeOpacity={0.35}
+                    strokeDasharray="3 3"
+                    label={{ value: 'Zona Alvo', position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }}
+                  />
                   <ReferenceArea x1={0} x2={0.42} y1={-yExtent} y2={yExtent} fill="#f59e0b" fillOpacity={0.05} />
                   <ReferenceArea x1={0} x2={1} y1={-yExtent} y2={0} fill="#f43f5e" fillOpacity={0.04} />
                   <XAxis

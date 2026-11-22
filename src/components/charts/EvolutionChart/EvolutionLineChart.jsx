@@ -7,6 +7,7 @@ import {
 import { Eye, Search } from 'lucide-react';
 import { ChartTooltip } from "../ChartTooltip";
 import { ChartFrame } from "../ChartFrame";
+import { BenchmarkStrip } from "../../ui/BenchmarkStrip";
 import { normalizeDate, formatDisplayDate } from '../../../utils/dateHelper';
 import { formatValue, normalizeScoreDomain } from '../../../utils/scoreHelper';
 
@@ -312,8 +313,8 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
     }, [highlightedDataKey, visibleCategories, lastValidIndexByCat]);
 
     const renderTooltipContent = useCallback(
-        (props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} />,
-        [enhancedChartData, unit, maxScore, minScore]
+        (props) => <ChartTooltip {...props} chartData={enhancedChartData} isCompare={false} unit={unit} maxScore={maxScore} minScore={minScore} targetScore={safeTargetScore} />,
+        [enhancedChartData, unit, maxScore, minScore, safeTargetScore]
     );
 
     const toggleHighlightByCatId = useCallback((catId, e, props) => {
@@ -354,6 +355,34 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
         return map;
     }, [visibleCategories, effectiveHighlightedKey, showOnlyFocus, focusSubjectId, toggleHighlightByCatId, renderCustomLabel]);
 
+    const benchmark = useMemo(() => {
+        if (!finalPoints.length) return null;
+        const focusedPt = effectiveHighlightedKey
+            ? finalPoints.find((p) => p.id === effectiveHighlightedKey)
+            : (showOnlyFocus && focusSubjectId ? finalPoints.find((p) => p.id === focusSubjectId) : null);
+        const currentVal = focusedPt
+            ? focusedPt.value
+            : finalPoints.reduce((acc, p) => acc + p.value, 0) / finalPoints.length;
+        const diff = currentVal - safeTargetScore;
+        const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+        const aboveCount = finalPoints.filter((p) => p.value >= safeTargetScore).length;
+        const progress = safeTargetScore > safeMinScore
+            ? ((currentVal - safeMinScore) / Math.max(1e-9, safeTargetScore - safeMinScore)) * 100
+            : 100;
+        const status = diff >= 0 ? 'success' : diff >= -(safeRange * 0.1) ? 'warning' : 'danger';
+        return {
+            currentLabel: focusedPt ? focusedPt.name : (finalPoints.length === 1 ? finalPoints[0].name : 'Média atual'),
+            currentValue: `${formatValue(currentVal)}${unit}`,
+            targetValue: `${formatValue(safeTargetScore)}${unit}`,
+            gapLabel: diff >= 0
+                ? `+${formatValue(diff)}${gapUnit} acima`
+                : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+            status,
+            progressPct: progress,
+            extra: !focusedPt && finalPoints.length > 1 ? `${aboveCount}/${finalPoints.length} na meta` : null,
+        };
+    }, [finalPoints, effectiveHighlightedKey, showOnlyFocus, focusSubjectId, safeTargetScore, safeMinScore, safeRange, unit]);
+
     if (!enhancedChartData.length || visibleCategories.length === 0 || finalPoints.length === 0) {
         return (
             <div className="h-[340px] flex flex-col items-center justify-center text-slate-400 text-sm gap-2.5">
@@ -373,6 +402,19 @@ export const EvolutionLineChart = React.memo(function EvolutionLineChart({
 
     return (
         <div className="w-full space-y-3 outline-none focus:outline-none">
+            {benchmark && (
+                <BenchmarkStrip
+                    currentLabel={benchmark.currentLabel}
+                    currentValue={benchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={benchmark.targetValue}
+                    gapLabel={benchmark.gapLabel}
+                    status={benchmark.status}
+                    progressPct={benchmark.progressPct}
+                    extra={benchmark.extra}
+                    compact
+                />
+            )}
             {/* Interactive Pill Legend (only categories with plotted data in the active window) */}
             {plottedCategories.length > 1 && (
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">

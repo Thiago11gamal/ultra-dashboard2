@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { Activity, Sparkles, Target, Globe, Zap } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { buildKalmanChartData } from '../../../utils/advancedChartHelpers';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -115,9 +116,26 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
   const { summary } = kalman;
   const trendPositive = summary.trendPerMonth >= 0;
   const unitSuffix = unit === '%' ? '%' : ` ${unit}`;
+  const diffMeta = summary.ability - targetScore;
+  const domainSpan = Math.max(1e-9, maxScore - minScore);
+  const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+  const monthsToMeta = (diffMeta < 0 && summary.trendPerMonth > 0.2)
+    ? Math.min(24, Math.ceil(Math.abs(diffMeta) / summary.trendPerMonth))
+    : null;
 
   return (
     <div className="w-full space-y-4">
+      <BenchmarkStrip
+        currentLabel="Habilidade real (Kalman)"
+        currentValue={fmt(summary.ability)}
+        targetLabel="Meta"
+        targetValue={fmt(targetScore)}
+        gapLabel={diffMeta >= 0 ? `+${formatValue(diffMeta)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diffMeta))}${gapUnit}`}
+        status={diffMeta >= 0 ? 'success' : diffMeta >= -(domainSpan * 0.1) ? 'warning' : 'danger'}
+        progressPct={targetScore > minScore ? ((summary.ability - minScore) / Math.max(1e-9, targetScore - minScore)) * 100 : 100}
+        extra={monthsToMeta ? `Ritmo atual: ~${monthsToMeta} ${monthsToMeta === 1 ? 'mês' : 'meses'} p/ meta` : `${trendPositive ? '+' : ''}${summary.trendPerMonth.toFixed(1)}${unitSuffix}/mês`}
+        compact
+      />
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 font-bold">
           {focusCategory ? <Target size={12} className="shrink-0" /> : <Globe size={12} className="shrink-0" />}

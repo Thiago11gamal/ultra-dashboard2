@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useId } from 'react';
-import { Clock, Zap, Timer, TrendingDown, TrendingUp, Minus, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { Clock, Zap, Timer, TrendingDown, TrendingUp, Minus, ArrowDownWideNarrow, ArrowUpNarrowWide, Target } from 'lucide-react';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 import { getSyntheticTotal } from '../../../utils/scoreHelper';
 import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 
 const formatTime = (s) => {
     if (s == null || !Number.isFinite(Number(s)) || Number(s) < 0) return 'N/A';
@@ -13,7 +14,7 @@ const formatTime = (s) => {
     return m === 0 ? `${sec}s` : sec === 0 ? `${m}m` : `${m}m ${String(sec).padStart(2, '0')}s`;
 };
 
-const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeconds, globalAvgSeconds }) {
+const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeconds, globalAvgSeconds, examTargetSeconds = null }) {
     const uid = useId().replace(/:/g, '');
     const width = 204;
     const height = 112;
@@ -26,7 +27,8 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
         30,
         data.displaySeconds || 0,
         data.visualLatestSeconds ?? data.latestSeconds ?? 0,
-        data.visualAbsoluteSeconds ?? data.absoluteLatestSeconds ?? 0
+        data.visualAbsoluteSeconds ?? data.absoluteLatestSeconds ?? 0,
+        Number.isFinite(Number(examTargetSeconds)) ? Number(examTargetSeconds) : 0
     );
     // Blend local and global reference so subjects are visually comparable without crushing fast ones
     const sharedCap = Number.isFinite(Number(referenceMaxSeconds)) && Number(referenceMaxSeconds) > 0
@@ -85,6 +87,22 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
             y2: cy - outerR * Math.sin(p.angle),
         };
     })() : null;
+
+    const hasExamTargetTick = Number.isFinite(Number(examTargetSeconds)) && Number(examTargetSeconds) > 0 && Number(examTargetSeconds) < gaugeMax * 0.98;
+    const examTargetTickCoords = hasExamTargetTick ? (() => {
+        const p = getCoordinatesForValue(Number(examTargetSeconds));
+        const innerR = r - strokeWidth * 0.85;
+        const outerR = r + strokeWidth * 0.85;
+        return {
+            x1: cx + innerR * Math.cos(p.angle),
+            y1: cy - innerR * Math.sin(p.angle),
+            x2: cx + outerR * Math.cos(p.angle),
+            y2: cy - outerR * Math.sin(p.angle),
+        };
+    })() : null;
+    const examPaceDiff = (Number.isFinite(Number(examTargetSeconds)) && Number(examTargetSeconds) > 0 && Number.isFinite(Number(data.displaySeconds)))
+        ? Math.round(Number(data.displaySeconds) - Number(examTargetSeconds))
+        : null;
 
     const deltaState = data.hasRecentData
         ? (data.deltaSeconds > Math.max(1, Math.round((data.avgSeconds || 0) * 0.05))
@@ -226,6 +244,21 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
                         </line>
                     )}
 
+                    {/* Exam Pacing Target Tick (Edital) */}
+                    {examTargetTickCoords && (
+                        <line
+                            x1={examTargetTickCoords.x1}
+                            y1={examTargetTickCoords.y1}
+                            x2={examTargetTickCoords.x2}
+                            y2={examTargetTickCoords.y2}
+                            stroke="#10b981"
+                            strokeWidth="2.4"
+                            strokeLinecap="round"
+                        >
+                            <title>{`Alvo da prova: ${formatTime(examTargetSeconds)}`}</title>
+                        </line>
+                    )}
+
                     {/* Absolute Last Session Marker (Pin) */}
                     {hasAbsolute && (() => {
                         const pos = getCoordinatesForValue(data.visualAbsoluteSeconds ?? data.absoluteLatestSeconds);
@@ -295,6 +328,17 @@ const HalfMoonGauge = React.memo(function HalfMoonGauge({ data, referenceMaxSeco
                         {formatTime(data.displaySeconds)}
                     </span>
                 </div>
+                {examPaceDiff !== null && (
+                    <div className="flex justify-between items-center text-xs pt-1 border-t border-white/[0.06]">
+                        <span className="text-slate-400 font-medium inline-flex items-center gap-1">
+                            <Target size={11} className="text-emerald-400 shrink-0" />
+                            vs Alvo ({formatTime(examTargetSeconds)})
+                        </span>
+                        <span className={`font-mono font-bold tabular-nums ${examPaceDiff <= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {examPaceDiff <= 0 ? `−${formatTime(Math.abs(examPaceDiff))} folga` : `+${formatTime(examPaceDiff)} lento`}
+                        </span>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -308,7 +352,10 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
     focusCategory,
     timeWindow = 'all',
     maxScore = 100,
-    minScore: _minScore = 0
+    minScore: _minScore = 0,
+    examDurationMinutes = null,
+    examTotalQuestions = null,
+    onConfigurePace = null
 }) {
     const [sortOrder, setSortOrder] = useState('slower'); // 'slower' | 'faster'
 
@@ -537,10 +584,28 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
         ? Math.round(legendStats.latest / legendStats.latestCount)
         : null;
 
+    const examTargetSeconds = useMemo(() => {
+        const dur = Number(examDurationMinutes);
+        const totQ = Number(examTotalQuestions);
+        if (Number.isFinite(dur) && dur > 0 && Number.isFinite(totQ) && totQ > 0) {
+            return Math.round((dur * 60) / totQ);
+        }
+        return null;
+    }, [examDurationMinutes, examTotalQuestions]);
+
+    const subjectsWithinExamTarget = useMemo(() => {
+        if (!examTargetSeconds) return 0;
+        return chartData.filter((d) => Number(d.displaySeconds) <= examTargetSeconds).length;
+    }, [chartData, examTargetSeconds]);
+
     const referenceMaxSeconds = useMemo(() => {
         if (!chartData.length) return 60;
-        return Math.max(30, ...chartData.map((d) => Math.max(d.displaySeconds || 0, d.visualLatestSeconds || 0)));
-    }, [chartData]);
+        return Math.max(
+            30,
+            examTargetSeconds || 0,
+            ...chartData.map((d) => Math.max(d.displaySeconds || 0, d.visualLatestSeconds || 0))
+        );
+    }, [chartData, examTargetSeconds]);
 
     const totalPaceMeasured = legendStats.latestCount;
     const fastSharePct = totalPaceMeasured > 0 ? Math.round((legendStats.below / totalPaceMeasured) * 100) : 0;
@@ -601,6 +666,12 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                             <span className="h-2.5 w-0.5 rounded-full bg-slate-200/80" />
                             Ref. Geral
                         </span>
+                        {examTargetSeconds != null && (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-300" title="Traço verde no arco indica o Alvo de tempo da prova">
+                                <span className="h-2.5 w-0.5 rounded-full bg-emerald-400" />
+                                Alvo Prova ({formatTime(examTargetSeconds)})
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -636,6 +707,51 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                     </button>
                 </div>
             </div>
+
+            {/* Reference Benchmark: Seu ritmo vs Alvo do Edital (ou vs sua Média Geral se edital não configurado) */}
+            {legendAvgSeconds != null && (
+                examTargetSeconds != null ? (() => {
+                    const diff = Math.round(legendAvgSeconds - examTargetSeconds);
+                    return (
+                        <BenchmarkStrip
+                            currentLabel="Seu ritmo médio"
+                            currentValue={`${formatTime(legendAvgSeconds)}/q`}
+                            targetLabel="Alvo da prova"
+                            targetValue={`≤ ${formatTime(examTargetSeconds)}/q`}
+                            gapLabel={diff <= 0 ? `−${formatTime(Math.abs(diff))} de folga` : `+${formatTime(diff)} acima do alvo`}
+                            status={diff <= 0 ? 'success' : diff <= 20 ? 'warning' : 'danger'}
+                            progressPct={Math.min(100, (examTargetSeconds / Math.max(1, legendAvgSeconds)) * 100)}
+                            extra={`${subjectsWithinExamTarget}/${chartData.length} no ritmo da prova`}
+                            compact
+                        />
+                    );
+                })() : (
+                    <BenchmarkStrip
+                        currentLabel="Última sessão geral"
+                        currentValue={legendLatestSeconds != null ? `${formatTime(legendLatestSeconds)}/q` : `${formatTime(legendAvgSeconds)}/q`}
+                        targetLabel="Sua média histórica"
+                        targetValue={`${formatTime(legendAvgSeconds)}/q`}
+                        gapLabel={legendLatestSeconds != null
+                            ? (legendLatestSeconds < legendAvgSeconds
+                                ? 'Mais rápido que sua média'
+                                : legendLatestSeconds > legendAvgSeconds
+                                    ? 'Mais lento que sua média'
+                                    : 'Ritmo estável')
+                            : 'Sem alvo de prova configurado'}
+                        status={legendLatestSeconds != null && legendLatestSeconds < legendAvgSeconds ? 'success' : (legendLatestSeconds != null && legendLatestSeconds > legendAvgSeconds ? 'warning' : 'neutral')}
+                        action={typeof onConfigurePace === 'function' ? (
+                            <button
+                                type="button"
+                                onClick={onConfigurePace}
+                                className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/35 text-cyan-200 text-[11px] font-bold transition-colors"
+                            >
+                                Definir alvo da prova
+                            </button>
+                        ) : null}
+                        compact
+                    />
+                )
+            )}
 
             {/* 4 Aggregated KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -729,6 +845,7 @@ export const TimeSpentChart = React.memo(function TimeSpentChart({
                             data={data}
                             referenceMaxSeconds={referenceMaxSeconds}
                             globalAvgSeconds={legendAvgSeconds}
+                            examTargetSeconds={examTargetSeconds}
                         />
                     ))}
                 </div>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart3 } from 'lucide-react';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { buildConsistencyBoxPlotData } from '../../../utils/advancedChartHelpers';
 import { formatValue } from '../../../utils/scoreHelper';
 
@@ -57,6 +58,26 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
     });
   }, [data.domainMin, domainRange, unit]);
 
+  const boxBenchmark = useMemo(() => {
+    if (!data.rows.length) return null;
+    const avgMed = data.rows.reduce((acc, r) => acc + r.median, 0) / data.rows.length;
+    const onTarget = data.rows.filter((r) => r.median >= targetScore).length;
+    const stableAndOnTarget = data.rows.filter((r) => r.median >= targetScore && r.stability === 'Estável').length;
+    const diff = avgMed - targetScore;
+    const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;
+    return {
+      currentValue: fmt(avgMed),
+      targetValue: fmt(targetScore),
+      gapLabel: diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+      status: diff >= 0 ? 'success' : diff >= -(domainRange * 0.1) ? 'warning' : 'danger',
+      progressPct: targetScore > data.domainMin
+        ? ((avgMed - data.domainMin) / Math.max(1e-9, targetScore - data.domainMin)) * 100
+        : 100,
+      extra: `${onTarget}/${data.rows.length} na meta · ${stableAndOnTarget} estáveis`,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.rows, data.domainMin, targetScore, domainRange, unit]);
+
   if (data.rows.length === 0) {
     return (
       <div className="min-h-[280px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-slate-950/55 p-8 text-center">
@@ -69,6 +90,19 @@ export const ConsistencyBoxPlotChart = React.memo(function ConsistencyBoxPlotCha
 
   return (
     <div className="w-full space-y-4" role="img" aria-label="Box Plot de Consistência por Matéria">
+      {boxBenchmark && (
+        <BenchmarkStrip
+          currentLabel="Mediana geral"
+          currentValue={boxBenchmark.currentValue}
+          targetLabel="Meta"
+          targetValue={boxBenchmark.targetValue}
+          gapLabel={boxBenchmark.gapLabel}
+          status={boxBenchmark.status}
+          progressPct={boxBenchmark.progressPct}
+          extra={boxBenchmark.extra}
+          compact
+        />
+      )}
       {/* Legenda */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
         <div className="flex flex-wrap items-center gap-4">

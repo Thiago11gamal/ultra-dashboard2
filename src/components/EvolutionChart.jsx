@@ -13,7 +13,7 @@ import { normalizeProbability } from "../utils/evolutionGuards";
 import { exportComponentAsPDF } from "../utils/pdfExport";
 import { pointsToRatio, ratioToPoints } from "../utils/scoreHelper.conversions";
 import {
-    Download, Loader2, Zap, Target, BarChart3, TrendingUp, ChevronLeft, ChevronRight,
+    Download, Loader2, Zap, Target, BarChart3, TrendingUp, ChevronLeft, ChevronRight, ArrowRight,
     BookOpen, LayoutGrid, List, Layers, ChevronDown, ChevronUp, CheckCircle2, Crosshair,
     Maximize2, Minimize2, Compass, BarChart2, Grid3X3, Brain, Activity, Sparkles,
     Microscope, Rocket, CalendarRange, Scale, Timer, Gauge, Clock, BoxSelect,
@@ -1093,6 +1093,82 @@ export default React.memo(function EvolutionChart({
         };
     }, [globalMetrics, subjectAggData, timeWindow, showOnlyFocus]);
 
+    // Comparativo automático com a janela imediatamente anterior (30d/60d/90d)
+    const previousPeriodMetrics = useMemo(() => {
+        if (timeWindow === 'all') return null;
+        const days = Number.parseInt(String(timeWindow), 10);
+        if (!Number.isFinite(days) || days <= 0) return null;
+        const todayKey = getDateKey(new Date());
+        const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
+        const currStartNoon = todayNoon ? addDaysNoon(todayNoon, -days) : null;
+        const prevStartNoon = todayNoon ? addDaysNoon(todayNoon, -(days * 2)) : null;
+        const currStartMs = currStartNoon ? toDateMs(getDateKey(currStartNoon)) : NaN;
+        const prevStartMs = prevStartNoon ? toDateMs(getDateKey(prevStartNoon)) : NaN;
+        if (!Number.isFinite(currStartMs) || !Number.isFinite(prevStartMs)) return null;
+
+        const targetCats = (showOnlyFocus && focusCategory?.id)
+            ? categories.filter((c) => c && c.id === focusCategory.id)
+            : categories;
+
+        let realQ = 0;
+        let realC = 0;
+        let synthQ = 0;
+        let synthC = 0;
+
+        targetCats.forEach((cat) => {
+            if (!cat) return;
+            const cMax = hasValidNumber(cat.maxScore) && Number(cat.maxScore) > 0 ? Number(cat.maxScore) : maxScore;
+            const cMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), cMax) : minScore;
+            const cRange = Math.max(1e-9, cMax - cMin);
+            const rawHist = cat.simuladoStats?.history;
+            const list = (Array.isArray(rawHist) ? rawHist : Object.values(rawHist || {})).filter(Boolean);
+            list.forEach((h) => {
+                if (!h || h.valid === false || h.validated === false) return;
+                const dk = getDateKey(h.date || h.createdAt);
+                const ms = dk ? toDateMs(dk) : NaN;
+                if (!Number.isFinite(ms) || ms < prevStartMs || ms >= currStartMs) return;
+
+                let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+                if (tot <= 0 && h.topics != null) {
+                    const tf = extractTopicsTotals(h, cMax, cMin);
+                    if (tf.total > 0) {
+                        realQ += tf.total;
+                        realC += Math.max(0, Math.min(tf.total, tf.correct));
+                        return;
+                    }
+                    if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
+                        const syn = getSyntheticTotal(cMax);
+                        synthQ += syn;
+                        synthC += Math.max(0, Math.min(1, (tf.score - cMin) / cRange)) * syn;
+                        return;
+                    }
+                }
+                const rawCorr = h.correct ?? h.acertos ?? h.correctCount;
+                const hasExplicitC = !h.isPercentage && hasValidNumber(rawCorr);
+                const sc = getSafeScore(h, cMax, cMin);
+                if (tot > 0) {
+                    if (!hasExplicitC && !Number.isFinite(sc)) return;
+                    const effC = resolveEffectiveCorrect(h, sc, tot, hasExplicitC, hasExplicitC ? Number(rawCorr) : 0, cMax, cMin);
+                    realQ += tot;
+                    realC += Math.max(0, Math.min(tot, effC));
+                } else if (Number.isFinite(sc)) {
+                    const syn = getSyntheticTotal(cMax);
+                    synthQ += syn;
+                    synthC += pointsToRatio(sc, cMax, cMin) * syn;
+                }
+            });
+        });
+
+        const combinedQ = realQ + synthQ;
+        if (combinedQ <= 0) return null;
+        return {
+            questions: realQ,
+            correct: realC,
+            accuracy: ((realC + synthC) / combinedQ) * 100,
+            days,
+        };
+    }, [timeWindow, categories, showOnlyFocus, focusCategory, maxScore, minScore]);
+
     const { mcLoading, activeMcResult, activeMcProjectionSeries } = useEvolutionMC({
         focusCategory, categoryLevels, projectDays, targetScore, minScore, maxScore, activeEngine
     });
@@ -1684,14 +1760,29 @@ export default React.memo(function EvolutionChart({
         .recharts-legend-item-text { font-size: 11px !important; font-weight: 600; }
             `}</style>
 
-            {/* Grid limpo de 4 KPIs globais (sem duplicar os indicadores do Status inteligente abaixo) */}
+            {/* Grid limpo de 4 KPIs globais (com comparativo automático vs período anterior quando janela temporal está ativa) */}
             <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 min-w-0">
+                {(() => {
+                    const hasPrevQ = Boolean(previousPeriodMetrics && previousPeriodMetrics.questions > 0);
+                    const qDiff = hasPrevQ ? safeGlobalMetrics.totalQuestions - previousPeriodMetrics.questions : null;
+                    const cDiff = hasPrevQ ? Math.round((safeGlobalMetrics.totalCorrect - previousPeriodMetrics.correct) * 10) / 10 : null;
+                    const hasPrevAcc = Boolean(
+                        previousPeriodMetrics &&
+                        Number.isFinite(previousPeriodMetrics.accuracy) &&
+                        (filterHasData || safeGlobalMetrics.totalQuestions > 0 || safeGlobalMetrics.globalAccuracy > 0)
+                    );
+                    const accDiffPrev = hasPrevAcc ? Number((safeGlobalMetrics.globalAccuracy - previousPeriodMetrics.accuracy).toFixed(1)) : null;
+
+                    return (
+                        <>
                 <KpiCard
                     value={safeGlobalMetrics.totalQuestions.toLocaleString()}
                     label="Questões"
                     color="#818cf8"
                     icon={<BookOpen size={15} />}
-                    hint={timeWindow === 'all' ? 'Histórico completo' : `Últimos ${timeWindow} dias`}
+                    hint={qDiff != null
+                        ? `${qDiff >= 0 ? '+' : ''}${qDiff.toLocaleString()} vs ${previousPeriodMetrics.days}d ant.`
+                        : (timeWindow === 'all' ? 'Histórico completo' : `Últimos ${timeWindow} dias`)}
                     title="Total de questões reais resolvidas no filtro ativo."
                 />
                 <KpiCard
@@ -1699,9 +1790,11 @@ export default React.memo(function EvolutionChart({
                     label="Acertos"
                     color="#34d399"
                     icon={<CheckCircle2 size={15} />}
-                    hint={safeGlobalMetrics.totalQuestions > 0
-                        ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros no período`
-                        : (safeGlobalMetrics.globalAccuracy > 0 ? 'Simulados em % (sem volume)' : 'Respostas corretas')}
+                    hint={cDiff != null
+                        ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros · ${cDiff >= 0 ? '+' : '−'}${formatCleanCount(Math.abs(cDiff))} vs ant.`
+                        : (safeGlobalMetrics.totalQuestions > 0
+                            ? `${formatCleanCount(Math.max(0, safeGlobalMetrics.totalQuestions - safeGlobalMetrics.totalCorrect))} erros no período`
+                            : (safeGlobalMetrics.globalAccuracy > 0 ? 'Simulados em % (sem volume)' : 'Respostas corretas'))}
                     title="Quantidade de questões acertadas dentro do período e filtro ativos."
                 />
                 <KpiCard
@@ -1709,9 +1802,11 @@ export default React.memo(function EvolutionChart({
                     label="Precisão Global"
                     color="#fb923c"
                     icon={<Crosshair size={15} />}
-                    hint={showOnlyFocus && focusCategory
-                        ? `Foco: ${focusCategory.name}`
-                        : (safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy > 0 ? 'Baseada em notas em %' : 'Taxa consolidada')}
+                    hint={accDiffPrev != null
+                        ? `${accDiffPrev >= 0 ? '+' : ''}${accDiffPrev}pp vs ${previousPeriodMetrics.days}d ant.`
+                        : (showOnlyFocus && focusCategory
+                            ? `Foco: ${focusCategory.name}`
+                            : (safeGlobalMetrics.totalQuestions === 0 && safeGlobalMetrics.globalAccuracy > 0 ? 'Baseada em notas em %' : 'Taxa consolidada'))}
                     progress={safeGlobalMetrics.globalAccuracy}
                     statusText={accuracyDeltaVsTarget != null ? (accuracyDeltaVsTarget >= 0 ? `+${accuracyDeltaVsTarget}pp meta` : `${accuracyDeltaVsTarget}pp meta`) : undefined}
                     title="Percentual consolidado de acertos (acertos / questões) no filtro ativo."
@@ -1725,6 +1820,9 @@ export default React.memo(function EvolutionChart({
                     statusText={showOnlyFocus && focusCategory ? (hasCustomFocusCutoff ? 'Corte foco' : 'Meta foco') : 'Objetivo global'}
                     title="Meta de pontuação configurada para o concurso ou disciplina em foco."
                 />
+                        </>
+                    );
+                })()}
             </motion.div>
 
             {/* Status inteligente — painel enxuto sem redundância com os KPIs */}
@@ -2239,6 +2337,12 @@ export default React.memo(function EvolutionChart({
                         timeWindow={timeWindow}
                         maxScore={maxScore}
                         minScore={minScore}
+                        examDurationMinutes={examDurationMinutes}
+                        examTotalQuestions={examTotalQuestions}
+                        onConfigurePace={() => {
+                            setEngineGroup('all');
+                            setActiveEngine('exam_pacing');
+                        }}
                     />
                 ) : activeEngine === "speed_accuracy" ? (
                     <React.Suspense fallback={LazyTabFallback}>
@@ -2346,6 +2450,7 @@ export default React.memo(function EvolutionChart({
                         focusCategory={focusCategory}
                         showOnlyFocus={showOnlyFocus}
                         timeWindow={timeWindow}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
                         minScore={showOnlyFocus ? focusMin : minScore}
                         maxScore={showOnlyFocus ? focusMax : maxScore}
                         examBoard={examBoard}
@@ -2359,6 +2464,9 @@ export default React.memo(function EvolutionChart({
                         focusCategory={focusCategory}
                         showOnlyFocus={showOnlyFocus}
                         timeWindow={timeWindow}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                        minScore={showOnlyFocus ? focusMin : minScore}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
                     />
                     </React.Suspense>
                 ) : activeEngine === "mc_density" ? (
@@ -2377,6 +2485,7 @@ export default React.memo(function EvolutionChart({
                         showOnlyFocus={showOnlyFocus}
                         focusSubjectId={focusSubjectId}
                         timeWindow={timeWindow}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
                         maxScore={maxScore}
                         minScore={minScore}
                         unit={resolvedActiveUnit}
@@ -2748,23 +2857,33 @@ export default React.memo(function EvolutionChart({
                             )}
                         </div>
 
-                        <div className="px-5 py-2.5 bg-slate-950/45 border-t border-white/[0.06] flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-400 relative z-10">
-                            <span className="inline-flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${colors.pingBg}`} />
-                                Diagnóstico sincronizado
-                            </span>
-                            <span className="inline-flex items-center gap-1.5">
-                                Confiança do modelo:
-                                <strong className="text-slate-200 font-mono tabular-nums bg-white/[0.06] px-1.5 py-0.5 rounded border border-white/[0.06]">
-                                    {timeline.length >= 2 ? `${Math.min(99.9, 85 + Math.min(14.9, timeline.length * 0.8)).toFixed(1)}%` : '—'}
-                                </strong>
-                            </span>
-                            {mcLoading && (
-                                <span className="ml-auto inline-flex items-center gap-1.5 text-indigo-300 font-medium">
-                                    <Loader2 size={12} className="animate-spin" />
-                                    Atualizando projeções...
+                        <div className="px-5 py-2.5 bg-slate-950/45 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-3 text-[11px] font-semibold text-slate-400 relative z-10">
+                            <div className="flex flex-wrap items-center gap-4">
+                                <span className="inline-flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${colors.pingBg}`} />
+                                    Diagnóstico sincronizado
                                 </span>
-                            )}
+                                <span className="inline-flex items-center gap-1.5">
+                                    Confiança do modelo:
+                                    <strong className="text-slate-200 font-mono tabular-nums bg-white/[0.06] px-1.5 py-0.5 rounded border border-white/[0.06]">
+                                        {timeline.length >= 2 ? `${Math.min(99.9, 85 + Math.min(14.9, timeline.length * 0.8)).toFixed(1)}%` : '—'}
+                                    </strong>
+                                </span>
+                                {mcLoading && (
+                                    <span className="inline-flex items-center gap-1.5 text-indigo-300 font-medium">
+                                        <Loader2 size={12} className="animate-spin" />
+                                        Atualizando projeções...
+                                    </span>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/simulados')}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-400/30 text-indigo-200 text-[11px] font-bold transition-colors no-print"
+                            >
+                                <span>Registrar simulado</span>
+                                <ArrowRight size={11} />
+                            </button>
                         </div>
                     </div>
                 );
@@ -2811,6 +2930,7 @@ export default React.memo(function EvolutionChart({
                                 subjectAggData={subjectAggData}
                                 showOnlyFocus={showOnlyFocus}
                                 focusCategory={focusCategory}
+                                targetScore={showOnlyFocus ? focusTarget : targetScore}
                                 unit={resolvedGlobalUnit}
                                 maxScore={maxScore}
                                 minScore={minScore}
@@ -2822,9 +2942,11 @@ export default React.memo(function EvolutionChart({
                             categories={categories}
                             maxScore={maxScore}
                             minScore={minScore}
+                            targetScore={showOnlyFocus ? focusTarget : targetScore}
                             showOnlyFocus={showOnlyFocus}
                             focusSubjectId={focusCategory?.id || focusSubjectId}
                             timeWindow={timeWindow}
+                            onGoToSimulados={() => navigate('/simulados')}
                         />
                     </div>
                 )}

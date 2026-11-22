@@ -9,8 +9,10 @@ import {
     YAxis,
     CartesianGrid,
     Tooltip,
-    ResponsiveContainer
+    ResponsiveContainer,
+    ReferenceLine
 } from 'recharts';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { getDateKey, formatDuration, formatWeekdayShortPtBR } from '../../../utils/dateHelper.js';
 import { parseNoonLocal, addDaysNoon } from '../../../utils/parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals, resolveEffectiveCorrect } from '../../../utils/scoreHelper.js';
@@ -26,12 +28,16 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     studyLogs = [],
     showOnlyFocus = false,
     focusSubjectId = null,
+    targetScore = null,
     maxScore = 100,
     minScore = 0,
     unit = '%'
 }) {
     const safeMaxScore = isStrictNum(maxScore) && Number(maxScore) > 0 ? Number(maxScore) : 100;
     const safeMinScore = isStrictNum(minScore) ? Number(minScore) : 0;
+    const effectiveTarget = isStrictNum(targetScore)
+        ? Math.max(safeMinScore, Math.min(safeMaxScore, Number(targetScore)))
+        : safeMinScore + (safeMaxScore - safeMinScore) * 0.8;
     const trimmedUnit = typeof unit === 'string' ? unit.trim() : '';
     const safeUnit = trimmedUnit.length > 0 && trimmedUnit.length <= 12 ? trimmedUnit : '%';
     const instanceId = useId().replace(/:/g, "");
@@ -179,6 +185,26 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
       d => d.minutos > 0 || d.acertos != null
     );
 
+    const week7Benchmark = React.useMemo(() => {
+        const validScores = chartData.filter((d) => d.acertos != null && Number.isFinite(Number(d.acertos)));
+        const totalHours = chartData.reduce((acc, d) => acc + (Number(d.minutos) || 0), 0);
+        if (!validScores.length) return null;
+        const avg = validScores.reduce((acc, d) => acc + Number(d.acertos), 0) / validScores.length;
+        const diff = avg - effectiveTarget;
+        const range = Math.max(1e-9, safeMaxScore - safeMinScore);
+        const gapUnit = safeUnit === '%' ? 'pp' : ` ${safeUnit}`;
+        return {
+            currentValue: `${formatValue(avg)}${safeUnit}`,
+            targetValue: `${formatValue(effectiveTarget)}${safeUnit}`,
+            gapLabel: diff >= 0 ? `+${formatValue(diff)}${gapUnit} acima` : `Faltam ${formatValue(Math.abs(diff))}${gapUnit}`,
+            status: diff >= 0 ? 'success' : diff >= -(range * 0.1) ? 'warning' : 'danger',
+            progressPct: effectiveTarget > safeMinScore
+                ? ((avg - safeMinScore) / Math.max(1e-9, effectiveTarget - safeMinScore)) * 100
+                : 100,
+            extra: totalHours > 0 ? `${formatDuration(totalHours)} estudadas (7d)` : `${validScores.length}d com simulados`,
+        };
+    }, [chartData, effectiveTarget, safeMinScore, safeMaxScore, safeUnit]);
+
     if (!hasAnyData) {
       return (
         <div className="w-full h-full min-h-[320px] flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-slate-950/55 text-slate-400 text-sm gap-2.5 p-6 text-center">
@@ -217,6 +243,21 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                     </div>
                 </div>
             </div>
+
+            {week7Benchmark && (
+                <BenchmarkStrip
+                    currentLabel="Média 7d"
+                    currentValue={week7Benchmark.currentValue}
+                    targetLabel="Meta"
+                    targetValue={week7Benchmark.targetValue}
+                    gapLabel={week7Benchmark.gapLabel}
+                    status={week7Benchmark.status}
+                    progressPct={week7Benchmark.progressPct}
+                    extra={week7Benchmark.extra}
+                    compact
+                    className="mb-3"
+                />
+            )}
 
             <div className="flex-1 min-h-0">
                 <ResponsiveContainer width="100%" height="100%" minHeight={240} minWidth={1}>
@@ -277,6 +318,15 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                         <Tooltip
                             cursor={{ fill: 'rgba(99, 102, 241, 0.06)' }}
                             content={renderTooltip}
+                        />
+
+                        <ReferenceLine
+                            yAxisId="right"
+                            y={effectiveTarget}
+                            stroke="#10b981"
+                            strokeDasharray="4 4"
+                            strokeWidth={1.6}
+                            label={{ value: `Meta ${formatValue(effectiveTarget)}${safeUnit}`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }}
                         />
 
                         <Bar

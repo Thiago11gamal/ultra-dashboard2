@@ -10,9 +10,11 @@ import {
   ResponsiveContainer,
   BarChart,
   Legend,
+  ReferenceLine,
 } from 'recharts';
 import { Brain, AlertOctagon, Timer } from 'lucide-react';
 import { ChartFrame } from '../ChartFrame';
+import { BenchmarkStrip } from '../../ui/BenchmarkStrip';
 import { normalize, isSubjectMatch } from '../../../utils/normalization';
 import { toDateMs, getDateKey } from '../../../utils/dateHelper';
 import { parseNoonLocal, addDaysNoon } from '../../../utils/parseNoonLocal';
@@ -105,6 +107,9 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
   focusCategory = null,
   showOnlyFocus = false,
   timeWindow = 'all',
+  targetScore = 80,
+  minScore = 0,
+  maxScore = 100,
 }) {
   const telemetry = useMemo(() => {
     let cutoffMs = null;
@@ -284,9 +289,35 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
   const pctOf = (count) => (metaMatrix.total > 0 ? `${Math.round((count / metaMatrix.total) * 100)}%` : '0%');
   const uncertainOk = metaMatrix.counts.duvidaOk + metaMatrix.counts.chuteOk;
   const consciousGap = metaMatrix.counts.duvidaErr + metaMatrix.counts.chuteErr;
+  const certezaTotal = metaMatrix.counts.certezaOk + metaMatrix.counts.certezaErr;
+  const certezaAccPct = certezaTotal > 0 ? Math.round((metaMatrix.counts.certezaOk / certezaTotal) * 100) : null;
+  const illusionPct = metaMatrix.total > 0 ? Math.round((metaMatrix.counts.certezaErr / metaMatrix.total) * 100) : 0;
+  const gMin = Number.isFinite(Number(minScore)) ? Number(minScore) : 0;
+  const gMax = Number.isFinite(Number(maxScore)) && Number(maxScore) > gMin ? Number(maxScore) : gMin + 100;
+  const tNum = Number(targetScore);
+  const fatigueTargetPct = Number.isFinite(tNum)
+    ? Math.round(Math.max(10, Math.min(100, ((tNum - gMin) / Math.max(1e-9, gMax - gMin)) * 100)))
+    : 80;
 
   return (
     <div className="w-full space-y-6">
+      {metaMatrix.total > 0 && (
+        <BenchmarkStrip
+          currentLabel={certezaAccPct != null ? 'Calibração de certeza' : 'Domínio real'}
+          currentValue={certezaAccPct != null ? `${certezaAccPct}%` : pctOf(metaMatrix.counts.certezaOk)}
+          targetLabel="Alvo calibração"
+          targetValue="≥ 90%"
+          gapLabel={certezaAccPct != null
+            ? (certezaAccPct >= 90 ? `+${certezaAccPct - 90}pp acima` : `Faltam ${90 - certezaAccPct}pp`)
+            : `Ilusão: ${illusionPct}% (alvo < 5%)`}
+          status={certezaAccPct != null
+            ? (certezaAccPct >= 90 && illusionPct < 5 ? 'success' : certezaAccPct >= 75 ? 'warning' : 'danger')
+            : (illusionPct < 5 ? 'success' : 'warning')}
+          progressPct={certezaAccPct != null ? (certezaAccPct / 90) * 100 : null}
+          extra={`Ilusão de competência: ${illusionPct}% (alvo < 5%)`}
+          compact
+        />
+      )}
       {/* 1. Matriz de Metacognição */}
       <div className="rounded-2xl border border-white/[0.08] bg-slate-950/55 p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -357,21 +388,26 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
               </h4>
             </div>
             {fatigueDelta !== null && (
-              <span
-                className={`text-[11px] font-mono font-bold tabular-nums px-2.5 py-0.5 rounded-full border ${
-                  fatigueDelta <= -12
-                    ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-semibold text-slate-400">
+                  Alvo resistência: queda ≤ 5pp · Meta: {fatigueTargetPct}%
+                </span>
+                <span
+                  className={`text-[11px] font-mono font-bold tabular-nums px-2.5 py-0.5 rounded-full border ${
+                    fatigueDelta <= -12
+                      ? 'bg-rose-500/15 border-rose-500/35 text-rose-300'
+                      : fatigueDelta >= 5
+                        ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                        : 'bg-sky-500/15 border-sky-500/35 text-sky-300'
+                  }`}
+                >
+                  {fatigueDelta <= -12
+                    ? `Queda de fadiga: ${fatigueDelta}pp no final`
                     : fatigueDelta >= 5
-                      ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
-                      : 'bg-sky-500/15 border-sky-500/35 text-sky-300'
-                }`}
-              >
-                {fatigueDelta <= -12
-                  ? `Queda de fadiga: ${fatigueDelta}pp no final`
-                  : fatigueDelta >= 5
-                    ? `Aquecimento positivo: +${fatigueDelta}pp`
-                    : `Resistência estável (${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp)`}
-              </span>
+                      ? `Aquecimento positivo: +${fatigueDelta}pp`
+                      : `Resistência estável (${fatigueDelta >= 0 ? '+' : ''}${fatigueDelta}pp)`}
+                </span>
+              </div>
             )}
           </div>
           <ChartFrame minHeight={230} label="Analisando fadiga intraprova">
@@ -385,6 +421,14 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
                     <YAxis yAxisId="right" orientation="right" stroke="#38bdf8" fontSize={10} tickFormatter={(v) => `${v}s`} />
                   )}
                   <Tooltip content={<FatigueTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                  <ReferenceLine
+                    yAxisId="left"
+                    y={fatigueTargetPct}
+                    stroke="#10b981"
+                    strokeDasharray="5 3"
+                    strokeWidth={1.5}
+                    label={{ value: `Meta ${fatigueTargetPct}%`, position: 'insideTopRight', fill: '#34d399', fontSize: 10, fontWeight: 700 }}
+                  />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {hasTimedFatigue && (
                     <Bar yAxisId="right" dataKey="avgSeconds" name="Tempo Médio (s/q)" fill="#0ea5e9" fillOpacity={0.5} radius={[6, 6, 0, 0]} barSize={32} />
