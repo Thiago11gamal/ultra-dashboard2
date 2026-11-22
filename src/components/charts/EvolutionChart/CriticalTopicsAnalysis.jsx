@@ -8,7 +8,7 @@ import { parseNoonLocal, addDaysNoon } from "../../../utils/parseNoonLocal";
 import { getSafeScore, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect } from "../../../utils/scoreHelper";
 import { toArray, getHistoryDate } from "../../../utils/evolutionGuards";
 import { filterHistoryByTimeWindow } from "../../../hooks/useSubjectAggData";
-import { ShieldAlert, AlertTriangle, Sparkles } from "lucide-react";
+import { ShieldAlert, Flame, Crosshair, CheckCircle2, Clock, FileText } from "lucide-react";
 
 const CustomTooltipStyle = {
     backgroundColor: 'rgba(15, 23, 42, 0.9)',
@@ -317,29 +317,29 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
     const weekTitle = WEEKS.find(w => w.offset === selectedWeekOffset)?.label || "SEMANA";
 
     return (
-        <div className="w-full space-y-4 pt-2">
+        <div className="w-full space-y-4 pt-1">
             {/* Header com Navegação Temporal Unificada */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md shadow-lg">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 sm:p-5 rounded-2xl bg-slate-900/65 border border-white/[0.08] backdrop-blur-xl shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)]">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-inner shrink-0">
-                        <ShieldAlert size={20} />
+                    <div className="p-2 rounded-xl bg-rose-500/12 text-rose-400 border border-rose-500/25 shrink-0">
+                        <ShieldAlert size={19} />
                     </div>
                     <div>
                         <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm sm:text-base font-bold text-white">Matriz de criticidade e pontos de fuga</h3>
-                            <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-[9px] font-black text-rose-400 border border-rose-500/20 uppercase tracking-wider">
+                            <h3 className="text-sm sm:text-base font-black text-white tracking-tight">Matriz de criticidade e pontos de fuga</h3>
+                            <span className="px-2 py-0.5 rounded-full bg-rose-500/12 text-[11px] font-bold text-rose-300 border border-rose-500/25">
                                 Índice de Criticidade
                             </span>
                         </div>
-                        <p className="text-[11px] sm:text-xs text-slate-400 font-medium">
+                        <p className="text-xs text-slate-400 mt-0.5">
                             Identifique matérias e assuntos específicos que mais geram perdas de pontos
                         </p>
                     </div>
                 </div>
 
-                {/* Week Selector + Date Range Badge */}
+                {/* Unified Week Selector + Date Range Badge */}
                 <div className="flex flex-wrap items-center gap-2 self-start md:self-center shrink-0">
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar p-1 bg-slate-950/80 rounded-xl border border-slate-800/80 shadow-inner">
+                    <div className="inline-flex items-center gap-1 overflow-x-auto no-scrollbar p-1 bg-slate-950/80 rounded-xl border border-white/[0.08] shadow-inner">
                         {WEEKS.map((w) => {
                             const isActive = selectedWeekOffset === w.offset;
                             return (
@@ -348,10 +348,10 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                     type="button"
                                     onClick={() => setSelectedWeekOffset(w.offset)}
                                     aria-pressed={isActive}
-                                    className={`px-3 py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${
+                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all whitespace-nowrap ${
                                         isActive
-                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-indigo-400/50'
-                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                                            ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
+                                            : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
                                     }`}
                                 >
                                     {w.label}
@@ -359,27 +359,28 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             );
                         })}
                     </div>
-                    <div className="text-[10px] sm:text-[11px] font-mono font-bold text-indigo-300 bg-indigo-950/60 border border-indigo-700/50 px-3 py-1.5 rounded-xl shadow-inner">
+                    <div className="text-[11px] font-mono tabular-nums font-bold text-indigo-200 bg-indigo-500/12 border border-indigo-400/30 px-3 py-1.5 rounded-xl">
                         {dateLabel}
                     </div>
                 </div>
             </div>
 
             {/* Painéis Lado a Lado perfeitamente enquadrados */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
                 {/* Matérias críticas */}
-                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
+                <div className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl p-4 sm:p-5 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)] hover:border-white/[0.14] transition-all flex flex-col justify-between h-full min-w-0">
                     <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">{weekTitle}</p>
-                            <span className="text-[9px] font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{weekTitle}</p>
+                            <span className="text-[11px] font-bold text-rose-300 bg-rose-500/12 border border-rose-500/25 px-2.5 py-0.5 rounded-full tabular-nums">
                                 {pointLeakageData.length} {pointLeakageData.length === 1 ? 'matéria' : 'matérias'}
                             </span>
                         </div>
                         <h4 className="text-sm sm:text-base font-black text-slate-100 mb-1 flex items-center gap-2 tracking-tight">
-                            🩸 Matérias Críticas
+                            <Flame size={16} className="text-rose-400 shrink-0" />
+                            Matérias Críticas
                         </h4>
-                        <p className="text-[10px] sm:text-xs text-slate-400 mb-4 leading-relaxed">
+                        <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                             Disciplinas com maior Índice de Criticidade (Erros acumulados × taxa de erro).
                         </p>
                     </div>
@@ -389,8 +390,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <ResponsiveContainer width="100%" height={Math.max(220, pointLeakageData.length * 38)} minWidth={1}>
                                 <BarChart data={pointLeakageData} layout="vertical" margin={{ top: 5, right: 85, left: 0, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 22 ? `${String(v).slice(0, 20)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 22 ? `${String(v).slice(0, 20)}…` : v} stroke="#cbd5e1" tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => [`${v} pts (Índice)`, `${props?.payload?.fullName || 'Matéria'} (${props?.payload?.errors || 0} erros)`]} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Bar dataKey="displayValue" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {pointLeakageData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
@@ -399,28 +400,31 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
-                                <span className="text-4xl mb-2">{hasData ? '🎉' : '⏳'}</span>
-                                <p className="font-bold text-slate-300 mb-1">{hasData ? 'Sem erros críticos!' : 'Nenhum dado registrado'}</p>
-                                <p className="text-xs text-slate-400 mt-0.5">{hasData ? 'Nenhum erro crítico registrado nesta semana.' : 'Sem simulados registrados neste período. Selecione outra semana acima.'}</p>
+                            <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/45 rounded-xl border border-white/[0.06] p-6 text-slate-400 text-sm text-center gap-2">
+                                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border ${hasData ? 'bg-emerald-500/12 border-emerald-500/25 text-emerald-400' : 'bg-slate-800/60 border-white/10 text-slate-400'}`}>
+                                    {hasData ? <CheckCircle2 size={22} /> : <Clock size={22} />}
+                                </div>
+                                <p className="font-bold text-slate-200">{hasData ? 'Sem erros críticos!' : 'Nenhum dado registrado'}</p>
+                                <p className="text-xs text-slate-400 max-w-xs">{hasData ? 'Nenhum erro crítico registrado nesta semana.' : 'Sem simulados registrados neste período. Selecione outra semana acima.'}</p>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Assuntos críticos */}
-                <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-md p-4 sm:p-6 shadow-xl hover:border-slate-700/80 transition-all flex flex-col justify-between h-full min-w-0">
+                <div className="rounded-2xl border border-white/[0.08] bg-slate-900/65 backdrop-blur-xl p-4 sm:p-5 shadow-[0_12px_36px_-18px_rgba(0,0,0,0.65)] hover:border-white/[0.14] transition-all flex flex-col justify-between h-full min-w-0">
                     <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider">{weekTitle} · TODOS OS ASSUNTOS</p>
-                            <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{weekTitle} · TODOS OS ASSUNTOS</p>
+                            <span className="text-[11px] font-bold text-amber-300 bg-amber-500/12 border border-amber-500/25 px-2.5 py-0.5 rounded-full tabular-nums">
                                 {subtopicsData.length} {subtopicsData.length === 1 ? 'tópico' : 'tópicos'}
                             </span>
                         </div>
                         <h4 className="text-sm sm:text-base font-black text-slate-100 mb-1 flex items-center gap-2 tracking-tight">
-                            📏 Assuntos Críticos
+                            <Crosshair size={16} className="text-amber-400 shrink-0" />
+                            Assuntos Críticos
                         </h4>
-                        <p className="text-[10px] sm:text-xs text-slate-400 mb-4 leading-relaxed">
+                        <p className="text-xs text-slate-400 mb-4 leading-relaxed">
                             Tópicos com maior urgência de revisão e reforço teórico.
                         </p>
                     </div>
@@ -430,8 +434,8 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                             <ResponsiveContainer width="100%" height={Math.max(220, subtopicsData.length * 38)} minWidth={1}>
                                 <BarChart data={subtopicsData} layout="vertical" margin={{ top: 5, right: 65, left: 0, bottom: 5 }}>
                                     <CartesianGrid stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
-                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 28 ? `${String(v).slice(0, 26)}...` : v} stroke="#cbd5e1" tick={{ fontSize: 10, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
+                                    <XAxis type="number" stroke="#94a3b8" tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} allowDecimals={false} />
+                                    <YAxis type="category" dataKey="fullName" tickFormatter={(v) => String(v || '').length > 28 ? `${String(v).slice(0, 26)}…` : v} stroke="#cbd5e1" tick={{ fontSize: 11, fill: '#cbd5e1', fontWeight: 600 }} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} tickLine={false} width={135} />
                                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.04)', radius: 6 }} formatter={(v, n, props) => {
                                         const total = Number(props?.payload?.total) || 0;
                                         const correct = Math.round(Number(props?.payload?.correct) || 0);
@@ -440,19 +444,21 @@ export const CriticalTopicsAnalysis = React.memo(({ categories = [], maxScore = 
                                     }} contentStyle={CustomTooltipStyle} itemStyle={{ color: '#e2e8f0' }} />
                                     <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={18} minPointSize={4}>
                                         {subtopicsData.map((entry, i) => <Cell key={i} fill={entry.fill} />)}
-                                        <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 10.5, fontWeight: 'bold' }} offset={8} />
+                                        <LabelList dataKey="value" position="right" style={{ fill: '#ffffff', fontSize: 11, fontWeight: 'bold' }} offset={8} />
                                     </Bar>
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/30 rounded-2xl border border-slate-800/50 p-6 text-slate-500 text-sm text-center">
-                                <span className="text-4xl mb-2">{hasData ? (pointLeakageData.length > 0 ? '📋' : '🎉') : '⏳'}</span>
-                                <p className="font-bold text-slate-300 mb-1">
+                            <div className="h-full min-h-[220px] flex flex-col items-center justify-center bg-slate-950/45 rounded-xl border border-white/[0.06] p-6 text-slate-400 text-sm text-center gap-2">
+                                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border ${hasData && pointLeakageData.length === 0 ? 'bg-emerald-500/12 border-emerald-500/25 text-emerald-400' : 'bg-slate-800/60 border-white/10 text-slate-400'}`}>
+                                    {hasData ? (pointLeakageData.length > 0 ? <FileText size={22} /> : <CheckCircle2 size={22} />) : <Clock size={22} />}
+                                </div>
+                                <p className="font-bold text-slate-200">
                                     {hasData
                                         ? (pointLeakageData.length > 0 ? 'Sem detalhamento por assunto' : 'Sem assuntos críticos!')
                                         : 'Nenhum dado registrado'}
                                 </p>
-                                <p className="text-xs text-slate-400 mt-0.5">
+                                <p className="text-xs text-slate-400 max-w-xs">
                                     {hasData
                                         ? (pointLeakageData.length > 0
                                             ? 'Os simulados desta semana foram registrados apenas por matéria, sem divisão em tópicos.'

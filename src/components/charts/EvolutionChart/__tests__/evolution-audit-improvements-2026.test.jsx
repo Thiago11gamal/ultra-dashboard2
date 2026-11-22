@@ -380,7 +380,7 @@ describe('Evolution Menu Audit & Readability Improvements (2026)', () => {
     expect(screen.getByText(/Como ler θ \(escala/i)).toBeTruthy();
   });
 
-  it('EvolutionChart exibe Guia de Leitura dos Status, alterna para Modo Compacto e filtra grupos de análises', () => {
+  it('EvolutionChart inicia limpo em Modo Compacto, expande Guia de Leitura, abre guias sob demanda e filtra grupos de análises', () => {
     render(
       <MemoryRouter>
         <EvolutionChart
@@ -394,15 +394,21 @@ describe('Evolution Menu Audit & Readability Improvements (2026)', () => {
     );
 
     expect(screen.getByText(/Status inteligente do desempenho/i)).toBeTruthy();
-    expect(screen.getAllByText(/Como ler:/i).length).toBeGreaterThanOrEqual(4);
+    // Inicia limpo no modo Compacto (sem despejar 8 cards de texto nem ChartGuides abertos)
+    expect(screen.queryAllByText(/Sinais positivos/i).length).toBe(0);
 
-    // Alternar para modo compacto mantém painel "Como ler:" abaixo das pílulas
-    fireEvent.click(screen.getByRole('button', { name: /Compacto/i }));
+    // Clicar em uma pílula de status abre o detalhe "Como ler:" sob demanda
+    fireEvent.click(screen.getByRole('button', { name: /Nível atual/i }));
     expect(screen.getByText(/Como ler: Nível atual/i)).toBeTruthy();
 
-    // Abrir guia do Hero Chart Bayesiano (aumenta contagem de ChartGuides visíveis de 1 para 2)
-    expect(screen.getAllByText(/Sinais positivos/i).length).toBe(1);
+    // Alternar para Guia de leitura exibe os cartões completos com "Como ler:"
+    fireEvent.click(screen.getByRole('button', { name: /Guia de leitura/i }));
+    expect(screen.getAllByText(/Como ler:/i).length).toBeGreaterThanOrEqual(4);
+
+    // Abrir guia do Hero Chart Bayesiano e da Análise Secundária sob demanda (0 -> 1 -> 2)
     fireEvent.click(screen.getByRole('button', { name: /Como ler este gráfico/i }));
+    expect(screen.getAllByText(/Sinais positivos/i).length).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: /Guia da análise/i }));
     expect(screen.getAllByText(/Sinais positivos/i).length).toBe(2);
 
     // Filtrar abas secundárias pelo grupo "Tempo & Ritmo"

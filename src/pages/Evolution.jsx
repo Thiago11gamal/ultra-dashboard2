@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { TrendingUp, ArrowRight } from 'lucide-react';
 import EvolutionChart from '../components/EvolutionChart';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useAppStore } from '../store/useAppStore';
@@ -104,24 +105,26 @@ export default function Evolution() {
       <div className="animate-fade-in">
         {!hasEvolutionData ? (
           <div className="flex items-center justify-center min-h-[60vh] p-4">
-            <div className="relative p-8 sm:p-12 text-center rounded-3xl border border-slate-700/50 bg-slate-900/80 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] max-w-lg w-full group overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-cyan-500/5 opacity-50"></div>
+            <div className="relative p-8 sm:p-12 text-center rounded-2xl border border-white/[0.08] bg-slate-900/75 backdrop-blur-2xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] max-w-lg w-full group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 via-indigo-500/5 to-cyan-500/5 opacity-70" />
               <div className="relative z-10 flex flex-col items-center">
-                  <div className="w-20 h-20 mb-6 rounded-full bg-slate-800/50 border border-slate-700/50 flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform duration-500">
-                    <span className="text-4xl drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">📈</span>
-                  </div>
-                  <h3 className="text-lg font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-slate-200 to-slate-400 mb-3">
-                    Desbloqueie sua Evolução
-                  </h3>
-                  <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
-                    Cadastre simulados nas disciplinas para visualizar sua evolução, tendências de desempenho e as previsões estatísticas do motor Monte Carlo.
-                  </p>
-                  <button
-                    onClick={() => navigate('/simulados')}
-                    className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs transition-colors shadow-lg shadow-indigo-900/30 active:scale-95"
-                  >
-                    Cadastrar primeiro simulado
-                  </button>
+                <div className="w-16 h-16 mb-5 rounded-2xl bg-gradient-to-br from-pink-500/20 to-indigo-500/20 border border-pink-400/30 flex items-center justify-center text-pink-300 shadow-inner group-hover:scale-105 transition-transform duration-300">
+                  <TrendingUp size={30} />
+                </div>
+                <h3 className="text-lg font-black tracking-tight text-white mb-2">
+                  Desbloqueie sua Evolução
+                </h3>
+                <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
+                  Cadastre simulados nas disciplinas para visualizar sua evolução, tendências de desempenho e as previsões estatísticas do motor Monte Carlo.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/simulados')}
+                  className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-indigo-900/30 active:scale-95"
+                >
+                  <span>Cadastrar primeiro simulado</span>
+                  <ArrowRight size={14} />
+                </button>
               </div>
             </div>
           </div>

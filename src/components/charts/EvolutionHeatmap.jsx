@@ -471,69 +471,70 @@ export const EvolutionHeatmap = React.memo(({
     const t80Fmt = `${Math.round(effectiveLegendTargetPct * 0.8)}%`;
 
     return (
-        <div className="w-full min-h-[240px] rounded-2xl border border-slate-800/80 bg-slate-950 p-4 sm:p-5 shadow-[0_18px_45px_rgba(2,6,23,0.5)] relative">
+        <div className="w-full min-h-[240px] rounded-2xl border border-white/[0.06] bg-slate-950/55 p-3.5 sm:p-4 relative">
             {isAggregating && (
-                <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold text-indigo-300 animate-pulse">
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-indigo-300 animate-pulse">
                     <span className="inline-block w-2 h-2 rounded-full bg-indigo-400" />
                     Recalculando agregação do mapa...
                 </div>
             )}
-            <div className="flex flex-wrap items-center gap-3.5 mb-5 text-[11px] text-slate-300">
-                <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-lg p-1.5 mr-2 shadow-sm">
-                    {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (
-                        <button
-                            type="button"
-                            key={opt.value}
-                            onClick={() => {
-                                setHoveredCell(null);
-                                setWindowSize(opt.value);
-                            }}
-                            aria-label={`Filtrar janela ${opt.label}`}
-                            aria-pressed={windowSize === opt.value}
-                            className={`px-2.5 py-1.5 rounded-md text-[10px] font-extrabold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 ${windowSize === opt.value ? 'bg-indigo-500/30 text-indigo-100 border border-indigo-400/40' : 'text-slate-400 hover:text-slate-200'}`}
-                        >
-                            {opt.label}
-                        </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 text-[11px] text-slate-300">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shadow-inner">
+                        {[{ label: '4 sem', value: '28' }, { label: '8 sem', value: '56' }, { label: '12 sem', value: '84' }, { label: 'Tudo', value: 'all' }].map(opt => (
+                            <button
+                                type="button"
+                                key={opt.value}
+                                onClick={() => {
+                                    setHoveredCell(null);
+                                    setWindowSize(opt.value);
+                                }}
+                                aria-label={`Filtrar janela ${opt.label}`}
+                                aria-pressed={windowSize === opt.value}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70 ${windowSize === opt.value ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shadow-inner">
+                        {[{ label: 'Diário', value: 'daily' }, { label: 'Semanal', value: 'weekly' }, { label: 'Mensal', value: 'monthly' }].map(opt => (
+                            <button
+                                type="button"
+                                key={opt.value}
+                                onClick={() => {
+                                    setHoveredCell(null);
+                                    setGranularity(opt.value);
+                                }}
+                                aria-label={`Selecionar granularidade ${opt.label}`}
+                                aria-pressed={granularity === opt.value}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 ${granularity === opt.value ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 shadow-sm' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'}`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-semibold">
+                    {[
+                        { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${t60Fmt}` },
+                        { bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${t60Fmt}–${t80Fmt}` },
+                        { bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${t80Fmt}–${targetFmt}` },
+                        { bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetFmt} ✓ meta` },
+                    ].map(item => (
+                        <span key={item.label} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-900/70 border border-white/[0.05]">
+                            <span className="w-2.5 h-2.5 rounded-sm inline-block shrink-0" style={{ background: item.bg, border: `1px solid ${item.border}` }} />
+                            {item.label}
+                        </span>
                     ))}
                 </div>
-                <div className="flex items-center gap-1 bg-slate-950/75 border border-slate-700/80 rounded-lg p-1.5 mr-2 shadow-sm">
-                    {[{ label: 'Diário', value: 'daily' }, { label: 'Semanal', value: 'weekly' }, { label: 'Mensal', value: 'monthly' }].map(opt => (
-                        <button
-                            type="button"
-                            key={opt.value}
-                            onClick={() => {
-                                setHoveredCell(null);
-                                setGranularity(opt.value);
-                            }}
-                            aria-label={`Selecionar granularidade ${opt.label}`}
-                            aria-pressed={granularity === opt.value}
-                            className={`px-2.5 py-1.5 rounded-md text-[10px] font-extrabold tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70 ${granularity === opt.value ? 'bg-cyan-500/30 text-cyan-100 border border-cyan-400/40' : 'text-slate-400 hover:text-slate-200'}`}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
-                {[
-                    { bg: 'rgba(239,68,68,0.3)', border: 'rgba(239,68,68,0.5)', label: `< ${t60Fmt}` },
-                    { bg: 'rgba(251,146,60,0.3)', border: 'rgba(251,146,60,0.5)', label: `${t60Fmt}–${t80Fmt}` },
-                    { bg: 'rgba(251,191,36,0.3)', border: 'rgba(251,191,36,0.5)', label: `${t80Fmt}–${targetFmt}` },
-                    { bg: 'rgba(34,197,94,0.3)', border: 'rgba(34,197,94,0.5)', label: `≥ ${targetFmt} ✓ meta` },
-                ].map(item => (
-                    <span key={item.label} className="flex items-center gap-1.5">
-                        <span className="w-3 h-3 rounded-sm inline-block shrink-0" style={{ background: item.bg, border: `1px solid ${item.border}` }} />
-                        {item.label}
-                    </span>
-                ))}
             </div>
             {granularity !== 'daily' && (
-                <p className="text-[10px] text-cyan-200/90 font-bold uppercase tracking-wider mb-3.5">
-                    Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): cada célula representa vários dias.
+                <p className="text-[11px] text-cyan-200/90 font-semibold mb-3">
+                    Modo agregado ({granularity === 'weekly' ? 'semanal' : 'mensal'}): cada célula consolida múltiplos dias do período.
                 </p>
             )}
-
-            <div className="mb-4 rounded-xl border border-white/5 bg-black/20 p-2.5 text-[10px] text-slate-400">
-                Leitura rápida: verde = acima da meta; amarelo/laranja = atenção; vermelho = risco; vazio = sem simulado cadastrado.
-            </div>
 
             {/* Container com scroll horizontal dedicado */}
             <HeatmapGrid

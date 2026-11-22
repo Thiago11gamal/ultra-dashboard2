@@ -8,7 +8,7 @@ import { getSafeScore, getSyntheticTotal, formatValue, extractTopicsTotals, reso
 import { ratioToPoints, pointsToRatio } from '../../../utils/scoreHelper.conversions';
 import { filterHistoryByTimeWindow } from '../../../hooks/useSubjectAggData';
 import { isSubjectMatch } from '../../../utils/normalization';
-import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, Minus, Scale } from 'lucide-react';
 
 const hasValidNumber = (v) =>
     v !== null && v !== undefined && typeof v !== 'boolean' && String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -401,9 +401,11 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
 
     if (!dailyData || dailyData.length === 0) {
         return (
-            <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 rounded-3xl border border-slate-700/50 bg-slate-950/40 shadow-inner">
-                <span className="text-4xl opacity-50">⚖️</span>
-                <p className="text-slate-400 font-bold text-sm">Dados insuficientes para comparação diária.</p>
+            <div className="min-h-[360px] flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.06] bg-slate-950/45 p-8">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400">
+                    <Scale size={24} />
+                </div>
+                <p className="text-slate-300 font-bold text-sm">Dados insuficientes para comparação diária.</p>
             </div>
         );
     }
@@ -435,26 +437,26 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
     const safeFix = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0).toFixed(1);
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[400px]">
-            <div className="w-full lg:w-1/3 min-w-[280px] bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 sm:p-6 flex flex-col items-center justify-between relative shadow-xl backdrop-blur-md overflow-hidden group">
+        <div className="flex flex-col lg:flex-row gap-5 h-full min-h-[380px]">
+            <div className="w-full lg:w-1/3 min-w-[280px] bg-slate-950/50 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-between relative overflow-hidden group">
                 <div className="w-full flex flex-col gap-2.5 z-10">
                     <div className="flex items-center gap-2 min-w-0">
-                        <div className="p-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 shrink-0">
+                        <div className="p-1.5 rounded-xl bg-indigo-500/15 border border-indigo-400/30 text-indigo-300 shrink-0">
                             <Target size={14} />
                         </div>
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider truncate">
+                        <span className="text-[11px] font-black text-slate-200 uppercase tracking-wider truncate">
                             {todayAcc != null ? 'Sessão de hoje' : `Último dia ativo (${lastActiveEntry?.displayDate || 'sem data'})`}
                         </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 w-full bg-slate-950/40 rounded-xl p-2.5 border border-white/5">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 w-full bg-slate-900/65 rounded-xl p-2.5 border border-white/[0.06]">
                         {temporalMetrics.slice().reverse().map(metric => {
                             if (metric.val == null) {
                                 return (
-                                    <div key={metric.id} className="flex items-center justify-between gap-1 opacity-35 min-w-0">
-                                        <span className="text-[8px] text-slate-500 uppercase tracking-wider font-bold truncate">{metric.label}</span>
+                                    <div key={metric.id} className="flex items-center justify-between gap-1 opacity-40 min-w-0">
+                                        <span className="text-[10px] text-slate-400 font-semibold truncate">{metric.label}</span>
                                         <div className="flex items-center gap-1 shrink-0">
-                                            <span className="text-[9px] font-bold font-mono text-slate-600">--{unit}</span>
-                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+                                            <span className="text-[10px] font-bold font-mono text-slate-500">--{unit}</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
                                         </div>
                                     </div>
                                 );
@@ -462,12 +464,12 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                             const c = getColor(metric.val);
                             return (
                                 <div key={metric.id} className="flex items-center justify-between gap-1 opacity-90 hover:opacity-100 transition-opacity min-w-0">
-                                    <span className="text-[8px] text-slate-400 uppercase tracking-wider font-bold truncate">{metric.label}</span>
+                                    <span className="text-[10px] text-slate-300 font-semibold truncate">{metric.label}</span>
                                     <div className="flex items-center gap-1 shrink-0">
-                                        <span className="text-[9px] font-black font-mono" style={{ color: c }}>
+                                        <span className="text-[11px] font-black font-mono tabular-nums" style={{ color: c }}>
                                             {safeFix(metric.val)}{unit}
                                         </span>
-                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }}></div>
+                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c, boxShadow: `0 0 6px ${c}` }} />
                                     </div>
                                 </div>
                             );
@@ -515,63 +517,63 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                         <div className="text-2xl sm:text-3xl leading-none font-black text-white drop-shadow-md tabular-nums font-mono tracking-tight">
                             {safeFix(focusAccuracy)}<span className="text-sm text-slate-400 ml-0.5 font-sans">{unit}</span>
                         </div>
-                        <span className="text-[9px] leading-tight text-slate-400 uppercase font-bold tracking-wider mt-1">
+                        <span className="text-[10px] leading-tight text-slate-400 uppercase font-bold tracking-wider mt-1">
                             {todayAcc != null ? `Acertos de hoje (${unit})` : `Último dia ativo (${unit})`}
                         </span>
                     </div>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-3 w-full">
-                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm backdrop-blur-sm ${
-                        deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
-                        deltaStatus === 'negative' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' :
-                        'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 w-full">
+                    <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${
+                        deltaStatus === 'positive' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' :
+                        deltaStatus === 'negative' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' :
+                        'bg-amber-500/10 border-amber-500/30 text-amber-300'
                     }`}>
-                        {deltaStatus === 'positive' ? <TrendingUp size={14} /> : 
-                         deltaStatus === 'negative' ? <TrendingDown size={14} /> : 
+                        {deltaStatus === 'positive' ? <TrendingUp size={14} /> :
+                         deltaStatus === 'negative' ? <TrendingDown size={14} /> :
                          <Minus size={14} />}
                         <div className="flex flex-col">
-                            <span className="text-sm font-black font-mono">
+                            <span className="text-sm font-black font-mono tabular-nums leading-tight">
                                 {delta > 0 ? '+' : delta < 0 ? '−' : ''}{safeFix(deltaAbs)}{unit}
                             </span>
-                            <span className="text-[7px] uppercase tracking-wider opacity-70">Geral</span>
+                            <span className="text-[10px] font-semibold opacity-80">vs Geral</span>
                         </div>
                     </div>
                     {deltaLastVsToday !== null && (
-                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 border shadow-sm backdrop-blur-sm ${
-                            lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' :
-                            lastVsTodayStatus === 'negative' ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' :
-                            'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 border ${
+                            lastVsTodayStatus === 'positive' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300' :
+                            lastVsTodayStatus === 'negative' ? 'bg-orange-500/10 border-orange-500/30 text-orange-300' :
+                            'bg-amber-500/10 border-amber-500/30 text-amber-300'
                         }`}>
-                            {lastVsTodayStatus === 'positive' ? <TrendingUp size={14} /> : 
-                             lastVsTodayStatus === 'negative' ? <TrendingDown size={14} /> : 
+                            {lastVsTodayStatus === 'positive' ? <TrendingUp size={14} /> :
+                             lastVsTodayStatus === 'negative' ? <TrendingDown size={14} /> :
                              <Minus size={14} />}
                             <div className="flex flex-col">
-                                <span className="text-xs font-black font-mono">
+                                <span className="text-xs font-black font-mono tabular-nums leading-tight">
                                     {deltaLastVsToday > 0 ? '+' : deltaLastVsToday < 0 ? '−' : ''}{safeFix(Math.abs(deltaLastVsToday))}{unit}
                                 </span>
-                                <span className="text-[7px] uppercase tracking-wider opacity-70">Ritmo (Hoje)</span>
+                                <span className="text-[10px] font-semibold opacity-80">Ritmo (Hoje)</span>
                             </div>
                         </div>
                     )}
                 </div>
-                <div className="w-full flex justify-between items-center mt-4 pt-3.5 border-t border-white/5 px-2">
+                <div className="w-full flex justify-between items-center mt-4 pt-3 border-t border-white/[0.06] px-1">
                     <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Média Geral</span>
-                        <span className="text-sm font-bold font-mono text-slate-300">{safeFix(generalAccuracy)}{unit}</span>
+                        <span className="text-[11px] text-slate-400 font-semibold">Média Geral</span>
+                        <span className="text-sm font-black font-mono tabular-nums text-slate-200">{safeFix(generalAccuracy)}{unit}</span>
                     </div>
                     <div className="flex flex-col text-right">
-                        <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Meta</span>
-                        <span className="text-sm font-bold font-mono text-emerald-400">{formatValue(effectiveTargetScore)}{unit}</span>
+                        <span className="text-[11px] text-slate-400 font-semibold">Meta</span>
+                        <span className="text-sm font-black font-mono tabular-nums text-emerald-400">{formatValue(effectiveTargetScore)}{unit}</span>
                     </div>
                 </div>
             </div>
-            <div className="w-full lg:w-2/3 flex-1 bg-slate-900/60 border border-slate-800/80 rounded-3xl p-4 sm:p-6 flex flex-col relative backdrop-blur-md shadow-xl">
-                <div className="flex justify-between items-start mb-6">
+            <div className="w-full lg:w-2/3 flex-1 bg-slate-950/50 border border-white/[0.07] rounded-2xl p-4 sm:p-5 flex flex-col relative">
+                <div className="flex justify-between items-start mb-4">
                     <div className="flex flex-col">
-                        <h4 className="text-sm font-black text-slate-100 uppercase tracking-wider mb-1 flex items-center gap-2">
+                        <h4 className="text-sm font-black text-slate-100 tracking-tight mb-0.5 flex items-center gap-2">
                             Histórico Recente (14 dias)
                         </h4>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        <p className="text-xs text-slate-400">
                             Compare suas variações diárias com a linha base
                         </p>
                     </div>

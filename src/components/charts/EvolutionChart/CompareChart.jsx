@@ -26,7 +26,8 @@ export const CompareChart = React.memo(function CompareChart({
     targetScore,
     minScore = 0,
     maxScore = 100,
-    unit = '%'
+    unit = '%',
+    expanded = false
 }) {
     const baseId = useId().replace(/:/g, '');
     const containerRef = React.useRef(null);
@@ -290,10 +291,12 @@ export const CompareChart = React.memo(function CompareChart({
 
     const animateSeries = false;
 
+    const heightClass = expanded ? 'h-[480px] sm:h-[580px] md:h-[640px]' : 'h-[340px] sm:h-[400px] lg:h-[450px]';
+
     return (
-        <div ref={containerRef} className="h-[360px] sm:h-[460px] md:h-[650px] w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300">
-            <ChartFrame minHeight={360} label="Comparando evolução">
-                <ResponsiveContainer width="100%" height="100%" minHeight={360} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
+        <div ref={containerRef} className={`${heightClass} w-full outline-none focus:outline-none focus:ring-0 transition-all duration-300`}>
+            <ChartFrame minHeight={340} label="Comparando evolução">
+                <ResponsiveContainer width="100%" height="100%" minHeight={340} className="outline-none focus:outline-none focus:ring-0" minWidth={1}>
                 <ComposedChart data={chartData} syncId="evolutionCompareSync" margin={{ top: 20, right: 85, left: 4, bottom: 20 }} style={{ outline: 'none' }} tabIndex="-1">
                     <defs>
                         <linearGradient id={CC.projectionPurpleGradient} x1="0" y1="0" x2="0" y2="1">

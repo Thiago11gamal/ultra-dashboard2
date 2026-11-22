@@ -2,7 +2,7 @@ import React, { useMemo, useId, useState, useCallback } from 'react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceArea, ReferenceLine
 } from 'recharts';
-import { Target, TrendingUp, AlertCircle, Sparkles, Compass } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDuration, normalizeDate, getDateKey } from '../../../utils/dateHelper';
@@ -251,70 +251,61 @@ export const MonteCarloEvolutionChart = React.memo(({
     }
 
     return (
-        <div className="relative w-full min-h-[400px] flex flex-col py-4 mt-2">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 px-2 relative z-10">
+        <div className="relative w-full min-h-[380px] flex flex-col pt-1">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3.5 px-1 relative z-10">
                 <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center border border-indigo-500/30 text-indigo-400 shadow-sm">
-                        <TrendingUp size={18} />
+                    <div className="w-8 h-8 rounded-xl bg-sky-500/15 flex items-center justify-center border border-sky-400/30 text-sky-300 shrink-0">
+                        <TrendingUp size={16} />
                     </div>
                     <div>
-                        <h3 className="text-sm sm:text-base font-black text-slate-100 tracking-tight">Rastreador de Aprovação</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sua trajetória rumo à aprovação</p>
+                        <h3 className="text-sm font-black text-slate-100 tracking-tight">Rastreador de Aprovação</h3>
+                        {mcAssumptions && (
+                            <p className="text-[11px] text-slate-400 font-medium">
+                                {mcAssumptions.points} registros · IC 95% de {formatValue(mcAssumptions.ciWidth)} {unit} · Cenário {mcAssumptions.scenario}
+                            </p>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1 bg-slate-900/90 border border-white/10 rounded-2xl p-1 shadow-inner backdrop-blur-md">
-                    {SCENARIO_OPTIONS.map(opt => (
-                        <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => setScenario(opt.id)}
-                            aria-label={`Selecionar cenário ${opt.fullLabel}`}
-                            aria-pressed={scenario === opt.id}
-                            className={`relative px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 rounded-xl ${
-                                scenario === opt.id 
-                                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/30 font-bold' 
-                                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                            }`}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
-                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center gap-1 bg-slate-950/80 border border-white/[0.08] rounded-xl p-1 shadow-inner">
+                        {SCENARIO_OPTIONS.map(opt => (
+                            <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setScenario(opt.id)}
+                                aria-label={`Selecionar cenário ${opt.fullLabel}`}
+                                aria-pressed={scenario === opt.id}
+                                className={`relative px-3 py-1 text-[11px] font-bold transition-all duration-200 rounded-lg border ${
+                                    scenario === opt.id
+                                        ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40 shadow-sm'
+                                        : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
 
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 shadow-sm">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-950/60 border border-white/[0.08]">
                         <Target size={13} className="text-emerald-400" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            Meta: <strong className="text-white font-mono">{unit === 'horas' ? formatDuration(safeTargetScore) : `${formatValue(safeTargetScore)}${unit === '%' ? '%' : ` ${unit}`}`}</strong>
-                            <small className="text-slate-500 ml-1.5">({scenarioLabels[scenario]})</small>
+                        <span className="text-[11px] font-semibold text-slate-300">
+                            Meta: <strong className="text-white font-mono tabular-nums">{unit === 'horas' ? formatDuration(safeTargetScore) : `${formatValue(safeTargetScore)}${unit === '%' ? '%' : ` ${unit}`}`}</strong>
                         </span>
                     </div>
                     {qualitySignal && (
-                        <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-xl border backdrop-blur-sm ${qualitySignal.color}`}>
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-xl border backdrop-blur-sm ${qualitySignal.color}`}>
                             {qualitySignal.label}
                         </span>
                     )}
                 </div>
             </div>
 
-            {mcAssumptions && (
-              <div className="px-2 mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  <span className="text-slate-500 uppercase font-bold tracking-wider text-[9px] mr-1">Premissas:</span>
-                  {mcAssumptions.points} registros · IC 95% de {formatValue(mcAssumptions.ciWidth)} {unit} · Cenário {mcAssumptions.scenario}
-                </p>
-              </div>
-            )}
-
             {loading && (
-              <div className="absolute inset-0 z-20 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center rounded-3xl">
-                <div className="flex flex-col items-center gap-3">
-                  <span className="animate-spin text-indigo-400 text-xl font-bold">
-                    ↻
-                  </span>
-                  <span className="text-[10px] font-black uppercase text-indigo-300 tracking-[0.2em] animate-pulse">
+              <div className="absolute inset-0 z-20 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center rounded-2xl">
+                <div className="flex flex-col items-center gap-2.5">
+                  <Loader2 size={24} className="animate-spin text-indigo-400" />
+                  <span className="text-[11px] font-bold uppercase text-indigo-300 tracking-wider animate-pulse">
                     Recalculando Monte Carlo...
                   </span>
                 </div>
@@ -430,63 +421,37 @@ export const MonteCarloEvolutionChart = React.memo(({
                 )}
             </div>
 
-            <div className="mt-4 flex flex-col gap-2 px-2">
-                <div className="bg-slate-900/50 border border-white/10 p-4 rounded-2xl backdrop-blur-md shadow-inner">
-                    <p className="text-xs font-black text-slate-200 mb-2.5 flex items-center gap-2 uppercase tracking-wider">
-                        <Compass size={14} className="text-indigo-400" /> Guia de Leitura do Gráfico
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mt-1">
-                        <div className="flex items-start gap-3 bg-sky-500/10 p-3 rounded-xl border border-sky-500/20">
-                            <div className="w-2.5 h-2.5 rounded-full bg-sky-400 shrink-0 mt-1 shadow-[0_0_8px_#38bdf8]"></div>
-                            <div>
-                                <strong className="text-[11px] font-bold text-sky-300 block mb-0.5">Linha Azul (Passado)</strong>
-                                <p className="text-[11px] text-slate-300 leading-relaxed">
-                                    Média real do seu desempenho consolidado ao longo do tempo.
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div className="flex items-start gap-3 bg-purple-500/10 p-3 rounded-xl border border-purple-500/20">
-                            <div className="w-2.5 h-2.5 rounded-full bg-purple-400 shrink-0 mt-1 shadow-[0_0_8px_#c084fc]"></div>
-                            <div>
-                                <strong className="text-[11px] font-bold text-purple-300 block mb-0.5">Tracejado Roxo (Futuro)</strong>
-                                <p className="text-[11px] text-slate-300 leading-relaxed">
-                                    Projeção estatística Monte Carlo simulando cenários para a prova.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-start gap-3 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20">
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0 mt-1 shadow-[0_0_8px_#34d399]"></div>
-                            <div>
-                                <strong className="text-[11px] font-bold text-emerald-300 block mb-0.5">Cone & Linha Verde (Meta)</strong>
-                                <p className="text-[11px] text-slate-300 leading-relaxed">
-                                    Objetivo configurado e o cone com a incerteza do modelo (IC 95%).
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+            {/* Compact inline legend + trend alert (avoids duplicating the parent "Guia da análise") */}
+            <div className="mt-3.5 pt-3 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-2.5 px-1 text-[11px] text-slate-400">
+                <div className="flex flex-wrap items-center gap-3">
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="w-3 h-0.5 rounded-full bg-sky-400 inline-block" />
+                        <strong className="text-slate-200 font-semibold">Passado</strong> (média real)
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="w-3 border-t-2 border-dashed border-purple-400 inline-block" />
+                        <strong className="text-slate-200 font-semibold">Futuro</strong> (projeção MC)
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="w-3 h-2 rounded-sm bg-emerald-500/25 border border-emerald-400/50 inline-block" />
+                        <strong className="text-slate-200 font-semibold">IC 95% & Meta</strong>
+                    </span>
                 </div>
-                {qualitySignal && (qualitySignal.hasDowntrend || qualitySignal.color.includes('red') || qualitySignal.color.includes('rose')) && (
-                    <div className="bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-2xl mt-1 animate-pulse backdrop-blur-sm">
-                        <p className="text-xs font-bold text-rose-400 mb-1 flex items-center gap-2">
-                            <AlertCircle size={14} /> Alerta de tendência
-                        </p>
-                        <p className="text-[11px] text-rose-200/90 leading-relaxed">
-                            Suas projeções recentes estão caindo. Isso indica que os últimos resultados reduziram a expectativa para o dia da prova. Revise seu método de estudo e foque nos tópicos com pior desempenho.
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 pt-3 border-t border-white/5 opacity-60 px-2 gap-2">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-                    A área sombreada representa o IC 95% da projeção (Margem de erro e incerteza probabilística).
-                </p>
-                <span className="text-[9px] font-bold font-mono text-slate-300 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-white/10 whitespace-nowrap">
+                <span className="text-[11px] font-bold font-mono tabular-nums text-slate-300 bg-slate-950/65 px-2.5 py-0.5 rounded-lg border border-white/[0.08] whitespace-nowrap">
                     N = {scenarioAdjustedData.length} registros
                 </span>
             </div>
+
+            {qualitySignal && (qualitySignal.hasDowntrend || qualitySignal.color.includes('red') || qualitySignal.color.includes('rose')) && (
+                <div className="bg-rose-500/10 border border-rose-500/25 p-3.5 rounded-xl mt-3">
+                    <p className="text-xs font-bold text-rose-400 mb-1 flex items-center gap-1.5">
+                        <AlertCircle size={14} /> Alerta de tendência
+                    </p>
+                    <p className="text-xs text-rose-200/90 leading-relaxed">
+                        Suas projeções recentes estão caindo. Isso indica que os últimos resultados reduziram a expectativa para o dia da prova. Revise seu método de estudo e foque nos tópicos com pior desempenho.
+                    </p>
+                </div>
+            )}
         </div>
     );
 });
