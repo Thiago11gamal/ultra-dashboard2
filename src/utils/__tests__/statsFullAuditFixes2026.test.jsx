@@ -627,8 +627,7 @@ describe('Stats Menu Full Forensic Audit Fixes (M1-M14, D1-D7, B1-B7)', () => {
     );
     expect(acwrContainer.textContent).toContain('Ainda sem sessões de estudo registradas');
 
-    const kg = buildKnowledgeGraphLayout(unstudiedCats, []);
-    const taskNode = kg.nodes.find((n) => n.type === 'task');
-    expect(taskNode.proficiency).toBe(0);
+    const kg = buildKnowledgeGraphLayout(unstudiedCats[0]);
+    expect(kg.nodes[0].proficiency).toBe(0);
   });
 });
