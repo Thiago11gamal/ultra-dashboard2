@@ -48,7 +48,9 @@ const CustomTooltipTimeline = ({ active, payload, unit }) => {
                         </p>
                     )}
                 </div>
-                <p className="text-slate-500 text-[9px] mt-2.5 pt-1.5 border-t border-white/5 uppercase tracking-wider font-semibold">{data.total} questões resolvidas</p>
+                <p className="text-slate-500 text-[9px] mt-2.5 pt-1.5 border-t border-white/5 uppercase tracking-wider font-semibold">
+                    {data.total > 0 ? `${data.total} questões resolvidas` : 'Simulado em % (sem volume)'}
+                </p>
             </div>
         );
     }
@@ -115,44 +117,45 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             : safeMin + safeRange * 0.8);
 
     const resolveEntryQuestionStats = (h, catMax, catMin) => {
-        let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+        const isSynthFlag = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+        let tot = isSynthFlag ? 0 : Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
         let corr = 0;
         const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
-        const hasExplicitC = rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '' && !h.isPercentage;
-        if (tot <= 0 && h?.topics != null) {
+        const hasExplicitC = !isSynthFlag && rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '' && !h.isPercentage;
+        if (tot <= 0 && !isSynthFlag && h?.topics != null) {
             const tf = extractTopicsTotals(h, catMax, catMin);
             if (tf.total > 0) {
-                return { tot: tf.total, corr: tf.correct, isSynthetic: false };
+                return { tot: tf.total, corr: tf.correct, realTot: tf.total, isSynthetic: false };
             }
             if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
                 const synthTot = getSyntheticTotal(catMax);
-                return { tot: synthTot, corr: pointsToRatio(tf.score, catMax, catMin) * synthTot, isSynthetic: true };
+                return { tot: synthTot, corr: pointsToRatio(tf.score, catMax, catMin) * synthTot, realTot: 0, isSynthetic: true };
             }
         }
         const rawScore = getSafeScore(h, catMax, catMin);
         if (tot > 0 && hasExplicitC) {
             const rawC = Math.max(0, Number(rawCorrVal) || 0);
             corr = resolveEffectiveCorrect(h, rawScore, tot, true, rawC, catMax, catMin);
-            return { tot, corr, isSynthetic: false };
+            return { tot, corr, realTot: tot, isSynthetic: false };
         }
         if (tot === 0 && hasExplicitC) {
             const rawC = Math.max(0, Number(rawCorrVal) || 0);
             const hasExplicitScore = hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct);
             if (rawC > 0 && !hasExplicitScore) {
-                return { tot: rawC, corr: rawC, isSynthetic: false };
+                return { tot: rawC, corr: rawC, realTot: rawC, isSynthetic: false };
             }
         }
-        if (!Number.isFinite(rawScore) && tot <= 0) return { tot: 0, corr: 0, isSynthetic: false };
+        if (!Number.isFinite(rawScore) && tot <= 0) return { tot: 0, corr: 0, realTot: 0, isSynthetic: false };
         const score = Number.isFinite(rawScore) ? rawScore : catMin;
         const isSynthetic = tot === 0;
-        if (tot === 0 && (h.isPercentage || hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct))) {
+        if (tot === 0 && (isSynthFlag || h.isPercentage || hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct))) {
             tot = getSyntheticTotal(catMax);
         }
-        if (tot <= 0) return { tot: 0, corr: 0, isSynthetic: false };
+        if (tot <= 0) return { tot: 0, corr: 0, realTot: 0, isSynthetic: false };
         corr = isSynthetic
             ? pointsToRatio(score, catMax, catMin) * tot
             : resolveEffectiveCorrect(h, score, tot, false, 0, catMax, catMin);
-        return { tot, corr: Math.max(0, Math.min(tot, corr)), isSynthetic };
+        return { tot, corr: Math.max(0, Math.min(tot, corr)), realTot: isSynthetic ? 0 : tot, isSynthetic };
     };
 
     const generalAccuracy = useMemo(() => {
@@ -211,11 +214,12 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
             history.forEach(h => {
                 const dKey = getDateKey(h.date || h.createdAt);
                 if (!dKey || dKey > maxAllowedDateKey) return;
-                const { tot, corr } = resolveEntryQuestionStats(h, catMax, catMin);
+                const { tot, corr, realTot } = resolveEntryQuestionStats(h, catMax, catMin);
                 if (tot <= 0) return;
-                if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0 };
+                if (!dayMap[dKey]) dayMap[dKey] = { correct: 0, total: 0, realTotal: 0 };
                 dayMap[dKey].correct += corr;
                 dayMap[dKey].total += tot;
+                dayMap[dKey].realTotal += realTot;
             });
         });
         const sortedDates = Object.keys(dayMap).sort();
@@ -228,7 +232,7 @@ export const TodayVsGeneralChart = React.memo(function TodayVsGeneralChart({
                 date,
                 displayDate: shortDate,
                 accuracy: acc,
-                total: Math.round(d.total)
+                total: Math.round(d.realTotal)
             };
         });
         const lastEntry = result.length > 0 ? result[result.length - 1] : null;

@@ -124,6 +124,16 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
       }
     }
 
+    const rowMatchesFocus = (r) => {
+      if (!showOnlyFocus || !focusCategory) return true;
+      if (r.categoryId != null && focusCategory.id != null) {
+        return String(r.categoryId) === String(focusCategory.id);
+      }
+      const rSubj = r.subject || r.categoryName || r.materia || '';
+      const fName = focusCategory.name || '';
+      return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
+    };
+
     const rows = safeArr(simuladoRows).filter((r) => {
       if (!r || r.valid === false || r.validated === false) return false;
       if (cutoffMs) {
@@ -131,24 +141,17 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
         const ms = dk ? toDateMs(dk) : NaN;
         if (Number.isFinite(ms) && ms < cutoffMs) return false;
       }
-      if (showOnlyFocus && focusCategory) {
-        if (r.categoryId != null && focusCategory.id != null) {
-          return String(r.categoryId) === String(focusCategory.id);
-        }
-        const rSubj = r.subject || r.categoryName || r.materia || '';
-        const fName = focusCategory.name || '';
-        return Boolean(rSubj && fName && isSubjectMatch(rSubj, fName));
-      }
       return true;
     });
 
-    // Reagrupa linhas do mesmo simulado (mesmo batchId) para reconstruir os 4 quartis corretos
-    // quando um Simulado IA Misto foi dividido por matéria/tópico em várias simuladoRows curtas.
+    // Reagrupa linhas do mesmo simulado (mesmo batchId) ANTES de filtrar por foco
+    // para preservar a posição real (1º–4º quarto) da disciplina dentro de Simulados IA Mistos.
     const runs = [];
     const batchRunMap = new Map();
     rows.forEach((row) => {
       const subject = row.subject || row.categoryName || row.materia || 'Geral';
-      const rawTel = safeArr(row.questionTelemetry).map((q) => ({ ...q, subject }));
+      const matchesFocus = rowMatchesFocus(row);
+      const rawTel = safeArr(row.questionTelemetry).map((q) => ({ ...q, subject, __matchesFocus: matchesFocus }));
       if (!rawTel.length) return;
       if (row.batchId) {
         const bk = String(row.batchId);
@@ -187,6 +190,7 @@ export const MetacognitionFatigueChart = React.memo(function MetacognitionFatigu
         : rawTel;
       const totalInRun = tel.length;
       tel.forEach((q, idx) => {
+        if (!q.__matchesFocus) return;
         items.push({
           ...q,
           // Somente corridas com >= 4 questões entram nos 4 quartis de fadiga (drills de 1–3q ainda contam em metacognição e erros)

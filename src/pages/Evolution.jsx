@@ -84,13 +84,13 @@ export default function Evolution() {
     // 1) Se existir targetScore explícito, ele é a meta em pontos
     if (hasValidNumber(user?.targetScore)) {
       let ts = Number(user.targetScore);
-      // Compatibilidade legada: se o valor está estritamente abaixo do piso da escala (ex: default 75 no ENEM com piso 200)
-      // ou se a escala total é ampliada (safeMax > 100 e amplitude >= 200) e o valor está no intervalo percentual [0, 100],
-      // converte percentual para a escala em pontos.
+      // Compatibilidade legada: converte para pontos apenas quando o valor está estritamente abaixo
+      // do piso da escala (ex: default 75 no ENEM com piso 200) ou explicitamente marcado como %.
+      // Não converter valores já dentro de [safeMin, safeMax] em escalas como Cebraspe (-120..120) ou 0..200.
       const isPercentileRange = ts >= 0 && ts <= 100 && (safeMax - safeMin) > 0;
       const isBelowMin = ts < safeMin;
-      const isLegacyPercentageOnLargeScale = safeMax > 100 && (safeMax - safeMin) >= 200 && ts <= 100;
-      if (isPercentileRange && (isBelowMin || isLegacyPercentageOnLargeScale)) {
+      const isExplicitPct = user?.targetScoreIsPercentage === true || user?.targetScoreUnit === '%';
+      if (isPercentileRange && (isBelowMin || isExplicitPct)) {
         ts = safeMin + (ts / 100) * (safeMax - safeMin);
       }
       return clamp(ts);

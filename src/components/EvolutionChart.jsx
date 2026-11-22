@@ -179,19 +179,24 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
           correct: 0,
           effCorrect: 0,
           total: 0,
+          synthTotal: 0,
+          synthEffCorrect: 0,
           blanks: 0,
           penaltyPerWrong: 0,
+          penaltyValues: new Set(),
           scoreSum: 0,
           scoreCount: 0,
           timeSpent: 0,
           timedQuestoes: 0,
           hasExplicitTotal: false,
+          rowIds: [],
           topics: [],
           difficulty: r.difficulty || null,
           questionTelemetry: [],
         });
       }
       const bucket = byDay.get(dk);
+      if (r.id) bucket.rowIds.push(String(r.id));
       let rowTot = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
       const rawCorr = r.correct ?? r.acertos ?? r.correctCount;
       const hasExplicitCorr = !r.isPercentage && rawCorr !== undefined && rawCorr !== null && String(rawCorr).trim() !== '' && Number.isFinite(Number(rawCorr));
@@ -224,12 +229,12 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
         bucket.effCorrect += effCorr;
         bucket.blanks += Math.min(Math.max(0, rowTot - physicalCorr), rowBlanks);
         bucket.penaltyPerWrong = Math.max(bucket.penaltyPerWrong, rowPenalty);
+        bucket.penaltyValues.add(rowPenalty);
       } else if (Number.isFinite(rowScore)) {
         const synTot = getSyntheticTotal(catMax);
         const ratio = Math.max(0, Math.min(1, (rowScore - catMin) / catRange));
-        bucket.total += synTot;
-        bucket.correct += Math.round(ratio * synTot);
-        bucket.effCorrect += ratio * synTot;
+        bucket.synthTotal += synTot;
+        bucket.synthEffCorrect += ratio * synTot;
         bucket.scoreSum += rowScore;
         bucket.scoreCount += 1;
       }
@@ -272,12 +277,17 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
         : prevDayEntries.flatMap((e) => Array.isArray(e.questionTelemetry) ? e.questionTelemetry : []).filter(Boolean);
       const preservedDifficulty = b.difficulty || prevDayEntries.find((e) => e.difficulty)?.difficulty || null;
 
+      const isPureSynthetic = !b.hasExplicitTotal && b.scoreCount > 0;
+      const hasUniformPenalty = b.hasExplicitTotal && b.scoreCount === 0 && b.penaltyValues.size === 1 && b.penaltyPerWrong > 0;
+      const hasMixedPenaltyOrSynth = b.hasExplicitTotal && (b.penaltyValues.size > 1 || b.scoreCount > 0);
+      const combinedWeight = b.total + b.synthTotal;
+
       let score;
       let netPoints;
-      if (!b.hasExplicitTotal && b.scoreCount > 0) {
+      if (isPureSynthetic) {
         score = b.scoreSum / b.scoreCount;
-      } else if (b.total > 0) {
-        if (b.penaltyPerWrong > 0) {
+      } else if (combinedWeight > 0) {
+        if (hasUniformPenalty) {
           const eff = computeEffectiveScoreRatio(b.correct, b.total, {
             blanks: b.blanks,
             penaltyPerWrong: b.penaltyPerWrong,
@@ -287,21 +297,24 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
           score = catMin + eff.ratio * catRange;
           netPoints = eff.netPoints;
         } else {
-          score = catMin + (b.effCorrect / b.total) * catRange;
+          score = catMin + ((b.effCorrect + b.synthEffCorrect) / combinedWeight) * catRange;
         }
       } else {
         score = catMin;
       }
 
+      const clampedScore = Number(Math.max(catMin, Math.min(catMax, score)).toFixed(2));
       return {
+        ...(b.rowIds.length === 1 ? { id: b.rowIds[0] } : {}),
         date: b.date,
         ...(b.createdAt ? { createdAt: b.createdAt } : {}),
-        total: b.total,
-        correct: b.correct,
+        total: isPureSynthetic ? b.synthTotal : b.total,
+        correct: isPureSynthetic ? Math.round(b.synthEffCorrect) : b.correct,
         ...(b.blanks > 0 ? { blanks: b.blanks } : {}),
-        ...(b.penaltyPerWrong > 0 ? { penaltyPerWrong: b.penaltyPerWrong, ...(netPoints !== undefined ? { netPoints } : {}) } : {}),
-        score: Number(Math.max(catMin, Math.min(catMax, score)).toFixed(2)),
-        syntheticVolume: !b.hasExplicitTotal && b.scoreCount > 0,
+        ...(hasUniformPenalty ? { penaltyPerWrong: b.penaltyPerWrong, ...(netPoints !== undefined ? { netPoints } : {}) } : {}),
+        score: clampedScore,
+        ...(hasMixedPenaltyOrSynth ? { scorePoints: clampedScore } : {}),
+        syntheticVolume: isPureSynthetic,
         ...(b.timeSpent > 0 ? { timeSpent: b.timeSpent, timedQuestoes: b.timedQuestoes } : {}),
         ...(preservedTopics.length > 0 ? { topics: preservedTopics } : {}),
         ...(preservedDifficulty ? { difficulty: preservedDifficulty } : {}),
@@ -309,9 +322,37 @@ function hydrateCategoriesWithSimuladoRows(baseCategories, simuladoRows, globalM
       };
     });
 
+    const rehydratedRowInfoByDate = new Map();
+    datesToRehydrate.forEach((dk) => {
+      const dayRows = myRowsByDate.get(dk) || [];
+      const ids = new Set(dayRows.map((r) => (r.id ? String(r.id) : null)).filter(Boolean));
+      const sigs = new Set(dayRows.map((r) => {
+        const t = Math.max(0, Number(r.total ?? r.questoes ?? r.totalQuestoes ?? r.questions) || 0);
+        const c = Number(r.correct ?? r.acertos ?? r.correctCount);
+        const s = Number(r.score ?? r.scorePoints ?? r.scorePct);
+        return `${t}|${Number.isFinite(c) ? c : ''}|${Number.isFinite(s) ? Number(s.toFixed(1)) : ''}`;
+      }));
+      rehydratedRowInfoByDate.set(dk, { ids, sigs });
+    });
+
     const remainingExisting = existingHistory.filter((h) => {
       const dk = getDateKey(h.date || h.createdAt);
-      return !dk || !datesToRehydrate.has(dk);
+      if (!dk || !datesToRehydrate.has(dk)) return true;
+      // Preserve explicit-id history entries that are distinct from the simuladoRows being rehydrated
+      const hId = h.id || h.simuladoRowId;
+      if (hId) {
+        const dayInfo = rehydratedRowInfoByDate.get(dk);
+        if (dayInfo && dayInfo.ids.size > 0 && !dayInfo.ids.has(String(hId))) {
+          const ht = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+          const hc = Number(h.correct ?? h.acertos ?? h.correctCount);
+          const hs = Number(h.score ?? h.scorePoints ?? h.scorePct);
+          const hSig = `${ht}|${Number.isFinite(hc) ? hc : ''}|${Number.isFinite(hs) ? Number(hs.toFixed(1)) : ''}`;
+          if (!dayInfo.sigs.has(hSig)) {
+            return true;
+          }
+        }
+      }
+      return false;
     });
     const mergedHistory = [...remainingExisting, ...reconstructed].sort((a, b) => {
       const da = toDateMs(a.date || a.createdAt);
@@ -1146,8 +1187,9 @@ export default React.memo(function EvolutionChart({
                 const ms = dk ? toDateMs(dk) : NaN;
                 if (!Number.isFinite(ms) || ms < prevStartMs || ms >= currStartMs) return;
 
-                let tot = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
-                if (tot <= 0 && h.topics != null) {
+                const isSynthEntry = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+                let tot = isSynthEntry ? 0 : Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+                if (tot <= 0 && !isSynthEntry && h.topics != null) {
                     const tf = extractTopicsTotals(h, cMax, cMin);
                     if (tf.total > 0) {
                         realQ += tf.total;
@@ -1162,7 +1204,7 @@ export default React.memo(function EvolutionChart({
                     }
                 }
                 const rawCorr = h.correct ?? h.acertos ?? h.correctCount;
-                const hasExplicitC = !h.isPercentage && hasValidNumber(rawCorr);
+                const hasExplicitC = !isSynthEntry && !h.isPercentage && hasValidNumber(rawCorr);
                 const sc = getSafeScore(h, cMax, cMin);
                 if (tot > 0) {
                     if (!hasExplicitC && !Number.isFinite(sc)) return;
@@ -1268,39 +1310,54 @@ export default React.memo(function EvolutionChart({
 
     const effectiveMcHistoryData = useMemo(() => {
         const rawList = Array.isArray(monteCarloHistoryArray) ? monteCarloHistoryArray : [];
-        let filteredList = rawList;
         const fId = focusCategory?.id;
-        if (fId) {
-            const forFocus = rawList.filter((item) => item?.categoryId && String(item.categoryId) === String(fId));
-            if (forFocus.length > 0) {
-                filteredList = forFocus.map((item) => ({ ...item, __fromFocus: true }));
-            } else {
-                filteredList = rawList.filter((item) => !item?.categoryId);
-            }
-        } else {
-            filteredList = rawList.filter((item) => !item?.categoryId);
-        }
-        if (timeWindow !== "all") {
-            const days = Number.parseInt(timeWindow, 10);
-            if (Number.isFinite(days) && days > 0 && filteredList.length > 0) {
-                const todayKey = getDateKey(new Date());
-                const refMs = toDateMs(todayKey) || (parseNoonLocal(todayKey)?.getTime() ?? Date.now());
-                const limit = refMs - days * 86400000;
-                filteredList = filteredList.filter((item) => {
-                    const ms = toDateMs(item?.date);
-                    return Number.isFinite(ms) && ms >= limit;
-                });
-            }
-        }
-        const uniqueMcDays = new Set(
-            filteredList.map((item) => getDateKey(item?.date)).filter(Boolean)
-        );
-        if (uniqueMcDays.size >= 2) return filteredList;
 
-        // Synthesize trajectory from Bayesian timeline when global monteCarloHistory has <= 1 distinct day
+        const applyWindow = (list) => {
+            if (timeWindow === "all" || !list.length) return list;
+            const days = Number.parseInt(timeWindow, 10);
+            if (!Number.isFinite(days) || days <= 0) return list;
+            const todayKey = getDateKey(new Date());
+            const todayNoon = todayKey ? parseNoonLocal(todayKey) : new Date();
+            const cutoffNoon = todayNoon ? addDaysNoon(todayNoon, -days) : null;
+            const limit = cutoffNoon ? toDateMs(getDateKey(cutoffNoon)) : NaN;
+            if (!Number.isFinite(limit)) return list;
+            return list.filter((item) => {
+                const ms = toDateMs(item?.date);
+                return Number.isFinite(ms) && ms >= limit;
+            });
+        };
+
+        const countUniqueDays = (list) => new Set(list.map((item) => getDateKey(item?.date)).filter(Boolean)).size;
+
+        const focusList = fId
+            ? applyWindow(
+                rawList
+                    .filter((item) => item?.categoryId && String(item.categoryId) === String(fId))
+                    .map((item) => ({ ...item, __fromFocus: true }))
+            )
+            : [];
+        const globalList = applyWindow(rawList.filter((item) => !item?.categoryId));
+
+        const focusDays = countUniqueDays(focusList);
+        const globalDays = countUniqueDays(globalList);
+
+        if (showOnlyFocus) {
+            if (focusDays >= 2) return focusList;
+        } else {
+            if (globalDays >= 2) return globalList;
+            if (focusDays >= 2) return focusList;
+        }
+
+        const fallbackList = showOnlyFocus
+            ? (focusList.length > 0 ? focusList : globalList)
+            : (globalList.length > 0 ? globalList : focusList);
+
+        // Synthesize trajectory from Bayesian timeline when monteCarloHistory has <= 1 distinct day
         const pts = Array.isArray(filteredHistoricalData) ? filteredHistoricalData : [];
-        if (pts.length < 2) return filteredList;
-        const useFocusDomain = Boolean(fId);
+        if (pts.length < 2) {
+            return (!showOnlyFocus && globalDays >= 2) ? globalList : fallbackList;
+        }
+        const useFocusDomain = Boolean(showOnlyFocus && fId);
         const effMin = useFocusDomain ? focusMin : minScore;
         const effMax = useFocusDomain ? focusMax : maxScore;
         const effTarget = useFocusDomain ? focusTarget : targetScore;
@@ -1309,29 +1366,26 @@ export default React.memo(function EvolutionChart({
         const safeRange = Math.max(1, safeMax - safeMin);
         const safeTarget = hasValidNumber(effTarget) ? Number(effTarget) : safeMin + safeRange * 0.8;
 
-        const validPts = pts.filter((pt) => {
-            const meanVal = fId
-                ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`])
-                : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw);
-            return hasValidNumber(meanVal);
-        });
+        const readMean = (pt) => (useFocusDomain
+            ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`])
+            : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw ?? (fId ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`]) : null)));
+
+        const validPts = pts.filter((pt) => hasValidNumber(readMean(pt)));
 
         const synth = validPts
             .map((pt, idx) => {
-                const meanVal = fId
-                    ? (pt[`bay_${fId}`] ?? pt[`stats_${fId}`] ?? pt[`raw_${fId}`])
-                    : (pt.global_bayesian ?? pt.global_ema ?? pt.global_raw);
+                const meanVal = readMean(pt);
                 const m = Number(meanVal);
-                const low = fId && hasValidNumber(pt[`bay_ci_low_${fId}`]) ? Number(pt[`bay_ci_low_${fId}`]) : Math.max(safeMin, m - safeRange * 0.06);
-                const high = fId && hasValidNumber(pt[`bay_ci_high_${fId}`]) ? Number(pt[`bay_ci_high_${fId}`]) : Math.min(safeMax, m + safeRange * 0.06);
+                const low = useFocusDomain && hasValidNumber(pt[`bay_ci_low_${fId}`]) ? Number(pt[`bay_ci_low_${fId}`]) : Math.max(safeMin, m - safeRange * 0.06);
+                const high = useFocusDomain && hasValidNumber(pt[`bay_ci_high_${fId}`]) ? Number(pt[`bay_ci_high_${fId}`]) : Math.min(safeMax, m + safeRange * 0.06);
                 const isLast = idx === validPts.length - 1;
-                const proj = isLast && hasValidNumber(activeMcResult?.projectedMean)
+                const proj = useFocusDomain && isLast && hasValidNumber(activeMcResult?.projectedMean)
                     ? Number(activeMcResult.projectedMean)
                     : m;
                 const sigma = Math.max(safeRange * 0.02, (high - low) / 3.92);
                 const z = (proj - safeTarget) / sigma;
                 const approxProb = 100 / (1 + Math.exp(-1.702 * z));
-                const prob = isLast && hasValidNumber(activeMcResult?.probability)
+                const prob = useFocusDomain && isLast && hasValidNumber(activeMcResult?.probability)
                     ? Number(activeMcResult.probability)
                     : approxProb;
                 return {
@@ -1347,8 +1401,10 @@ export default React.memo(function EvolutionChart({
             })
             .filter(Boolean);
 
-        return synth.length >= 2 ? synth : filteredList;
-    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
+        if (synth.length >= 2) return synth;
+        if (globalDays >= 2) return globalList;
+        return fallbackList;
+    }, [monteCarloHistoryArray, timeWindow, filteredHistoricalData, focusCategory?.id, showOnlyFocus, minScore, maxScore, targetScore, focusMin, focusMax, focusTarget, activeMcResult]);
 
     const latestMetricsByCat = useMemo(() => {
         const map = {};
@@ -1465,7 +1521,7 @@ export default React.memo(function EvolutionChart({
     }, [historicalCutoffs, focusCategory, focusMax, focusMin, maxScore, minScore]);
 
     const insightUnit = useMemo(() => {
-        if (['compare', 'mc_density', 'projection_fan', 'kalman_latent'].includes(activeEngine)) {
+        if (['raw', 'bayesian', 'stats', 'compare', 'mc_density', 'today_vs_general'].includes(activeEngine)) {
             return focusCategory ? resolvedFocusUnit : resolvedGlobalUnit;
         }
         if (['tornado_whatif', 'correlation_regimes'].includes(activeEngine)) {
@@ -1575,7 +1631,21 @@ export default React.memo(function EvolutionChart({
     }, [activeTargetDisplay, activeScaleMin, activeScaleMax]);
 
     const accountHasData = timeline.length >= 1;
-    const filterHasData = filteredHistoricalData.length >= 1;
+    const filterHasData = useMemo(() => {
+        if (filteredHistoricalData.length < 1) return false;
+        if (!showOnlyFocus || !focusCategory?.id) return true;
+        const fId = focusCategory.id;
+        if (timeWindow !== 'all') {
+            const hasRawInWindow = filteredHistoricalData.some((pt) => hasValidNumber(pt?.[`raw_${fId}`]));
+            if (hasRawInWindow) return true;
+            return (subjectAggData || []).some(
+                (item) => item?.id === fId && ((Number(item.realQuestoes) || 0) + (Number(item.syntheticQuestoes) || 0)) > 0
+            );
+        }
+        return filteredHistoricalData.some(
+            (pt) => hasValidNumber(pt?.[`raw_${fId}`]) || hasValidNumber(pt?.[`bay_${fId}`]) || hasValidNumber(pt?.[`stats_${fId}`])
+        );
+    }, [filteredHistoricalData, showOnlyFocus, focusCategory?.id, timeWindow, subjectAggData]);
 
     const accuracyDeltaVsTarget = useMemo(() => {
         if (!Number.isFinite(safeGlobalMetrics.globalAccuracy)) return null;
@@ -2403,27 +2473,28 @@ export default React.memo(function EvolutionChart({
                 ) : activeEngine === "projection_fan" ? (
                     <React.Suspense fallback={LazyTabFallback}>
                     <ProjectionFanChart
-                        focusCategory={focusCategory || null}
+                        focusCategory={showOnlyFocus ? (focusCategory || null) : null}
                         timeline={timeline}
+                        timeWindow={timeWindow}
                         projectDays={projectDays}
-                        historicalCutoffs={focusHistoricalCutoffs}
-                        targetScore={focusCategory ? focusTarget : targetScore}
-                        minScore={focusCategory ? focusMin : minScore}
-                        maxScore={focusCategory ? focusMax : maxScore}
-                        unit={focusCategory ? resolvedFocusUnit : resolvedGlobalUnit}
-                        activeMcResult={activeMcResult}
+                        historicalCutoffs={showOnlyFocus ? focusHistoricalCutoffs : historicalCutoffs}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                        minScore={showOnlyFocus ? focusMin : minScore}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                        unit={resolvedActiveUnit}
+                        activeMcResult={showOnlyFocus ? activeMcResult : null}
                     />
                     </React.Suspense>
                 ) : activeEngine === "kalman_latent" ? (
                     <React.Suspense fallback={LazyTabFallback}>
                     <KalmanLatentChart
-                        focusCategory={focusCategory || null}
+                        focusCategory={showOnlyFocus ? (focusCategory || null) : null}
                         timeline={timeline}
                         timeWindow={timeWindow}
-                        targetScore={focusCategory ? focusTarget : targetScore}
-                        minScore={focusCategory ? focusMin : minScore}
-                        maxScore={focusCategory ? focusMax : maxScore}
-                        unit={focusCategory ? resolvedFocusUnit : resolvedGlobalUnit}
+                        targetScore={showOnlyFocus ? focusTarget : targetScore}
+                        minScore={showOnlyFocus ? focusMin : minScore}
+                        maxScore={showOnlyFocus ? focusMax : maxScore}
+                        unit={resolvedActiveUnit}
                     />
                     </React.Suspense>
                 ) : activeEngine === "tornado_whatif" ? (
@@ -2675,7 +2746,7 @@ export default React.memo(function EvolutionChart({
                                                 label: 'Nível Projetado',
                                                 val: focusUnit === '%'
                                                     ? `${projectedLevel.toFixed(2)}%`
-                                                    : `${Math.round(projectedLevel)}${focusUnitSuffix}`,
+                                                    : `${formatValue(projectedLevel)}${focusUnitSuffix}`,
                                                 desc: 'Nota média esperada na prova',
                                                 icon: <TrendingUp size={14} />,
                                                 color: 'text-sky-400'
@@ -2684,7 +2755,7 @@ export default React.memo(function EvolutionChart({
                                                 label: 'Margem de Erro',
                                                 val: focusUnit === '%'
                                                     ? `±${marginOfError.toFixed(2)}%`
-                                                    : `±${Math.round(marginOfError)}${focusUnitSuffix}`,
+                                                    : `±${formatValue(marginOfError)}${focusUnitSuffix}`,
                                                 desc: 'Oscilação provável para cima/baixo',
                                                 icon: <BarChart3 size={14} />,
                                                 color: 'text-amber-400'
@@ -2693,7 +2764,7 @@ export default React.memo(function EvolutionChart({
                                                 label: 'Confiança 95%',
                                                 val: focusUnit === '%'
                                                     ? `${ciMin.toFixed(1)} a ${ciMax.toFixed(1)}%`
-                                                    : `${Math.round(ciMin)} a ${Math.round(ciMax)}${focusUnitSuffix}`,
+                                                    : `${formatValue(ciMin)} a ${formatValue(ciMax)}${focusUnitSuffix}`,
                                                 desc: 'Faixa de 95% das simulações',
                                                 icon: <Zap size={14} />,
                                                 color: 'text-indigo-400'

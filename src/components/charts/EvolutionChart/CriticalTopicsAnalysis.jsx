@@ -124,7 +124,10 @@ export const CriticalTopicsAnalysis = React.memo(({
                             penaltyPerWrong: h.penaltyPerWrong,
                             blanks: h.blanks,
                             netPoints: h.netPoints,
-                            isPercentage: h.isPercentage
+                            isPercentage: h.isPercentage,
+                            syntheticVolume: h.syntheticVolume,
+                            isSynthetic: h.isSynthetic,
+                            type: h.type
                         }];
                     }
                 } else if (parentPenalty > 0) {
@@ -146,9 +149,10 @@ export const CriticalTopicsAnalysis = React.memo(({
                         };
                     }
 
-                    let total = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
+                    const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
+                    let total = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
                     const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
-                    const isSynthTopic = total === 0 && hasTopicScore;
+                    const isSynthTopic = total === 0 && (hasTopicScore || isSynthFlag);
                     if (isSynthTopic) {
                         total = getSyntheticTotal(catMax);
                     } else if (total === 0) {
@@ -238,18 +242,26 @@ export const CriticalTopicsAnalysis = React.memo(({
             const catMin = hasValidNumber(cat.minScore) ? Math.min(Number(cat.minScore), catMax) : globalMin;
             const catRange = Math.max(1e-9, catMax - catMin);
             for (const h of recentHistory) {
-                let t = parseInt(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 10) || 0;
+                const isSynthEntry = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+                let t = isSynthEntry ? 0 : (parseInt(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 10) || 0);
                 // Prioriza questões reais de h.topics ANTES do fallback sintético de h.score
-                if (t === 0 && h.topics != null) {
+                if (t === 0 && !isSynthEntry && h.topics != null) {
                     const tf = extractTopicsTotals(h, catMax, catMin);
                     if (tf.total > 0) {
                         total += tf.total;
                         correct += Math.max(0, Math.min(tf.total, tf.correct));
                         continue;
                     }
+                    if (tf.hasTopicsScore && Number.isFinite(tf.score)) {
+                        const syn = getSyntheticTotal(catMax);
+                        const synCorrect = ((Math.max(catMin, Math.min(catMax, tf.score)) - catMin) / catRange) * syn;
+                        total += syn;
+                        correct += Math.max(0, Math.min(syn, synCorrect));
+                        continue;
+                    }
                 }
                 const hasHeaderScore = hasValidNumber(h.score) || hasValidNumber(h.scorePoints) || hasValidNumber(h.scorePct);
-                const isSynthHeader = t === 0 && hasHeaderScore;
+                const isSynthHeader = t === 0 && (hasHeaderScore || isSynthEntry);
                 if (isSynthHeader) {
                     t = getSyntheticTotal(catMax);
                 } else if (t === 0) {

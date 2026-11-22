@@ -95,10 +95,11 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                     if (!h || h.valid === false || h.validated === false) return;
                     const hDate = getDateKey(getHistoryDate(h));
                     if (hDate === dateKey) {
-                        let q = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+                        const isSynthEntry = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+                        let q = isSynthEntry ? 0 : Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
                         let corr = NaN;
                         let resolvedFromTopics = false;
-                        if (q === 0 && h.topics != null) {
+                        if (q === 0 && !isSynthEntry && h.topics != null) {
                             const tf = extractTopicsTotals(h, catMax, catMin);
                             if (tf.total > 0) {
                                 q = tf.total;
@@ -111,7 +112,7 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
                             }
                         }
                         if (!resolvedFromTopics) {
-                            const hasCorrect = isStrictNum(h.correct) || isStrictNum(h.acertos) || isStrictNum(h.correctCount);
+                            const hasCorrect = !isSynthEntry && (isStrictNum(h.correct) || isStrictNum(h.acertos) || isStrictNum(h.correctCount));
                             const rawC = Number(h.correct ?? h.acertos ?? h.correctCount);
                             const score = getSafeScore(h, catMax, catMin);
                             if (q > 0) {
@@ -184,7 +185,7 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     }, [safeUnit]);
 
     const hasAnyData = chartData.some(
-      d => d.minutos > 0 || d.acertos != null
+        d => d.minutos > 0 || d.acertos != null
     );
 
     const week7Benchmark = React.useMemo(() => {
@@ -212,14 +213,14 @@ const WeeklyPerformanceChart = React.memo(function WeeklyPerformanceChart({
     }, [chartData, effectiveTarget, safeMinScore, safeMaxScore, safeUnit]);
 
     if (!hasAnyData) {
-      return (
-        <div className="w-full h-full min-h-[320px] flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-slate-950/55 text-slate-400 text-sm gap-2.5 p-6 text-center">
-          <div className="w-11 h-11 rounded-xl bg-slate-900/80 border border-white/[0.08] flex items-center justify-center text-slate-400">
-            <CalendarOff size={20} />
-          </div>
-          <p className="font-semibold text-slate-300">Sem atividade nos últimos 7 dias.</p>
-        </div>
-      );
+        return (
+            <div className="w-full h-full min-h-[320px] flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-slate-950/55 text-slate-400 text-sm gap-2.5 p-6 text-center">
+                <div className="w-11 h-11 rounded-xl bg-slate-900/80 border border-white/[0.08] flex items-center justify-center text-slate-400">
+                    <CalendarOff size={20} />
+                </div>
+                <p className="font-semibold text-slate-300">Sem atividade nos últimos 7 dias.</p>
+            </div>
+        );
     }
 
     return (

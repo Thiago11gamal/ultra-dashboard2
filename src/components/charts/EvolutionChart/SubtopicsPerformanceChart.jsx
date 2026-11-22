@@ -209,7 +209,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                             penaltyPerWrong: h.penaltyPerWrong,
                             blanks: h.blanks,
                             netPoints: h.netPoints,
-                            isPercentage: h.isPercentage
+                            isPercentage: h.isPercentage,
+                            syntheticVolume: h.syntheticVolume,
+                            isSynthetic: h.isSynthetic,
+                            type: h.type
                         }];
                     }
                 } else if (parentPenalty > 0) {
@@ -228,11 +231,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                         topicMap[key] = { name: n, rawKey, catName: cat.name || '', correct: 0, total: 0, realCorrect: 0, realTotal: 0 };
                     }
 
-                    const rawTotParsed = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
+                    const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
+                    const rawTotParsed = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
                     const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
                     const isSynthTopic = rawTotParsed <= 0;
                     let total = rawTotParsed;
-                    if (isSynthTopic && (t.isPercentage || hasTopicScore)) {
+                    if (isSynthTopic && (t.isPercentage || hasTopicScore || isSynthFlag)) {
                         total = getSyntheticTotal(catMax);
                     }
                     if (total <= 0) return;
@@ -352,7 +356,10 @@ export const SubtopicsPerformanceChart = React.memo(({
                             penaltyPerWrong: h.penaltyPerWrong,
                             blanks: h.blanks,
                             netPoints: h.netPoints,
-                            isPercentage: h.isPercentage
+                            isPercentage: h.isPercentage,
+                            syntheticVolume: h.syntheticVolume,
+                            isSynthetic: h.isSynthetic,
+                            type: h.type
                         }];
                     }
                 } else if (parentPenalty > 0) {
@@ -364,11 +371,12 @@ export const SubtopicsPerformanceChart = React.memo(({
                     const topicName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : '';
                     if (!topicName || topicName.toLowerCase() === 'nenhum') return;
 
-                    const rawTotParsed = parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0;
+                    const isSynthFlag = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
+                    const rawTotParsed = isSynthFlag ? 0 : (parseInt(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions, 10) || 0);
                     const hasTopicScore = hasValidNumber(t.score) || hasValidNumber(t.scorePoints) || hasValidNumber(t.scorePct);
                     const isSynthTopic = rawTotParsed <= 0;
                     let total = rawTotParsed;
-                    if (isSynthTopic && (t.isPercentage || hasTopicScore)) {
+                    if (isSynthTopic && (t.isPercentage || hasTopicScore || isSynthFlag)) {
                         total = getSyntheticTotal(catMax);
                     }
                     if (total <= 0) return;

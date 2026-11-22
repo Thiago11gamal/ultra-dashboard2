@@ -78,14 +78,20 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
   const [durationInput, setDurationInput] = useState(String(normalizedPropDur));
   const [questionsInput, setQuestionsInput] = useState(String(normalizedPropQ));
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [lastSavedKey, setLastSavedKey] = useState(null);
   const savedTimerRef = useRef(null);
 
   if (normalizedPropDur !== prevPropDur || normalizedPropQ !== prevPropQ) {
+    const incomingKey = `${normalizedPropDur}|${normalizedPropQ}`;
     setPrevPropDur(normalizedPropDur);
     setPrevPropQ(normalizedPropQ);
     setDurationInput(String(normalizedPropDur));
     setQuestionsInput(String(normalizedPropQ));
-    setSavedFeedback(false);
+    if (lastSavedKey === incomingKey) {
+      setLastSavedKey(null);
+    } else {
+      setSavedFeedback(false);
+    }
   }
 
   useEffect(() => () => {
@@ -111,6 +117,7 @@ export const ExamPacingChart = React.memo(function ExamPacingChart({
     const safeQ = Math.max(5, Math.min(500, Math.round(Number(questionsInput) || 100)));
     setDurationInput(String(safeDur));
     setQuestionsInput(String(safeQ));
+    setLastSavedKey(`${safeDur}|${safeQ}`);
     if (typeof patchData === 'function') {
       patchData(() => ({
         examDurationMinutes: safeDur,

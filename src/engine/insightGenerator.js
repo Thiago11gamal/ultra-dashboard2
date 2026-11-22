@@ -77,10 +77,20 @@ export function generateEvolutionInsights({
     activeMcResult = null
 }) {
     const defaultTitle = "Análise do Sistema";
-    const effectiveTimeline =
-        Array.isArray(filteredChartData) && filteredChartData.length > 0
+    const hasExplicitWindowFilter = Boolean(timeWindow && timeWindow !== 'all' && Array.isArray(filteredChartData));
+    const effectiveTimeline = hasExplicitWindowFilter
+        ? filteredChartData
+        : (Array.isArray(filteredChartData) && filteredChartData.length > 0
             ? filteredChartData
-            : timeline;
+            : timeline);
+
+    if (hasExplicitWindowFilter && effectiveTimeline.length === 0) {
+        return {
+            type: 'info', icon: "📅", title: "Nenhuma atividade no período",
+            text: `Sem simulados registrados nos últimos ${timeWindow} dias.`,
+            details: "Amplie a janela temporal para 'Tudo' ou registre um novo simulado para atualizar o diagnóstico."
+        };
+    }
 
     if (!effectiveTimeline?.length) {
         return {
@@ -197,18 +207,21 @@ export function generateEvolutionInsights({
                 if (!d || !Number.isFinite(d.getTime())) return;
 
                 const dow = d.getDay();
-                if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0 };
+                if (!dayStats[dow]) dayStats[dow] = { correct: 0, total: 0, realTotal: 0 };
 
-                let tot = Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions);
-                if ((!Number.isFinite(tot) || tot <= 0) && h.topics != null) {
+                const isSynthEntry = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+                let tot = isSynthEntry ? 0 : Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions);
+                if ((!Number.isFinite(tot) || tot <= 0) && !isSynthEntry && h.topics != null) {
                     const tf = extractTopicsTotals(h, cMax, cMin);
                     if (tf.total > 0) {
                         dayStats[dow].correct += tf.correct;
                         dayStats[dow].total += tf.total;
+                        dayStats[dow].realTotal += tf.total;
                         return;
                     }
                 }
-                if (!Number.isFinite(tot) || tot <= 0) {
+                const hasRealVol = !isSynthEntry && Number.isFinite(tot) && tot > 0;
+                if (!hasRealVol) {
                     tot = getSyntheticTotal(cMax);
                 }
 
@@ -216,21 +229,23 @@ export function generateEvolutionInsights({
 
                 dayStats[dow].correct += (pointsToRatio(h.score, cMax, cMin) * tot);
                 dayStats[dow].total += tot;
+                if (hasRealVol) dayStats[dow].realTotal += tot;
             });
         });
 
         const dayEntries = Object.entries(dayStats)
             .filter(([, s]) => s.total >= 5)
-            .map(([dow, s]) => ({ dow: Number(dow), pct: (s.correct / s.total) * 100, total: s.total }))
+            .map(([dow, s]) => ({ dow: Number(dow), pct: (s.correct / s.total) * 100, total: s.total, realTotal: s.realTotal }))
             .sort((a, b) => b.pct - a.pct);
 
         if (dayEntries.length >= 2) {
             const best = dayEntries[0];
             const worst = dayEntries[dayEntries.length - 1];
+            const bestVolSuffix = best.realTotal > 0 ? `, ${best.realTotal}q` : '';
             return {
                 type: 'success', icon: "📅", title: "Padrão Semanal de Rendimento",
                 text: `Seu rendimento de pico costuma ser: ${DAY_NAMES_SINGULAR[best.dow]}.`,
-                details: `++Melhor dia: ${DAY_NAMES_SINGULAR[best.dow]} (${best.pct.toFixed(1)}%, ${best.total}q).++ !!Pior: ${DAY_NAMES_SINGULAR[worst.dow]} (${worst.pct.toFixed(1)}%).!!`,
+                details: `++Melhor dia: ${DAY_NAMES_SINGULAR[best.dow]} (${best.pct.toFixed(1)}%${bestVolSuffix}).++ !!Pior: ${DAY_NAMES_SINGULAR[worst.dow]} (${worst.pct.toFixed(1)}%).!!`,
                 advice: "Alinhe seus simulados mais densos ao dia de ++melhor rendimento++."
             };
         }
@@ -259,6 +274,7 @@ export function generateEvolutionInsights({
                 return Number.isFinite(d) && (nowMs - d) >= -86400000 && (nowMs - d) <= sevenDaysMs;
             })
             .reduce((sum, h) => {
+                if (h?.syntheticVolume || h?.isSynthetic || h?.type === 'percent-only') return sum;
                 let parsedTotal = parseInt(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions, 10);
                 if ((!Number.isFinite(parsedTotal) || parsedTotal <= 0) && h?.topics != null) {
                     const tf = extractTopicsTotals(h, safeMaxScore, safeMinScore);
@@ -297,7 +313,13 @@ export function generateEvolutionInsights({
     // Lógica da Realidade Bruta (Raw)
     if (activeEngine === "raw") {
         if (raw == null) return { type: 'info', icon: "📊", title: "Realidade Bruta", text: "Aguardando dados..." };
-        const history = sortByValidDate(focusCategory.simuladoStats?.history);
+        const rawCutoffMs = resolveCutoffMs(timeWindow);
+        const history = sortByValidDate(focusCategory.simuladoStats?.history).filter((h) => {
+            if (rawCutoffMs == null) return true;
+            const dk = getDateKey(h?.date || h?.createdAt);
+            const ms = dk ? toDateMs(dk) : normalizeDate(h?.date || h?.createdAt)?.getTime();
+            return !Number.isFinite(ms) || ms >= rawCutoffMs;
+        });
         const scores = history.map(h => getSafeScore(h, safeMaxScore, safeMinScore)).filter(Number.isFinite);
         
         if (scores.length < 2) return { type: 'info', icon: "📊", title: "Análise de Volatilidade", text: `Nota: ${raw.toFixed(1)}${unit}.` };
@@ -570,28 +592,33 @@ export function generateEvolutionInsights({
     // Lógica Cone Futuro (Projection Fan)
     if (activeEngine === "projection_fan") {
         const examHorizon = Math.max(1, Math.min(365, Math.round(safeFinite(projectDays, 60))));
-        const fan = buildProjectionFanData(focusCategory, fullTimeline, {
-            minScore: safeMinScore,
-            maxScore: safeMaxScore,
-            targetScore: focusEffTarget,
+        const fanCategory = showOnlyFocus ? focusCategory : null;
+        const fanMin = fanCategory ? safeMinScore : globalMinScore;
+        const fanMax = fanCategory ? safeMaxScore : globalMaxScore;
+        const fanTarget = fanCategory ? focusEffTarget : globalEffTarget;
+        const fan = buildProjectionFanData(fanCategory, fullTimeline, {
+            minScore: fanMin,
+            maxScore: fanMax,
+            targetScore: fanTarget,
+            timeWindow,
             horizonDays: examHorizon,
             mcHorizonDays: examHorizon,
-            activeMcResult
+            activeMcResult: fanCategory ? activeMcResult : null
         });
         if (!fan.summary) {
             return {
                 type: 'info', icon: "🎯", title: "Cone de Projeção Futuro",
-                text: `Aguardando simulados em ${focusCategory.name}.`,
+                text: fanCategory ? `Aguardando simulados em ${fanCategory.name}.` : "Aguardando simulados para projeção global.",
                 details: "Cadastre registros para projetar as faixas P10, P50 e P90 até o dia da prova.",
                 advice: "Quanto mais constante seu histórico, mais estreito e confiável fica o cone."
             };
         }
-        const hitsTarget = fan.summary.finalP50 >= focusEffTarget;
+        const hitsTarget = fan.summary.finalP50 >= fanTarget;
         const fanDetails = fan.alreadyAtTarget
-            ? `Você já está na meta (${focusEffTarget.toFixed(1)}${unit}) — mantenha a constância para blindar também o cenário P10.`
+            ? `Você já está na meta (${fanTarget.toFixed(1)}${unit}) — mantenha a constância para blindar também o cenário P10.`
             : (fan.targetCrossingDate
-                ? `A mediana P50 cruza a meta (${focusEffTarget.toFixed(1)}${unit}) em ++${fan.targetCrossingDate.split('-').reverse().join('/')}++.`
-                : `No ritmo atual (${fan.summary.monthlyTrend >= 0 ? '+' : ''}${fan.summary.monthlyTrend}${unit}/mês), a mediana ainda não alcança ${focusEffTarget.toFixed(1)}${unit} no prazo.`);
+                ? `A mediana P50 cruza a meta (${fanTarget.toFixed(1)}${unit}) em ++${fan.targetCrossingDate.split('-').reverse().join('/')}++.`
+                : `No ritmo atual (${fan.summary.monthlyTrend >= 0 ? '+' : ''}${fan.summary.monthlyTrend}${unit}/mês), a mediana ainda não alcança ${fanTarget.toFixed(1)}${unit} no prazo.`);
         return {
             type: hitsTarget ? 'success' : 'warning',
             icon: "🎯",
@@ -606,15 +633,16 @@ export function generateEvolutionInsights({
 
     // Lógica Kalman Latente
     if (activeEngine === "kalman_latent") {
-        const kalman = buildKalmanChartData(focusCategory, fullTimeline, {
-            minScore: safeMinScore,
-            maxScore: safeMaxScore,
+        const kalmanCategory = showOnlyFocus ? focusCategory : null;
+        const kalman = buildKalmanChartData(kalmanCategory, fullTimeline, {
+            minScore: kalmanCategory ? safeMinScore : globalMinScore,
+            maxScore: kalmanCategory ? safeMaxScore : globalMaxScore,
             timeWindow
         });
         if (!kalman.summary) {
             return {
                 type: 'info', icon: "🧲", title: "Filtro de Kalman (State-Space)",
-                text: `Necessário ao menos 2 simulados em ${focusCategory.name}.`,
+                text: kalmanCategory ? `Necessário ao menos 2 simulados em ${kalmanCategory.name}.` : "Necessário ao menos 2 simulados para ativar o Filtro de Kalman.",
                 details: "O filtro separa sua habilidade real latente de choques aleatórios de simulados atípicos.",
                 advice: "Registre mais simulados para acompanhar a velocidade estrutural real."
             };
@@ -629,13 +657,18 @@ export function generateEvolutionInsights({
             details: `O filtro removeu ++${noiseReductionPct}%++ do ruído bruto e absorveu ${outlierCount} ${outlierCount === 1 ? 'choque pontual' : 'choques pontuais'}.`,
             advice: positive
                 ? "Confie na curva verde mesmo quando surgir um simulado pontual fora da curva."
-                : "A queda apareceu até na curva filtrada (não é só ruído) — revise a base de " + focusCategory.name + "."
+                : (kalmanCategory
+                    ? "A queda apareceu até na curva filtrada (não é só ruído) — revise a base de " + kalmanCategory.name + "."
+                    : "A queda apareceu até na curva filtrada global (não é só ruído) — revise as disciplinas em déficit.")
         };
     }
 
     // Lógica Tornado & Risco
     if (activeEngine === "tornado_whatif") {
-        const withCutoff = safeCategoriesList.filter((c) => safeFinite(c?.minCutoff, 0) > (safeFinite(c?.minScore, globalMinScore)));
+        const withCutoff = safeCategoriesList.filter((c) => {
+            const mc = safeFinite(c?.minCutoff, NaN);
+            return Number.isFinite(mc) && mc > safeFinite(c?.minScore, globalMinScore);
+        });
         return {
             type: 'info',
             icon: "🌪️",
@@ -712,43 +745,55 @@ export function generateEvolutionInsights({
             };
         };
 
+        const getRowCatKey = (r) => {
+            const matched = resolveCatForRow(r);
+            return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
+        };
+
         const targetCats = showOnlyFocus && focusCategory ? [focusCategory] : safeCategoriesList;
-        const fromRows = filterByWindow(
+        const rawFromRows = filterByWindow(
             safeRowsList.filter((r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r))
         ).map((r) => withCatScale(r, resolveCatForRow(r)));
 
-        const rowCoveredCats = new Set(
-            fromRows.map((r) => {
-                const matched = resolveCatForRow(r);
-                return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
-            }).filter(Boolean)
-        );
-
-        const fromHist = targetCats.flatMap((c) => {
-            const catKey = c?.id != null ? String(c.id) : normalize(c?.name || '');
-            const hasRowsForCat = Boolean(catKey && rowCoveredCats.has(catKey));
-            return filterByWindow(
-                toHistoryArray(c?.simuladoStats?.history).filter((h) => h && h.valid !== false && h.validated !== false)
-            )
-                .filter((h) => !hasRowsForCat || Boolean(h.difficulty || h.dificuldade))
-                .map((h) => withCatScale(h, c));
+        const rowCoveredCatDates = new Set();
+        const rowCoveredIds = new Set();
+        rawFromRows.forEach((r) => {
+            const ck = getRowCatKey(r);
+            const dk = getDateKey(r.date || r.createdAt);
+            if (ck && dk) rowCoveredCatDates.add(`${ck}|${dk}`);
+            if (r.id) rowCoveredIds.add(String(r.id));
         });
 
-        let irtEntries;
-        if (fromRows.length === 0) {
-            irtEntries = fromHist;
-        } else if (fromHist.length === 0) {
-            irtEntries = fromRows;
-        } else {
-            const rowSigs = new Set(
-                fromRows.map((r) => `${getDateKey(r.date || r.createdAt) || ''}|${r.total ?? ''}|${r.correct ?? ''}|${r.score ?? ''}`)
-            );
-            const extraHist = fromHist.filter((h) => {
-                const sig = `${getDateKey(h.date || h.createdAt) || ''}|${h.total ?? ''}|${h.correct ?? ''}|${h.score ?? ''}`;
-                return !rowSigs.has(sig);
+        const histDifficultyByCatDate = new Map();
+        const extraHist = [];
+        targetCats.forEach((c) => {
+            const catKey = c?.id != null ? String(c.id) : normalize(c?.name || '');
+            filterByWindow(
+                toHistoryArray(c?.simuladoStats?.history).filter((h) => h && h.valid !== false && h.validated !== false)
+            ).forEach((h) => {
+                const dk = getDateKey(h.date || h.createdAt);
+                const cdKey = catKey && dk ? `${catKey}|${dk}` : '';
+                const diffVal = h.difficulty || h.dificuldade;
+                if (cdKey && diffVal && !histDifficultyByCatDate.has(cdKey)) {
+                    histDifficultyByCatDate.set(cdKey, diffVal);
+                }
+                if (h.id && rowCoveredIds.has(String(h.id))) return;
+                if (cdKey && rowCoveredCatDates.has(cdKey)) return;
+                extraHist.push(withCatScale(h, c));
             });
-            irtEntries = [...fromRows, ...extraHist];
-        }
+        });
+
+        const fromRows = rawFromRows.map((r) => {
+            if (r.difficulty || r.dificuldade) return r;
+            const ck = getRowCatKey(r);
+            const dk = getDateKey(r.date || r.createdAt);
+            const inheritedDiff = ck && dk ? histDifficultyByCatDate.get(`${ck}|${dk}`) : null;
+            return inheritedDiff ? { ...r, difficulty: inheritedDiff } : r;
+        });
+
+        const irtEntries = fromRows.length === 0
+            ? extraHist
+            : (extraHist.length === 0 ? fromRows : [...fromRows, ...extraHist]);
 
         const irt = estimateIRTAbility(irtEntries, { minScore: globalMinScore, maxScore: globalMaxScore });
         if (!irt.hasData) {

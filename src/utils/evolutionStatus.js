@@ -368,7 +368,7 @@ export function computeEvolutionStatuses({
           ? safeNum(cat.bayesianStats.mean, null)
           : (hasHistory || (avgVal != null && avgVal > 0) ? avgVal : null);
         if (stored != null && (hasHistory || hasBayes || (avgVal != null && avgVal > 0))) {
-          const isLegacyPct = stored >= 0 && stored <= 100 && (stored < catMin || (catMax > 100 && catRange >= 200));
+          const isLegacyPct = stored >= 0 && stored <= 100 && stored < catMin;
           lvl = isLegacyPct ? catMin + (stored / 100) * catRange : stored;
         }
       }

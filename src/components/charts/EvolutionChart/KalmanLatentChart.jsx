@@ -191,7 +191,11 @@ export const KalmanLatentChart = React.memo(function KalmanLatentChart({
                 domain={[minScore, maxScore]}
                 stroke="#64748b"
                 fontSize={11}
-                tickFormatter={(v) => (unit === '%' ? `${Math.round(v)}%` : `${Math.round(v)}`)}
+                tickFormatter={(v) => {
+                  const decimals = (maxScore - minScore) <= 20 ? 1 : 0;
+                  const formatted = formatValue(v, decimals);
+                  return unit === '%' ? `${formatted}%` : formatted;
+                }}
               />
               <Tooltip content={<KalmanTooltip unit={unit} />} />
               <ReferenceLine

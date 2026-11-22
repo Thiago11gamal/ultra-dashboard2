@@ -104,14 +104,20 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
   const [selectedBoard, setSelectedBoard] = useState(normalizedPropBoard);
   const [penalty, setPenalty] = useState(normalizedPropPenalty);
   const [savedBoard, setSavedBoard] = useState(false);
+  const [lastSavedBoardKey, setLastSavedBoardKey] = useState(null);
   const savedTimerRef = useRef(null);
 
   if (normalizedPropBoard !== prevPropBoard || normalizedPropPenalty !== prevPropPenalty) {
+    const incomingKey = `${normalizedPropBoard}|${normalizedPropPenalty}`;
     setPrevPropBoard(normalizedPropBoard);
     setPrevPropPenalty(normalizedPropPenalty);
     setSelectedBoard(normalizedPropBoard);
     setPenalty(normalizedPropPenalty);
-    setSavedBoard(false);
+    if (lastSavedBoardKey === incomingKey) {
+      setLastSavedBoardKey(null);
+    } else {
+      setSavedBoard(false);
+    }
   }
 
   useEffect(() => () => {
@@ -175,39 +181,55 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
       };
     };
 
-    const fromRows = filterByWindow(
+    const getRowCatKey = (r) => {
+      const matched = resolveCatForRow(r);
+      return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
+    };
+
+    const rawFromRows = filterByWindow(
       safeArr(simuladoRows).filter(
         (r) => r && r.valid !== false && r.validated !== false && rowMatchesFocus(r)
       )
     ).map((r) => withCatScale(r, resolveCatForRow(r)));
 
-    const rowCoveredCats = new Set(
-      fromRows.map((r) => {
-        const matched = resolveCatForRow(r);
-        return matched?.id != null ? String(matched.id) : normalize(r.subject || r.categoryName || r.materia || '');
-      }).filter(Boolean)
-    );
+    const rowCoveredCatDates = new Set();
+    const rowCoveredIds = new Set();
+    rawFromRows.forEach((r) => {
+      const ck = getRowCatKey(r);
+      const dk = getDateKey(r.date || r.createdAt);
+      if (ck && dk) rowCoveredCatDates.add(`${ck}|${dk}`);
+      if (r.id) rowCoveredIds.add(String(r.id));
+    });
 
-    const fromHist = targetCats.flatMap((c) => {
+    const histDifficultyByCatDate = new Map();
+    const extraHist = [];
+    targetCats.forEach((c) => {
       const catKey = c?.id != null ? String(c.id) : normalize(c?.name || '');
-      const hasRowsForCat = Boolean(catKey && rowCoveredCats.has(catKey));
-      return filterByWindow(
+      filterByWindow(
         safeArr(c?.simuladoStats?.history).filter((h) => h && h.valid !== false && h.validated !== false)
-      )
-        .filter((h) => !hasRowsForCat || Boolean(h.difficulty || h.dificuldade))
-        .map((h) => withCatScale(h, c));
+      ).forEach((h) => {
+        const dk = getDateKey(h.date || h.createdAt);
+        const cdKey = catKey && dk ? `${catKey}|${dk}` : '';
+        const diffVal = h.difficulty || h.dificuldade;
+        if (cdKey && diffVal && !histDifficultyByCatDate.has(cdKey)) {
+          histDifficultyByCatDate.set(cdKey, diffVal);
+        }
+        if (h.id && rowCoveredIds.has(String(h.id))) return;
+        if (cdKey && rowCoveredCatDates.has(cdKey)) return;
+        extraHist.push(withCatScale(h, c));
+      });
     });
 
-    if (fromRows.length === 0) return fromHist;
-    if (fromHist.length === 0) return fromRows;
-    // Deduplicate overlapping (dateKey, total, score) entries already in fromRows
-    const rowSigs = new Set(
-      fromRows.map((r) => `${getDateKey(r.date || r.createdAt) || ''}|${r.total ?? ''}|${r.correct ?? ''}|${r.score ?? ''}`)
-    );
-    const extraHist = fromHist.filter((h) => {
-      const sig = `${getDateKey(h.date || h.createdAt) || ''}|${h.total ?? ''}|${h.correct ?? ''}|${h.score ?? ''}`;
-      return !rowSigs.has(sig);
+    const fromRows = rawFromRows.map((r) => {
+      if (r.difficulty || r.dificuldade) return r;
+      const ck = getRowCatKey(r);
+      const dk = getDateKey(r.date || r.createdAt);
+      const inheritedDiff = ck && dk ? histDifficultyByCatDate.get(`${ck}|${dk}`) : null;
+      return inheritedDiff ? { ...r, difficulty: inheritedDiff } : r;
     });
+
+    if (fromRows.length === 0) return extraHist;
+    if (extraHist.length === 0) return fromRows;
     return [...fromRows, ...extraHist];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories, simuladoRows, focusCategory, showOnlyFocus, cutoffMs, minScore, maxScore]);
@@ -259,6 +281,7 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
 
   const handleSaveBoard = () => {
     const safePenalty = Math.max(0, Math.min(2, Number(penalty) || 0));
+    setLastSavedBoardKey(`${selectedBoard}|${safePenalty}`);
     if (typeof patchData === 'function') {
       patchData(() => ({
         examBoard: selectedBoard,
@@ -479,9 +502,8 @@ export const IRTPsychometricChart = React.memo(function IRTPsychometricChart({
               {guessing.strategies.map((st, idx) => (
                 <div
                   key={st.id}
-                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${
-                    idx === 0 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-white/[0.08] bg-slate-900/55 text-slate-300'
-                  }`}
+                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs ${idx === 0 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-white/[0.08] bg-slate-900/55 text-slate-300'
+                    }`}
                 >
                   <span className="font-bold inline-flex items-center gap-1.5">
                     {idx === 0 && <Star size={12} className="text-emerald-300 fill-emerald-300 shrink-0" />}

@@ -60,6 +60,7 @@ function FanTooltip({ active, payload, unit }) {
 export const ProjectionFanChart = React.memo(function ProjectionFanChart({
   focusCategory = null,
   timeline = [],
+  timeWindow = 'all',
   projectDays = 60,
   historicalCutoffs = [],
   targetScore = 80,
@@ -79,12 +80,13 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
         minScore,
         maxScore,
         targetScore,
+        timeWindow,
         horizonDays: effectiveHorizon,
         mcHorizonDays: examHorizon,
         historicalCutoffs,
         activeMcResult,
       }),
-    [focusCategory, timeline, minScore, maxScore, targetScore, effectiveHorizon, examHorizon, historicalCutoffs, activeMcResult]
+    [focusCategory, timeline, minScore, maxScore, targetScore, timeWindow, effectiveHorizon, examHorizon, historicalCutoffs, activeMcResult]
   );
 
   const fmt = (v) => (unit === '%' ? `${Number(v).toFixed(1)}%` : `${formatValue(v)} ${unit}`);
@@ -207,7 +209,11 @@ export const ProjectionFanChart = React.memo(function ProjectionFanChart({
                 domain={[minScore, maxScore]}
                 stroke="#64748b"
                 fontSize={11}
-                tickFormatter={(v) => (unit === '%' ? `${Math.round(v)}%` : `${Math.round(v)}`)}
+                tickFormatter={(v) => {
+                  const decimals = (maxScore - minScore) <= 20 ? 1 : 0;
+                  const formatted = formatValue(v, decimals);
+                  return unit === '%' ? `${formatted}%` : formatted;
+                }}
               />
               <Tooltip content={<FanTooltip unit={unit} />} />
 

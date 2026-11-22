@@ -1100,19 +1100,24 @@ export function buildProjectionFanData(focusCategory, timeline = [], options = {
 
   const now = options.now instanceof Date ? options.now : new Date();
   const todayKey = getDateKey(now);
+  const cutoffMs = getCutoffMs(options.timeWindow);
 
   const allRawObs = [];
   if (focusCategory) {
-    safeArr(focusCategory?.simuladoStats?.history).forEach((h) => {
-      if (!h || h.valid === false || h.validated === false) return;
+    const validHist = safeArr(focusCategory?.simuladoStats?.history)
+      .filter((h) => h && h.valid !== false && h.validated !== false);
+    const windowedHist = filterDatedEntriesByWindow(validHist, (h) => h.date || h.createdAt, cutoffMs);
+    windowedHist.forEach((h) => {
       const sc = getSafeScore(h, maxScore, minScore);
       const dk = getDateKey(h.date || h.createdAt);
-      const tot = toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
+      const isSynth = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+      const tot = isSynth ? 0 : toFinite(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions, 0);
       const volWeight = tot > 0 ? tot : getSyntheticTotal(maxScore);
       if (Number.isFinite(sc) && dk) allRawObs.push({ date: dk, score: sc, weight: volWeight });
     });
   } else {
-    safeArr(timeline).forEach((row) => {
+    const windowedTimeline = filterDatedEntriesByWindow(safeArr(timeline), (row) => row?.date, cutoffMs);
+    windowedTimeline.forEach((row) => {
       const sc = toFinite(
         row?.global_bayesian ?? row?.global_raw ?? row?.global_ema ?? row?.globalAvg ?? row?.bayGlobal ?? row?.score,
         NaN

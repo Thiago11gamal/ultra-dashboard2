@@ -68,6 +68,7 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
   const categoriesPropKey = safeArr(categories).map((c) => c?.id || c?.name || '').join('|');
   const [prevCutoffsKey, setPrevCutoffsKey] = useState(cutoffsPropKey);
   const [prevCategoriesKey, setPrevCategoriesKey] = useState(categoriesPropKey);
+  const [lastSavedCutoffsKey, setLastSavedCutoffsKey] = useState(null);
   const [draftGroupCutoffs, setDraftGroupCutoffs] = useState(() => ({
     basicos: examGroupCutoffs?.basicos ?? '',
     especificos: examGroupCutoffs?.especificos ?? '',
@@ -81,7 +82,11 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
       especificos: examGroupCutoffs?.especificos ?? '',
       discursiva: examGroupCutoffs?.discursiva ?? '',
     });
-    setSavedCutoffs(false);
+    if (lastSavedCutoffsKey === cutoffsPropKey) {
+      setLastSavedCutoffsKey(null);
+    } else {
+      setSavedCutoffs(false);
+    }
   }
 
   if (categoriesPropKey !== prevCategoriesKey) {
@@ -203,7 +208,10 @@ export const TornadoWhatIfChart = React.memo(function TornadoWhatIfChart({
 
   const handleSaveCutoffsClick = () => {
     if (typeof onSaveGroupCutoffs === 'function') {
-      onSaveGroupCutoffs(effectiveGroupCutoffs || {});
+      const nextCutoffs = effectiveGroupCutoffs || {};
+      const nextKey = `${nextCutoffs?.basicos ?? ''}|${nextCutoffs?.especificos ?? ''}|${nextCutoffs?.discursiva ?? ''}`;
+      setLastSavedCutoffsKey(nextKey);
+      onSaveGroupCutoffs(nextCutoffs);
       setSavedCutoffs(true);
       if (savedCutoffsTimerRef.current) clearTimeout(savedCutoffsTimerRef.current);
       savedCutoffsTimerRef.current = setTimeout(() => {

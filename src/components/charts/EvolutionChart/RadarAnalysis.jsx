@@ -44,7 +44,7 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({
             }
             const splitIdx = spaces.reduce((closest, idx) =>
                 Math.abs(idx - center) < Math.abs(closest - center) ? idx : closest
-            , spaces[0]);
+                , spaces[0]);
 
             const line1raw = text.substring(0, splitIdx).trim();
             const line2raw = text.substring(splitIdx).trim();
@@ -91,11 +91,10 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({
                         </div>
                         <div className="pt-1.5 border-t border-white/10 flex justify-between items-center gap-3">
                             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Status:</span>
-                            <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-md ${
-                                isAbove
-                                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                                    : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                            }`}>
+                            <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-md ${isAbove
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                }`}>
                                 {isAbove ? `+${formatValue(diff)}${unit} ✓` : `${formatValue(diff)}${unit}`}
                             </span>
                         </div>
@@ -108,9 +107,13 @@ export const RadarAnalysis = React.memo(function RadarAnalysis({
 
     const radarBenchmark = React.useMemo(() => {
         if (!Array.isArray(radarData) || radarData.length < 3) return null;
-        const avgNivel = radarData.reduce((acc, d) => acc + (Number(d.nivel) || safeMin), 0) / radarData.length;
-        const avgMeta = radarData.reduce((acc, d) => acc + (Number(d.meta) || safeMin), 0) / radarData.length;
-        const onTarget = radarData.filter((d) => (Number(d.nivel) || 0) >= (Number(d.meta) || 0)).length;
+        const toNum = (v, fb) =>
+            v !== null && v !== undefined && v !== '' && typeof v !== 'boolean' && Number.isFinite(Number(v))
+                ? Number(v)
+                : fb;
+        const avgNivel = radarData.reduce((acc, d) => acc + toNum(d.nivel, safeMin), 0) / radarData.length;
+        const avgMeta = radarData.reduce((acc, d) => acc + toNum(d.meta, safeMin), 0) / radarData.length;
+        const onTarget = radarData.filter((d) => toNum(d.nivel, safeMin) >= toNum(d.meta, safeMin)).length;
         const diff = avgNivel - avgMeta;
         const range = Math.max(1e-9, safeMax - safeMin);
         const gapUnit = unit === '%' ? 'pp' : ` ${unit}`;

@@ -223,7 +223,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 const hArray = filterHistoryByTimeWindow(cat.simuladoStats?.history || [], timeWindow);
                 hArray.forEach(h => {
                     const topics = toArray(h.topics);
-                    
+
                     if (topics.length > 0) {
                         topics.forEach(t => {
                             const tName = resolveTopicEntryName(cat.tasks, t);
@@ -285,11 +285,12 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                 if (!weeksTemp[weekStr][itemId]) weeksTemp[weekStr][itemId] = { correct: 0, total: 0 };
 
-                let totalQ = Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
+                const isSynthEntry = Boolean(h.syntheticVolume || h.isSynthetic || h.type === 'percent-only');
+                let totalQ = isSynthEntry ? 0 : Math.max(0, Number(h.total ?? h.questoes ?? h.totalQuestoes ?? h.questions) || 0);
                 let corr = 0;
                 const rawCorrVal = h.correct ?? h.acertos ?? h.correctCount;
-                const hasValidC = rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
-                if (totalQ === 0 && h?.topics != null) {
+                const hasValidC = !isSynthEntry && rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
+                if (totalQ === 0 && !isSynthEntry && h?.topics != null) {
                     const tf = extractTopicsTotals(h, cMax, cMin);
                     if (tf.total > 0) {
                         totalQ = tf.total;
@@ -356,10 +357,14 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                 hArray2.forEach(h => {
                     if (!h || h.valid === false || h.validated === false) return;
                     const topics = toArray(h.topics);
-                    
+
+                    const parentPenalty = Number(h.penaltyPerWrong) || 0;
                     if (topics.length > 0) {
-                        topics.forEach(t => {
-                            if (!t || t.valid === false || t.validated === false) return;
+                        topics.forEach(rawTopic => {
+                            if (!rawTopic || rawTopic.valid === false || rawTopic.validated === false) return;
+                            const t = (parentPenalty > 0 && rawTopic.penaltyPerWrong == null)
+                                ? { ...rawTopic, penaltyPerWrong: parentPenalty }
+                                : rawTopic;
                             const tName = resolveTopicEntryName(cat.tasks, t);
                             if (!tName) return;
                             const tId = toSafeKey(tName);
@@ -368,10 +373,11 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                             if (!weeksTemp[weekStr]) weeksTemp[weekStr] = { week: weekStr };
                             if (!weeksTemp[weekStr][tId]) weeksTemp[weekStr][tId] = { correct: 0, total: 0 };
 
-                            let totalQ = Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
+                            const isSynthTopic = Boolean(t.syntheticVolume || t.isSynthetic || t.type === 'percent-only');
+                            let totalQ = isSynthTopic ? 0 : Math.max(0, Number(t.total ?? t.questoes ?? t.totalQuestoes ?? t.questions) || 0);
                             let corr = 0;
                             const rawCorrVal = t.correct ?? t.acertos ?? t.correctCount;
-                            const hasValidC = rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
+                            const hasValidC = !isSynthTopic && rawCorrVal !== undefined && rawCorrVal !== null && String(rawCorrVal).trim() !== '';
                             const topicScore = getSafeScore(t, cMax, cMin);
                             if (totalQ > 0 && hasValidC && !t.isPercentage) {
                                 const rawC = Math.max(0, Number(rawCorrVal) || 0);
@@ -421,7 +427,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const sortedWeeks = Object.values(weeksTemp).sort((a, b) => a.week.localeCompare(b.week));
         if (sortedWeeks.length === 0) return { chartData: [], activeKeys: {}, rankedKeys: [] };
 
-        const memoryByItem = {}; 
+        const memoryByItem = {};
 
         const finalData = sortedWeeks.map(weekObj => {
             const dataPoint = {
@@ -436,7 +442,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
             const expectedPrevKey = (expectedPrevDt && !Number.isNaN(expectedPrevDt.getTime()))
                 ? `${expectedPrevDt.getUTCFullYear()}-${String(expectedPrevDt.getUTCMonth() + 1).padStart(2, '0')}-${String(expectedPrevDt.getUTCDate()).padStart(2, '0')}`
                 : null;
-            
+
             validIds.forEach(id => {
                 const currentData = weekObj[id];
 
@@ -465,8 +471,8 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         dataPoint[`deltaColor_${id}`] = isStable
                             ? '#eab308'
                             : delta > 0
-                            ? '#10b981'
-                            : '#ef4444';
+                                ? '#10b981'
+                                : '#ef4444';
 
                         dataPoint[`meta_${id}`] = {
                             currTot: currentData.total,
@@ -525,7 +531,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         rankedKeys?.forEach((key, idx) => {
             const defaultHide = idx >= 6;
             if (userToggles[key] !== undefined) {
-                result[key] = userToggles[key]; 
+                result[key] = userToggles[key];
             } else {
                 result[key] = defaultHide;
             }
@@ -542,7 +548,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const keyID = String(dataKey).replace('delta_', '');
         setUserToggles(prev => ({
             ...prev,
-            [keyID]: !hiddenKeys[keyID] 
+            [keyID]: !hiddenKeys[keyID]
         }));
     }, [hiddenKeys]);
 
@@ -559,7 +565,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         const isHidden = hiddenKeys[keyID];
         const fullName = activeKeys[keyID]?.fullName || String(value || '');
         return (
-            <span 
+            <span
                 className={`text-[10px] font-black uppercase tracking-widest transition-opacity cursor-pointer ${isHidden ? 'opacity-20' : 'opacity-100'}`}
                 title={fullName}
             >
@@ -641,17 +647,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
         [hiddenKeys, unit, stableThreshold, effectiveTargetScore]
     );
 
-    if (chartData.length < 1) {
-        return (
-            <div className="min-h-[360px] flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
-                <HelpCircle size={36} className="text-indigo-400/50 mb-3" />
-                <p className="text-sm font-semibold text-slate-300">Dados insuficientes</p>
-                <p className="text-slate-400 text-xs mt-1.5 text-center max-w-[280px]">
-                    Cadastre pelo menos uma semana de simulados para visualizar a curva de evolução e a variação semanal.
-                </p>
-            </div>
-        );
-    }
+    const hasWeeklyChartData = chartData.length >= 1;
 
     return (
         <div className="w-full pt-2 animate-fade-in relative flex flex-col">
@@ -668,7 +664,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                             <span>Tendência:</span>
                             <span className={`font-black ${trendKpi.delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {trendKpi.delta >= 0 ? '+' : ''}{formatValue(trendKpi.delta)}{unit}
-                            </span> 
+                            </span>
                             <span className="text-slate-500">({trendKpi.previousN} sem. → {trendKpi.recentN} sem.)</span>
                         </div>
                     )}
@@ -680,11 +676,10 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         onClick={() => setViewMode('performance')}
                         aria-label="Alternar para visão de desempenho semanal"
                         aria-pressed={viewMode === 'performance'}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                            viewMode === 'performance' 
-                                ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm' 
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
-                        }`}
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${viewMode === 'performance'
+                            ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
+                            }`}
                     >
                         <Zap size={13} className="shrink-0" /> <span className="sm:hidden">7 dias</span><span className="hidden sm:inline">Desempenho (7d)</span>
                     </button>
@@ -693,11 +688,10 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         onClick={() => setViewMode('evolution')}
                         aria-label="Alternar para visão de evolução semanal"
                         aria-pressed={viewMode === 'evolution'}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                            viewMode === 'evolution' 
-                                ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm' 
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
-                        }`}
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${viewMode === 'evolution'
+                            ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
+                            }`}
                     >
                         <TrendingUp size={13} className="shrink-0" /> <span className="sm:hidden">Evol.</span><span className="hidden sm:inline">Evolução</span>
                     </button>
@@ -706,11 +700,10 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         onClick={() => setViewMode('variation')}
                         aria-label="Alternar para visão de variação semanal"
                         aria-pressed={viewMode === 'variation'}
-                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                            viewMode === 'variation' 
-                                ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm' 
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
-                        }`}
+                        className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${viewMode === 'variation'
+                            ? 'bg-indigo-500/25 text-indigo-100 border-indigo-400/45 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
+                            }`}
                     >
                         <BarChart3 size={13} className="shrink-0" /> <span className="sm:hidden">Delta</span><span className="hidden sm:inline">Delta</span>
                     </button>
@@ -744,6 +737,14 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                         minScore={effectiveMinScore}
                         unit={unit}
                     />
+                ) : !hasWeeklyChartData ? (
+                    <div className="h-full flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
+                        <HelpCircle size={36} className="text-indigo-400/50 mb-3" />
+                        <p className="text-sm font-semibold text-slate-300">Dados insuficientes</p>
+                        <p className="text-slate-400 text-xs mt-1.5 text-center max-w-[280px]">
+                            Cadastre pelo menos uma semana de simulados no período selecionado para visualizar a curva de evolução e a variação semanal.
+                        </p>
+                    </div>
                 ) : viewMode === 'variation' && !hasConsecutiveDelta ? (
                     <div className="h-full flex flex-col items-center justify-center bg-slate-950/55 rounded-2xl border border-white/[0.08] p-6 text-center">
                         <BarChart3 size={34} className="text-indigo-400/50 mb-2.5" />
@@ -772,7 +773,7 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                                 {keys.map(key => {
                                     const isHovered = hoveredLine === key;
                                     const isOtherHovered = hoveredLine && hoveredLine !== key;
-                                    
+
                                     return (
                                         <Line connectNulls
                                             key={key}
@@ -810,28 +811,28 @@ export const WeeklyEvolutionView = React.memo(function WeeklyEvolutionView({
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
 
                                 <XAxis dataKey="displayDate" stroke="#64748b" fontSize={10} fontWeight={600} tickLine={false} axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} dy={10} minTickGap={15} />
-                                <YAxis 
-                                    stroke="#64748b" 
-                                    fontSize={10} 
+                                <YAxis
+                                    stroke="#64748b"
+                                    fontSize={10}
                                     fontWeight={600}
-                                    tickLine={false} 
-                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }} 
+                                    tickLine={false}
+                                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                                     tickFormatter={(v) => {
                                         const formatted = formatValue(v);
                                         if (formatted === "0.00" || formatted === "0") return `${formatted}${unit}`;
                                         return `${v > 0 ? '+' : ''}${formatted}${unit}`;
-                                    }} 
+                                    }}
                                 />
                                 <Tooltip offset={20} content={renderWeeklyTooltip} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                                <Legend 
-                                    verticalAlign="bottom" 
-                                    height={60} 
-                                    iconType="square" 
-                                    formatter={renderLegendText} 
-                                    onClick={handleLegendClick} 
-                                    onMouseEnter={handleLegendHover} 
-                                    onMouseLeave={handleLegendLeave} 
-                                    wrapperStyle={{ paddingTop: '20px' }} 
+                                <Legend
+                                    verticalAlign="bottom"
+                                    height={60}
+                                    iconType="square"
+                                    formatter={renderLegendText}
+                                    onClick={handleLegendClick}
+                                    onMouseEnter={handleLegendHover}
+                                    onMouseLeave={handleLegendLeave}
+                                    wrapperStyle={{ paddingTop: '20px' }}
                                 />
                                 <ReferenceLine y={0} stroke="rgba(255,255,255,0.22)" strokeDasharray="3 3" label={{ value: 'Estável (0)', position: 'insideTopLeft', fill: '#94a3b8', fontSize: 9 }} />
                                 <ReferenceLine y={stableThreshold} stroke="#10b981" strokeOpacity={0.45} strokeDasharray="4 4" label={{ value: `Ganho (+${formatValue(stableThreshold)}${unit})`, position: 'insideTopRight', fill: '#34d399', fontSize: 9 }} />

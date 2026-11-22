@@ -333,16 +333,19 @@ export function useChartData(categoriesInput = EMPTY_ARRAY, weights = EMPTY_OBJE
             history.forEach(h => {
                 const key = getDateKey(getHistoryDate(h));
                 if (!key) return;
-                let rawTotal = Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
-                let hasCorrect = (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
+                const isSyntheticEntry = Boolean(h?.syntheticVolume || h?.isSynthetic || h?.type === 'percent-only');
+                let rawTotal = isSyntheticEntry ? 0 : Math.max(0, Number(h?.total ?? h?.questoes ?? h?.totalQuestoes ?? h?.questions) || 0);
+                let hasCorrect = !isSyntheticEntry && (
+                                 (h?.correct !== undefined && h?.correct !== null && String(h?.correct).trim() !== '') ||
                                  (h?.acertos !== undefined && h?.acertos !== null && String(h?.acertos).trim() !== '') ||
-                                 (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '');
+                                 (h?.correctCount !== undefined && h?.correctCount !== null && String(h?.correctCount).trim() !== '')
+                );
                 let parsedCorrect = Number(h?.correct ?? h?.acertos ?? h?.correctCount);
                 let rawC = hasCorrect && Number.isFinite(parsedCorrect)
                     ? Math.max(0, Math.min(rawTotal > 0 ? rawTotal : Infinity, parsedCorrect))
                     : 0;
                 let score = getSafeScore(h, catMax, catMin);
-                if (rawTotal <= 0) {
+                if (rawTotal <= 0 && !isSyntheticEntry) {
                     const topicFallback = extractTopicsTotals(h, catMax, catMin);
                     if (topicFallback.total > 0) {
                         rawTotal = topicFallback.total;
