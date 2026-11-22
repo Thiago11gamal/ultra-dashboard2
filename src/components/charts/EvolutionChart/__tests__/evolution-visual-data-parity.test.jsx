@@ -14,6 +14,7 @@ import { PerformanceBarChart } from '../PerformanceBarChart';
 import { MonteCarloEvolutionChart } from '../MonteCarloEvolutionChart';
 import { ConsistencyBoxPlotChart } from '../ConsistencyBoxPlotChart';
 import { generateEvolutionInsights } from '../../../../engine/insightGenerator';
+import { buildProjectionFanData } from '../../../../utils/advancedChartHelpers';
 import {
   readEvolutionUiPrefs,
   writeEvolutionUiPrefs,
@@ -285,7 +286,16 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
     expect(pacingWeighted.type).toBe('danger');
     expect(pacingWeighted.details).toContain('Contabilidade');
 
-    // projection_fan with minCutoff: 0 must use targetScore (80), NOT 0, and incorporate activeMcResult
+    // projection_fan with minCutoff: 0 must use targetScore (80), NOT 0, and forward activeMcResult.sd identically to ProjectionFanChart
+    const mcRes = { sd: 14 };
+    const expectedFan = buildProjectionFanData(cats[0], timeline, {
+      minScore: 0,
+      maxScore: 100,
+      targetScore: 80,
+      horizonDays: 60,
+      mcHorizonDays: 60,
+      activeMcResult: mcRes,
+    });
     const fanInsight = generateEvolutionInsights({
       timeline,
       filteredChartData: timeline,
@@ -296,11 +306,24 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
       minScore: 0,
       maxScore: 100,
       projectDays: 60,
-      activeMcResult: { projectedMean: 72, ci95Low: 66, ci95High: 78 },
+      activeMcResult: mcRes,
+    });
+    const fanWithoutMc = generateEvolutionInsights({
+      timeline,
+      filteredChartData: timeline,
+      focusCategory: cats[0],
+      activeEngine: 'projection_fan',
+      categories: cats,
+      targetScore: 80,
+      minScore: 0,
+      maxScore: 100,
+      projectDays: 60,
     });
     expect(fanInsight.type).toBe('warning');
     expect(fanInsight.details).toContain('80.0%');
-    expect(fanInsight.text).toContain('72.0%');
+    expect(fanInsight.text).toContain(`P10: ${expectedFan.summary.finalP10.toFixed(1)}`);
+    expect(fanInsight.text).toContain(`P90: ${expectedFan.summary.finalP90.toFixed(1)}`);
+    expect(fanInsight.text).not.toBe(fanWithoutMc.text);
   });
 
   it('generateEvolutionInsights filters raw_weekly, irt_psychometric, metacognition_fatigue, and correlation_regimes by timeWindow & focus', () => {
@@ -446,13 +469,13 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
       activeEngine: 'exam_pacing',
       engineGroup: 'performance', // mismatch: exam_pacing is in 'speed'
       timeWindow: '999',          // invalid
-      statusViewMode: 'detailed',
+      statusViewMode: 'guide',
       showDetailedGallery: false,
     });
     expect(sanitized.activeEngine).toBe('exam_pacing');
     expect(sanitized.engineGroup).toBe('all');
     expect(sanitized.timeWindow).toBe('all');
-    expect(sanitized.statusViewMode).toBe('detailed');
+    expect(sanitized.statusViewMode).toBe('guide');
     expect(sanitized.showDetailedGallery).toBe(false);
 
     const key = getEvolutionPrefsStorageKey('default');
@@ -483,7 +506,7 @@ describe('Evolution Menu — Data-to-Visual Parity Verification Suite', () => {
 
       const saved = readEvolutionUiPrefs('default');
       expect(saved.timeWindow).toBe('60');
-      expect(saved.statusViewMode).toBe('detailed');
+      expect(saved.statusViewMode).toBe('guide');
 
       const second = render(
         <MemoryRouter>

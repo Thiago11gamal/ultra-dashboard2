@@ -1,7 +1,7 @@
 const STORAGE_PREFIX = 'evolution_ui_prefs_v1:';
 
 export const VALID_TIME_WINDOWS = new Set(['30', '60', '90', 'all']);
-export const VALID_STATUS_MODES = new Set(['compact', 'detailed']);
+export const VALID_STATUS_MODES = new Set(['compact', 'guide']);
 export const VALID_ENGINE_GROUPS = new Set(['all', 'performance', 'speed', 'projection', 'psychometrics']);
 export const VALID_SECONDARY_ENGINES = new Set([
   'raw',
