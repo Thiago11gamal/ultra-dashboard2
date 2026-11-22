@@ -12,7 +12,8 @@ import { computeACWR } from '../../engine/adaptive/workloadACWR.js';
 import { computeEfficientAllocation } from '../../engine/adaptive/allocationOptimizer.js';
 import { estimateEmpiricalHalfLife } from '../../engine/adaptive/empiricalRetention.js';
 import { evaluateContestMaturity } from '../../engine/adaptive/adaptiveMaturityEngine.js';
-import { buildSyllabusBurndownData, buildCircadianHeatmapData } from '../advancedChartHelpers.js';
+import { buildSyllabusBurndownData, buildCircadianHeatmapData, buildKnowledgeGraphLayout } from '../advancedChartHelpers.js';
+import { WorkloadACWRChart } from '../../components/charts/Analytics/WorkloadACWRChart.jsx';
 import { mapSubjectHoursData } from '../chartDataMappers.js';
 import { getFlashcardDueTodayCount, computeFlashcardDueForecast } from '../analytics.js';
 import { recordPredictionEvent, computeCalibrationSummary, backfillObservedFromSimulados } from '../calibration.js';
@@ -251,15 +252,15 @@ describe('Stats Menu Full Forensic Audit Fixes (M1-M14, D1-D7, B1-B7)', () => {
     render(
       <MonteCarloConfig
         show={true}
-        onClose={() => {}}
+        onClose={() => { }}
         targetScore={75}
-        setTargetScore={() => {}}
+        setTargetScore={() => { }}
         equalWeightsMode={false}
         setEqualWeightsMode={(v) => useAppStore.getState().setMcEqualWeights(v)}
         getEqualWeights={() => ({ c1: 1, c2: 1 })}
         weights={{ c1: 3, c2: 1 }}
         setWeights={(next) => useAppStore.getState().setMonteCarloWeights(next)}
-        updateWeight={() => {}}
+        updateWeight={() => { }}
         categories={useAppStore.getState().appState.contests['audit-contest-a'].categories}
       />
     );
@@ -596,5 +597,38 @@ describe('Stats Menu Full Forensic Audit Fixes (M1-M14, D1-D7, B1-B7)', () => {
     });
     expect(useAppStore.getState().appState.contests['audit-contest-a'].user.targetScore).toBe(75);
     expect(useAppStore.getState().appState.version).toBe(versionBefore);
+  });
+
+  it('Zero-activity guard: does not fabricate 5h/sem Markowitz hours, 35% graph proficiency, ACWR KPIs, or Burndown chart before user studies', () => {
+    const unstudiedCats = [
+      { id: 'c1', name: 'lula', weight: 25, tasks: [{ id: 't1', title: 'Tópico 1', completed: false }], simuladoStats: { history: [] } },
+      { id: 'c2', name: 'bolsonaro', weight: 25, tasks: [], simuladoStats: { history: [] } },
+      { id: 'c3', name: 'simone mendes', weight: 25, tasks: [], simuladoStats: { history: [] } },
+      { id: 'c4', name: 'babu', weight: 25, tasks: [], simuladoStats: { history: [] } },
+    ];
+
+    const alloc = computeEfficientAllocation(unstudiedCats, [], { weeklyBudgetHours: 20 });
+    expect(alloc.hasEmpiricalData).toBe(false);
+    expect(alloc.subjects.every((s) => s.currentHours === 0)).toBe(true);
+    expect(alloc.currentPortfolio.expectedGainPct).toBe(0);
+
+    const { container: allocContainer } = render(
+      <EfficientAllocationChart categories={unstudiedCats} studyLogs={[]} targetScore={75} />
+    );
+    expect(allocContainer.innerHTML).toBe('');
+
+    const { container: burndownContainer } = render(
+      <SyllabusBurndownChart categories={unstudiedCats} user={{}} />
+    );
+    expect(burndownContainer.innerHTML).toBe('');
+
+    const { container: acwrContainer } = render(
+      <WorkloadACWRChart studyLogs={[]} />
+    );
+    expect(acwrContainer.textContent).toContain('Ainda sem sessões de estudo registradas');
+
+    const kg = buildKnowledgeGraphLayout(unstudiedCats, []);
+    const taskNode = kg.nodes.find((n) => n.type === 'task');
+    expect(taskNode.proficiency).toBe(0);
   });
 });
