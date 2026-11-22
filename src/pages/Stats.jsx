@@ -278,14 +278,16 @@ export default function Stats() {
                                 dayTick={dayTick}
                             />
                         )}
-                        <EfficientAllocationChart
-                            categories={categories}
-                            studyLogs={studyLogs}
-                            targetScore={allocationTargetScore}
-                            minScore={minScore}
-                            maxScore={maxScore}
-                            dayTick={dayTick}
-                        />
+                        {(hasStudyLogs || hasSimuladoHistory) && (
+                            <EfficientAllocationChart
+                                categories={categories}
+                                studyLogs={studyLogs}
+                                targetScore={allocationTargetScore}
+                                minScore={minScore}
+                                maxScore={maxScore}
+                                dayTick={dayTick}
+                            />
+                        )}
                         <SyllabusBurndownChart categories={categories} user={user || {}} dayTick={dayTick} />
                     </>
                 )}

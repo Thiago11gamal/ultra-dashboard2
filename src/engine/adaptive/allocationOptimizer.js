@@ -132,7 +132,8 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       .map((item) => item.score);
 
     const recentHist = hist.slice(-5);
-    const avgRaw = recentHist.length > 0
+    const hasSimuladoHistory = recentHist.length > 0;
+    const avgRaw = hasSimuladoHistory
       ? recentHist.reduce((a, b) => a + b, 0) / recentHist.length
       : (cMin + 0.55 * cRange);
     const currentPct = clamp(((avgRaw - cMin) / cRange) * 100, 5, 98);
@@ -162,12 +163,12 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       : targetPct;
     const cutoffDeficit = Math.max(0, explicitCutoff - currentPct);
 
-    // Current weekly hours for this subject (sem dupla contagem quando cat.id === cat.name e case/acento-insensível)
+    // Current weekly hours for this subject (sem fabricar horas falsas quando totalMins28 === 0)
     const catMins = (idKey ? (minsByCatId.get(idKey) || 0) : 0) +
       (normName ? (minsByCatNorm.get(normName) || 0) : 0);
     const currentHours = totalMins28 > 0
       ? Number(((catMins / 60) / 4).toFixed(1))
-      : Number((weeklyBudgetHours * normWeight).toFixed(1));
+      : 0;
 
     // Learning responsiveness k_i (diminishing returns rate per hour/week)
     const k = clamp(0.14 + (100 - currentPct) / 400, 0.12, 0.35);
@@ -179,6 +180,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
       color: cat.color || '#6366f1',
       weight,
       normWeight,
+      hasSimuladoHistory,
       currentPct: Number(currentPct.toFixed(1)),
       volPct: Number(volPct.toFixed(1)),
       currentRetentionPct,
@@ -190,10 +192,12 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
     };
   });
 
+  const hasEmpiricalData = totalMins28 > 0 || subjects.some((s) => s.hasSimuladoHistory);
   const activeSubjects = subjects.filter((s) => s.weight > 0);
   if (activeSubjects.length === 0) {
     return {
       hasData: false,
+      hasEmpiricalData: false,
       weeklyBudgetHours,
       subjects: subjects.map((s) => ({ ...s, optimalHours: 0, deltaHours: Number((-s.currentHours).toFixed(1)) })),
       frontier: [],
@@ -285,8 +289,8 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
   // Recommended balanced optimum (lambda = 0.65)
   const balanced = solveForRiskAversion(0.65);
 
-  // M7 FIX: avaliar o mix atual sob o MESMO orçamento weeklyBudgetHours da Fronteira Eficiente,
-  // evitando comparação "maçãs com laranjas" onde o portfólio atual parecia dominar o ótimo.
+  // M7 FIX: avaliar o mix atual sob o MESMO orçamento weeklyBudgetHours da Fronteira Eficiente
+  // quando há horas estudadas; se o aluno ainda não estudou (sumCurrentHours === 0), ganho atual = 0.
   const sumCurrentHours = subjects.reduce((acc, s) => acc + Math.max(0, s.currentHours), 0);
   const budgetScale = sumCurrentHours > 1e-6 ? (weeklyBudgetHours / sumCurrentHours) : 0;
   let currentGainPct = 0;
@@ -294,7 +298,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
   activeSubjects.forEach((s) => {
     const h = sumCurrentHours > 1e-6
       ? Math.max(0, s.currentHours) * budgetScale
-      : (weeklyBudgetHours * s.normWeight);
+      : 0;
     currentGainPct += subjectGain(s, h);
     currentRisk += subjectRisk(s, h);
   });
@@ -313,6 +317,7 @@ export function computeEfficientAllocation(categories = [], studyLogs = [], opti
 
   return {
     hasData: true,
+    hasEmpiricalData,
     weeklyBudgetHours,
     subjects: enrichedSubjects,
     frontier,

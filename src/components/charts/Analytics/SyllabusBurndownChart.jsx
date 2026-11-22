@@ -79,7 +79,7 @@ export const SyllabusBurndownChart = React.memo(function SyllabusBurndownChart({
     return map;
   }, [data.series]);
 
-  if (data.totalTasks === 0) {
+  if (data.totalTasks === 0 || (data.completedTasks === 0 && !data.hasGoalDate)) {
     return null;
   }
 

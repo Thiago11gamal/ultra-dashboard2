@@ -1,7 +1,8 @@
 import { getDateKey, normalizeDate, toDateMs, getAppTimezone } from './dateHelper.js';
 import { parseNoonLocal, addDaysNoon } from './parseNoonLocal.js';
 import { getSafeScore, getSyntheticTotal, extractTopicsTotals, resolveEffectiveCorrect, isPhantomZeroTimeAttempt } from './scoreHelper.js';
-import { normalize, isSubjectMatch } from './normalization.js';
+import { normalize } from './normalization.js';
+import { aliases } from '../data/initialData.js';
 import { kalmanAbilitySeries } from '../engine/probabilistic/stateSpace.js';
 import {
   computeTopicGraphMetrics,
@@ -65,7 +66,12 @@ function filterDatedEntriesByWindow(entries, getDate, cutoffMs) {
 
 function matchesCategorySubject(cat, rawSubject) {
   if (!cat || !rawSubject) return false;
-  return isSubjectMatch(cat.name, rawSubject);
+  const catNorm = normalize(cat.name);
+  const subNorm = normalize(rawSubject);
+  if (!catNorm || !subNorm) return false;
+  if (catNorm === subNorm) return true;
+  const catAliases = aliases[catNorm] || [];
+  return catAliases.some((a) => normalize(a) === subNorm);
 }
 
 function formatShortBrDate(isoKey) {
@@ -1341,7 +1347,7 @@ export function buildKnowledgeGraphLayout(category, options = {}) {
       scoreCount: 0,
       hasSimuladoData: false,
       completed: Boolean(t.completed),
-      proficiency: t.completed ? 0.72 : 0.35,
+      proficiency: t.completed ? 0.72 : 0,
     });
   });
 
@@ -1608,12 +1614,12 @@ export function buildCalibrationSeriesData(auditLogs = [], historyByCategory = {
       pushPoint(
         snap.generatedAt ?? snap.timestamp,
         m.currentCalibration?.avgBrier ??
-          m.calibrationDrift?.brier?.recentMean ??
-          m.probabilityCalibrationDrift?.recent?.brier ??
-          m.calibrationDrift?.recentMean ??
-          m.avgBrier ??
-          m.brier ??
-          m.calibration?.avgBrier,
+        m.calibrationDrift?.brier?.recentMean ??
+        m.probabilityCalibrationDrift?.recent?.brier ??
+        m.calibrationDrift?.recentMean ??
+        m.avgBrier ??
+        m.brier ??
+        m.calibration?.avgBrier,
         m.currentCalibration?.ece ?? m.ece ?? m.calibration?.ece,
         'Global'
       );

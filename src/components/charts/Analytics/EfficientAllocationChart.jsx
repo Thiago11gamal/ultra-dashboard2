@@ -91,7 +91,7 @@ export const EfficientAllocationChart = React.memo(function EfficientAllocationC
 
   const effectiveBudget = weeklyBudget ?? data.weeklyBudgetHours;
 
-  if (!data.hasData || !data.subjects.length) return null;
+  if (!data.hasData || !data.hasEmpiricalData || !data.subjects.length) return null;
 
   const commitBudgetDraft = (raw) => {
     const parsed = Number(raw);
@@ -167,7 +167,7 @@ export const EfficientAllocationChart = React.memo(function EfficientAllocationC
             </div>
           </ChartFrame>
           <div className="flex flex-wrap gap-3 text-[10px] text-slate-400">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" />Atual: +{data.currentPortfolio.expectedGainPct}pp ({effectiveBudget}h)</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" />Atual: +{data.currentPortfolio.expectedGainPct}pp ({data.currentPortfolio.currentWeeklyHoursTotal ?? 0}h)</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />Ótima: +{data.optimalPortfolio.expectedGainPct}pp ({effectiveBudget}h)</span>
           </div>
         </div>

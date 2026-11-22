@@ -65,12 +65,19 @@ export default function Retention() {
         [categories, studyLogs, contestMinScore, contestMaxScore]
     );
     const empiricalProfiles = useMemo(
-        () => categories.map((cat) => ({
-            id: cat.id || cat.name,
-            name: cat.name,
-            color: cat.color || '#6366f1',
-            ...estimateEmpiricalHalfLife(cat, { studyLogs, minScore: contestMinScore, maxScore: contestMaxScore }),
-        })),
+        () => categories
+            .filter((cat) => {
+                const hasHistory = normalizeArray(cat?.simuladoStats?.history).some(
+                    (h) => h && h.valid !== false && h.validated !== false
+                );
+                return hasHistory;
+            })
+            .map((cat) => ({
+                id: cat.id || cat.name,
+                name: cat.name,
+                color: cat.color || '#6366f1',
+                ...estimateEmpiricalHalfLife(cat, { studyLogs, minScore: contestMinScore, maxScore: contestMaxScore }),
+            })),
         [categories, studyLogs, contestMinScore, contestMaxScore]
     );
 

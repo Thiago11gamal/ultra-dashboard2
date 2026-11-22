@@ -385,24 +385,27 @@ export function computeEvolutionStatuses({
       return lvl != null && lvl < catTarget - 5 * catScale;
     }).length;
 
-    const totalSubjectsDenom = evaluatedCount > 0 ? evaluatedCount : categories.length;
-    const subjTone = below === 0 ? 'success' : below <= 2 ? 'warning' : 'danger';
+    const hasEvaluatedSubjects = evaluatedCount > 0;
+    const totalSubjectsDenom = hasEvaluatedSubjects ? evaluatedCount : categories.length;
+    const subjTone = !hasEvaluatedSubjects ? 'neutral' : (below === 0 ? 'success' : below <= 2 ? 'warning' : 'danger');
 
     statuses.push({
       id: 'subjects',
       label: 'Matérias abaixo da meta',
-      value: `${below}/${totalSubjectsDenom}`,
+      value: hasEvaluatedSubjects ? `${below}/${totalSubjectsDenom}` : '—',
       tone: subjTone,
       icon: '📚',
-      statusText: below === 0 ? 'Todas seguras' : below <= 2 ? 'Atenção pontual' : 'Prioridade crítica',
+      statusText: !hasEvaluatedSubjects ? 'Sem dados' : (below === 0 ? 'Todas seguras' : below <= 2 ? 'Atenção pontual' : 'Prioridade crítica'),
       scope: 'global',
       scopeLabel: 'Visão geral',
       howToRead: `Indica quantas das ${totalSubjectsDenom} disciplinas avaliadas estão abaixo da zona segura (mais de 5% abaixo da meta ou do corte mínimo da matéria).`,
       scaleGuide: 'Verde: 0 matérias em déficit · Amarelo: 1 ou 2 matérias · Vermelho: 3 ou mais matérias.',
       actionHint:
-        below === 0
-          ? 'Equilíbrio excelente entre todas as disciplinas avaliadas!'
-          : 'Clique nos cards vermelhos/amarelos abaixo para focar e abrir o Raio-X de Assuntos.',
+        !hasEvaluatedSubjects
+          ? 'Registre simulados nas disciplinas para avaliar quais estão abaixo da meta.'
+          : below === 0
+            ? 'Equilíbrio excelente entre todas as disciplinas avaliadas!'
+            : 'Clique nos cards vermelhos/amarelos abaixo para focar e abrir o Raio-X de Assuntos.',
       help: 'Matérias com nível atual abaixo da zona segura da meta.'
     });
   }

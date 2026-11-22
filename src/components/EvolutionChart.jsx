@@ -1401,7 +1401,7 @@ export default React.memo(function EvolutionChart({
     }, [historicalData.result, activeCategories]);
 
     const radarData = useMemo(() => {
-        const baseCats = (Array.isArray(activeCategories) && activeCategories.length > 0) ? activeCategories : categories;
+        const baseCats = Array.isArray(activeCategories) ? activeCategories : [];
         const sourceCats = (showOnlyFocus && focusCategory?.id)
             ? baseCats.filter(c => c.id === focusCategory.id)
             : baseCats;
